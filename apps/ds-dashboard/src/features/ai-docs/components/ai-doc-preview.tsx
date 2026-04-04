@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { MarkdownViewer } from "@/components/ui/markdown-viewer";
 
 /**
  * AiDocPreview Component
@@ -31,133 +31,6 @@ function formatRelativeTime(timestamp: number): string {
     return `${hours}h ago`;
 }
 
-/**
- * Parse and render simple markdown
- */
-function renderMarkdown(markdown: string): ReactNode[] {
-    const lines = markdown.split('\n');
-    const elements: ReactNode[] = [];
-
-    let inCodeBlock = false;
-    let codeContent: string[] = [];
-    let key = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        // Code block handling
-        if (line.startsWith('```')) {
-            if (inCodeBlock) {
-                // End of code block
-                elements.push(
-                    <pre key={`code-${key++}`} className="bg-muted p-3 rounded-md overflow-x-auto text-xs font-mono my-2">
-                        {codeContent.join('\n')}
-                    </pre>
-                );
-                codeContent = [];
-                inCodeBlock = false;
-            } else {
-                inCodeBlock = true;
-            }
-            continue;
-        }
-
-        if (inCodeBlock) {
-            codeContent.push(line);
-            continue;
-        }
-
-        // Frontmatter handling
-        if (line.startsWith('---') && i < 2) {
-            continue;
-        }
-
-        // Headers
-        if (line.startsWith('### ')) {
-            elements.push(
-                <h4 key={`h4-${key++}`} className="text-base font-semibold mt-4 mb-2">
-                    {line.slice(4)}
-                </h4>
-            );
-            continue;
-        }
-        if (line.startsWith('## ')) {
-            elements.push(
-                <h3 key={`h3-${key++}`} className="text-lg font-semibold mt-4 mb-2">
-                    {line.slice(3)}
-                </h3>
-            );
-            continue;
-        }
-        if (line.startsWith('# ')) {
-            elements.push(
-                <h2 key={`h2-${key++}`} className="text-xl font-serif font-bold mt-4 mb-2">
-                    {line.slice(2)}
-                </h2>
-            );
-            continue;
-        }
-
-        // List items
-        if (line.startsWith('- ') || line.startsWith('* ')) {
-            elements.push(
-                <li key={`li-${key++}`} className="ml-4 list-disc">
-                    {renderInlineContent(line.slice(2))}
-                </li>
-            );
-            continue;
-        }
-
-        // Numbered list
-        if (/^\d+\.\s/.test(line)) {
-            const match = line.match(/^(\d+)\.\s(.*)$/);
-            if (match) {
-                elements.push(
-                    <li key={`li-${key++}`} className="ml-4 list-decimal">
-                        {renderInlineContent(match[2])}
-                    </li>
-                );
-            }
-            continue;
-        }
-
-        // Empty lines
-        if (line.trim() === '') {
-            continue;
-        }
-
-        // Regular paragraph
-        elements.push(
-            <p key={`p-${key++}`} className="my-2">
-                {renderInlineContent(line)}
-            </p>
-        );
-    }
-
-    return elements;
-}
-
-/**
- * Render inline content with basic formatting
- */
-function renderInlineContent(text: string): ReactNode {
-    // Handle bold
-    const boldParts = text.split(/(\*\*[^*]+\*\*)/);
-    return boldParts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={i}>{part.slice(2, -2)}</strong>;
-        }
-        // Handle inline code
-        const codeParts = part.split(/(`[^`]+`)/);
-        return codeParts.map((cp, j) => {
-            if (cp.startsWith('`') && cp.endsWith('`')) {
-                return <code key={`${i}-${j}`} className="bg-muted px-1 rounded text-xs">{cp.slice(1, -1)}</code>;
-            }
-            return cp;
-        });
-    });
-}
-
 export function AiDocPreview({ markdown, className }: AiDocPreviewProps) {
     if (!markdown) {
         return (
@@ -167,10 +40,10 @@ export function AiDocPreview({ markdown, className }: AiDocPreviewProps) {
         );
     }
 
+    const markdownWithoutFrontmatter = markdown.replace(/^---[\s\S]*?---\n?/, '');
+
     return (
-        <div className={`prose prose-sm max-w-none ${className}`}>
-            {renderMarkdown(markdown)}
-        </div>
+        <MarkdownViewer content={markdownWithoutFrontmatter} className={className} />
     );
 }
 

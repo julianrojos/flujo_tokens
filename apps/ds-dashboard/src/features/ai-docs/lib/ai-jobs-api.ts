@@ -11,6 +11,9 @@ import type {
     CreateAiJobResponse,
     AiDocStatusResponse,
     DiffResult,
+    AiProviderHealthResponse,
+    AiProviderConfiguredResponse,
+    AiProviderName,
 } from '@/types/ai-jobs';
 
 /**
@@ -68,6 +71,22 @@ export async function applyAiJobEditorial(jobId: string): Promise<{
     return requestJson(`/api/ai/jobs/${jobId}/apply-editorial`, {
         method: 'POST',
     });
+}
+
+export async function getAiProviderHealth(params: {
+    provider: AiProviderName;
+    model?: string;
+    figmaUrl?: string;
+}): Promise<AiProviderHealthResponse> {
+    const query = new URLSearchParams();
+    query.set('provider', params.provider);
+    if (params.model) query.set('model', params.model);
+    if (params.figmaUrl) query.set('figmaUrl', params.figmaUrl);
+    return requestJson<AiProviderHealthResponse>(`/api/ai/providers/health?${query.toString()}`);
+}
+
+export async function getAiConfiguredProviders(): Promise<AiProviderConfiguredResponse> {
+    return requestJson<AiProviderConfiguredResponse>('/api/ai/providers/configured');
 }
 
 /**

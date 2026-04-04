@@ -7,6 +7,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
+import { StatusAlert } from '@/components/ui/status-alert';
 import { useAiJobStatus } from '../hooks/use-ai-job-status';
 import { cancelAiJob } from '../lib/ai-jobs-api';
 import { AiDocPreview, formatJobEvent, formatRelativeTime } from './ai-doc-preview';
@@ -96,6 +98,10 @@ export function AiJobStatusCard({
         }
     }, [job?.status, onStatusChange]);
 
+    useEffect(() => {
+        setShowPreview(false);
+    }, [jobId]);
+
     if (isLoading) {
         return (
             <Card>
@@ -111,12 +117,11 @@ export function AiJobStatusCard({
 
     if (error) {
         return (
-            <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle className="text-destructive">Error</CardTitle>
-                    <CardDescription>{error.message}</CardDescription>
-                </CardHeader>
-            </Card>
+            <StatusAlert
+                variant="error"
+                title="Unable to load job status"
+                description={error.message}
+            />
         );
     }
 
@@ -160,17 +165,15 @@ export function AiJobStatusCard({
             <CardContent className="space-y-4">
                 {/* Error display */}
                 {job.status === 'failed' && job.error && (
-                    <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md">
-                        <p className="text-sm text-destructive font-medium">
-                            {job.errorCode && <span className="font-mono text-xs mr-2">[{job.errorCode}]</span>}
-                            {job.error}
-                        </p>
-                        {job.retryable && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                                This error is retryable
-                            </p>
-                        )}
-                    </div>
+                    <StatusAlert
+                        variant="error"
+                        title={job.errorCode ? `[${job.errorCode}] Job failed` : 'Job failed'}
+                        description={
+                            job.retryable
+                                ? `${job.error} This error is retryable.`
+                                : job.error
+                        }
+                    />
                 )}
 
                 {/* Usage metrics */}
@@ -207,16 +210,10 @@ export function AiJobStatusCard({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setShowPreview(!showPreview)}
+                            onClick={() => setShowPreview(true)}
                         >
-                            {showPreview ? 'Hide' : 'Show'} Preview
+                            Show Preview
                         </Button>
-
-                        {showPreview && (
-                            <div className="border rounded-md p-4 max-h-96 overflow-y-auto">
-                                <AiDocPreview markdown={job.output.markdown} />
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -253,6 +250,38 @@ export function AiJobStatusCard({
                     )}
                 </div>
             </CardContent>
+
+            {job.status === 'completed' && job.output?.markdown ? (
+                <Modal
+                    open={showPreview}
+                    onClose={() => setShowPreview(false)}
+                    aria-labelledby="ai-doc-preview-modal-title"
+                    zIndex={1200}
+                >
+                    <ModalContent size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
+                        <ModalHeader>
+                            <div>
+                                <h3 id="ai-doc-preview-modal-title" className="text-lg font-semibold">
+                                    Documentation Preview
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Generated markdown preview for this job.
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowPreview(false)}
+                            >
+                                Close
+                            </Button>
+                        </ModalHeader>
+                        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                            <AiDocPreview markdown={job.output.markdown} />
+                        </div>
+                    </ModalContent>
+                </Modal>
+            ) : null}
         </Card>
     );
 }

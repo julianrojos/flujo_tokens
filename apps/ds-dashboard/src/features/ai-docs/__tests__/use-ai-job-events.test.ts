@@ -4,8 +4,8 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAiJobEventsUrl } from '../lib/ai-jobs-api';
-import { mergePolledEvents } from '../hooks/use-ai-job-events';
+import { buildAiJobEventsUrl } from '../../../types/ai-jobs';
+import { mergePolledEvents } from '../lib/merge-polled-events';
 
 // Mock EventSource for Node.js environment
 class MockEventSource {

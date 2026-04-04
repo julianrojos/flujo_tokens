@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildAiJobEventsUrl } from '@/types/ai-jobs';
 import type { AiJobEvent, AiJobStatus } from '@/types/ai-jobs';
+import { mergePolledEvents } from '../lib/merge-polled-events';
 
 const MAX_SSE_RETRIES = 2;
 const POLLING_INTERVAL = 2000;
@@ -29,17 +30,6 @@ export interface UseAiJobEventsResult {
     connectionError: boolean;
     /** Current cursor position */
     cursor: number;
-}
-
-/**
- * Merge polled events into previous events, deduplicating by seq.
- * Keeps original order: previous events first, then truly new polled events.
- */
-export function mergePolledEvents(prev: AiJobEvent[], polled: AiJobEvent[]): AiJobEvent[] {
-    const existingSeqs = new Set(prev.map((e) => e.seq));
-    const newEvents = polled.filter((e) => !existingSeqs.has(e.seq));
-    if (newEvents.length === 0) return prev;
-    return [...prev, ...newEvents];
 }
 
 export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJobEventsResult {

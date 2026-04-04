@@ -7,7 +7,8 @@ import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { getAiJobsStore } from '../services/ai-jobs-store.js';
 import { runGenerateComponentDoc } from '../services/ai-orchestrator.js';
-import { hasApiKey } from '../services/ai-provider.js';
+import { hasApiKey, resolveProviderConfig } from '../services/ai-provider.js';
+import type { AiProviderName } from '../services/ai-provider.js';
 import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
 import { createComponentSlug } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
@@ -41,7 +42,8 @@ interface AiJobsRouteDeps {
     getSystemContext: (systemHeader: string) => unknown;
     componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
-const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama', 'gemini'] as const;
+const PROVIDER_ORDER: readonly AiProviderName[] = ['anthropic', 'gemini', 'ollama', 'openai'];
+const VALID_PROVIDERS: readonly AiProviderName[] = ['anthropic', 'openai', 'ollama', 'gemini'];
 const SSE_POLL_INTERVAL_MS = 1000;
 const SSE_KEEPALIVE_INTERVAL_MS = 15000;
 const SSE_MAX_POLL_DURATION_MS = 30 * 60 * 1000;
@@ -191,6 +193,82 @@ interface ApplyJobRequest {
     overwrite?: boolean;
 }
 
+type ProviderHealthStatus = 'ready' | 'warning' | 'error';
+
+interface ProviderHealthCheck {
+    status: ProviderHealthStatus;
+    ready: boolean;
+    message: string;
+}
+
+interface FigmaHealthCheck extends ProviderHealthCheck {
+    fileKey: string | null;
+}
+
+function hasExplicitProviderEnv(provider: CreateJobRequest['provider']): boolean {
+    if (provider === 'anthropic') {
+        return String(process.env.ANTHROPIC_API_KEY || '').trim().length > 0;
+    }
+    if (provider === 'openai') {
+        return String(process.env.OPENAI_API_KEY || '').trim().length > 0;
+    }
+    if (provider === 'gemini') {
+        return (
+            String(process.env.GEMINI_API_KEY || '').trim().length > 0 ||
+            String(process.env.GOOGLE_API_KEY || '').trim().length > 0
+        );
+    }
+    return (
+        String(process.env.OLLAMA_BASE_URL || '').trim().length > 0 ||
+        String(process.env.AI_OLLAMA_MODEL || '').trim().length > 0
+    );
+}
+
+function formatProviderEnvHint(provider: CreateJobRequest['provider']): string {
+    if (provider === 'anthropic') return 'ANTHROPIC_API_KEY';
+    if (provider === 'ollama') return 'OLLAMA_BASE_URL (and optionally AI_OLLAMA_MODEL)';
+    if (provider === 'gemini') return 'GEMINI_API_KEY (or GOOGLE_API_KEY)';
+    return 'OPENAI_API_KEY';
+}
+
+function resolveDefaultModel(provider: CreateJobRequest['provider']): string {
+    const config = resolveProviderConfig();
+    if (provider === 'anthropic') return config.anthropicModel;
+    if (provider === 'openai') return config.openaiModel;
+    if (provider === 'gemini') return config.geminiModel;
+    return config.ollamaModel;
+}
+
+function resolveAllowedModels(provider: CreateJobRequest['provider']): string[] {
+    const config = resolveProviderConfig();
+    if (provider === 'anthropic') return config.anthropicAllowlist;
+    if (provider === 'openai') return config.openaiAllowlist;
+    if (provider === 'gemini') return config.geminiAllowlist;
+    return [];
+}
+
+function normalizeOllamaModelName(value: string): string {
+    const normalized = String(value || '').trim();
+    return normalized.replace(/:latest$/i, '');
+}
+
+function ollamaModelMatches(requested: string, available: string): boolean {
+    return normalizeOllamaModelName(requested) === normalizeOllamaModelName(available);
+}
+
+function parseOllamaModelNames(raw: unknown): string[] {
+    if (!raw || typeof raw !== 'object') return [];
+    const payload = raw as { models?: unknown };
+    if (!Array.isArray(payload.models)) return [];
+    const names: string[] = [];
+    for (const entry of payload.models) {
+        if (!entry || typeof entry !== 'object') continue;
+        const name = String((entry as { name?: unknown }).name || '').trim();
+        if (name) names.push(name);
+    }
+    return names;
+}
+
 /**
  * Auth guard helper
  */
@@ -257,6 +335,179 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
 
         runGenerateComponentDoc(job, store, undefined, undefined, getExistingEditorial).catch((err) => {
             console.error('Job pipeline error:', err);
+        });
+    });
+
+    // GET /api/ai/providers/configured - Provider preference from explicit env vars
+    app.get('/api/ai/providers/configured', async (c) => {
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        const configuredProviders = PROVIDER_ORDER.filter((provider) => hasExplicitProviderEnv(provider));
+        const defaultProvider = configuredProviders.length > 0 ? configuredProviders[0] : null;
+
+        return c.json({
+            ok: true,
+            configuredProviders,
+            defaultProvider,
+        });
+    });
+
+    // GET /api/ai/providers/health - Preflight checks for Figma/plugin + provider + model
+    app.get('/api/ai/providers/health', async (c) => {
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        const provider = String(c.req.query('provider') || '').trim() as CreateJobRequest['provider'];
+        const modelOverride = String(c.req.query('model') || '').trim();
+        const figmaUrl = String(c.req.query('figmaUrl') || '').trim();
+        if (!provider || !VALID_PROVIDERS.includes(provider)) {
+            return c.json(
+                errorResponse('ai.input.invalid', 'provider must be anthropic, openai, ollama, or gemini'),
+                400,
+            );
+        }
+
+        const defaultModel = resolveDefaultModel(provider);
+        const effectiveModel = modelOverride || defaultModel;
+
+        const figmaResolved = resolveFileKeyFromManager(figmaUrl || undefined, {
+            ambiguous: AI_ERROR_CODES.FIGMA_NO_CONNECTION.code,
+            noSocket: AI_ERROR_CODES.FIGMA_NO_CONNECTION.code,
+            ambiguousMessage: 'Multiple plugin connections detected. Provide a Figma URL to disambiguate.',
+            noSocketMessage: 'No plugin WebSocket connection available.',
+        });
+        const figmaCheck: FigmaHealthCheck = 'fileKey' in figmaResolved
+            ? {
+                status: 'ready',
+                ready: true,
+                fileKey: figmaResolved.fileKey,
+                message: figmaResolved.fileKey
+                    ? `Connected to Figma file ${figmaResolved.fileKey}.`
+                    : 'Figma plugin connected.',
+            }
+            : {
+                status: figmaResolved.message.includes('Multiple plugin connections') ? 'warning' : 'error',
+                ready: false,
+                fileKey: null,
+                message: figmaResolved.message,
+            };
+
+        let providerCheck: ProviderHealthCheck = {
+            status: 'ready',
+            ready: true,
+            message: 'Provider credentials are configured.',
+        };
+        let modelCheck: ProviderHealthCheck = {
+            status: 'ready',
+            ready: true,
+            message: `Model "${effectiveModel}" is ready.`,
+        };
+
+        if (provider === 'ollama') {
+            const baseUrl = OllamaAdapter.configuredBaseUrl;
+            let tagsResponse: Response | null = null;
+            try {
+                tagsResponse = await fetch(`${baseUrl}/api/tags`, {
+                    signal: AbortSignal.timeout(3000),
+                });
+            } catch {
+                tagsResponse = null;
+            }
+
+            if (!tagsResponse?.ok) {
+                const suffix = tagsResponse ? ` (HTTP ${tagsResponse.status})` : '';
+                providerCheck = {
+                    status: 'error',
+                    ready: false,
+                    message: `Ollama is not reachable at ${baseUrl}${suffix}.`,
+                };
+                modelCheck = {
+                    status: 'error',
+                    ready: false,
+                    message: `Cannot verify model "${effectiveModel}" because Ollama is unreachable.`,
+                };
+            } else {
+                providerCheck = {
+                    status: 'ready',
+                    ready: true,
+                    message: `Ollama reachable at ${baseUrl}.`,
+                };
+                try {
+                    const body = await tagsResponse.json();
+                    const available = parseOllamaModelNames(body);
+                    const exists = available.some((name) => ollamaModelMatches(effectiveModel, name));
+                    modelCheck = exists
+                        ? {
+                            status: 'ready',
+                            ready: true,
+                            message: `Model "${effectiveModel}" is available in Ollama.`,
+                        }
+                        : {
+                            status: 'error',
+                            ready: false,
+                            message: `Model "${effectiveModel}" is not available. Run: ollama pull ${effectiveModel}`,
+                        };
+                } catch (error) {
+                    modelCheck = {
+                        status: 'warning',
+                        ready: false,
+                        message: `Could not verify model list: ${error instanceof Error ? error.message : String(error)}`,
+                    };
+                }
+            }
+        } else {
+            const hasKey = hasApiKey(provider);
+            providerCheck = hasKey
+                ? {
+                    status: 'ready',
+                    ready: true,
+                    message: 'Provider API key is configured.',
+                }
+                : {
+                    status: 'error',
+                    ready: false,
+                    message: `Missing ${formatProviderEnvHint(provider)}.`,
+                };
+
+            if (!hasKey) {
+                modelCheck = {
+                    status: 'warning',
+                    ready: false,
+                    message: `Cannot verify model "${effectiveModel}" until provider credentials are configured.`,
+                };
+            } else {
+                const allowlist = resolveAllowedModels(provider);
+                if (modelOverride && !allowlist.includes(modelOverride)) {
+                    modelCheck = {
+                        status: 'warning',
+                        ready: false,
+                        message: `Model "${modelOverride}" is not in the allowlist; default "${defaultModel}" will be used.`,
+                    };
+                } else {
+                    modelCheck = {
+                        status: 'ready',
+                        ready: true,
+                        message: `Model "${effectiveModel}" is configured.`,
+                    };
+                }
+            }
+        }
+
+        const overallReady = figmaCheck.ready && providerCheck.ready && modelCheck.ready;
+        return c.json({
+            ok: true,
+            provider,
+            model: effectiveModel,
+            checks: {
+                figma: figmaCheck,
+                provider: providerCheck,
+                model: modelCheck,
+            },
+            overallReady,
+            checkedAt: Date.now(),
         });
     });
 
@@ -346,9 +597,9 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             }
         }
 
+        let job;
         try {
-            // Enqueue job
-            const job = store.enqueue({
+            job = store.enqueue({
                 type: body.type,
                 provider: body.provider,
                 ...(docsContext.systemId ? { systemId: docsContext.systemId } : {}),
@@ -359,19 +610,6 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
                 dryRun: body.dryRun,
                 idempotencyKey: body.idempotencyKey,
             });
-
-            // Try to dequeue immediately to start execution if slot available
-            store.tryDequeue(body.provider);
-
-            // Return status of the requested job, not dequeued job
-            return c.json(
-                {
-                    ok: true,
-                    jobId: job.id,
-                    status: job.status,
-                },
-                202
-            );
         } catch (error) {
             if (error && typeof error === 'object' && 'code' in error) {
                 const err = error as { code: string; message: string; retryable: boolean };
@@ -397,6 +635,44 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             }
             return c.json(errorResponse('ai.input.invalid', 'Failed to create job'), 500);
         }
+
+        // Try to dequeue immediately to start execution if slot available.
+        // This should never fail request creation, because the job is already persisted.
+        try {
+            store.tryDequeue(body.provider);
+        } catch (dequeueError) {
+            console.error('[ai-jobs-route] Failed to start queued job immediately', {
+                provider: body.provider,
+                jobId: job.id,
+                error: dequeueError,
+            });
+            const retryProvider = body.provider;
+            const retryJobId = job.id;
+            const retryTimer = setTimeout(() => {
+                try {
+                    store.tryDequeue(retryProvider);
+                } catch (retryError) {
+                    console.error('[ai-jobs-route] Retry dequeue failed', {
+                        provider: retryProvider,
+                        jobId: retryJobId,
+                        error: retryError,
+                    });
+                }
+            }, 5000);
+            if (typeof retryTimer.unref === 'function') {
+                retryTimer.unref();
+            }
+        }
+
+        // Return status of the requested job, not dequeued job
+        return c.json(
+            {
+                ok: true,
+                jobId: job.id,
+                status: job.status,
+            },
+            202
+        );
     });
 
     // GET /api/ai/docs/status - Get documentation staleness status

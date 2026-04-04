@@ -191,6 +191,37 @@ export interface CreateAiJobResponse {
     status: AiJobStatus;
 }
 
+export interface AiProviderConfiguredResponse {
+    ok: boolean;
+    configuredProviders: AiProviderName[];
+    defaultProvider: AiProviderName | null;
+}
+
+export type AiHealthStatus = 'ready' | 'warning' | 'error';
+
+export interface AiProviderHealthCheck {
+    status: AiHealthStatus;
+    ready: boolean;
+    message: string;
+}
+
+export interface AiFigmaHealthCheck extends AiProviderHealthCheck {
+    fileKey: string | null;
+}
+
+export interface AiProviderHealthResponse {
+    ok: boolean;
+    provider: AiProviderName;
+    model: string;
+    checks: {
+        figma: AiFigmaHealthCheck;
+        provider: AiProviderHealthCheck;
+        model: AiProviderHealthCheck;
+    };
+    overallReady: boolean;
+    checkedAt: number;
+}
+
 // ============================================================================
 // Staleness Types
 // ============================================================================

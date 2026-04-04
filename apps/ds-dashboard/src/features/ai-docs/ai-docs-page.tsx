@@ -3,8 +3,10 @@
  * Main page for AI documentation generation
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PageHeader } from '@/components/composites';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
@@ -14,6 +16,7 @@ import { AiDocDiffViewer } from './components/ai-doc-diff-viewer';
 import { AiDocStalenessBadge } from './components/ai-doc-staleness-badge';
 import { useAiDocStatus } from './hooks/use-ai-doc-status';
 import { useAiJobEvents } from './hooks/use-ai-job-events';
+import { fetchComponentRegistry } from '@/lib/api';
 import type { AiJobStatus, AiJobInput, AiProviderName } from '@/types/ai-jobs';
 
 function parseStatusFilter(value: string): 'all' | 'stale-missing' {
@@ -37,6 +40,29 @@ export function AiDocsPage() {
 
     // Staleness data
     const { data: docStatus, isLoading: isLoadingStatus } = useAiDocStatus();
+    const { data: componentRegistry, error: componentRegistryError } = useQuery({
+        queryKey: ['component-registry'],
+        queryFn: fetchComponentRegistry,
+        staleTime: 60_000,
+    });
+    const componentOptions = useMemo(
+        () =>
+            (componentRegistry?.components ?? [])
+                .map((component) => {
+                    const componentId = component.figma.component_set_node_id?.trim() ?? '';
+                    if (!componentId) {
+                        return null;
+                    }
+                    const displayName = component.display_name?.trim() || component.slug;
+                    return {
+                        value: componentId,
+                        label: `${displayName} (${component.slug})`,
+                    };
+                })
+                .filter((option): option is { value: string; label: string } => option !== null)
+                .sort((a, b) => a.label.localeCompare(b.label)),
+        [componentRegistry],
+    );
 
     // Callback for when job reaches terminal state
     const handleJobDone = useCallback((status: AiJobStatus) => {
@@ -111,12 +137,10 @@ export function AiDocsPage() {
     if (showDiff && activeJobId) {
         return (
             <div className="container mx-auto py-6 space-y-6">
-                <div>
-                    <h1 className="text-3xl font-serif font-bold">Review Changes</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Review the diff before applying changes to documentation
-                    </p>
-                </div>
+                <PageHeader
+                    title="Review Changes"
+                    description="Review the diff before applying changes to documentation"
+                />
 
                 <AiDocDiffViewer
                     jobId={activeJobId}
@@ -129,12 +153,10 @@ export function AiDocsPage() {
 
     return (
         <div className="container mx-auto py-6 space-y-6">
-            <div>
-                <h1 className="text-3xl font-serif font-bold">AI Documentation</h1>
-                <p className="text-muted-foreground mt-1">
-                    Generate component documentation using AI
-                </p>
-            </div>
+            <PageHeader
+                title="AI Documentation"
+                description="Generate component documentation using AI"
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left column: Job creation form */}
@@ -146,8 +168,28 @@ export function AiDocsPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {componentRegistryError ? (
+                            <StatusAlert
+                                variant="warning"
+                                description="Unable to load component list from database. Retry in a moment."
+                                className="mb-4"
+                            >
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        queryClient.invalidateQueries({ queryKey: ['component-registry'] });
+                                    }}
+                                    className="h-auto p-0 text-xs underline"
+                                >
+                                    Retry
+                                </Button>
+                            </StatusAlert>
+                        ) : null}
                         <AiJobCreateForm
                             initialComponentId={prefillComponentId}
+                            componentOptions={componentOptions}
                             initialProvider={prefillProvider}
                             initialModel={prefillModel}
                             onJobCreated={handleJobCreated}
@@ -253,12 +295,15 @@ export function AiDocsPage() {
                                             </td>
                                             <td className="py-2 px-2">
                                                 {(comp.status === 'missing' || comp.status === 'stale') && (
-                                                    <button
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
                                                         onClick={() => handleRegenerate(comp.componentId)}
-                                                        className="text-xs text-accent hover:text-accent-hover hover:underline"
+                                                        className="h-auto p-0 text-xs text-accent hover:text-accent-hover hover:underline"
                                                     >
                                                         {comp.status === 'missing' ? 'Generate' : 'Re-generate'}
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </td>
                                         </tr>

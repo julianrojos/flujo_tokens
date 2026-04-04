@@ -58,14 +58,11 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
 
     if (error) {
         return (
-            <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle className="text-destructive">Error</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p>{error.message}</p>
-                </CardContent>
-            </Card>
+            <StatusAlert
+                variant="error"
+                title="Unable to load diff"
+                description={error.message}
+            />
         );
     }
 

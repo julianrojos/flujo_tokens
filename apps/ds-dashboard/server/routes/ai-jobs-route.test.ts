@@ -10,6 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
+import { AI_PROVIDER_ORDER } from '../../src/types/ai-provider-catalog.ts';
 
 // Helper to create test app
 function createTestApp(options?: {
@@ -323,6 +324,52 @@ describe('ai-jobs-route', () => {
             });
 
             assert.notEqual(job1.id, job2.id, 'Failed job should allow new enqueue');
+        });
+
+        it('should still create job when immediate dequeue throws', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+            const prevApiKey = process.env.ANTHROPIC_API_KEY;
+            process.env.ANTHROPIC_API_KEY = 'fake-key-for-test';
+            const originalTryDequeue = store.tryDequeue.bind(store);
+            const originalSetTimeout = globalThis.setTimeout;
+            let dequeueAttempts = 0;
+            try {
+                globalThis.setTimeout = (((handler: (...args: unknown[]) => void) => {
+                    handler();
+                    return { unref: () => undefined } as unknown as ReturnType<typeof setTimeout>;
+                }) as unknown) as typeof globalThis.setTimeout;
+                (store as unknown as { tryDequeue: typeof originalTryDequeue }).tryDequeue = () => {
+                    dequeueAttempts += 1;
+                    throw new Error('dequeue failed');
+                };
+
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'anthropic',
+                        componentId: '68:4097',
+                    }),
+                });
+
+                assert.equal(res.status, 202);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(typeof json.jobId, 'string');
+                assert.equal(json.jobId.startsWith('ai_'), true);
+                assert.equal(dequeueAttempts, 2, 'should retry dequeue once after initial failure');
+            } finally {
+                (store as unknown as { tryDequeue: typeof originalTryDequeue }).tryDequeue = originalTryDequeue;
+                globalThis.setTimeout = originalSetTimeout;
+                if (prevApiKey === undefined) {
+                    delete process.env.ANTHROPIC_API_KEY;
+                } else {
+                    process.env.ANTHROPIC_API_KEY = prevApiKey;
+                }
+            }
         });
 
     });
@@ -958,6 +1005,235 @@ describe('ai-jobs-route', () => {
                 } else {
                     process.env.ANTHROPIC_API_KEY = prevApiKey;
                 }
+            }
+        });
+    });
+
+    describe('GET /api/ai/providers/health', () => {
+        let originalFetch: typeof globalThis.fetch;
+
+        beforeEach(() => {
+            originalFetch = globalThis.fetch;
+            cleanupStore();
+        });
+
+        afterEach(() => {
+            globalThis.fetch = originalFetch;
+        });
+
+        it('returns 400 for invalid provider', async () => {
+            const app = createTestApp();
+            const res = await app.request('/api/ai/providers/health?provider=invalid', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.input.invalid');
+        });
+
+        it('returns healthy checks for ollama when reachable and model exists', async () => {
+            globalThis.fetch = async () =>
+                new Response(
+                    JSON.stringify({
+                        models: [{ name: 'llama3.2:latest' }],
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } },
+                );
+
+            const app = createTestApp();
+            const res = await app.request('/api/ai/providers/health?provider=ollama&model=llama3.2', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(json.checks.provider.ready, true);
+            assert.equal(json.checks.model.ready, true);
+            assert.equal(json.overallReady, false, 'without plugin connection figma check should fail');
+        });
+
+        it('returns model not available for ollama when tags do not include model', async () => {
+            globalThis.fetch = async () =>
+                new Response(
+                    JSON.stringify({
+                        models: [{ name: 'qwen2.5:7b-instruct' }],
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } },
+                );
+
+            const app = createTestApp();
+            const res = await app.request('/api/ai/providers/health?provider=ollama&model=llama3.2', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(json.checks.model.ready, false);
+            assert.equal(json.checks.model.status, 'error');
+        });
+
+        it('returns model warning when provider key is missing for cloud providers', async () => {
+            const prevOpenAi = process.env.OPENAI_API_KEY;
+            delete process.env.OPENAI_API_KEY;
+
+            try {
+                const app = createTestApp();
+                const res = await app.request('/api/ai/providers/health?provider=openai&model=gpt-4o-mini-2024-07-18', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.checks.provider.ready, false);
+                assert.equal(json.checks.provider.status, 'error');
+                assert.equal(json.checks.model.ready, false);
+                assert.equal(json.checks.model.status, 'warning');
+            } finally {
+                if (prevOpenAi === undefined) {
+                    delete process.env.OPENAI_API_KEY;
+                } else {
+                    process.env.OPENAI_API_KEY = prevOpenAi;
+                }
+            }
+        });
+    });
+
+    describe('GET /api/ai/providers/configured', () => {
+        it('returns defaultProvider null when no explicit env vars are set', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const prevAnthropic = process.env.ANTHROPIC_API_KEY;
+            const prevOpenAi = process.env.OPENAI_API_KEY;
+            const prevGemini = process.env.GEMINI_API_KEY;
+            const prevGoogle = process.env.GOOGLE_API_KEY;
+            const prevOllamaUrl = process.env.OLLAMA_BASE_URL;
+            const prevOllamaModel = process.env.AI_OLLAMA_MODEL;
+            const prevOllamaTimeout = process.env.AI_OLLAMA_TIMEOUT_MS;
+            delete process.env.ANTHROPIC_API_KEY;
+            delete process.env.OPENAI_API_KEY;
+            delete process.env.GEMINI_API_KEY;
+            delete process.env.GOOGLE_API_KEY;
+            delete process.env.OLLAMA_BASE_URL;
+            delete process.env.AI_OLLAMA_MODEL;
+            delete process.env.AI_OLLAMA_TIMEOUT_MS;
+
+            try {
+                const res = await app.request('/api/ai/providers/configured', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.defaultProvider, null);
+                assert.deepEqual(json.configuredProviders, []);
+            } finally {
+                if (prevAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = prevAnthropic;
+                if (prevOpenAi === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prevOpenAi;
+                if (prevGemini === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = prevGemini;
+                if (prevGoogle === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = prevGoogle;
+                if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
+                if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
+                if (prevOllamaTimeout === undefined) delete process.env.AI_OLLAMA_TIMEOUT_MS; else process.env.AI_OLLAMA_TIMEOUT_MS = prevOllamaTimeout;
+            }
+        });
+
+        it('prioritizes first configured provider in alphabetical UI order', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const prevGemini = process.env.GEMINI_API_KEY;
+            const prevOpenAi = process.env.OPENAI_API_KEY;
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            process.env.OPENAI_API_KEY = 'openai-key';
+
+            try {
+                const res = await app.request('/api/ai/providers/configured', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.defaultProvider, 'gemini');
+                assert.deepEqual(json.configuredProviders, ['gemini', 'openai']);
+            } finally {
+                if (prevGemini === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = prevGemini;
+                if (prevOpenAi === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prevOpenAi;
+            }
+        });
+
+        it('does not treat AI_OLLAMA_TIMEOUT_MS alone as explicit Ollama configuration', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const prevOllamaUrl = process.env.OLLAMA_BASE_URL;
+            const prevOllamaModel = process.env.AI_OLLAMA_MODEL;
+            const prevOllamaTimeout = process.env.AI_OLLAMA_TIMEOUT_MS;
+            delete process.env.OLLAMA_BASE_URL;
+            delete process.env.AI_OLLAMA_MODEL;
+            process.env.AI_OLLAMA_TIMEOUT_MS = '5000';
+
+            try {
+                const res = await app.request('/api/ai/providers/configured', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.defaultProvider, null);
+                assert.deepEqual(json.configuredProviders, []);
+            } finally {
+                if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
+                if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
+                if (prevOllamaTimeout === undefined) delete process.env.AI_OLLAMA_TIMEOUT_MS; else process.env.AI_OLLAMA_TIMEOUT_MS = prevOllamaTimeout;
+            }
+        });
+
+        it('keeps configured providers order aligned with frontend catalog', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const prevAnthropic = process.env.ANTHROPIC_API_KEY;
+            const prevOpenAi = process.env.OPENAI_API_KEY;
+            const prevGemini = process.env.GEMINI_API_KEY;
+            const prevGoogle = process.env.GOOGLE_API_KEY;
+            const prevOllamaUrl = process.env.OLLAMA_BASE_URL;
+            const prevOllamaModel = process.env.AI_OLLAMA_MODEL;
+
+            process.env.ANTHROPIC_API_KEY = 'anthropic-key';
+            process.env.OPENAI_API_KEY = 'openai-key';
+            process.env.GEMINI_API_KEY = 'gemini-key';
+            delete process.env.GOOGLE_API_KEY;
+            process.env.OLLAMA_BASE_URL = 'http://localhost:11434';
+            process.env.AI_OLLAMA_MODEL = 'llama3.2';
+
+            try {
+                const res = await app.request('/api/ai/providers/configured', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.deepEqual(json.configuredProviders, [...AI_PROVIDER_ORDER]);
+                assert.equal(json.defaultProvider, AI_PROVIDER_ORDER[0]);
+            } finally {
+                if (prevAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = prevAnthropic;
+                if (prevOpenAi === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prevOpenAi;
+                if (prevGemini === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = prevGemini;
+                if (prevGoogle === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = prevGoogle;
+                if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
+                if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
             }
         });
     });
