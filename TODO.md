@@ -220,7 +220,7 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
 MEJORAS DE ARQUITECTURA:
 
 Reorganizar el menú por flujo de trabajo: Monitorizar, Diagnosticar, Actuar, Administrar (en vez de System/Tokens/Components).
-Crear una bandeja única de issues (/issues) que agregue token health, components health y naming debt con prioridad/severidad.
+Crear una bandeja única de issues (/issues) que agregue token health y components health con prioridad/severidad.
 Unificar análisis de tokens en un hub (/tokens/intelligence) con tabs Explorer, Graph, Diff, Impact, Naming.
 Convertir Operations en “Automation Center” con secciones de Refresh, Pipelines, Figma Imports, Historial de ejecuciones.
 Añadir un flujo guiado “de problema a resolución”: Issue -> raíz -> acción recomendada -> validación post-acción.
