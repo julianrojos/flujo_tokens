@@ -85,7 +85,6 @@ export function createServerConfig(env: Record<string, string | undefined> = pro
     OPS_LOG_FILE_RE: /^operations-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.ndjson$/,
     REPLAYABLE_NPM_SCRIPTS: replayableNpmScripts,
     SUPPORTED_REPLAY_OPERATIONS: new Set([
-      'refresh:naming-debt',
       'script:ds-health-snapshot.mjs',
       ...Array.from(replayableNpmScripts).map((script) => `script:${script}`),
     ]),

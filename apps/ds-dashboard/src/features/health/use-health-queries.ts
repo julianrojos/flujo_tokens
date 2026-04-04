@@ -1,7 +1,6 @@
 import {
   fetchComponentsHealth,
   fetchHealthHistory,
-  fetchNamingDebt,
   fetchTokenHealth,
 } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -12,13 +11,11 @@ import type {
   HealthHistoryRange,
   HealthHistoryReport,
 } from "@/types/health-history";
-import type { NamingDebtReport } from "@/types/naming-debt";
 import type { TokenHealthReport } from "@/types/token-health";
 
 export const healthQueryKeys = {
   token: ["health", "token"] as const,
   components: ["health", "components"] as const,
-  namingDebt: ["health", "naming-debt"] as const,
   history: (range: HealthHistoryRange, bucket: HealthHistoryBucket) =>
     ["health", "history", range, bucket] as const,
 };
@@ -35,14 +32,6 @@ export function useComponentsHealthQuery() {
   return useQuery<ComponentsHealthReport>({
     queryKey: healthQueryKeys.components,
     queryFn: () => fetchComponentsHealth(),
-    ...QUERY_DEFAULTS,
-  });
-}
-
-export function useNamingDebtQuery() {
-  return useQuery<NamingDebtReport>({
-    queryKey: healthQueryKeys.namingDebt,
-    queryFn: () => fetchNamingDebt(),
     ...QUERY_DEFAULTS,
   });
 }

@@ -15,7 +15,6 @@ import {
   Boxes,
   GitBranch,
   Layers3,
-  NotebookPen,
   Settings2,
   TrendingDown,
   type LucideIcon,
@@ -91,12 +90,6 @@ const ComponentDetailPage = lazy(() =>
 const TokensPage = lazy(() =>
   import("@/features/tokens/tokens-page").then((module) => ({
     default: module.TokensPage,
-  })),
-);
-
-const NamingDebtPage = lazy(() =>
-  import("@/features/tokens/naming-debt/naming-debt-page").then((module) => ({
-    default: module.NamingDebtPage,
   })),
 );
 
@@ -259,12 +252,6 @@ const navSections: NavSection[] = [
         label: "Impact",
         description: "What breaks if X changes",
         icon: TrendingDown,
-      },
-      {
-        to: "/tokens/naming-debt",
-        label: "Naming Quality",
-        description: "Consistency analysis and renames",
-        icon: NotebookPen,
       },
       {
         to: "/consumers",
@@ -519,7 +506,6 @@ export default function App() {
                     <Route path="/components" element={<ComponentsPage />} />
                     <Route path="/components/:slug" element={<ComponentDetailPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
-                    <Route path="/tokens/naming-debt" element={<NamingDebtPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
                     <Route path="/token-graph" element={<TokenGraphPage />} />
                     <Route path="/impact" element={<ImpactExplorerPage />} />

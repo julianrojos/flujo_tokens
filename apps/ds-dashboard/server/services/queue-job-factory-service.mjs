@@ -6,7 +6,6 @@ export function createQueueJobFactoryService(config) {
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReportFromData,
     tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
@@ -129,53 +128,6 @@ export function createQueueJobFactoryService(config) {
     });
   }
 
-  function enqueueRefreshNamingDebtJob({ sysCtx, requestId, sourceEventId }) {
-    return enqueueQueueJob({
-      label: "refresh naming debt",
-      systemId: sysCtx.systemId,
-      operationName: "refresh:naming-debt",
-      requestId,
-      sourceEventId,
-      inputHash: sha256Text(
-        JSON.stringify({
-          script: "refresh-naming-debt",
-          systemId: sysCtx.systemId,
-        }),
-      ),
-      execute: async ({ emitChunk }) => {
-        if (!tokenRepo) {
-          throw new Error("Token repository is not initialized.");
-        }
-        emitChunk("system", "Computing naming debt report...");
-        const wcagPairs = sysCtx.wcagPairs && typeof sysCtx.wcagPairs === "object" ? sysCtx.wcagPairs : { pairs: [] };
-        const namingDebtConfig =
-          sysCtx.namingDebtConfig && typeof sysCtx.namingDebtConfig === "object" ? sysCtx.namingDebtConfig : {};
-        const report = await computeNamingDebtReportFromData({
-          tokenRegistry: tokenRepo.getTokenRegistry(sysCtx.systemId),
-          tokenUsageIndex: tokenRepo.getTokenUsageIndex(sysCtx.systemId),
-          tokenGraph: tokenRepo.getTokenGraph(sysCtx.systemId),
-          config: {
-            ...namingDebtConfig,
-            wcagPairs,
-          },
-        });
-        const reportAny = report || {};
-        const summary = reportAny.summary || {};
-        return {
-          ok: true,
-          code: 0,
-          summary: "Naming debt refreshed.",
-          payload: {
-            ok: true,
-            generatedAt: reportAny.generatedAt || new Date().toISOString(),
-            totalViolations: Number(summary.totalViolations || 0),
-            overallScore: Number(summary.overallScore || 0),
-          },
-        };
-      },
-    });
-  }
-
   function enqueueReplayJobFromOperation({ operation, systemId, requestId, sourceEventId }) {
     const sysCtx = getSystemContext(systemId);
     const normalized = String(operation || "").trim();
@@ -187,10 +139,6 @@ export function createQueueJobFactoryService(config) {
         throw new Error(`Operation '${normalized}' requires parameters and cannot be replayed automatically.`);
       }
       throw new Error(`Replay is not supported for operation '${normalized}'.`);
-    }
-
-    if (normalized === "refresh:naming-debt") {
-      return enqueueRefreshNamingDebtJob({ sysCtx, requestId, sourceEventId });
     }
 
     if (normalized.startsWith("script:")) {
@@ -267,7 +215,6 @@ export function createQueueJobFactoryService(config) {
   return {
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
     enqueueReplayJobFromOperation,
   };
 }

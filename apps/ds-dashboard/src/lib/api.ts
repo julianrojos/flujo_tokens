@@ -7,7 +7,6 @@ import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } f
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { ImpactReport } from "@/types/impact";
-import type { NamingDebtReport } from "@/types/naming-debt";
 import type {
   CaptureHealthSnapshotResult,
   HealthHistoryBucket,
@@ -369,13 +368,6 @@ export function fetchTokenGraphQuery(args: {
 
 export function fetchTokenHealth() {
   return getJson<TokenHealthReport>("/api/token-health");
-}
-
-export function fetchNamingDebt(args?: { refresh?: boolean }) {
-  const params = new URLSearchParams();
-  if (args?.refresh) params.set("refresh", "true");
-  const suffix = params.size ? `?${params.toString()}` : "";
-  return getJson<NamingDebtReport>(`/api/naming-debt${suffix}`);
 }
 
 export function fetchComponentsHealth() {
@@ -975,15 +967,6 @@ export function restartApiServer() {
   }>("/api/admin/restart-api", {
     method: "POST",
   });
-}
-
-export async function refreshNamingDebt() {
-  return getJson<{
-    ok: boolean;
-    generatedAt: string;
-    totalViolations: number;
-    overallScore: number;
-  }>("/api/refresh-naming-debt", { method: "POST" });
 }
 
 export async function captureHealthSnapshot(args?: {

@@ -269,7 +269,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     getSystemContext,
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
     enqueueReplayJobFromOperation,
   } = createServerRuntimeServices({
     repoRoot,
@@ -356,7 +355,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       enqueueQueueJob,
       runQueuedSpawnCommand,
       queueNpmScript,
-      enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand,
       toBooleanString,
       toNumberString,

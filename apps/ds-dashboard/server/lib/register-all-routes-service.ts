@@ -84,7 +84,6 @@ export interface CommandDeps {
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (args: unknown) => Promise<unknown>;
   queueNpmScript: (args: unknown) => unknown;
-  enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
@@ -163,7 +162,6 @@ export interface ServerDeps {
   enqueueQueueJob: (args: unknown) => unknown;
   runQueuedSpawnCommand: (args: unknown) => Promise<unknown>;
   queueNpmScript: (args: unknown) => unknown;
-  enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -262,7 +260,6 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       sha256Text: deps.sha256Text,
       runQueuedSpawnCommand: deps.runQueuedSpawnCommand,
       queueNpmScript: deps.queueNpmScript,
-      enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
       componentRepo: deps.componentRepo,
       db: deps.db,

@@ -417,20 +417,6 @@ CREATE TABLE IF NOT EXISTS health_history (
 );
 
 -- ============================================================================
--- naming_debt_issues: Token naming debt tracking (Migration 007)
--- ============================================================================
-CREATE TABLE IF NOT EXISTS naming_debt_issues (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  ds_id           TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-  token_path      TEXT NOT NULL,
-  issue_type      TEXT NOT NULL,                  -- e.g. 'color-in-name', 'non-semantic'
-  severity        TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high')),
-  suggestion      TEXT,
-  created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  UNIQUE(ds_id, token_path, issue_type)
-);
-
--- ============================================================================
 -- tokens_staging: Staging area for token imports (Migration 008)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tokens_staging (

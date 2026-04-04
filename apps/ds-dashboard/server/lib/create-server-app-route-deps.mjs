@@ -42,7 +42,6 @@ export function buildCreateServerAppRouteDeps(config) {
     enqueueQueueJob: config.enqueueQueueJob,
     runQueuedSpawnCommand: config.runQueuedSpawnCommand,
     queueNpmScript: config.queueNpmScript,
-    enqueueRefreshNamingDebtJob: config.enqueueRefreshNamingDebtJob,
     queueNodeJsonCommand: config.queueNodeJsonCommand,
     toBooleanString: config.toBooleanString,
     toNumberString: config.toNumberString,

@@ -40,10 +40,9 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
           badge="Análisis"
         />
         <p className="text-xs text-muted-foreground/70 -mt-2">
-          Reportes de calidad, deuda de naming y estado de componentes.
+          Reportes de calidad y estado de componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-naming-debt" label="Refresh Naming Debt" description="Recomputa violaciones de calidad de nombres en todas las colecciones." endpoint="/api/refresh-naming-debt" />
           <OperationRow id="refresh-components-health" label="Refresh Components Health" description="Genera el reporte de salud de componentes: pipeline, docs, readiness." endpoint="/api/refresh-components-health" />
         </div>
       </section>

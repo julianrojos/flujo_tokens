@@ -187,21 +187,3 @@ CREATE TABLE IF NOT EXISTS health_history (
 CREATE INDEX IF NOT EXISTS idx_health_history_ds_id ON health_history(ds_id);
 CREATE INDEX IF NOT EXISTS idx_health_history_kind ON health_history(kind);
 CREATE INDEX IF NOT EXISTS idx_health_history_recorded_at ON health_history(recorded_at);
-
--- ============================================================================
--- naming_debt_issues: Token naming debt tracking
--- ============================================================================
-CREATE TABLE IF NOT EXISTS naming_debt_issues (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  ds_id           TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-  token_path      TEXT NOT NULL,
-  issue_type      TEXT NOT NULL,                  -- e.g. 'color-in-name', 'non-semantic'
-  severity        TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high')),
-  suggestion      TEXT,
-  created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  UNIQUE(ds_id, token_path, issue_type)
-);
-
--- Indexes for naming debt queries
-CREATE INDEX IF NOT EXISTS idx_naming_debt_issues_ds_id ON naming_debt_issues(ds_id);
-CREATE INDEX IF NOT EXISTS idx_naming_debt_issues_severity ON naming_debt_issues(severity);

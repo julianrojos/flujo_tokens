@@ -50,7 +50,6 @@ export interface CreateServerRouteDepsConfig {
   enqueueQueueJob: (...args: unknown[]) => unknown;
   runQueuedSpawnCommand: (...args: unknown[]) => Promise<unknown>;
   queueNpmScript: (...args: unknown[]) => unknown;
-  enqueueRefreshNamingDebtJob: (...args: unknown[]) => unknown;
   queueNodeJsonCommand: (...args: unknown[]) => unknown;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max?: number) => string;
@@ -113,7 +112,6 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     enqueueQueueJob: deps.enqueueQueueJob,
     runQueuedSpawnCommand: deps.runQueuedSpawnCommand,
     queueNpmScript: deps.queueNpmScript,
-    enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
     queueNodeJsonCommand: deps.queueNodeJsonCommand,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,

@@ -9,7 +9,6 @@ interface HealthMetricsOverviewProps {
   tokensTotal: number;
   componentsTotal: number;
   tokenScore: number;
-  namingScore: number | null;
   componentsScore: number;
   overallScore: number;
 }
@@ -18,7 +17,6 @@ export function HealthMetricsOverview({
   tokensTotal,
   componentsTotal,
   tokenScore,
-  namingScore,
   componentsScore,
   overallScore,
 }: HealthMetricsOverviewProps) {
@@ -26,7 +24,7 @@ export function HealthMetricsOverview({
     overallScore >= 80 ? <CheckCircle2 className="h-4 w-4" /> : overallScore >= 60 ? <AlertTriangle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <MetricCard
         label="Overall Health"
         value={overallScore}
@@ -43,12 +41,6 @@ export function HealthMetricsOverview({
         label="Components"
         value={componentsTotal}
         change={`${componentsScore}/100 health`}
-        icon={<CheckCircle2 className="h-4 w-4" />}
-      />
-      <MetricCard
-        label="Naming"
-        value={namingScore ?? "—"}
-        change={namingScore !== null ? "/100" : undefined}
         icon={<CheckCircle2 className="h-4 w-4" />}
       />
     </div>

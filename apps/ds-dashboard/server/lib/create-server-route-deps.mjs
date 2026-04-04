@@ -44,7 +44,6 @@ export function buildCreateServerRouteDeps(deps) {
     enqueueQueueJob: deps.enqueueQueueJob,
     runQueuedSpawnCommand: deps.runQueuedSpawnCommand,
     queueNpmScript: deps.queueNpmScript,
-    enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
     queueNodeJsonCommand: deps.queueNodeJsonCommand,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,

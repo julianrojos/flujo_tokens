@@ -15,7 +15,6 @@ import {
   healthQueryKeys,
   useComponentsHealthQuery,
   useHealthHistoryQuery,
-  useNamingDebtQuery,
   useTokenHealthQuery,
 } from "./use-health-queries";
 
@@ -28,17 +27,15 @@ export function useHealthDashboardData(args: {
 
   const tokenHealthQuery = useTokenHealthQuery();
   const componentsHealthQuery = useComponentsHealthQuery();
-  const namingDebtQuery = useNamingDebtQuery();
   const historyQuery = useHealthHistoryQuery(historyRange, historyBucket);
 
   const tokenHealth = tokenHealthQuery.data ?? null;
   const componentsHealth = componentsHealthQuery.data ?? null;
-  const namingDebt = namingDebtQuery.data ?? null;
   const history = historyQuery.data ?? null;
   const loading = tokenHealthQuery.isLoading || componentsHealthQuery.isLoading;
   const historyLoading = historyQuery.isLoading || historyQuery.isFetching;
   const reloadingAll =
-    tokenHealthQuery.isFetching || componentsHealthQuery.isFetching || namingDebtQuery.isFetching;
+    tokenHealthQuery.isFetching || componentsHealthQuery.isFetching;
 
   const queryTokenError = useMemo(() => {
     if (!tokenHealthQuery.error) return null;
@@ -54,13 +51,6 @@ export function useHealthDashboardData(args: {
       fallbackMessage: "Unable to load components health report.",
     });
   }, [componentsHealthQuery.error]);
-  const namingError = useMemo(() => {
-    if (!namingDebtQuery.error) return null;
-    return toApiErrorDisplay(namingDebtQuery.error, {
-      fallbackTitle: "Naming report unavailable",
-      fallbackMessage: "Unable to load naming debt report.",
-    });
-  }, [namingDebtQuery.error]);
   const queryHistoryError = useMemo(() => {
     if (!historyQuery.error) return null;
     return toApiErrorDisplay(historyQuery.error, {
@@ -73,9 +63,8 @@ export function useHealthDashboardData(args: {
     await Promise.all([
       tokenHealthQuery.refetch(),
       componentsHealthQuery.refetch(),
-      namingDebtQuery.refetch(),
     ]);
-  }, [componentsHealthQuery, namingDebtQuery, tokenHealthQuery]);
+  }, [componentsHealthQuery, tokenHealthQuery]);
 
   const reloadHistory = useCallback(async () => {
     await historyQuery.refetch();
@@ -100,7 +89,6 @@ export function useHealthDashboardData(args: {
       await captureHealthSnapshot();
       await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
       await queryClient.invalidateQueries({ queryKey: healthQueryKeys.components });
-      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.namingDebt });
       await queryClient.invalidateQueries({
         queryKey: healthQueryKeys.history(historyRange, historyBucket),
       });
@@ -163,7 +151,6 @@ export function useHealthDashboardData(args: {
   return {
     tokenHealth,
     componentsHealth,
-    namingDebt,
     history,
     loading,
     historyLoading,
@@ -173,7 +160,6 @@ export function useHealthDashboardData(args: {
     snapshotting,
     tokenError,
     componentsError,
-    namingError,
     historyError,
     reloadAll,
     reloadHistory,

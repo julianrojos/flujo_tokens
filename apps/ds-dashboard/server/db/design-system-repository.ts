@@ -62,7 +62,6 @@ export interface DashboardSystemContext {
     repoRoot: string;
     docsDir: string;
     genDir: string;
-    namingDebtConfig: Record<string, unknown>;
     specBackupsDirPath: string;
     wcagPairs: Record<string, unknown>;
     healthSnapshotScriptPath: string;
@@ -358,7 +357,6 @@ export class DesignSystemRepository {
             repoRoot: this.repoRoot,
             docsDir: paths.docsDir,
             genDir: paths.generatedDir,
-            namingDebtConfig: this.getJsonAppSetting('naming_debt_config', {}),
             specBackupsDirPath: path.join(paths.generatedDir, 'spec-backups'),
             wcagPairs: this.getJsonAppSetting('wcag_pairs', { pairs: [] }),
             healthSnapshotScriptPath: path.join(this.repoRoot, 'tooling', 'scripts', 'ds-health-snapshot.mjs'),

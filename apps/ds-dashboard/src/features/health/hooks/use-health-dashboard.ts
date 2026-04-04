@@ -29,7 +29,6 @@ export function useHealthDashboard() {
   const {
     tokenHealth,
     componentsHealth,
-    namingDebt,
     history,
     loading,
     historyLoading,
@@ -39,7 +38,6 @@ export function useHealthDashboard() {
     snapshotting,
     tokenError,
     componentsError,
-    namingError,
     historyError,
     reloadAll,
     reloadHistory,
@@ -56,16 +54,17 @@ export function useHealthDashboard() {
     () => (componentsHealth ? Math.max(componentsHealth.summary.total_components, 1) : 0),
     [componentsHealth],
   );
-  const namingScore = namingDebt?.summary.overallScore ?? null;
-  const tokenScoreFromSummary = tokenHealth?.summary ? Math.max(0, Math.round(
-    100
+  const tokenScore = useMemo(
+    () => (tokenHealth?.summary ? Math.max(0, Math.round(
+      100
       - Math.min(30, (tokenHealth.summary.unused_tokens_total / Math.max(1, tokenHealth.summary.tokens_total)) * 35)
       - Math.min(20, (tokenHealth.summary.high_coupling_tokens_total / Math.max(1, tokenHealth.summary.tokens_total)) * 25)
       - Math.min(20, (tokenHealth.summary.broken_aliases_total / Math.max(1, tokenHealth.summary.tokens_total)) * 160)
       - Math.min(20, (tokenHealth.summary.broken_css_var_refs_total / Math.max(1, tokenHealth.summary.tokens_total)) * 120)
       - Math.min(20, (tokenHealth.summary.wcag_failures_total / Math.max(1, tokenHealth.summary.tokens_total)) * 140),
-  )) : 0;
-  const tokenScore = namingScore === null ? tokenScoreFromSummary : Math.round(tokenScoreFromSummary * 0.8 + namingScore * 0.2);
+    )) : 0),
+    [tokenHealth],
+  );
   const componentsScore = componentsHealth
     ? Math.round(
       (componentsHealth.summary.ready / Math.max(1, componentsHealth.summary.total_components)) * 45
@@ -167,7 +166,6 @@ export function useHealthDashboard() {
     toggleBrokenAliasSort,
     tokenHealth,
     componentsHealth,
-    namingDebt,
     history,
     loading,
     historyLoading,
@@ -177,7 +175,6 @@ export function useHealthDashboard() {
     snapshotting,
     tokenError,
     componentsError,
-    namingError,
     historyError,
     reloadAll,
     reloadHistory,
@@ -187,7 +184,6 @@ export function useHealthDashboard() {
     tokensTotal,
     componentsTotal,
     tokenScore,
-    namingScore,
     componentsScore,
     overallScore,
     activeIssues,

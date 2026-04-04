@@ -11,16 +11,12 @@ import {
   parseImpactRequest,
   type SystemContext,
 } from '../lib/analysis-route-service.ts';
-import {
-  computeNamingDebtReportFromData,
-  normalizeImpactWcagPairs,
-} from './analysis-artifacts-service.ts';
+import { normalizeImpactWcagPairs } from './analysis-artifacts-service.ts';
 
 export interface AnalysisRouteHandlerDeps {
   failJson: (c: any, statusCode: number, args: Record<string, unknown>) => any;
   getSystemContext: (systemHeader: string) => Pick<SystemContext, 'systemId'> & {
     wcagPairs?: Record<string, unknown>;
-    namingDebtConfig?: Record<string, unknown>;
   };
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
@@ -107,35 +103,6 @@ function buildDbImpactArtifacts(
     tokenHealth,
     componentRegistry: null,
   };
-}
-
-/**
- * Handle naming debt route.
- */
-export async function handleNamingDebtRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext, tokenRepo } = deps;
-  if (!tokenRepo) {
-    return failJson(c, 500, {
-      code: 'internal.token_repo_missing',
-      userMessage: 'Token repository is not initialized.',
-      recoverable: false,
-    });
-  }
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const wcagPairs = normalizeImpactWcagPairs(sysCtx.wcagPairs ?? { pairs: [] });
-
-  const report = await computeNamingDebtReportFromData({
-    tokenRegistry: tokenRepo.getTokenRegistry(sysCtx.systemId),
-    tokenUsageIndex: tokenRepo.getTokenUsageIndex(sysCtx.systemId),
-    tokenGraph:
-      tokenRepo.getTokenGraph(sysCtx.systemId) ??
-      buildFallbackTokenGraph(tokenRepo.getTokenRegistry(sysCtx.systemId)),
-    config: {
-      ...((sysCtx.namingDebtConfig && typeof sysCtx.namingDebtConfig === 'object') ? sysCtx.namingDebtConfig : {}),
-      wcagPairs,
-    },
-  });
-  return c.json(report);
 }
 
 /**

@@ -104,13 +104,6 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
       }
       return { id: job.id };
     },
-    enqueueRefreshNamingDebtJob: (args) => {
-      const job = deps.enqueueRefreshNamingDebtJob(args);
-      if (!isRecord(job) || typeof job.id !== 'string') {
-        throw new TypeError('commandDeps.enqueueRefreshNamingDebtJob must return { id: string }');
-      }
-      return { id: job.id };
-    },
     queueNodeJsonCommand: (args) => {
       const job = deps.queueNodeJsonCommand(args);
       if (!isRecord(job) || typeof job.id !== 'string') {

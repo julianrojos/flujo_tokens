@@ -103,7 +103,6 @@ export interface CommandRouteHandlerDeps {
   enqueueQueueJob: (args: unknown) => { id: string };
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
-  enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
@@ -316,20 +315,6 @@ export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandler
       }),
   });
 
-  return c.json(queueJobAcceptedPayload(job), 202);
-}
-
-export function handleRefreshNamingDebtRoute(
-  c: Context,
-  deps: Pick<CommandRouteHandlerDeps, 'createApiRequestId' | 'getSystemContext' | 'enqueueRefreshNamingDebtJob' | 'queueJobAcceptedPayload'>
-): Response {
-  const { createApiRequestId, getSystemContext, enqueueRefreshNamingDebtJob, queueJobAcceptedPayload } = deps;
-  const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const job = enqueueRefreshNamingDebtJob({
-    sysCtx,
-    requestId,
-  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 

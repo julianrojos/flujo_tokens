@@ -11,7 +11,6 @@ import {
   enqueueRefreshScriptJob,
   handleCaptureFigmaScreenshotRoute,
   handleCaptureHealthSnapshotRoute,
-  handleRefreshNamingDebtRoute,
   handleRestartApiRoute,
   handleRunScriptRoute,
   handleSyncFigmaTokensRoute,
@@ -35,7 +34,6 @@ export interface CommandRoutesDeps {
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   queueNpmScript: (args: unknown) => { id: string };
-  enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
@@ -89,7 +87,6 @@ function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandler
     sha256Text: deps.sha256Text,
     runQueuedSpawnCommand: (options) => assertQueuedSpawnResult(deps.runQueuedSpawnCommand(options), 'runQueuedSpawnCommand'),
     queueNpmScript: (args) => assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
-    enqueueRefreshNamingDebtJob: (args) => assertJobWithId(deps.enqueueRefreshNamingDebtJob(args), 'enqueueRefreshNamingDebtJob'),
     queueNodeJsonCommand: (args) => assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
     componentRepo: deps.componentRepo,
     db: deps.db,
@@ -134,7 +131,6 @@ export function registerCommandRoutes(app: { post: (path: string, handler: (c: C
   app.post('/api/refresh-token-graph', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-graph', commandDeps));
   app.post('/api/refresh-token-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps));
   app.post('/api/refresh-components-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:report', commandDeps));
-  app.post('/api/refresh-naming-debt', (c: Context) => handleRefreshNamingDebtRoute(c, commandDeps));
   app.post('/api/capture-health-snapshot', (c: Context) => handleCaptureHealthSnapshotRoute(c, commandDeps));
   app.post('/api/sync-figma-tokens', (c: Context) => handleSyncFigmaTokensRoute(c, commandDeps));
   app.post('/api/capture-figma-screenshot', (c: Context) => handleCaptureFigmaScreenshotRoute(c, commandDeps));

@@ -31,7 +31,6 @@ export function HealthDashboardPage() {
     tokensTotal,
     componentsTotal,
     tokenScore,
-    namingScore,
     componentsScore,
     overallScore,
     activeIssues,
@@ -79,7 +78,6 @@ export function HealthDashboardPage() {
         tokensTotal={tokensTotal}
         componentsTotal={componentsTotal}
         tokenScore={tokenScore}
-        namingScore={namingScore}
         componentsScore={componentsScore}
         overallScore={overallScore}
       />

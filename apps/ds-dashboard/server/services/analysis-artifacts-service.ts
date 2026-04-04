@@ -1,7 +1,7 @@
 /**
  * Analysis Artifacts Service
  *
- * Provides analysis utilities for naming debt and WCAG pairs.
+ * Provides analysis utilities for WCAG pairs and shared node-JSON command helpers.
  * Migrated from apps/ds-dashboard/server/services/analysis-artifacts-service.mjs
  */
 
@@ -18,22 +18,6 @@ export interface WcagPair {
 
 export interface WcagPairsPayload {
   pairs: Array<Partial<WcagPair>>;
-}
-
-export interface NamingDebtReport {
-  tokenRegistry: unknown;
-  tokenUsageIndex: unknown | null;
-  tokenGraph: unknown | null;
-  config: unknown | null;
-}
-
-export interface ComputeNamingDebtReportFromDataDeps {
-  analyzeNamingDebtFn?: (args: {
-    tokenRegistry: unknown;
-    tokenUsageIndex: unknown | null;
-    tokenGraph: unknown | null;
-    config: unknown | null;
-  }) => Promise<unknown>;
 }
 
 export interface RunNodeJsonCommandOnceOptions {
@@ -92,26 +76,6 @@ export function normalizeImpactWcagPairs(raw: unknown): WcagPair[] {
   return pairs;
 }
 
-export async function computeNamingDebtReportFromData(
-  args: {
-    tokenRegistry: unknown;
-    tokenUsageIndex: unknown | null;
-    tokenGraph: unknown | null;
-    config: unknown | null;
-  },
-  deps: ComputeNamingDebtReportFromDataDeps = {}
-): Promise<NamingDebtReport> {
-  const analyzeNamingDebtFn =
-    deps.analyzeNamingDebtFn ||
-    (await import('../../src/lib/naming-debt.ts')).analyzeNamingDebt;
-  return (await analyzeNamingDebtFn({
-    tokenRegistry: args.tokenRegistry,
-    tokenUsageIndex: args.tokenUsageIndex,
-    tokenGraph: args.tokenGraph,
-    config: args.config,
-  })) as NamingDebtReport;
-}
-
 /**
  * Run a node command once and parse JSON output.
  */
@@ -122,8 +86,8 @@ export async function runNodeJsonCommandOnce(
   const runSpawnWithCaptureFn = deps.runSpawnWithCaptureFn || runSpawnWithCapture;
   const maxOutputBytes =
     typeof args.maxOutputBytes === 'number' &&
-    Number.isFinite(args.maxOutputBytes) &&
-    args.maxOutputBytes > 0
+      Number.isFinite(args.maxOutputBytes) &&
+      args.maxOutputBytes > 0
       ? Math.floor(args.maxOutputBytes)
       : DEFAULT_MAX_OUTPUT_BYTES;
 

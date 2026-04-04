@@ -386,9 +386,6 @@ export function TokensPage() {
         description="Local inventory of your design tokens, with filters by collection and type."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/tokens/naming-debt">
-              <Button variant="outline">Naming Quality</Button>
-            </Link>
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               {usageSyncing ? "Syncing usage..." : "Sync DS Usage"}

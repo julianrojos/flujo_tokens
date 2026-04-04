@@ -6,7 +6,6 @@
  */
 
 import { createCommandExecutionService } from '../services/command-execution-service.mjs';
-import { computeNamingDebtReportFromData } from '../services/analysis-artifacts-service.mjs';
 import { createOperationHistoryService } from '../services/operation-history-service.mjs';
 import { createQueueEngineService } from '../services/queue-engine-service.mjs';
 import { createQueueJobFactoryService } from '../services/queue-job-factory-service.mjs';
@@ -43,7 +42,6 @@ interface BaseCommandExecutionService {
 interface BaseQueueJobFactory {
   queueNpmScript: (...args: unknown[]) => { id: string };
   queueNodeJsonCommand: (...args: unknown[]) => { id: string };
-  enqueueRefreshNamingDebtJob: (...args: unknown[]) => { id: string };
   enqueueReplayJobFromOperation: (...args: unknown[]) => { id: string };
 }
 
@@ -76,7 +74,6 @@ export interface CreateServerRuntimeServicesConfig {
   runSpawnWithCaptureFn?: (...args: any[]) => unknown;
   toQueueSummaryFromPayloadFn?: (...args: any[]) => unknown;
   createSnippetBuilderFn?: (...args: any[]) => unknown;
-  computeNamingDebtReportFromDataFn?: (...args: any[]) => unknown;
   createDevRuntimeCheckerFn?: (...args: any[]) => unknown;
   createSha256TextHasherFn?: (...args: any[]) => unknown;
   createSystemContextResolverFn?: (...args: any[]) => unknown;
@@ -98,7 +95,6 @@ export interface CreateServerRuntimeServices {
   getSystemContext: (systemHeader: string) => { systemId: string; header: string };
   queueNpmScript: (...args: unknown[]) => { id: string };
   queueNodeJsonCommand: (...args: unknown[]) => { id: string };
-  enqueueRefreshNamingDebtJob: (...args: unknown[]) => { id: string };
   enqueueReplayJobFromOperation: (...args: unknown[]) => { id: string };
 }
 
@@ -135,7 +131,6 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     runSpawnWithCaptureFn = runSpawnWithCapture,
     toQueueSummaryFromPayloadFn = toQueueSummaryFromPayload,
     createSnippetBuilderFn = createSnippetBuilder,
-    computeNamingDebtReportFromDataFn = computeNamingDebtReportFromData,
     createDevRuntimeCheckerFn = createDevRuntimeChecker,
     createSha256TextHasherFn = createSha256TextHasher,
     createSystemContextResolverFn = createSystemContextResolver,
@@ -194,7 +189,6 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReportFromData: computeNamingDebtReportFromDataFn,
     tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
@@ -203,7 +197,6 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
   const {
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
     enqueueReplayJobFromOperation,
   } = queueJobFactory as BaseQueueJobFactory;
 
@@ -223,7 +216,6 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     getSystemContext,
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
     enqueueReplayJobFromOperation,
   };
 }
