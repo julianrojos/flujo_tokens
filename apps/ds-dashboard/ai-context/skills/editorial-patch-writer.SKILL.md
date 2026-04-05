@@ -96,6 +96,12 @@ Si el comportamiento no es verificable desde evidencia disponible:
 ### 6. accessibility
 La accesibilidad en el patch debe reflejar límites de Figma.
 
+#### mínimo editorial obligatorio
+El patch debe incluir siempre el bloque `accessibility`.
+Si no hay evidencia suficiente, incluir al menos una nota en `notes[]` con:
+- `TBD`
+- `[Por confirmar con dev]`
+
 #### role
 No tratar el rol como hecho salvo evidencia muy fuerte.
 Usar esta lógica:

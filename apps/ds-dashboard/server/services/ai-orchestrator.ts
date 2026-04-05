@@ -24,7 +24,7 @@ import type { EditorialPatch } from './ai-editorial-patch-schema.js';
 import { validateEditorialPatch, EDITORIAL_PATCH_JSON_SCHEMA } from './ai-editorial-patch-schema.js';
 import { renderComponentDoc } from './ai-component-doc-renderer.js';
 import type { AiJobsStore } from './ai-jobs-store.js';
-import { getComponentSpecDirect } from './figma-direct-bridge-service.js';
+import { getComponentSpecDirect, fetchVariablesDirect } from './figma-direct-bridge-service.js';
 import { buildPromptPolicyContext, type PolicyCallStage } from './ai-prompt-policy.js';
 import type { ValidationReport } from './ai-validation-report-schema.js';
 import { validateValidationReport, VALIDATION_REPORT_JSON_SCHEMA } from './ai-validation-report-schema.js';
@@ -244,6 +244,139 @@ function pruneAnatomyDepth(
 }
 
 /**
+ * Warn-once guard for resolveVariableKeyMap failures.
+ * Prevents log spam during repeated polling/tests with the same fileKey.
+ */
+const VARIABLE_KEY_MAP_WARNED = new Set<string>();
+
+/**
+ * Resolve Figma variables and build a lookup map: VariableID -> { name, key }.
+ * Priority: variable.key (canonical) > collection/name fallback > raw id.
+ * Fail-open: returns empty map on any error so the pipeline continues with raw IDs.
+ */
+export async function resolveVariableKeyMap(
+    fileKey: string | null,
+): Promise<Map<string, { name: string; key: string }>> {
+    const map = new Map<string, { name: string; key: string }>();
+    if (!fileKey) {
+        return map;
+    }
+    try {
+        const result = await fetchVariablesDirect(fileKey);
+        const variables = result.meta?.variables ?? {};
+        for (const [id, variable] of Object.entries(variables)) {
+            const v = variable as Record<string, unknown>;
+            const name = typeof v.name === 'string' ? v.name : id;
+
+            // Normalize id: strip "VariableID:" prefix if present.
+            // normalizeVariablesMeta indexes by variable.id which may include the prefix,
+            // but the enrichment regex captures the bare id after "VariableID:".
+            const strippedId = id.startsWith('VariableID:')
+                ? id.slice('VariableID:'.length)
+                : id;
+
+            // Primary: use variable.key if available (canonical semantic key)
+            const rawKey = typeof v.key === 'string' && v.key.trim().length > 0 ? v.key.trim() : '';
+            const key = rawKey || resolveFallbackKey(strippedId, v, result.meta?.variableCollections);
+            map.set(strippedId, { name, key });
+        }
+    } catch (error) {
+        // fail-open: return empty map, pipeline continues with raw VariableID
+        // Warn-once to avoid spam during repeated polling with same fileKey
+        const reason = error instanceof Error ? error.message : String(error);
+        const warnKey = `${fileKey ?? 'null'}:${reason}`;
+        if (!VARIABLE_KEY_MAP_WARNED.has(warnKey)) {
+            VARIABLE_KEY_MAP_WARNED.add(warnKey);
+            console.warn('[ai-orchestrator] resolveVariableKeyMap failed (fail-open)', {
+                fileKey,
+                reason,
+            });
+        }
+    }
+    return map;
+}
+
+const FIGMA_CONNECTION_ERROR_PATTERNS = [
+    'no_socket',
+    'connection',
+    'network',
+    'econnrefused',
+    'econnreset',
+    'etimedout',
+    'websocket',
+    'socket',
+    'closed unexpectedly',
+] as const;
+
+/**
+ * Heuristic classifier for spec-fetch transport/connectivity failures.
+ * Fail-safe: non-matching errors are treated as generic spec failures.
+ */
+export function isLikelyFigmaConnectionError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return FIGMA_CONNECTION_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+/**
+ * Fallback when variable.key is missing: try collection/name, then name, then id.
+ */
+function resolveFallbackKey(
+    rawId: string,
+    variable: Record<string, unknown>,
+    collections: Record<string, unknown> | undefined,
+): string {
+    // Try collection/name variableName pattern
+    const collectionId = typeof variable.variableCollectionId === 'string'
+        ? variable.variableCollectionId
+        : undefined;
+    if (collectionId && collections && typeof collections === 'object') {
+        const collection = collections[collectionId] as Record<string, unknown> | undefined;
+        if (collection && typeof collection.name === 'string') {
+            return `${collection.name}/${variable.name || rawId}`;
+        }
+    }
+    // Fallback to variable name
+    if (typeof variable.name === 'string' && variable.name.trim().length > 0) {
+        return variable.name.trim();
+    }
+    // Last resort: raw id
+    return rawId;
+}
+
+/**
+ * Walk a serializable spec value and replace VariableID:<id> tokens in strings
+ * with VariableID:<id> (<key>) when a semantic key is known.
+ * Uses the provided variableKeyMap; falls through unchanged on unknown IDs.
+ */
+export function enrichSpecVariableReferences(
+    value: unknown,
+    variableKeyMap: Map<string, { name: string; key: string }>,
+): unknown {
+    if (typeof value === 'string') {
+        // Match VariableID:<id> patterns that are not already annotated as
+        // "VariableID:<id> (<key>)", making enrichment idempotent.
+        return value.replace(/VariableID:([^,\s}\]]+)(?!\s*\()/g, (_match, rawId: string) => {
+            const entry = variableKeyMap.get(rawId);
+            if (entry) {
+                return `VariableID:${rawId} (${entry.key})`;
+            }
+            return `VariableID:${rawId}`;
+        });
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => enrichSpecVariableReferences(item, variableKeyMap));
+    }
+    if (value && typeof value === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            result[k] = enrichSpecVariableReferences(v, variableKeyMap);
+        }
+        return result;
+    }
+    return value;
+}
+
+/**
  * Build system prompt for component documentation
  * @param policyContext - Optional editorial policy context from .mdc rules
  * @returns System prompt string
@@ -265,16 +398,26 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
    - A unique ID and descriptive name
    - Description of what makes this variant different
    - Properties: the variant properties (e.g., variant: Primary, state: Hover)
-5. TOKENS: List design tokens used:
+5. STATES: Extract visual/interactive states from variant properties and component spec:
+   - Scan variant property names for axes like "State", "Interaction", "Status", "Hover", "Focus", "Active", "Disabled", "Selected", "Pressed", "Loading", "Error", "Success", etc.
+   - For each distinct state value found in variant properties, create a state entry with:
+     - name: the state value (e.g., "Hover", "Focused", "Disabled", "Loading")
+     - description: what visual or behavioral change occurs in this state
+   - Map variant properties that represent states (not structural variants) to the states[] array
+   - Do NOT include structural variant axes like "Size", "Layout", "Orientation" as states
+   - If no state-like properties are found, use empty array []
+   - Do NOT invent states that are not present in the spec
+6. TOKENS: List design tokens used:
    - Name: token name
    - Value: token value or reference
    - Type: color, spacing, typography, etc.
    - Description: how the token is used
-6. ACCESSIBILITY: Document accessibility considerations:
+7. ACCESSIBILITY: Document accessibility considerations:
    - Keyboard navigation support
    - Screen reader considerations
    - Focus states
    - Any ARIA attributes needed
+   - If evidence is insufficient, include at least one explicit pending note in accessibilityNotes
 
 IMPORTANT:
 - Populate all fields in the schema
@@ -398,6 +541,9 @@ Rules:
 - Keep items concise (1 sentence each)
 - Do NOT repeat what's already in the existing editorial unless improving it
 - Focus on insights from the Figma spec and generated docs
+- Use both accessibilityNotes and accessibilityFacts as source evidence for accessibility output
+- Accessibility minimum editorial rule: always include an "accessibility" object.
+- If evidence is insufficient, include at least one "accessibility.notes" item with "TBD" or "[Por confirmar con dev]".
 
 COMPONENT DOCUMENTATION:${existingContext}
 
@@ -408,9 +554,35 @@ ${stringifyJsonForPrompt({
         variants: docOutput.variants?.slice(0, 5),
         tokens: docOutput.tokens?.slice(0, 10),
         accessibilityNotes: docOutput.accessibilityNotes,
+        accessibilityFacts: docOutput.accessibilityFacts,
     }, 8000)}
 
 Respond with a valid JSON object matching the EditorialPatch schema exactly.`;
+}
+
+function ensureMinimumAccessibilityPatch(
+    patch: EditorialPatch,
+    docOutput: ComponentDocOutput,
+): EditorialPatch {
+    const hasRole = typeof patch.accessibility?.role === 'string' && patch.accessibility.role.trim().length > 0;
+    const hasLabelingRules = Array.isArray(patch.accessibility?.labeling?.rules)
+        && patch.accessibility!.labeling!.rules!.length > 0;
+    const hasNotes = Array.isArray(patch.accessibility?.notes) && patch.accessibility!.notes!.length > 0;
+    if (hasRole || hasLabelingRules || hasNotes) {
+        return patch;
+    }
+
+    const fallbackNote = docOutput.accessibilityNotes[0]
+        || docOutput.accessibilityFacts[0]?.fact
+        || 'TBD (pending accessibility validation). [Por confirmar con dev]';
+
+    return {
+        ...patch,
+        accessibility: {
+            ...patch.accessibility,
+            notes: [fallbackNote],
+        },
+    };
 }
 
 function stringifyJsonForPrompt(value: unknown, maxChars: number): string {
@@ -642,8 +814,9 @@ async function generateEditorialPatch(
         throw new Error(`Editorial patch validation failed: ${validated.errors.map((e) => `${e.path}: ${e.message}`).join(', ')}`);
     }
 
+    const normalizedPatch = ensureMinimumAccessibilityPatch(validated.patch, docOutput);
     store.pushEvent(job.id, 'editorial.patch_validated', {});
-    return validated.patch;
+    return normalizedPatch;
 }
 
 export async function runGenerateComponentDoc(
@@ -653,6 +826,7 @@ export async function runGenerateComponentDoc(
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
     getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>,
     getPolicyContextOverride?: PolicyContextOverride,
+    getVariableKeyMapOverride?: (fileKey: string | null) => Promise<Map<string, { name: string; key: string }>>,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -677,7 +851,7 @@ export async function runGenerateComponentDoc(
         } catch (error) {
             // Classify error with granularity: connection issues vs other spec failures
             const errorMessage = error instanceof Error ? error.message : String(error);
-            const isConnectionError = errorMessage.includes('no_socket') || errorMessage.includes('connection') || errorMessage.includes('network');
+            const isConnectionError = isLikelyFigmaConnectionError(errorMessage);
             throw {
                 code: isConnectionError ? AI_ERROR_CODES.FIGMA_NO_CONNECTION.code : AI_ERROR_CODES.FIGMA_SPEC_FAILED.code,
                 message: errorMessage,
@@ -699,6 +873,19 @@ export async function runGenerateComponentDoc(
             });
         }
 
+        // Step 2.5: Enrich VariableID references with semantic keys (fail-open)
+        const variableKeyMap = getVariableKeyMapOverride
+            ? await getVariableKeyMapOverride(fileKey)
+            : await resolveVariableKeyMap(fileKey);
+        const enrichedPruned = variableKeyMap.size > 0
+            ? enrichSpecVariableReferences(pruned, variableKeyMap) as Record<string, unknown>
+            : pruned;
+        if (variableKeyMap.size > 0) {
+            store.pushEvent(job.id, 'context.variables_enriched', {
+                count: variableKeyMap.size,
+            });
+        }
+
         // Step 3: Build prompts
         let existingEditorial: Record<string, unknown> | null = null;
         if (getExistingEditorialOverride) {
@@ -712,7 +899,7 @@ export async function runGenerateComponentDoc(
             ? appendPolicyContext(customSystemPrompt, policyContext)
             : buildSystemPrompt(policyContext);
         const userPrompt = buildUserPrompt(
-            pruned,
+            enrichedPruned,
             job.input.componentId,
             existingEditorial,
             job.input.userPrompt,
@@ -809,7 +996,10 @@ export async function runGenerateComponentDoc(
             }
         }
 
-        // Step 6: Render markdown
+        // Step 6: Render markdown (BASE factual only — do NOT use composite renderer here).
+        // DESIGN NOTE: output.markdown is the source of truth for /apply endpoints.
+        // The composite renderer (output + editorialPatch) is used ONLY in GET job preview.
+        // Changing this will break apply contracts. See S-04 in Implementation Pack v1.
         const rendered = renderComponentDoc(output);
         output.markdown = rendered;
         store.pushEvent(job.id, 'render.completed', { charCount: rendered.length });
@@ -875,4 +1065,11 @@ export async function runGenerateComponentDoc(
         // Try to dequeue next job
         store.tryDequeueNext(job.input.provider);
     }
+}
+
+/**
+ * Reset the warn-once cache for tests.
+ */
+export function resetVariableKeyMapWarnCacheForTests(): void {
+    VARIABLE_KEY_MAP_WARNED.clear();
 }

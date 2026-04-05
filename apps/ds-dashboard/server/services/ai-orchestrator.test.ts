@@ -7,6 +7,8 @@ import {
   buildUserPrompt,
   pruneSpecForPrompt,
   runGenerateComponentDoc,
+  enrichSpecVariableReferences,
+  isLikelyFigmaConnectionError,
 } from './ai-orchestrator.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
 import { resetPromptPolicyCacheForTests } from './ai-prompt-policy.js';
@@ -52,6 +54,177 @@ describe('ai-orchestrator preprocessing', () => {
     const result = pruneSpecForPrompt({ name: 'Huge', variants });
     assert.equal(result.truncated, true);
   });
+
+  it('classifies transport/network spec-fetch errors as connection errors', () => {
+    assert.equal(isLikelyFigmaConnectionError('ws.request.no_socket_for_file:GET_COMPONENT_SPEC'), true);
+    assert.equal(isLikelyFigmaConnectionError('ECONNREFUSED 127.0.0.1:3456'), true);
+    assert.equal(isLikelyFigmaConnectionError('WebSocket closed unexpectedly by peer'), true);
+  });
+
+  it('does not classify generic spec parse failures as connection errors', () => {
+    assert.equal(isLikelyFigmaConnectionError('Invalid component schema: missing root node'), false);
+    assert.equal(isLikelyFigmaConnectionError('Spec parsing failed: unexpected token at line 1'), false);
+  });
+});
+
+describe('ai-orchestrator variable enrichment', () => {
+  it('enriches VariableID references with key when map has entry', () => {
+    const variableKeyMap = new Map([
+      ['1:12', { name: 'Primary Fill', key: 'Core/Primary Fill' }],
+      ['2:34', { name: 'Border Radius', key: 'Radius/Default' }],
+    ]);
+
+    const input = {
+      tokens: [{ name: 'fills', value: 'VariableID:1:12' }],
+      description: 'Uses VariableID:2:34 for corners',
+    };
+
+    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
+    assert.equal((result.tokens as Array<Record<string, unknown>>)[0].value, 'VariableID:1:12 (Core/Primary Fill)');
+    assert.equal(result.description, 'Uses VariableID:2:34 (Radius/Default) for corners');
+  });
+
+  it('leaves VariableID unchanged when not in map', () => {
+    const variableKeyMap = new Map<string, { name: string; key: string }>();
+    const input = { tokenRef: 'VariableID:9:99' };
+    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
+    assert.equal(result.tokenRef, 'VariableID:9:99');
+  });
+
+  it('handles nested arrays and objects with VariableID references', () => {
+    const variableKeyMap = new Map([
+      ['1:1', { name: 'Color', key: 'Colors/Primary' }],
+    ]);
+    const input = {
+      variants: [
+        { fill: 'VariableID:1:1', stroke: 'VariableID:unknown' },
+        { nested: [{ bg: 'VariableID:1:1' }] },
+      ],
+    };
+    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
+    const variants = result.variants as Array<Record<string, unknown>>;
+    assert.equal(variants[0].fill, 'VariableID:1:1 (Colors/Primary)');
+    assert.equal(variants[0].stroke, 'VariableID:unknown');
+    assert.equal((variants[1].nested as Array<Record<string, unknown>>)[0].bg, 'VariableID:1:1 (Colors/Primary)');
+  });
+
+  it('does not duplicate key annotations when VariableID already contains hint', () => {
+    const variableKeyMap = new Map([
+      ['1:12', { name: 'Primary Fill', key: 'tokens.color.primary' }],
+    ]);
+    const input = {
+      tokenRef: 'VariableID:1:12 (tokens.color.primary)',
+      description: 'Keeps VariableID:1:12 (tokens.color.primary) as-is',
+    };
+    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
+    assert.equal(result.tokenRef, 'VariableID:1:12 (tokens.color.primary)');
+    assert.equal(result.description, 'Keeps VariableID:1:12 (tokens.color.primary) as-is');
+  });
+
+  it('injects VariableID key annotations into generation user prompt', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let generationUserPrompt = '';
+    let callIndex = 0;
+    const fakeAdapter = {
+      generate: async (input: { userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+        callIndex += 1;
+        if (callIndex === 1) {
+          generationUserPrompt = input.userPrompt;
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 2,
+              componentId: '68:4097',
+              title: 'Button',
+              summary: 'Summary',
+              anatomy: [],
+              variants: [],
+              tokens: [],
+              accessibilityNotes: [],
+              markdown: '',
+              states: [],
+              accessibilityFacts: [],
+            },
+            usage: { promptTokens: 10, completionTokens: 5, durationMs: 30 },
+          };
+        }
+        if (callIndex === 2) {
+          return {
+            rawText: '{...}',
+            parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: {
+            schemaVersion: 1,
+            passes: true,
+            severity: 'info',
+            score: 100,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
+          },
+          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      fakeAdapter,
+      async () => ({
+        name: 'Button',
+        type: 'COMPONENT_SET',
+        tokenBindings: [{ fill: 'VariableID:1:12' }],
+      }),
+      undefined,
+      undefined,
+      async () =>
+        new Map([
+          ['1:12', { name: 'Primary Fill', key: 'tokens.color.primary' }],
+        ]),
+    );
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.match(generationUserPrompt, /VariableID:1:12 \(tokens\.color\.primary\)/);
+  });
+
+  it('R-001: enrich matches keys when map uses VariableID:-prefixed ids from API', () => {
+    // normalizeVariablesMeta indexes variables by variable.id which may include "VariableID:" prefix.
+    // resolveVariableKeyMap now strips that prefix before inserting.
+    // The enrichment regex captures the part after "VariableID:" in spec strings.
+    const variableKeyMap = new Map([
+      ['1:12', { name: 'Primary Fill', key: 'Core/Primary Fill' }],
+    ]);
+
+    const input = {
+      token: { name: 'fills', value: 'VariableID:1:12' },
+    };
+    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
+    assert.equal(
+      (result.token as Record<string, unknown>).value,
+      'VariableID:1:12 (Core/Primary Fill)',
+    );
+  });
 });
 
 describe('ai-orchestrator prompts', () => {
@@ -65,6 +238,14 @@ describe('ai-orchestrator prompts', () => {
     const prompt = buildUserPrompt({ name: 'Button' }, '68:4097');
     assert.match(prompt, /68:4097/);
     assert.match(prompt, /```json/);
+  });
+
+  it('system prompt includes states extraction guidance', () => {
+    const prompt = buildSystemPrompt();
+    assert.match(prompt, /STATES/);
+    assert.match(prompt, /variant propert/);
+    assert.match(prompt, /State.*Interaction.*Status|Hover.*Focus.*Active/i);
+    assert.match(prompt, /empty array|states\[\]/i);
   });
 
   it('user prompt includes existing editorial context when provided', () => {
@@ -492,6 +673,16 @@ describe('ai-orchestrator pipeline', () => {
     assert.equal(adapterCalls, 3);
     assert.ok(store.findById(job.id)?.editorialPatch, 'editorialPatch should be set after pipeline');
     assert.equal(store.findById(job.id)?.editorialPatch?.summary?.purpose, 'Enhanced summary');
+    assert.ok(
+      (store.findById(job.id)?.editorialPatch?.accessibility?.notes?.length ?? 0) > 0,
+      'editorialPatch should include minimum accessibility notes fallback',
+    );
+    const fallbackNote = store.findById(job.id)?.editorialPatch?.accessibility?.notes?.[0] ?? '';
+    assert.match(
+      fallbackNote,
+      /(TBD|Por confirmar|accessible name)/i,
+      'fallback note should contain an explicit pending marker or concrete carried fact',
+    );
   });
 });
 
@@ -888,244 +1079,244 @@ describe('ai-orchestrator policyContext', () => {
 // ---------------------------------------------------------------------------
 
 function create3StageAdapter(options: {
-    validationReport?: Record<string, unknown>;
-    validationFail?: boolean;
-    onCall?: (callIndex: number, input: Record<string, unknown>) => void;
+  validationReport?: Record<string, unknown>;
+  validationFail?: boolean;
+  onCall?: (callIndex: number, input: Record<string, unknown>) => void;
 }) {
-    let callIndex = 0;
-    return {
-        callCount: () => callIndex,
-        generate: async (input: { systemPrompt: string; userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
-            callIndex += 1;
-            options.onCall?.(callIndex, input);
-            const schemaProperties = (
-                (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
-            ) ?? {};
-            const isValidationCall = 'passes' in schemaProperties && 'severity' in schemaProperties;
-            const isEditorialCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+  let callIndex = 0;
+  return {
+    callCount: () => callIndex,
+    generate: async (input: { systemPrompt: string; userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+      callIndex += 1;
+      options.onCall?.(callIndex, input);
+      const schemaProperties = (
+        (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+      ) ?? {};
+      const isValidationCall = 'passes' in schemaProperties && 'severity' in schemaProperties;
+      const isEditorialCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
 
-            if (isValidationCall) {
-                if (options.validationFail) {
-                    throw new Error('Validation LLM failed');
-                }
-                return {
-                    rawText: '{...}',
-                    parsedJson: options.validationReport ?? {
-                        schemaVersion: 1,
-                        passes: true,
-                        severity: 'info',
-                        score: 85,
-                        structureWarnings: [],
-                        missingSections: [],
-                        unsupportedClaims: [],
-                        editorialConflicts: [],
-                        terminologyMismatches: [],
-                        a11yWarnings: [],
-                        tokenWarnings: [],
-                        notes: [],
-                    },
-                    usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
-                };
-            }
-            if (isEditorialCall) {
-                return {
-                    rawText: '{...}',
-                    parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
-                    usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
-                };
-            }
-            // Generation call
-            return {
-                rawText: '{...}',
-                parsedJson: {
-                    schemaVersion: 2,
-                    componentId: '68:4097',
-                    title: 'Button',
-                    summary: 'Summary',
-                    anatomy: [],
-                    variants: [],
-                    tokens: [],
-                    accessibilityNotes: [],
-                    markdown: '',
-                    states: [],
-                    accessibilityFacts: [],
-                },
-                usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
-            };
+      if (isValidationCall) {
+        if (options.validationFail) {
+          throw new Error('Validation LLM failed');
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: options.validationReport ?? {
+            schemaVersion: 1,
+            passes: true,
+            severity: 'info',
+            score: 85,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
+          },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      }
+      if (isEditorialCall) {
+        return {
+          rawText: '{...}',
+          parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      }
+      // Generation call
+      return {
+        rawText: '{...}',
+        parsedJson: {
+          schemaVersion: 2,
+          componentId: '68:4097',
+          title: 'Button',
+          summary: 'Summary',
+          anatomy: [],
+          variants: [],
+          tokens: [],
+          accessibilityNotes: [],
+          markdown: '',
+          states: [],
+          accessibilityFacts: [],
         },
-    };
+        usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+      };
+    },
+  };
 }
 
 describe('3-stage pipeline', () => {
-    beforeEach(() => {
-        resetPromptPolicyCacheForTests();
+  beforeEach(() => {
+    resetPromptPolicyCacheForTests();
+  });
+
+  it('completes with canPublish=true when validation passes', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
     });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
 
-    it('completes with canPublish=true when validation passes', async () => {
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: false,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
+    const adapter = create3StageAdapter({});
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
 
-        const adapter = create3StageAdapter({});
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.canPublish, true);
+    assert.ok(completed?.validationReport, 'validationReport should be set');
+    assert.equal(completed?.pipelineSeverity, 'info');
+    assert.equal(completed?.pipelineScore, 85);
+  });
 
-        const completed = store.findById(job.id);
-        assert.ok(completed);
-        assert.equal(completed?.status, 'completed');
-        assert.equal(completed?.canPublish, true);
-        assert.ok(completed?.validationReport, 'validationReport should be set');
-        assert.equal(completed?.pipelineSeverity, 'info');
-        assert.equal(completed?.pipelineScore, 85);
+  it('blocks publication when severity is blocking and shadow mode is OFF', async () => {
+    const prev = process.env.AI_VALIDATION_SHADOW;
+    delete process.env.AI_VALIDATION_SHADOW;
+
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
     });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
 
-    it('blocks publication when severity is blocking and shadow mode is OFF', async () => {
-        const prev = process.env.AI_VALIDATION_SHADOW;
-        delete process.env.AI_VALIDATION_SHADOW;
-
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: false,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
-
-        const adapter = create3StageAdapter({
-            validationReport: {
-                schemaVersion: 1,
-                passes: false,
-                severity: 'blocking',
-                score: 10,
-                structureWarnings: [{ message: 'Missing summary', severity: 'blocking', section: 'summary' }],
-                missingSections: [],
-                unsupportedClaims: [],
-                editorialConflicts: [],
-                terminologyMismatches: [],
-                a11yWarnings: [],
-                tokenWarnings: [],
-                notes: ['Blocking issues found'],
-            },
-        });
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
-
-        const completed = store.findById(job.id);
-        assert.ok(completed);
-        assert.equal(completed?.status, 'completed');
-        assert.equal(completed?.canPublish, false);
-        assert.equal(completed?.pipelineSeverity, 'blocking');
-
-        if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
-        else delete process.env.AI_VALIDATION_SHADOW;
+    const adapter = create3StageAdapter({
+      validationReport: {
+        schemaVersion: 1,
+        passes: false,
+        severity: 'blocking',
+        score: 10,
+        structureWarnings: [{ message: 'Missing summary', severity: 'blocking', section: 'summary' }],
+        missingSections: [],
+        unsupportedClaims: [],
+        editorialConflicts: [],
+        terminologyMismatches: [],
+        a11yWarnings: [],
+        tokenWarnings: [],
+        notes: ['Blocking issues found'],
+      },
     });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
 
-    it('allows publication when shadow mode is ON despite blocking severity', async () => {
-        const prev = process.env.AI_VALIDATION_SHADOW;
-        process.env.AI_VALIDATION_SHADOW = 'true';
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.canPublish, false);
+    assert.equal(completed?.pipelineSeverity, 'blocking');
 
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: false,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
+    if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+    else delete process.env.AI_VALIDATION_SHADOW;
+  });
 
-        const adapter = create3StageAdapter({
-            validationReport: {
-                schemaVersion: 1,
-                passes: false,
-                severity: 'blocking',
-                score: 5,
-                structureWarnings: [],
-                missingSections: [],
-                unsupportedClaims: [],
-                editorialConflicts: [],
-                terminologyMismatches: [],
-                a11yWarnings: [],
-                tokenWarnings: [],
-                notes: [],
-            },
-        });
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+  it('allows publication when shadow mode is ON despite blocking severity', async () => {
+    const prev = process.env.AI_VALIDATION_SHADOW;
+    process.env.AI_VALIDATION_SHADOW = 'true';
 
-        const completed = store.findById(job.id);
-        assert.ok(completed);
-        assert.equal(completed?.canPublish, true, 'Shadow mode should allow publication despite blocking');
-
-        if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
-        else delete process.env.AI_VALIDATION_SHADOW;
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
     });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
 
-    it('fail-open: validation failure does not block publication', async () => {
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: false,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
-
-        const adapter = create3StageAdapter({ validationFail: true });
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
-
-        const completed = store.findById(job.id);
-        assert.ok(completed);
-        assert.equal(completed?.status, 'completed');
-        assert.equal(completed?.canPublish, true, 'Validation failure should not block publication');
-        assert.equal(completed?.validationReport, undefined, 'validationReport should be undefined on failure');
+    const adapter = create3StageAdapter({
+      validationReport: {
+        schemaVersion: 1,
+        passes: false,
+        severity: 'blocking',
+        score: 5,
+        structureWarnings: [],
+        missingSections: [],
+        unsupportedClaims: [],
+        editorialConflicts: [],
+        terminologyMismatches: [],
+        a11yWarnings: [],
+        tokenWarnings: [],
+        notes: [],
+      },
     });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
 
-    it('dry-run completes without LLM calls', async () => {
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: true,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.canPublish, true, 'Shadow mode should allow publication despite blocking');
 
-        const adapter = create3StageAdapter({});
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+    if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+    else delete process.env.AI_VALIDATION_SHADOW;
+  });
 
-        const completed = store.findById(job.id);
-        assert.ok(completed);
-        assert.equal(completed?.status, 'completed');
-        assert.equal(completed?.canPublish, true);
-        assert.equal(adapter.callCount(), 0, 'Dry-run should not call adapter');
+  it('fail-open: validation failure does not block publication', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
     });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
 
-    it('performs 3 adapter calls for full pipeline', async () => {
-        const store = new AiJobsStore();
-        const job = store.enqueue({
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '68:4097',
-            dryRun: false,
-        });
-        const dequeued = store.tryDequeue('anthropic');
-        assert.ok(dequeued);
+    const adapter = create3StageAdapter({ validationFail: true });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
 
-        const calls: number[] = [];
-        const adapter = create3StageAdapter({
-            onCall: (idx) => calls.push(idx),
-        });
-        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.canPublish, true, 'Validation failure should not block publication');
+    assert.equal(completed?.validationReport, undefined, 'validationReport should be undefined on failure');
+  });
 
-        assert.equal(calls.length, 3, 'Should make exactly 3 LLM calls');
-        assert.deepEqual(calls, [1, 2, 3]);
+  it('dry-run completes without LLM calls', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: true,
     });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    const adapter = create3StageAdapter({});
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.canPublish, true);
+    assert.equal(adapter.callCount(), 0, 'Dry-run should not call adapter');
+  });
+
+  it('performs 3 adapter calls for full pipeline', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    const calls: number[] = [];
+    const adapter = create3StageAdapter({
+      onCall: (idx) => calls.push(idx),
+    });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+    assert.equal(calls.length, 3, 'Should make exactly 3 LLM calls');
+    assert.deepEqual(calls, [1, 2, 3]);
+  });
 });

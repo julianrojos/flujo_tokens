@@ -302,6 +302,7 @@ export function normalizeVariablesMeta(result: GetVariablesDataResult): FigmaVar
       variableCollectionId: variable.variableCollectionId,
       resolvedType: variable.resolvedType,
       valuesByMode: variable.valuesByMode,
+      ...(typeof variable.key === 'string' ? { key: variable.key } : {}),
     };
   }
 
