@@ -896,10 +896,44 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             retryable: job.retryable,
             events: job.events,
             usage: job.usage,
+            hasEditorialPatch: !!job.editorialPatch,
+            validationReport: job.validationReport,
+            canPublish: job.canPublish,
+            pipelineStage: job.pipelineStage,
+            pipelineSeverity: job.pipelineSeverity,
+            pipelineScore: job.pipelineScore,
             createdAt: job.createdAt,
             updatedAt: job.updatedAt,
             done,
             nextCursor,
+        });
+    });
+
+    // GET /api/ai/jobs/:id/editorial-patch - Get full editorial patch payload
+    app.get('/api/ai/jobs/:id/editorial-patch', async (c) => {
+        // Auth check
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        const jobId = c.req.param('id');
+        const job = store.findById(jobId);
+
+        if (!job) {
+            return c.json(errorResponse('ai.job.not_found', 'Job not found'), 404);
+        }
+
+        if (!job.editorialPatch) {
+            return c.json(
+                errorResponse('ai.job.no_editorial_patch', 'Job has no editorial patch'),
+                404,
+            );
+        }
+
+        return c.json({
+            ok: true,
+            id: job.id,
+            editorialPatch: job.editorialPatch,
         });
     });
 
@@ -1062,6 +1096,17 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             );
         }
 
+        // Gate: enforce persisted publication decision from the pipeline.
+        if (job.canPublish === false) {
+            return c.json(
+                errorResponse(
+                    AI_ERROR_CODES.VALIDATION_BLOCKED.code,
+                    'ValidationReport severity: blocking — cannot apply documentation.',
+                ),
+                422,
+            );
+        }
+
         // Parse body
         let body: ApplyJobRequest;
         try {
@@ -1184,6 +1229,23 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             return c.json(
                 errorResponse('ai.job.no_editorial_patch', 'Job has no editorial patch to apply'),
                 400
+            );
+        }
+
+        // Gate: enforce persisted publication decision from the pipeline.
+        if (job.canPublish === false) {
+            const issues = job.validationReport
+                ? [
+                    ...job.validationReport.structureWarnings.map((warning) => warning.message),
+                    ...job.validationReport.unsupportedClaims.map((claim) => claim.claim),
+                ]
+                : [];
+            return c.json(
+                errorResponse(
+                    AI_ERROR_CODES.VALIDATION_BLOCKED.code,
+                    `ValidationReport severity: blocking — cannot publish. Issues: ${issues.slice(0, 3).join('; ')}`,
+                ),
+                422
             );
         }
 

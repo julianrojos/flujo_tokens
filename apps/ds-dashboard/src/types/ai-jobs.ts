@@ -2,6 +2,10 @@
  * Frontend types for AI Jobs
  * Mirrors the backend types from ai-component-doc-schema.ts
  */
+import type {
+    ValidationSeverity,
+    ValidationReport,
+} from '../../shared/ai-validation-types';
 
 // ============================================================================
 // Base Types
@@ -119,6 +123,22 @@ export interface ComponentDocToken {
     description?: string;
 }
 
+export interface ComponentDocState {
+    name: string;
+    description: string;
+}
+
+export interface AccessibilityFact {
+    fact: string;
+    source: 'spec' | 'inferred' | 'assumed';
+    wcagCriterion?: string;
+}
+
+export interface ComponentDocStructureWarning {
+    message: string;
+    section: string;
+}
+
 /**
  * Main output interface for AI-generated component documentation
  */
@@ -141,6 +161,16 @@ export interface ComponentDocOutput {
     accessibilityNotes: string[];
     /** Generated markdown */
     markdown: string;
+    /** Visual states of the component */
+    states: ComponentDocState[];
+    /** Verified accessibility facts */
+    accessibilityFacts: AccessibilityFact[];
+    /** Structural warning from extraction/validation */
+    structureWarning?: ComponentDocStructureWarning;
+    /** Confidence level of extraction */
+    confidence?: 'high' | 'medium' | 'low';
+    /** Unresolved questions for human review */
+    unresolvedQuestions?: string[];
     /** Additional metadata */
     metadata?: {
         generatedAt: string;
@@ -148,6 +178,8 @@ export interface ComponentDocOutput {
         model?: string;
     };
 }
+
+export type { ValidationSeverity, ValidationReport };
 
 // ============================================================================
 // API Response Types
@@ -167,10 +199,25 @@ export interface AiJobResponse {
     retryable?: boolean;
     events: AiJobEvent[];
     usage?: AiUsageMetrics;
+    hasEditorialPatch: boolean;
+    validationReport?: ValidationReport;
+    canPublish?: boolean;
+    pipelineStage?: 'extracting' | 'patching' | 'validating' | null;
+    pipelineSeverity?: ValidationSeverity;
+    pipelineScore?: number;
     createdAt: number;
     updatedAt: number;
     done: boolean;
     nextCursor: string | null;
+}
+
+/**
+ * Editorial patch payload from GET /api/ai/jobs/:id/editorial-patch
+ */
+export interface AiJobEditorialPatchResponse {
+    ok: boolean;
+    id: string;
+    editorialPatch: Record<string, unknown>;
 }
 
 /**

@@ -7,6 +7,7 @@ import { requestJson } from '@/lib/api';
 import { buildAiJobEventsUrl } from '@/types/ai-jobs';
 import type {
     AiJobResponse,
+    AiJobEditorialPatchResponse,
     CreateAiJobRequest,
     CreateAiJobResponse,
     AiDocStatusResponse,
@@ -36,6 +37,13 @@ export async function createAiJob(params: CreateAiJobRequest): Promise<CreateAiJ
  */
 export async function getAiJob(jobId: string): Promise<AiJobResponse> {
     return requestJson<AiJobResponse>(`/api/ai/jobs/${jobId}`);
+}
+
+/**
+ * Get full editorial patch payload for a completed job
+ */
+export async function getAiJobEditorialPatch(jobId: string): Promise<AiJobEditorialPatchResponse> {
+    return requestJson<AiJobEditorialPatchResponse>(`/api/ai/jobs/${jobId}/editorial-patch`);
 }
 
 /**

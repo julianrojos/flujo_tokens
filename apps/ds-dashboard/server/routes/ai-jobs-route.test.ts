@@ -401,7 +401,7 @@ describe('ai-jobs-route', () => {
                 dryRun: true,
             });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -410,6 +410,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -424,8 +426,107 @@ describe('ai-jobs-route', () => {
             const json = await res.json();
             assert.ok('done' in json);
             assert.ok('nextCursor' in json);
+            assert.ok('hasEditorialPatch' in json);
             assert.equal(json.done, true);
             assert.equal(json.nextCursor, null);
+            assert.equal(json.hasEditorialPatch, false);
+        });
+    });
+
+    describe('GET /api/ai/jobs/:id/editorial-patch', () => {
+        it('should return 404 for unknown job', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs/unknown-job-id/editorial-patch', {
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 404);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.job.not_found');
+        });
+
+        it('should return 404 when job has no editorial patch', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/editorial-patch`, {
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 404);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.job.no_editorial_patch');
+        });
+
+        it('should return full editorial patch payload when available', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const editorialPatch = {
+                schemaVersion: 2,
+                summary: { purpose: 'AI suggested purpose' },
+            };
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, editorialPatch);
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/editorial-patch`, {
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(json.id, job.id);
+            assert.deepEqual(json.editorialPatch, editorialPatch);
         });
     });
 
@@ -468,6 +569,117 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.job.not_completed');
         });
 
+        it('should reject with 422 when canPublish is false and shadow mode is OFF', async () => {
+            cleanupStore();
+            const prevShadow = process.env.AI_VALIDATION_SHADOW;
+            delete process.env.AI_VALIDATION_SHADOW;
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Blocked Apply Doc',
+                summary: 'Blocked',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Blocked',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            }, undefined, {
+                canPublish: false,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({ overwrite: true }),
+            });
+
+            assert.equal(res.status, 422);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.validation.blocked');
+
+            if (prevShadow !== undefined) {
+                process.env.AI_VALIDATION_SHADOW = prevShadow;
+            } else {
+                delete process.env.AI_VALIDATION_SHADOW;
+            }
+        });
+
+        it('should reject with 422 when canPublish is false even when shadow mode is ON', async () => {
+            cleanupStore();
+            const prevShadow = process.env.AI_VALIDATION_SHADOW;
+            process.env.AI_VALIDATION_SHADOW = 'true';
+            const app = createTestApp();
+            const store = getAiJobsStore();
+            const title = 'Blocked But Shadow On';
+            const filePath = path.join(
+                REPO_ROOT,
+                'design-systems/sys-test/docs/components/blocked-but-shadow-on.md',
+            );
+
+            await fs.rm(filePath, { force: true });
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title,
+                summary: 'Shadow mode',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            }, undefined, {
+                canPublish: false,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({ overwrite: true }),
+            });
+
+            assert.equal(res.status, 422);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.validation.blocked');
+
+            await fs.rm(filePath, { force: true });
+
+            if (prevShadow !== undefined) {
+                process.env.AI_VALIDATION_SHADOW = prevShadow;
+            } else {
+                delete process.env.AI_VALIDATION_SHADOW;
+            }
+        });
+
         it('should block path traversal in outputPath', async () => {
             cleanupStore();
             const app = createTestApp();
@@ -481,7 +693,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test Component',
                 summary: 'Test',
@@ -490,6 +702,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -522,7 +736,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test Component',
                 summary: 'Test',
@@ -531,6 +745,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -563,7 +779,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test Component',
                 summary: 'Test',
@@ -572,6 +788,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -611,7 +829,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title,
                 summary: 'Test',
@@ -620,6 +838,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# New Content',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 1,
                 completionTokens: 1,
@@ -663,7 +883,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title,
                 summary: 'Test',
@@ -672,6 +892,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# New Overwritten Content',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 1,
                 completionTokens: 1,
@@ -715,7 +937,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'System Scoped Doc',
                 summary: 'Test',
@@ -724,6 +946,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# System Scoped Doc',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 1,
                 completionTokens: 1,
@@ -800,7 +1024,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -809,6 +1033,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -1423,7 +1649,7 @@ describe('ai-jobs-route', () => {
             store.pushEvent(job.id, 'job.started', { message: 'Job started' });
             store.pushEvent(job.id, 'job.progress', { message: 'Processing...' });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -1432,6 +1658,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -1480,7 +1708,7 @@ describe('ai-jobs-route', () => {
             store.pushEvent(job.id, 'job.completed', { message: 'Done' });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -1489,6 +1717,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -1569,7 +1799,7 @@ describe('ai-jobs-route', () => {
             });
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test Component',
                 summary: 'A test component',
@@ -1577,7 +1807,9 @@ describe('ai-jobs-route', () => {
                 variants: [],
                 tokens: [],
                 accessibilityNotes: [],
-                markdown: '# Test Component\n\nThis is the generated documentation.',
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -1615,7 +1847,7 @@ describe('ai-jobs-route', () => {
                 systemId: 'sys-test',
             });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '1',
                 title: 'Test',
                 summary: 'Test',
@@ -1624,6 +1856,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 10,
                 completionTokens: 5,
@@ -1657,7 +1891,7 @@ describe('ai-jobs-route', () => {
             });
             // Complete without editorialPatch
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '1',
                 title: 'Test',
                 summary: 'Test',
@@ -1666,6 +1900,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 10,
                 completionTokens: 5,
@@ -1716,7 +1952,7 @@ describe('ai-jobs-route', () => {
                 systemId: 'sys-test',
             });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -1725,6 +1961,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 10,
                 completionTokens: 5,
@@ -1763,7 +2001,7 @@ describe('ai-jobs-route', () => {
                 systemId: 'sys-test',
             });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -1772,6 +2010,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 10,
                 completionTokens: 5,
@@ -1831,7 +2071,7 @@ describe('ai-jobs-route', () => {
                 systemId: 'sys-test',
             });
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Test',
                 summary: 'Test',
@@ -1840,6 +2080,8 @@ describe('ai-jobs-route', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 10,
                 completionTokens: 5,
@@ -1860,6 +2102,141 @@ describe('ai-jobs-route', () => {
             assert.equal(json.suggestionId, 77);
             assert.equal(json.status, 'pending');
             assert.equal(json.createdAt, 1700000000);
+        });
+
+        it('should reject with 422 when canPublish is false and shadow mode is OFF', async () => {
+            cleanupStore();
+            const prev = process.env.AI_VALIDATION_SHADOW;
+            delete process.env.AI_VALIDATION_SHADOW;
+            const app = createTestApp();
+
+            const store = getAiJobsStore();
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '1',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '1',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, {
+                schemaVersion: 2,
+                summary: { purpose: 'Test' },
+            }, {
+                validationReport: {
+                    schemaVersion: 1,
+                    passes: false,
+                    severity: 'blocking',
+                    score: 10,
+                    structureWarnings: [{ message: 'Missing summary', severity: 'blocking', section: 'summary' }],
+                    missingSections: [],
+                    unsupportedClaims: [{ claim: 'Claim X', evidence: 'None', source: 'extraction', severity: 'blocking' }],
+                    editorialConflicts: [],
+                    terminologyMismatches: [],
+                    a11yWarnings: [],
+                    tokenWarnings: [],
+                    notes: [],
+                },
+                canPublish: false,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 422);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.validation.blocked');
+            assert.ok(json.message.includes('blocking'), 'Message should mention blocking');
+
+            if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+            else delete process.env.AI_VALIDATION_SHADOW;
+        });
+
+        it('should reject with 422 when canPublish is false even when shadow mode is ON', async () => {
+            cleanupStore();
+            const prev = process.env.AI_VALIDATION_SHADOW;
+            process.env.AI_VALIDATION_SHADOW = 'true';
+
+            let upsertCalled = false;
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => ({ id: 123, slug: 'test-comp' }),
+                upsertEditorialSuggestion: () => {
+                    upsertCalled = true;
+                    return { id: 77, status: 'pending', createdAt: 1700000000 };
+                },
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '1',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '1',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, {
+                schemaVersion: 2,
+                summary: { purpose: 'Test' },
+            }, {
+                validationReport: {
+                    schemaVersion: 1,
+                    passes: false,
+                    severity: 'blocking',
+                    score: 5,
+                    structureWarnings: [],
+                    missingSections: [],
+                    unsupportedClaims: [],
+                    editorialConflicts: [],
+                    terminologyMismatches: [],
+                    a11yWarnings: [],
+                    tokenWarnings: [],
+                    notes: [],
+                },
+                canPublish: false,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 422);
+            assert.equal(upsertCalled, false, 'upsertEditorialSuggestion should not be called when blocked');
+
+            if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+            else delete process.env.AI_VALIDATION_SHADOW;
         });
     });
 
