@@ -1,0 +1,86 @@
+---
+description: Inclusive documentation contract combining accessibility and internationalization requirements for markdown docs and component specs.
+globs:
+  - "docs/components/*.md"
+  - "docs/foundations/*.md"
+  - "docs/workflows/**/*.md"
+  - "docs/_spec/components/*.yml"
+---
+
+# Inclusive documentation
+
+This rule is the canonical inclusive-content contract for docs: accessibility + internationalization/localization.
+
+## Accessibility
+
+Every component doc `## Accessibility` section and every spec YAML `accessibility` field must cover:
+
+1. ARIA role and semantics.
+2. Keyboard navigation.
+3. Focus management.
+4. Labeling.
+5. Contrast and visibility.
+
+If an item does not apply, state it explicitly (do not omit).
+
+Required guidance:
+
+- State expected role/semantic element and required ARIA attributes.
+- Document relevant keyboard interactions only.
+- Describe focus behavior on open/close and return-to-trigger behavior when applicable.
+- Document accessible naming strategy (`aria-label`, `aria-labelledby`, `aria-describedby`).
+- Do not claim WCAG compliance without verification; use `TBD (pending audit)` when unknown.
+
+Hit area requirements for interactive components:
+
+- Document minimum interactive target size using the design-system baseline.
+- For non-interactive components, hit-area details may be omitted.
+
+Spec YAML minimum shape:
+
+```yaml
+accessibility:
+  role: <ARIA role or TBD>
+  focus:
+    behavior: <expected behavior or TBD>
+  hit_area: <minimum target guidance or TBD>
+  labeling:
+    rules:
+      - <rule or TBD>
+```
+
+## Internationalization and localization
+
+Documentation must describe behavior under language, locale, and directionality changes.
+
+Component pages:
+
+- `## Usage Guidelines` -> `### Behavior` must address RTL/LTR behavior, text expansion/compression risk, and locale-dependent formats where applicable.
+- Unknown values must be `TBD` and mirrored in `## Gaps / TBD`.
+
+Pattern/workflow pages:
+
+- Include i18n/l10n decision notes:
+  - what mirrors in RTL,
+  - what must not mirror,
+  - string-length stress cases,
+  - locale format dependencies.
+- Include at least one localization failure mode and expected fallback.
+
+Foundation pages:
+
+- For typography/content-related foundations, include text expansion guidance, non-Latin line-height implications, and truncation policy references when available.
+
+Motion and zoom resilience:
+
+- For interactive patterns/components, document expected behavior under:
+  - `prefers-reduced-motion`,
+  - zoomed layouts (200% baseline).
+- If not verified, use `TBD (pending i18n/a11y verification)`.
+
+## Prohibited claims
+
+- Do not assert WCAG levels (AA/AAA) without a completed audit.
+- Do not invent contrast ratios; use tool output or `TBD`.
+- Do not imply i18n/RTL readiness without explicit behavior notes.
+- Do not claim localization readiness solely from token support.

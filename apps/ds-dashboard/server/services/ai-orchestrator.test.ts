@@ -287,7 +287,7 @@ describe('ai-orchestrator pipeline', () => {
       generate: async () => ({
         rawText: '{...}',
         parsedJson: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           componentId: '68:4097',
           title: 'Button',
           summary: 'Summary',
@@ -296,6 +296,8 @@ describe('ai-orchestrator pipeline', () => {
           tokens: [],
           accessibilityNotes: [],
           markdown: '',
+          states: [],
+          accessibilityFacts: [],
         },
         usage: { promptTokens: 10, completionTokens: 20, durationMs: 100 },
       }),
@@ -336,7 +338,7 @@ describe('ai-orchestrator pipeline', () => {
       generate: async () => ({
         rawText: '{...}',
         parsedJson: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           componentId: '68:4097',
           title: 'Button',
           summary: 'Summary',
@@ -345,6 +347,8 @@ describe('ai-orchestrator pipeline', () => {
           tokens: [],
           accessibilityNotes: [],
           markdown: '',
+          states: [],
+          accessibilityFacts: [],
         },
         usage: { promptTokens: 123, completionTokens: 45, durationMs: 678 },
       }),
@@ -429,7 +433,7 @@ describe('ai-orchestrator pipeline', () => {
           return {
             rawText: '{...}',
             parsedJson: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
@@ -438,14 +442,36 @@ describe('ai-orchestrator pipeline', () => {
               tokens: [],
               accessibilityNotes: [],
               markdown: '',
+              states: [],
+              accessibilityFacts: [],
             },
             usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
           };
         }
+        if (adapterCalls === 2) {
+          return {
+            rawText: '{...}',
+            parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          };
+        }
         return {
           rawText: '{...}',
-          parsedJson: { schemaVersion: 1, summary: { purpose: 'Enhanced summary' } },
-          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          parsedJson: {
+            schemaVersion: 1,
+            passes: true,
+            severity: 'info',
+            score: 100,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
+          },
+          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
         };
       },
     };
@@ -463,7 +489,7 @@ describe('ai-orchestrator pipeline', () => {
 
     assert.equal(store.findById(job.id)?.status, 'completed');
     assert.equal(editorialCalls, 1);
-    assert.equal(adapterCalls, 2);
+    assert.equal(adapterCalls, 3);
     assert.ok(store.findById(job.id)?.editorialPatch, 'editorialPatch should be set after pipeline');
     assert.equal(store.findById(job.id)?.editorialPatch?.summary?.purpose, 'Enhanced summary');
   });
@@ -521,7 +547,7 @@ describe('ai-orchestrator policyContext', () => {
           return {
             rawText: '{...}',
             parsedJson: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               summary: { purpose: 'Enhanced purpose' },
             },
             usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
@@ -530,7 +556,7 @@ describe('ai-orchestrator policyContext', () => {
         return {
           rawText: '{...}',
           parsedJson: {
-            schemaVersion: 1,
+            schemaVersion: 2,
             componentId: '68:4097',
             title: 'Button',
             summary: 'Summary',
@@ -539,6 +565,8 @@ describe('ai-orchestrator policyContext', () => {
             tokens: [],
             accessibilityNotes: [],
             markdown: '',
+            states: [],
+            accessibilityFacts: [],
           },
           usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
         };
@@ -578,18 +606,16 @@ describe('ai-orchestrator policyContext', () => {
     assert.ok(dequeued);
 
     let generationSystemPrompt: string | undefined;
+    let adapterCalls = 0;
     const adapter = {
       generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
-        const schemaProperties = (
-          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
-        ) ?? {};
-        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
-        if (!isEditorialPatchCall) {
+        adapterCalls += 1;
+        if (adapterCalls === 1) {
           generationSystemPrompt = input.systemPrompt;
           return {
             rawText: '{...}',
             parsedJson: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
@@ -598,17 +624,39 @@ describe('ai-orchestrator policyContext', () => {
               tokens: [],
               accessibilityNotes: [],
               markdown: '',
+              states: [],
+              accessibilityFacts: [],
             },
             usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        if (adapterCalls === 2) {
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 2,
+              summary: { purpose: 'Enhanced purpose' },
+            },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
           };
         }
         return {
           rawText: '{...}',
           parsedJson: {
             schemaVersion: 1,
-            summary: { purpose: 'Enhanced purpose' },
+            passes: true,
+            severity: 'info',
+            score: 90,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
           },
-          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
         };
       },
     };
@@ -646,18 +694,16 @@ describe('ai-orchestrator policyContext', () => {
     assert.ok(dequeued);
 
     let generationSystemPrompt: string | undefined;
+    let adapterCalls = 0;
     const adapter = {
       generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
-        const schemaProperties = (
-          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
-        ) ?? {};
-        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
-        if (!isEditorialPatchCall) {
+        adapterCalls += 1;
+        if (adapterCalls === 1) {
           generationSystemPrompt = input.systemPrompt;
           return {
             rawText: '{...}',
             parsedJson: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
@@ -666,17 +712,39 @@ describe('ai-orchestrator policyContext', () => {
               tokens: [],
               accessibilityNotes: [],
               markdown: '',
+              states: [],
+              accessibilityFacts: [],
             },
             usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        if (adapterCalls === 2) {
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 2,
+              summary: { purpose: 'Enhanced purpose' },
+            },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
           };
         }
         return {
           rawText: '{...}',
           parsedJson: {
             schemaVersion: 1,
-            summary: { purpose: 'Enhanced purpose' },
+            passes: true,
+            severity: 'info',
+            score: 95,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
           },
-          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
         };
       },
     };
@@ -712,18 +780,16 @@ describe('ai-orchestrator policyContext', () => {
     assert.ok(dequeued);
 
     let generationSystemPrompt: string | undefined;
+    let adapterCalls = 0;
     const adapter = {
       generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
-        const schemaProperties = (
-          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
-        ) ?? {};
-        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
-        if (!isEditorialPatchCall) {
+        adapterCalls += 1;
+        if (adapterCalls === 1) {
           generationSystemPrompt = input.systemPrompt;
           return {
             rawText: '{...}',
             parsedJson: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
@@ -732,17 +798,39 @@ describe('ai-orchestrator policyContext', () => {
               tokens: [],
               accessibilityNotes: [],
               markdown: '',
+              states: [],
+              accessibilityFacts: [],
             },
             usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        if (adapterCalls === 2) {
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 2,
+              summary: { purpose: 'Enhanced purpose' },
+            },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
           };
         }
         return {
           rawText: '{...}',
           parsedJson: {
             schemaVersion: 1,
-            summary: { purpose: 'Enhanced purpose' },
+            passes: true,
+            severity: 'info',
+            score: 95,
+            structureWarnings: [],
+            missingSections: [],
+            unsupportedClaims: [],
+            editorialConflicts: [],
+            terminologyMismatches: [],
+            a11yWarnings: [],
+            tokenWarnings: [],
+            notes: [],
           },
-          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
         };
       },
     };
@@ -762,4 +850,282 @@ describe('ai-orchestrator policyContext', () => {
     assert.ok(generationSystemPrompt!.includes('[source: test > Tone policy]'));
     assert.match(generationSystemPrompt!, /Editorial Style Guidelines/);
   });
+
+  it('invokes getPolicyContextOverride once per stage (extraction, editorial, validation)', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    const requestedStages: Array<'extraction' | 'editorial' | 'validation'> = [];
+    const adapter = create3StageAdapter({});
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      undefined,
+      async (stage) => {
+        requestedStages.push(stage);
+        return `[source: test > ${stage}]\nStage-specific policy context`;
+      },
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.deepEqual(requestedStages, ['extraction', 'editorial', 'validation']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3-stage pipeline tests
+// ---------------------------------------------------------------------------
+
+function create3StageAdapter(options: {
+    validationReport?: Record<string, unknown>;
+    validationFail?: boolean;
+    onCall?: (callIndex: number, input: Record<string, unknown>) => void;
+}) {
+    let callIndex = 0;
+    return {
+        callCount: () => callIndex,
+        generate: async (input: { systemPrompt: string; userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+            callIndex += 1;
+            options.onCall?.(callIndex, input);
+            const schemaProperties = (
+                (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+            ) ?? {};
+            const isValidationCall = 'passes' in schemaProperties && 'severity' in schemaProperties;
+            const isEditorialCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+
+            if (isValidationCall) {
+                if (options.validationFail) {
+                    throw new Error('Validation LLM failed');
+                }
+                return {
+                    rawText: '{...}',
+                    parsedJson: options.validationReport ?? {
+                        schemaVersion: 1,
+                        passes: true,
+                        severity: 'info',
+                        score: 85,
+                        structureWarnings: [],
+                        missingSections: [],
+                        unsupportedClaims: [],
+                        editorialConflicts: [],
+                        terminologyMismatches: [],
+                        a11yWarnings: [],
+                        tokenWarnings: [],
+                        notes: [],
+                    },
+                    usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+                };
+            }
+            if (isEditorialCall) {
+                return {
+                    rawText: '{...}',
+                    parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
+                    usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+                };
+            }
+            // Generation call
+            return {
+                rawText: '{...}',
+                parsedJson: {
+                    schemaVersion: 2,
+                    componentId: '68:4097',
+                    title: 'Button',
+                    summary: 'Summary',
+                    anatomy: [],
+                    variants: [],
+                    tokens: [],
+                    accessibilityNotes: [],
+                    markdown: '',
+                    states: [],
+                    accessibilityFacts: [],
+                },
+                usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+            };
+        },
+    };
+}
+
+describe('3-stage pipeline', () => {
+    beforeEach(() => {
+        resetPromptPolicyCacheForTests();
+    });
+
+    it('completes with canPublish=true when validation passes', async () => {
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: false,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const adapter = create3StageAdapter({});
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        const completed = store.findById(job.id);
+        assert.ok(completed);
+        assert.equal(completed?.status, 'completed');
+        assert.equal(completed?.canPublish, true);
+        assert.ok(completed?.validationReport, 'validationReport should be set');
+        assert.equal(completed?.pipelineSeverity, 'info');
+        assert.equal(completed?.pipelineScore, 85);
+    });
+
+    it('blocks publication when severity is blocking and shadow mode is OFF', async () => {
+        const prev = process.env.AI_VALIDATION_SHADOW;
+        delete process.env.AI_VALIDATION_SHADOW;
+
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: false,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const adapter = create3StageAdapter({
+            validationReport: {
+                schemaVersion: 1,
+                passes: false,
+                severity: 'blocking',
+                score: 10,
+                structureWarnings: [{ message: 'Missing summary', severity: 'blocking', section: 'summary' }],
+                missingSections: [],
+                unsupportedClaims: [],
+                editorialConflicts: [],
+                terminologyMismatches: [],
+                a11yWarnings: [],
+                tokenWarnings: [],
+                notes: ['Blocking issues found'],
+            },
+        });
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        const completed = store.findById(job.id);
+        assert.ok(completed);
+        assert.equal(completed?.status, 'completed');
+        assert.equal(completed?.canPublish, false);
+        assert.equal(completed?.pipelineSeverity, 'blocking');
+
+        if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+        else delete process.env.AI_VALIDATION_SHADOW;
+    });
+
+    it('allows publication when shadow mode is ON despite blocking severity', async () => {
+        const prev = process.env.AI_VALIDATION_SHADOW;
+        process.env.AI_VALIDATION_SHADOW = 'true';
+
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: false,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const adapter = create3StageAdapter({
+            validationReport: {
+                schemaVersion: 1,
+                passes: false,
+                severity: 'blocking',
+                score: 5,
+                structureWarnings: [],
+                missingSections: [],
+                unsupportedClaims: [],
+                editorialConflicts: [],
+                terminologyMismatches: [],
+                a11yWarnings: [],
+                tokenWarnings: [],
+                notes: [],
+            },
+        });
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        const completed = store.findById(job.id);
+        assert.ok(completed);
+        assert.equal(completed?.canPublish, true, 'Shadow mode should allow publication despite blocking');
+
+        if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+        else delete process.env.AI_VALIDATION_SHADOW;
+    });
+
+    it('fail-open: validation failure does not block publication', async () => {
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: false,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const adapter = create3StageAdapter({ validationFail: true });
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        const completed = store.findById(job.id);
+        assert.ok(completed);
+        assert.equal(completed?.status, 'completed');
+        assert.equal(completed?.canPublish, true, 'Validation failure should not block publication');
+        assert.equal(completed?.validationReport, undefined, 'validationReport should be undefined on failure');
+    });
+
+    it('dry-run completes without LLM calls', async () => {
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: true,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const adapter = create3StageAdapter({});
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        const completed = store.findById(job.id);
+        assert.ok(completed);
+        assert.equal(completed?.status, 'completed');
+        assert.equal(completed?.canPublish, true);
+        assert.equal(adapter.callCount(), 0, 'Dry-run should not call adapter');
+    });
+
+    it('performs 3 adapter calls for full pipeline', async () => {
+        const store = new AiJobsStore();
+        const job = store.enqueue({
+            type: 'GENERATE_COMPONENT_DOC',
+            provider: 'anthropic',
+            componentId: '68:4097',
+            dryRun: false,
+        });
+        const dequeued = store.tryDequeue('anthropic');
+        assert.ok(dequeued);
+
+        const calls: number[] = [];
+        const adapter = create3StageAdapter({
+            onCall: (idx) => calls.push(idx),
+        });
+        await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+        assert.equal(calls.length, 3, 'Should make exactly 3 LLM calls');
+        assert.deepEqual(calls, [1, 2, 3]);
+    });
 });

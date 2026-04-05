@@ -12,6 +12,7 @@ import type {
     AiUsageMetrics,
 } from './ai-component-doc-schema.js';
 import type { EditorialPatch } from './ai-editorial-patch-schema.js';
+import type { ValidationReport } from './ai-validation-report-schema.js';
 import type { AiProviderName } from './ai-provider.js';
 
 /**
@@ -264,6 +265,22 @@ export class AiJobsStore {
     }
 
     /**
+     * Update the pipeline stage for a job
+     * @param jobId - Job ID
+     * @param stage - Pipeline stage
+     */
+    setPipelineStage(jobId: string, stage: 'extracting' | 'patching' | 'validating'): void {
+        const job = this.jobs.get(jobId);
+        if (!job) {
+            return;
+        }
+
+        job.pipelineStage = stage;
+        job.updatedAt = Date.now();
+        this.pushEvent(job.id, `pipeline.stage_${stage}`, {});
+    }
+
+    /**
      * Get prompt for a job
      * @param jobId - Job ID
      * @returns Redacted prompt or undefined
@@ -277,23 +294,54 @@ export class AiJobsStore {
      * @param jobId - Job ID
      * @param output - Generated output
      * @param usage - Usage metrics
+     * @param editorialPatch - Optional editorial patch
+     * @param options - Optional validation report and publish gate
      */
-    complete(jobId: string, output: ComponentDocOutput, usage: AiUsageMetrics, editorialPatch?: EditorialPatch): void {
+    complete(
+        jobId: string,
+        output: ComponentDocOutput,
+        usage: AiUsageMetrics,
+        editorialPatch?: EditorialPatch,
+        options?: {
+            validationReport?: ValidationReport;
+            canPublish?: boolean;
+            pipelineSeverity?: 'blocking' | 'warning' | 'info';
+            pipelineScore?: number;
+        },
+    ): void {
         const job = this.jobs.get(jobId);
         if (!job) {
             return;
         }
 
+        // Pipeline stage is transient runtime state; clear it on terminal completion.
+        job.pipelineStage = null;
         job.status = 'completed';
         job.output = output;
         job.usage = usage;
         job.editorialPatch = editorialPatch;
+        if (options?.validationReport !== undefined) {
+            job.validationReport = options.validationReport;
+        }
+        if (options?.canPublish !== undefined) {
+            job.canPublish = options.canPublish;
+        }
+        if (options?.pipelineSeverity !== undefined) {
+            job.pipelineSeverity = options.pipelineSeverity;
+        }
+        if (options?.pipelineScore !== undefined) {
+            job.pipelineScore = options.pipelineScore;
+        }
         job.updatedAt = Date.now();
 
         this.pushEvent(job.id, 'job.completed', {
             hasOutput: !!output,
             usage,
             hasEditorialPatch: !!editorialPatch,
+            hasValidationReport: !!options?.validationReport,
+            canPublish: options?.canPublish,
+            pipelineSeverity: options?.pipelineSeverity,
+            pipelineScore: options?.pipelineScore,
         });
     }
 

@@ -6,7 +6,7 @@
  * Each section maps to columns in component_editorial or component_editorial_suggestions.
  */
 
-export const EDITORIAL_PATCH_SCHEMA_VERSION = 1 as const;
+export const EDITORIAL_PATCH_SCHEMA_VERSION = 2 as const;
 
 export interface EditorialPatch {
   schemaVersion: typeof EDITORIAL_PATCH_SCHEMA_VERSION;

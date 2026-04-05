@@ -22,7 +22,7 @@ function makeInput(overrides: Partial<AiJobInput> = {}): AiJobInput {
 
 function makeOutput(): ComponentDocOutput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     componentId: '68:1',
     title: 'Test',
     summary: 'Test',
@@ -31,6 +31,8 @@ function makeOutput(): ComponentDocOutput {
     tokens: [],
     accessibilityNotes: [],
     markdown: '# Test',
+    states: [],
+    accessibilityFacts: [],
   };
 }
 
@@ -404,7 +406,7 @@ describe('ai-jobs-store', () => {
       store.tryDequeue('anthropic');
 
       const output = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         componentId: '68:1',
         title: 'Test',
         summary: 'Test',
@@ -413,6 +415,8 @@ describe('ai-jobs-store', () => {
         tokens: [],
         accessibilityNotes: [],
         markdown: '# Test',
+        states: [],
+        accessibilityFacts: [],
       };
 
       const usage = {
@@ -433,6 +437,74 @@ describe('ai-jobs-store', () => {
       assert.doesNotThrow(() => {
         store.complete('non-existent', {} as any, {} as any);
       });
+    });
+
+    it('should store validationReport and canPublish when provided in options', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+
+      const output = makeOutput();
+      const usage = makeUsage();
+      const editorialPatch = {
+        schemaVersion: 2 as const,
+        summary: { purpose: 'Test' },
+      };
+      const validationReport = {
+        schemaVersion: 1,
+        passes: true,
+        severity: 'info' as const,
+        score: 90,
+        structureWarnings: [],
+        missingSections: [],
+        unsupportedClaims: [],
+        editorialConflicts: [],
+        terminologyMismatches: [],
+        a11yWarnings: [],
+        tokenWarnings: [],
+        notes: [],
+      };
+
+      store.complete(job.id, output, usage, editorialPatch, {
+        validationReport,
+        canPublish: true,
+        pipelineSeverity: 'info',
+        pipelineScore: 90,
+      });
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.status, 'completed');
+      assert.equal(completedJob?.canPublish, true);
+      assert.equal(completedJob?.pipelineSeverity, 'info');
+      assert.equal(completedJob?.pipelineScore, 90);
+      assert.deepEqual(completedJob?.validationReport, validationReport);
+      assert.equal(completedJob?.editorialPatch, editorialPatch);
+    });
+
+    it('should set canPublish to false when validation blocks', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+
+      const output = makeOutput();
+      const usage = makeUsage();
+
+      store.complete(job.id, output, usage, undefined, {
+        canPublish: false,
+      });
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.canPublish, false);
+    });
+
+    it('should clear pipelineStage when job completes', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+      store.setPipelineStage(job.id, 'validating');
+
+      store.complete(job.id, makeOutput(), makeUsage());
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.status, 'completed');
+      assert.equal(completedJob?.pipelineStage, null);
     });
   });
 

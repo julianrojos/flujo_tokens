@@ -25,13 +25,24 @@ import { validateEditorialPatch, EDITORIAL_PATCH_JSON_SCHEMA } from './ai-editor
 import { renderComponentDoc } from './ai-component-doc-renderer.js';
 import type { AiJobsStore } from './ai-jobs-store.js';
 import { getComponentSpecDirect } from './figma-direct-bridge-service.js';
-import { buildPromptPolicyContext } from './ai-prompt-policy.js';
+import { buildPromptPolicyContext, type PolicyCallStage } from './ai-prompt-policy.js';
+import type { ValidationReport } from './ai-validation-report-schema.js';
+import { validateValidationReport, VALIDATION_REPORT_JSON_SCHEMA } from './ai-validation-report-schema.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
-if (!fs.existsSync(path.join(REPO_ROOT, '.agents', 'rules'))) {
-    console.warn('[ai-orchestrator] REPO_ROOT may be incorrect: .agents/rules not found at', REPO_ROOT);
+const AI_CONTEXT_PATH = path.join(REPO_ROOT, 'apps', 'ds-dashboard', 'ai-context');
+if (!fs.existsSync(AI_CONTEXT_PATH)) {
+    console.warn(
+        '[ai-orchestrator] REPO_ROOT may be incorrect: apps/ds-dashboard/ai-context not found at',
+        REPO_ROOT,
+    );
+}
+
+/** Shadow mode: validation runs but never blocks publication */
+function isValidationShadowMode(): boolean {
+    return process.env.AI_VALIDATION_SHADOW === 'true';
 }
 
 /**
@@ -48,7 +59,9 @@ const DEFAULT_JOB_TIMEOUT_MS = 90000;
  * Default Ollama job timeout in milliseconds (120 seconds)
  */
 const DEFAULT_OLLAMA_TIMEOUT_MS = 120000;
+const DEFAULT_STAGE_TIMEOUT_MS = 30000;
 const EDITORIAL_GUIDELINES_HEADING = '## Editorial Style Guidelines';
+type PolicyContextOverride = (stage: PolicyCallStage) => Promise<string>;
 
 const DEFAULT_USER_PROMPT_TEMPLATE = `Generate component documentation for Figma component ID: {{componentId}}
 
@@ -87,6 +100,15 @@ function getJobTimeout(provider: AiProviderName): number {
         if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     return DEFAULT_JOB_TIMEOUT_MS;
+}
+
+function getStageTimeoutCapMs(): number {
+    const envTimeout = process.env.AI_VALIDATION_TIMEOUT_MS;
+    if (envTimeout) {
+        const parsed = parseInt(envTimeout, 10);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return DEFAULT_STAGE_TIMEOUT_MS;
 }
 
 /**
@@ -440,7 +462,7 @@ function truncateJsonStringValues(value: unknown, maxStringLength: number): unkn
  */
 function createDryRunOutput(componentId: string, name?: string): ComponentDocOutput {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         componentId,
         title: `[DRY RUN] ${name || 'Unknown Component'}`,
         summary: 'This is a dry-run placeholder output - no actual LLM call was made.',
@@ -449,6 +471,8 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
         tokens: [],
         accessibilityNotes: [],
         markdown: '',
+        states: [],
+        accessibilityFacts: [],
         metadata: {
             generatedAt: new Date().toISOString(),
             provider: 'dry-run',
@@ -465,6 +489,110 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
  */
 
 /**
+ * Build validation prompt for the 3rd LLM call.
+ * Takes both artefacts and asks the LLM to validate consistency and quality.
+ */
+function buildValidationPrompt(
+    docOutput: ComponentDocOutput,
+    editorialPatch: EditorialPatch | null,
+    policyContext?: string,
+): string {
+    // policyContext is already stage-budgeted/truncated by buildPromptPolicyContext('validation').
+    const policyGuidance = policyContext && policyContext.length > 0
+        ? `\n\nVALIDATION STYLE GUIDELINES (apply to all output):\n${policyContext}`
+        : '';
+    const editorialContext = editorialPatch
+        ? `\n\nEDITORIAL PATCH (to check for contradictions):\n${stringifyJsonForPrompt(editorialPatch, 4000)}`
+        : '';
+
+    return `You are an expert design system quality inspector. Review the generated component documentation below and produce a ValidationReport that identifies any issues.${policyGuidance}
+
+Focus on:
+- Structural completeness: all required sections present and populated
+- Consistency between extraction and editorial patch (no contradictions)
+- Unsupported claims not backed by Figma spec
+- Terminology matching the design system's canonical terms
+- Accessibility: claims presented as "verified" when only inferred/assumed
+- Token usage warnings for non-standard patterns
+
+COMPONENT DOCUMENTATION:
+${stringifyJsonForPrompt({
+        title: docOutput.title,
+        summary: docOutput.summary,
+        anatomy: docOutput.anatomy?.slice(0, 10),
+        variants: docOutput.variants?.slice(0, 5),
+        tokens: docOutput.tokens?.slice(0, 10),
+        states: docOutput.states?.slice(0, 10),
+        accessibilityNotes: docOutput.accessibilityNotes,
+        accessibilityFacts: docOutput.accessibilityFacts,
+    }, 8000)}
+${editorialContext}
+
+Respond with a valid JSON object matching the ValidationReport schema exactly.`;
+}
+
+/**
+ * Generate a ValidationReport via a 3rd LLM call.
+ * Fail-open: if validation fails, job still completes but without a report.
+ */
+async function generateValidationReport(
+    job: AiJobState,
+    docOutput: ComponentDocOutput,
+    editorialPatch: EditorialPatch | undefined,
+    store: AiJobsStore,
+    adapterOverride?: { generate: (input: unknown) => Promise<unknown> },
+    getPolicyContextOverride?: PolicyContextOverride,
+): Promise<ValidationReport | undefined> {
+    const validationTimeout = Math.min(getJobTimeout(job.input.provider), getStageTimeoutCapMs());
+
+    store.pushEvent(job.id, 'validation.report_calling', { timeoutMs: validationTimeout });
+
+    try {
+        const policyContext = getPolicyContextOverride
+            ? await getPolicyContextOverride('validation')
+            : await buildPromptPolicyContext(REPO_ROOT, 'validation');
+
+        const adapter = adapterOverride ?? resolveAdapter(job.input.provider);
+        const userPrompt = buildValidationPrompt(docOutput, editorialPatch ?? null, policyContext);
+
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = globalThis.setTimeout(() => reject(new Error('Validation report LLM call timed out')), validationTimeout);
+        });
+
+        const result = await Promise.race([
+            adapter.generate({
+                systemPrompt: 'You are a JSON-only assistant. Respond with valid JSON matching the schema exactly. No explanations.',
+                userPrompt,
+                jsonSchema: VALIDATION_REPORT_JSON_SCHEMA as Record<string, unknown>,
+                model: job.input.model,
+                timeoutMs: validationTimeout,
+            }),
+            timeoutPromise,
+        ]).finally(() => {
+            if (timeoutId) globalThis.clearTimeout(timeoutId);
+        }) as AiProviderResult;
+
+        store.pushEvent(job.id, 'validation.report_received', {
+            durationMs: result.usage.durationMs,
+        });
+
+        const validated = validateValidationReport(result.parsedJson);
+        if (!validated.valid) {
+            throw new Error(`Validation report validation failed: ${validated.errors.map((e) => `${e.path}: ${e.message}`).join(', ')}`);
+        }
+
+        store.pushEvent(job.id, 'validation.report_validated', {});
+        return validated.report;
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        store.pushEvent(job.id, 'validation.report_failed', { reason: msg });
+        console.warn(`[ai-orchestrator] Validation report generation failed: ${msg}`);
+        return undefined;
+    }
+}
+
+/**
  * Generate an EditorialPatch via a 2nd LLM call.
  * Fail-open: callers catch errors and continue without the patch.
  */
@@ -474,11 +602,15 @@ async function generateEditorialPatch(
     store: AiJobsStore,
     adapterOverride?: { generate: (input: unknown) => Promise<unknown> },
     existingEditorial?: Record<string, unknown> | null,
-    policyContext?: string,
+    getPolicyContextOverride?: PolicyContextOverride,
 ): Promise<EditorialPatch | undefined> {
-    const patchTimeout = Math.min(getJobTimeout(job.input.provider), 30000);
+    const patchTimeout = Math.min(getJobTimeout(job.input.provider), getStageTimeoutCapMs());
 
     store.pushEvent(job.id, 'editorial.patch_calling', { timeoutMs: patchTimeout });
+
+    const policyContext = getPolicyContextOverride
+        ? await getPolicyContextOverride('editorial')
+        : await buildPromptPolicyContext(REPO_ROOT, 'editorial');
 
     const adapter = adapterOverride ?? resolveAdapter(job.input.provider);
     const userPrompt = buildEditorialPatchPrompt(docOutput, existingEditorial ?? null, policyContext);
@@ -520,7 +652,7 @@ export async function runGenerateComponentDoc(
     adapterOverride?: { generate: (input: any) => Promise<any> },
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
     getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>,
-    getPolicyContextOverride?: () => Promise<string>,
+    getPolicyContextOverride?: PolicyContextOverride,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -573,8 +705,8 @@ export async function runGenerateComponentDoc(
             existingEditorial = await getExistingEditorialOverride();
         }
         const policyContext = getPolicyContextOverride
-            ? await getPolicyContextOverride()
-            : await buildPromptPolicyContext(REPO_ROOT);
+            ? await getPolicyContextOverride('extraction')
+            : await buildPromptPolicyContext(REPO_ROOT, 'extraction');
         const customSystemPrompt = String(job.input.systemPrompt || '').trim();
         const systemPrompt = customSystemPrompt.length > 0
             ? appendPolicyContext(customSystemPrompt, policyContext)
@@ -591,6 +723,9 @@ export async function runGenerateComponentDoc(
 
         let output: ComponentDocOutput;
         let usage: { promptTokens: number; completionTokens: number; durationMs: number };
+
+        // Stage 1: Extraction — mark and execute
+        store.setPipelineStage(job.id, 'extracting');
 
         // Step 4: LLM call (or skip for dry-run)
         if (job.input.dryRun) {
@@ -679,11 +814,19 @@ export async function runGenerateComponentDoc(
         output.markdown = rendered;
         store.pushEvent(job.id, 'render.completed', { charCount: rendered.length });
 
-        // Step 6b: Generate editorial patch (fail-open — does not block job completion)
+        // Stage 2: Editorial patch (fail-open — does not block job completion)
+        store.setPipelineStage(job.id, 'patching');
         let editorialPatch: EditorialPatch | undefined;
         if (!job.input.dryRun) {
             try {
-                editorialPatch = await generateEditorialPatch(job, output, store, adapterOverride, existingEditorial, policyContext);
+                editorialPatch = await generateEditorialPatch(
+                    job,
+                    output,
+                    store,
+                    adapterOverride,
+                    existingEditorial,
+                    getPolicyContextOverride,
+                );
             } catch (patchError) {
                 // Fail-open: log but do not block job completion
                 const msg = patchError instanceof Error ? patchError.message : String(patchError);
@@ -691,9 +834,34 @@ export async function runGenerateComponentDoc(
             }
         }
 
-        // Step 7: Complete with usage metrics and optional editorial patch
-        store.complete(job.id, output, usage, editorialPatch);
-        store.pushEvent(job.id, 'job.completed', { hasOutput: !!output, usage, hasEditorialPatch: !!editorialPatch });
+        // Stage 3: Validation report (fail-open)
+        store.setPipelineStage(job.id, 'validating');
+        let validationReport: ValidationReport | undefined;
+        let canPublish = true;
+        if (!job.input.dryRun) {
+            validationReport = await generateValidationReport(
+                job,
+                output,
+                editorialPatch,
+                store,
+                adapterOverride,
+                getPolicyContextOverride,
+            );
+
+            // Calculate publish gate
+            if (validationReport) {
+                canPublish = isValidationShadowMode() || validationReport.severity !== 'blocking';
+            }
+            // If validationReport is undefined (fail-open), canPublish stays true
+        }
+
+        // Step 7: Complete with all artefacts
+        store.complete(job.id, output, usage, editorialPatch, {
+            validationReport,
+            canPublish,
+            pipelineSeverity: validationReport?.severity,
+            pipelineScore: validationReport?.score,
+        });
     } catch (error) {
         // Classify error
         const err = error as { code?: string; message?: string; retryable?: boolean };

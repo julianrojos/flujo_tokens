@@ -17,6 +17,7 @@ import type { AiJobState, AiJobEvent, AiJobInput, AiJobStatus } from '../service
 import type { ComponentDocOutput } from '../services/ai-component-doc-schema.js';
 import type { AiUsageMetrics } from '../services/ai-component-doc-schema.js';
 import type { EditorialPatch } from '../services/ai-editorial-patch-schema.js';
+import type { ValidationReport } from '../services/ai-validation-report-schema.js';
 
 /**
  * Database row type for ai_jobs table
@@ -30,6 +31,11 @@ interface AiJobRow {
     output_json: string | null;
     usage_json: string | null;
     editorial_patch_json: string | null;
+    validation_report_json: string | null;
+    can_publish: number | null;
+    pipeline_severity: string | null;
+    pipeline_score: number | null;
+    pipeline_stage: string | null;
     error: string | null;
     error_code: string | null;
     retryable: number | null;
@@ -56,9 +62,10 @@ export class JobsRepository {
             INSERT INTO ai_jobs (
                 id, idempotency_key, status, provider,
                 input_json, output_json, usage_json, editorial_patch_json,
+                validation_report_json, can_publish, pipeline_severity, pipeline_score, pipeline_stage,
                 error, error_code, retryable,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 idempotency_key = excluded.idempotency_key,
                 status = excluded.status,
@@ -67,6 +74,11 @@ export class JobsRepository {
                 output_json = excluded.output_json,
                 usage_json = excluded.usage_json,
                 editorial_patch_json = excluded.editorial_patch_json,
+                validation_report_json = excluded.validation_report_json,
+                can_publish = excluded.can_publish,
+                pipeline_severity = excluded.pipeline_severity,
+                pipeline_score = excluded.pipeline_score,
+                pipeline_stage = excluded.pipeline_stage,
                 error = excluded.error,
                 error_code = excluded.error_code,
                 retryable = excluded.retryable,
@@ -82,6 +94,11 @@ export class JobsRepository {
             job.output ? JSON.stringify(job.output) : null,
             job.usage ? JSON.stringify(job.usage) : null,
             job.editorialPatch ? JSON.stringify(job.editorialPatch) : null,
+            job.validationReport ? JSON.stringify(job.validationReport) : null,
+            job.canPublish !== undefined ? (job.canPublish ? 1 : 0) : null,
+            job.pipelineSeverity ?? null,
+            job.pipelineScore ?? null,
+            job.pipelineStage ?? null,
             job.error ?? null,
             job.errorCode ?? null,
             job.retryable !== undefined ? (job.retryable ? 1 : 0) : null,
@@ -247,6 +264,13 @@ export class JobsRepository {
             editorialPatch: row.editorial_patch_json
                 ? JSON.parse(row.editorial_patch_json) as EditorialPatch
                 : undefined,
+            validationReport: row.validation_report_json
+                ? JSON.parse(row.validation_report_json) as ValidationReport
+                : undefined,
+            canPublish: row.can_publish !== null ? row.can_publish === 1 : undefined,
+            pipelineSeverity: row.pipeline_severity as 'blocking' | 'warning' | 'info' | undefined,
+            pipelineScore: row.pipeline_score ?? undefined,
+            pipelineStage: row.pipeline_stage as 'extracting' | 'patching' | 'validating' | undefined,
             error: row.error ?? undefined,
             errorCode: row.error_code ?? undefined,
             retryable: row.retryable !== null ? row.retryable === 1 : undefined,

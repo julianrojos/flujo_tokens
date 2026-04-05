@@ -8,7 +8,7 @@ import type { EditorialPatch } from './ai-editorial-patch-schema.js';
 // Type for Figma component spec (used in orchestrator but schema doesn't need to import it)
 export type FigmaComponentSpec = Record<string, unknown>;
 
-export const COMPONENT_DOC_SCHEMA_VERSION = 1 as const;
+export const COMPONENT_DOC_SCHEMA_VERSION = 2 as const;
 
 /**
  * Individual anatomy item describing a part of the component
@@ -55,7 +55,46 @@ export interface ComponentDocToken {
 }
 
 /**
- * Main output interface for AI-generated component documentation
+ * Visual state of a component variant
+ */
+export interface ComponentDocState {
+    /** State name (e.g., "hover", "focus", "active", "disabled") */
+    name: string;
+    /** Description of what changes in this state */
+    description: string;
+    /** Visual properties that change (e.g., opacity, fill, border) */
+    visualChanges?: Array<{
+        /** Property name (e.g., "opacity", "fill") */
+        property: string;
+        /** Value in this state */
+        value: string;
+    }>;
+}
+
+/**
+ * Verified accessibility fact about the component
+ */
+export interface AccessibilityFact {
+    /** Description of the accessibility fact */
+    fact: string;
+    /** How it was determined: 'spec' (from Figma), 'inferred', or 'assumed' */
+    source: 'spec' | 'inferred' | 'assumed';
+    /** WCAG criterion reference if applicable */
+    wcagCriterion?: string;
+}
+
+/**
+ * Structural warning about the component output
+ */
+export interface StructureWarning {
+    /** Brief description of the structural issue */
+    message: string;
+    /** Which section of the output is affected */
+    section: string;
+}
+
+/**
+ * Main output interface for AI-generated component documentation (v2)
  */
 export interface ComponentDocOutput {
     /** Schema version for compatibility */
@@ -82,6 +121,17 @@ export interface ComponentDocOutput {
         provider?: string;
         model?: string;
     };
+    // ─── v2 fields ────────────────────────────────────────────────
+    /** Visual states of the component */
+    states: ComponentDocState[];
+    /** Verified accessibility facts */
+    accessibilityFacts: AccessibilityFact[];
+    /** Structural warnings (populated by validation stage) */
+    structureWarning?: StructureWarning;
+    /** Confidence level of the extraction */
+    confidence?: 'high' | 'medium' | 'low';
+    /** Unresolved questions for human review */
+    unresolvedQuestions?: string[];
 }
 
 /**
@@ -169,6 +219,16 @@ export interface AiJobState {
     usage?: AiUsageMetrics;
     /** Structured editorial suggestion from LLM */
     editorialPatch?: EditorialPatch;
+    /** Validation report from stage 3 */
+    validationReport?: import('./ai-validation-report-schema.js').ValidationReport;
+    /** Whether the job output can be published (gate from validation) */
+    canPublish?: boolean;
+    /** Current pipeline stage */
+    pipelineStage?: 'extracting' | 'patching' | 'validating' | null;
+    /** Highest severity found in validation */
+    pipelineSeverity?: 'blocking' | 'warning' | 'info';
+    /** Quality score from validation (0-100) */
+    pipelineScore?: number;
     /** Error information (when failed) */
     error?: string;
     /** Error code (when failed) */
@@ -260,6 +320,11 @@ export const AI_ERROR_CODES = {
         message: 'Path traversal detected',
         retryable: false,
     },
+    VALIDATION_BLOCKED: {
+        code: 'ai.validation.blocked',
+        message: 'ValidationReport severity: blocking',
+        retryable: false,
+    },
 } as const;
 
 export type AiErrorCode = (typeof AI_ERROR_CODES)[keyof typeof AI_ERROR_CODES]['code'];
@@ -280,12 +345,14 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
         'tokens',
         'accessibilityNotes',
         'markdown',
+        'states',
+        'accessibilityFacts',
     ],
     properties: {
         schemaVersion: {
             type: 'integer',
             const: COMPONENT_DOC_SCHEMA_VERSION,
-            description: 'Schema version number',
+            description: 'Schema version number. CRITICAL: MUST be exactly 2.',
         },
         componentId: {
             type: 'string',
@@ -370,6 +437,64 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
             type: 'string',
             description: 'Markdown content. Must be empty string from model output.',
         },
+        states: {
+            type: 'array',
+            description: 'Visual states of the component',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name', 'description'],
+                properties: {
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    visualChanges: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: ['property', 'value'],
+                            properties: {
+                                property: { type: 'string' },
+                                value: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        accessibilityFacts: {
+            type: 'array',
+            description: 'Verified accessibility facts',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['fact', 'source'],
+                properties: {
+                    fact: { type: 'string' },
+                    source: { type: 'string', enum: ['spec', 'inferred', 'assumed'] },
+                    wcagCriterion: { type: 'string' },
+                },
+            },
+        },
+        structureWarning: {
+            type: 'object',
+            description: 'Structural warning about the component output',
+            additionalProperties: false,
+            properties: {
+                message: { type: 'string' },
+                section: { type: 'string' },
+            },
+        },
+        confidence: {
+            type: 'string',
+            enum: ['high', 'medium', 'low'],
+            description: 'Confidence level of the extraction',
+        },
+        unresolvedQuestions: {
+            type: 'array',
+            description: 'Unresolved questions for human review',
+            items: { type: 'string' },
+        },
     },
 } as const;
 
@@ -403,7 +528,7 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     // Validate required array fields
-    const requiredArrays = ['anatomy', 'variants', 'tokens', 'accessibilityNotes'] as const;
+    const requiredArrays = ['anatomy', 'variants', 'tokens', 'accessibilityNotes', 'states', 'accessibilityFacts'] as const;
     for (const field of requiredArrays) {
         if (!Array.isArray(obj[field])) {
             throw new Error(`Missing required field: ${field}`);
@@ -479,6 +604,75 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
         }
     }
 
+    // Validate states array
+    const states = obj.states as unknown[];
+    for (let i = 0; i < states.length; i++) {
+        const item = states[i];
+        if (!item || typeof item !== 'object') {
+            throw new Error(`states[${i}]: must be an object`);
+        }
+        const stateItem = item as Record<string, unknown>;
+        if (typeof stateItem.name !== 'string') {
+            throw new Error(`states[${i}]: missing or invalid 'name' field`);
+        }
+        if (typeof stateItem.description !== 'string') {
+            throw new Error(`states[${i}]: missing or invalid 'description' field`);
+        }
+    }
+
+    // Validate accessibilityFacts array
+    const accessibilityFacts = obj.accessibilityFacts as unknown[];
+    for (let i = 0; i < accessibilityFacts.length; i++) {
+        const item = accessibilityFacts[i];
+        if (!item || typeof item !== 'object') {
+            throw new Error(`accessibilityFacts[${i}]: must be an object`);
+        }
+        const fact = item as Record<string, unknown>;
+        if (typeof fact.fact !== 'string') {
+            throw new Error(`accessibilityFacts[${i}]: missing or invalid 'fact' field`);
+        }
+        if (typeof fact.source !== 'string') {
+            throw new Error(`accessibilityFacts[${i}]: missing or invalid 'source' field`);
+        }
+        if (!['spec', 'inferred', 'assumed'].includes(fact.source)) {
+            throw new Error(`accessibilityFacts[${i}].source: must be one of spec|inferred|assumed`);
+        }
+    }
+
+    if (obj.structureWarning !== undefined) {
+        if (!obj.structureWarning || typeof obj.structureWarning !== 'object') {
+            throw new Error('structureWarning: must be an object');
+        }
+        const warning = obj.structureWarning as Record<string, unknown>;
+        if (typeof warning.message !== 'string') {
+            throw new Error('structureWarning.message: must be a string');
+        }
+        if (typeof warning.section !== 'string') {
+            throw new Error('structureWarning.section: must be a string');
+        }
+    }
+
+    if (obj.confidence !== undefined) {
+        if (
+            typeof obj.confidence !== 'string'
+            || !['high', 'medium', 'low'].includes(obj.confidence)
+        ) {
+            throw new Error('confidence: must be one of high|medium|low');
+        }
+    }
+
+    if (obj.unresolvedQuestions !== undefined) {
+        if (!Array.isArray(obj.unresolvedQuestions)) {
+            throw new Error('unresolvedQuestions: must be an array of strings');
+        }
+        const unresolvedQuestions = obj.unresolvedQuestions as unknown[];
+        for (let i = 0; i < unresolvedQuestions.length; i++) {
+            if (typeof unresolvedQuestions[i] !== 'string') {
+                throw new Error(`unresolvedQuestions[${i}]: must be a string`);
+            }
+        }
+    }
+
     // Build and return validated output
     const output: ComponentDocOutput = {
         schemaVersion,
@@ -490,10 +684,21 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
         tokens: obj.tokens as ComponentDocToken[],
         accessibilityNotes: obj.accessibilityNotes as string[],
         markdown: obj.markdown as string,
+        states: obj.states as ComponentDocState[],
+        accessibilityFacts: obj.accessibilityFacts as AccessibilityFact[],
     };
 
     if (obj.metadata) {
         output.metadata = obj.metadata as ComponentDocOutput['metadata'];
+    }
+    if (obj.structureWarning) {
+        output.structureWarning = obj.structureWarning as StructureWarning;
+    }
+    if (obj.confidence) {
+        output.confidence = obj.confidence as 'high' | 'medium' | 'low';
+    }
+    if (obj.unresolvedQuestions) {
+        output.unresolvedQuestions = obj.unresolvedQuestions as string[];
     }
 
     return output;
@@ -550,6 +755,25 @@ export function createValidComponentDocFixture(
             provider: 'anthropic',
             model: 'claude-sonnet-4-20250514',
         },
+        states: [
+            {
+                name: 'hover',
+                description: 'Slightly darker background on hover',
+                visualChanges: [{ property: 'opacity', value: '0.9' }],
+            },
+            {
+                name: 'focus',
+                description: 'Visible focus ring for keyboard users',
+                visualChanges: [{ property: 'outline', value: '2px solid blue' }],
+            },
+        ],
+        accessibilityFacts: [
+            {
+                fact: 'Button has accessible name from visible label text',
+                source: 'spec',
+                wcagCriterion: 'WCAG 2.1 4.1.2',
+            },
+        ],
     };
 
     return { ...fixture, ...overrides };

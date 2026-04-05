@@ -9,8 +9,8 @@ import {
     parseMdcSection,
     buildPromptPolicyContext,
     resetPromptPolicyCacheForTests,
-    MAX_POLICY_CHARS,
-    POLICY_FILES,
+    MAX_POLICY_CHARS_BY_STAGE,
+    POLICY_FILES_BY_STAGE,
 } from './ai-prompt-policy.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -221,24 +221,27 @@ describe('buildPromptPolicyContext', () => {
         resetPromptPolicyCacheForTests();
         const result = await buildPromptPolicyContext(repoRoot);
         assert.ok(result.includes('[source:'), 'Should include source markers');
-        assert.ok(result.includes('docs-language-tone'), 'Should reference docs-language-tone');
-    });
-
-    it('includes expected content keywords from tone policy', async () => {
-        resetPromptPolicyCacheForTests();
-        const result = await buildPromptPolicyContext(repoRoot);
         assert.ok(
-            result.includes('marketing') || result.includes('technical'),
-            'Should include tone policy content',
+            result.includes('figma-component-extractor.SKILL.md') || result.includes('RULES.md'),
+            'Should reference stage files from ai-context',
         );
     });
 
-    it('result length does not exceed MAX_POLICY_CHARS', async () => {
+    it('includes expected extraction-stage policy keywords', async () => {
         resetPromptPolicyCacheForTests();
         const result = await buildPromptPolicyContext(repoRoot);
         assert.ok(
-            result.length <= MAX_POLICY_CHARS,
-            `Result (${result.length} chars) should not exceed MAX_POLICY_CHARS (${MAX_POLICY_CHARS})`,
+            result.includes('Nada que no sea visible o trazable') || result.includes('Clasificar primero. Documentar después.'),
+            'Should include extraction stage policy content',
+        );
+    });
+
+    it('result length does not exceed extraction stage budget', async () => {
+        resetPromptPolicyCacheForTests();
+        const result = await buildPromptPolicyContext(repoRoot);
+        assert.ok(
+            result.length <= MAX_POLICY_CHARS_BY_STAGE.extraction,
+            `Result (${result.length} chars) should not exceed extraction budget (${MAX_POLICY_CHARS_BY_STAGE.extraction})`,
         );
     });
 
@@ -258,7 +261,7 @@ describe('buildPromptPolicyContext', () => {
                 const target = String(args[0]);
                 if (
                     shouldFailReads
-                    && (target.endsWith('docs-language-tone.mdc') || target.endsWith('inclusive-docs.mdc'))
+                    && target.includes('/ai-context/')
                 ) {
                     throw new Error('transient fs failure');
                 }
@@ -305,15 +308,14 @@ describe('buildPromptPolicyContext', () => {
         resetPromptPolicyCacheForTests();
         const result = await buildPromptPolicyContext(repoRoot);
 
-        const tonePos = result.indexOf('[source: docs-language-tone > Tone policy');
-        const a11yPos = result.indexOf('[source: inclusive-docs > Accessibility');
+        const topPriorityPos = result.indexOf('[source: figma-component-extractor.SKILL.md > Regla madre');
+        const lowerPriorityPos = result.indexOf('[source: RULES.md > 4. Estado visual ≠ comportamiento real');
 
-        assert.ok(tonePos >= 0, 'Tone policy (priority 1) should be present');
-        // Accessibility may be trimmed by budget; when present, it must appear after Tone policy.
-        if (a11yPos >= 0) {
+        assert.ok(topPriorityPos >= 0, 'Top-priority extraction rule should be present');
+        if (lowerPriorityPos >= 0) {
             assert.ok(
-                tonePos < a11yPos,
-                'Tone policy (priority 1) should appear before Accessibility (priority 5)',
+                topPriorityPos < lowerPriorityPos,
+                'Priority-1 rules should appear before lower-priority rules',
             );
         }
     });
@@ -328,10 +330,7 @@ describe('buildPromptPolicyContext', () => {
         try {
             (fsPromises as unknown as { readFile: typeof fsPromises.readFile }).readFile = (async (...args: Parameters<typeof fsPromises.readFile>) => {
                 const target = String(args[0]);
-                if (
-                    target.endsWith('docs-language-tone.mdc')
-                    || target.endsWith('inclusive-docs.mdc')
-                ) {
+                if (target.includes('/ai-context/')) {
                     interceptedReads += 1;
                     inFlight += 1;
                     maxInFlight = Math.max(maxInFlight, inFlight);
@@ -362,7 +361,9 @@ describe('Contract CI: .mdc headings exist', () => {
     it('[contract] all configured headings are present in real .mdc files', () => {
         const failures: string[] = [];
 
-        for (const fileConfig of POLICY_FILES) {
+        // Iterate over all stages
+        const allFiles = Object.values(POLICY_FILES_BY_STAGE).flat();
+        for (const fileConfig of allFiles) {
             const filePath = path.resolve(repoRoot, fileConfig.relativePath);
             let content: string;
             try {
