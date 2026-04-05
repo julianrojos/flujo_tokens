@@ -12,6 +12,7 @@ import { StatusAlert } from '@/components/ui/status-alert';
 import { useAiJobStatus } from '../hooks/use-ai-job-status';
 import { cancelAiJob } from '../lib/ai-jobs-api';
 import { AiDocPreview, formatJobEvent, formatRelativeTime } from './ai-doc-preview';
+import { ValidationReportPanel } from './validation-report-panel';
 import type { AiJobStatus, AiJobResponse, AiJobInput } from '@/types/ai-jobs';
 
 interface AiJobStatusCardProps {
@@ -140,6 +141,7 @@ export function AiJobStatusCard({
     const canCancel = job.status === 'queued' || job.status === 'running';
     const canApply = job.status === 'completed' && job.output;
     const canRetry = job.status === 'failed' && job.retryable;
+    const blockedByValidation = job.canPublish === false;
 
     return (
         <Card>
@@ -217,6 +219,16 @@ export function AiJobStatusCard({
                     </div>
                 )}
 
+                {/* Validation report panel: includes fail-open message when completed without report */}
+                {job.status === 'completed' && (job.validationReport || job.canPublish !== undefined || !!job.pipelineStage) && (
+                    <ValidationReportPanel
+                        report={job.validationReport}
+                        canPublish={job.canPublish}
+                        jobStatus={job.status}
+                        pipelineStage={job.pipelineStage}
+                    />
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-2">
                     {canCancel && (
@@ -244,6 +256,8 @@ export function AiJobStatusCard({
                         <Button
                             size="sm"
                             onClick={handleApply}
+                            disabled={blockedByValidation}
+                            title={blockedByValidation ? 'Cannot apply: validation blocked' : undefined}
                         >
                             Apply
                         </Button>

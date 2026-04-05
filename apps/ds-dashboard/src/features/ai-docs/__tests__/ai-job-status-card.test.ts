@@ -57,7 +57,7 @@ describe('AiJobStatusCard Logic', () => {
                 componentId: '123:456',
             },
             output: {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '123:456',
                 title: 'Test Component',
                 summary: 'Test summary',
@@ -66,6 +66,8 @@ describe('AiJobStatusCard Logic', () => {
                 tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test Component\n\nContent',
+                states: [],
+                accessibilityFacts: [],
             },
             events: [
                 { seq: 1, ts: Date.now() - 10000, event: 'job.queued', data: {} },
@@ -261,6 +263,39 @@ describe('AiJobStatusCard Logic', () => {
             const durationMs = 15000;
             const durationSeconds = Math.round(durationMs / 1000);
             assert.equal(durationSeconds, 15);
+        });
+    });
+
+    describe('Validation gate — blockedByValidation', () => {
+        function isBlockedByValidation(job: MockJob & { canPublish?: boolean }): boolean {
+            return job.canPublish === false;
+        }
+
+        it('should NOT block when canPublish is true', () => {
+            const job = createMockJob({ status: 'completed' });
+            const jobWithPublish = { ...job, canPublish: true };
+            assert.equal(isBlockedByValidation(jobWithPublish), false);
+        });
+
+        it('should NOT block when canPublish is undefined (no validation yet)', () => {
+            const job = createMockJob({ status: 'completed' });
+            assert.equal(isBlockedByValidation(job), false);
+        });
+
+        it('should block when canPublish is false', () => {
+            const job = createMockJob({ status: 'completed' });
+            const jobBlocked = { ...job, canPublish: false };
+            assert.equal(isBlockedByValidation(jobBlocked), true);
+        });
+
+        it('should NOT block completed job without output', () => {
+            const job = createMockJob({
+                status: 'completed',
+                output: undefined,
+                canPublish: true,
+            });
+            const canApply = job.status === 'completed' && !!job.output;
+            assert.equal(canApply, false);
         });
     });
 });
