@@ -431,6 +431,97 @@ describe('ai-jobs-route', () => {
             assert.equal(json.nextCursor, null);
             assert.equal(json.hasEditorialPatch, false);
         });
+
+        it('should return previewMarkdown for completed job without editorial patch', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Button',
+                summary: 'Test summary',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test Button\n\nTest summary',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}`, {
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.ok('previewMarkdown' in json);
+            assert.ok(typeof json.previewMarkdown === 'string');
+            assert.ok(json.previewMarkdown.includes('# Test Button'));
+        });
+
+        it('should return previewMarkdown with editorial sections when patch exists', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const editorialPatch = {
+                schemaVersion: 2,
+                summary: { purpose: 'AI suggested purpose' },
+                best_practices: { do: ['Use consistently'], dont: [] },
+                related_components: ['Icon'],
+                qa: ['Check hover'],
+                content_guidelines: { rules: [] },
+                accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
+            };
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Button',
+                summary: 'Test summary',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test Button\n\nTest summary',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, editorialPatch);
+
+            const res = await app.request(`/api/ai/jobs/${job.id}`, {
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.ok(typeof json.previewMarkdown === 'string');
+            assert.ok(json.previewMarkdown.includes('# Test Button'));
+            assert.ok(json.previewMarkdown.includes('## Editorial: Purpose & Usage'));
+            assert.ok(json.previewMarkdown.includes('**Purpose:** AI suggested purpose'));
+            assert.ok(json.previewMarkdown.includes('## Editorial: Best Practices'));
+        });
     });
 
     describe('GET /api/ai/jobs/:id/editorial-patch', () => {
@@ -969,6 +1060,74 @@ describe('ai-jobs-route', () => {
             testFilesCreated.push(writtenPath);
             const written = await fs.readFile(writtenPath, 'utf-8');
             assert.equal(written, '# System Scoped Doc');
+        });
+
+        it('S-07: apply uses base output.markdown even when editorial patch exists', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+            const title = 'Apply Base Markdown Only';
+            const filePath = path.join(
+                REPO_ROOT,
+                'design-systems/sys-test/docs/components/apply-base-markdown-only.md',
+            );
+
+            await fs.rm(filePath, { force: true });
+
+            const editorialPatch = {
+                schemaVersion: 2,
+                summary: { purpose: 'Editorial purpose' },
+                best_practices: { do: ['Editorial do'], dont: [] },
+                related_components: [],
+                qa: [],
+                content_guidelines: { rules: [] },
+                accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
+            };
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            // Base markdown is factual, NOT composite
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title,
+                summary: 'Base summary',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: `# ${title}\n\nBase summary only`,
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            }, editorialPatch);
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({ overwrite: true }),
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+
+            // Verify written file contains BASE markdown, NOT editorial sections
+            const writtenPath = path.join(REPO_ROOT, String(json.path));
+            testFilesCreated.push(writtenPath);
+            const written = await fs.readFile(writtenPath, 'utf-8');
+            assert.ok(written.includes('# Apply Base Markdown Only'));
+            assert.ok(written.includes('Base summary only'));
+            assert.doesNotMatch(written, /Editorial:/);
+            assert.doesNotMatch(written, /Best Practices/);
         });
     });
 

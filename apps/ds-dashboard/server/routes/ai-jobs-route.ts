@@ -16,7 +16,7 @@ import {
 import { hasApiKey, resolveProviderConfig } from '../services/ai-provider.js';
 import type { AiProviderName } from '../services/ai-provider.js';
 import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
-import { createComponentSlug } from '../services/ai-component-doc-renderer.js';
+import { createComponentSlug, renderComponentDoc } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 import { computeDocStatusesDbFromSnapshots } from '../services/ai-doc-status-service.js';
@@ -885,6 +885,21 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         // Compute nextCursor (null if done, otherwise polling hint)
         const nextCursor = done ? null : 'poll';
 
+        // Compute previewMarkdown (composite: output + editorialPatch) for preview UI only.
+        // DESIGN NOTE: this does NOT affect output.markdown which remains the base factual version.
+        let previewMarkdown: string | undefined;
+        if (job.status === 'completed' && job.output) {
+            try {
+                previewMarkdown = renderComponentDoc({
+                    output: job.output,
+                    editorialPatch: job.editorialPatch ?? null,
+                });
+            } catch {
+                // Fallback to base markdown if composite render fails
+                previewMarkdown = job.output.markdown;
+            }
+        }
+
         return c.json({
             ok: true,
             id: job.id,
@@ -902,6 +917,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             pipelineStage: job.pipelineStage,
             pipelineSeverity: job.pipelineSeverity,
             pipelineScore: job.pipelineScore,
+            previewMarkdown,
             createdAt: job.createdAt,
             updatedAt: job.updatedAt,
             done,

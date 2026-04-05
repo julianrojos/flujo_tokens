@@ -56,6 +56,7 @@ export function AiJobStatusCard({
     });
     const [showPreview, setShowPreview] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const resolvedPreviewMarkdown = job?.previewMarkdown ?? job?.output?.markdown;
 
     // Merge external events (SSE) with job events (polling), deduplicated by seq
     // SSE events take precedence as they are the source of truth for live streaming
@@ -265,7 +266,7 @@ export function AiJobStatusCard({
                 </div>
             </CardContent>
 
-            {job.status === 'completed' && job.output?.markdown ? (
+            {job.status === 'completed' && resolvedPreviewMarkdown ? (
                 <Modal
                     open={showPreview}
                     onClose={() => setShowPreview(false)}
@@ -291,7 +292,7 @@ export function AiJobStatusCard({
                             </Button>
                         </ModalHeader>
                         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-                            <AiDocPreview markdown={job.output.markdown} />
+                            <AiDocPreview markdown={resolvedPreviewMarkdown} />
                         </div>
                     </ModalContent>
                 </Modal>

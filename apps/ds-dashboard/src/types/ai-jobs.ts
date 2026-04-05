@@ -205,6 +205,8 @@ export interface AiJobResponse {
     pipelineStage?: 'extracting' | 'patching' | 'validating' | null;
     pipelineSeverity?: ValidationSeverity;
     pipelineScore?: number;
+    /** Composite markdown (factual + editorial) for preview display only. Falls back to output.markdown. */
+    previewMarkdown?: string;
     createdAt: number;
     updatedAt: number;
     done: boolean;

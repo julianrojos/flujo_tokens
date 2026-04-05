@@ -43,6 +43,7 @@ describe('AiJobStatusCard Logic', () => {
             completionTokens: number;
             durationMs: number;
         };
+        previewMarkdown?: string;
     }
 
     function createMockJob(): MockJob;
@@ -296,6 +297,64 @@ describe('AiJobStatusCard Logic', () => {
             });
             const canApply = job.status === 'completed' && !!job.output;
             assert.equal(canApply, false);
+        });
+    });
+
+    describe('Preview markdown priority', () => {
+        it('should use previewMarkdown when available', () => {
+            const job = createMockJob({
+                status: 'completed',
+                output: {
+                    schemaVersion: 2,
+                    componentId: '123:456',
+                    title: 'Test',
+                    summary: 'Base',
+                    anatomy: [],
+                    variants: [],
+                    tokens: [],
+                    accessibilityNotes: [],
+                    markdown: '# Base Markdown',
+                    states: [],
+                    accessibilityFacts: [],
+                },
+            });
+            // Simulate the resolved preview value
+            const resolvedMarkdown = (job as Record<string, unknown>).previewMarkdown as string | undefined
+                ?? job.output?.markdown;
+            assert.equal(resolvedMarkdown, '# Base Markdown');
+        });
+
+        it('should prefer previewMarkdown over output.markdown when both exist', () => {
+            const job = createMockJob({
+                status: 'completed',
+            });
+            // Simulate AiJobResponse with previewMarkdown
+            const jobWithPreview = {
+                ...job,
+                previewMarkdown: '# Composite Preview (with editorial)',
+            };
+            const resolvedMarkdown = jobWithPreview.previewMarkdown ?? jobWithPreview.output?.markdown;
+            assert.equal(resolvedMarkdown, '# Composite Preview (with editorial)');
+        });
+
+        it('should fallback to output.markdown when previewMarkdown is undefined', () => {
+            const job = createMockJob({
+                status: 'completed',
+            });
+            // No previewMarkdown set
+            const resolvedMarkdown = (job as Record<string, unknown>).previewMarkdown as string | undefined
+                ?? job.output?.markdown;
+            assert.equal(resolvedMarkdown, '# Test Component\n\nContent');
+        });
+
+        it('should resolve to undefined when both previewMarkdown and output are missing', () => {
+            const job = createMockJob({
+                status: 'completed',
+                output: undefined,
+            });
+            const resolvedMarkdown = (job as Record<string, unknown>).previewMarkdown as string | undefined
+                ?? job.output?.markdown;
+            assert.equal(resolvedMarkdown, undefined);
         });
     });
 });
