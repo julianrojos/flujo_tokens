@@ -40,7 +40,7 @@ export type PolicyCallStage = 'extraction' | 'editorial' | 'validation';
 /** Budget per stage — extraction needs more space for rules */
 export const MAX_POLICY_CHARS_BY_STAGE: Record<PolicyCallStage, number> = {
     extraction: 8000,
-    editorial: 6000,
+    editorial: 10000,
     validation: 3000,
 };
 
@@ -97,20 +97,21 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
             ],
         },
         {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/docs-language-tone.mdc',
+            // Core rules first — must survive even at reduced budget
+            relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
-                { heading: 'Tone policy', priority: 4 },
-                { heading: 'Tone violation examples', priority: 5 },
-                { heading: 'Writing style', priority: 6 },
+                { heading: '1. Regla madre', priority: 4 },
+                { heading: '10. Placeholders obligatorios', priority: 5 },
+                { heading: '9. Coherencia terminológica', priority: 6 },
+                { heading: '11. QA específico', priority: 9 },
             ],
         },
         {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
+            relativePath: 'apps/ds-dashboard/ai-context/rules/docs-language-tone.mdc',
             sections: [
-                { heading: '1. Regla madre', priority: 7 },
-                { heading: '9. Coherencia terminológica', priority: 8 },
-                { heading: '10. Placeholders obligatorios', priority: 9 },
-                { heading: '11. QA específico', priority: 10 },
+                { heading: 'Tone policy', priority: 7 },
+                { heading: 'Writing style', priority: 8 },
+                { heading: 'Tone violation examples', priority: 10 },
             ],
         },
         {

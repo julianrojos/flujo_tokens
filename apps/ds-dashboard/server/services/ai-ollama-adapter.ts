@@ -77,7 +77,9 @@ export class OllamaAdapter implements AiProvider {
                 stream: false,
                 // Disable thinking mode for models that support it (e.g. Qwen3).
                 // Thinking tokens consume timeout budget and break JSON parsing.
-                options: { thinking: false },
+                // Bound output length while avoiding truncation of large extraction JSON payloads.
+                // 8192 keeps latency controlled but is safer for complex components than 2048.
+                options: { thinking: false, num_predict: 8192 },
             };
             const bodyJsonOnly = {
                 ...bodyWithSchema,
