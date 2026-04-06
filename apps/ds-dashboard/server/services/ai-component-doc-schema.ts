@@ -195,6 +195,8 @@ export interface AiJobInput {
     userPrompt?: string;
     /** Run without making actual LLM call */
     dryRun?: boolean;
+    /** Whether to run stage-3 quality validation */
+    runValidation?: boolean;
     /**
      * Explicit idempotency key from caller intent.
      * In rerun flows this value is preserved as requested by the caller.

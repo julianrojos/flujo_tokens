@@ -600,6 +600,7 @@ describe('ai-orchestrator pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
 
     const dequeued = store.tryDequeue('anthropic');
@@ -1049,6 +1050,7 @@ describe('ai-orchestrator policyContext', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
 
     const dequeued = store.tryDequeue('anthropic');
@@ -1159,6 +1161,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1185,6 +1188,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1227,6 +1231,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1267,6 +1272,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1304,6 +1310,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1346,6 +1353,7 @@ describe('3-stage pipeline', () => {
       provider: 'anthropic',
       componentId: '68:4097',
       dryRun: false,
+      runValidation: true,
     });
     const dequeued = store.tryDequeue('anthropic');
     assert.ok(dequeued);
@@ -1358,5 +1366,72 @@ describe('3-stage pipeline', () => {
 
     assert.equal(calls.length, 3, 'Should make exactly 3 LLM calls');
     assert.deepEqual(calls, [1, 2, 3]);
+  });
+
+  it('skips validation call when runValidation is false', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+      runValidation: false,
+    });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    const calls: number[] = [];
+    const adapter = create3StageAdapter({
+      onCall: (idx) => calls.push(idx),
+    });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.canPublish, true);
+    assert.equal(completed?.validationReport, undefined);
+    assert.equal(calls.length, 2, 'Should make exactly 2 LLM calls (generation + editorial)');
+    assert.deepEqual(calls, [1, 2]);
+    assert.ok(
+      completed?.events.some((evt) => evt.event === 'validation.skipped'),
+      'Should emit validation.skipped event'
+    );
+  });
+
+  it('runs validation for ollama when runValidation is true', async () => {
+    const prev = process.env.AI_VALIDATION_SHADOW;
+    process.env.AI_VALIDATION_SHADOW = 'true';
+
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'ollama',
+      componentId: '68:4097',
+      dryRun: false,
+      runValidation: true,
+    });
+    const dequeued = store.tryDequeue('ollama');
+    assert.ok(dequeued);
+
+    const calls: number[] = [];
+    const adapter = create3StageAdapter({
+      onCall: (idx) => calls.push(idx),
+    });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(calls.length, 3, 'Should make exactly 3 LLM calls when validation is enabled');
+    assert.deepEqual(calls, [1, 2, 3]);
+    assert.equal(
+      completed?.events.some((evt) => evt.event === 'validation.skipped'),
+      false,
+      'Should not emit validation.skipped when validation is enabled'
+    );
+
+    if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+    else delete process.env.AI_VALIDATION_SHADOW;
   });
 });

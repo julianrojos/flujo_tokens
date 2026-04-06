@@ -221,6 +221,7 @@ interface CreateJobRequest {
     systemPrompt?: string;
     userPrompt?: string;
     dryRun?: boolean;
+    runValidation?: boolean;
     idempotencyKey?: string;
 }
 
@@ -695,6 +696,9 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         if (!body.componentId || typeof body.componentId !== 'string') {
             return c.json(errorResponse('ai.input.invalid', 'componentId is required'), 400);
         }
+        if (body.runValidation !== undefined && typeof body.runValidation !== 'boolean') {
+            return c.json(errorResponse('ai.input.invalid', 'runValidation must be a boolean when provided'), 400);
+        }
 
         // Check API key exists (not required for Ollama)
         if (body.provider !== 'ollama' && !hasApiKey(body.provider)) {
@@ -769,6 +773,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
                 systemPrompt: typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
                 userPrompt: typeof body.userPrompt === 'string' ? body.userPrompt : undefined,
                 dryRun: body.dryRun,
+                runValidation: body.runValidation === true,
                 idempotencyKey: body.idempotencyKey,
             });
         } catch (error) {

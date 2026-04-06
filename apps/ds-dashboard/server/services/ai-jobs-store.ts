@@ -39,7 +39,7 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
  * Maximum number of events retained per job (ring-buffer behavior)
  */
 const MAX_EVENTS_PER_JOB = 100;
-const IDEMPOTENCY_HASH_VERSION = 2;
+const IDEMPOTENCY_HASH_VERSION = 3;
 
 /**
  * AI Jobs Store class
@@ -106,6 +106,7 @@ export class AiJobsStore {
             systemPrompt: String(input.systemPrompt || '').trim(),
             userPrompt: String(input.userPrompt || '').trim(),
             dryRun: Boolean(input.dryRun),
+            runValidation: Boolean(input.runValidation),
         };
 
         return createHash('sha256')

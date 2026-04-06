@@ -84,6 +84,7 @@ export function AiJobCreateForm({
     const [model, setModel] = useState(initialModel || '');
     const [figmaUrl, setFigmaUrl] = useState('');
     const [dryRun, setDryRun] = useState(false);
+    const [runValidation, setRunValidation] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [providerTouched, setProviderTouched] = useState(false);
     const [showPromptPreview, setShowPromptPreview] = useState(false);
@@ -174,6 +175,7 @@ export function AiJobCreateForm({
             systemPrompt: systemPrompt && systemPrompt.trim().length > 0 ? systemPrompt : undefined,
             userPrompt: userPrompt && userPrompt.trim().length > 0 ? userPrompt : undefined,
             dryRun,
+            runValidation,
         });
     };
 
@@ -285,6 +287,25 @@ export function AiJobCreateForm({
                         </option>
                     ))}
                 </Select>
+            </div>
+
+            <div className="flex items-start gap-2">
+                <input
+                    id="runValidation"
+                    type="checkbox"
+                    checked={runValidation}
+                    onChange={(e) => setRunValidation(e.target.checked)}
+                    disabled={isPending}
+                    className="mt-0.5 rounded border-border"
+                />
+                <div className="space-y-1">
+                    <label htmlFor="runValidation" className="text-sm font-medium">
+                        Run quality validation (slower)
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                        When enabled, runs the final validation step and shows quality issues.
+                    </p>
+                </div>
             </div>
 
             {healthError ? (

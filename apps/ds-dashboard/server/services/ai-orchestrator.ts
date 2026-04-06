@@ -1030,18 +1030,24 @@ export async function runGenerateComponentDoc(
         let validationReport: ValidationReport | undefined;
         let canPublish = true;
         if (!job.input.dryRun) {
-            validationReport = await generateValidationReport(
-                job,
-                output,
-                editorialPatch,
-                store,
-                adapterOverride,
-                getPolicyContextOverride,
-            );
+            if (job.input.runValidation === true) {
+                validationReport = await generateValidationReport(
+                    job,
+                    output,
+                    editorialPatch,
+                    store,
+                    adapterOverride,
+                    getPolicyContextOverride,
+                );
 
-            // Calculate publish gate
-            if (validationReport) {
-                canPublish = isValidationShadowMode() || validationReport.severity !== 'blocking';
+                // Calculate publish gate
+                if (validationReport) {
+                    canPublish = isValidationShadowMode() || validationReport.severity !== 'blocking';
+                }
+            } else {
+                // Intentional behavior: when user disables validation, do not enforce publish gate.
+                // We still surface the skip event for traceability in the timeline.
+                store.pushEvent(job.id, 'validation.skipped', { reason: 'disabled-by-user' });
             }
             // If validationReport is undefined (fail-open), canPublish stays true
         }

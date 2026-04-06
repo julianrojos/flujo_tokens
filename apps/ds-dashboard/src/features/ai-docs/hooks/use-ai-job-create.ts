@@ -20,6 +20,7 @@ export interface UseAiJobCreateInput {
     systemPrompt?: string;
     userPrompt?: string;
     dryRun?: boolean;
+    runValidation?: boolean;
 }
 
 export function useAiJobCreate(options?: UseAiJobCreateOptions) {
@@ -36,6 +37,7 @@ export function useAiJobCreate(options?: UseAiJobCreateOptions) {
                 systemPrompt: input.systemPrompt,
                 userPrompt: input.userPrompt,
                 dryRun: input.dryRun,
+                runValidation: input.runValidation,
             };
 
             const response = await createAiJob(request);
