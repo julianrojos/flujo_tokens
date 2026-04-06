@@ -4,6 +4,7 @@
  */
 
 import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,11 +77,11 @@ export function AiJobCreateForm({
     const [dryRun, setDryRun] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [providerTouched, setProviderTouched] = useState(false);
-    const [manualComponentIdOverride, setManualComponentIdOverride] = useState(false);
     const [showPromptPreview, setShowPromptPreview] = useState(false);
     const [previewPending, setPreviewPending] = useState(false);
     const [promptPreview, setPromptPreview] = useState<AiPromptPreviewResponse | null>(null);
     const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
+    const [previewButtonSlot, setPreviewButtonSlot] = useState<HTMLElement | null>(null);
 
     const { data: configuredProviders, isFetched: configuredProvidersLoaded } = useQuery({
         queryKey: ['ai-configured-providers'],
@@ -116,6 +117,10 @@ export function AiJobCreateForm({
             setProvider(preferred);
         }
     }, [configuredProviders?.defaultProvider, initialProvider, providerTouched]);
+
+    useEffect(() => {
+        setPreviewButtonSlot(document.getElementById('ai-rendered-prompt-preview-slot'));
+    }, []);
 
     const {
         data: providerHealth,
@@ -182,11 +187,8 @@ export function AiJobCreateForm({
     };
 
     const isValid = componentId.trim().length > 0 && !isPending;
-    const hasKnownComponentOptions = componentOptions.length > 0;
     const selectedComponentIsKnown = componentOptions.some((option) => option.value === componentId);
     const shouldShowFallbackOption = componentId.trim().length > 0 && !selectedComponentIsKnown;
-    const useManualComponentId = !hasKnownComponentOptions || manualComponentIdOverride;
-    const canUseSelectForComponent = hasKnownComponentOptions && !useManualComponentId;
     const orderedProviderOptions = useMemo(() => {
         const preferred = configuredProviders?.defaultProvider;
         if (!preferred) return PROVIDER_OPTIONS;
@@ -220,62 +222,6 @@ export function AiJobCreateForm({
                 </Select>
             </div>
 
-            {/* Component ID */}
-            <div className="space-y-2">
-                <label htmlFor="componentId" className="text-sm font-medium">
-                    Component ID <span className="text-destructive">*</span>
-                </label>
-                {canUseSelectForComponent ? (
-                    <Select
-                        id="componentId"
-                        value={componentId}
-                        onChange={(e) => setComponentId(e.target.value)}
-                        disabled={isPending}
-                        required
-                        className="w-full"
-                    >
-                        {shouldShowFallbackOption ? (
-                            <option value={componentId}>
-                                Current selection: {componentId}
-                            </option>
-                        ) : null}
-                        <option value="" disabled>
-                            Select a component
-                        </option>
-                        {componentOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </Select>
-                ) : (
-                    <Input
-                        id="componentId"
-                        type="text"
-                        placeholder="e.g. 1:23"
-                        value={componentId}
-                        onChange={(e) => setComponentId(e.target.value)}
-                        disabled={isPending}
-                        required
-                    />
-                )}
-                <p className="text-xs text-muted-foreground">
-                    Components are loaded from the database. Value sent is the Figma component node ID.
-                </p>
-                {hasKnownComponentOptions ? (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setManualComponentIdOverride((prev) => !prev)}
-                        disabled={isPending}
-                        className="h-auto p-0 text-xs underline"
-                    >
-                        {manualComponentIdOverride ? 'Choose from list' : 'Use custom component ID'}
-                    </Button>
-                ) : null}
-            </div>
-
             {/* Model (optional) */}
             <div className="space-y-2">
                 <label htmlFor="model" className="text-sm font-medium">
@@ -289,6 +235,35 @@ export function AiJobCreateForm({
                     onChange={(e) => setModel(e.target.value)}
                     disabled={isPending}
                 />
+            </div>
+
+            {/* Component ID */}
+            <div className="space-y-2">
+                <label htmlFor="componentId" className="text-sm font-medium">
+                    Component ID <span className="text-destructive">*</span>
+                </label>
+                <Select
+                    id="componentId"
+                    value={componentId}
+                    onChange={(e) => setComponentId(e.target.value)}
+                    disabled={isPending || componentOptions.length === 0}
+                    required
+                    className="w-full"
+                >
+                    {shouldShowFallbackOption ? (
+                        <option value={componentId}>
+                            Current selection: {componentId}
+                        </option>
+                    ) : null}
+                    <option value="" disabled>
+                        {componentOptions.length === 0 ? 'No components available' : 'Select a component'}
+                    </option>
+                    {componentOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </Select>
             </div>
 
             {healthError ? (
@@ -418,8 +393,7 @@ export function AiJobCreateForm({
                 />
             ) : null}
 
-            {/* Submit Button */}
-            <div className="flex flex-col gap-2">
+            {previewButtonSlot ? createPortal(
                 <Button
                     type="button"
                     variant="outline"
@@ -429,9 +403,13 @@ export function AiJobCreateForm({
                     disabled={componentId.trim().length === 0 || previewPending || isPending}
                     className="w-full"
                 >
-                    {previewPending ? 'Rendering Prompt...' : 'Show rendered prompt preview'}
-                </Button>
+                    {previewPending ? 'Rendering Prompt...' : 'Show Rendered Prompt Preview'}
+                </Button>,
+                previewButtonSlot
+            ) : null}
 
+            {/* Submit Button */}
+            <div className="flex flex-col gap-2">
                 <Button type="submit" disabled={!isValid} className="w-full">
                     {isPending ? 'Creating Job...' : 'Generate Documentation'}
                 </Button>

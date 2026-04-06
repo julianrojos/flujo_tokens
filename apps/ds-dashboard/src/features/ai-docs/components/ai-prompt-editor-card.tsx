@@ -65,6 +65,7 @@ export function AiPromptEditorCard({
                             Available placeholders: {placeholders.join(', ')}
                         </p>
                     ) : null}
+                    <div id="ai-rendered-prompt-preview-slot" className="pt-1" />
                 </div>
             </CardContent>
         </Card>

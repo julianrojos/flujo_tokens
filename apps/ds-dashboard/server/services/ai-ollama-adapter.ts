@@ -75,6 +75,9 @@ export class OllamaAdapter implements AiProvider {
                 // Prefer schema-constrained output when model/runtime supports it.
                 format: input.jsonSchema,
                 stream: false,
+                // Disable thinking mode for models that support it (e.g. Qwen3).
+                // Thinking tokens consume timeout budget and break JSON parsing.
+                options: { thinking: false },
             };
             const bodyJsonOnly = {
                 ...bodyWithSchema,
