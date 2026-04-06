@@ -42,7 +42,8 @@ if (!fs.existsSync(AI_CONTEXT_PATH)) {
 
 /** Shadow mode: validation runs but never blocks publication */
 function isValidationShadowMode(): boolean {
-    return process.env.AI_VALIDATION_SHADOW === 'true';
+    // Default is warn-only (shadow ON). Set AI_VALIDATION_SHADOW=false to enforce blocking.
+    return process.env.AI_VALIDATION_SHADOW !== 'false';
 }
 
 /**

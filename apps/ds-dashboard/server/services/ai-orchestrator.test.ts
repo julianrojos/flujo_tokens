@@ -1177,7 +1177,7 @@ describe('3-stage pipeline', () => {
 
   it('blocks publication when severity is blocking and shadow mode is OFF', async () => {
     const prev = process.env.AI_VALIDATION_SHADOW;
-    delete process.env.AI_VALIDATION_SHADOW;
+    process.env.AI_VALIDATION_SHADOW = 'false';
 
     const store = new AiJobsStore();
     const job = store.enqueue({
@@ -1252,6 +1252,46 @@ describe('3-stage pipeline', () => {
     const completed = store.findById(job.id);
     assert.ok(completed);
     assert.equal(completed?.canPublish, true, 'Shadow mode should allow publication despite blocking');
+
+    if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
+    else delete process.env.AI_VALIDATION_SHADOW;
+  });
+
+  it('allows publication when shadow mode uses default unset env', async () => {
+    const prev = process.env.AI_VALIDATION_SHADOW;
+    delete process.env.AI_VALIDATION_SHADOW;
+
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    const adapter = create3StageAdapter({
+      validationReport: {
+        schemaVersion: 1,
+        passes: false,
+        severity: 'blocking',
+        score: 5,
+        structureWarnings: [],
+        missingSections: [],
+        unsupportedClaims: [],
+        editorialConflicts: [],
+        terminologyMismatches: [],
+        a11yWarnings: [],
+        tokenWarnings: [],
+        notes: [],
+      },
+    });
+    await runGenerateComponentDoc(job, store, adapter, async () => ({ name: 'Button', type: 'COMPONENT_SET' }));
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.canPublish, true, 'Default unset env should run in shadow mode');
 
     if (prev !== undefined) process.env.AI_VALIDATION_SHADOW = prev;
     else delete process.env.AI_VALIDATION_SHADOW;
