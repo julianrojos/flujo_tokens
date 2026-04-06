@@ -15,7 +15,7 @@ import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
 import { getAiConfiguredProviders, previewAiPrompts } from '../lib/ai-jobs-api';
 import { useAiJobCreate } from '../hooks/use-ai-job-create';
 import { useAiProviderHealth } from '../hooks/use-ai-provider-health';
-import type { AiHealthStatus, AiPromptPreviewResponse, AiProviderName } from '@/types/ai-jobs';
+import type { AiHealthStatus, AiPromptPreviewResponse, AiProviderName, DocStatus } from '@/types/ai-jobs';
 import { AI_PROVIDER_LABELS, AI_PROVIDER_ORDER } from '@/types/ai-provider-catalog';
 
 export interface AiJobComponentOption {
@@ -38,6 +38,12 @@ interface AiJobCreateFormProps {
     userPrompt?: string;
     /** Callback when job is created */
     onJobCreated?: (jobId: string) => void;
+    /** Callback when the selected component changes internally */
+    onComponentIdChange?: (id: string) => void;
+    /** Existing doc status for the currently selected component */
+    existingDocStatus?: DocStatus;
+    /** Whether existing doc status is still loading */
+    isDocStatusLoading?: boolean;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] = AI_PROVIDER_ORDER.map((value) => ({
@@ -61,14 +67,17 @@ function toneToVariant(
     return 'neutral';
 }
 
-export function AiJobCreateForm({ 
-    initialComponentId = '', 
+export function AiJobCreateForm({
+    initialComponentId = '',
     componentOptions = [],
-    initialProvider, 
-    initialModel, 
+    initialProvider,
+    initialModel,
     systemPrompt,
     userPrompt,
-    onJobCreated 
+    onJobCreated,
+    onComponentIdChange,
+    existingDocStatus,
+    isDocStatusLoading = false,
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
     const [componentId, setComponentId] = useState(initialComponentId);
@@ -82,6 +91,7 @@ export function AiJobCreateForm({
     const [promptPreview, setPromptPreview] = useState<AiPromptPreviewResponse | null>(null);
     const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
     const [previewButtonSlot, setPreviewButtonSlot] = useState<HTMLElement | null>(null);
+    const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
 
     const { data: configuredProviders, isFetched: configuredProvidersLoaded } = useQuery({
         queryKey: ['ai-configured-providers'],
@@ -108,6 +118,11 @@ export function AiJobCreateForm({
             setModel(initialModel);
         }
     }, [initialModel]);
+
+    // Reset acknowledgement when selected component changes
+    useEffect(() => {
+        setOverwriteAcknowledged(false);
+    }, [componentId, existingDocStatus]);
 
     useEffect(() => {
         if (initialProvider) return;
@@ -187,6 +202,8 @@ export function AiJobCreateForm({
     };
 
     const isValid = componentId.trim().length > 0 && !isPending;
+    const needsAcknowledgement = existingDocStatus === 'fresh';
+    const isFormValid = isValid && !isDocStatusLoading && (!needsAcknowledgement || overwriteAcknowledged);
     const selectedComponentIsKnown = componentOptions.some((option) => option.value === componentId);
     const shouldShowFallbackOption = componentId.trim().length > 0 && !selectedComponentIsKnown;
     const orderedProviderOptions = useMemo(() => {
@@ -245,7 +262,11 @@ export function AiJobCreateForm({
                 <Select
                     id="componentId"
                     value={componentId}
-                    onChange={(e) => setComponentId(e.target.value)}
+                    onChange={(e) => {
+                        const id = e.target.value;
+                        setComponentId(id);
+                        onComponentIdChange?.(id);
+                    }}
                     disabled={isPending || componentOptions.length === 0}
                     required
                     className="w-full"
@@ -408,9 +429,51 @@ export function AiJobCreateForm({
                 previewButtonSlot
             ) : null}
 
+            {/* Existing doc status notice */}
+            {isDocStatusLoading && componentId.trim().length > 0 && (
+                <StatusAlert
+                    variant="info"
+                    title="Comprobando documentación existente…"
+                    description="El botón de generación se habilitará cuando se confirme el estado."
+                />
+            )}
+            {!isDocStatusLoading && existingDocStatus === 'stale' && (
+                <StatusAlert
+                    variant="info"
+                    title="Este componente ya tiene documentación"
+                    description="Generar de nuevo creará un borrador nuevo — la documentación actual solo se sobrescribirá si aplicas los cambios."
+                />
+            )}
+            {!isDocStatusLoading && existingDocStatus === 'fresh' && (
+                <StatusAlert
+                    variant="warning"
+                    title="Este componente ya tiene documentación actualizada"
+                    description={
+                        <div className="space-y-2">
+                            <p>
+                                Generar de nuevo sobrescribirá la documentación existente si aplicas los cambios.
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    id="overwriteAck"
+                                    type="checkbox"
+                                    checked={overwriteAcknowledged}
+                                    onChange={(e) => setOverwriteAcknowledged(e.target.checked)}
+                                    disabled={isPending}
+                                    className="rounded border-border"
+                                />
+                                <label htmlFor="overwriteAck" className="text-sm">
+                                    Confirmar sobrescritura de documentación existente
+                                </label>
+                            </div>
+                        </div>
+                    }
+                />
+            )}
+
             {/* Submit Button */}
             <div className="flex flex-col gap-2">
-                <Button type="submit" disabled={!isValid} className="w-full">
+                <Button type="submit" disabled={!isFormValid} className="w-full">
                     {isPending ? 'Creating Job...' : 'Generate Documentation'}
                 </Button>
             </div>

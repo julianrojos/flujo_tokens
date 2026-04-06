@@ -141,6 +141,13 @@ export function AiDocsPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
+    // Derive existing doc status for the currently selected component.
+    // prefillComponentId is kept in sync by onComponentIdChange from the form.
+    const existingDocStatus = useMemo(
+        () => docStatus?.components.find((c) => c.componentId === prefillComponentId)?.status,
+        [docStatus?.components, prefillComponentId],
+    );
+
     const handleRetry = useCallback((input: AiJobInput) => {
         // Pre-fill the form with the failed job's data and clear the current job
         setPrefillComponentId(input.componentId);
@@ -213,6 +220,9 @@ export function AiDocsPage() {
                             systemPrompt={systemPrompt}
                             userPrompt={userPrompt}
                             onJobCreated={handleJobCreated}
+                            onComponentIdChange={setPrefillComponentId}
+                            existingDocStatus={existingDocStatus}
+                            isDocStatusLoading={isLoadingStatus}
                         />
                     </CardContent>
                 </Card>
