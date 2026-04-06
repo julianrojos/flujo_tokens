@@ -71,7 +71,10 @@ export interface AiJobInput {
     userPrompt?: string;
     /** Run without making actual LLM call */
     dryRun?: boolean;
-    /** Explicit idempotency key */
+    /**
+     * Explicit idempotency key from caller intent.
+     * In rerun flows this value is preserved as requested by the caller.
+     */
     idempotencyKey?: string;
 }
 

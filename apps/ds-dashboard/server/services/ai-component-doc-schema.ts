@@ -195,7 +195,10 @@ export interface AiJobInput {
     userPrompt?: string;
     /** Run without making actual LLM call */
     dryRun?: boolean;
-    /** Explicit idempotency key */
+    /**
+     * Explicit idempotency key from caller intent.
+     * In rerun flows this value is preserved as requested by the caller.
+     */
     idempotencyKey?: string;
 }
 
@@ -209,7 +212,11 @@ export interface AiJobState {
     input: AiJobInput;
     /** Current job status */
     status: AiJobStatus;
-    /** Idempotency key */
+    /**
+     * Effective idempotency key for this concrete job instance.
+     * For reruns this may be a derived internal key (e.g. with :rerun: suffix)
+     * and can differ from input.idempotencyKey.
+     */
     idempotencyKey: string;
     /** Job events (ring buffer) */
     events: AiJobEvent[];
