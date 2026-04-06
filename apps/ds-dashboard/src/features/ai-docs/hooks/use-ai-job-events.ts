@@ -45,6 +45,11 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
     const lastEventIdRef = useRef(0);
     const isCleaningRef = useRef(false);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const activeJobIdRef = useRef<string | null>(jobId);
+
+    useEffect(() => {
+        activeJobIdRef.current = jobId;
+    }, [jobId]);
 
     const cleanup = useCallback(() => {
         if (isCleaningRef.current) {
@@ -116,6 +121,7 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
             };
 
             eventSource.onmessage = (e) => {
+                if (activeJobIdRef.current !== jobId) return;
                 try {
                     const data = JSON.parse(e.data) as AiJobEvent;
                     // Deduplicate by seq - maintain set of seen seq numbers and sort by seq
@@ -134,6 +140,7 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
             };
 
             eventSource.onerror = () => {
+                if (activeJobIdRef.current !== jobId) return;
                 setIsStreaming(false);
                 eventSource.close();
                 eventSourceRef.current = null;
@@ -167,6 +174,7 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
             };
 
             eventSource.addEventListener('done', (e) => {
+                if (activeJobIdRef.current !== jobId) return;
                 try {
                     const data = JSON.parse(e.data) as { status: AiJobStatus };
                     setIsDone(true);
@@ -214,7 +222,9 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
                 });
 
                 if (response.ok) {
+                    if (activeJobIdRef.current !== jobId) return;
                     const job = await response.json();
+                    if (activeJobIdRef.current !== jobId) return;
 
                     // Add new events from polling (deduplicated against previous state)
                     if (job.events && job.events.length > 0) {
@@ -230,6 +240,7 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
 
                     // Check if job reached terminal state
                     if (job.done) {
+                        if (activeJobIdRef.current !== jobId) return;
                         setIsDone(true);
                         onDone?.(job.status);
                         return; // Stop polling
