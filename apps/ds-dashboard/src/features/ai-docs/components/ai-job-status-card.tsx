@@ -160,6 +160,7 @@ export function AiJobStatusCard({
     const canApply = job.status === 'completed' && job.output;
     const canRetry = job.status === 'failed' && job.retryable;
     const blockedByValidation = job.canPublish === false;
+    const validationFailed = events.some((evt) => evt.event === 'validation.report_failed');
 
     return (
         <Card>
@@ -255,13 +256,14 @@ export function AiJobStatusCard({
                     </div>
                 )}
 
-                {/* Validation report panel: includes fail-open message when completed without report */}
-                {job.status === 'completed' && (job.validationReport || job.canPublish !== undefined || !!job.pipelineStage) && (
+                {/* Validation report panel: show details if report exists, blocked publish, or validation attempt failed */}
+                {job.status === 'completed' && (job.validationReport || blockedByValidation || validationFailed || !!job.pipelineStage) && (
                     <ValidationReportPanel
                         report={job.validationReport}
                         canPublish={job.canPublish}
                         jobStatus={job.status}
                         pipelineStage={job.pipelineStage}
+                        showFailOpenNotice={validationFailed}
                     />
                 )}
 

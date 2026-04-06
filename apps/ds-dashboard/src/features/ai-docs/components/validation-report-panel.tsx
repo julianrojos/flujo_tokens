@@ -11,6 +11,7 @@ interface ValidationReportPanelProps {
     canPublish: boolean | undefined;
     jobStatus?: string;
     pipelineStage?: 'extracting' | 'patching' | 'validating' | null;
+    showFailOpenNotice?: boolean;
 }
 
 const severityColors: Record<ValidationSeverity, { bg: string; text: string; label: string }> = {
@@ -30,6 +31,7 @@ export function ValidationReportPanel({
     canPublish,
     jobStatus,
     pipelineStage,
+    showFailOpenNotice = false,
 }: ValidationReportPanelProps) {
     if (!report) {
         // Do not render while validation is still pending/in-progress.
@@ -37,8 +39,8 @@ export function ValidationReportPanel({
             return null;
         }
 
-        // Completed with no report and publish allowed => fail-open path.
-        if (canPublish !== false) {
+        // Show fail-open notice only when validation was attempted and failed.
+        if (showFailOpenNotice) {
             return (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                     <p className="text-sm text-gray-600">
@@ -46,6 +48,11 @@ export function ValidationReportPanel({
                     </p>
                 </div>
             );
+        }
+
+        // If validation was disabled/skipped by user, show nothing.
+        if (canPublish !== false) {
+            return null;
         }
 
         return (
