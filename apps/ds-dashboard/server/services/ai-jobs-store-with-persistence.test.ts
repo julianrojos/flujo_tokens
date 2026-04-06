@@ -58,7 +58,7 @@ describe('ai-jobs-store-with-persistence', () => {
             assert.strictEqual(events[0].event, 'job.queued');
         });
 
-        it('reuses persistent job when DB idempotency key already exists', () => {
+        it('creates a fresh queued job when persisted job with same key is completed', () => {
             const now = Date.now();
             const jobsRepo = (store as any).jobsRepo;
 
@@ -74,11 +74,134 @@ describe('ai-jobs-store-with-persistence', () => {
 
             const job = store.enqueue(createTestInput({ idempotencyKey: 'existing-key' }));
 
-            assert.strictEqual(job.id, 'persisted-job');
-            assert.strictEqual(job.status, 'completed');
-            assert.ok(store.findById('persisted-job'));
-            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 0, running: 0 });
-            assert.strictEqual(store.tryDequeue('anthropic'), null);
+            assert.notStrictEqual(job.id, 'persisted-job');
+            assert.strictEqual(job.status, 'queued');
+            assert.strictEqual(job.input.idempotencyKey, 'existing-key');
+            const persistedOriginal = store.getJobPersistent('persisted-job');
+            assert.ok(persistedOriginal);
+            assert.strictEqual(persistedOriginal?.status, 'completed');
+            const persistedRerun = store.getJobPersistent(job.id);
+            assert.ok(persistedRerun, 'Rerun job should be persisted to DB');
+            assert.strictEqual(persistedRerun?.status, 'queued');
+            assert.strictEqual(persistedRerun?.input.idempotencyKey, 'existing-key');
+            assert.ok(
+                persistedRerun?.idempotencyKey.startsWith('existing-key:rerun:'),
+                'Rerun job should use a derived idempotency key'
+            );
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
+        });
+
+        it('creates a fresh queued job when persisted job with same key is failed', () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            jobsRepo.upsertJob({
+                id: 'failed-job',
+                idempotencyKey: 'failed-key',
+                input: createTestInput({ idempotencyKey: 'failed-key' }),
+                status: 'failed',
+                error: 'previous failure',
+                events: [{ seq: 1, ts: now, event: 'job.failed' }],
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const job = store.enqueue(createTestInput({ idempotencyKey: 'failed-key' }));
+
+            assert.notStrictEqual(job.id, 'failed-job');
+            assert.strictEqual(job.status, 'queued');
+            assert.strictEqual(job.input.idempotencyKey, 'failed-key');
+            const persistedOriginal = store.getJobPersistent('failed-job');
+            assert.ok(persistedOriginal);
+            assert.strictEqual(persistedOriginal?.status, 'failed');
+            const persistedRerun = store.getJobPersistent(job.id);
+            assert.ok(persistedRerun, 'Rerun job should be persisted to DB');
+            assert.strictEqual(persistedRerun?.status, 'queued');
+            assert.strictEqual(persistedRerun?.input.idempotencyKey, 'failed-key');
+            assert.ok(
+                persistedRerun?.idempotencyKey.startsWith('failed-key:rerun:'),
+                'Rerun job should use a derived idempotency key'
+            );
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
+        });
+
+        it('creates a fresh queued job when persisted job with same key is cancelled', () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            jobsRepo.upsertJob({
+                id: 'cancelled-job',
+                idempotencyKey: 'cancelled-key',
+                input: createTestInput({ idempotencyKey: 'cancelled-key' }),
+                status: 'cancelled',
+                events: [{ seq: 1, ts: now, event: 'job.cancelled' }],
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const job = store.enqueue(createTestInput({ idempotencyKey: 'cancelled-key' }));
+
+            assert.notStrictEqual(job.id, 'cancelled-job');
+            assert.strictEqual(job.status, 'queued');
+            assert.strictEqual(job.input.idempotencyKey, 'cancelled-key');
+            const persistedOriginal = store.getJobPersistent('cancelled-job');
+            assert.ok(persistedOriginal);
+            assert.strictEqual(persistedOriginal?.status, 'cancelled');
+            const persistedRerun = store.getJobPersistent(job.id);
+            assert.ok(persistedRerun, 'Rerun job should be persisted to DB');
+            assert.strictEqual(persistedRerun?.status, 'queued');
+            assert.strictEqual(persistedRerun?.input.idempotencyKey, 'cancelled-key');
+            assert.ok(
+                persistedRerun?.idempotencyKey.startsWith('cancelled-key:rerun:'),
+                'Rerun job should use a derived idempotency key'
+            );
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
+        });
+
+        it('reuses persisted job when same key is already queued', () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            jobsRepo.upsertJob({
+                id: 'queued-job',
+                idempotencyKey: 'queued-key',
+                input: createTestInput({ idempotencyKey: 'queued-key' }),
+                status: 'queued',
+                events: [{ seq: 1, ts: now, event: 'job.queued' }],
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const job = store.enqueue(createTestInput({ idempotencyKey: 'queued-key' }));
+
+            assert.strictEqual(job.id, 'queued-job');
+            assert.strictEqual(job.status, 'queued');
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
+        });
+
+        it('reuses persisted job when same key is already running', () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            jobsRepo.upsertJob({
+                id: 'running-job',
+                idempotencyKey: 'running-key',
+                input: createTestInput({ idempotencyKey: 'running-key' }),
+                status: 'running',
+                events: [
+                    { seq: 1, ts: now - 1000, event: 'job.queued' },
+                    { seq: 2, ts: now, event: 'job.started' },
+                ],
+                createdAt: now - 1000,
+                updatedAt: now,
+            });
+
+            const job = store.enqueue(createTestInput({ idempotencyKey: 'running-key' }));
+
+            assert.strictEqual(job.id, 'running-job');
+            assert.strictEqual(job.status, 'running');
+            // Should not duplicate queue entry
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 0, running: 1 });
         });
     });
 

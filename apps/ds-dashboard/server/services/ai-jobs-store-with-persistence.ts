@@ -5,6 +5,8 @@
  * DB is required for all operations.
  */
 
+import { randomBytes } from 'node:crypto';
+
 import Database from 'better-sqlite3';
 
 import { AiJobsStore } from './ai-jobs-store.js';
@@ -96,8 +98,17 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
             if (orphan && orphan.id !== persistent.id) {
                 this.removeJobFromMemory(orphan.id);
             }
+            // Reuse only active jobs. Terminal jobs (completed|failed|cancelled)
+            // must allow a fresh rerun even with identical inputs.
+            if (persistent.status === 'queued' || persistent.status === 'running') {
+                return this.rehydratePersistentJobIfMissing(persistent);
+            }
 
-            return this.rehydratePersistentJobIfMissing(persistent);
+            // Terminal job — create a fresh rerun.
+            // Preserve original input.idempotencyKey (user intent). Use a
+            // separate override key for internal DB uniqueness.
+            const rerunKey = `${idempotencyKey}:rerun:${Date.now()}:${randomBytes(4).toString('hex')}`;
+            return super.enqueue(input, rerunKey);
         }
     }
 

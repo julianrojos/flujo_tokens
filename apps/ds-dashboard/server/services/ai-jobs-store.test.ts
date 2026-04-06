@@ -205,14 +205,14 @@ describe('ai-jobs-store', () => {
       assert.equal(job.id, job2.id, 'Same key should return same running job');
     });
 
-    it('should return existing job for same idempotency key (completed)', () => {
+    it('should create new job for same idempotency key when previous job is completed', () => {
       const input = makeInput({ idempotencyKey: 'test-key-3' });
       const job = store.enqueue(input);
       store.tryDequeue('anthropic');
       store.complete(job.id, makeOutput(), makeUsage());
 
       const job2 = store.enqueue(input);
-      assert.equal(job.id, job2.id, 'Same key should return same completed job');
+      assert.notEqual(job.id, job2.id, 'Completed job should not be reused — a new job must be created');
     });
 
     it('should create new job for same key if previous job failed', () => {

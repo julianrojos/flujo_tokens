@@ -3,7 +3,7 @@
  * In-memory FIFO job queue with idempotency, concurrency control, and cleanup
  */
 
-import crypto from 'crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type {
     AiJobState,
     AiJobInput,
@@ -81,7 +81,7 @@ export class AiJobsStore {
      */
     generateJobId(): string {
         const timestamp = Date.now();
-        const random = crypto.randomBytes(4).toString('hex');
+        const random = randomBytes(4).toString('hex');
         return `ai_${timestamp}_${random}`;
     }
 
@@ -108,8 +108,7 @@ export class AiJobsStore {
             dryRun: Boolean(input.dryRun),
         };
 
-        return crypto
-            .createHash('sha256')
+        return createHash('sha256')
             .update(JSON.stringify(data))
             .digest('hex')
             .slice(0, 16);
@@ -118,9 +117,14 @@ export class AiJobsStore {
     /**
      * Enqueue a new job
      * @param input - Job input parameters
+     * @param idempotencyKeyOverride - Optional override for the idempotency key
+     *   used for indexing and job state. When provided, this key is used for
+     *   idempotency lookup instead of the auto-computed hash.
+     *   Use this for internal rerun flows where the derived key must differ
+     *   from the user-provided input.idempotencyKey.
      * @returns Created job state
      */
-    enqueue(input: AiJobInput): AiJobState {
+    enqueue(input: AiJobInput, idempotencyKeyOverride?: string): AiJobState {
         // Check capacity
         if (this.jobs.size >= MAX_JOBS) {
             const error = new Error('Job queue is at capacity') as Error & { code: string; retryable: boolean };
@@ -129,15 +133,16 @@ export class AiJobsStore {
             throw error;
         }
 
-        const idempotencyKey = this.computeIdempotencyKey(input);
+        // Compute the key used for index lookup and job state.
+        const effectiveKey = idempotencyKeyOverride ?? this.computeIdempotencyKey(input);
 
-        // Check for existing job with same idempotency key
-        // Reuse only for non-terminal states (queued|running) and completed
-        // Allow new job for terminal failure states (failed|cancelled)
-        const existingJobId = this.idempotencyIndex.get(idempotencyKey);
+        // Check for existing active job — for normal enqueue this uses the
+        // computed key; for reruns this uses the override key (protects against
+        // rare concurrent rerun collisions on the same derived key).
+        const existingJobId = this.idempotencyIndex.get(effectiveKey);
         if (existingJobId) {
             const existingJob = this.jobs.get(existingJobId);
-            if (existingJob && (existingJob.status === 'queued' || existingJob.status === 'running' || existingJob.status === 'completed')) {
+            if (existingJob && (existingJob.status === 'queued' || existingJob.status === 'running')) {
                 return existingJob;
             }
         }
@@ -148,7 +153,7 @@ export class AiJobsStore {
             id: this.generateJobId(),
             input,
             status: 'queued',
-            idempotencyKey,
+            idempotencyKey: effectiveKey,
             events: [],
             createdAt: now,
             updatedAt: now,
@@ -156,7 +161,7 @@ export class AiJobsStore {
 
         // Store job and initialize event sequence counter
         this.jobs.set(job.id, job);
-        this.idempotencyIndex.set(idempotencyKey, job.id);
+        this.idempotencyIndex.set(effectiveKey, job.id);
         this.nextEventSeq.set(job.id, 1);
 
         // Add to queue
