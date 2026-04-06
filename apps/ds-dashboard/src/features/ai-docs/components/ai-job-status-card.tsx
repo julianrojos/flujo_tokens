@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { useAiJobStatus } from '../hooks/use-ai-job-status';
+import { useJobProgress } from '../hooks/use-job-progress';
 import { cancelAiJob } from '../lib/ai-jobs-api';
 import { AiDocPreview, formatJobEvent, formatRelativeTime } from './ai-doc-preview';
+import { JobProgressBar } from './job-progress-bar';
 import { ValidationReportPanel } from './validation-report-panel';
 import type { AiJobStatus, AiJobResponse, AiJobInput } from '@/types/ai-jobs';
 
@@ -76,6 +78,16 @@ export function AiJobStatusCard({
         return Array.from(eventMap.values()).sort((a, b) => a.seq - b.seq);
     }, [externalEvents, job?.events]);
 
+    // Progress bar: derives percent/label from events + pipelineStage + slow-fill
+    const { percent, label, isActive: isProgressActive } = useJobProgress(
+        events,
+        job?.status ?? 'pending',
+        job?.pipelineStage,
+    );
+
+    // Timeline collapsed by default while running, visible otherwise.
+    const [showTimeline, setShowTimeline] = useState(job?.status !== 'running');
+
     const handleCancel = async () => {
         if (!jobId) return;
         setIsCancelling(true);
@@ -103,6 +115,11 @@ export function AiJobStatusCard({
     useEffect(() => {
         setShowPreview(false);
     }, [jobId]);
+
+    useEffect(() => {
+        if (!job) return;
+        setShowTimeline(job.status !== 'running');
+    }, [job?.status]);
 
     if (isLoading) {
         return (
@@ -188,22 +205,41 @@ export function AiJobStatusCard({
                     </div>
                 )}
 
-                {/* Events timeline */}
+                {/* Progress bar (only while running/queued) */}
+                {isProgressActive && (
+                    <JobProgressBar percent={percent} label={label} />
+                )}
+
+                {/* Events timeline — collapsed by default while running */}
                 {events.length > 0 && (
                     <div className="space-y-2">
-                        <h4 className="text-sm font-medium">Timeline</h4>
-                        <div className="max-h-48 overflow-y-auto space-y-1 text-sm border rounded-md p-2">
-                            {events.map((evt, idx) => (
-                                <div key={idx} className="flex gap-2 text-xs">
-                                    <span className="text-muted-foreground shrink-0">
-                                        {formatRelativeTime(evt.ts)}
-                                    </span>
-                                    <span className="text-foreground">
-                                        {formatJobEvent(evt)}
-                                    </span>
-                                </div>
-                            ))}
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium">Timeline</h4>
+                            {job.status === 'running' && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => setShowTimeline(prev => !prev)}
+                                >
+                                    {showTimeline ? 'Hide details' : 'Show details'}
+                                </Button>
+                            )}
                         </div>
+                        {(showTimeline || job.status !== 'running') && (
+                            <div className="max-h-48 overflow-y-auto space-y-1 text-sm border rounded-md p-2">
+                                {events.map((evt) => (
+                                    <div key={evt.seq} className="flex gap-2 text-xs">
+                                        <span className="text-muted-foreground shrink-0">
+                                            {formatRelativeTime(evt.ts)}
+                                        </span>
+                                        <span className="text-foreground">
+                                            {formatJobEvent(evt)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 

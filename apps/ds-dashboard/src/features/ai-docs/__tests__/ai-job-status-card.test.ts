@@ -5,6 +5,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { computeProgressFromEvents, SLOW_FILL_RANGES, isProgressActive } from '../lib/job-progress';
 
 describe('AiJobStatusCard Logic', () => {
     // Mock job data for testing
@@ -355,6 +356,65 @@ describe('AiJobStatusCard Logic', () => {
             const resolvedMarkdown = (job as Record<string, unknown>).previewMarkdown as string | undefined
                 ?? job.output?.markdown;
             assert.equal(resolvedMarkdown, undefined);
+        });
+    });
+
+    describe('Progress logic', () => {
+        it('job running with llm.calling → percent === 25', () => {
+            const events = [{ event: 'llm.calling' }];
+            const result = computeProgressFromEvents(events);
+            assert.equal(result.percent, 25);
+        });
+
+        it('job queued with no events → percent === 2', () => {
+            const result = computeProgressFromEvents([]);
+            assert.equal(result.percent, 2);
+        });
+
+        it('slow-fill ranges are configured for LLM and editorial gaps', () => {
+            const triggers = SLOW_FILL_RANGES.map(r => r.trigger);
+            assert.ok(triggers.includes('llm.calling'));
+            assert.ok(triggers.includes('editorial.patch_calling'));
+        });
+
+        it('S-07: job completed → progress bar should NOT render (isProgressActive=false)', () => {
+            // The card renders progress bar via: {isProgressActive && <JobProgressBar />}
+            // isProgressActive('completed') === false → bar NOT rendered
+            assert.equal(isProgressActive('completed'), false, 'completed should not show progress bar');
+            const result = computeProgressFromEvents([{ event: 'job.completed' }]);
+            assert.equal(result.percent, 100);
+            assert.equal(result.label, 'Done');
+        });
+
+        it('S-07: job failed → progress bar should NOT render (isProgressActive=false)', () => {
+            // isProgressActive('failed') === false → bar NOT rendered
+            assert.equal(isProgressActive('failed'), false, 'failed should not show progress bar');
+        });
+
+        it('S-07: job running → progress bar SHOULD render (isProgressActive=true)', () => {
+            // isProgressActive('running') === true → bar IS rendered
+            assert.equal(isProgressActive('running'), true, 'running should show progress bar');
+        });
+
+        it('S-06: hook logic — computeProgressFromEvents handles full pipeline correctly', () => {
+            const fullPipeline = [
+                { event: 'pipeline.started' },
+                { event: 'figma.spec.fetching' },
+                { event: 'figma.spec.fetched' },
+                { event: 'context.prepared' },
+                { event: 'llm.calling' },
+                { event: 'llm.completed' },
+                { event: 'schema.validated' },
+                { event: 'render.completed' },
+                { event: 'editorial.patch_calling' },
+                { event: 'editorial.patch_validated' },
+                { event: 'validation.report_calling' },
+                { event: 'validation.report_validated' },
+                { event: 'job.completed' },
+            ];
+            const result = computeProgressFromEvents(fullPipeline);
+            assert.equal(result.percent, 100);
+            assert.equal(result.label, 'Done');
         });
     });
 });
