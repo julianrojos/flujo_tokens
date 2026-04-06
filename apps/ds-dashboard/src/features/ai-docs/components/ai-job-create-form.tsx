@@ -257,7 +257,7 @@ export function AiJobCreateForm({
             {/* Component ID */}
             <div className="space-y-2">
                 <label htmlFor="componentId" className="text-sm font-medium">
-                    Component ID <span className="text-destructive">*</span>
+                    Component <span className="text-destructive">*</span>
                 </label>
                 <Select
                     id="componentId"

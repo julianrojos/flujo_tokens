@@ -213,9 +213,8 @@ export function AiJobStatusCard({
                 {/* Events timeline — collapsed by default while running */}
                 {events.length > 0 && (
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-medium">Timeline</h4>
-                            {job.status === 'running' && (
+                        {job.status === 'running' && (
+                            <div className="flex justify-end">
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -224,8 +223,8 @@ export function AiJobStatusCard({
                                 >
                                     {showTimeline ? 'Hide details' : 'Show details'}
                                 </Button>
-                            )}
-                        </div>
+                            </div>
+                        )}
                         {(showTimeline || job.status !== 'running') && (
                             <div className="max-h-48 overflow-y-auto space-y-1 text-sm border rounded-md p-2">
                                 {events.map((evt) => (
