@@ -16,7 +16,7 @@ interface FigmaDescriptionsData {
 
 interface DocsResponse {
   ok: true;
-  markdown: string | null;
+  markdown: string;
   source: 'fresh' | 'cache';
   syncedAt: number | null;
   stale: boolean;
@@ -27,9 +27,18 @@ interface DocsResponse {
 }
 
 const QUERY_KEY = 'figmaDescriptions';
+const EMPTY_DESCRIPTIONS: FigmaDescriptionsData = {
+  componentSetDescription: null,
+  variantDescriptions: [],
+  syncedAt: null,
+  stale: true,
+};
 
 async function fetchFigmaDescriptions(slug: string): Promise<FigmaDescriptionsData> {
   const res = await fetch(`/api/components/${encodeURIComponent(slug)}/docs/markdown`);
+  if (res.status === 404) {
+    return EMPTY_DESCRIPTIONS;
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   }
@@ -69,6 +78,10 @@ export function useRefreshFigmaDescriptions() {
     const res = await fetch(
       `/api/components/${encodeURIComponent(slug)}/docs/markdown?refresh=true`,
     );
+    if (res.status === 404) {
+      queryClient.setQueryData([QUERY_KEY, slug], EMPTY_DESCRIPTIONS);
+      return EMPTY_DESCRIPTIONS;
+    }
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     }

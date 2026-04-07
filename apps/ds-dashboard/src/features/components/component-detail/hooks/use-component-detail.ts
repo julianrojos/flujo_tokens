@@ -42,6 +42,7 @@ interface ComponentDetailViewModel {
   suggestion: EditorialSuggestion | null;
   suggestionLoading: boolean;
   downloadError: string | null;
+  downloadWarnings: string[];
 
   // UI state
   captureModalOpen: boolean;
@@ -91,6 +92,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [isDownloadingMarkdown, setIsDownloadingMarkdown] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadWarnings, setDownloadWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     setCaptureSummary(null);
@@ -98,6 +100,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     setSuggestion(null);
     setSuggestionLoading(false);
     setDownloadError(null);
+    setDownloadWarnings([]);
     setIsDownloadingMarkdown(false);
   }, [slug]);
 
@@ -196,6 +199,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     if (!item) return;
     setIsDownloadingMarkdown(true);
     setDownloadError(null);
+    setDownloadWarnings([]);
 
     try {
       const res = await fetch(`/api/components/${encodeURIComponent(item.slug)}/docs/markdown`);
@@ -205,26 +209,29 @@ export function useComponentDetail(): ComponentDetailViewModel {
 
       const payload = await res.json() as {
         ok: true;
-        markdown: string | null;
+        markdown: string;
+        warnings?: string[];
       };
 
-      if (payload.markdown === null) {
-        setDownloadError("No documentation available yet. Generate and apply AI docs first.");
-        return;
-      }
-
       const markdown = payload.markdown;
+      const warnings = Array.isArray(payload.warnings)
+        ? payload.warnings.filter((warning): warning is string => typeof warning === "string" && warning.length > 0)
+        : [];
+      setDownloadWarnings(warnings);
       const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `${item.slug}.md`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Revoke asynchronously to avoid browsers dropping the download
-      // before the navigation to the blob URL has actually started.
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      try {
+        a.href = url;
+        a.download = `${item.slug}.md`;
+        document.body.appendChild(a);
+        a.click();
+      } finally {
+        a.remove();
+        // Revoke asynchronously to avoid browsers dropping the download
+        // before the navigation to the blob URL has actually started.
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       setDownloadError(`Unable to download markdown: ${message}`);
@@ -261,6 +268,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     suggestion,
     suggestionLoading,
     downloadError,
+    downloadWarnings,
     captureModalOpen,
     editorialEditorOpen,
     captureSummary,
