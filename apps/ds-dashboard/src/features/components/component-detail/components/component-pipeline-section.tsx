@@ -12,18 +12,20 @@ interface ComponentPipelineSectionProps {
   currentStage: PipelineStage | null;
   hasFigmaUrl: boolean;
   canOpenDocs: boolean;
+  isDownloadingMarkdown?: boolean;
   onCapture: () => void;
   onOpenEditorial: () => void;
-  onOpenDocs: () => void;
+  onDownloadMarkdown: () => void;
 }
 
 export function ComponentPipelineSection({
   currentStage,
   hasFigmaUrl,
   canOpenDocs,
+  isDownloadingMarkdown = false,
   onCapture,
   onOpenEditorial,
-  onOpenDocs,
+  onDownloadMarkdown,
 }: ComponentPipelineSectionProps) {
   const stages = PIPELINE_STAGES;
   const currentIdx = currentStage ? stages.indexOf(currentStage) : -1;
@@ -32,6 +34,7 @@ export function ComponentPipelineSection({
       ? stages[currentIdx + 1]
       : null;
 
+  const isDownloadCta = currentStage === "visual-proof" && canOpenDocs;
   const cta = (() => {
     if (!currentStage) return null;
     if (currentStage === "missing-spec") return { label: "Add spec", onClick: onOpenEditorial };
@@ -41,7 +44,7 @@ export function ComponentPipelineSection({
       return { label: "Capture visual proof", onClick: onCapture };
     }
     if (currentStage === "visual-proof" && canOpenDocs) {
-      return { label: "Open docs", onClick: onOpenDocs };
+      return { label: isDownloadingMarkdown ? "Downloading..." : "Download markdown", onClick: onDownloadMarkdown };
     }
     return null;
   })();
@@ -72,7 +75,7 @@ export function ComponentPipelineSection({
         variant: "success" as const,
         title: "Pipeline complete",
         description:
-          "Visual proof is available. Open docs to review and finalize publication status.",
+          "Visual proof is available. Download the markdown to review and finalize publication status.",
       };
     }
 
@@ -128,7 +131,12 @@ export function ComponentPipelineSection({
           />
         ) : null}
         {cta && (
-          <Button onClick={cta.onClick} size="sm">
+          <Button
+            onClick={cta.onClick}
+            size="sm"
+            disabled={isDownloadCta && isDownloadingMarkdown}
+            aria-busy={isDownloadCta && isDownloadingMarkdown}
+          >
             {cta.label}
           </Button>
         )}

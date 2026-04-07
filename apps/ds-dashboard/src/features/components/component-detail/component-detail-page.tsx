@@ -20,7 +20,6 @@ import { ComponentAdoptionSection } from "./components/component-adoption-sectio
 import { FigmaDescriptionSection } from "./components/figma-description-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
-const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(m => ({ default: m.ComponentDocsModal })));
 const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(m => ({ default: m.ComponentSpecEditor })));
 
 export function ComponentDetailPage() {
@@ -36,7 +35,6 @@ export function ComponentDetailPage() {
     specUpdatedAt,
     tokenRegistry,
     captureModalOpen,
-    docsModalOpen,
     editorialEditorOpen,
     captureSummary,
     canOpenDocs,
@@ -46,14 +44,15 @@ export function ComponentDetailPage() {
     totalItems,
     suggestion,
     suggestionLoading,
+    downloadError,
+    isDownloadingMarkdown,
     setCaptureModalOpen,
-    setDocsModalOpen,
     setEditorialEditorOpen,
     setCaptureSummary,
     handleReload,
     handleNavigate,
     handleBack,
-    openDocsModal,
+    downloadMarkdown,
     consumeSuggestion,
     discardSuggestion,
   } = useComponentDetail();
@@ -68,6 +67,10 @@ export function ComponentDetailPage() {
       // Fail-open: stale data remains in cache
     });
   }, [slug, refreshFigmaDescriptions]);
+
+  const handleDownloadMarkdown = useCallback(() => {
+    void downloadMarkdown();
+  }, [downloadMarkdown]);
 
   const descriptionsData = figmaDesc ?? {
     componentSetDescription: null,
@@ -133,10 +136,30 @@ export function ComponentDetailPage() {
         currentStage={item.pipeline_stage}
         hasFigmaUrl={Boolean(item.figma.file_url)}
         canOpenDocs={canOpenDocs}
+        isDownloadingMarkdown={isDownloadingMarkdown}
         onCapture={() => setCaptureModalOpen(true)}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
-        onOpenDocs={openDocsModal}
+        onDownloadMarkdown={handleDownloadMarkdown}
       />
+
+      {downloadError ? (
+        <StatusAlert
+          variant="error"
+          title="Download failed"
+          description={downloadError}
+        >
+          <div className="pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadMarkdown}
+              disabled={isDownloadingMarkdown}
+            >
+              {isDownloadingMarkdown ? "Retrying..." : "Retry download"}
+            </Button>
+          </div>
+        </StatusAlert>
+      ) : null}
 
       {/* S-07: Figma descriptions (content + sync status) */}
       <FigmaDescriptionSection
@@ -161,20 +184,13 @@ export function ComponentDetailPage() {
       <ComponentSpecSection
         spec={spec}
         canOpenDocs={canOpenDocs}
-        onOpenDocs={openDocsModal}
+        isDownloadingMarkdown={isDownloadingMarkdown}
+        onDownloadMarkdown={handleDownloadMarkdown}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
         selfSlug={item.slug}
       />
 
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>
-        {docsModalOpen && canOpenDocs && (
-          <ComponentDocsModal
-            open={docsModalOpen}
-            onClose={() => setDocsModalOpen(false)}
-            slug={item.slug}
-            displayName={item.display_name}
-          />
-        )}
         {editorialEditorOpen && (
           <ComponentSpecEditor
             open={editorialEditorOpen}

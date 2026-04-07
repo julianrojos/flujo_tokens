@@ -41,14 +41,15 @@ interface ComponentDetailViewModel {
   tokenUsageIndex: TokenUsageIndex | null;
   suggestion: EditorialSuggestion | null;
   suggestionLoading: boolean;
+  downloadError: string | null;
 
   // UI state
   captureModalOpen: boolean;
-  docsModalOpen: boolean;
   editorialEditorOpen: boolean;
   captureSummary: string | null;
   reloadNonce: number;
   canOpenDocs: boolean;
+  isDownloadingMarkdown: boolean;
 
   // Derived
   nextStep: PipelineStage | null;
@@ -59,13 +60,12 @@ interface ComponentDetailViewModel {
 
   // Handlers
   setCaptureModalOpen: (open: boolean) => void;
-  setDocsModalOpen: (open: boolean) => void;
   setEditorialEditorOpen: (open: boolean) => void;
   setCaptureSummary: (summary: string | null) => void;
   handleReload: () => void;
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
-  openDocsModal: () => void;
+  downloadMarkdown: () => Promise<void>;
   consumeSuggestion: () => void;
   discardSuggestion: () => void;
 }
@@ -82,7 +82,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
-  const [docsModalOpen, setDocsModalOpen] = useState(false);
   const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -90,12 +89,16 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<EditorialSuggestion | null>(null);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [isDownloadingMarkdown, setIsDownloadingMarkdown] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     setCaptureSummary(null);
     setEditorialEditorOpen(false);
     setSuggestion(null);
     setSuggestionLoading(false);
+    setDownloadError(null);
+    setIsDownloadingMarkdown(false);
   }, [slug]);
 
   // Load pending suggestion when editorial editor opens
@@ -189,13 +192,46 @@ export function useComponentDetail(): ComponentDetailViewModel {
     navigate("/components");
   }, [navigate]);
 
-  const openDocsModal = useCallback(() => {
-    // S-06: canOpenDocs = Boolean(item) — no longer gated on file existence
-    const canOpenDocs = Boolean(item);
-    if (canOpenDocs) {
-      setDocsModalOpen(true);
+  const downloadMarkdown = useCallback(async () => {
+    if (!item) return;
+    setIsDownloadingMarkdown(true);
+    setDownloadError(null);
+
+    try {
+      const res = await fetch(`/api/components/${encodeURIComponent(item.slug)}/docs/markdown`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const payload = await res.json() as {
+        ok: true;
+        markdown: string | null;
+      };
+
+      if (payload.markdown === null) {
+        setDownloadError("No documentation available yet. Generate and apply AI docs first.");
+        return;
+      }
+
+      const markdown = payload.markdown;
+      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${item.slug}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoke asynchronously to avoid browsers dropping the download
+      // before the navigation to the blob URL has actually started.
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setDownloadError(`Unable to download markdown: ${message}`);
+    } finally {
+      setIsDownloadingMarkdown(false);
     }
-  }, [Boolean(item)]);
+  }, [item]);
 
   const consumeSuggestion = useCallback(() => {
     setSuggestion(null);
@@ -224,25 +260,25 @@ export function useComponentDetail(): ComponentDetailViewModel {
     tokenUsageIndex,
     suggestion,
     suggestionLoading,
+    downloadError,
     captureModalOpen,
-    docsModalOpen,
     editorialEditorOpen,
     captureSummary,
     reloadNonce,
     canOpenDocs: Boolean(item),
+    isDownloadingMarkdown,
     nextStep,
     previousItem,
     nextItem,
     currentIndex,
     totalItems,
     setCaptureModalOpen,
-    setDocsModalOpen,
     setEditorialEditorOpen,
     setCaptureSummary,
     handleReload,
     handleNavigate,
     handleBack,
-    openDocsModal,
+    downloadMarkdown,
     consumeSuggestion,
     discardSuggestion,
   };

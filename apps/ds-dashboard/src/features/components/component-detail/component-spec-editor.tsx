@@ -1,11 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, X } from "lucide-react";
 
 import type { PartialComponentSpec } from "ds-types";
 import { patchEditorialSpec } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { StringListEditor } from "@/components/ui/string-list-editor";
 import {
   Modal,
   ModalContent,
@@ -126,6 +125,104 @@ const ARIA_ROLE_SET = new Set<string>(ARIA_ROLE_OPTIONS);
 
 function SummaryEditorLoadingFallback() {
   return <div className="min-h-[80px] animate-pulse rounded-md border border-border bg-muted/30" />;
+}
+
+interface RichTextListEditorProps {
+  value: string[];
+  onChange: (value: string[]) => void;
+  label?: string;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+function RichTextListEditor({
+  value,
+  onChange,
+  label,
+  placeholder = "Enter item...",
+  disabled = false,
+}: RichTextListEditorProps) {
+  const nextIdRef = useRef(0);
+  const createId = () => `rte-li-${nextIdRef.current++}`;
+  const [itemIds, setItemIds] = useState<string[]>(() => value.map(() => createId()));
+
+  useEffect(() => {
+    setItemIds((current) => {
+      if (value.length === current.length) {
+        return current;
+      }
+      if (value.length < current.length) {
+        return current.slice(0, value.length);
+      }
+      const extra = Array.from({ length: value.length - current.length }, () => createId());
+      return [...current, ...extra];
+    });
+  }, [value.length]);
+
+  const handleItemChange = (index: number, newValue: string) => {
+    const updated = value.map((item, i) => (i === index ? newValue : item));
+    onChange(updated);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItemIds((current) => current.filter((_, i) => i !== index));
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  const handleAddItem = () => {
+    setItemIds((current) => [...current, createId()]);
+    onChange([...value, ""]);
+  };
+
+  return (
+    <div className="space-y-2">
+      {label ? <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span> : null}
+
+      {value.length === 0 ? (
+        <div className="flex items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/20 py-4">
+          <Button variant="ghost" size="sm" onClick={handleAddItem} disabled={disabled} aria-label={`Add ${label || "item"}`}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add item
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Suspense fallback={<SummaryEditorLoadingFallback />}>
+            <ul className="space-y-3">
+              {value.map((item, index) => (
+                <li
+                  key={itemIds[index] ?? `${label || "item"}-${index}`}
+                  className="space-y-2 rounded-md border border-border/70 p-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{`${label || "Item"} ${index + 1}`}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveItem(index)}
+                      disabled={disabled}
+                      aria-label={`Remove ${label || "item"} ${index + 1}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <SummaryMarkdownEditor
+                    value={item}
+                    onChange={(markdown) => handleItemChange(index, markdown)}
+                    placeholder={placeholder}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Suspense>
+          <Button variant="ghost" size="sm" onClick={handleAddItem} disabled={disabled} aria-label={`Add ${label || "item"}`}>
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add item
+          </Button>
+        </>
+      )}
+    </div>
+  );
 }
 
 interface ComponentSpecEditorProps {
@@ -467,8 +564,8 @@ export function ComponentSpecEditor({
           {/* Best Practices section */}
           <section>
             <h4 className="mb-3 text-sm font-semibold">Best Practices</h4>
-            <div className="grid gap-4 md:grid-cols-2">
-              <StringListEditor
+            <div className="space-y-4">
+              <RichTextListEditor
                 value={bestPractices.do}
                 onChange={(doItems) => {
                   markUnsaved();
@@ -477,7 +574,7 @@ export function ComponentSpecEditor({
                 label="Do"
                 placeholder="e.g., Use semantic HTML elements"
               />
-              <StringListEditor
+              <RichTextListEditor
                 value={bestPractices.dont}
                 onChange={(dontItems) => {
                   markUnsaved();
@@ -494,7 +591,7 @@ export function ComponentSpecEditor({
           {/* Content Guidelines section */}
           <section>
             <h4 className="mb-3 text-sm font-semibold">Content Guidelines</h4>
-            <StringListEditor
+            <RichTextListEditor
               value={contentGuidelines.rules}
               onChange={(rules) => {
                 markUnsaved();
@@ -545,7 +642,7 @@ export function ComponentSpecEditor({
                   </p>
                 ) : null}
               </div>
-              <StringListEditor
+              <RichTextListEditor
                 value={accessibility.labelingRules}
                 onChange={(rules) => {
                   markUnsaved();
@@ -554,7 +651,7 @@ export function ComponentSpecEditor({
                 label="Labeling rules"
                 placeholder="e.g., Label must include component name"
               />
-              <StringListEditor
+              <RichTextListEditor
                 value={accessibility.notes}
                 onChange={(notes) => {
                   markUnsaved();

@@ -11,7 +11,8 @@ import { ComponentSpecViewer } from "../component-spec-viewer";
 interface ComponentSpecSectionProps {
   spec: PartialComponentSpec | null;
   canOpenDocs: boolean;
-  onOpenDocs: () => void;
+  isDownloadingMarkdown?: boolean;
+  onDownloadMarkdown: () => void;
   onOpenEditorial: () => void;
   selfSlug?: string;
 }
@@ -19,7 +20,8 @@ interface ComponentSpecSectionProps {
 export function ComponentSpecSection({
   spec,
   canOpenDocs,
-  onOpenDocs,
+  isDownloadingMarkdown = false,
+  onDownloadMarkdown,
   onOpenEditorial,
   selfSlug,
 }: ComponentSpecSectionProps) {
@@ -33,8 +35,14 @@ export function ComponentSpecSection({
           </div>
           <div className="flex items-center gap-2">
             {canOpenDocs && (
-              <Button variant="outline" size="sm" onClick={onOpenDocs}>
-                Docs
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDownloadMarkdown}
+                disabled={isDownloadingMarkdown}
+                aria-busy={isDownloadingMarkdown}
+              >
+                {isDownloadingMarkdown ? "Downloading..." : "Download markdown"}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={onOpenEditorial}>
