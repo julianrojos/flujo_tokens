@@ -489,6 +489,7 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
             type: 'object',
             description: 'Structural warning about the component output',
             additionalProperties: false,
+            required: ['message', 'section'],
             properties: {
                 message: { type: 'string' },
                 section: { type: 'string' },
@@ -650,14 +651,19 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
 
     if (obj.structureWarning !== undefined) {
         if (!obj.structureWarning || typeof obj.structureWarning !== 'object') {
-            throw new Error('structureWarning: must be an object');
-        }
-        const warning = obj.structureWarning as Record<string, unknown>;
-        if (typeof warning.message !== 'string') {
-            throw new Error('structureWarning.message: must be a string');
-        }
-        if (typeof warning.section !== 'string') {
-            throw new Error('structureWarning.section: must be a string');
+            // Model returned a non-object — drop silently rather than failing the job.
+            console.warn('[ai-schema] structureWarning is not an object, dropping:', obj.structureWarning);
+            delete (obj as Record<string, unknown>).structureWarning;
+        } else {
+            const warning = obj.structureWarning as Record<string, unknown>;
+            const messageOk = typeof warning.message === 'string';
+            const sectionOk = typeof warning.section === 'string';
+            if (!messageOk || !sectionOk) {
+                // Model returned null/non-string fields — drop the whole field rather than
+                // failing the job with ai.schema.invalid. structureWarning is informational only.
+                console.warn('[ai-schema] structureWarning has invalid fields, dropping:', warning);
+                delete (obj as Record<string, unknown>).structureWarning;
+            }
         }
     }
 

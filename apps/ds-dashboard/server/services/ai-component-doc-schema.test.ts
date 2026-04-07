@@ -181,7 +181,10 @@ describe('ai-component-doc-schema', () => {
             }, /unresolvedQuestions\[1\]: must be a string/);
         });
 
-        it('should reject malformed structureWarning', () => {
+        it('should drop malformed structureWarning instead of failing the job', () => {
+            // Models may return null/missing fields in structureWarning (especially local models).
+            // The validator must drop the field gracefully so the job succeeds rather than
+            // throwing ai.schema.invalid for a purely informational field.
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
@@ -194,11 +197,10 @@ describe('ai-component-doc-schema', () => {
                 markdown: '',
                 states: [],
                 accessibilityFacts: [],
-                structureWarning: { message: 'Missing section' },
+                structureWarning: { message: 'Missing section' }, // section missing
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /structureWarning\.section: must be a string/);
+            const result = validateComponentDocOutput(fixture);
+            assert.equal(result.structureWarning, undefined, 'malformed structureWarning should be dropped, not throw');
         });
 
         it('should reject non-object input', () => {
