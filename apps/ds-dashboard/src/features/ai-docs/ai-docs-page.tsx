@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
+import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
 import { AiJobCreateForm } from './components/ai-job-create-form';
 import { AiJobStatusCard } from './components/ai-job-status-card';
 import { AiDocDiffViewer } from './components/ai-doc-diff-viewer';
@@ -18,8 +19,8 @@ import { AiPromptEditorCard } from './components/ai-prompt-editor-card';
 import { useAiDocStatus } from './hooks/use-ai-doc-status';
 import { useAiJobEvents } from './hooks/use-ai-job-events';
 import { fetchComponentRegistry } from '@/lib/api';
-import { getAiPromptDefaults } from './lib/ai-jobs-api';
-import type { AiJobStatus, AiJobInput, AiProviderName } from '@/types/ai-jobs';
+import { getAiPromptDefaults, previewAiPrompts } from './lib/ai-jobs-api';
+import type { AiJobStatus, AiJobInput, AiProviderName, AiPromptPreviewResponse } from '@/types/ai-jobs';
 
 function parseStatusFilter(value: string): 'all' | 'stale-missing' {
     return value === 'stale-missing' ? 'stale-missing' : 'all';
@@ -37,6 +38,11 @@ export function AiDocsPage() {
     const [systemPrompt, setSystemPrompt] = useState('');
     const [userPrompt, setUserPrompt] = useState('');
     const [promptsInitialized, setPromptsInitialized] = useState(false);
+    const [figmaUrlForPreview, setFigmaUrlForPreview] = useState('');
+    const [showPromptPreview, setShowPromptPreview] = useState(false);
+    const [previewPending, setPreviewPending] = useState(false);
+    const [promptPreview, setPromptPreview] = useState<AiPromptPreviewResponse | null>(null);
+    const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
 
     // Keep ref in sync with activeJobId state
     useEffect(() => {
@@ -165,6 +171,31 @@ export function AiDocsPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
+    const handleShowPromptPreview = useCallback(async () => {
+        const trimmedComponentId = prefillComponentId.trim();
+        if (!trimmedComponentId) return;
+
+        setPromptPreview(null);
+        setShowPromptPreview(false);
+        setPromptPreviewError(null);
+        setPreviewPending(true);
+
+        try {
+            const preview = await previewAiPrompts({
+                componentId: trimmedComponentId,
+                figmaUrl: figmaUrlForPreview.trim() || undefined,
+                systemPrompt: systemPrompt.trim().length > 0 ? systemPrompt : undefined,
+                userPrompt: userPrompt.trim().length > 0 ? userPrompt : undefined,
+            });
+            setPromptPreview(preview);
+            setShowPromptPreview(true);
+        } catch (error) {
+            setPromptPreviewError(error instanceof Error ? error.message : 'Unable to preview prompts');
+        } finally {
+            setPreviewPending(false);
+        }
+    }, [figmaUrlForPreview, prefillComponentId, systemPrompt, userPrompt]);
+
     // Show diff viewer when Apply is requested
     if (showDiff && activeJobId) {
         return (
@@ -228,6 +259,7 @@ export function AiDocsPage() {
                             userPrompt={userPrompt}
                             onJobCreated={handleJobCreated}
                             onComponentIdChange={setPrefillComponentId}
+                            onFigmaUrlChange={setFigmaUrlForPreview}
                             existingDocStatus={existingDocStatus}
                             isDocStatusLoading={isLoadingStatus}
                         />
@@ -242,6 +274,13 @@ export function AiDocsPage() {
                             description="Prompt defaults could not be loaded. If these fields stay empty, backend defaults will be used at generation time."
                         />
                     ) : null}
+                    {promptPreviewError ? (
+                        <StatusAlert
+                            variant="warning"
+                            title="Unable to preview prompts"
+                            description={promptPreviewError}
+                        />
+                    ) : null}
                     <AiPromptEditorCard
                         systemPrompt={systemPrompt}
                         userPrompt={userPrompt}
@@ -254,6 +293,19 @@ export function AiDocsPage() {
                             setSystemPrompt(promptDefaults.systemPrompt);
                             setUserPrompt(promptDefaults.userPrompt);
                         }}
+                        promptPreviewAction={
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    void handleShowPromptPreview();
+                                }}
+                                disabled={prefillComponentId.trim().length === 0 || previewPending}
+                                className="w-full"
+                            >
+                                {previewPending ? 'Rendering Prompt...' : 'Show Rendered Prompt Preview'}
+                            </Button>
+                        }
                     />
                 </div>
             </div>
@@ -392,6 +444,58 @@ export function AiDocsPage() {
                 </CardContent>
             </Card>
             </div>
+
+            <Modal
+                open={showPromptPreview}
+                onClose={() => setShowPromptPreview(false)}
+                aria-labelledby="ai-prompt-preview-title"
+                zIndex={1200}
+            >
+                <ModalContent size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
+                    <ModalHeader>
+                        <div>
+                            <h3 id="ai-prompt-preview-title" className="text-lg font-semibold">
+                                Rendered Prompt Preview
+                            </h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Interpolated prompts for component <span className="font-mono">{prefillComponentId.trim()}</span>.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setShowPromptPreview(false)}>
+                            Close
+                        </Button>
+                    </ModalHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-4">
+                        {promptPreview?.warning ? (
+                            <StatusAlert
+                                variant="warning"
+                                description={promptPreview.warning}
+                            />
+                        ) : null}
+                        {promptPreview ? (
+                            <>
+                                <p className="text-xs text-muted-foreground">
+                                    Spec source: <span className="font-mono">{promptPreview.specSource}</span>
+                                </p>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">System prompt</p>
+                                    <pre className="max-h-56 overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                                        {promptPreview.systemPrompt}
+                                    </pre>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">User prompt</p>
+                                    <pre className="max-h-[40vh] overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                                        {promptPreview.userPrompt}
+                                    </pre>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No preview available.</p>
+                        )}
+                    </div>
+                </ModalContent>
+            </Modal>
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ReactNode } from 'react';
 
 interface AiPromptEditorCardProps {
     systemPrompt: string;
@@ -9,6 +10,7 @@ interface AiPromptEditorCardProps {
     onSystemPromptChange: (value: string) => void;
     onUserPromptChange: (value: string) => void;
     onResetDefaults: () => void;
+    promptPreviewAction?: ReactNode;
 }
 
 export function AiPromptEditorCard({
@@ -19,6 +21,7 @@ export function AiPromptEditorCard({
     onSystemPromptChange,
     onUserPromptChange,
     onResetDefaults,
+    promptPreviewAction,
 }: AiPromptEditorCardProps) {
     return (
         <Card>
@@ -65,7 +68,11 @@ export function AiPromptEditorCard({
                             Available placeholders: {placeholders.join(', ')}
                         </p>
                     ) : null}
-                    <div id="ai-rendered-prompt-preview-slot" className="pt-1" />
+                    {promptPreviewAction ? (
+                        <div className="pt-1">
+                            {promptPreviewAction}
+                        </div>
+                    ) : null}
                 </div>
             </CardContent>
         </Card>

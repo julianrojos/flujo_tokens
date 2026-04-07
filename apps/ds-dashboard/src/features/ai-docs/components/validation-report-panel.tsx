@@ -5,6 +5,7 @@
  */
 
 import type { ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
+import { Badge } from '@/components/ui/badge';
 
 interface ValidationReportPanelProps {
     report: ValidationReport | undefined;
@@ -14,16 +15,16 @@ interface ValidationReportPanelProps {
     showFailOpenNotice?: boolean;
 }
 
-const severityColors: Record<ValidationSeverity, { bg: string; text: string; label: string }> = {
-    blocking: { bg: 'bg-red-100', text: 'text-red-800', label: 'Blocking' },
-    warning: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Warning' },
-    info: { bg: 'bg-green-100', text: 'text-green-800', label: 'Info' },
+const severityBadgeVariant: Record<ValidationSeverity, 'error' | 'warning' | 'neutral'> = {
+    blocking: 'error',
+    warning: 'warning',
+    info: 'neutral',
 };
 
 function scoreColor(score: number): string {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 50) return 'text-yellow-600';
-    return 'text-red-600';
+    if (score >= 80) return 'text-status-success';
+    if (score >= 50) return 'text-status-warning';
+    return 'text-status-error';
 }
 
 export function ValidationReportPanel({
@@ -42,8 +43,8 @@ export function ValidationReportPanel({
         // Show fail-open notice only when validation was attempted and failed.
         if (showFailOpenNotice) {
             return (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-sm text-gray-600">
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">
                         Validation not available (fail-open).
                     </p>
                 </div>
@@ -56,30 +57,34 @@ export function ValidationReportPanel({
         }
 
         return (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-500">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-sm text-muted-foreground">
                     Validation report not available.
                 </p>
             </div>
         );
     }
 
-    const sev = severityColors[report.severity];
+    const severityLabel = report.severity === 'blocking'
+        ? 'Blocking'
+        : report.severity === 'warning'
+            ? 'Warning'
+            : 'Info';
 
     return (
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-border bg-background p-4">
             <div className="mb-3 flex items-center gap-3">
-                <h3 className="text-sm font-semibold text-gray-900">Quality Assessment</h3>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sev.bg} ${sev.text}`}>
-                    {sev.label}
-                </span>
+                <h3 className="text-sm font-semibold text-foreground">Quality Assessment</h3>
+                <Badge variant={severityBadgeVariant[report.severity]}>
+                    {severityLabel}
+                </Badge>
                 <span className={`text-lg font-bold ${scoreColor(report.score)}`}>
                     {report.score}/100
                 </span>
                 {!canPublish && (
-                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">
+                    <Badge variant="error">
                         Cannot publish
-                    </span>
+                    </Badge>
                 )}
             </div>
 
@@ -105,7 +110,7 @@ export function ValidationReportPanel({
                 <SectionList title="Token Warnings" severity="info" items={report.tokenWarnings.map(t => t.message)} />
             )}
             {report.notes.length > 0 && (
-                <div className="mt-2 text-xs text-gray-500">
+                <div className="mt-2 text-xs text-muted-foreground">
                     {report.notes.map((note, i) => (
                         <p key={i}>{note}</p>
                     ))}
@@ -117,20 +122,20 @@ export function ValidationReportPanel({
 
 function SectionList({ title, severity, items }: { title: string; severity: ValidationSeverity; items: string[] }) {
     const borderColors: Record<ValidationSeverity, string> = {
-        blocking: 'border-l-red-500',
-        warning: 'border-l-yellow-500',
-        info: 'border-l-blue-500',
+        blocking: 'border-l-status-error-border',
+        warning: 'border-l-status-warning-border',
+        info: 'border-l-status-success-border',
     };
 
     return (
         <div className={`mb-2 border-l-4 ${borderColors[severity]} pl-3`}>
-            <h4 className="text-xs font-medium text-gray-700">{title}</h4>
-            <ul className="mt-1 list-inside list-disc text-xs text-gray-600">
+            <h4 className="text-xs font-medium text-foreground">{title}</h4>
+            <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
                 {items.slice(0, 5).map((item, i) => (
                     <li key={i}>{item}</li>
                 ))}
                 {items.length > 5 && (
-                    <li className="text-gray-400">+{items.length - 5} more</li>
+                    <li className="text-muted-foreground/70">+{items.length - 5} more</li>
                 )}
             </ul>
         </div>
