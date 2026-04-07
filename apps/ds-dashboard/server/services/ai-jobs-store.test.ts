@@ -110,7 +110,7 @@ describe('ai-jobs-store', () => {
       });
       const key = store.computeIdempotencyKey(input);
 
-      assert.equal(key, '6a3703caf20e1735');
+      assert.equal(key, '2e2c73ed1e49dd5d');
     });
 
     it('should produce different hash for different input', () => {

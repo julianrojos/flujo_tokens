@@ -35,6 +35,7 @@ apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/.env
 apps/ds-dashboard/.env.*
 !apps/ds-dashboard/.env.example
+apps/ds-dashboard/ds-dashboard.db
 
 # Local/ephemeral DS work artifacts
 /tooling/config/design-systems.json
