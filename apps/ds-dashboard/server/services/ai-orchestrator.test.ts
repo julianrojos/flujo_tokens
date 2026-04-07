@@ -8,6 +8,9 @@ import {
   pruneSpecForPrompt,
   runGenerateComponentDoc,
   enrichSpecVariableReferences,
+  normalizeVariableIdText,
+  normalizeOutputTokenReferences,
+  applyAuthoritativeFigmaDescriptions,
   isLikelyFigmaConnectionError,
 } from './ai-orchestrator.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
@@ -68,6 +71,234 @@ describe('ai-orchestrator preprocessing', () => {
 });
 
 describe('ai-orchestrator variable enrichment', () => {
+  it('normalizes exact bracketed VariableID to semantic key', () => {
+    const variableKeyMap = new Map([
+      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
+    ]);
+    assert.equal(
+      normalizeVariableIdText('[VariableID:1:10]', variableKeyMap),
+      'color/button/bg/default',
+    );
+  });
+
+  it('normalizes token output fields from VariableID to semantic keys', () => {
+    const variableKeyMap = new Map([
+      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
+      ['1:20', { name: 'Button Text', key: 'color/button/text/default' }],
+    ]);
+
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Summary',
+      anatomy: [],
+      variants: [],
+      tokens: [
+        {
+          name: 'fills',
+          value: '[VariableID:1:10]',
+          type: 'color',
+          description: 'Uses VariableID:1:20 for text color',
+        },
+      ],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const normalized = normalizeOutputTokenReferences(output, variableKeyMap);
+    assert.equal(normalized.tokens[0].value, 'color/button/bg/default');
+    assert.equal(normalized.tokens[0].description, 'Uses color/button/text/default for text color');
+  });
+
+  it('normalizes embedded bracketed VariableID references consistently', () => {
+    const variableKeyMap = new Map([
+      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
+    ]);
+    assert.equal(
+      normalizeVariableIdText('Use [VariableID:1:10] for button background', variableKeyMap),
+      'Use color/button/bg/default for button background',
+    );
+  });
+
+  it('applies authoritative Figma token descriptions and keeps AI summary', () => {
+    const variableKeyMap = new Map([
+      ['1:10', {
+        name: 'Button BG',
+        key: 'color/button/bg/default',
+        description: 'Color de fondo por defecto del botón',
+      }],
+    ]);
+
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Resumen generado por IA',
+      anatomy: [],
+      variants: [],
+      tokens: [
+        {
+          name: 'fills',
+          value: 'VariableID:1:10',
+          type: 'color',
+          description: 'Descripción inventada por IA',
+        },
+      ],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const spec = { description: 'Descripción oficial de Figma' };
+    const result = applyAuthoritativeFigmaDescriptions(output, spec, variableKeyMap);
+    assert.equal(result.summary, 'Resumen generado por IA');
+    assert.equal(result.tokens[0].description, 'Color de fondo por defecto del botón');
+  });
+
+  it('does not override summary when spec.description is whitespace-only', () => {
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Resumen IA que debe mantenerse',
+      anatomy: [],
+      variants: [],
+      tokens: [],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const spec = { description: '   ' };
+    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    assert.equal(result.summary, 'Resumen IA que debe mantenerse');
+  });
+
+  it('applies authoritative Figma variant descriptions over AI variant descriptions', () => {
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Resumen IA',
+      anatomy: [],
+      variants: [
+        {
+          id: '1:24',
+          name: 'Accent',
+          description: 'Descripción inventada por IA',
+          properties: { Variant: 'Accent' },
+        },
+        {
+          id: '1:25',
+          name: 'Default',
+          description: 'Descripción inventada por IA',
+          properties: { Variant: 'Default' },
+        },
+      ],
+      tokens: [],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const spec = {
+      variants: [
+        {
+          nodeId: '1:24',
+          description: 'Descripción oficial Accent',
+          variantProperties: { Variant: 'Accent' },
+        },
+        {
+          nodeId: '1:25',
+          description: 'Descripción oficial Default',
+          variantProperties: { Variant: 'Default' },
+        },
+      ],
+    };
+
+    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    assert.equal(result.variants[0].description, 'Descripción oficial Accent');
+    assert.equal(result.variants[1].description, 'Descripción oficial Default');
+  });
+
+  it('falls back to canonicalKey matching when variant nodeId does not match', () => {
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Resumen IA',
+      anatomy: [],
+      variants: [
+        {
+          id: 'unmatched-node-id',
+          name: 'Accent',
+          description: 'Descripción IA Accent',
+          properties: { Variant: 'Accent', State: 'Default' },
+        },
+      ],
+      tokens: [],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const spec = {
+      variants: [
+        {
+          nodeId: '1:24',
+          description: 'Descripción Figma por canonical key',
+          variantProperties: { State: 'Default', Variant: 'Accent' },
+        },
+      ],
+    };
+
+    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    assert.equal(result.variants[0].description, 'Descripción Figma por canonical key');
+  });
+
+  it('keeps AI variant description when no authoritative Figma match exists', () => {
+    const output = {
+      schemaVersion: 2,
+      componentId: '1:23',
+      title: 'Boton',
+      summary: 'Resumen IA',
+      anatomy: [],
+      variants: [
+        {
+          id: '1:99',
+          name: 'Ghost',
+          description: 'Descripción IA Ghost',
+          properties: { Variant: 'Ghost' },
+        },
+      ],
+      tokens: [],
+      accessibilityNotes: [],
+      markdown: '',
+      states: [],
+      accessibilityFacts: [],
+    };
+
+    const spec = {
+      variants: [
+        {
+          nodeId: '1:24',
+          description: 'Descripción Figma Accent',
+          variantProperties: { Variant: 'Accent' },
+        },
+      ],
+    };
+
+    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    assert.equal(result.variants[0].description, 'Descripción IA Ghost');
+  });
+
   it('enriches VariableID references with key when map has entry', () => {
     const variableKeyMap = new Map([
       ['1:12', { name: 'Primary Fill', key: 'Core/Primary Fill' }],

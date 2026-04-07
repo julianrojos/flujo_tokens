@@ -22,7 +22,7 @@ import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 import { computeDocStatusesDb } from '../services/ai-doc-status-service.js';
 import { computeInMemoryDiff } from '../services/ai-diff-utils.js';
 import { renderEditorialPatchToMarkdown, renderEditorialEntryToMarkdown } from '../services/ai-component-doc-renderer.js';
-import { resolveDescriptionsForRender } from '../services/figma-descriptions-resolver.js';
+import { buildCanonicalKey, resolveDescriptionsForRender } from '../services/figma-descriptions-resolver.js';
 import { getComponentSpecDirect } from '../services/figma-direct-bridge-service.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -123,6 +123,51 @@ function editorialToPromptContext(editorial: {
     if (editorial.qa) result.qa = editorial.qa;
     if (editorial.accessibilityNotes) result.accessibility_notes = editorial.accessibilityNotes;
     return Object.keys(result).length > 0 ? result : null;
+}
+
+function toVariantPropertiesMap(value: unknown): Record<string, string> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return {};
+    }
+    const mapped: Record<string, string> = {};
+    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof raw === 'string') {
+            mapped[key] = raw;
+        } else if (raw != null) {
+            mapped[key] = String(raw);
+        }
+    }
+    return mapped;
+}
+
+function extractFigmaDescriptionsFromSpec(spec: Record<string, unknown>): {
+    componentSet: string | null;
+    variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }>;
+} {
+    const componentSet = typeof spec.description === 'string' ? spec.description.trim() : null;
+    const rawVariants = Array.isArray(spec.variants) ? spec.variants : [];
+    const variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }> = [];
+
+    for (const rawVariant of rawVariants) {
+        if (!rawVariant || typeof rawVariant !== 'object' || Array.isArray(rawVariant)) {
+            continue;
+        }
+        const variant = rawVariant as Record<string, unknown>;
+        const nodeId = typeof variant.nodeId === 'string' ? variant.nodeId.trim() : '';
+        if (!nodeId) continue;
+
+        const description = typeof variant.description === 'string' ? variant.description.trim() : null;
+        if (!description) continue;
+        const variantProperties = toVariantPropertiesMap(variant.variantProperties);
+
+        variants.push({
+            nodeId,
+            canonicalKey: buildCanonicalKey(variantProperties),
+            description,
+        });
+    }
+
+    return { componentSet, variants };
 }
 
 /**
@@ -358,6 +403,40 @@ function errorResponse(code: string, message: string, retryable = false) {
 export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     const store = getAiJobsStore();
     store.setOnJobStarted((job) => {
+        const getSpecWithFigmaDescriptionSync = deps.componentRepo
+            ? async (fileKey: string | null, nodeId: string) => {
+                const spec = await getComponentSpecDirect(fileKey, {
+                    nodeId,
+                    depth: 4,
+                }) as unknown as Record<string, unknown>;
+
+                // Keep preview markdown aligned with latest Figma descriptions for this run.
+                // Fail-open: generation must continue even if DB sync fails.
+                try {
+                    const component = deps.componentRepo!.getComponentByFigmaNodeId(
+                        job.input.componentId,
+                        job.input.systemId,
+                    );
+                    if (component) {
+                        const extracted = extractFigmaDescriptionsFromSpec(spec);
+                        deps.componentRepo!.saveFigmaDescriptions(component.id, {
+                            componentSet: extracted.componentSet,
+                            syncedAt: Math.floor(Date.now() / 1000),
+                            variants: extracted.variants,
+                        });
+                    }
+                } catch (error) {
+                    console.warn('[ai-jobs-route] Failed to persist Figma descriptions from generation spec', {
+                        jobId: job.id,
+                        componentId: job.input.componentId,
+                        error,
+                    });
+                }
+
+                return spec;
+            }
+            : undefined;
+
         const getExistingEditorial = deps.componentRepo
             ? async () => {
                 try {
@@ -382,7 +461,13 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             }
             : undefined;
 
-        runGenerateComponentDoc(job, store, undefined, undefined, getExistingEditorial).catch((err) => {
+        runGenerateComponentDoc(
+            job,
+            store,
+            undefined,
+            getSpecWithFigmaDescriptionSync,
+            getExistingEditorial,
+        ).catch((err) => {
             console.error('Job pipeline error:', err);
         });
     });

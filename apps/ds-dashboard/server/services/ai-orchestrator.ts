@@ -257,8 +257,8 @@ const VARIABLE_KEY_MAP_WARNED = new Set<string>();
  */
 export async function resolveVariableKeyMap(
     fileKey: string | null,
-): Promise<Map<string, { name: string; key: string }>> {
-    const map = new Map<string, { name: string; key: string }>();
+): Promise<Map<string, { name: string; key: string; description?: string }>> {
+    const map = new Map<string, { name: string; key: string; description?: string }>();
     if (!fileKey) {
         return map;
     }
@@ -268,6 +268,9 @@ export async function resolveVariableKeyMap(
         for (const [id, variable] of Object.entries(variables)) {
             const v = variable as Record<string, unknown>;
             const name = typeof v.name === 'string' ? v.name : id;
+            const description = typeof v.description === 'string' && v.description.trim().length > 0
+                ? v.description.trim()
+                : undefined;
 
             // Normalize id: strip "VariableID:" prefix if present.
             // normalizeVariablesMeta indexes by variable.id which may include the prefix,
@@ -279,7 +282,7 @@ export async function resolveVariableKeyMap(
             // Primary: use variable.key if available (canonical semantic key)
             const rawKey = typeof v.key === 'string' && v.key.trim().length > 0 ? v.key.trim() : '';
             const key = rawKey || resolveFallbackKey(strippedId, v, result.meta?.variableCollections);
-            map.set(strippedId, { name, key });
+            map.set(strippedId, { name, key, description });
         }
     } catch (error) {
         // fail-open: return empty map, pipeline continues with raw VariableID
@@ -351,7 +354,7 @@ function resolveFallbackKey(
  */
 export function enrichSpecVariableReferences(
     value: unknown,
-    variableKeyMap: Map<string, { name: string; key: string }>,
+    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
 ): unknown {
     if (typeof value === 'string') {
         // Match VariableID:<id> patterns that are not already annotated as
@@ -375,6 +378,157 @@ export function enrichSpecVariableReferences(
         return result;
     }
     return value;
+}
+
+/**
+ * Replace VariableID references in plain text with semantic variable keys.
+ * - Exact forms like "VariableID:1:10" or "[VariableID:1:10]" become "token.key.path".
+ * - Embedded forms inside longer text are replaced in-place.
+ * Unknown IDs are preserved unchanged (fail-open).
+ */
+export function normalizeVariableIdText(
+    text: string,
+    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
+): string {
+    if (!text || variableKeyMap.size === 0 || !text.includes('VariableID:')) {
+        return text;
+    }
+
+    const exactBracket = text.match(/^\[VariableID:([^\]\s]+)\]$/);
+    if (exactBracket) {
+        const entry = variableKeyMap.get(exactBracket[1]);
+        if (entry) return entry.key;
+    }
+
+    const exactPlain = text.match(/^VariableID:([^,\s}\]\)]+)$/);
+    if (exactPlain) {
+        const entry = variableKeyMap.get(exactPlain[1]);
+        if (entry) return entry.key;
+    }
+
+    return text.replace(/\[?VariableID:([^,\s}\]\)]+)\]?/g, (_match, rawId: string) => {
+        const entry = variableKeyMap.get(rawId);
+        return entry ? entry.key : `VariableID:${rawId}`;
+    });
+}
+
+/**
+ * Normalize token fields in ComponentDocOutput so markdown preview does not expose
+ * raw Figma VariableID references when semantic keys are known.
+ */
+export function normalizeOutputTokenReferences(
+    output: ComponentDocOutput,
+    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
+): ComponentDocOutput {
+    if (variableKeyMap.size === 0 || !Array.isArray(output.tokens) || output.tokens.length === 0) {
+        return output;
+    }
+
+    return {
+        ...output,
+        tokens: output.tokens.map((token) => ({
+            ...token,
+            name: normalizeVariableIdText(token.name, variableKeyMap),
+            value: normalizeVariableIdText(token.value, variableKeyMap),
+            description: token.description
+                ? normalizeVariableIdText(token.description, variableKeyMap)
+                : token.description,
+        })),
+    };
+}
+
+function toVariantPropertiesMap(value: unknown): Record<string, string> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return {};
+    }
+    const mapped: Record<string, string> = {};
+    for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof raw === 'string') {
+            mapped[key] = raw;
+        } else if (raw != null) {
+            mapped[key] = String(raw);
+        }
+    }
+    return mapped;
+}
+
+function extractVariableIdFromText(text: string | undefined): string | null {
+    if (!text || !text.includes('VariableID:')) return null;
+    const match = text.match(/VariableID:([^,\s}\]\)]+)/);
+    return match ? match[1] : null;
+}
+
+/**
+ * Enforce authoritative descriptions from Figma over AI-generated prose.
+ * - Keep AI-generated summary intact (component-set Figma description is rendered separately).
+ * - If a token maps to a Figma variable with description, use that description.
+ */
+export function applyAuthoritativeFigmaDescriptions(
+    output: ComponentDocOutput,
+    spec: Record<string, unknown>,
+    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
+): ComponentDocOutput {
+    const next: ComponentDocOutput = { ...output };
+
+    const rawSpecVariants = Array.isArray(spec.variants) ? spec.variants : [];
+    const figmaVariantByNodeId = new Map<string, string>();
+    const figmaVariantByCanonicalKey = new Map<string, string>();
+
+    for (const raw of rawSpecVariants) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+        const variant = raw as Record<string, unknown>;
+        const desc = typeof variant.description === 'string' ? variant.description.trim() : '';
+        if (!desc) continue;
+        const nodeId = typeof variant.nodeId === 'string' ? variant.nodeId.trim() : '';
+        if (nodeId) {
+            figmaVariantByNodeId.set(nodeId, desc);
+        }
+        const props = toVariantPropertiesMap(variant.variantProperties);
+        const canonicalKey = Object.entries(props)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => `${k}=${v}`)
+            .join('|');
+        if (canonicalKey) {
+            figmaVariantByCanonicalKey.set(canonicalKey, desc);
+        }
+    }
+
+    if (Array.isArray(next.variants) && next.variants.length > 0) {
+        next.variants = next.variants.map((variant) => {
+            const byNodeId = variant.id ? figmaVariantByNodeId.get(variant.id) : undefined;
+            const canonicalKey = Object.entries(variant.properties ?? {})
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([k, v]) => `${k}=${v}`)
+                .join('|');
+            const byKey = canonicalKey ? figmaVariantByCanonicalKey.get(canonicalKey) : undefined;
+            const authoritative = byNodeId ?? byKey;
+            if (!authoritative) return variant;
+            return {
+                ...variant,
+                description: authoritative,
+            };
+        });
+    }
+
+    if (Array.isArray(next.tokens) && next.tokens.length > 0 && variableKeyMap.size > 0) {
+        next.tokens = next.tokens.map((token) => {
+            const tokenId =
+                extractVariableIdFromText(token.value)
+                ?? extractVariableIdFromText(token.name)
+                ?? extractVariableIdFromText(token.description);
+            if (!tokenId) return token;
+            const mapped = variableKeyMap.get(tokenId);
+            if (!mapped?.description || mapped.description.trim().length === 0) {
+                return token;
+            }
+            return {
+                ...token,
+                description: mapped.description,
+            };
+        });
+    }
+
+    return next;
 }
 
 /**
@@ -827,7 +981,9 @@ export async function runGenerateComponentDoc(
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
     getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>,
     getPolicyContextOverride?: PolicyContextOverride,
-    getVariableKeyMapOverride?: (fileKey: string | null) => Promise<Map<string, { name: string; key: string }>>,
+    getVariableKeyMapOverride?: (
+        fileKey: string | null
+    ) => Promise<Map<string, { name: string; key: string; description?: string }>>,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -959,6 +1115,8 @@ export async function runGenerateComponentDoc(
                 try {
                     output = validateComponentDocOutput(result.parsedJson);
                     store.pushEvent(job.id, 'schema.validated', { schemaVersion: output.schemaVersion });
+                    output = applyAuthoritativeFigmaDescriptions(output, spec, variableKeyMap);
+                    output = normalizeOutputTokenReferences(output, variableKeyMap);
                 } catch (validationError) {
                     // Schema validation failure is non-retryable
                     throw {
