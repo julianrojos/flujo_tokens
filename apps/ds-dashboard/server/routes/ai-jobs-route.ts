@@ -20,7 +20,8 @@ import { createComponentSlug, renderComponentDoc } from '../services/ai-componen
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 import { computeDocStatusesDbFromSnapshots } from '../services/ai-doc-status-service.js';
-import { computeDocDiff } from '../services/ai-diff-utils.js';
+import { computeInMemoryDiff } from '../services/ai-diff-utils.js';
+import { renderEditorialPatchToMarkdown, renderEditorialEntryToMarkdown } from '../services/ai-component-doc-renderer.js';
 import { getComponentSpecDirect } from '../services/figma-direct-bridge-service.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -1321,7 +1322,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         }
     });
 
-    // GET /api/ai/jobs/:id/diff - Get diff between generated and existing doc
+    // GET /api/ai/jobs/:id/diff - Get diff between proposed editorial patch and existing DB editorial
     app.get('/api/ai/jobs/:id/diff', async (c) => {
         // Auth check
         if (!checkAuth(c, deps.internalToken)) {
@@ -1338,24 +1339,49 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         if (job.status !== 'completed' || !job.output) {
             return c.json(errorResponse('ai.job.not_completed', 'Job must be completed to get diff'), 400);
         }
-        const docsContext = resolveDocsContext(deps, {
-            preferredSystemId: job.input.systemId,
-            requestSystemHeader: c.req.header('x-ds-system'),
-        });
-        if (!docsContext.ok) {
-            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+
+        const countLines = (content: string): number => (content === '' ? 0 : content.split('\n').length);
+
+        // No editorial patch (e.g. Ollama without stage 3) → no previous to compare
+        if (!job.editorialPatch) {
+            const newLines = countLines(job.output.markdown);
+            return c.json({
+                hasPrevious: false,
+                diff: '',
+                stats: { added: newLines, removed: 0, unchanged: 0 },
+            });
         }
 
-        // Generate slug from title
-        const slug = createComponentSlug(job.output.title);
+        // Component repo required for DB lookup
+        if (!deps.componentRepo) {
+            return c.json(errorResponse('ai.input.invalid', 'Component repository not available'), 503);
+        }
 
+        let component;
+        let existingEditorial;
         try {
-            const diffResult = await computeDocDiff(job.output.markdown, slug, docsContext.docsComponentsDir);
-            return c.json(diffResult);
-        } catch (error) {
-            console.error('Error computing diff:', error);
-            return c.json(errorResponse('ai.diff.computation_failed', 'Failed to compute diff'), 500);
+            const systemId = job.input.systemId ?? c.req.header('x-ds-system') ?? undefined;
+            component = deps.componentRepo.getComponentByFigmaNodeId(job.input.componentId, systemId);
+            existingEditorial = component ? deps.componentRepo.getEditorial(component.id) : null;
+        } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            console.error('[ai-jobs-route] Failed to resolve component or editorial for diff:', reason, {
+                jobId,
+                componentId: job.input.componentId,
+            });
+            return c.json(errorResponse('ai.diff.computation_failed', 'Failed to resolve component editorial data'), 500);
         }
+
+        // Render both sides to markdown for comparison
+        const previousMarkdown = existingEditorial ? renderEditorialEntryToMarkdown(existingEditorial) : '';
+        const newMarkdown = renderEditorialPatchToMarkdown(job.editorialPatch);
+
+        // If no previous editorial exists, all content is new
+        const diffResult = await computeInMemoryDiff(
+            existingEditorial ? previousMarkdown : null,
+            newMarkdown,
+        );
+        return c.json(diffResult);
     });
 
     // POST /api/ai/jobs/:id/cancel - Cancel a job

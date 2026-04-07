@@ -4,9 +4,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderComponentDoc, createComponentSlug } from './ai-component-doc-renderer.js';
+import { renderComponentDoc, createComponentSlug, renderEditorialPatchToMarkdown, renderEditorialEntryToMarkdown } from './ai-component-doc-renderer.js';
 import { createValidComponentDocFixture } from './ai-component-doc-schema.js';
-import type { EditorialPatch } from './ai-editorial-patch-schema.js';
+import { EDITORIAL_PATCH_SCHEMA_VERSION, type EditorialPatch } from './ai-editorial-patch-schema.js';
+import type { EditorialEntry } from '../db/component-repository.js';
 
 describe('ai-component-doc-renderer', () => {
     describe('renderComponentDoc', () => {
@@ -290,6 +291,85 @@ describe('ai-component-doc-renderer', () => {
 
         it('falls back when title cannot produce a slug', () => {
             assert.equal(createComponentSlug('!!!'), 'untitled-component');
+        });
+    });
+
+    describe('renderEditorialPatchToMarkdown', () => {
+        it('returns empty string for null/undefined', () => {
+            assert.equal(renderEditorialPatchToMarkdown(null), '');
+            assert.equal(renderEditorialPatchToMarkdown(undefined), '');
+        });
+
+        it('renders partial patch with only summary', () => {
+            const patch: EditorialPatch = {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'Test purpose' },
+            };
+            const md = renderEditorialPatchToMarkdown(patch);
+            assert.ok(md.includes('## Summary'));
+            assert.ok(md.includes('Test purpose'));
+            assert.ok(!md.includes('## Best Practices'));
+        });
+
+        it('renders full patch with all sections', () => {
+            const patch: EditorialPatch = {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
+                best_practices: { do: ['Do X'], dont: ['Don\'t Y'] },
+                content_guidelines: { rules: ['Rule 1'] },
+                accessibility: { role: 'button', labeling: { rules: ['Label A'] }, notes: ['Note Z'] },
+                related_components: ['Comp1'],
+                qa: ['Check A'],
+            };
+            const md = renderEditorialPatchToMarkdown(patch);
+            assert.ok(md.includes('## Summary'));
+            assert.ok(md.includes('## Best Practices'));
+            assert.ok(md.includes('## Content Guidelines'));
+            assert.ok(md.includes('## Accessibility'));
+            assert.ok(md.includes('## Related Components'));
+            assert.ok(md.includes('## QA'));
+            assert.ok(md.includes('Do X'));
+            assert.ok(md.includes('Check A'));
+        });
+    });
+
+    describe('renderEditorialEntryToMarkdown', () => {
+        it('returns empty string for null/undefined', () => {
+            assert.equal(renderEditorialEntryToMarkdown(null), '');
+            assert.equal(renderEditorialEntryToMarkdown(undefined), '');
+        });
+
+        it('renders entry with summary only', () => {
+            const entry: EditorialEntry = {
+                componentId: 1,
+                summary: { purpose: 'DB purpose' } as Record<string, unknown>,
+                updatedAt: Date.now(),
+            };
+            const md = renderEditorialEntryToMarkdown(entry);
+            assert.ok(md.includes('## Summary'));
+            assert.ok(md.includes('DB purpose'));
+        });
+
+        it('handles entry with all fields populated', () => {
+            const entry: EditorialEntry = {
+                componentId: 2,
+                summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
+                bestPractices: { do: ['Do A'], dont: ['Dont B'] },
+                contentGuidelines: { rules: ['Rule X'] },
+                accessibility: { role: 'dialog', labeling: { rules: ['L1'] }, notes: ['N1'] },
+                relatedComponents: ['RC1', 'RC2'],
+                qa: ['QA1'],
+                updatedAt: Date.now(),
+            };
+            const md = renderEditorialEntryToMarkdown(entry);
+            assert.ok(md.includes('## Summary'));
+            assert.ok(md.includes('## Best Practices'));
+            assert.ok(md.includes('## Content Guidelines'));
+            assert.ok(md.includes('## Related Components'));
+            assert.ok(md.includes('## Accessibility'));
+            assert.ok(md.includes('## QA'));
+            assert.ok(md.includes('P'));
+            assert.ok(md.includes('QA1'));
         });
     });
 });

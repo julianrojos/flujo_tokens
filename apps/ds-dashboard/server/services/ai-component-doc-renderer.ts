@@ -4,7 +4,11 @@
  */
 
 import type { ComponentDocOutput } from './ai-component-doc-schema.js';
-import type { EditorialPatch } from './ai-editorial-patch-schema.js';
+import {
+    EDITORIAL_PATCH_SCHEMA_VERSION,
+    type EditorialPatch,
+} from './ai-editorial-patch-schema.js';
+import type { EditorialEntry } from '../db/component-repository.js';
 
 export interface RenderComponentDocOptions {
     /** Factual output from LLM extraction */
@@ -255,4 +259,135 @@ export function createComponentSlug(title: string): string {
 
     // Fallback for empty slug (e.g., title with only special chars)
     return slug || 'untitled-component';
+}
+
+// ---------------------------------------------------------------------------
+// Editorial section renderers (diff source of truth for Modelo A)
+// ---------------------------------------------------------------------------
+
+/**
+ * Render an EditorialPatch (proposed by the AI) to markdown.
+ * Returns '' if patch is null/undefined.
+ */
+export function renderEditorialPatchToMarkdown(patch: EditorialPatch | null | undefined): string {
+    if (!patch) return '';
+
+    const lines: string[] = [];
+
+    if (patch.summary?.purpose || patch.summary?.when_to_use || patch.summary?.when_not_to_use) {
+        lines.push('## Summary');
+        if (patch.summary?.purpose) lines.push(`**Purpose:** ${escapeMarkdown(patch.summary.purpose)}`);
+        if (patch.summary?.when_to_use) lines.push(`**When to use:** ${escapeMarkdown(patch.summary.when_to_use)}`);
+        if (patch.summary?.when_not_to_use) lines.push(`**When not to use:** ${escapeMarkdown(patch.summary.when_not_to_use)}`);
+        lines.push('');
+    }
+
+    if (patch.best_practices?.do?.length || patch.best_practices?.dont?.length) {
+        lines.push('## Best Practices');
+        if (patch.best_practices?.do?.length) {
+            lines.push('**Do:**');
+            for (const item of patch.best_practices.do) lines.push(`- ${escapeMarkdown(item)}`);
+        }
+        if (patch.best_practices?.dont?.length) {
+            lines.push('**Don\'t:**');
+            for (const item of patch.best_practices.dont) lines.push(`- ${escapeMarkdown(item)}`);
+        }
+        lines.push('');
+    }
+
+    if (patch.content_guidelines?.rules?.length) {
+        lines.push('## Content Guidelines');
+        for (const item of patch.content_guidelines.rules) lines.push(`- ${escapeMarkdown(item)}`);
+        lines.push('');
+    }
+
+    if (patch.accessibility?.role || patch.accessibility?.labeling?.rules?.length || patch.accessibility?.notes?.length) {
+        lines.push('## Accessibility');
+        if (patch.accessibility?.role) lines.push(`**Role:** ${escapeMarkdown(patch.accessibility.role)}`);
+        if (patch.accessibility?.labeling?.rules?.length) {
+            lines.push('**Labeling:**');
+            for (const item of patch.accessibility.labeling.rules) lines.push(`- ${escapeMarkdown(item)}`);
+        }
+        if (patch.accessibility?.notes?.length) {
+            lines.push('**Notes:**');
+            for (const item of patch.accessibility.notes) lines.push(`- ${escapeMarkdown(item)}`);
+        }
+        lines.push('');
+    }
+
+    if (patch.related_components?.length) {
+        lines.push('## Related Components');
+        for (const comp of patch.related_components) lines.push(`- ${escapeMarkdown(comp)}`);
+        lines.push('');
+    }
+
+    if (patch.qa?.length) {
+        lines.push('## QA');
+        for (const item of patch.qa) lines.push(`- ${escapeMarkdown(item)}`);
+        lines.push('');
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * Render an EditorialEntry (stored in DB as Record<string, unknown>) to markdown.
+ * Reconstructs a partial EditorialPatch from the raw DB fields and delegates
+ * to renderEditorialPatchToMarkdown.
+ * Returns '' if entry is null/undefined.
+ */
+export function renderEditorialEntryToMarkdown(entry: EditorialEntry | null | undefined): string {
+    if (!entry) return '';
+
+    const s = entry.summary as Record<string, unknown> | null | undefined;
+    const bp = entry.bestPractices as Record<string, unknown> | null | undefined;
+    const cg = entry.contentGuidelines as Record<string, unknown> | null | undefined;
+    const acc = entry.accessibility as Record<string, unknown> | null | undefined;
+    const rc = entry.relatedComponents as unknown;
+    const qa = entry.qa as unknown;
+
+    const patch: Partial<EditorialPatch> = {
+        schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+    };
+
+    if (s && typeof s === 'object' && !Array.isArray(s)) {
+        patch.summary = {
+            purpose: typeof s.purpose === 'string' ? s.purpose : undefined,
+            when_to_use: typeof s.when_to_use === 'string' ? s.when_to_use : undefined,
+            when_not_to_use: typeof s.when_not_to_use === 'string' ? s.when_not_to_use : undefined,
+        };
+    }
+
+    if (bp && typeof bp === 'object' && !Array.isArray(bp)) {
+        patch.best_practices = {
+            do: Array.isArray(bp.do) ? bp.do.filter((x): x is string => typeof x === 'string') : undefined,
+            dont: Array.isArray(bp.dont) ? bp.dont.filter((x): x is string => typeof x === 'string') : undefined,
+        };
+    }
+
+    if (cg && typeof cg === 'object' && !Array.isArray(cg) && Array.isArray(cg.rules)) {
+        patch.content_guidelines = {
+            rules: cg.rules.filter((x): x is string => typeof x === 'string'),
+        };
+    }
+
+    if (acc && typeof acc === 'object' && !Array.isArray(acc)) {
+        patch.accessibility = {
+            role: typeof acc.role === 'string' ? acc.role : undefined,
+            labeling: (acc.labeling && typeof acc.labeling === 'object' && Array.isArray((acc.labeling as Record<string, unknown>).rules))
+                ? { rules: (acc.labeling as Record<string, unknown>).rules.filter((x): x is string => typeof x === 'string') }
+                : undefined,
+            notes: Array.isArray(acc.notes) ? acc.notes.filter((x): x is string => typeof x === 'string') : undefined,
+        };
+    }
+
+    if (Array.isArray(rc)) {
+        patch.related_components = rc.filter((x): x is string => typeof x === 'string');
+    }
+
+    if (Array.isArray(qa)) {
+        patch.qa = qa.filter((x): x is string => typeof x === 'string');
+    }
+
+    return renderEditorialPatchToMarkdown(patch as EditorialPatch);
 }

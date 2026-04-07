@@ -10,6 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
+import { EDITORIAL_PATCH_SCHEMA_VERSION } from '../services/ai-editorial-patch-schema.js';
 import { AI_PROVIDER_ORDER } from '../../src/types/ai-provider-catalog.ts';
 
 // Helper to create test app
@@ -1944,12 +1945,12 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.job.not_completed');
         });
 
-        it('returns diff result with proper structure when job is completed', async () => {
+        it('returns hasPrevious: false when job has no editorialPatch', async () => {
             cleanupStore();
             const app = createTestApp();
             const store = getAiJobsStore();
 
-            // Create and complete a job with markdown output
+            // Create and complete a job without editorialPatch
             const job = store.enqueue({
                 type: 'GENERATE_COMPONENT_DOC',
                 provider: 'anthropic',
@@ -1975,7 +1976,6 @@ describe('ai-jobs-route', () => {
                 durationMs: 1000,
             });
 
-            // Get diff for completed job
             const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
                 method: 'GET',
                 headers: { 'x-forwarded-for': '127.0.0.1' },
@@ -1983,12 +1983,251 @@ describe('ai-jobs-route', () => {
 
             assert.equal(res.status, 200);
             const json = await res.json();
+            assert.equal(json.hasPrevious, false);
+            assert.equal(json.diff, '');
+            assert.ok(json.stats.added > 0);
+        });
 
-            // Verify response structure
-            assert.ok('hasPrevious' in json, 'Response should have hasPrevious field');
-            assert.ok('stats' in json, 'Response should have stats field');
-            assert.ok(typeof json.hasPrevious === 'boolean', 'hasPrevious should be boolean');
-            assert.ok(typeof json.stats === 'object', 'stats should be an object');
+        it('returns 503 when component repository is unavailable but job has editorialPatch', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            // Create and complete a job with editorialPatch but no componentRepo in test app
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            }, {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'Test purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 503);
+        });
+
+        it('returns hasPrevious: false when component is not found in DB', async () => {
+            cleanupStore();
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => null,
+                getEditorial: () => null,
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            }, {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'Test purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.hasPrevious, false);
+            assert.ok(json.stats.added > 0);
+        });
+
+        it('returns hasPrevious: false when component exists but has no editorial', async () => {
+            cleanupStore();
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => ({ id: 1, slug: 'button' }),
+                getEditorial: () => null,
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            }, {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'New purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.hasPrevious, false);
+            assert.ok(json.stats.added > 0);
+        });
+
+        it('returns hasPrevious: true with diff when component has existing editorial', async () => {
+            cleanupStore();
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => ({ id: 1, slug: 'button' }),
+                getEditorial: () => ({
+                    id: 1,
+                    component_id: 1,
+                    summary: { purpose: 'Old purpose', when_to_use: 'Old usage' },
+                    created_at: Date.now(),
+                    updated_at: Date.now(),
+                }),
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            }, {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'New purpose', when_to_use: 'New usage' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.hasPrevious, true);
+            assert.ok(json.diff !== undefined && json.diff.length > 0);
+            assert.ok(json.stats.added > 0 || json.stats.removed > 0);
+        });
+
+        it('returns 500 when componentRepo throws during lookup', async () => {
+            cleanupStore();
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => {
+                    throw new Error('DB connection lost');
+                },
+                getEditorial: () => null,
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            }, {
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
+                summary: { purpose: 'Test purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 500);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.diff.computation_failed');
         });
     });
 
@@ -2022,7 +2261,7 @@ describe('ai-jobs-route', () => {
                 completionTokens: 5,
                 durationMs: 100,
             }, {
-                schemaVersion: 1,
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'AI suggested purpose' },
                 best_practices: { do: ['Do this'], dont: [] },
             });
@@ -2127,7 +2366,7 @@ describe('ai-jobs-route', () => {
                 completionTokens: 5,
                 durationMs: 100,
             }, {
-                schemaVersion: 1,
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'AI suggested purpose' },
             });
 
@@ -2176,7 +2415,7 @@ describe('ai-jobs-route', () => {
                 completionTokens: 5,
                 durationMs: 100,
             }, {
-                schemaVersion: 1,
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'AI suggested purpose' },
             });
 
@@ -2219,7 +2458,7 @@ describe('ai-jobs-route', () => {
             const store = getAiJobsStore();
 
             const editorialPatch = {
-                schemaVersion: 1 as const,
+                schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'AI suggested purpose' },
             };
             const job = store.enqueue({

@@ -59,6 +59,10 @@ export interface DiffResult {
     stats: DiffStats;
 }
 
+function countLines(content: string): number {
+    return content === '' ? 0 : content.split('\n').length;
+}
+
 /**
  * Compute unified diff between new content and existing file
  * Uses the diff command-line tool for proper positional diff
@@ -148,6 +152,71 @@ export async function computeDocDiff(
         };
     } finally {
         // Clean up temp files — attempt directly, ignore if already gone
+        await Promise.allSettled([
+            unlink(oldTmpPath),
+            unlink(newTmpPath),
+        ]);
+    }
+}
+
+/**
+ * Compute unified diff between two in-memory strings.
+ * No disk I/O for the "previous" content — uses temp files only for the
+ * `diff` command execution.
+ *
+ * @param oldContent - Previous content, or null if no previous version exists
+ * @param newContent - New content to compare against
+ * @returns DiffResult with hasPrevious, diff output, and stats
+ */
+export async function computeInMemoryDiff(
+    oldContent: string | null,
+    newContent: string,
+): Promise<DiffResult> {
+    // No previous version — all content is new
+    if (oldContent === null) {
+        const newLines = countLines(newContent);
+        return {
+            hasPrevious: false,
+            diff: '',
+            stats: { added: newLines, removed: 0, unchanged: 0 },
+        };
+    }
+
+    // Identical content — no diff needed
+    if (oldContent === newContent) {
+        const lines = countLines(oldContent);
+        return {
+            hasPrevious: true,
+            diff: '',
+            stats: { added: 0, removed: 0, unchanged: lines },
+        };
+    }
+
+    // Content differs — use diff command for proper unified diff
+    const tempDir = tmpdir();
+    const uniqueId = randomBytes(8).toString('hex');
+    const oldTmpPath = resolve(tempDir, `ai-diff-old-${uniqueId}.tmp`);
+    const newTmpPath = resolve(tempDir, `ai-diff-new-${uniqueId}.tmp`);
+
+    try {
+        await Promise.all([
+            writeFile(oldTmpPath, oldContent, 'utf-8'),
+            writeFile(newTmpPath, newContent, 'utf-8'),
+        ]);
+
+        const diffResult = await runDiff(oldTmpPath, newTmpPath);
+        const diffOutput = diffResult.stdout;
+
+        const added = (diffOutput.match(/^\+[^+]/gm)?.length || 0);
+        const removed = (diffOutput.match(/^-[^-]/gm)?.length || 0);
+        const unchanged = countLines(oldContent) - removed;
+
+        return {
+            hasPrevious: true,
+            diff: diffOutput,
+            stats: { added, removed, unchanged: Math.max(0, unchanged) },
+        };
+    } finally {
         await Promise.allSettled([
             unlink(oldTmpPath),
             unlink(newTmpPath),
