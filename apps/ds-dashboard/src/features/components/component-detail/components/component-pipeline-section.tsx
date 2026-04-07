@@ -11,7 +11,7 @@ import { STAGE_LABELS, PIPELINE_STAGES } from "../lib/component-detail-transform
 interface ComponentPipelineSectionProps {
   currentStage: PipelineStage | null;
   hasFigmaUrl: boolean;
-  hasDocs: boolean;
+  canOpenDocs: boolean;
   onCapture: () => void;
   onOpenEditorial: () => void;
   onOpenDocs: () => void;
@@ -20,7 +20,7 @@ interface ComponentPipelineSectionProps {
 export function ComponentPipelineSection({
   currentStage,
   hasFigmaUrl,
-  hasDocs,
+  canOpenDocs,
   onCapture,
   onOpenEditorial,
   onOpenDocs,
@@ -40,7 +40,7 @@ export function ComponentPipelineSection({
       if (!hasFigmaUrl) return null;
       return { label: "Capture visual proof", onClick: onCapture };
     }
-    if (currentStage === "visual-proof" && hasDocs) {
+    if (currentStage === "visual-proof" && canOpenDocs) {
       return { label: "Open docs", onClick: onOpenDocs };
     }
     return null;

@@ -2,7 +2,7 @@
  * Component Detail Page - orchestrator only.
  */
 
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
+import { useFigmaDescriptions, useRefreshFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
 import { ComponentPipelineSection } from "./components/component-pipeline-section";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
+import { FigmaDescriptionSection } from "./components/figma-description-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
 const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(m => ({ default: m.ComponentDocsModal })));
@@ -37,7 +39,7 @@ export function ComponentDetailPage() {
     docsModalOpen,
     editorialEditorOpen,
     captureSummary,
-    docsFilePath,
+    canOpenDocs,
     previousItem,
     nextItem,
     currentIndex,
@@ -55,6 +57,24 @@ export function ComponentDetailPage() {
     consumeSuggestion,
     discardSuggestion,
   } = useComponentDetail();
+
+  // S-11 (R-005): React Query for server-state fetching (MUST per §6.4)
+  const { data: figmaDesc } = useFigmaDescriptions(slug);
+  const refreshFigmaDescriptions = useRefreshFigmaDescriptions();
+
+  const handleRefreshDescriptions = useCallback(() => {
+    if (!slug) return;
+    refreshFigmaDescriptions(slug).catch(() => {
+      // Fail-open: stale data remains in cache
+    });
+  }, [slug, refreshFigmaDescriptions]);
+
+  const descriptionsData = figmaDesc ?? {
+    componentSetDescription: null,
+    variantDescriptions: [],
+    syncedAt: null,
+    stale: true,
+  };
 
   if (loading) {
     return (
@@ -112,10 +132,19 @@ export function ComponentDetailPage() {
       <ComponentPipelineSection
         currentStage={item.pipeline_stage}
         hasFigmaUrl={Boolean(item.figma.file_url)}
-        hasDocs={item.doc.exists}
+        canOpenDocs={canOpenDocs}
         onCapture={() => setCaptureModalOpen(true)}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
         onOpenDocs={openDocsModal}
+      />
+
+      {/* S-07: Figma descriptions (content + sync status) */}
+      <FigmaDescriptionSection
+        componentSetDescription={descriptionsData.componentSetDescription}
+        variantDescriptions={descriptionsData.variantDescriptions}
+        syncedAt={descriptionsData.syncedAt}
+        stale={descriptionsData.stale}
+        onRefresh={handleRefreshDescriptions}
       />
 
       <ComponentGraphSection usage={usage} allItems={allItems} />
@@ -131,18 +160,18 @@ export function ComponentDetailPage() {
 
       <ComponentSpecSection
         spec={spec}
-        hasDocs={item.doc.exists}
+        canOpenDocs={canOpenDocs}
         onOpenDocs={openDocsModal}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
         selfSlug={item.slug}
       />
 
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>
-        {docsModalOpen && docsFilePath && (
+        {docsModalOpen && canOpenDocs && (
           <ComponentDocsModal
             open={docsModalOpen}
             onClose={() => setDocsModalOpen(false)}
-            filePath={docsFilePath}
+            slug={item.slug}
             displayName={item.display_name}
           />
         )}

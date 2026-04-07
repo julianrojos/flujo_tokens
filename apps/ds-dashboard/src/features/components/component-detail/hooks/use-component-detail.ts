@@ -48,7 +48,7 @@ interface ComponentDetailViewModel {
   editorialEditorOpen: boolean;
   captureSummary: string | null;
   reloadNonce: number;
-  docsFilePath: string | null;
+  canOpenDocs: boolean;
 
   // Derived
   nextStep: PipelineStage | null;
@@ -190,10 +190,12 @@ export function useComponentDetail(): ComponentDetailViewModel {
   }, [navigate]);
 
   const openDocsModal = useCallback(() => {
-    if (item?.doc?.exists) {
+    // S-06: canOpenDocs = Boolean(item) — no longer gated on file existence
+    const canOpenDocs = Boolean(item);
+    if (canOpenDocs) {
       setDocsModalOpen(true);
     }
-  }, [item?.doc?.exists]);
+  }, [Boolean(item)]);
 
   const consumeSuggestion = useCallback(() => {
     setSuggestion(null);
@@ -227,7 +229,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     editorialEditorOpen,
     captureSummary,
     reloadNonce,
-    docsFilePath: item?.paths.doc ?? null,
+    canOpenDocs: Boolean(item),
     nextStep,
     previousItem,
     nextItem,

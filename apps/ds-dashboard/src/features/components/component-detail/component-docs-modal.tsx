@@ -3,31 +3,42 @@ import { Loader2, X } from "lucide-react";
 
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/composites/empty-state";
+import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Modal,
   ModalContent,
   ModalHeader,
 } from "@/components/ui/overlay";
 import { MarkdownViewer } from "@/components/ui/markdown-viewer";
-import { fetchFile } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+
+// S-06: Response shape from GET /api/components/:slug/docs/markdown
+interface DocsResponse {
+  ok: true;
+  markdown: string | null;
+  source: "fresh" | "cache";
+  syncedAt: number | null;
+  stale: boolean;
+}
 
 interface ComponentDocsModalProps {
   open: boolean;
   onClose: () => void;
-  filePath: string;
+  slug: string;
   displayName: string;
 }
 
 export function ComponentDocsModal({
   open,
   onClose,
-  filePath,
+  slug,
   displayName,
 }: ComponentDocsModalProps) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -37,10 +48,16 @@ export function ComponentDocsModal({
       setLoading(true);
       setError(null);
       setContent(null);
+      setStale(false);
       try {
-        const payload = await fetchFile(filePath);
+        const res = await fetch(`/api/components/${encodeURIComponent(slug)}/docs/markdown`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        const data: DocsResponse = await res.json();
         if (!active) return;
-        setContent(payload.content);
+        setContent(data.markdown);
+        setStale(data.stale);
       } catch (cause) {
         if (!active) return;
         setError(
@@ -58,7 +75,7 @@ export function ComponentDocsModal({
     return () => {
       active = false;
     };
-  }, [open, filePath]);
+  }, [open, slug]);
 
   return (
     <Modal open={open} onClose={onClose} zIndex={1003}>
@@ -68,7 +85,6 @@ export function ComponentDocsModal({
             <h3 id="component-docs-modal-title" className="text-lg font-semibold">
               Docs · {displayName}
             </h3>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">{filePath}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close docs dialog">
             <X className="h-4 w-4" />
@@ -76,6 +92,15 @@ export function ComponentDocsModal({
         </ModalHeader>
 
         <div className="max-h-[74vh] overflow-auto p-5">
+          {stale && (
+            <StatusAlert
+              variant="warning"
+              title="Figma data may be outdated"
+              description="Sync from the component detail page to refresh."
+              className="mb-4"
+            />
+          )}
+
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -87,8 +112,15 @@ export function ComponentDocsModal({
             <ApiErrorMessage error={error} />
           ) : null}
 
-          {!loading && !error ? (
-            <MarkdownViewer content={content || "No content."} />
+          {!loading && !error && content === null ? (
+            <EmptyState
+              title="Sin documentación"
+              description="Genera y aplica documentación con IA desde la sección AI Docs"
+            />
+          ) : null}
+
+          {!loading && !error && content !== null ? (
+            <MarkdownViewer content={content} />
           ) : null}
         </div>
       </ModalContent>

@@ -10,7 +10,7 @@ import { ComponentSpecViewer } from "../component-spec-viewer";
 
 interface ComponentSpecSectionProps {
   spec: PartialComponentSpec | null;
-  hasDocs: boolean;
+  canOpenDocs: boolean;
   onOpenDocs: () => void;
   onOpenEditorial: () => void;
   selfSlug?: string;
@@ -18,7 +18,7 @@ interface ComponentSpecSectionProps {
 
 export function ComponentSpecSection({
   spec,
-  hasDocs,
+  canOpenDocs,
   onOpenDocs,
   onOpenEditorial,
   selfSlug,
@@ -32,7 +32,7 @@ export function ComponentSpecSection({
             <CardDescription>Component documentation</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {hasDocs && (
+            {canOpenDocs && (
               <Button variant="outline" size="sm" onClick={onOpenDocs}>
                 Docs
               </Button>
