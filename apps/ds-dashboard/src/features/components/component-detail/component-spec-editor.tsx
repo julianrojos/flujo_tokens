@@ -174,16 +174,20 @@ function RichTextListEditor({
     onChange([...value, ""]);
   };
 
+  const addItemButton = (
+    <Button variant="ghost" size="sm" onClick={handleAddItem} disabled={disabled} aria-label={`Add ${label || "item"}`}>
+      <Plus className="mr-1 h-3.5 w-3.5" />
+      Add item
+    </Button>
+  );
+
   return (
     <div className="space-y-2">
       {label ? <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span> : null}
 
       {value.length === 0 ? (
         <div className="flex items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/20 py-4">
-          <Button variant="ghost" size="sm" onClick={handleAddItem} disabled={disabled} aria-label={`Add ${label || "item"}`}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Add item
-          </Button>
+          {addItemButton}
         </div>
       ) : (
         <>
@@ -215,10 +219,7 @@ function RichTextListEditor({
               ))}
             </ul>
           </Suspense>
-          <Button variant="ghost" size="sm" onClick={handleAddItem} disabled={disabled} aria-label={`Add ${label || "item"}`}>
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Add item
-          </Button>
+          {addItemButton}
         </>
       )}
     </div>
