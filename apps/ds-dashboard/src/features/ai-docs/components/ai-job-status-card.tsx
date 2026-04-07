@@ -32,6 +32,8 @@ interface AiJobStatusCardProps {
     onRetry?: (input: AiJobInput) => void;
     /** Enable status polling (set false when SSE is healthy to keep SSE primary) */
     enablePolling?: boolean;
+    /** Optional catalog map to resolve component name by Figma componentId */
+    componentNamesById?: Record<string, string>;
 }
 
 const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'warning' | 'neutral'; label: string }> = {
@@ -51,6 +53,7 @@ export function AiJobStatusCard({
     isStreaming = false,
     externalEvents = [],
     enablePolling = true,
+    componentNamesById,
 }: AiJobStatusCardProps) {
     const { job, isLoading, error } = useAiJobStatus({
         jobId,
@@ -161,6 +164,10 @@ export function AiJobStatusCard({
     const canRetry = job.status === 'failed' && job.retryable;
     const blockedByValidation = job.canPublish === false;
     const validationFailed = events.some((evt) => evt.event === 'validation.report_failed');
+    const componentDisplayName =
+        String(job.output?.title || '').trim()
+        || String(componentNamesById?.[job.input.componentId] || '').trim()
+        || 'Component';
 
     return (
         <Card>
@@ -168,12 +175,7 @@ export function AiJobStatusCard({
                 <div className="flex items-center justify-between">
                     <div>
                         <CardTitle className="flex items-center gap-2">
-                            {job.input.componentId}
-                            {isStreaming && (
-                                <Badge variant="default" className="animate-pulse">
-                                    ⚡ Live
-                                </Badge>
-                            )}
+                            {componentDisplayName}
                         </CardTitle>
                         <CardDescription>
                             {job.input.provider} • {job.input.model || 'default model'}

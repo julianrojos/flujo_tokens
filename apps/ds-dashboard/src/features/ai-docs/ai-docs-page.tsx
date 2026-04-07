@@ -81,6 +81,13 @@ export function AiDocsPage() {
                 .sort((a, b) => a.label.localeCompare(b.label)),
         [componentRegistry],
     );
+    const componentNamesById = useMemo(
+        () =>
+            Object.fromEntries(
+                componentOptions.map((option) => [option.value, option.label]),
+            ) as Record<string, string>,
+        [componentOptions],
+    );
 
     // Callback for when job reaches terminal state
     const handleJobDone = useCallback((status: AiJobStatus) => {
@@ -268,6 +275,7 @@ export function AiDocsPage() {
                                 isStreaming={isStreaming}
                                 externalEvents={jobEvents}
                                 enablePolling={enablePollingFallback}
+                                componentNamesById={componentNamesById}
                             />
                         ) : (
                             <div className="text-center py-8 text-muted-foreground">
