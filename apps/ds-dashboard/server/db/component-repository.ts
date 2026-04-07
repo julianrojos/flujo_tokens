@@ -233,6 +233,15 @@ export const EDITORIAL_ALLOWED_KEYS = [
 ] as const;
 
 /**
+ * Basic component info for doc assembly (S-01).
+ */
+export interface ComponentBasicInfo {
+  name: string;
+  displayName: string | null;
+  figmaComponentSetNodeId: string | null;
+}
+
+/**
  * Component Repository for SQLite-backed storage
  */
 export class ComponentRepository {
@@ -1614,6 +1623,18 @@ export class ComponentRepository {
   }
 
   /**
+   * S-01: Fetch basic component info for doc assembly.
+   * Note: display_name column does not exist in schema yet — returns null always.
+   */
+  getComponentBasicInfo(componentId: number): ComponentBasicInfo | null {
+    const row = this.db.prepare(`
+      SELECT name, figma_component_set_node_id FROM components WHERE id = ?
+    `).get(componentId) as { name: string; figma_component_set_node_id: string | null } | undefined;
+    if (!row) return null;
+    return { name: row.name, displayName: null, figmaComponentSetNodeId: row.figma_component_set_node_id ?? null };
+  }
+
+  /**
    * Resolve component by Figma component set node id.
    * If dsId is provided, resolution is scoped to that design system.
    */
@@ -1814,11 +1835,11 @@ export class ComponentRepository {
       WHERE c.status != 'missing'
       ORDER BY c.slug ASC
     `).all()) as Array<{
-      id: number;
-      slug: string;
-      applied_at: number | null;
-      synced_at: number | null;
-    }>;
+        id: number;
+        slug: string;
+        applied_at: number | null;
+        synced_at: number | null;
+      }>;
 
     return rows.map(row => {
       let status: 'fresh' | 'stale' | 'missing';

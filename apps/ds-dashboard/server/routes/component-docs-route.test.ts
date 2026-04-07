@@ -63,7 +63,7 @@ describe('component-docs-route', () => {
     assert.equal((result as any).data.code, 'docs.no_repo');
   });
 
-  it('returns markdown: null when component not found by slug', async () => {
+  it('returns 404 when component not found by slug', async () => {
     let handler: ((c: unknown) => Promise<unknown>) | null = null;
     const app = {
       get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },
@@ -76,9 +76,8 @@ describe('component-docs-route', () => {
 
     const c = makeContext({ slug: 'nonexistent' });
     const result = await handler!(c);
-    assert.equal((result as any).status, 200);
-    assert.equal((result as any).data.markdown, null);
-    assert.equal((result as any).data.stale, true);
+    assert.equal((result as any).status, 404);
+    assert.equal((result as any).data.code, 'docs.not_found');
   });
 
   it('returns 500 when slug lookup throws', async () => {
@@ -94,13 +93,19 @@ describe('component-docs-route', () => {
     };
     registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
 
-    const c = makeContext({ slug: 'button' });
-    const result = await handler!(c);
-    assert.equal((result as any).status, 500);
-    assert.equal((result as any).data.code, 'docs.lookup_failed');
+    const consoleError = console.error;
+    console.error = () => {};
+    try {
+      const c = makeContext({ slug: 'button' });
+      const result = await handler!(c);
+      assert.equal((result as any).status, 500);
+      assert.equal((result as any).data.code, 'docs.lookup_failed');
+    } finally {
+      console.error = consoleError;
+    }
   });
 
-  it('returns markdown: null when no doc in DB', async () => {
+  it('returns non-null markdown from assembler when no AI doc in DB', async () => {
     let handler: ((c: unknown) => Promise<unknown>) | null = null;
     const app = {
       get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },
@@ -108,17 +113,125 @@ describe('component-docs-route', () => {
 
     const mockRepo = {
       getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Button', displayName: null, figmaComponentSetNodeId: '1:1' }),
       getFigmaDescriptions: () => null,
       getFigmaComponentSetNodeId: () => null,
       getComponentDoc: () => null,
+      getEditorial: () => null,
     };
     registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
 
     const c = makeContext({ slug: 'button' });
     const result = await handler!(c);
     assert.equal((result as any).status, 200);
-    assert.equal((result as any).data.markdown, null);
+    assert.equal(typeof (result as any).data.markdown, 'string');
+    assert.ok((result as any).data.markdown.includes('# Button'));
     assert.equal((result as any).data.stale, true);
+  });
+
+  it('returns markdown with editorial purpose when AI doc + editorial exist', async () => {
+    let handler: ((c: unknown) => Promise<unknown>) | null = null;
+    const app = {
+      get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },
+    };
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const mockRepo = {
+      getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Button', displayName: null, figmaComponentSetNodeId: '1:1' }),
+      getFigmaDescriptions: () => ({ componentSet: null, variants: [], syncedAt: nowSec }),
+      getFigmaComponentSetNodeId: () => null,
+      getComponentDoc: () => ({
+        outputJson: JSON.stringify({
+          componentId: '1:1',
+          title: 'Button',
+          summary: 'AI summary.',
+          anatomy: [],
+          variants: [],
+          tokens: [],
+          accessibilityNotes: [],
+          schemaVersion: 2,
+          metadata: { generatedAt: new Date().toISOString() },
+        }),
+        editorialJson: null,
+        jobId: 'job-1',
+        appliedAt: nowSec,
+      }),
+      getEditorial: () => ({
+        componentId: 1,
+        summary: { purpose: 'Editorial purpose text' },
+        updatedAt: nowSec,
+      }),
+      saveFigmaDescriptions: () => { },
+    };
+    registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
+
+    const c = makeContext({ slug: 'button' });
+    const result = await handler!(c);
+    assert.equal((result as any).status, 200);
+    assert.ok((result as any).data.markdown.includes('Editorial purpose text'));
+    assert.equal((result as any).data.stale, false);
+  });
+
+  it('returns markdown with warnings when AI output_json is corrupted', async () => {
+    let handler: ((c: unknown) => Promise<unknown>) | null = null;
+    const app = {
+      get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },
+    };
+
+    const mockRepo = {
+      getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Card', displayName: null, figmaComponentSetNodeId: '2:2' }),
+      getFigmaDescriptions: () => null,
+      getFigmaComponentSetNodeId: () => null,
+      getComponentDoc: () => ({
+        outputJson: '{ not valid json',
+        editorialJson: null,
+        jobId: 'job-2',
+        appliedAt: Math.floor(Date.now() / 1000),
+      }),
+      getEditorial: () => null,
+    };
+    registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
+
+    const c = makeContext({ slug: 'card' });
+    const result = await handler!(c);
+    assert.equal((result as any).status, 200);
+    assert.equal(typeof (result as any).data.markdown, 'string');
+    assert.ok((result as any).data.markdown.includes('# Card'));
+    assert.ok(Array.isArray((result as any).data.warnings));
+    assert.ok((result as any).data.warnings[0].includes('malformed'));
+  });
+
+  it('returns markdown with variant names from Figma when only Figma data exists', async () => {
+    let handler: ((c: unknown) => Promise<unknown>) | null = null;
+    const app = {
+      get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },
+    };
+
+    const mockRepo = {
+      getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Badge', displayName: null, figmaComponentSetNodeId: '3:3' }),
+      getFigmaDescriptions: () => ({
+        componentSet: 'A badge component',
+        variants: [
+          { nodeId: 'v1', canonicalKey: 'State=Default', description: 'Default state' },
+          { nodeId: 'v2', canonicalKey: 'State=Hover', description: 'Hover state' },
+        ],
+        syncedAt: Math.floor(Date.now() / 1000),
+      }),
+      getFigmaComponentSetNodeId: () => null,
+      getComponentDoc: () => null,
+      getEditorial: () => null,
+    };
+    registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
+
+    const c = makeContext({ slug: 'badge' });
+    const result = await handler!(c);
+    assert.equal((result as any).status, 200);
+    const md = (result as any).data.markdown;
+    assert.ok(md.includes('State=Default'));
+    assert.ok(md.includes('State=Hover'));
   });
 
   it('returns source: cache when syncedAt is recent', async () => {
@@ -130,7 +243,9 @@ describe('component-docs-route', () => {
     const nowSec = Math.floor(Date.now() / 1000);
     const mockRepo = {
       getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Button', displayName: null, figmaComponentSetNodeId: '1:1' }),
       getFigmaDescriptions: () => ({ componentSet: null, variants: [], syncedAt: nowSec }),
+      getFigmaComponentSetNodeId: () => null,
       getComponentDoc: () => ({
         outputJson: JSON.stringify({
           componentId: '1:1',
@@ -147,7 +262,8 @@ describe('component-docs-route', () => {
         jobId: 'job-1',
         appliedAt: nowSec,
       }),
-      saveFigmaDescriptions: () => {},
+      getEditorial: () => null,
+      saveFigmaDescriptions: () => { },
     };
     registerComponentDocsRoutes(app, { componentRepo: mockRepo as any });
 
@@ -167,7 +283,10 @@ describe('component-docs-route', () => {
     const staleSec = Math.floor((Date.now() - TTL_MS - 5_000) / 1000);
     const mockRepo = {
       getComponentIdBySlug: () => 1,
+      getComponentBasicInfo: () => ({ name: 'Button', displayName: null, figmaComponentSetNodeId: '1:1' }),
       getFigmaDescriptions: () => ({ componentSet: 'Old', variants: [], syncedAt: staleSec }),
+      getFigmaComponentSetNodeId: () => '1:1',
+      getFigmaFileUrl: () => '',
       getComponentDoc: () => ({
         outputJson: JSON.stringify({
           componentId: '1:1',
@@ -184,8 +303,7 @@ describe('component-docs-route', () => {
         jobId: 'job-1',
         appliedAt: staleSec,
       }),
-      getFigmaComponentSetNodeId: () => '1:1',
-      getFigmaFileUrl: () => null,
+      getEditorial: () => null,
       saveFigmaDescriptions: () => {
         throw new Error('saveFigmaDescriptions should not be called without a resolvable Figma socket');
       },

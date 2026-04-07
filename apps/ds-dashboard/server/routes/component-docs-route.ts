@@ -15,6 +15,7 @@ import {
   type FileKeyResult,
 } from '../lib/filekey-utils.js';
 import { renderComponentDoc } from '../services/ai-component-doc-renderer.js';
+import { buildDocOutputFromDb } from '../services/db-doc-assembler.js';
 import {
   resolveDescriptionsForRender,
   buildCanonicalKey,
@@ -35,7 +36,7 @@ export interface ComponentDocsRouteDeps {
  *
  * Response:
  *   {
- *     markdown: string | null,
+ *     markdown: string,  // always a string when component exists
  *     source: "fresh"|"cache",
  *     syncedAt: number | null,
  *     stale: boolean,
@@ -43,6 +44,7 @@ export interface ComponentDocsRouteDeps {
  *       componentSet: string | null,
  *       variants: Array<{ canonicalKey: string; description: string | null }>,
  *     } | null,
+ *     warnings?: string[],  // omitted when empty
  *   }
  */
 async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): Promise<Response> {
@@ -77,13 +79,10 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
 
   if (componentId == null) {
     return c.json({
-      ok: true,
-      markdown: null,
-      source: 'cache',
-      syncedAt: null,
-      stale: true,
-      descriptions: null,
-    } as const, 200);
+      ok: false,
+      code: 'docs.not_found',
+      message: 'Component not found',
+    } as const, 404);
   }
 
   const refreshParam = String(c.req.query('refresh') || '').toLowerCase();
@@ -129,46 +128,22 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
     })),
   } : null;
 
-  // Read component doc from DB
-  const docRecord = componentRepo.getComponentDoc(componentId);
-  if (!docRecord) {
-    return c.json({
-      ok: true,
-      markdown: null,
-      source,
-      syncedAt: figmaDescriptions?.syncedAt ?? null,
-      stale: figmaDescriptions?.stale ?? true,
-      descriptions,
-    }, 200);
-  }
+  // Assemble ComponentDocOutput from DB (handles missing AI doc, corrupt JSON, etc.)
+  // Pass dbDescriptions to avoid duplicate getFigmaDescriptions call inside assembler
+  const { output, editorialPatch, warnings } = buildDocOutputFromDb(componentId, componentRepo, dbDescriptions);
 
-  // Render markdown
-  try {
-    const output = JSON.parse(docRecord.outputJson);
-    let editorialPatch = null;
-    if (docRecord.editorialJson) {
-      editorialPatch = JSON.parse(docRecord.editorialJson);
-    }
-    const markdown = renderComponentDoc({ output, editorialPatch }, figmaDescriptions);
+  // Render markdown — always produces a string
+  const markdown = renderComponentDoc({ output, editorialPatch }, figmaDescriptions);
 
-    return c.json({
-      ok: true,
-      markdown,
-      source,
-      syncedAt: figmaDescriptions?.syncedAt ?? null,
-      stale: figmaDescriptions?.stale ?? true,
-      descriptions,
-    }, 200);
-  } catch {
-    return c.json({
-      ok: true,
-      markdown: null,
-      source,
-      syncedAt: figmaDescriptions?.syncedAt ?? null,
-      stale: figmaDescriptions?.stale ?? true,
-      descriptions,
-    }, 200);
-  }
+  return c.json({
+    ok: true,
+    markdown,
+    source,
+    syncedAt: figmaDescriptions?.syncedAt ?? null,
+    stale: figmaDescriptions?.stale ?? true,
+    descriptions,
+    ...(warnings.length > 0 ? { warnings } : {}),
+  }, 200);
 }
 
 /**
