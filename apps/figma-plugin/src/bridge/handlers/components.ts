@@ -1056,6 +1056,7 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
     key: variant.key,
     nodeId: variant.id,
     name: variant.name,
+    description: variant.description || null,
     variantProperties,
     layerTokens,
   };

@@ -1754,4 +1754,242 @@ export class ComponentRepository {
       };
     });
   }
+
+  /**
+   * Get the Figma component set node ID for a component.
+   * Used by routes that need to call Figma bridge for a known component.
+   */
+  getFigmaComponentSetNodeId(componentId: number): string | null {
+    const row = this.db.prepare(`
+      SELECT figma_component_set_node_id FROM components WHERE id = ?
+    `).get(componentId) as { figma_component_set_node_id: string | null } | undefined;
+    return row?.figma_component_set_node_id ?? null;
+  }
+
+  /**
+   * Get the stored Figma file URL for a component.
+   */
+  getFigmaFileUrl(componentId: number): string | null {
+    const row = this.db.prepare(`
+      SELECT figma_file_url FROM components WHERE id = ?
+    `).get(componentId) as { figma_file_url: string | null } | undefined;
+    return row?.figma_file_url ?? null;
+  }
+
+  /**
+   * S-11: Compute doc status from component_docs table (not from editorial/anatomy).
+   *
+   * Logic:
+   * - If a row exists in component_docs → check applied_at vs figma_descriptions_synced_at
+   *   - applied_at >= synced_at → 'fresh'
+   *   - applied_at < synced_at  → 'stale'
+   * - No row in component_docs → 'missing'
+   */
+  listDocStatusFromComponentDocs(dsId?: string): Array<{
+    id: number;
+    slug: string;
+    status: 'fresh' | 'stale' | 'missing';
+    appliedAt: number | null;
+  }> {
+    const rows = (dsId
+      ? this.db.prepare(`
+      SELECT
+        c.id,
+        c.slug,
+        cd.applied_at AS applied_at,
+        c.figma_descriptions_synced_at AS synced_at
+      FROM components c
+      LEFT JOIN component_docs cd ON cd.component_id = c.id
+      WHERE c.status != 'missing' AND c.ds_id = ?
+      ORDER BY c.slug ASC
+    `).all(dsId)
+      : this.db.prepare(`
+      SELECT
+        c.id,
+        c.slug,
+        cd.applied_at AS applied_at,
+        c.figma_descriptions_synced_at AS synced_at
+      FROM components c
+      LEFT JOIN component_docs cd ON cd.component_id = c.id
+      WHERE c.status != 'missing'
+      ORDER BY c.slug ASC
+    `).all()) as Array<{
+      id: number;
+      slug: string;
+      applied_at: number | null;
+      synced_at: number | null;
+    }>;
+
+    return rows.map(row => {
+      let status: 'fresh' | 'stale' | 'missing';
+      if (row.applied_at == null) {
+        status = 'missing';
+      } else if (row.synced_at != null && row.applied_at < row.synced_at) {
+        status = 'stale';
+      } else {
+        status = 'fresh';
+      }
+
+      return {
+        id: row.id,
+        slug: row.slug,
+        status,
+        appliedAt: row.applied_at,
+      };
+    });
+  }
+
+  // ===========================================================================
+  // S-03: Figma descriptions CRUD (component_figma_variants + components)
+  // ===========================================================================
+
+  /**
+   * Save Figma descriptions (component set description + variant descriptions)
+   * and update figma_descriptions_synced_at on the components row.
+   */
+  saveFigmaDescriptions(
+    componentId: number,
+    data: {
+      componentSet: string | null;
+      syncedAt: number;
+      variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }>;
+    },
+  ): void {
+    const tx = this.db.transaction(() => {
+      // Update component set description + synced_at
+      this.db.prepare(`
+        UPDATE components
+        SET figma_description = ?, figma_descriptions_synced_at = ?
+        WHERE id = ?
+      `).run(data.componentSet ?? null, data.syncedAt, componentId);
+
+      // Upsert variants
+      // NOTE: variant_name is TEXT NOT NULL in the schema; we use canonicalKey
+      // as the variant_name since it uniquely identifies the variant properties.
+      // ON CONFLICT must match the UNIQUE(component_id, variant_name, node_id).
+      const upsert = this.db.prepare(`
+        INSERT INTO component_figma_variants (component_id, node_id, variant_name, canonical_key, description)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(component_id, variant_name, node_id) DO UPDATE SET
+          canonical_key = EXCLUDED.canonical_key,
+          description = EXCLUDED.description
+      `);
+
+      for (const v of data.variants) {
+        const vName = v.canonicalKey || '';
+        upsert.run(componentId, v.nodeId, vName, v.canonicalKey || null, v.description ?? null);
+      }
+    });
+    tx();
+  }
+
+  /**
+   * Get Figma descriptions for a component.
+   * Returns null if no descriptions have ever been synced.
+   */
+  getFigmaDescriptions(
+    componentId: number,
+  ): FigmaDescriptionsRawResult | null {
+    const compRow = this.db.prepare(`
+      SELECT figma_description, figma_descriptions_synced_at
+      FROM components
+      WHERE id = ?
+    `).get(componentId) as { figma_description: string | null; figma_descriptions_synced_at: number | null } | undefined;
+
+    if (!compRow || compRow.figma_descriptions_synced_at == null) return null;
+
+    const variantRows = this.db.prepare(`
+      SELECT node_id, canonical_key, description
+      FROM component_figma_variants
+      WHERE component_id = ?
+      ORDER BY id ASC
+    `).all(componentId) as Array<{ node_id: string; canonical_key: string | null; description: string | null }>;
+
+    return {
+      componentSet: compRow.figma_description ?? null,
+      variants: variantRows.map(v => ({
+        nodeId: v.node_id,
+        canonicalKey: v.canonical_key ?? '',
+        description: v.description ?? null,
+      })),
+      syncedAt: compRow.figma_descriptions_synced_at,
+    };
+  }
+
+  // ===========================================================================
+  // S-03: Component docs CRUD (component_docs table)
+  // ===========================================================================
+
+  /**
+   * Save or replace an AI-generated component doc.
+   */
+  saveComponentDoc(
+    componentId: number,
+    data: { outputJson: string; editorialJson?: string | null; jobId: string },
+  ): void {
+    this.db.prepare(`
+      INSERT INTO component_docs (component_id, output_json, editorial_json, job_id)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(component_id) DO UPDATE SET
+        output_json = EXCLUDED.output_json,
+        editorial_json = EXCLUDED.editorial_json,
+        job_id = EXCLUDED.job_id,
+        applied_at = strftime('%s', 'now')
+    `).run(componentId, data.outputJson, data.editorialJson ?? null, data.jobId);
+  }
+
+  /**
+   * Get the AI-generated doc for a component, or null if none exists.
+   */
+  getComponentDoc(componentId: number): ComponentDocRecord | null {
+    const row = this.db.prepare(`
+      SELECT id, component_id, output_json, editorial_json, job_id, applied_at
+      FROM component_docs
+      WHERE component_id = ?
+    `).get(componentId) as {
+      id: number;
+      component_id: number;
+      output_json: string;
+      editorial_json: string | null;
+      job_id: string | null;
+      applied_at: number;
+    } | undefined;
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      componentId: row.component_id,
+      outputJson: row.output_json,
+      editorialJson: row.editorial_json,
+      jobId: row.job_id,
+      appliedAt: row.applied_at,
+    };
+  }
+}
+
+// ===========================================================================
+// S-03: Exported types for Figma descriptions resolution
+// ===========================================================================
+
+/**
+ * Raw DB result for Figma descriptions (no staleness computed).
+ * See services/figma-descriptions-resolver.ts for the enriched type.
+ */
+export interface FigmaDescriptionsRawResult {
+  componentSet: string | null;
+  variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }>;
+  syncedAt: number | null;
+}
+
+/**
+ * A stored AI-generated component doc row.
+ */
+export interface ComponentDocRecord {
+  id: number;
+  componentId: number;
+  outputJson: string;
+  editorialJson: string | null;
+  jobId: string | null;
+  appliedAt: number;
 }

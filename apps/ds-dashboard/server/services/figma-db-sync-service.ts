@@ -1578,6 +1578,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     });
 
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
+      // S-11 (TODO): ensureComponentDocTemplates writes .md skeleton files to disk.
+      // No consumer reads these files anymore (DB-first: component_docs table,
+      // GET /api/components/:slug/docs/markdown). Safe to remove after confirming
+      // no external tooling depends on these files.
       ensureComponentDocTemplates({
         entries: componentEntries,
         repoRoot,

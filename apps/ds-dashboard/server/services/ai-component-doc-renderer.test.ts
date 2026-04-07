@@ -8,6 +8,7 @@ import { renderComponentDoc, createComponentSlug, renderEditorialPatchToMarkdown
 import { createValidComponentDocFixture } from './ai-component-doc-schema.js';
 import { EDITORIAL_PATCH_SCHEMA_VERSION, type EditorialPatch } from './ai-editorial-patch-schema.js';
 import type { EditorialEntry } from '../db/component-repository.js';
+import type { FigmaDescriptionsResult } from './figma-descriptions-resolver.js';
 
 describe('ai-component-doc-renderer', () => {
     describe('renderComponentDoc', () => {
@@ -263,6 +264,110 @@ describe('ai-component-doc-renderer', () => {
             const result = renderComponentDoc(output);
             assert.ok(result.includes('Button\\_\\*wrapper'));
             assert.ok(result.includes('Has \\* and \\_ chars'));
+        });
+
+        it('renders Figma component set description when provided', () => {
+            const output = createValidComponentDocFixture();
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: 'A configurable button component from Figma.',
+                variants: [],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            assert.ok(result.includes('> _Figma description:_ A configurable button component from Figma.'));
+        });
+
+        it('does not render Figma description when componentSet is null', () => {
+            const output = createValidComponentDocFixture();
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: null,
+                variants: [],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            assert.ok(!result.includes('_Figma description:_'));
+        });
+
+        it('does not render Figma description when componentSet is empty string', () => {
+            const output = createValidComponentDocFixture();
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: '',
+                variants: [],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            assert.ok(!result.includes('_Figma description:_'));
+        });
+
+        it('adds Figma Description column in variants table when figmaDescriptions provided', () => {
+            const output = createValidComponentDocFixture({
+                variants: [
+                    { id: 'v1', name: 'Default', description: 'Default variant', properties: { State: 'Default' } },
+                ],
+            });
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: null,
+                variants: [
+                    { nodeId: 'v1', canonicalKey: 'State=Default', description: 'From Figma: the default state.' },
+                ],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            assert.ok(result.includes('| Name | Description | Properties | Figma Description |'));
+            assert.ok(result.includes('From Figma: the default state.'));
+        });
+
+        it('matches variant description by canonicalKey when nodeId not available', () => {
+            const output = createValidComponentDocFixture({
+                variants: [
+                    { name: 'Large', description: 'Large variant', properties: { Size: 'lg' } },
+                ],
+            });
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: null,
+                variants: [
+                    { nodeId: 'unknown', canonicalKey: 'Size=lg', description: 'Large size from Figma.' },
+                ],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            assert.ok(result.includes('Large size from Figma.'));
+        });
+
+        it('AI summary cannot override figmaDescriptions.componentSet', () => {
+            const output = createValidComponentDocFixture({
+                summary: 'AI-generated summary about the button.',
+            });
+            const figmaDescriptions: FigmaDescriptionsResult = {
+                componentSet: 'Figma description: authoritative source.',
+                variants: [],
+                syncedAt: Math.floor(Date.now() / 1000),
+                stale: false,
+            };
+            const result = renderComponentDoc(output, figmaDescriptions);
+            // Figma description appears before AI summary
+            const figmaPos = result.indexOf('_Figma description:_');
+            const aiPos = result.indexOf('AI-generated summary');
+            assert.ok(figmaPos < aiPos, 'Figma description should appear before AI summary');
+        });
+
+        it('output identical when figmaDescriptions is null', () => {
+            const output = createValidComponentDocFixture();
+            const withNull = renderComponentDoc(output, null);
+            const without = renderComponentDoc(output);
+            assert.equal(withNull, without);
+        });
+
+        it('output identical when figmaDescriptions is undefined', () => {
+            const output = createValidComponentDocFixture();
+            const withUndefined = renderComponentDoc(output, undefined);
+            const without = renderComponentDoc(output);
+            assert.equal(withUndefined, without);
         });
     });
 

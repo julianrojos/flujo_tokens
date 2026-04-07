@@ -172,6 +172,8 @@ CREATE TABLE IF NOT EXISTS components (
   figma_file_url  TEXT,
   figma_component_set_node_id TEXT,
   figma_page_name TEXT,                             -- Figma page containing the component (Migration 020)
+  figma_description TEXT,                           -- Component set description from Figma (S-02)
+  figma_descriptions_synced_at INTEGER,             -- Timestamp of last Figma description sync (S-02)
   created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updated_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   UNIQUE(ds_id, slug)
@@ -188,9 +190,11 @@ CREATE TABLE IF NOT EXISTS component_figma_variants (
   component_id     INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
   variant_name     TEXT NOT NULL,
   node_id          TEXT NOT NULL DEFAULT '',
+  canonical_key    TEXT,                             -- "Prop=Val|Prop=Val" sorted (S-02)
   properties_json  TEXT NOT NULL DEFAULT '{}' CHECK (
     json_valid(properties_json) AND json_type(properties_json) = 'object'
   ),
+  description      TEXT,                             -- Variant description from Figma (S-02)
   run_id           TEXT,
   captured_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   schema_version   INTEGER NOT NULL DEFAULT 1,
@@ -319,6 +323,20 @@ CREATE INDEX IF NOT EXISTS idx_editorial_suggestions_component_status
 CREATE UNIQUE INDEX IF NOT EXISTS idx_editorial_suggestions_one_pending
   ON component_editorial_suggestions(component_id)
   WHERE status = 'pending';
+
+-- ============================================================================
+-- component_docs: AI-generated component documentation (S-02)
+-- One active doc per component; upsert on apply.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS component_docs (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  component_id   INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  output_json    TEXT NOT NULL CHECK(json_valid(output_json)),
+  editorial_json TEXT CHECK(editorial_json IS NULL OR json_valid(editorial_json)),
+  job_id         TEXT,
+  applied_at     INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  UNIQUE(component_id)
+);
 
 -- ============================================================================
 -- component_specs: Component specification metadata (Migration 007)

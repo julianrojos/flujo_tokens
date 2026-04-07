@@ -35,6 +35,7 @@ import { registerFigmaMcpTokenBindingsRoutes } from './figma-mcp-token-bindings-
 import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.ts';
 import { registerAiJobsRoutes } from './ai-jobs-route.ts';
 import type { CommandRoutesDeps } from './command-routes.ts';
+import { registerComponentDocsRoutes } from './component-docs-route.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -208,6 +209,9 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerAiJobsRoutes(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
     getSystemContext: deps.getSystemContext,
+    componentRepo: routeDeps.componentRepo,
+  });
+  registerComponentDocsRoutes(app, {
     componentRepo: routeDeps.componentRepo,
   });
 }

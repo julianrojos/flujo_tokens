@@ -622,7 +622,7 @@ describe('ai-jobs-route', () => {
         });
     });
 
-    describe('POST /api/ai/jobs/:id/apply', () => {
+    describe('POST /api/ai/jobs/:id/apply (S-10: DB-first)', () => {
         it('should return 404 for unknown job', async () => {
             cleanupStore();
             const app = createTestApp();
@@ -661,7 +661,7 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.job.not_completed');
         });
 
-        it('should reject with 422 when canPublish is false and shadow mode is OFF', async () => {
+        it('should reject with 422 when canPublish is false', async () => {
             cleanupStore();
             const prevShadow = process.env.AI_VALIDATION_SHADOW;
             delete process.env.AI_VALIDATION_SHADOW;
@@ -678,7 +678,7 @@ describe('ai-jobs-route', () => {
             store.complete(job.id, {
                 schemaVersion: 2,
                 componentId: '68:4097',
-                title: 'Blocked Apply Doc',
+                title: 'Blocked Apply',
                 summary: 'Blocked',
                 anatomy: [],
                 variants: [],
@@ -698,7 +698,7 @@ describe('ai-jobs-route', () => {
             const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: true }),
+                body: JSON.stringify({}),
             });
 
             assert.equal(res.status, 422);
@@ -712,69 +712,13 @@ describe('ai-jobs-route', () => {
             }
         });
 
-        it('should reject with 422 when canPublish is false even when shadow mode is ON', async () => {
+        it('should return 404 when no matching component in registry', async () => {
             cleanupStore();
-            const prevShadow = process.env.AI_VALIDATION_SHADOW;
-            process.env.AI_VALIDATION_SHADOW = 'true';
-            const app = createTestApp();
-            const store = getAiJobsStore();
-            const title = 'Blocked But Shadow On';
-            const filePath = path.join(
-                REPO_ROOT,
-                'design-systems/sys-test/docs/components/blocked-but-shadow-on.md',
-            );
-
-            await fs.rm(filePath, { force: true });
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
+            const app = createTestApp({
+                componentRepo: {
+                    getComponentByFigmaNodeId: () => null,
+                },
             });
-
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title,
-                summary: 'Shadow mode',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '# Test',
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 1,
-                completionTokens: 1,
-                durationMs: 1,
-            }, undefined, {
-                canPublish: false,
-            });
-
-            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: true }),
-            });
-
-            assert.equal(res.status, 422);
-            const json = await res.json();
-            assert.equal(json.code, 'ai.validation.blocked');
-
-            await fs.rm(filePath, { force: true });
-
-            if (prevShadow !== undefined) {
-                process.env.AI_VALIDATION_SHADOW = prevShadow;
-            } else {
-                delete process.env.AI_VALIDATION_SHADOW;
-            }
-        });
-
-        it('should block path traversal in outputPath', async () => {
-            cleanupStore();
-            const app = createTestApp();
             const store = getAiJobsStore();
 
             const job = store.enqueue({
@@ -787,149 +731,13 @@ describe('ai-jobs-route', () => {
             store.complete(job.id, {
                 schemaVersion: 2,
                 componentId: '68:4097',
-                title: 'Test Component',
-                summary: 'Test',
+                title: 'No Component',
+                summary: 'No component',
                 anatomy: [],
                 variants: [],
                 tokens: [],
                 accessibilityNotes: [],
-                markdown: '# Test',
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 100,
-                completionTokens: 50,
-                durationMs: 1000,
-            });
-
-            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({
-                    outputPath: '../../../etc/passwd',
-                }),
-            });
-
-            assert.equal(res.status, 403);
-            const json = await res.json();
-            assert.equal(json.code, 'ai.apply.path_blocked');
-        });
-
-        it('should block paths outside docs/components', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const store = getAiJobsStore();
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
-            });
-
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title: 'Test Component',
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '# Test',
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 100,
-                completionTokens: 50,
-                durationMs: 1000,
-            });
-
-            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({
-                    outputPath: 'apps/other-app',
-                }),
-            });
-
-            assert.equal(res.status, 403);
-            const json = await res.json();
-            assert.equal(json.code, 'ai.apply.path_blocked');
-        });
-
-        it('should block sibling directory prefix attacks near docs/components', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const store = getAiJobsStore();
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
-            });
-
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title: 'Test Component',
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '# Test',
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 100,
-                completionTokens: 50,
-                durationMs: 1000,
-            });
-
-            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({
-                    outputPath: 'design-systems/sys-test/docs/components-evil',
-                }),
-            });
-
-            assert.equal(res.status, 403);
-            const json = await res.json();
-            assert.equal(json.code, 'ai.apply.path_blocked');
-        });
-
-        it('should return 409 when file exists and overwrite=false', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const store = getAiJobsStore();
-            const title = 'Existing File Case';
-            const filePath = path.join(
-                REPO_ROOT,
-                'design-systems/sys-test/docs/components/existing-file-case.md',
-            );
-
-            await createTestFile(filePath, '# existing');
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
-            });
-
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title,
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '# New Content',
+                markdown: '# No Component',
                 states: [],
                 accessibilityFacts: [],
             }, {
@@ -941,89 +749,79 @@ describe('ai-jobs-route', () => {
             const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: false }),
+                body: JSON.stringify({}),
+            });
+
+            assert.equal(res.status, 404);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.apply.no_component');
+        });
+
+        it('should return 409 when x-ds-system conflicts with job systemId', async () => {
+            cleanupStore();
+            const app = createTestApp({
+                componentRepo: {
+                    getComponentByFigmaNodeId: () => ({ id: 42, slug: 'button' }),
+                    saveComponentDoc: () => {},
+                },
+            });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+                systemId: 'core',
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'A button component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Button',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-forwarded-for': '127.0.0.1',
+                    'x-ds-system': 'other-system',
+                },
+                body: JSON.stringify({}),
             });
 
             assert.equal(res.status, 409);
             const json = await res.json();
-            assert.equal(json.code, 'ai.apply.file_exists');
-
-            await fs.rm(filePath, { force: true });
+            assert.equal(json.code, 'ai.input.conflict');
         });
 
-        it('should overwrite file when overwrite=true', async () => {
+        it('should return 500 when component lookup throws', async () => {
             cleanupStore();
-            const app = createTestApp();
-            const store = getAiJobsStore();
-            const title = 'Overwrite File Case';
-            const filePath = path.join(
-                REPO_ROOT,
-                'design-systems/sys-test/docs/components/overwrite-file-case.md',
-            );
-
-            // Clean up any residual file from previous runs
-            await fs.rm(filePath, { force: true });
-            await fs.rm(`${filePath}.tmp`, { force: true });
-
-            await createTestFile(filePath, '# old');
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
-            });
-
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title,
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '# New Overwritten Content',
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 1,
-                completionTokens: 1,
-                durationMs: 1,
-            });
-
-            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: true }),
-            });
-
-            assert.equal(res.status, 200);
-            const json = await res.json();
-            assert.equal(json.ok, true);
-            assert.equal(json.overwritten, true);
-
-            const current = await fs.readFile(filePath, 'utf-8');
-            assert.equal(current, '# New Overwritten Content');
-
-            await fs.rm(filePath, { force: true });
-        });
-
-        it('writes docs under the resolved system docs directory by default', async () => {
-            cleanupStore();
-            const systemDocsDir = path.join(REPO_ROOT, 'tmp/ai-jobs-route/system-alpha-docs');
             const app = createTestApp({
-                getSystemContext: () => ({
-                    systemId: 'system-alpha',
-                    docsDir: systemDocsDir,
-                }),
+                componentRepo: {
+                    getComponentByFigmaNodeId: () => {
+                        throw new Error('DB read failed');
+                    },
+                },
             });
             const store = getAiJobsStore();
 
             const job = store.enqueue({
                 type: 'GENERATE_COMPONENT_DOC',
                 provider: 'anthropic',
-                systemId: 'system-alpha',
                 componentId: '68:4097',
                 dryRun: true,
             });
@@ -1031,13 +829,13 @@ describe('ai-jobs-route', () => {
             store.complete(job.id, {
                 schemaVersion: 2,
                 componentId: '68:4097',
-                title: 'System Scoped Doc',
-                summary: 'Test',
+                title: 'Button',
+                summary: 'A button component',
                 anatomy: [],
                 variants: [],
                 tokens: [],
                 accessibilityNotes: [],
-                markdown: '# System Scoped Doc',
+                markdown: '# Button',
                 states: [],
                 accessibilityFacts: [],
             }, {
@@ -1049,86 +847,126 @@ describe('ai-jobs-route', () => {
             const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: true }),
+                body: JSON.stringify({}),
+            });
+
+            assert.equal(res.status, 500);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.apply.lookup_failed');
+        });
+
+        it('should save to DB and return { ok, componentId, appliedAt }', async () => {
+            cleanupStore();
+            let savedDoc: any = null;
+            const app = createTestApp({
+                componentRepo: {
+                    getComponentByFigmaNodeId: () => ({ id: 42, slug: 'button' }),
+                    saveComponentDoc: (_id: number, data: any) => { savedDoc = data; },
+                },
+            });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'A button component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Button\n\nA button component.',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({}),
             });
 
             assert.equal(res.status, 200);
             const json = await res.json();
             assert.equal(json.ok, true);
-            assert.match(String(json.path), /^tmp\/ai-jobs-route\/system-alpha-docs\/components\//);
+            assert.equal(json.componentId, 42);
+            assert.ok(typeof json.appliedAt === 'number');
 
-            const writtenPath = path.join(REPO_ROOT, String(json.path));
-            testFilesCreated.push(writtenPath);
-            const written = await fs.readFile(writtenPath, 'utf-8');
-            assert.equal(written, '# System Scoped Doc');
+            // Verify DB save
+            assert.ok(savedDoc !== null);
+            assert.ok(savedDoc.outputJson.includes('Button'));
+            assert.ok(typeof savedDoc.jobId === 'string');
         });
 
-        it('S-07: apply uses base output.markdown even when editorial patch exists', async () => {
+        it('includes editorialJson in DB save when patch exists', async () => {
             cleanupStore();
-            const app = createTestApp();
+            let savedDoc: any = null;
+            const app = createTestApp({
+                componentRepo: {
+                    getComponentByFigmaNodeId: () => ({ id: 99, slug: 'card' }),
+                    saveComponentDoc: (_id: number, data: any) => { savedDoc = data; },
+                },
+            });
             const store = getAiJobsStore();
-            const title = 'Apply Base Markdown Only';
-            const filePath = path.join(
-                REPO_ROOT,
-                'design-systems/sys-test/docs/components/apply-base-markdown-only.md',
-            );
 
-            await fs.rm(filePath, { force: true });
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:5000',
+                dryRun: true,
+            });
 
-            const editorialPatch = {
+            store.complete(job.id, {
                 schemaVersion: 2,
-                summary: { purpose: 'Editorial purpose' },
-                best_practices: { do: ['Editorial do'], dont: [] },
+                componentId: '68:5000',
+                title: 'Card',
+                summary: 'Card component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Card',
+                states: [],
+                accessibilityFacts: [],
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            }, {
+                schemaVersion: 2,
+                summary: { purpose: 'Container for content' },
+                best_practices: { do: ['Use consistent sizing'], dont: [] },
                 related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
-                accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
-            };
-
-            const job = store.enqueue({
-                type: 'GENERATE_COMPONENT_DOC',
-                provider: 'anthropic',
-                componentId: '68:4097',
-                dryRun: true,
+                accessibility: { role: 'article', labeling: { rules: [] }, notes: [] },
             });
-
-            // Base markdown is factual, NOT composite
-            store.complete(job.id, {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title,
-                summary: 'Base summary',
-                anatomy: [],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: `# ${title}\n\nBase summary only`,
-                states: [],
-                accessibilityFacts: [],
-            }, {
-                promptTokens: 1,
-                completionTokens: 1,
-                durationMs: 1,
-            }, editorialPatch);
 
             const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
-                body: JSON.stringify({ overwrite: true }),
+                body: JSON.stringify({}),
             });
 
             assert.equal(res.status, 200);
             const json = await res.json();
             assert.equal(json.ok, true);
+            assert.equal(json.componentId, 99);
 
-            // Verify written file contains BASE markdown, NOT editorial sections
-            const writtenPath = path.join(REPO_ROOT, String(json.path));
-            testFilesCreated.push(writtenPath);
-            const written = await fs.readFile(writtenPath, 'utf-8');
-            assert.ok(written.includes('# Apply Base Markdown Only'));
-            assert.ok(written.includes('Base summary only'));
-            assert.doesNotMatch(written, /Editorial:/);
-            assert.doesNotMatch(written, /Best Practices/);
+            assert.ok(savedDoc !== null);
+            assert.ok(savedDoc.editorialJson !== null);
+            assert.ok(savedDoc.editorialJson.includes('Container for content'));
         });
     });
 

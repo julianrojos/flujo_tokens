@@ -19,9 +19,10 @@ import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
 import { createComponentSlug, renderComponentDoc } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
-import { computeDocStatusesDbFromSnapshots } from '../services/ai-doc-status-service.js';
+import { computeDocStatusesDb } from '../services/ai-doc-status-service.js';
 import { computeInMemoryDiff } from '../services/ai-diff-utils.js';
 import { renderEditorialPatchToMarkdown, renderEditorialEntryToMarkdown } from '../services/ai-component-doc-renderer.js';
+import { resolveDescriptionsForRender } from '../services/figma-descriptions-resolver.js';
 import { getComponentSpecDirect } from '../services/figma-direct-bridge-service.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -862,8 +863,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
                 return c.json(errorResponse('ai.status.unavailable', 'Component repository not available'), 503);
             }
             const repo = deps.componentRepo;
-            const snapshots = repo.listComponentDocStaleness(docsContext.systemId);
-            const result = computeDocStatusesDbFromSnapshots(snapshots);
+            const result = computeDocStatusesDb(repo, docsContext.systemId);
             return c.json(result);
         } catch (error) {
             console.error('Error computing doc statuses:', error);
@@ -893,13 +893,31 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
 
         // Compute previewMarkdown (composite: output + editorialPatch) for preview UI only.
         // DESIGN NOTE: this does NOT affect output.markdown which remains the base factual version.
+        // S-08: Enrich with Figma descriptions from DB (DB always wins over AI).
         let previewMarkdown: string | undefined;
         if (job.status === 'completed' && job.output) {
             try {
+                // Resolve Figma descriptions for this job's component
+                let figmaDescriptions = null;
+                if (deps.componentRepo && job.input?.componentId) {
+                    try {
+                        const component = deps.componentRepo.getComponentByFigmaNodeId(
+                            job.input.componentId,
+                            job.input.systemId,
+                        );
+                        if (component) {
+                            const dbDesc = deps.componentRepo.getFigmaDescriptions(component.id);
+                            figmaDescriptions = resolveDescriptionsForRender(dbDesc);
+                        }
+                    } catch {
+                        // Fail-open: preview renders without descriptions
+                    }
+                }
+
                 previewMarkdown = renderComponentDoc({
                     output: job.output,
                     editorialPatch: job.editorialPatch ?? null,
-                });
+                }, figmaDescriptions);
             } catch {
                 // Fallback to base markdown if composite render fails
                 previewMarkdown = job.output.markdown;
@@ -1097,7 +1115,8 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         });
     });
 
-    // POST /api/ai/jobs/:id/apply - Apply generated documentation
+    // POST /api/ai/jobs/:id/apply - Apply generated documentation (DB-first, S-10)
+    // Contract change: response is { ok, componentId, appliedAt } — no path/checksum.
     app.post('/api/ai/jobs/:id/apply', async (c) => {
         // Auth check
         if (!checkAuth(c, deps.internalToken)) {
@@ -1129,101 +1148,83 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             );
         }
 
-        // Parse body
-        let body: ApplyJobRequest;
-        try {
-            body = await c.req.json();
-        } catch {
-            body = {};
-        }
-
-        const { outputPath, overwrite } = body;
         if (!job.output) {
             return c.json(errorResponse('ai.job.no_output', 'Job has no output to apply'), 400);
         }
-        const docsContext = resolveDocsContext(deps, {
-            preferredSystemId: job.input.systemId,
-            requestSystemHeader: c.req.header('x-ds-system'),
-        });
-        if (!docsContext.ok) {
-            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+
+        // S-10: Resolve component and save to DB (no disk write)
+        if (!deps.componentRepo) {
+            return c.json(errorResponse('ai.apply.no_repo', 'Component repository not available'), 503);
         }
-        const requestSystemHeader = normalizeHeaderValue(c.req.header('x-ds-system'));
+
+        // Guard against cross-system apply on the same job id.
+        const requestSystemHeader = c.req.header('x-ds-system');
         if (requestSystemHeader && job.input.systemId && requestSystemHeader !== job.input.systemId) {
             return c.json(
-                errorResponse('ai.input.conflict', 'Requested design system does not match the job design system.'),
+                errorResponse(
+                    'ai.input.conflict',
+                    'Requested design system does not match the job design system.',
+                ),
                 409,
             );
         }
 
-        // Generate filename from title
-        const slug = createComponentSlug(job.output.title);
-        const filename = `${slug}.md`;
-
-        // Resolve output path
-        const basePath = outputPath
-            ? path.resolve(REPO_ROOT, outputPath)
-            : docsContext.docsComponentsDir;
-
-        const filePath = path.join(basePath, filename);
-
-        // Security: ensure path starts with allowed base
-        const allowedBase = docsContext.docsComponentsDir;
-        const resolvedPath = path.resolve(filePath);
-        if (!isPathWithinDirectory(resolvedPath, allowedBase)) {
-            return c.json(errorResponse('ai.apply.path_blocked', 'Path outside allowed directory'), 403);
-        }
-
-        // Ensure directory exists
-        await fs.mkdir(basePath, { recursive: true });
-
-        // Check if file exists
-        let overwritten = false;
+        // Resolve component by figma node id from the job input.
+        // Prefer persisted job.systemId; fallback to request header for legacy jobs.
+        const systemId = job.input.systemId ?? requestSystemHeader ?? undefined;
+        let component: { id: number; slug: string } | null = null;
         try {
-            await fs.access(filePath);
-            // File exists
-            if (!overwrite) {
-                return c.json(
-                    errorResponse('ai.apply.file_exists', 'File already exists. Set overwrite: true to replace.'),
-                    409
-                );
-            }
-            overwritten = true;
-        } catch {
-            // File doesn't exist - that's fine
+            component = deps.componentRepo.getComponentByFigmaNodeId(job.input.componentId, systemId);
+        } catch (error) {
+            console.error('[ai-jobs-route] Failed to resolve component for apply', {
+                jobId: job.id,
+                componentId: job.input.componentId,
+                systemId,
+                error,
+            });
+            return c.json(
+                errorResponse('ai.apply.lookup_failed', 'Failed to resolve target component for apply'),
+                500,
+            );
         }
 
-        // Write file
+        if (!component) {
+            return c.json(
+                errorResponse('ai.apply.no_component', 'No matching component found in the registry'),
+                404,
+            );
+        }
+
+        // Serialize output and editorial patch for DB storage
+        let outputJson: string;
+        let editorialJson: string | null = null;
         try {
-            if (overwrite) {
-                // Use temp file for atomic write
-                const tempPath = `${filePath}.tmp`;
-                await fs.writeFile(tempPath, job.output.markdown, 'utf-8');
-                await fs.rename(tempPath, filePath);
-            } else {
-                // Use exclusive create
-                await fs.writeFile(filePath, job.output.markdown, {
-                    flag: 'wx',
-                });
+            outputJson = JSON.stringify(job.output);
+            if (job.editorialPatch) {
+                editorialJson = JSON.stringify(job.editorialPatch);
             }
-        } catch (err) {
-            if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'EEXIST') {
-                return c.json(
-                    errorResponse('ai.apply.file_exists', 'File already exists. Set overwrite: true to replace.'),
-                    409
-                );
-            }
-            throw err;
+        } catch (error) {
+            console.error('[ai-jobs-route] Failed to serialize apply payload', {
+                jobId: job.id,
+                error,
+            });
+            return c.json(
+                errorResponse('ai.apply.serialization_failed', 'Failed to serialize generated documentation'),
+                500,
+            );
         }
 
-        // Compute checksum from the markdown we just wrote — avoids a redundant read
-        const checksum = crypto.createHash('sha256').update(job.output.markdown).digest('hex');
+        // Upsert into component_docs (one active doc per component)
+        deps.componentRepo.saveComponentDoc(component.id, {
+            outputJson,
+            editorialJson,
+            jobId: job.id,
+        });
 
         return c.json({
             ok: true,
-            path: path.relative(REPO_ROOT, filePath),
-            overwritten,
-            checksum,
+            componentId: component.id,
+            appliedAt: Math.floor(Date.now() / 1000),
         });
     });
 

@@ -772,6 +772,7 @@ export interface VariantSpec {
   key: string;
   nodeId: string;
   name: string;
+  description: string | null;
   variantProperties: Record<string, string>;
   layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
 }

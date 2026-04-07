@@ -9,6 +9,8 @@ import {
     type EditorialPatch,
 } from './ai-editorial-patch-schema.js';
 import type { EditorialEntry } from '../db/component-repository.js';
+import type { FigmaDescriptionsResult } from './figma-descriptions-resolver.js';
+import { buildCanonicalKey } from './figma-descriptions-resolver.js';
 
 export interface RenderComponentDocOptions {
     /** Factual output from LLM extraction */
@@ -22,11 +24,17 @@ export interface RenderComponentDocOptions {
  * When editorialPatch is provided, appends editorial sections for preview.
  * Without editorialPatch (or null), renders base factual markdown only.
  *
- * @param options - Render options (or ComponentDocOutput for backwards compat)
+ * PRECEDENCE: If figmaDescriptions is provided, Figma descriptions from DB
+ * are rendered before any AI-generated content. This is enforced by
+ * resolveDescriptionsForRender() — do not add description resolution elsewhere.
+ *
+ * @param input - Render options (or ComponentDocOutput for backwards compat)
+ * @param figmaDescriptions - Optional Figma descriptions from DB (DB always wins)
  * @returns Markdown string
  */
 export function renderComponentDoc(
     input: RenderComponentDocOptions | ComponentDocOutput,
+    figmaDescriptions?: FigmaDescriptionsResult | null,
 ): string {
     const output: ComponentDocOutput = 'output' in input ? input.output : input;
     const editorialPatch: EditorialPatch | null | undefined = 'output' in input ? input.editorialPatch : null;
@@ -52,6 +60,13 @@ export function renderComponentDoc(
     // Title
     lines.push(`# ${escapeMarkdown(output.title)}`);
     lines.push('');
+
+    // Figma component set description (DB always wins)
+    const figmaComponentSetDesc = figmaDescriptions?.componentSet?.trim();
+    if (figmaComponentSetDesc) {
+        lines.push(`> _Figma description:_ ${escapeMarkdown(figmaComponentSetDesc)}`);
+        lines.push('');
+    }
 
     // Summary
     lines.push(output.summary);
@@ -87,15 +102,43 @@ export function renderComponentDoc(
     if (output.variants.length === 0) {
         lines.push('None documented.');
     } else {
-        lines.push('| Name | Description | Properties |');
-        lines.push('|------|-------------|------------|');
+        const hasFigmaDescriptions = !!figmaDescriptions?.variants?.length;
+        if (hasFigmaDescriptions) {
+            lines.push('| Name | Description | Properties | Figma Description |');
+            lines.push('|------|-------------|------------|-------------------|');
+        } else {
+            lines.push('| Name | Description | Properties |');
+            lines.push('|------|-------------|------------|');
+        }
         for (const variant of output.variants) {
             const propsStr = Object.entries(variant.properties)
                 .map(([k, v]) => `${k}: ${v}`)
                 .join(', ');
-            lines.push(
-                `| ${escapeMarkdownTableCell(variant.name)} | ${escapeMarkdownTableCell(variant.description)} | ${propsStr} |`
-            );
+
+            // Match Figma description by nodeId or canonicalKey
+            let figmaVariantDesc: string | null = null;
+            if (hasFigmaDescriptions) {
+                // PRECEDENCE: nodeId first, then canonicalKey fallback
+                if (variant.id) {
+                    const byNodeId = figmaDescriptions!.variants.find(v => v.nodeId === variant.id);
+                    if (byNodeId?.description) figmaVariantDesc = byNodeId.description;
+                }
+                if (!figmaVariantDesc) {
+                    const key = buildCanonicalKey(variant.properties ?? {});
+                    const byKey = figmaDescriptions!.variants.find(v => v.canonicalKey === key);
+                    if (byKey?.description) figmaVariantDesc = byKey.description;
+                }
+            }
+
+            if (hasFigmaDescriptions) {
+                lines.push(
+                    `| ${escapeMarkdownTableCell(variant.name)} | ${escapeMarkdownTableCell(variant.description)} | ${propsStr} | ${figmaVariantDesc ? escapeMarkdownTableCell(figmaVariantDesc) : '-'} |`
+                );
+            } else {
+                lines.push(
+                    `| ${escapeMarkdownTableCell(variant.name)} | ${escapeMarkdownTableCell(variant.description)} | ${propsStr} |`
+                );
+            }
         }
     }
     lines.push('');
