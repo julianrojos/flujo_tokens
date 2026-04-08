@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import { PlayCircle, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
-import { LogTerminal } from "./log-terminal";
+import { LogTerminal } from "@/components/composites/log-terminal";
+import { formatRelativeTime } from "@/lib/format-relative-time";
+import { useOperationRunner } from "@/hooks/use-operation-runner";
 
 interface OperationRowProps {
   id: string;

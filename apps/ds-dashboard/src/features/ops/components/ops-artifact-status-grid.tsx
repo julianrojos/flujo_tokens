@@ -6,8 +6,8 @@ import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/composites/section-header";
 import { Button } from "@/components/ui/button";
+import { formatRelativeTime } from "@/lib/format-relative-time";
 import type { ArtifactMeta } from "../lib/operations-artifacts";
-import { formatRelativeTime } from "@/hooks/use-operation-runner";
 
 interface OpsArtifactStatusGridProps {
   artifacts: ArtifactMeta[];

@@ -13,6 +13,7 @@ import { StatusAlert } from '@/components/ui/status-alert';
 import { useAiJobStatus } from '@/hooks/use-ai-job-status';
 import { useJobProgress } from '@/hooks/use-job-progress';
 import { cancelAiJob } from '@/lib/ai-jobs-api';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import type { AiJobStatus, AiJobResponse, AiJobInput, ComponentDocOutput, ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
 
 interface AiJobStatusCardProps {
@@ -44,22 +45,6 @@ const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'war
     failed: { variant: 'warning', label: 'Failed' },
     cancelled: { variant: 'neutral', label: 'Cancelled' },
 };
-
-function formatRelativeTime(timestamp: number): string {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-
-    if (seconds < 60) {
-        return `${seconds}s ago`;
-    }
-    if (minutes < 60) {
-        return `${minutes}m ago`;
-    }
-    return `${hours}h ago`;
-}
 
 function formatJobEvent(event: { event: string; ts: number; data?: unknown }): string {
     const eventName = event.event
@@ -440,7 +425,7 @@ export function AiJobStatusCard({
                                 {events.map((evt) => (
                                     <div key={evt.seq} className="flex gap-2 text-xs">
                                         <span className="text-muted-foreground shrink-0">
-                                            {formatRelativeTime(evt.ts)}
+                                            {formatRelativeTime(evt.ts, { locale: 'en' })}
                                         </span>
                                         <span className="text-foreground">
                                             {formatJobEvent(evt)}

@@ -9,44 +9,21 @@ import { Button } from "@/components/ui/button";
 import { Zap, Loader2 } from "lucide-react";
 import { REFRESH_ALL_SEQUENCE, useRunAll } from "./hooks/use-run-all";
 import { useOperationsArtifacts } from "./hooks/use-operations-artifacts";
-import { useOperationsHistory } from "./hooks/use-operations-history";
 import { OpsArtifactStatusGrid } from "./components/ops-artifact-status-grid";
-import { OpsRecentOperationsSection } from "./components/ops-recent-operations-section";
 import { OpsActionsSections } from "./components/ops-actions-sections";
 
-const RUN_ALL_TOOLTIP = `Ejecuta en secuencia: ${REFRESH_ALL_SEQUENCE.map((step) => step.label).join(" → ")}`;
+const RUN_ALL_TOOLTIP = `Regenera artefactos core en secuencia: ${REFRESH_ALL_SEQUENCE.map((step) => step.label).join(" → ")}`;
 
 export function OperationsPage() {
   const { artifacts, isRefreshing, refreshStatuses } = useOperationsArtifacts();
-  const {
-    historyEvents,
-    historyLoading,
-    historyError,
-    regressions,
-    regressionsLoading,
-    regressionsError,
-    selectedHistoryEvent,
-    selectedHistoryEventId,
-    replayInFlightEventId,
-    replayNotice,
-    replayError,
-    refreshOperationHistory,
-    refreshOperationRegressions,
-    setSelectedHistoryEventId,
-    replaySelectedOperation,
-  } = useOperationsHistory();
 
   const [runAllState, runAll] = useRunAll(() => {
     void refreshStatuses();
-    void refreshOperationHistory();
-    void refreshOperationRegressions();
   });
 
   useEffect(() => {
     void refreshStatuses();
-    void refreshOperationHistory();
-    void refreshOperationRegressions();
-  }, [refreshStatuses, refreshOperationHistory, refreshOperationRegressions]);
+  }, [refreshStatuses]);
 
   const currentStepLabel = runAllState.stepIndex > 0
     ? (REFRESH_ALL_SEQUENCE[runAllState.stepIndex - 1]?.label ?? null)
@@ -56,7 +33,7 @@ export function OperationsPage() {
     <div className="mx-auto max-w-5xl space-y-10 animate-in fade-in duration-500">
       <PageHeader
         title="Operations"
-        description="Centro de control: regenera artefactos, ejecuta pipelines y sincroniza el sistema de diseño."
+        description="Centro de control para regenerar artefactos core y ejecutar diagnósticos puntuales."
         actions={
           <div className="shrink-0 flex flex-col items-end gap-1 pt-1">
             <Button
@@ -74,7 +51,7 @@ export function OperationsPage() {
               ) : (
                 <>
                   <Zap className="h-4 w-4 shrink-0" />
-                  <span>Actualizar todo</span>
+                  <span>Actualizar artefactos</span>
                 </>
               )}
             </Button>
@@ -98,24 +75,6 @@ export function OperationsPage() {
         artifacts={artifacts}
         isRefreshing={isRefreshing}
         onRefresh={refreshStatuses}
-      />
-
-      <OpsRecentOperationsSection
-        regressions={regressions}
-        regressionsLoading={regressionsLoading}
-        regressionsError={regressionsError}
-        historyEvents={historyEvents}
-        historyLoading={historyLoading}
-        historyError={historyError}
-        selectedHistoryEvent={selectedHistoryEvent}
-        selectedHistoryEventId={selectedHistoryEventId}
-        replayInFlightEventId={replayInFlightEventId}
-        replayNotice={replayNotice}
-        replayError={replayError}
-        onRefreshRegressions={refreshOperationRegressions}
-        onRefreshHistory={refreshOperationHistory}
-        onSelectEvent={setSelectedHistoryEventId}
-        onReplay={replaySelectedOperation}
       />
 
       <OpsActionsSections onRunSuccess={refreshStatuses} />

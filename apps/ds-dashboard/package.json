@@ -11,7 +11,7 @@
     "test:server:routes": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/routes/*.test.ts",
     "test:server:services": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/services/*.test.ts",
     "test:frontend": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test src/features/**/__tests__/*.test.ts src/features/**/__tests__/*.test.tsx",
-    "test:ops:hooks": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test src/features/ops/hooks/use-run-all.test.ts src/features/ops/hooks/use-operations-history.test.ts",
+    "test:ops:hooks": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test src/features/ops/hooks/use-run-all.test.ts",
     "typecheck:tests": "tsc --project tsconfig.test.json",
     "test:db:smoke": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/db/db-service.test.ts --test-only",
     "typecheck:db": "tsc --project tsconfig.db.json --noEmit",

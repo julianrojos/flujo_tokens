@@ -53,33 +53,6 @@ function detectKind(text: string): LogLine["kind"] {
   return "stdout";
 }
 
-export function formatRelativeTime(isoString?: string): string {
-  if (!isoString) return "Nunca";
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return "Nunca";
-
-  const diffMs = date.getTime() - Date.now();
-  const absMs = Math.abs(diffMs);
-  const past = diffMs < 0;
-
-  const formatter = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
-
-  if (absMs < 60_000) {
-    const secs = Math.round(absMs / 1000);
-    return past ? `hace ${secs}s` : `en ${secs}s`;
-  }
-  if (absMs < 3_600_000) {
-    const mins = Math.round(absMs / 60_000);
-    return formatter.format(past ? -mins : mins, "minute");
-  }
-  if (absMs < 86_400_000) {
-    const hours = Math.round(absMs / 3_600_000);
-    return formatter.format(past ? -hours : hours, "hour");
-  }
-  const days = Math.round(absMs / 86_400_000);
-  return formatter.format(past ? -days : days, "day");
-}
-
 export function useOperationRunner(
   operationId: string,
   endpoint: string,

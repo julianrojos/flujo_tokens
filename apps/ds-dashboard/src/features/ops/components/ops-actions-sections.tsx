@@ -1,12 +1,9 @@
 /**
- * Ops Actions Sections - Data & Indexing + Diagnostics + Workflows.
+ * Ops Actions Sections - Data & Indexing + Diagnostics.
  */
 
 import { SectionHeader } from "@/components/composites/section-header";
 import { OperationRow } from "./operation-row";
-import { PipelineForm } from "./pipeline-form";
-import { CaptureForm } from "./capture-form";
-import { FigmaTokenSyncForm } from "./figma-token-sync-form";
 
 interface OpsActionsSectionsProps {
   onRunSuccess: () => void;
@@ -45,20 +42,6 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
         <div className="space-y-2">
           <OperationRow id="refresh-components-health" label="Refresh Components Health" description="Genera el reporte de salud de componentes: pipeline, docs, readiness." endpoint="/api/refresh-components-health" />
         </div>
-      </section>
-
-      {/* Workflows */}
-      <section className="space-y-3 pt-2 border-t border-border/40">
-        <SectionHeader
-          title="Workflows"
-          badge="Pipeline"
-        />
-        <p className="text-xs text-muted-foreground/70 -mt-2">
-          Orquestación de pipelines complejos con parámetros configurables y streaming en vivo.
-        </p>
-        <PipelineForm id="ds-pipeline" label="Run Component Pipeline" description="Orquesta el pipeline completo: Spec → Markdown." endpoint="/api/run/ds:pipeline" onRunSuccess={onRunSuccess} />
-        <CaptureForm id="capture-figma" label="Capture Figma Screenshot" description="Captura la visual proof de un nodo Figma por URL y la asocia al componente." endpoint="/api/capture-figma-screenshot" onRunSuccess={onRunSuccess} />
-        <FigmaTokenSyncForm id="figma-token-sync" label="Sync Figma Variables → Tokens" description="Importa variables locales desde el plugin y actualiza la base de datos (sin artefactos JSON)." endpoint="/api/sync-figma-tokens" onRunSuccess={onRunSuccess} />
       </section>
     </>
   );
