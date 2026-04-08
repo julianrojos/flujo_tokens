@@ -302,29 +302,6 @@ function extractRelatedComponentsFromRow(row) {
     .filter(Boolean);
 }
 
-function extractAnatomyRefsFromRow(row) {
-  const source = row?.anatomy;
-  if (!Array.isArray(source)) return [];
-  const refs = new Set();
-  for (const entry of source) {
-    const candidate = entry && typeof entry === "object"
-      ? String(entry.id || entry.name || "").trim()
-      : "";
-    const normalized = normalizeSlug(candidate);
-    if (!normalized) continue;
-    refs.add(normalized);
-    if (normalized.endsWith("_item") || normalized.endsWith("_items")) {
-      const base = normalized.replace(/_items?$/, "");
-      if (base) refs.add(base);
-      const singular = singularizeSlug(base);
-      if (singular) refs.add(singular);
-      continue;
-    }
-    refs.add(singularizeSlug(normalized));
-  }
-  return Array.from(refs).filter(Boolean);
-}
-
 export function buildComponentUsageIndex(rows, root, options = {}) {
   const readFileSync = options.readFileSync || fsSync.readFileSync;
   const slugSet = new Set(rows.map((row) => normalizeSlug(String(row.slug || ""))).filter(Boolean));
@@ -337,10 +314,7 @@ export function buildComponentUsageIndex(rows, root, options = {}) {
     const specRelPath = String(row.paths?.spec || "").trim();
     if (!specRelPath) continue;
     if (specRelPath.startsWith("db://")) {
-      const refs = new Set([
-        ...extractRelatedComponentsFromRow(row),
-        ...extractAnatomyRefsFromRow(row),
-      ]);
+      const refs = new Set(extractRelatedComponentsFromRow(row));
       for (const ref of Array.from(refs)) {
         const normalized = normalizeSlug(ref);
         const singular = singularizeSlug(normalized);

@@ -145,7 +145,7 @@ Test counts change over time; verify current coverage with the suite commands us
 
 1. **Token path resolution quality** — `token_path` is resolved during sync from the in-memory variable map of the same run; future work can add diagnostics for unresolved variable IDs.
 
-2. **Layout visualization** — The `layout` object could power auto-generated anatomy diagrams in the UI.
+2. **Layout visualization** — The `layout` object could power auto-generated layout diagrams in the UI.
 
 3. **Variant comparison** — Store historical variant definitions to track how component structure evolves over time.
 

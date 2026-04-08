@@ -1,6 +1,5 @@
--- Migration 021: Component editorial (human-authored) and Figma anatomy/properties
+-- Migration 021: Component editorial (human-authored)
 -- component_editorial is created on first PATCH /editorial, NOT during sync.
--- component_figma_anatomy is populated during sync from Figma plugin data.
 
 -- Editorial data (human-authored, created on first edit)
 CREATE TABLE IF NOT EXISTS component_editorial (
@@ -17,19 +16,3 @@ CREATE TABLE IF NOT EXISTS component_editorial (
 
 CREATE INDEX IF NOT EXISTS idx_component_editorial_updated_at
   ON component_editorial(updated_at DESC);
-
--- Figma anatomy + properties (structural, captured during sync)
-CREATE TABLE IF NOT EXISTS component_figma_anatomy (
-  component_id    INTEGER PRIMARY KEY REFERENCES components(id) ON DELETE CASCADE,
-  anatomy_json    TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(anatomy_json) AND json_type(anatomy_json) = 'array'),
-  properties_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(properties_json) AND json_type(properties_json) = 'array'),
-  run_id          TEXT,
-  captured_at     INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  schema_version  INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE INDEX IF NOT EXISTS idx_component_figma_anatomy_component_id
-  ON component_figma_anatomy(component_id);
-
-CREATE INDEX IF NOT EXISTS idx_component_figma_anatomy_run
-  ON component_figma_anatomy(run_id);

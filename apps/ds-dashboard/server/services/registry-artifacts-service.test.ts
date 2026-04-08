@@ -3,24 +3,21 @@ import test from "node:test";
 
 import { buildComponentUsageIndex } from "./registry-artifacts-service.mjs";
 
-test("buildComponentUsageIndex resolves db:// relations from related_components and anatomy", () => {
+test("buildComponentUsageIndex resolves db:// relations from related_components", () => {
   const index = buildComponentUsageIndex(
     [
       {
         slug: "button",
         paths: { spec: "db://component_editorial/1" },
         related_components: ["icon"],
-        anatomy: [{ id: "list_items" }],
       },
       { slug: "icon", paths: { spec: "db://component_editorial/2" } },
-      { slug: "list_item", paths: { spec: "db://component_editorial/3" } },
     ],
     "/repo",
   );
 
-  assert.deepEqual(index.by_slug.button.uses, ["icon", "list_item"]);
+  assert.deepEqual(index.by_slug.button.uses, ["icon"]);
   assert.deepEqual(index.by_slug.icon.used_in, ["button"]);
-  assert.deepEqual(index.by_slug.list_item.used_in, ["button"]);
 });
 
 test("buildComponentUsageIndex keeps empty graph when db:// row has no relations", () => {

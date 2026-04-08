@@ -230,11 +230,9 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   const rows = componentRepo.getAll(sysCtx.systemId);
   const componentIds = rows.map((row) => row.id);
   const editorialById = componentRepo.getEditorialByComponentIds(componentIds);
-  const anatomyById = componentRepo.getAnatomySpecsByComponentIds(componentIds);
   const registry = {
     components: rows.map((row) => {
       const editorial = editorialById.get(row.id) || null;
-      const anatomy = anatomyById.get(row.id) || null;
       return {
         slug: row.slug,
         paths: {
@@ -243,7 +241,6 @@ export async function handleComponentUsageIndexRoute(c, deps) {
         related_components: Array.isArray(editorial?.relatedComponents)
           ? editorial.relatedComponents.filter((item) => typeof item === "string")
           : [],
-        anatomy: Array.isArray(anatomy?.anatomy) ? anatomy.anatomy : [],
       };
     }),
   };
