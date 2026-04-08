@@ -11,14 +11,12 @@ import {
   createApiRequestId,
   createFailJson,
   createHealthPayloadBuilder,
-  createOperationEventId,
 } from './api-response-service.js';
 
 describe('api-response-service', () => {
   describe('ID helpers', () => {
-    it('preserves prefixes', () => {
+    it('preserves request id prefix', () => {
       assert.match(createApiRequestId(), /^req_/);
-      assert.match(createOperationEventId(), /^op_/);
     });
   });
 

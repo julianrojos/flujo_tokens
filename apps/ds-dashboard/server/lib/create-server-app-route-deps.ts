@@ -16,18 +16,6 @@ export interface CreateServerAppRouteDepsConfig {
   resolveSafeSystemPathsForDeletion: (...args: unknown[]) => unknown;
   repoRoot: string;
   fsSync: Record<string, unknown>;
-  toFiniteTimestamp: (...args: unknown[]) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  readOperationHistory: (...args: unknown[]) => unknown;
-  buildOperationRegressionsReport: (...args: unknown[]) => unknown;
-  createApiRequestId: () => string;
-  findOperationEventById: (...args: unknown[]) => unknown;
-  enqueueReplayJobFromOperation: (...args: unknown[]) => unknown;
-  queueJobAcceptedPayload: (...args: unknown[]) => unknown;
   getSystemContext: (systemHeader: string) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
@@ -75,18 +63,6 @@ export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsCo
     resolveSafeSystemPathsForDeletion: config.resolveSafeSystemPathsForDeletion,
     repoRoot: config.repoRoot,
     fsSync: config.fsSync,
-    toFiniteTimestamp: config.toFiniteTimestamp,
-    OPS_HISTORY_MAX_LIMIT: config.OPS_HISTORY_MAX_LIMIT,
-    OPS_HISTORY_DEFAULT_LIMIT: config.OPS_HISTORY_DEFAULT_LIMIT,
-    OPS_REGRESSION_MAX_LIMIT: config.OPS_REGRESSION_MAX_LIMIT,
-    OPS_REGRESSION_DEFAULT_LIMIT: config.OPS_REGRESSION_DEFAULT_LIMIT,
-    OPS_REGRESSION_DEFAULT_MIN_SAMPLES: config.OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-    readOperationHistory: config.readOperationHistory,
-    buildOperationRegressionsReport: config.buildOperationRegressionsReport,
-    createApiRequestId: config.createApiRequestId,
-    findOperationEventById: config.findOperationEventById,
-    enqueueReplayJobFromOperation: config.enqueueReplayJobFromOperation,
-    queueJobAcceptedPayload: config.queueJobAcceptedPayload,
     getSystemContext: config.getSystemContext,
     isDevRuntime: config.isDevRuntime,
     resolveRepoFilePath: config.resolveRepoFilePath,

@@ -18,18 +18,6 @@ export interface CreateServerRouteDepsConfig {
   resolveSafeSystemPathsForDeletion: (...args: unknown[]) => unknown;
   repoRoot: string;
   fsSync: Record<string, unknown>;
-  toFiniteTimestamp: (...args: unknown[]) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  readOperationHistory: (...args: unknown[]) => unknown;
-  buildOperationRegressionsReport: (...args: unknown[]) => unknown;
-  createApiRequestId: () => string;
-  findOperationEventById: (...args: unknown[]) => unknown;
-  enqueueReplayJobFromOperation: (...args: unknown[]) => unknown;
-  queueJobAcceptedPayload: (...args: unknown[]) => unknown;
   getSystemContext: (systemHeader: string) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
@@ -80,18 +68,6 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     resolveSafeSystemPathsForDeletion: deps.resolveSafeSystemPathsForDeletion,
     repoRoot: deps.repoRoot,
     fsSync: deps.fsSync,
-    toFiniteTimestamp: deps.toFiniteTimestamp,
-    OPS_HISTORY_MAX_LIMIT: deps.OPS_HISTORY_MAX_LIMIT,
-    OPS_HISTORY_DEFAULT_LIMIT: deps.OPS_HISTORY_DEFAULT_LIMIT,
-    OPS_REGRESSION_MAX_LIMIT: deps.OPS_REGRESSION_MAX_LIMIT,
-    OPS_REGRESSION_DEFAULT_LIMIT: deps.OPS_REGRESSION_DEFAULT_LIMIT,
-    OPS_REGRESSION_DEFAULT_MIN_SAMPLES: deps.OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-    readOperationHistory: deps.readOperationHistory,
-    buildOperationRegressionsReport: deps.buildOperationRegressionsReport,
-    createApiRequestId: deps.createApiRequestId,
-    findOperationEventById: deps.findOperationEventById,
-    enqueueReplayJobFromOperation: deps.enqueueReplayJobFromOperation,
-    queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
     getSystemContext: deps.getSystemContext,
     isDevRuntime: deps.isDevRuntime,
     resolveRepoFilePath: deps.resolveRepoFilePath,

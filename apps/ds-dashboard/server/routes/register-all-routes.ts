@@ -7,7 +7,6 @@
 import type { Hono } from 'hono';
 
 import { registerSystemRoutes } from './system-routes.mjs';
-import { registerOperationsRoutes } from './operations-routes.mjs';
 import { registerRegistryRoutes } from './registry-routes.mjs';
 import { registerTokenGraphRoutes } from './token-graph-routes.ts';
 import { registerHealthRoutes } from './health-routes.mjs';
@@ -150,7 +149,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   };
 
   registerSystemRoutes(app, routeDeps.systemDeps);
-  registerOperationsRoutes(app, routeDeps.operationsDeps);
   registerRegistryRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
   registerTokenGraphRoutes(app, { ...routeDeps.tokenGraphDeps, tokenRepo: routeDeps.tokenRepo });
   registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });

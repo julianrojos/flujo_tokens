@@ -1,6 +1,5 @@
 import { createCommandExecutionService } from "../services/command-execution-service.mjs";
 import { createDevRuntimeChecker, createSha256TextHasher, createSystemContextResolver } from "./create-server-runtime-utils.mjs";
-import { createOperationHistoryService } from "../services/operation-history-service.mjs";
 import { createQueueEngineService } from "../services/queue-engine-service.mjs";
 import { createQueueJobFactoryService } from "../services/queue-job-factory-service.mjs";
 import { createSnippetBuilder } from "./request-file-helpers.ts";
@@ -19,18 +18,8 @@ export function createServerRuntimeServices(config) {
     jobRetentionMs,
     maxRetainedEvents,
     maxRetainedJobs,
-    opsLogMaxFileBytes,
-    opsLogRetentionDays,
-    opsHistoryMaxLimit,
-    opsLogFileRegex,
-    replayableNpmScripts,
-    supportedReplayOperations,
     tokenRepo,
-    normalizeSystemId,
-    writeStructuredLog,
     nowIso,
-    createOperationEventId,
-    createOperationHistoryServiceFn = createOperationHistoryService,
     createQueueEngineServiceFn = createQueueEngineService,
     createCommandExecutionServiceFn = createCommandExecutionService,
     createQueueJobFactoryServiceFn = createQueueJobFactoryService,
@@ -42,35 +31,15 @@ export function createServerRuntimeServices(config) {
     createSystemContextResolverFn = createSystemContextResolver,
   } = config;
 
-  const operationHistoryService = createOperationHistoryServiceFn({
-    repoRoot,
-    designSystemRepository,
-    normalizeSystemId,
-    writeStructuredLog,
-    nowIso,
-    createOperationEventId,
-    opsLogMaxFileBytes,
-    opsLogRetentionDays,
-    opsHistoryMaxLimit,
-    opsLogFileRegex,
-  });
-
-  const {
-    appendOperationEventSafe,
-    toFiniteTimestamp,
-    readOperationHistory,
-    findOperationEventById,
-    buildOperationRegressionsReport,
-  } = operationHistoryService;
-
   const queueEngine = createQueueEngineServiceFn({
+    // Intentionally omit `onOperationEvent`: operations NDJSON history/replay was removed.
+    // Queue processing remains active via in-memory events exposed by queue endpoints.
     jobQueueConcurrency,
     jobTimeoutMs,
     jobRetentionMs,
     maxRetainedEvents,
     maxRetainedJobs,
     nowIso,
-    onOperationEvent: appendOperationEventSafe,
   });
 
   const { queueJobs, queueMetrics, enqueueQueueJob, cancelQueueJob } = queueEngine;
@@ -94,21 +63,14 @@ export function createServerRuntimeServices(config) {
     runQueuedSpawnCommand,
     sha256Text,
     tokenRepo,
-    replayableNpmScripts,
-    supportedReplayOperations,
   });
 
   const {
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueReplayJobFromOperation,
   } = queueJobFactory;
 
   return {
-    toFiniteTimestamp,
-    readOperationHistory,
-    findOperationEventById,
-    buildOperationRegressionsReport,
     queueJobs,
     queueMetrics,
     enqueueQueueJob,
@@ -120,6 +82,5 @@ export function createServerRuntimeServices(config) {
     getSystemContext,
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueReplayJobFromOperation,
   };
 }

@@ -7,8 +7,6 @@ export function createQueueJobFactoryService(config) {
     runQueuedSpawnCommand,
     sha256Text,
     tokenRepo,
-    replayableNpmScripts,
-    supportedReplayOperations,
   } = config;
 
   function queueNpmScript({ repoRoot, script, systemId, commandLabel, requestId, sourceEventId }) {
@@ -128,93 +126,8 @@ export function createQueueJobFactoryService(config) {
     });
   }
 
-  function enqueueReplayJobFromOperation({ operation, systemId, requestId, sourceEventId }) {
-    const sysCtx = getSystemContext(systemId);
-    const normalized = String(operation || "").trim();
-    if (!normalized) throw new Error("Missing operation name.");
-    const supportedByExactMatch = supportedReplayOperations.has(normalized);
-    const supportedByRunPrefix = normalized.startsWith("run:");
-    if (!supportedByExactMatch && !supportedByRunPrefix) {
-      if (normalized.startsWith("script:")) {
-        throw new Error(`Operation '${normalized}' requires parameters and cannot be replayed automatically.`);
-      }
-      throw new Error(`Replay is not supported for operation '${normalized}'.`);
-    }
-
-    if (normalized.startsWith("script:")) {
-      const scriptName = normalized.slice("script:".length).trim();
-      if (replayableNpmScripts.has(scriptName)) {
-        return queueNpmScript({
-          repoRoot: sysCtx.repoRoot,
-          script: scriptName,
-          systemId: sysCtx.systemId,
-          requestId,
-          sourceEventId,
-        });
-      }
-      if (scriptName === "ds-health-snapshot.mjs") {
-        return queueNodeJsonCommand({
-          repoRoot: sysCtx.repoRoot,
-          commandLabel:
-            "node tooling/scripts/ds-health-snapshot.mjs --before-ref HEAD~1 --retention-days 120 --skip-diff false",
-          scriptPath: sysCtx.healthSnapshotScriptPath,
-          systemId: sysCtx.systemId,
-          requestId,
-          sourceEventId,
-          scriptArgs: [
-            "--before-ref",
-            "HEAD~1",
-            "--retention-days",
-            "120",
-            "--skip-diff",
-            "false",
-            "--format",
-            "json",
-          ],
-        });
-      }
-      throw new Error(`Operation '${normalized}' requires parameters and cannot be replayed automatically.`);
-    }
-
-    if (normalized.startsWith("run:")) {
-      const scriptName = normalized.slice("run:".length).trim();
-      if (!scriptName) throw new Error("Invalid replay operation script name.");
-      const args = ["run", scriptName, "--", "--system", sysCtx.systemId];
-      const commandLabel = `npm ${args.join(" ")}`;
-      return enqueueQueueJob({
-        label: commandLabel,
-        systemId: sysCtx.systemId,
-        operationName: `run:${scriptName}`,
-        requestId,
-        sourceEventId,
-        inputHash: sha256Text(
-          JSON.stringify({
-            command: "npm",
-            args,
-            cwd: sysCtx.repoRoot,
-            systemId: sysCtx.systemId,
-            scriptName,
-            replay: sourceEventId,
-          }),
-        ),
-        execute: async ({ emitChunk, setProcess }) =>
-          await runQueuedSpawnCommand({
-            cwd: sysCtx.repoRoot,
-            command: "npm",
-            commandArgs: args,
-            emitChunk,
-            registerProcess: setProcess,
-            commandLabel,
-          }),
-      });
-    }
-
-    throw new Error(`Replay is not supported for operation '${normalized}'.`);
-  }
-
   return {
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueReplayJobFromOperation,
   };
 }

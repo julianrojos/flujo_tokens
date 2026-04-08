@@ -2,11 +2,9 @@
  * Create Server Runtime Services
  *
  * Creates and wires runtime services for the server.
- * Migrated from apps/ds-dashboard/server/lib/create-server-runtime-services.mjs
  */
 
 import { createCommandExecutionService } from '../services/command-execution-service.mjs';
-import { createOperationHistoryService } from '../services/operation-history-service.mjs';
 import { createQueueEngineService } from '../services/queue-engine-service.mjs';
 import { createQueueJobFactoryService } from '../services/queue-job-factory-service.mjs';
 import { createSnippetBuilder, type SnippetResult } from './request-file-helpers.ts';
@@ -19,14 +17,6 @@ import {
   type Env,
   type DesignSystemRepository,
 } from './create-server-runtime-utils.ts';
-
-interface BaseOperationHistoryService {
-  appendOperationEventSafe: (...args: unknown[]) => void;
-  toFiniteTimestamp: (...args: unknown[]) => number;
-  readOperationHistory: (...args: unknown[]) => unknown;
-  findOperationEventById: (...args: unknown[]) => unknown;
-  buildOperationRegressionsReport: (...args: unknown[]) => unknown;
-}
 
 interface BaseQueueEngine {
   queueJobs: Map<string, unknown>;
@@ -42,7 +32,6 @@ interface BaseCommandExecutionService {
 interface BaseQueueJobFactory {
   queueNpmScript: (...args: unknown[]) => { id: string };
   queueNodeJsonCommand: (...args: unknown[]) => { id: string };
-  enqueueReplayJobFromOperation: (...args: unknown[]) => { id: string };
 }
 
 export interface CreateServerRuntimeServicesConfig {
@@ -56,34 +45,20 @@ export interface CreateServerRuntimeServicesConfig {
   jobRetentionMs: number;
   maxRetainedEvents: number;
   maxRetainedJobs: number;
-  opsLogMaxFileBytes: number;
-  opsLogRetentionDays: number;
-  opsHistoryMaxLimit: number;
-  opsLogFileRegex: RegExp;
-  replayableNpmScripts: Set<string>;
-  supportedReplayOperations: Set<string>;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  normalizeSystemId: (value: string) => string;
-  writeStructuredLog: (level: string, payload: Record<string, unknown>) => void;
   nowIso: () => string;
-  createOperationEventId: () => string;
-  createOperationHistoryServiceFn?: (...args: any[]) => unknown;
+  createDevRuntimeCheckerFn?: (...args: any[]) => unknown;
+  createSha256TextHasherFn?: (...args: any[]) => unknown;
+  createSystemContextResolverFn?: (...args: any[]) => unknown;
   createQueueEngineServiceFn?: (...args: any[]) => unknown;
   createCommandExecutionServiceFn?: (...args: any[]) => unknown;
   createQueueJobFactoryServiceFn?: (...args: any[]) => unknown;
   runSpawnWithCaptureFn?: (...args: any[]) => unknown;
   toQueueSummaryFromPayloadFn?: (...args: any[]) => unknown;
   createSnippetBuilderFn?: (...args: any[]) => unknown;
-  createDevRuntimeCheckerFn?: (...args: any[]) => unknown;
-  createSha256TextHasherFn?: (...args: any[]) => unknown;
-  createSystemContextResolverFn?: (...args: any[]) => unknown;
 }
 
 export interface CreateServerRuntimeServices {
-  toFiniteTimestamp: (...args: unknown[]) => number;
-  readOperationHistory: (...args: unknown[]) => unknown;
-  findOperationEventById: (...args: unknown[]) => unknown;
-  buildOperationRegressionsReport: (...args: unknown[]) => unknown;
   queueJobs: Map<string, unknown>;
   queueMetrics: () => Record<string, number>;
   enqueueQueueJob: (...args: unknown[]) => { id: string };
@@ -95,7 +70,6 @@ export interface CreateServerRuntimeServices {
   getSystemContext: (systemHeader: string) => { systemId: string; header: string };
   queueNpmScript: (...args: unknown[]) => { id: string };
   queueNodeJsonCommand: (...args: unknown[]) => { id: string };
-  enqueueReplayJobFromOperation: (...args: unknown[]) => { id: string };
 }
 
 /**
@@ -113,49 +87,18 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     jobRetentionMs,
     maxRetainedEvents,
     maxRetainedJobs,
-    opsLogMaxFileBytes,
-    opsLogRetentionDays,
-    opsHistoryMaxLimit,
-    opsLogFileRegex,
-    replayableNpmScripts,
-    supportedReplayOperations,
     tokenRepo,
-    normalizeSystemId,
-    writeStructuredLog,
     nowIso,
-    createOperationEventId,
-    createOperationHistoryServiceFn = createOperationHistoryService,
+    createDevRuntimeCheckerFn = createDevRuntimeChecker,
+    createSha256TextHasherFn = createSha256TextHasher,
+    createSystemContextResolverFn = createSystemContextResolver,
     createQueueEngineServiceFn = createQueueEngineService,
     createCommandExecutionServiceFn = createCommandExecutionService,
     createQueueJobFactoryServiceFn = createQueueJobFactoryService,
     runSpawnWithCaptureFn = runSpawnWithCapture,
     toQueueSummaryFromPayloadFn = toQueueSummaryFromPayload,
     createSnippetBuilderFn = createSnippetBuilder,
-    createDevRuntimeCheckerFn = createDevRuntimeChecker,
-    createSha256TextHasherFn = createSha256TextHasher,
-    createSystemContextResolverFn = createSystemContextResolver,
   } = config;
-
-  const operationHistoryService = createOperationHistoryServiceFn({
-    repoRoot,
-    designSystemRepository,
-    normalizeSystemId,
-    writeStructuredLog,
-    nowIso,
-    createOperationEventId,
-    opsLogMaxFileBytes,
-    opsLogRetentionDays,
-    opsHistoryMaxLimit,
-    opsLogFileRegex,
-  });
-
-  const {
-    appendOperationEventSafe,
-    toFiniteTimestamp,
-    readOperationHistory,
-    findOperationEventById,
-    buildOperationRegressionsReport,
-  } = operationHistoryService as BaseOperationHistoryService;
 
   const queueEngine = createQueueEngineServiceFn({
     jobQueueConcurrency,
@@ -164,7 +107,6 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     maxRetainedEvents,
     maxRetainedJobs,
     nowIso,
-    onOperationEvent: appendOperationEventSafe,
   });
 
   const { queueJobs, queueMetrics, enqueueQueueJob, cancelQueueJob } = queueEngine as BaseQueueEngine;
@@ -190,21 +132,14 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     runQueuedSpawnCommand,
     sha256Text,
     tokenRepo,
-    replayableNpmScripts,
-    supportedReplayOperations,
   });
 
   const {
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueReplayJobFromOperation,
   } = queueJobFactory as BaseQueueJobFactory;
 
   return {
-    toFiniteTimestamp,
-    readOperationHistory,
-    findOperationEventById,
-    buildOperationRegressionsReport,
     queueJobs,
     queueMetrics,
     enqueueQueueJob,
@@ -216,6 +151,5 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     getSystemContext,
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueReplayJobFromOperation,
   };
 }

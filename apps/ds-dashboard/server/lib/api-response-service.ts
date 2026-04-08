@@ -66,13 +66,6 @@ function createPrefixedId(prefix: string): string {
 }
 
 /**
- * Create an operation event ID.
- */
-export function createOperationEventId(): string {
-  return createPrefixedId('op');
-}
-
-/**
  * Create an API request ID.
  */
 export function createApiRequestId(): string {

@@ -35,8 +35,6 @@ function createFactory(overrides = {}) {
     sha256Text(value) {
       return `hash:${String(value).length}`;
     },
-    replayableNpmScripts: new Set(["ds:registry:refresh"]),
-    supportedReplayOperations: new Set(["script:ds-health-snapshot.mjs", "script:ds:registry:refresh"]),
     ...overrides,
   });
 
@@ -130,36 +128,4 @@ test("queue-job-factory: queueNodeJsonCommand fails when onSuccess hook throws",
   assert.equal(result.ok, false);
   assert.match(String(result.summary || ""), /Post-processing failed/i);
   assert.ok(emitted.some((entry) => entry.kind === "error" && /db write failed/i.test(String(entry.text))));
-});
-
-test("queue-job-factory: replay handles run: operations", () => {
-  const { service, enqueued } = createFactory({
-    supportedReplayOperations: new Set(["run:ds:pipeline"]),
-  });
-
-  service.enqueueReplayJobFromOperation({
-    operation: "run:ds:pipeline",
-    systemId: "core",
-    requestId: "req_2",
-    sourceEventId: "event_1",
-  });
-
-  assert.equal(enqueued.length, 1);
-  assert.equal(enqueued[0].operationName, "run:ds:pipeline");
-  assert.match(enqueued[0].label, /npm run ds:pipeline/);
-});
-
-test("queue-job-factory: replay rejects unsupported operations", () => {
-  const { service } = createFactory({
-    supportedReplayOperations: new Set(["script:ds-health-snapshot.mjs"]),
-  });
-
-  assert.throws(
-    () =>
-      service.enqueueReplayJobFromOperation({
-        operation: "script:unknown",
-        systemId: "core",
-      }),
-    /requires parameters and cannot be replayed automatically/,
-  );
 });

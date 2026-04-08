@@ -25,25 +25,6 @@ export interface SystemDeps {
   fsSync: unknown;
 }
 
-export interface OperationsDeps {
-  failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
-  toFiniteTimestamp: (value: unknown) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  designSystemRepository: unknown;
-  readOperationHistory: (args: unknown) => unknown;
-  buildOperationRegressionsReport: (args: unknown) => unknown;
-  createApiRequestId: () => string;
-  readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-  normalizeSystemId: (id: string) => string;
-  findOperationEventById: (id: string) => unknown;
-  enqueueReplayJobFromOperation: (args: unknown) => unknown;
-  queueJobAcceptedPayload: (job: unknown) => unknown;
-}
-
 export interface ComponentSpecDeps extends SharedSystemContextDeps {
   isDevRuntime: () => boolean;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
@@ -99,7 +80,6 @@ export interface FigmaMcpPingDeps {
 
 export interface AllRouteDeps {
   systemDeps: SystemDeps;
-  operationsDeps: OperationsDeps;
   registryDeps: SharedSystemContextDeps;
   tokenGraphDeps: SharedSystemContextDeps;
   healthDeps: SharedSystemContextDeps;
@@ -131,18 +111,6 @@ export interface ServerDeps {
   resolveSafeSystemPathsForDeletion: (args: unknown) => unknown;
   repoRoot: string;
   fsSync: unknown;
-  toFiniteTimestamp: (value: unknown) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  readOperationHistory: (args: unknown) => unknown;
-  buildOperationRegressionsReport: (args: unknown) => unknown;
-  createApiRequestId: () => string;
-  findOperationEventById: (id: string) => unknown;
-  enqueueReplayJobFromOperation: (args: unknown) => unknown;
-  queueJobAcceptedPayload: (job: unknown) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
@@ -195,24 +163,6 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       resolveSafeSystemPathsForDeletion: deps.resolveSafeSystemPathsForDeletion,
       repoRoot: deps.repoRoot,
       fsSync: deps.fsSync,
-    },
-    operationsDeps: {
-      failJson: deps.failJson,
-      toFiniteTimestamp: deps.toFiniteTimestamp,
-      OPS_HISTORY_MAX_LIMIT: deps.OPS_HISTORY_MAX_LIMIT,
-      OPS_HISTORY_DEFAULT_LIMIT: deps.OPS_HISTORY_DEFAULT_LIMIT,
-      OPS_REGRESSION_MAX_LIMIT: deps.OPS_REGRESSION_MAX_LIMIT,
-      OPS_REGRESSION_DEFAULT_LIMIT: deps.OPS_REGRESSION_DEFAULT_LIMIT,
-      OPS_REGRESSION_DEFAULT_MIN_SAMPLES: deps.OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-      designSystemRepository: deps.designSystemRepository,
-      readOperationHistory: deps.readOperationHistory,
-      buildOperationRegressionsReport: deps.buildOperationRegressionsReport,
-      createApiRequestId: deps.createApiRequestId,
-      readJsonBody: deps.readJsonBody,
-      normalizeSystemId: deps.normalizeSystemId,
-      findOperationEventById: deps.findOperationEventById,
-      enqueueReplayJobFromOperation: deps.enqueueReplayJobFromOperation,
-      queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
     },
     registryDeps: sharedSystemContextDeps,
     tokenGraphDeps: sharedSystemContextDeps,
