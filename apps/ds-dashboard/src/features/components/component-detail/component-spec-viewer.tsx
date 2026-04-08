@@ -117,7 +117,6 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
     when_to_use: "",
     when_not_to_use: "",
   };
-  const anatomyItems = spec.anatomy ?? [];
   const propertyItems = spec.properties ?? [];
 
   const [propertySort, setPropertySort] = useState<{
@@ -232,29 +231,6 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
           </div>
         </dl>
       </section>
-
-      {/* Anatomy */}
-      {anatomyItems.length > 0 ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Anatomy
-          </h4>
-          <ol className="space-y-1 text-sm">
-            {anatomyItems.map((item, idx) => (
-              <li key={item.id} className="flex gap-2">
-                <span className="w-5 flex-none font-mono text-xs text-muted-foreground">
-                  {idx + 1}.
-                </span>
-                <span>
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">{item.id}</code>
-                  {" — "}
-                  {item.description}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
 
       {/* Properties */}
       {propertyItems.length > 0 ? (

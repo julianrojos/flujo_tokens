@@ -51,8 +51,13 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "Components" }];
   }
 
-  if (pathname === "/ai-docs") {
-    return [{ label: "AI Docs" }];
+  const componentEditDocsMatch = matchPath("/components/:slug/edit-docs", pathname);
+  if (componentEditDocsMatch?.params.slug) {
+    return [
+      { label: "Components", to: "/components" },
+      { label: decodeSafe(componentEditDocsMatch.params.slug), to: `/components/${componentEditDocsMatch.params.slug}` },
+      { label: "Edit docs" },
+    ];
   }
 
   const componentMatch = matchPath("/components/:slug", pathname);

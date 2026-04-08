@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getAiJob } from '../lib/ai-jobs-api';
+import { getAiJob } from '@/lib/ai-jobs-api';
 import type { AiJobResponse, AiJobStatus } from '@/types/ai-jobs';
 
 const TERMINAL_STATUSES: AiJobStatus[] = ['completed', 'failed', 'cancelled'];

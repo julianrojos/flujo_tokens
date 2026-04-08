@@ -3,19 +3,17 @@
  * Shows job status, events timeline, preview, and action buttons
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
+import { MarkdownViewer } from '@/components/ui/markdown-viewer';
 import { StatusAlert } from '@/components/ui/status-alert';
-import { useAiJobStatus } from '../hooks/use-ai-job-status';
-import { useJobProgress } from '../hooks/use-job-progress';
-import { cancelAiJob } from '../lib/ai-jobs-api';
-import { AiDocPreview, formatJobEvent, formatRelativeTime } from './ai-doc-preview';
-import { JobProgressBar } from './job-progress-bar';
-import { ValidationReportPanel } from './validation-report-panel';
-import type { AiJobStatus, AiJobResponse, AiJobInput } from '@/types/ai-jobs';
+import { useAiJobStatus } from '@/hooks/use-ai-job-status';
+import { useJobProgress } from '@/hooks/use-job-progress';
+import { cancelAiJob } from '@/lib/ai-jobs-api';
+import type { AiJobStatus, AiJobResponse, AiJobInput, ComponentDocOutput, ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
 
 interface AiJobStatusCardProps {
     /** Job ID to display */
@@ -24,6 +22,8 @@ interface AiJobStatusCardProps {
     onStatusChange?: (status: AiJobStatus) => void;
     /** Callback when apply is requested */
     onApply?: (jobId: string) => void;
+    /** Called once when job completes with output. Use useRef guard to prevent duplicates. */
+    onJobComplete?: (output: ComponentDocOutput) => void;
     /** Whether to show streaming indicator (for SSE) */
     isStreaming?: boolean;
     /** External events to display (from SSE) */
@@ -45,10 +45,182 @@ const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'war
     cancelled: { variant: 'neutral', label: 'Cancelled' },
 };
 
+function formatRelativeTime(timestamp: number): string {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+
+    if (seconds < 60) {
+        return `${seconds}s ago`;
+    }
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+    return `${hours}h ago`;
+}
+
+function formatJobEvent(event: { event: string; ts: number; data?: unknown }): string {
+    const eventName = event.event
+        .replace(/[._]/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .trim();
+    if (event.data) {
+        const dataStr = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
+        return `${eventName}: ${dataStr}`;
+    }
+    return eventName;
+}
+
+function AiDocPreview({ markdown, className }: { markdown: string; className?: string }) {
+    if (!markdown) {
+        return <div className="p-4 text-sm text-muted-foreground">No documentation generated yet.</div>;
+    }
+    const markdownWithoutFrontmatter = markdown.replace(/^---[\s\S]*?---\n?/, '');
+    return <MarkdownViewer content={markdownWithoutFrontmatter} className={className} />;
+}
+
+function JobProgressBar({ percent, label }: { percent: number; label: string }) {
+    const clampedPercent = Math.min(100, Math.max(0, percent));
+    const labelId = useId();
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+                <span id={labelId} className="text-muted-foreground">{label}</span>
+                <span className="font-medium tabular-nums">{clampedPercent}%</span>
+            </div>
+            <div
+                role="progressbar"
+                aria-labelledby={labelId}
+                aria-valuetext={`${clampedPercent}%`}
+                aria-valuenow={clampedPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-2 w-full overflow-hidden rounded-full bg-muted"
+            >
+                <div
+                    className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                    style={{ width: `${clampedPercent}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
+const severityBadgeVariant: Record<ValidationSeverity, 'error' | 'warning' | 'neutral'> = {
+    blocking: 'error',
+    warning: 'warning',
+    info: 'neutral',
+};
+
+function scoreColor(score: number): string {
+    if (score >= 80) return 'text-status-success';
+    if (score >= 50) return 'text-status-warning';
+    return 'text-status-error';
+}
+
+function ValidationSectionList({ title, severity, items }: { title: string; severity: ValidationSeverity; items: string[] }) {
+    const borderColors: Record<ValidationSeverity, string> = {
+        blocking: 'border-l-status-error-border',
+        warning: 'border-l-status-warning-border',
+        info: 'border-l-status-success-border',
+    };
+
+    return (
+        <div className={`mb-2 border-l-4 ${borderColors[severity]} pl-3`}>
+            <h4 className="text-xs font-medium text-foreground">{title}</h4>
+            <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                {items.slice(0, 5).map((item, i) => (
+                    <li key={i}>{item}</li>
+                ))}
+                {items.length > 5 && <li className="text-muted-foreground/70">+{items.length - 5} more</li>}
+            </ul>
+        </div>
+    );
+}
+
+function ValidationReportPanel({
+    report,
+    canPublish,
+    jobStatus,
+    pipelineStage,
+    showFailOpenNotice = false,
+}: {
+    report: ValidationReport | undefined;
+    canPublish: boolean | undefined;
+    jobStatus?: string;
+    pipelineStage?: 'extracting' | 'patching' | 'validating' | null;
+    showFailOpenNotice?: boolean;
+}) {
+    if (!report) {
+        if (jobStatus !== 'completed' || pipelineStage) return null;
+        if (showFailOpenNotice) {
+            return (
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">Validation not available (fail-open).</p>
+                </div>
+            );
+        }
+        if (canPublish !== false) return null;
+        return (
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-sm text-muted-foreground">Validation report not available.</p>
+            </div>
+        );
+    }
+
+    const severityLabel = report.severity === 'blocking'
+        ? 'Blocking'
+        : report.severity === 'warning'
+            ? 'Warning'
+            : 'Info';
+
+    return (
+        <div className="rounded-lg border border-border bg-background p-4">
+            <div className="mb-3 flex items-center gap-3">
+                <h3 className="text-sm font-semibold text-foreground">Quality Assessment</h3>
+                <Badge variant={severityBadgeVariant[report.severity]}>{severityLabel}</Badge>
+                <span className={`text-lg font-bold ${scoreColor(report.score)}`}>{report.score}/100</span>
+                {!canPublish && <Badge variant="error">Cannot publish</Badge>}
+            </div>
+
+            {report.structureWarnings.length > 0 && (
+                <ValidationSectionList title="Structure Warnings" severity="warning" items={report.structureWarnings.map((w) => w.message)} />
+            )}
+            {report.missingSections.length > 0 && (
+                <ValidationSectionList title="Missing Sections" severity="warning" items={report.missingSections.map((s) => `${s.section}: ${s.reason}`)} />
+            )}
+            {report.unsupportedClaims.length > 0 && (
+                <ValidationSectionList title="Unsupported Claims" severity="warning" items={report.unsupportedClaims.map((c) => c.claim)} />
+            )}
+            {report.editorialConflicts.length > 0 && (
+                <ValidationSectionList title="Editorial Conflicts" severity="blocking" items={report.editorialConflicts.map((c) => `${c.extraction} vs ${c.editorial}`)} />
+            )}
+            {report.terminologyMismatches.length > 0 && (
+                <ValidationSectionList title="Terminology Mismatches" severity="info" items={report.terminologyMismatches.map((t) => `Used "${t.used}", expected "${t.expected}"`)} />
+            )}
+            {report.a11yWarnings.length > 0 && (
+                <ValidationSectionList title="Accessibility Warnings" severity="warning" items={report.a11yWarnings.map((a) => a.message)} />
+            )}
+            {report.tokenWarnings.length > 0 && (
+                <ValidationSectionList title="Token Warnings" severity="info" items={report.tokenWarnings.map((t) => t.message)} />
+            )}
+            {report.notes.length > 0 && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                    {report.notes.map((note, i) => <p key={i}>{note}</p>)}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function AiJobStatusCard({
     jobId,
     onStatusChange,
     onApply,
+    onJobComplete,
     onRetry,
     isStreaming = false,
     externalEvents = [],
@@ -62,6 +234,21 @@ export function AiJobStatusCard({
     const [showPreview, setShowPreview] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const resolvedPreviewMarkdown = job?.previewMarkdown ?? job?.output?.markdown;
+    const hasCompleteOutputForSuggestions = Boolean(
+        job?.output
+        && typeof job.output.summary === 'string'
+        && Array.isArray(job.output.variants)
+        && Array.isArray(job.output.tokens),
+    );
+    const hasMeaningfulSuggestionContent = Boolean(
+        job?.output
+        && typeof job.output.summary === 'string'
+        && (
+            job.output.summary.trim().length > 0
+            || job.output.variants.length > 0
+            || job.output.tokens.length > 0
+        ),
+    );
 
     // Merge external events (SSE) with job events (polling), deduplicated by seq
     // SSE events take precedence as they are the source of truth for live streaming
@@ -90,6 +277,26 @@ export function AiJobStatusCard({
 
     // Timeline collapsed by default while running, visible otherwise.
     const [showTimeline, setShowTimeline] = useState(job?.status !== 'running');
+
+    // Fire-once guard for onJobComplete — prevents duplicate calls on re-renders
+    const jobCompleteCalledRef = useRef(false);
+    useEffect(() => {
+        if (
+            job?.status === 'completed'
+            && hasCompleteOutputForSuggestions
+            && hasMeaningfulSuggestionContent
+            && job.output
+            && onJobComplete
+            && !jobCompleteCalledRef.current
+        ) {
+            jobCompleteCalledRef.current = true;
+            onJobComplete(job.output);
+        }
+    }, [job?.status, job?.output, onJobComplete, hasCompleteOutputForSuggestions, hasMeaningfulSuggestionContent]);
+    // Reset guard when jobId changes (new job)
+    useEffect(() => {
+        jobCompleteCalledRef.current = false;
+    }, [jobId]);
 
     const handleCancel = async () => {
         if (!jobId) return;

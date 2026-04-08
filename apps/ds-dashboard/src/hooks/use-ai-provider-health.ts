@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { getAiProviderHealth } from '../lib/ai-jobs-api';
+import { getAiProviderHealth } from '@/lib/ai-jobs-api';
 import type { AiProviderName } from '@/types/ai-jobs';
 
 interface UseAiProviderHealthArgs {

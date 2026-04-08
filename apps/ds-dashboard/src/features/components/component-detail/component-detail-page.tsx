@@ -2,8 +2,8 @@
  * Component Detail Page - orchestrator only.
  */
 
-import { Suspense, lazy, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,9 @@ import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
-const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(m => ({ default: m.ComponentSpecEditor })));
-
 export function ComponentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
 
   const {
     loading,
@@ -31,30 +30,23 @@ export function ComponentDetailPage() {
     usage,
     allItems,
     spec,
-    specUpdatedAt,
     tokenRegistry,
     captureModalOpen,
-    editorialEditorOpen,
     captureSummary,
     canOpenDocs,
     previousItem,
     nextItem,
     currentIndex,
     totalItems,
-    suggestion,
-    suggestionLoading,
     downloadError,
     downloadWarnings,
     isDownloadingMarkdown,
     setCaptureModalOpen,
-    setEditorialEditorOpen,
     setCaptureSummary,
     handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,
-    consumeSuggestion,
-    discardSuggestion,
   } = useComponentDetail();
 
   // S-11 (R-005): React Query for server-state fetching (MUST per §6.4)
@@ -137,7 +129,7 @@ export function ComponentDetailPage() {
         hasFigmaUrl={Boolean(item.figma.file_url)}
         canOpenDocs={canOpenDocs}
         onCapture={() => setCaptureModalOpen(true)}
-        onOpenEditorial={() => setEditorialEditorOpen(true)}
+        onOpenEditorial={() => navigate(`/components/${slug}/edit-docs`)}
       />
 
       <ComponentGraphSection usage={usage} allItems={allItems} />
@@ -158,7 +150,7 @@ export function ComponentDetailPage() {
         downloadError={downloadError}
         downloadWarnings={downloadWarnings}
         onDownloadMarkdown={handleDownloadMarkdown}
-        onOpenEditorial={() => setEditorialEditorOpen(true)}
+        onOpenEditorial={() => navigate(`/components/${slug}/edit-docs`)}
         selfSlug={item.slug}
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
@@ -166,29 +158,6 @@ export function ComponentDetailPage() {
         figmaStale={descriptionsData.stale}
         onRefreshFigmaDescriptions={handleRefreshDescriptions}
       />
-
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>
-        {editorialEditorOpen && (
-          <ComponentSpecEditor
-            open={editorialEditorOpen}
-            slug={slug!}
-            spec={spec}
-            expectedUpdatedAt={specUpdatedAt}
-            onSaved={() => {
-              setEditorialEditorOpen(false);
-              handleReload();
-            }}
-            onCancel={() => setEditorialEditorOpen(false)}
-            suggestion={suggestion}
-            suggestionLoading={suggestionLoading}
-            onApplySuggestion={() => {
-              // The editor consumes patch data via props and asks the hook to clear local cache.
-              consumeSuggestion();
-            }}
-            onDiscardSuggestion={discardSuggestion}
-          />
-        )}
-      </Suspense>
 
       {captureModalOpen && (
         <FigmaCaptureModal

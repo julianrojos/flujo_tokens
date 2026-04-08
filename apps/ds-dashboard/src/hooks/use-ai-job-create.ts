@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createAiJob } from '../lib/ai-jobs-api';
+import { createAiJob } from '@/lib/ai-jobs-api';
 import type { AiProviderName, CreateAiJobRequest } from '@/types/ai-jobs';
 
 export interface UseAiJobCreateOptions {

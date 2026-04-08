@@ -10,10 +10,10 @@ import type { AiJobEvent, AiJobStatus } from '@/types/ai-jobs';
 import {
     computeProgressFromEvents,
     SLOW_FILL_RANGES,
-} from '../lib/job-progress';
+} from '@/lib/job-progress';
 
 // @visible-for-testing — re-export for tests so hook consumers don't depend on lib directly
-export { computeProgressFromEvents } from '../lib/job-progress';
+export { computeProgressFromEvents } from '@/lib/job-progress';
 
 type SlowFillConfig = { trigger: string; cap: number } | null;
 
@@ -61,7 +61,7 @@ export function useJobProgress(
     const isActive = status === 'running' || status === 'queued';
 
     // Contract: events MUST be pre-sorted by seq (caller responsibility).
-    // See: ai-job-status-card.tsx — the useMemo that merges SSE + polling events
+    // See: @/components/composites/ai-job-status-card.tsx — the useMemo that merges SSE + polling events
     // already sorts by seq before passing to this hook.
     const lastEvent = events.length > 0 ? events[events.length - 1] : null;
 

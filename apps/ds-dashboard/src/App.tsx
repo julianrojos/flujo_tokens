@@ -20,7 +20,6 @@ import {
   type LucideIcon,
   Search,
   Zap,
-  Sparkles,
   Network,
 } from "lucide-react";
 
@@ -69,12 +68,6 @@ const OperationsPage = lazy(() =>
   })),
 );
 
-const AiDocsPage = lazy(() =>
-  import("@/features/ai-docs/ai-docs-page").then((module) => ({
-    default: module.AiDocsPage,
-  })),
-);
-
 const ComponentsPage = lazy(() =>
   import("@/features/components/components-page").then((module) => ({
     default: module.ComponentsPage,
@@ -84,6 +77,12 @@ const ComponentsPage = lazy(() =>
 const ComponentDetailPage = lazy(() =>
   import("@/features/components/component-detail/component-detail-page").then((module) => ({
     default: module.ComponentDetailPage,
+  })),
+);
+
+const EditComponentDocsPage = lazy(() =>
+  import("@/features/components/edit-component-docs/edit-component-docs-page").then((module) => ({
+    default: module.EditComponentDocsPage,
   })),
 );
 
@@ -216,12 +215,6 @@ const navSections: NavSection[] = [
         label: "Operations",
         description: "Pipeline & synchronization",
         icon: Zap,
-      },
-      {
-        to: "/ai-docs",
-        label: "AI Docs",
-        description: "Generate component docs with AI",
-        icon: Sparkles,
       },
       {
         to: "/system/admin",
@@ -502,9 +495,9 @@ export default function App() {
                     <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
                     <Route path="/health" element={<HealthDashboardPage />} />
                     <Route path="/ops" element={<OperationsPage />} />
-                    <Route path="/ai-docs" element={<AiDocsPage />} />
                     <Route path="/components" element={<ComponentsPage />} />
                     <Route path="/components/:slug" element={<ComponentDetailPage />} />
+                    <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
                     <Route path="/token-graph" element={<TokenGraphPage />} />

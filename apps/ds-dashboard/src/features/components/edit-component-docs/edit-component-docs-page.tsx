@@ -1,0 +1,402 @@
+/**
+ * EditComponentDocsPage — dedicated page for editing component documentation.
+ *
+ * Replaces the modal-based ComponentSpecEditor. Provides:
+ * - Editorial form with summary, variants, tokens, accessibility
+ * - AI suggestions modal with "Use this" per section
+ * - Autosave draft before opening AI modal
+ * - Save to PATCH /api/component-spec/:slug/editorial
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { PageHeader } from '@/components/composites';
+import { StatusAlert } from '@/components/ui/status-alert';
+import { Button } from '@/components/ui/button';
+import { getActiveSystemId } from '@/lib/api';
+import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
+import type { PartialComponentSpec } from 'ds-types';
+import type { FormDispatchAction } from './constants/suggestion-section-map';
+import { applySectionAction } from './constants/suggestion-section-map';
+import { EditDocsForm } from './components/edit-docs-form';
+import { AiSuggestionsPanel } from './components/ai-suggestions-panel';
+import { AiSuggestionsModal } from './components/ai-suggestions-modal';
+import { useAiSuggestion } from './hooks/use-ai-suggestion';
+import { useEditDocsDraft } from './hooks/use-edit-docs-draft';
+
+interface EditorialFormData {
+  summary: string;
+  variants: ComponentDocVariant[];
+  tokens: ComponentDocToken[];
+  accessibilityNotes: string[];
+}
+
+type DraftFieldKey = 'summary' | 'variants' | 'tokens' | 'accessibilityNotes';
+
+function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const systemId = String(getActiveSystemId() || '').trim();
+  return systemId ? { ...extra, 'x-ds-system': systemId } : extra;
+}
+
+function fetchComponentSpec(slug: string) {
+  return fetch(`/api/component-spec/${slug}`, {
+    headers: buildSystemHeaders(),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`Failed to fetch spec: ${res.status}`);
+    return res.json() as Promise<{ ok: boolean; exists: boolean; spec: PartialComponentSpec; updatedAt: number | null }>;
+  });
+}
+
+async function patchEditorial(
+  slug: string,
+  expectedUpdatedAt: number | null,
+  fields: Record<string, unknown>,
+) {
+  const res = await fetch(`/api/component-spec/${slug}/editorial`, {
+    method: 'PATCH',
+    headers: buildSystemHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ expectedUpdatedAt, fields }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ userMessage: 'Save failed' }));
+    throw new Error(error.userMessage ?? 'Save failed');
+  }
+  return res.json() as Promise<{ ok: boolean; updatedAt: number }>;
+}
+
+export function EditComponentDocsPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [formData, setFormData] = useState<EditorialFormData>({
+    summary: '',
+    variants: [],
+    tokens: [],
+    accessibilityNotes: [],
+  });
+
+  const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(slug!);
+  const { saveDraft, restoreDraft, clearDraft } = useEditDocsDraft(slug!);
+  const expectedUpdatedAtRef = useRef<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [figmaComponentId, setFigmaComponentId] = useState('');
+  const baseFormRef = useRef<EditorialFormData>({
+    summary: '',
+    variants: [],
+    tokens: [],
+    accessibilityNotes: [],
+  });
+  const initializedSlugRef = useRef<string | null>(null);
+
+  // Mobile detection
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Reset panel toggle when suggestion disappears
+  useEffect(() => {
+    if (!suggestion) setShowAiPanel(false);
+  }, [suggestion]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['component-spec', slug],
+    queryFn: () => fetchComponentSpec(slug!),
+    enabled: !!slug,
+  });
+
+  // Initialize form data from spec
+  useEffect(() => {
+    if (!slug || !data?.spec) return;
+    if (initializedSlugRef.current === slug) return;
+
+    const spec = data.spec;
+    const summary = spec.summary?.purpose ?? '';
+    const variants = Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [];
+    const tokens = Array.isArray(spec.tokens) ? (spec.tokens as ComponentDocToken[]) : [];
+    const accNotes = Array.isArray(spec.accessibility?.notes) ? spec.accessibility.notes : [];
+    const figmaMetadata = (spec as Record<string, unknown>).figma_metadata as Record<string, unknown> | null | undefined;
+    const currentFigmaComponentId = (figmaMetadata?.component_set_node_id as string | null) ?? '';
+    setFigmaComponentId(currentFigmaComponentId);
+
+    let nextFormData: EditorialFormData = {
+      summary: typeof summary === 'string' ? summary : '',
+      variants,
+      tokens,
+      accessibilityNotes: accNotes,
+    };
+    expectedUpdatedAtRef.current = (data.updatedAt as number | null) ?? null;
+
+    // Try to restore draft
+    const draft = restoreDraft();
+    if (draft && typeof draft.summary === 'string') {
+      const touched = new Set<DraftFieldKey>(
+        Array.isArray(draft.touchedFields)
+          ? draft.touchedFields.filter((field): field is DraftFieldKey =>
+            field === 'summary' || field === 'variants' || field === 'tokens' || field === 'accessibilityNotes')
+          : [],
+      );
+
+      // Backward-compatible fallback for legacy drafts without touchedFields.
+      const hasTouchedMetadata = touched.size > 0;
+      const shouldUseSummary = hasTouchedMetadata
+        ? touched.has('summary')
+        : typeof draft.summary === 'string' && draft.summary.trim().length > 0;
+      const shouldUseVariants = hasTouchedMetadata
+        ? touched.has('variants')
+        : Array.isArray(draft.variants) && draft.variants.length > 0;
+      const shouldUseTokens = hasTouchedMetadata
+        ? touched.has('tokens')
+        : Array.isArray(draft.tokens) && draft.tokens.length > 0;
+      const shouldUseAccessibilityNotes = hasTouchedMetadata
+        ? touched.has('accessibilityNotes')
+        : Array.isArray(draft.accessibilityNotes) && draft.accessibilityNotes.length > 0;
+
+      if (shouldUseSummary && typeof draft.summary === 'string') {
+        nextFormData.summary = draft.summary;
+      }
+      if (shouldUseVariants && Array.isArray(draft.variants)) {
+        nextFormData.variants = draft.variants as ComponentDocVariant[];
+      }
+      if (shouldUseTokens && Array.isArray(draft.tokens)) {
+        nextFormData.tokens = draft.tokens as ComponentDocToken[];
+      }
+      if (shouldUseAccessibilityNotes && Array.isArray(draft.accessibilityNotes)) {
+        nextFormData.accessibilityNotes = draft.accessibilityNotes;
+      }
+    }
+
+    baseFormRef.current = nextFormData;
+    setFormData(nextFormData);
+    initializedSlugRef.current = slug;
+  }, [data, restoreDraft, slug]);
+
+  useEffect(() => {
+    initializedSlugRef.current = null;
+    setIsDirty(false);
+    setFigmaComponentId('');
+  }, [slug]);
+
+  const handleOpenAiModal = useCallback(() => {
+    if (isDirty) {
+      const touchedFields: DraftFieldKey[] = [];
+      if (formData.summary !== baseFormRef.current.summary) touchedFields.push('summary');
+      if (JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants)) touchedFields.push('variants');
+      if (JSON.stringify(formData.tokens) !== JSON.stringify(baseFormRef.current.tokens)) touchedFields.push('tokens');
+      if (JSON.stringify(formData.accessibilityNotes) !== JSON.stringify(baseFormRef.current.accessibilityNotes)) {
+        touchedFields.push('accessibilityNotes');
+      }
+
+      saveDraft({
+        ...formData,
+        touchedFields,
+      });
+    }
+    setAiModalOpen(true);
+  }, [isDirty, formData, saveDraft]);
+
+  const handleApplySection = useCallback(
+    (action: FormDispatchAction) => {
+      setFormData((prev) => applySectionAction(action, prev as unknown as Record<string, unknown>) as unknown as EditorialFormData);
+      setIsDirty(true);
+    },
+    [],
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!slug) return;
+    setSaveError(null);
+    try {
+      const fields: Record<string, unknown> = {};
+
+      const summaryChanged = formData.summary !== baseFormRef.current.summary;
+      const variantsChanged = JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants);
+      const tokensChanged = JSON.stringify(formData.tokens) !== JSON.stringify(baseFormRef.current.tokens);
+      const accessibilityChanged =
+        JSON.stringify(formData.accessibilityNotes) !== JSON.stringify(baseFormRef.current.accessibilityNotes);
+
+      if (summaryChanged) {
+        fields.summary = formData.summary.trim().length > 0 ? { purpose: formData.summary } : {};
+      }
+      if (variantsChanged) {
+        fields.variants = formData.variants;
+      }
+      if (tokensChanged) {
+        fields.tokens = formData.tokens;
+      }
+      if (accessibilityChanged) {
+        fields.accessibility = { notes: formData.accessibilityNotes };
+      }
+
+      if (Object.keys(fields).length === 0) {
+        navigate(-1);
+        return;
+      }
+
+      await patchEditorial(slug, expectedUpdatedAtRef.current, fields);
+      clearSuggestion();
+      clearDraft();
+      navigate(-1);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
+    }
+  }, [slug, formData, clearSuggestion, clearDraft, navigate]);
+
+  const handleCancel = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Loading…" description="Loading component documentation" />
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Failed to load" description={slug} />
+        <StatusAlert variant="error" description={error?.message ?? 'Component not found'} />
+        <Button variant="outline" onClick={handleCancel}>← Back</Button>
+      </div>
+    );
+  }
+
+  const hasSuggestion = suggestion !== null;
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Edit component documentation"
+        description={slug}
+      />
+
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenAiModal}
+            disabled={!figmaComponentId}
+            title={!figmaComponentId ? 'Figma data not yet captured for this component' : undefined}
+          >
+            AI suggestions
+          </Button>
+        </div>
+        {isMobile && hasSuggestion && (
+          <div className="flex gap-1 rounded-lg border border-border p-0.5">
+            <Button
+              variant={!showAiPanel ? 'outline' : 'ghost'}
+              size="sm"
+              onClick={() => setShowAiPanel(false)}
+              className={!showAiPanel ? 'bg-surface-2' : ''}
+            >
+              Your doc
+            </Button>
+            <Button
+              variant={showAiPanel ? 'outline' : 'ghost'}
+              size="sm"
+              onClick={() => setShowAiPanel(true)}
+              className={showAiPanel ? 'bg-surface-2' : ''}
+            >
+              AI suggestion
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Save error */}
+      {saveError && (
+        <StatusAlert variant="error" title="Save failed" description={saveError} />
+      )}
+      {isInMemoryOnly && suggestion && (
+        <StatusAlert
+          variant="warning"
+          title="Suggestion not persisted"
+          description="This AI suggestion is too large to persist in local storage and will be lost on page reload."
+        />
+      )}
+      {!figmaComponentId && (
+        <StatusAlert
+          variant="info"
+          title="AI suggestions unavailable"
+          description="Capture Figma data first to enable AI suggestions for this component."
+        />
+      )}
+
+      {/* Main content */}
+      {isMobile ? (
+        <div>
+          {!showAiPanel ? (
+            <EditDocsForm
+              value={formData}
+              onChange={(data) => {
+                setFormData(data);
+                setIsDirty(true);
+              }}
+            />
+          ) : suggestion ? (
+            <AiSuggestionsPanel
+              suggestion={suggestion}
+              onApplySection={handleApplySection}
+            />
+          ) : null}
+        </div>
+      ) : (
+        <div className={hasSuggestion ? 'grid grid-cols-2 gap-6' : 'max-w-3xl'}>
+          {/* Left column — editorial form */}
+          <div>
+            <EditDocsForm
+              value={formData}
+              onChange={(data) => {
+                setFormData(data);
+                setIsDirty(true);
+              }}
+            />
+          </div>
+
+          {/* Right column — AI suggestions panel */}
+          {hasSuggestion && suggestion && (
+            <div>
+              <AiSuggestionsPanel
+                suggestion={suggestion}
+                onApplySection={handleApplySection}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center gap-3 border-t border-border pt-4">
+        <Button onClick={handleSave} disabled={isLoading}>
+          Save
+        </Button>
+        <Button variant="outline" onClick={handleCancel}>
+          Cancel
+        </Button>
+      </div>
+
+      {/* AI Suggestions Modal */}
+      {slug && (
+        <AiSuggestionsModal
+          open={aiModalOpen}
+          onClose={() => setAiModalOpen(false)}
+          figmaComponentId={figmaComponentId}
+          onSaveSuggestion={saveSuggestion}
+        />
+      )}
+    </div>
+  );
+}

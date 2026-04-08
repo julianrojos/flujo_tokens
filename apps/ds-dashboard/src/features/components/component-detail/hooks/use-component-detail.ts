@@ -16,17 +16,7 @@ import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component
 import type { PartialComponentSpec } from "ds-types";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
-import {
-  fetchEditorialSuggestion,
-  discardEditorialSuggestion,
-} from "../lib/component-spec-api";
-
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
-
-interface EditorialSuggestion {
-  id: number;
-  patch: Record<string, unknown>;
-}
 
 interface ComponentDetailViewModel {
   // Data
@@ -39,14 +29,11 @@ interface ComponentDetailViewModel {
   specUpdatedAt: number | null;
   tokenRegistry: TokenRegistry | null;
   tokenUsageIndex: TokenUsageIndex | null;
-  suggestion: EditorialSuggestion | null;
-  suggestionLoading: boolean;
   downloadError: string | null;
   downloadWarnings: string[];
 
   // UI state
   captureModalOpen: boolean;
-  editorialEditorOpen: boolean;
   captureSummary: string | null;
   reloadNonce: number;
   canOpenDocs: boolean;
@@ -61,14 +48,11 @@ interface ComponentDetailViewModel {
 
   // Handlers
   setCaptureModalOpen: (open: boolean) => void;
-  setEditorialEditorOpen: (open: boolean) => void;
   setCaptureSummary: (summary: string | null) => void;
   handleReload: () => void;
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
   downloadMarkdown: () => Promise<void>;
-  consumeSuggestion: () => void;
-  discardSuggestion: () => void;
 }
 
 export function useComponentDetail(): ComponentDetailViewModel {
@@ -83,49 +67,20 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
-  const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [suggestion, setSuggestion] = useState<EditorialSuggestion | null>(null);
-  const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [isDownloadingMarkdown, setIsDownloadingMarkdown] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadWarnings, setDownloadWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     setCaptureSummary(null);
-    setEditorialEditorOpen(false);
-    setSuggestion(null);
-    setSuggestionLoading(false);
     setDownloadError(null);
     setDownloadWarnings([]);
     setIsDownloadingMarkdown(false);
   }, [slug]);
-
-  // Load pending suggestion when editorial editor opens
-  useEffect(() => {
-    if (!editorialEditorOpen || !slug) return;
-    let cancelled = false;
-    setSuggestionLoading(true);
-    setSuggestion(null);
-    fetchEditorialSuggestion(slug)
-      .then((data) => {
-        if (cancelled) return;
-        setSuggestion(data);
-      })
-      .catch(() => {
-        // Silently ignore — suggestion loading is non-blocking
-        if (!cancelled) setSuggestion(null);
-      })
-      .finally(() => {
-        if (!cancelled) setSuggestionLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [editorialEditorOpen, slug]);
 
   useEffect(() => {
     if (!slug) return;
@@ -240,21 +195,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
     }
   }, [item]);
 
-  const consumeSuggestion = useCallback(() => {
-    setSuggestion(null);
-  }, []);
-
-  const discardSuggestion = useCallback(() => {
-    if (!slug) return;
-    discardEditorialSuggestion(slug)
-      .then(() => {
-        setSuggestion(null);
-      })
-      .catch((error) => {
-        console.warn("[component-detail] Failed to discard suggestion; keeping it visible for retry.", error);
-      });
-  }, [slug]);
-
   return {
     loading,
     error,
@@ -265,12 +205,9 @@ export function useComponentDetail(): ComponentDetailViewModel {
     specUpdatedAt,
     tokenRegistry,
     tokenUsageIndex,
-    suggestion,
-    suggestionLoading,
     downloadError,
     downloadWarnings,
     captureModalOpen,
-    editorialEditorOpen,
     captureSummary,
     reloadNonce,
     canOpenDocs: Boolean(item),
@@ -281,13 +218,10 @@ export function useComponentDetail(): ComponentDetailViewModel {
     currentIndex,
     totalItems,
     setCaptureModalOpen,
-    setEditorialEditorOpen,
     setCaptureSummary,
     handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,
-    consumeSuggestion,
-    discardSuggestion,
   };
 }

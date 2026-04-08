@@ -10,9 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
-import { getAiConfiguredProviders } from '../lib/ai-jobs-api';
-import { useAiJobCreate } from '../hooks/use-ai-job-create';
-import { useAiProviderHealth } from '../hooks/use-ai-provider-health';
+import { getAiConfiguredProviders } from '@/lib/ai-jobs-api';
+import { useAiJobCreate } from '@/hooks/use-ai-job-create';
+import { useAiProviderHealth } from '@/hooks/use-ai-provider-health';
 import type { AiHealthStatus, AiProviderName, DocStatus } from '@/types/ai-jobs';
 import { AI_PROVIDER_LABELS, AI_PROVIDER_ORDER } from '@/types/ai-provider-catalog';
 
@@ -24,6 +24,8 @@ export interface AiJobComponentOption {
 interface AiJobCreateFormProps {
     /** Optional pre-filled component ID */
     initialComponentId?: string;
+    /** When set, hides the component selector and locks to this componentId */
+    lockedComponentId?: string;
     /** Component options sourced from DB */
     componentOptions?: AiJobComponentOption[];
     /** Optional pre-filled provider */
@@ -69,6 +71,7 @@ function toneToVariant(
 
 export function AiJobCreateForm({
     initialComponentId = '',
+    lockedComponentId,
     componentOptions = [],
     initialProvider,
     initialModel,
@@ -81,7 +84,7 @@ export function AiJobCreateForm({
     onFigmaUrlChange,
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
-    const [componentId, setComponentId] = useState(initialComponentId);
+    const [componentId, setComponentId] = useState(lockedComponentId || initialComponentId);
     const [model, setModel] = useState(initialModel || '');
     const [figmaUrl, setFigmaUrl] = useState('');
     const [dryRun, setDryRun] = useState(false);
@@ -98,10 +101,12 @@ export function AiJobCreateForm({
 
     // Sync state when initial props change (e.g., from "Re-generar" or retry)
     useEffect(() => {
-        if (initialComponentId) {
+        if (lockedComponentId) {
+            setComponentId(lockedComponentId);
+        } else if (initialComponentId) {
             setComponentId(initialComponentId);
         }
-    }, [initialComponentId]);
+    }, [lockedComponentId, initialComponentId]);
 
     useEffect(() => {
         if (initialProvider) {
@@ -225,6 +230,7 @@ export function AiJobCreateForm({
             </div>
 
             {/* Component ID */}
+            {!lockedComponentId && (
             <div className="space-y-2">
                 <label htmlFor="componentId" className="text-sm font-medium">
                     Component <span className="text-destructive">*</span>
@@ -256,6 +262,7 @@ export function AiJobCreateForm({
                     ))}
                 </Select>
             </div>
+            )}
 
             <div className="flex items-start gap-2">
                 <input
