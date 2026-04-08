@@ -44,8 +44,6 @@ interface AiJobCreateFormProps {
     existingDocStatus?: DocStatus;
     /** Whether existing doc status is still loading */
     isDocStatusLoading?: boolean;
-    /** Callback when figma URL changes (used by prompt preview in parent) */
-    onFigmaUrlChange?: (url: string) => void;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] = AI_PROVIDER_ORDER.map((value) => ({
@@ -81,15 +79,11 @@ export function AiJobCreateForm({
     onComponentIdChange,
     existingDocStatus,
     isDocStatusLoading = false,
-    onFigmaUrlChange,
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
     const [componentId, setComponentId] = useState(lockedComponentId || initialComponentId);
     const [model, setModel] = useState(initialModel || '');
-    const [figmaUrl, setFigmaUrl] = useState('');
-    const [dryRun, setDryRun] = useState(false);
     const [runValidation, setRunValidation] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const [providerTouched, setProviderTouched] = useState(false);
     const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
 
@@ -144,7 +138,6 @@ export function AiJobCreateForm({
     } = useAiProviderHealth({
         provider,
         model,
-        figmaUrl,
         enabled: Boolean(provider) && (configuredProvidersLoaded || Boolean(initialProvider)),
     });
 
@@ -168,10 +161,8 @@ export function AiJobCreateForm({
             provider,
             componentId: componentId.trim(),
             model: model.trim() || undefined,
-            figmaUrl: figmaUrl.trim() || undefined,
             systemPrompt: systemPrompt && systemPrompt.trim().length > 0 ? systemPrompt : undefined,
             userPrompt: userPrompt && userPrompt.trim().length > 0 ? userPrompt : undefined,
-            dryRun,
             runValidation,
         });
     };
@@ -344,56 +335,6 @@ export function AiJobCreateForm({
                     ) : (
                         <p className="mt-2 text-xs text-muted-foreground">Health check pending…</p>
                     )}
-                </div>
-            )}
-
-            {/* Advanced Options Toggle */}
-            <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="px-0 font-normal text-muted-foreground underline hover:text-foreground"
-            >
-                {showAdvanced ? 'Hide' : 'Show'} advanced options
-            </Button>
-
-            {/* Advanced Options */}
-            {showAdvanced && (
-                <div className="space-y-4 p-4 bg-muted/30 rounded-md">
-                    {/* Figma URL */}
-                    <div className="space-y-2">
-                        <label htmlFor="figmaUrl" className="text-sm font-medium">
-                            Figma URL (optional)
-                        </label>
-                        <Input
-                            id="figmaUrl"
-                            type="url"
-                            placeholder="https://www.figma.com/file/..."
-                            value={figmaUrl}
-                            onChange={(e) => {
-                                const nextUrl = e.target.value;
-                                setFigmaUrl(nextUrl);
-                                onFigmaUrlChange?.(nextUrl);
-                            }}
-                            disabled={isPending}
-                        />
-                    </div>
-
-                    {/* Dry Run */}
-                    <div className="flex items-center gap-2">
-                        <input
-                            id="dryRun"
-                            type="checkbox"
-                            checked={dryRun}
-                            onChange={(e) => setDryRun(e.target.checked)}
-                            disabled={isPending}
-                            className="rounded border-border"
-                        />
-                        <label htmlFor="dryRun" className="text-sm font-medium">
-                            Dry run (skip LLM call)
-                        </label>
-                    </div>
                 </div>
             )}
 
