@@ -49,3 +49,4 @@ tooling/.tmp/
 .tmp-tests/
 apps/ds-dashboard/token-test-*
 apps/ds-dashboard/usage-test-*
+.kilo/kilo.json
