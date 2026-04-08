@@ -17,7 +17,6 @@ import { ComponentVisualProofSection } from "./components/component-visual-proof
 import { ComponentSpecSection } from "./components/component-spec-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
-import { FigmaDescriptionSection } from "./components/figma-description-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
 const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(m => ({ default: m.ComponentSpecEditor })));
@@ -141,15 +140,6 @@ export function ComponentDetailPage() {
         onOpenEditorial={() => setEditorialEditorOpen(true)}
       />
 
-      {/* S-07: Figma descriptions (content + sync status) */}
-      <FigmaDescriptionSection
-        componentSetDescription={descriptionsData.componentSetDescription}
-        variantDescriptions={descriptionsData.variantDescriptions}
-        syncedAt={descriptionsData.syncedAt}
-        stale={descriptionsData.stale}
-        onRefresh={handleRefreshDescriptions}
-      />
-
       <ComponentGraphSection usage={usage} allItems={allItems} />
 
       {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
@@ -170,6 +160,11 @@ export function ComponentDetailPage() {
         onDownloadMarkdown={handleDownloadMarkdown}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
         selfSlug={item.slug}
+        figmaComponentSetDescription={descriptionsData.componentSetDescription}
+        figmaVariantDescriptions={descriptionsData.variantDescriptions}
+        figmaSyncedAt={descriptionsData.syncedAt}
+        figmaStale={descriptionsData.stale}
+        onRefreshFigmaDescriptions={handleRefreshDescriptions}
       />
 
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>

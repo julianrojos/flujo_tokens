@@ -8,6 +8,7 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { FilePenLine } from "lucide-react";
 import type { PartialComponentSpec } from "ds-types";
 import { ComponentSpecViewer } from "../component-spec-viewer";
+import { FigmaDescriptionSection } from "./figma-description-section";
 
 interface ComponentSpecSectionProps {
   spec: PartialComponentSpec | null;
@@ -18,6 +19,11 @@ interface ComponentSpecSectionProps {
   onDownloadMarkdown: () => void;
   onOpenEditorial: () => void;
   selfSlug?: string;
+  figmaComponentSetDescription?: string | null;
+  figmaVariantDescriptions?: Array<{ canonicalKey: string; description: string | null }>;
+  figmaSyncedAt?: number | null;
+  figmaStale?: boolean;
+  onRefreshFigmaDescriptions?: () => void;
 }
 
 export function ComponentSpecSection({
@@ -29,7 +35,17 @@ export function ComponentSpecSection({
   onDownloadMarkdown,
   onOpenEditorial,
   selfSlug,
+  figmaComponentSetDescription = null,
+  figmaVariantDescriptions = [],
+  figmaSyncedAt = null,
+  figmaStale = true,
+  onRefreshFigmaDescriptions = () => {},
 }: ComponentSpecSectionProps) {
+  const hasFigmaContent = figmaSyncedAt != null && (
+    Boolean(figmaComponentSetDescription?.trim()) ||
+    figmaVariantDescriptions.some((variant) => Boolean(variant.description?.trim()))
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -84,6 +100,16 @@ export function ComponentSpecSection({
         </div>
       </CardHeader>
       <CardContent>
+        <FigmaDescriptionSection
+          componentSetDescription={figmaComponentSetDescription}
+          variantDescriptions={figmaVariantDescriptions}
+          syncedAt={figmaSyncedAt}
+          stale={figmaStale}
+          onRefresh={onRefreshFigmaDescriptions}
+        />
+        {hasFigmaContent && spec && (
+          <div className="border-t border-border my-4" />
+        )}
         {spec ? (
           <ComponentSpecViewer spec={spec} selfSlug={selfSlug} />
         ) : (
