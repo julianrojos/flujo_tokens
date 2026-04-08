@@ -9,6 +9,7 @@ export interface SpecProperty {
 }
 
 export interface SpecAnatomyItem {
+    /** @deprecated Anatomy is no longer captured. Do not use. */
     id: string;
     description?: string;
     name?: string;
@@ -57,7 +58,8 @@ export interface ComponentSpec {
         when_to_use: string;
         when_not_to_use: string;
     };
-    anatomy: SpecAnatomyItem[];
+    /** @deprecated Anatomy is no longer captured. Do not use. */
+    anatomy?: SpecAnatomyItem[];
     properties: SpecProperty[];
     content_guidelines: { rules: string[] };
     best_practices: { do: string[]; dont: string[] };
@@ -71,6 +73,8 @@ export interface ComponentSpec {
     token_mapping: Record<string, Record<string, string>>;
     qa: string[];
     related_components?: string[];
+    variants?: unknown[] | null;
+    tokens?: unknown[] | null;
     layout?: SpecLayoutItem[];
     variant_visuals?: SpecVariantVisual[];
 }

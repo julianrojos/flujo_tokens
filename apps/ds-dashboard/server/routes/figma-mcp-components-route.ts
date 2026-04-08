@@ -129,10 +129,10 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
  *   figmaUrl?: string – Figma file URL
  *   nodeId: string – Component or ComponentSet nodeId
  *   depth?: number – Anatomy depth (default: 3, -1 = unlimited)
- *   compact?: boolean – Compact anatomy (default: false)
+ *   compact?: boolean – Compact structural tree (default: false)
  *
  * Response:
- *   { success: true, nodeId, name, type, description, anatomy, variants?, variantAxes?, props, states, tokenBindings }
+ *   { success: true, nodeId, name, type, description, variants?, variantAxes?, props, states, tokenBindings }
  */
 async function handleGetComponentSpec(c: Context, deps: FigmaMcpComponentsRouteDeps): Promise<Response> {
   const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());

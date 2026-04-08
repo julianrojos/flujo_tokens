@@ -85,22 +85,6 @@ export interface AiJobInput {
 // ============================================================================
 
 /**
- * Individual anatomy item describing a part of the component
- */
-export interface ComponentDocAnatomy {
-    /** Name of the anatomy part */
-    name: string;
-    /** Type of the part */
-    type: string;
-    /** Description of what this part does */
-    description: string;
-    /** Whether this part is optional */
-    optional?: boolean;
-    /** Child anatomy items */
-    children?: ComponentDocAnatomy[];
-}
-
-/**
  * Variant definition for the component
  */
 export interface ComponentDocVariant {
@@ -156,8 +140,6 @@ export interface ComponentDocOutput {
     title: string;
     /** Brief summary of the component */
     summary: string;
-    /** Anatomy breakdown */
-    anatomy: ComponentDocAnatomy[];
     /** Available variants */
     variants: ComponentDocVariant[];
     /** Design tokens used */

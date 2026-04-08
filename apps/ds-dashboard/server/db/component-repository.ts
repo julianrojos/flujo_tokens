@@ -204,19 +204,23 @@ export interface EditorialEntry {
   tokenMapping?: Record<string, unknown> | null;
   qa?: Array<unknown> | null;
   accessibilityNotes?: string[] | null;
+  variants?: EditorialVariantEntry[] | null;
+  tokens?: EditorialTokenEntry[] | null;
   updatedAt: number;
 }
 
-/**
- * Figma anatomy + properties (structural data from plugin)
- */
-export interface AnatomySpecEntry {
-  componentId: number;
-  anatomy: Array<unknown>;
-  properties: Array<unknown>;
-  runId?: string | null;
-  capturedAt: number;
-  schemaVersion: number;
+export interface EditorialVariantEntry {
+  id: string;
+  name: string;
+  description: string;
+  properties: Record<string, string>;
+}
+
+export interface EditorialTokenEntry {
+  name: string;
+  value: string;
+  type: string;
+  description?: string;
 }
 
 /**
@@ -230,6 +234,8 @@ export const EDITORIAL_ALLOWED_KEYS = [
   'related_components',
   'token_mapping',
   'qa',
+  'variants',
+  'tokens',
 ] as const;
 
 /**
@@ -525,7 +531,7 @@ export class ComponentRepository {
       .prepare(`
         SELECT component_id, summary_json, best_practices_json, accessibility_json,
                content_guidelines_json, related_components_json, token_mapping_json, qa_json,
-               accessibility_notes_json, updated_at
+               accessibility_notes_json, variants_json, tokens_json, updated_at
         FROM component_editorial
         WHERE component_id = ?
       `)
@@ -539,6 +545,8 @@ export class ComponentRepository {
         token_mapping_json: string | null;
         qa_json: string | null;
         accessibility_notes_json: string | null;
+        variants_json: string | null;
+        tokens_json: string | null;
         updated_at: number;
       }>[0];
 
@@ -554,6 +562,8 @@ export class ComponentRepository {
       tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, 'component_editorial.token_mapping_json'),
       qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
       accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(row.accessibility_notes_json, 'component_editorial.accessibility_notes_json'),
+      variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, 'component_editorial.variants_json'),
+      tokens: ComponentRepository.parseJsonColumnValue<EditorialTokenEntry[]>(row.tokens_json, 'component_editorial.tokens_json'),
       updatedAt: row.updated_at,
     };
   }
@@ -571,7 +581,8 @@ export class ComponentRepository {
       const rows = this.db
         .prepare(`
           SELECT component_id, summary_json, best_practices_json, accessibility_json,
-                 content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
+                 content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+                 variants_json, tokens_json, updated_at
           FROM component_editorial
           WHERE component_id IN (${placeholders})
         `)
@@ -584,6 +595,8 @@ export class ComponentRepository {
           related_components_json: string | null;
           token_mapping_json: string | null;
           qa_json: string | null;
+          variants_json: string | null;
+          tokens_json: string | null;
           updated_at: number;
         }>;
 
@@ -597,6 +610,8 @@ export class ComponentRepository {
           relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, "component_editorial.related_components_json"),
           tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, "component_editorial.token_mapping_json"),
           qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, "component_editorial.qa_json"),
+          variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, "component_editorial.variants_json"),
+          tokens: ComponentRepository.parseJsonColumnValue<EditorialTokenEntry[]>(row.tokens_json, "component_editorial.tokens_json"),
           updatedAt: row.updated_at,
         });
       }
@@ -632,8 +647,8 @@ export class ComponentRepository {
           INSERT OR IGNORE INTO component_editorial (
             component_id, summary_json, best_practices_json, accessibility_json,
             content_guidelines_json, related_components_json, token_mapping_json, qa_json,
-            accessibility_notes_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            accessibility_notes_json, variants_json, tokens_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
@@ -644,6 +659,8 @@ export class ComponentRepository {
           ComponentRepository.toJsonColumnValue(fields.tokenMapping),
           ComponentRepository.toJsonColumnValue(fields.qa),
           ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
+          ComponentRepository.toJsonColumnValue(fields.variants),
+          ComponentRepository.toJsonColumnValue(fields.tokens),
           now,
         );
 
@@ -673,6 +690,8 @@ export class ComponentRepository {
           token_mapping_json = COALESCE(?, token_mapping_json),
           qa_json = COALESCE(?, qa_json),
           accessibility_notes_json = COALESCE(?, accessibility_notes_json),
+          variants_json = COALESCE(?, variants_json),
+          tokens_json = COALESCE(?, tokens_json),
           updated_at = ?
         WHERE component_id = ?
       `).run(
@@ -684,165 +703,13 @@ export class ComponentRepository {
         fields.tokenMapping !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokenMapping) : null,
         fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
         fields.accessibilityNotes !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibilityNotes) : null,
+        fields.variants !== undefined ? ComponentRepository.toJsonColumnValue(fields.variants) : null,
+        fields.tokens !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokens) : null,
         now,
         componentId,
       );
 
       return { ...existing, ...fields, updatedAt: now };
-    });
-
-    return tx();
-  }
-
-  /**
-   * Get anatomy + properties for a component (structural Figma data)
-   */
-  getAnatomySpec(componentId: number): AnatomySpecEntry | null {
-    const row = this.db
-      .prepare(`
-        SELECT component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
-        FROM component_figma_anatomy
-        WHERE component_id = ?
-      `)
-      .get(componentId) as Array<{
-        component_id: number;
-        anatomy_json: string;
-        properties_json: string;
-        run_id: string | null;
-        captured_at: number;
-        schema_version: number;
-      }>[0];
-
-    if (!row) return null;
-
-    try {
-      const anatomy = JSON.parse(row.anatomy_json);
-      const properties = JSON.parse(row.properties_json);
-      return {
-        componentId: row.component_id,
-        anatomy: Array.isArray(anatomy) ? anatomy : [],
-        properties: Array.isArray(properties) ? properties : [],
-        runId: row.run_id || undefined,
-        capturedAt: row.captured_at,
-        schemaVersion: row.schema_version,
-      };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(
-        `[component-repository] Failed to parse anatomy JSON for component_id=${row.component_id}: ${reason}`,
-      );
-      return {
-        componentId: row.component_id,
-        anatomy: [],
-        properties: [],
-        runId: row.run_id || undefined,
-        capturedAt: row.captured_at,
-        schemaVersion: row.schema_version,
-      };
-    }
-  }
-
-  /**
-   * Batch anatomy lookup by component ids.
-   */
-  getAnatomySpecsByComponentIds(componentIds: number[]): Map<number, AnatomySpecEntry> {
-    const out = new Map<number, AnatomySpecEntry>();
-    if (!Array.isArray(componentIds) || componentIds.length === 0) return out;
-
-    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
-      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
-      const placeholders = batch.map(() => "?").join(", ");
-      const rows = this.db
-        .prepare(`
-          SELECT component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
-          FROM component_figma_anatomy
-          WHERE component_id IN (${placeholders})
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          anatomy_json: string;
-          properties_json: string;
-          run_id: string | null;
-          captured_at: number;
-          schema_version: number;
-        }>;
-
-      for (const row of rows) {
-        let anatomy: Array<unknown> = [];
-        let properties: Array<unknown> = [];
-        try {
-          const parsedAnatomy = JSON.parse(row.anatomy_json);
-          const parsedProperties = JSON.parse(row.properties_json);
-          anatomy = Array.isArray(parsedAnatomy) ? parsedAnatomy : [];
-          properties = Array.isArray(parsedProperties) ? parsedProperties : [];
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.warn(
-            `[component-repository] Failed to parse anatomy JSON for component_id=${row.component_id}: ${reason}`,
-          );
-        }
-
-        out.set(row.component_id, {
-          componentId: row.component_id,
-          anatomy,
-          properties,
-          runId: row.run_id || undefined,
-          capturedAt: row.captured_at,
-          schemaVersion: row.schema_version,
-        });
-      }
-    }
-
-    return out;
-  }
-
-  /**
-   * Upsert anatomy + properties with anti-borrado protection
-   * If row exists and incoming arrays are empty → NO-OP (prevent accidental data loss)
-   */
-  upsertAnatomySpec(
-    componentId: number,
-    anatomy: Array<unknown>,
-    properties: Array<unknown>,
-    runId?: string | null,
-  ): AnatomySpecEntry {
-    const tx = this.db.transaction(() => {
-      const existing = this.getAnatomySpec(componentId);
-
-      // Anti-borrado: if row exists and incoming data is empty, skip
-      if (existing && anatomy.length === 0 && properties.length === 0) {
-        return existing;
-      }
-
-      const resolvedAnatomy = anatomy.length > 0
-        ? anatomy
-        : (existing?.anatomy ?? []);
-      const resolvedProperties = properties.length > 0
-        ? properties
-        : (existing?.properties ?? []);
-
-      const now = Math.floor(Date.now() / 1000);
-      this.db.prepare(`
-        INSERT OR REPLACE INTO component_figma_anatomy (
-          component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        componentId,
-        JSON.stringify(resolvedAnatomy),
-        JSON.stringify(resolvedProperties),
-        runId || null,
-        now,
-        1,
-      );
-
-      return {
-        componentId,
-        anatomy: resolvedAnatomy,
-        properties: resolvedProperties,
-        runId: runId || undefined,
-        capturedAt: now,
-        schemaVersion: 1,
-      };
     });
 
     return tx();
@@ -1664,7 +1531,7 @@ export class ComponentRepository {
 
   /**
    * Compute DB-based staleness for a component.
-   * Compares component_editorial.updated_at vs component_figma_anatomy.captured_at.
+   * Compares component_editorial.updated_at vs latest component_figma_variants.captured_at.
    * Returns 'fresh', 'stale', or 'missing'.
    */
   getComponentDocStaleness(componentId: number): {
@@ -1675,10 +1542,14 @@ export class ComponentRepository {
     const stmt = this.db.prepare(`
       SELECT
         e.updated_at AS editorial_updated_at,
-        a.captured_at AS captured_at
+        v.latest_captured_at AS captured_at
       FROM components c
       LEFT JOIN component_editorial e ON e.component_id = c.id
-      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      LEFT JOIN (
+        SELECT component_id, MAX(captured_at) AS latest_captured_at
+        FROM component_figma_variants
+        GROUP BY component_id
+      ) v ON v.component_id = c.id
       WHERE c.id = ?
     `);
     const row = stmt.get(componentId) as {
@@ -1696,7 +1567,11 @@ export class ComponentRepository {
     const capturedAtMs = capturedAt ? capturedAt * 1000 : null;
 
     if (!capturedAt) {
-      return { status: 'fresh', editorialUpdatedAt: editorialUpdatedAtMs, capturedAt: null };
+      return {
+        status: editorialUpdatedAt ? 'fresh' : 'missing',
+        editorialUpdatedAt: editorialUpdatedAtMs,
+        capturedAt: null,
+      };
     }
 
     if (!editorialUpdatedAt) {
@@ -1728,10 +1603,14 @@ export class ComponentRepository {
         c.id,
         c.slug,
         e.updated_at AS editorial_updated_at,
-        a.captured_at AS captured_at
+        v.latest_captured_at AS captured_at
       FROM components c
       LEFT JOIN component_editorial e ON e.component_id = c.id
-      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      LEFT JOIN (
+        SELECT component_id, MAX(captured_at) AS latest_captured_at
+        FROM component_figma_variants
+        GROUP BY component_id
+      ) v ON v.component_id = c.id
       WHERE c.status != 'missing' AND c.ds_id = ?
     `).all(dsId)
       : this.db.prepare(`
@@ -1739,10 +1618,14 @@ export class ComponentRepository {
         c.id,
         c.slug,
         e.updated_at AS editorial_updated_at,
-        a.captured_at AS captured_at
+        v.latest_captured_at AS captured_at
       FROM components c
       LEFT JOIN component_editorial e ON e.component_id = c.id
-      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      LEFT JOIN (
+        SELECT component_id, MAX(captured_at) AS latest_captured_at
+        FROM component_figma_variants
+        GROUP BY component_id
+      ) v ON v.component_id = c.id
       WHERE c.status != 'missing'
     `).all()) as Array<{
         id: number;
@@ -1759,7 +1642,7 @@ export class ComponentRepository {
 
       let status: 'fresh' | 'stale' | 'missing';
       if (!row.captured_at) {
-        status = 'fresh';
+        status = row.editorial_updated_at ? 'fresh' : 'missing';
       } else if (!row.editorial_updated_at) {
         status = 'missing';
       } else {
@@ -1798,7 +1681,7 @@ export class ComponentRepository {
   }
 
   /**
-   * S-11: Compute doc status from component_docs table (not from editorial/anatomy).
+   * S-11: Compute doc status from component_docs table (independent of editorial metadata).
    *
    * Logic:
    * - If a row exists in component_docs → check applied_at vs figma_descriptions_synced_at

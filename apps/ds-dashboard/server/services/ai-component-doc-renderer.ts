@@ -72,30 +72,6 @@ export function renderComponentDoc(
     lines.push(output.summary);
     lines.push('');
 
-    // Anatomy section
-    lines.push('## Anatomy');
-    lines.push('');
-    if (output.anatomy.length === 0) {
-        lines.push('None documented.');
-    } else {
-        lines.push('| Name | Type | Description | Optional |');
-        lines.push('|------|------|-------------|----------|');
-        for (const item of output.anatomy) {
-            lines.push(
-                `| ${escapeMarkdownTableCell(item.name)} | ${item.type} | ${escapeMarkdownTableCell(item.description)} | ${item.optional ? 'Yes' : 'No'} |`
-            );
-            // Render children if present
-            if (item.children && item.children.length > 0) {
-                for (const child of item.children) {
-                    lines.push(
-                        `| ↳ ${escapeMarkdownTableCell(child.name)} | ${child.type} | ${escapeMarkdownTableCell(child.description)} | ${child.optional ? 'Yes' : 'No'} |`
-                    );
-                }
-            }
-        }
-    }
-    lines.push('');
-
     // Variants section
     lines.push('## Variants');
     lines.push('');

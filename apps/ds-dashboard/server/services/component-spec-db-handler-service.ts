@@ -6,7 +6,7 @@
  */
 
 import type { ComponentRepository } from '../db/component-repository.js';
-import type { EditorialEntry, AnatomySpecEntry, StructuredFigmaData } from '../db/component-repository.js';
+import type { EditorialEntry, StructuredFigmaData } from '../db/component-repository.js';
 import type { PartialComponentSpec } from 'ds-types';
 import type { Context } from 'hono';
 
@@ -21,12 +21,11 @@ interface ComponentSpecHandlerDeps {
  */
 function buildSpecFromDb(params: {
   editorial: EditorialEntry | null;
-  anatomy: AnatomySpecEntry | null;
   structured: StructuredFigmaData | undefined;
   figmaFileUrl?: string;
   figmaComponentSetNodeId?: string;
 }): PartialComponentSpec {
-  const { editorial, anatomy, structured, figmaFileUrl, figmaComponentSetNodeId } = params;
+  const { editorial, structured, figmaFileUrl, figmaComponentSetNodeId } = params;
   const hasFigmaMetadata =
     Boolean(structured?.pageName) ||
     Boolean(figmaComponentSetNodeId) ||
@@ -48,10 +47,8 @@ function buildSpecFromDb(params: {
     related_components: editorial?.relatedComponents ?? null,
     token_mapping: editorial?.tokenMapping ?? null,
     qa: editorial?.qa ?? null,
-
-    // Structural fields from Figma (anatomy + properties)
-    anatomy: anatomy?.anatomy ?? [],
-    properties: anatomy?.properties ?? [],
+    variants: editorial?.variants ?? null,
+    tokens: editorial?.tokens ?? null,
 
     // Additional structured data
     variant_visuals: structured?.variants?.map((v) => ({
@@ -119,20 +116,18 @@ export async function handleGetComponentSpecRoute(
 
   // Load all spec data from DB
   const editorial = componentRepo.getEditorial(componentId);
-  const anatomy = componentRepo.getAnatomySpec(componentId);
   const structured = component.figma;
 
   // Build complete spec
   const spec = buildSpecFromDb({
     editorial,
-    anatomy,
     structured: structured || undefined,
     figmaFileUrl: component.figmaFileUrl,
     figmaComponentSetNodeId: component.figmaComponentSetNodeId,
   });
 
   // "exists" intentionally models editorial authoring state.
-  // Structural Figma data (anatomy/variants/layout) can exist independently.
+  // Structured Figma data (variants/layout) can exist independently.
   const exists = editorial !== null;
 
   // Compute staleness from DB timestamps
@@ -232,6 +227,8 @@ export async function handlePatchEditorialSpecRoute(
     'related_components',
     'token_mapping',
     'qa',
+    'variants',
+    'tokens',
   ]);
 
   for (const key of Object.keys(fields)) {
@@ -255,12 +252,16 @@ export async function handlePatchEditorialSpecRoute(
     if (notes !== undefined) {
       camelCaseFields.accessibilityNotes = Array.isArray(notes) ? notes : null;
     }
-    camelCaseFields.accessibility = accWithoutNotes;
+    if (Object.keys(accWithoutNotes).length > 0) {
+      camelCaseFields.accessibility = accWithoutNotes;
+    }
   }
   if (fields.content_guidelines !== undefined) camelCaseFields.contentGuidelines = fields.content_guidelines;
   if (fields.related_components !== undefined) camelCaseFields.relatedComponents = fields.related_components;
   if (fields.token_mapping !== undefined) camelCaseFields.tokenMapping = fields.token_mapping;
   if (fields.qa !== undefined) camelCaseFields.qa = fields.qa;
+  if (fields.variants !== undefined) camelCaseFields.variants = fields.variants;
+  if (fields.tokens !== undefined) camelCaseFields.tokens = fields.tokens;
 
   // Upsert with optimistic locking
   let editorial: EditorialEntry;
@@ -289,11 +290,9 @@ export async function handlePatchEditorialSpecRoute(
   }
 
   // Load complete spec for response
-  const anatomy = componentRepo.getAnatomySpec(componentId);
   const structured = component.figma;
   const spec = buildSpecFromDb({
     editorial,
-    anatomy,
     structured,
     figmaFileUrl: component.figmaFileUrl,
     figmaComponentSetNodeId: component.figmaComponentSetNodeId,

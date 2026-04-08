@@ -65,7 +65,6 @@ export function buildDocOutputFromDb(
     componentId: figmaNodeId,
     title,
     summary,
-    anatomy: aiOutput?.anatomy ?? [],
     variants,
     tokens: aiOutput?.tokens ?? [],
     accessibilityNotes: aiOutput?.accessibilityNotes ?? [],

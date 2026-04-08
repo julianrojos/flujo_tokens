@@ -182,11 +182,6 @@ export function pruneSpecForPrompt(spec: Record<string, unknown>): {
         tokenBindings: sanitizeTokenBindings(spec.tokenBindings),
     };
 
-    // Handle anatomy - limit depth and children
-    if (spec.anatomy && Array.isArray(spec.anatomy)) {
-        cleaned.anatomy = pruneAnatomyDepth(spec.anatomy as Record<string, unknown>[], 4);
-    }
-
     // Serialize and check size
     const serialized = JSON.stringify(cleaned, null, 2);
 
@@ -209,39 +204,6 @@ export function pruneSpecForPrompt(spec: Record<string, unknown>): {
     }
 
     return { pruned: cleaned, truncated: true };
-}
-
-/**
- * Prune anatomy depth recursively
- */
-function pruneAnatomyDepth(
-    anatomy: Record<string, unknown>[],
-    maxDepth: number,
-    currentDepth = 0
-): Record<string, unknown>[] {
-    if (currentDepth >= maxDepth || !anatomy) {
-        return [];
-    }
-
-    return anatomy.map((item) => {
-        const pruned: Record<string, unknown> = {
-            name: item.name,
-            type: item.type,
-            description: item.description,
-            optional: item.optional,
-        };
-
-        // Recursively prune children
-        if (item.children && Array.isArray(item.children) && currentDepth + 1 < maxDepth) {
-            pruned.children = pruneAnatomyDepth(
-                item.children as Record<string, unknown>[],
-                maxDepth,
-                currentDepth + 1
-            );
-        }
-
-        return pruned;
-    });
 }
 
 /**
@@ -543,17 +505,11 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
 
 1. TITLE: Create a clear, human-readable title for the component
 2. SUMMARY: Write a 1-2 sentence summary of what this component does
-3. ANATOMY: Break down the component into its visual parts. Include:
-   - Name: descriptive name for each part
-   - Type: the Figma node type (FRAME, TEXT, INSTANCE, etc.)
-   - Description: what this part does
-   - Optional: whether this part can be hidden/removed
-   - Children: nested parts if applicable
-4. VARIANTS: Document all variants with:
+3. VARIANTS: Document all variants with:
    - A unique ID and descriptive name
    - Description of what makes this variant different
    - Properties: the variant properties (e.g., variant: Primary, state: Hover)
-5. STATES: Extract visual/interactive states from variant properties and component spec:
+4. STATES: Extract visual/interactive states from variant properties and component spec:
    - Scan variant property names for axes like "State", "Interaction", "Status", "Hover", "Focus", "Active", "Disabled", "Selected", "Pressed", "Loading", "Error", "Success", etc.
    - For each distinct state value found in variant properties, create a state entry with:
      - name: the state value (e.g., "Hover", "Focused", "Disabled", "Loading")
@@ -562,12 +518,12 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
    - Do NOT include structural variant axes like "Size", "Layout", "Orientation" as states
    - If no state-like properties are found, use empty array []
    - Do NOT invent states that are not present in the spec
-6. TOKENS: List design tokens used:
+5. TOKENS: List design tokens used:
    - Name: token name
    - Value: token value or reference
    - Type: color, spacing, typography, etc.
    - Description: how the token is used
-7. ACCESSIBILITY: Document accessibility considerations:
+6. ACCESSIBILITY: Document accessibility considerations:
    - Keyboard navigation support
    - Screen reader considerations
    - Focus states
@@ -705,7 +661,6 @@ COMPONENT DOCUMENTATION:${existingContext}
 ${stringifyJsonForPrompt({
         title: docOutput.title,
         summary: docOutput.summary,
-        anatomy: docOutput.anatomy?.slice(0, 10),
         variants: docOutput.variants?.slice(0, 5),
         tokens: docOutput.tokens?.slice(0, 10),
         accessibilityNotes: docOutput.accessibilityNotes,
@@ -793,7 +748,6 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
         componentId,
         title: `[DRY RUN] ${name || 'Unknown Component'}`,
         summary: 'This is a dry-run placeholder output - no actual LLM call was made.',
-        anatomy: [],
         variants: [],
         tokens: [],
         accessibilityNotes: [],
@@ -846,7 +800,6 @@ COMPONENT DOCUMENTATION:
 ${stringifyJsonForPrompt({
         title: docOutput.title,
         summary: docOutput.summary,
-        anatomy: docOutput.anatomy?.slice(0, 10),
         variants: docOutput.variants?.slice(0, 5),
         tokens: docOutput.tokens?.slice(0, 10),
         states: docOutput.states?.slice(0, 10),

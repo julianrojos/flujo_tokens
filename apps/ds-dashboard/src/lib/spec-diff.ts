@@ -89,7 +89,6 @@ function classifyCategory(path: string): SpecDiffEntry["category"] {
   if (path === "name" || path === "status" || path.startsWith("version")) return "metadata";
   if (path.startsWith("figma")) return "figma";
   if (path.startsWith("summary")) return "summary";
-  if (path.startsWith("anatomy")) return "anatomy";
   if (path.startsWith("properties")) return "properties";
   if (path.startsWith("token_mapping")) return "token_mapping";
   if (path.startsWith("accessibility")) return "accessibility";

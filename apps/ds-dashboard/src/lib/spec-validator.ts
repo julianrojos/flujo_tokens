@@ -131,7 +131,6 @@ function validateRequiredTopLevelFields(
     "status",
     "figma",
     "summary",
-    "anatomy",
     "properties",
     "content_guidelines",
     "best_practices",
@@ -257,50 +256,6 @@ function validateSummary(
       });
     }
   }
-}
-
-function validateAnatomy(
-  issues: SpecValidationIssue[],
-  spec: ComponentSpec,
-) {
-  if (!hasMinItems(spec.anatomy)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_ANATOMY_REQUIRED",
-      path: "anatomy",
-      message: "anatomy must contain at least one item.",
-    });
-    return;
-  }
-
-  spec.anatomy.forEach((item, index) => {
-    const pathPrefix = `anatomy[${index}]`;
-    if (!item || typeof item !== "object") {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_ITEM_INVALID",
-        path: pathPrefix,
-        message: "anatomy item must be an object.",
-      });
-      return;
-    }
-    if (!SNAKE_CASE_RE.test(String(item.id || ""))) {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_ID_INVALID",
-        path: `${pathPrefix}.id`,
-        message: "anatomy.id must be snake_case.",
-      });
-    }
-    if (!String(item.description || "").trim()) {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_DESCRIPTION_REQUIRED",
-        path: `${pathPrefix}.description`,
-        message: "anatomy.description is required.",
-      });
-    }
-  });
 }
 
 function validateProperties(
@@ -527,7 +482,6 @@ export function validateComponentSpec(
   validateNameAndStatus(issues, spec);
   validateFigma(issues, spec);
   validateSummary(issues, spec);
-  validateAnatomy(issues, spec);
   validateProperties(issues, spec);
   validateContentGuidelinesAndBestPractices(issues, spec);
   validateAccessibility(issues, spec);

@@ -333,20 +333,12 @@ function ensureComponentDocTemplates(options: {
   }
 }
 
-type SpecLayerNode = {
-  id: string;
-  name: string;
-  type: string;
-  children?: SpecLayerNode[];
-};
-
 type FullComponentSpecResult = {
   success: true;
   nodeId: string;
   name: string;
   type: string;
   description: string | null;
-  anatomy: SpecLayerNode;
   variants?: Array<{ key: string; nodeId: string; name: string; variantProperties: Record<string, string> }>;
   variantAxes?: Array<{ name: string; values: string[] }>;
   props: Array<{ name: string; type: string; defaultValue: unknown }>;
@@ -358,8 +350,6 @@ type FetchFullComponentSpecFn = (
   fileKey: string | null,
   params: { nodeId: string; depth?: number; compact?: boolean },
 ) => Promise<FullComponentSpecResult>;
-
-const SPEC_ANATOMY_CHILD_LIMIT = 50;
 
 function toSnakeCaseId(value: string, fallback = 'part'): string {
   const normalized = stripDiacritics(String(value || '').trim())
@@ -422,75 +412,9 @@ function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Ma
   return out;
 }
 
-function toLayoutRowsFromAnatomy(root: SpecLayerNode | null | undefined): Array<{
-  nodeId: string;
-  nodeName: string;
-  depth: number;
-  direction?: 'Horizontal' | 'Vertical' | '—';
-  hSizing?: string;
-  vSizing?: string;
-  alignmentH?: string;
-  alignmentV?: string;
-  itemSpacing?: number;
-  padding?: { top: number; right: number; bottom: number; left: number };
-}> {
-  if (!root) return [];
-  const queue: Array<{ node: SpecLayerNode; depth: number }> = [{ node: root, depth: 0 }];
-  const out: Array<{
-    nodeId: string;
-    nodeName: string;
-    depth: number;
-    direction?: 'Horizontal' | 'Vertical' | '—';
-    hSizing?: string;
-    vSizing?: string;
-    alignmentH?: string;
-    alignmentV?: string;
-    itemSpacing?: number;
-    padding?: { top: number; right: number; bottom: number; left: number };
-  }> = [];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) break;
-    const node = current.node;
-    const layoutMeta = (node as SpecLayerNode & {
-      layout?: {
-        mode?: 'horizontal' | 'vertical' | 'none';
-        spacing?: number;
-        padding?: { top: number; right: number; bottom: number; left: number };
-        alignment?: { horizontal: string; vertical: string };
-        sizing?: { horizontal: string; vertical: string };
-      };
-    }).layout;
-    if (layoutMeta) {
-      const mode = String(layoutMeta.mode || '').trim().toLowerCase();
-      const direction: 'Horizontal' | 'Vertical' | '—' | undefined =
-        mode === 'horizontal' ? 'Horizontal' : mode === 'vertical' ? 'Vertical' : mode ? '—' : undefined;
-      out.push({
-        nodeId: String(node.id || '').trim(),
-        nodeName: String(node.name || '').trim(),
-        depth: Math.max(0, current.depth),
-        direction,
-        hSizing: String(layoutMeta.sizing?.horizontal || '').trim() || undefined,
-        vSizing: String(layoutMeta.sizing?.vertical || '').trim() || undefined,
-        alignmentH: String(layoutMeta.alignment?.horizontal || '').trim() || undefined,
-        alignmentV: String(layoutMeta.alignment?.vertical || '').trim() || undefined,
-        itemSpacing: Number.isFinite(Number(layoutMeta.spacing)) ? Number(layoutMeta.spacing) : undefined,
-        padding: layoutMeta.padding,
-      });
-    }
-
-    for (const child of node.children || []) {
-      queue.push({ node: child, depth: current.depth + 1 });
-    }
-  }
-
-  return out;
-}
-
 /**
  * Extract structured Figma data from spec result (SC-04)
- * Returns variants, tokenBindings, layout, anatomy, properties, and unresolved variable IDs
+ * Returns variants, tokenBindings, and unresolved variable IDs
  */
 function extractStructuredFigmaData(args: {
   specData: FullComponentSpecResult | null;
@@ -498,9 +422,6 @@ function extractStructuredFigmaData(args: {
 }): {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
-  layout?: SyncComponentEntry['figma']['layout'];
-  anatomy?: Array<unknown>;
-  properties?: Array<unknown>;
   unresolvedVariableIds: string[];
 } {
   const { specData, variableIdToTokenPath } = args;
@@ -509,9 +430,6 @@ function extractStructuredFigmaData(args: {
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
-    layout?: SyncComponentEntry['figma']['layout'];
-    anatomy?: Array<unknown>;
-    properties?: Array<unknown>;
     unresolvedVariableIds: string[];
   } = {
     unresolvedVariableIds: [],
@@ -549,37 +467,13 @@ function extractStructuredFigmaData(args: {
     }
   }
 
-  // Extract flattened layout rows from anatomy tree (SC-05)
-  const layoutRows = toLayoutRowsFromAnatomy(specData.anatomy || null);
-  if (layoutRows.length > 0) {
-    result.layout = layoutRows;
-  }
-
-  // Extract anatomy children (for persistence in component_figma_anatomy)
-  if (specData.anatomy?.children && specData.anatomy.children.length > 0) {
-    result.anatomy = specData.anatomy.children.map((child) => ({
-      id: child.id,
-      name: child.name,
-      type: child.type,
-    }));
-  }
-
-  // Extract properties (for persistence in component_figma_anatomy)
-  if (specData.props && specData.props.length > 0) {
-    result.properties = specData.props.map((prop) => ({
-      name: prop.name,
-      type: mapFigmaPropertyType(prop.type),
-      defaultValue: prop.defaultValue,
-    }));
-  }
-
   return result;
 }
 
 /**
  * Enrich component entries with structured Figma data (SC-04)
  * This runs independently of YAML capture to ensure DB persistence
- * Persists variants, tokenBindings, layout to child tables AND anatomy+properties to component_figma_anatomy
+ * Persists variants and tokenBindings to child tables
  */
 async function enrichComponentEntriesWithStructuredData(options: {
   entries: SyncComponentEntry[];
@@ -636,27 +530,6 @@ async function enrichComponentEntriesWithStructuredData(options: {
     });
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
-    if (structuredData.layout) entry.figma.layout = structuredData.layout;
-
-    // Persist anatomy + properties to component_figma_anatomy table
-    // Look up component ID by slug since entries don't have IDs populated
-    if (structuredData.anatomy && structuredData.properties) {
-      try {
-        const component = componentRepo.getBySlug(dsId, entry.slug);
-        if (component && component.id) {
-          componentRepo.upsertAnatomySpec(
-            component.id,
-            structuredData.anatomy,
-            structuredData.properties,
-            runId,
-          );
-        }
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        console.warn(`[enrichComponentEntriesWithStructuredData] Failed persisting anatomy for slug=${entry.slug}: ${reason}`);
-      }
-    }
-
     entry.figma.structuredCaptureStatus = 'ok';
     if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
       const unresolved = Array.from(new Set(structuredData.unresolvedVariableIds));

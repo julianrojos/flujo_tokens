@@ -11,22 +11,6 @@ export type FigmaComponentSpec = Record<string, unknown>;
 export const COMPONENT_DOC_SCHEMA_VERSION = 2 as const;
 
 /**
- * Individual anatomy item describing a part of the component
- */
-export interface ComponentDocAnatomy {
-    /** Name of the anatomy part (e.g., "Primary Button", "Icon Container") */
-    name: string;
-    /** Type of the part (e.g., "FRAME", "TEXT", "INSTANCE") */
-    type: string;
-    /** Description of what this part does */
-    description: string;
-    /** Whether this part is optional */
-    optional?: boolean;
-    /** Child anatomy items (recursive, limited depth) */
-    children?: ComponentDocAnatomy[];
-}
-
-/**
  * Variant definition for the component
  */
 export interface ComponentDocVariant {
@@ -105,8 +89,6 @@ export interface ComponentDocOutput {
     title: string;
     /** Brief summary of the component */
     summary: string;
-    /** Anatomy breakdown */
-    anatomy: ComponentDocAnatomy[];
     /** Available variants */
     variants: ComponentDocVariant[];
     /** Design tokens used */
@@ -349,7 +331,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
         'componentId',
         'title',
         'summary',
-        'anatomy',
         'variants',
         'tokens',
         'accessibilityNotes',
@@ -374,35 +355,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
         summary: {
             type: 'string',
             description: 'Brief summary of the component',
-        },
-        anatomy: {
-            type: 'array',
-            description: 'Anatomy breakdown of the component',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['name', 'type', 'description'],
-                properties: {
-                    name: { type: 'string' },
-                    type: { type: 'string' },
-                    description: { type: 'string' },
-                    optional: { type: 'boolean' },
-                    children: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            additionalProperties: false,
-                            required: ['name', 'type', 'description'],
-                            properties: {
-                                name: { type: 'string' },
-                                type: { type: 'string' },
-                                description: { type: 'string' },
-                                optional: { type: 'boolean' },
-                            },
-                        },
-                    },
-                },
-            },
         },
         variants: {
             type: 'array',
@@ -538,29 +490,10 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     // Validate required array fields
-    const requiredArrays = ['anatomy', 'variants', 'tokens', 'accessibilityNotes', 'states', 'accessibilityFacts'] as const;
+    const requiredArrays = ['variants', 'tokens', 'accessibilityNotes', 'states', 'accessibilityFacts'] as const;
     for (const field of requiredArrays) {
         if (!Array.isArray(obj[field])) {
             throw new Error(`Missing required field: ${field}`);
-        }
-    }
-
-    // Validate nested anatomy items
-    const anatomy = obj.anatomy as unknown[];
-    for (let i = 0; i < anatomy.length; i++) {
-        const item = anatomy[i];
-        if (!item || typeof item !== 'object') {
-            throw new Error(`anatomy[${i}]: must be an object`);
-        }
-        const anatomyItem = item as Record<string, unknown>;
-        if (typeof anatomyItem.name !== 'string') {
-            throw new Error(`anatomy[${i}]: missing or invalid 'name' field`);
-        }
-        if (typeof anatomyItem.type !== 'string') {
-            throw new Error(`anatomy[${i}]: missing or invalid 'type' field`);
-        }
-        if (typeof anatomyItem.description !== 'string') {
-            throw new Error(`anatomy[${i}]: missing or invalid 'description' field`);
         }
     }
 
@@ -694,7 +627,6 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
         componentId: obj.componentId as string,
         title: obj.title as string,
         summary: obj.summary as string,
-        anatomy: obj.anatomy as ComponentDocAnatomy[],
         variants: obj.variants as ComponentDocVariant[],
         tokens: obj.tokens as ComponentDocToken[],
         accessibilityNotes: obj.accessibilityNotes as string[],
@@ -730,20 +662,6 @@ export function createValidComponentDocFixture(
         componentId: '68:4097',
         title: 'Button',
         summary: 'A button component for triggering actions',
-        anatomy: [
-            {
-                name: 'Container',
-                type: 'FRAME',
-                description: 'Main button container',
-                children: [
-                    {
-                        name: 'Label',
-                        type: 'TEXT',
-                        description: 'Button text label',
-                    },
-                ],
-            },
-        ],
         variants: [
             {
                 id: 'variant-1',

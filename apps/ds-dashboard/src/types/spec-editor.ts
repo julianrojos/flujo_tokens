@@ -1,8 +1,7 @@
 /**
  * Component Spec Editor Types (DB-first)
- * 
+ *
  * Editorial fields are stored in component_editorial table.
- * Structural fields (anatomy, properties) are stored in component_figma_anatomy table.
  */
 
 export type SpecValidationSeverity = "error" | "warning";
@@ -39,7 +38,6 @@ export type SpecDiffCategory =
   | "metadata"
   | "figma"
   | "summary"
-  | "anatomy"
   | "properties"
   | "token_mapping"
   | "accessibility"

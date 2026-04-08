@@ -25,17 +25,15 @@ describe('ai-component-doc-renderer', () => {
 
             assert.ok(result.includes('ai.schema_version: 2'));
             assert.ok(result.includes('# Button'));
-            assert.ok(result.includes('## Anatomy'));
             assert.ok(result.includes('## Variants'));
             assert.ok(result.includes('## Design Tokens'));
             assert.ok(result.includes('## Accessibility'));
         });
 
-        it('handles empty anatomy gracefully', () => {
-            const output = createValidComponentDocFixture({ anatomy: [] });
+        it('does not render anatomy section', () => {
+            const output = createValidComponentDocFixture();
             const result = renderComponentDoc(output);
-            assert.ok(result.includes('## Anatomy'));
-            assert.ok(result.includes('None documented.'));
+            assert.ok(!result.includes('## Anatomy'));
         });
 
         it('handles empty variants gracefully', () => {
@@ -146,7 +144,6 @@ describe('ai-component-doc-renderer', () => {
             const output = createValidComponentDocFixture();
             const result = renderComponentDoc({ output, editorialPatch: null });
             assert.ok(result.includes('# Button'));
-            assert.ok(result.includes('## Anatomy'));
             assert.doesNotMatch(result, /Editorial:/);
         });
 
@@ -203,7 +200,6 @@ describe('ai-component-doc-renderer', () => {
 
         it('preserves base sections unchanged when editorial patch is provided', () => {
             const output = createValidComponentDocFixture({
-                anatomy: [{ name: 'Container', type: 'FRAME', description: 'Main wrapper', optional: false }],
                 variants: [{ id: 'v1', name: 'Default', description: 'Default variant', properties: { State: 'Default' } }],
                 tokens: [{ name: 'fill', value: '#000', type: 'color', description: 'Background' }],
                 accessibilityNotes: ['Keyboard accessible'],
@@ -220,7 +216,6 @@ describe('ai-component-doc-renderer', () => {
             const result = renderComponentDoc({ output, editorialPatch: patch });
 
             // Base sections still present
-            assert.ok(result.includes('## Anatomy'));
             assert.ok(result.includes('## Variants'));
             assert.ok(result.includes('## Design Tokens'));
             assert.ok(result.includes('## Accessibility'));
@@ -257,9 +252,9 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('**consistent**'));
         });
 
-        it('R-002: escapes * and _ in table cell content to prevent format breakage', () => {
+        it('R-002: escapes * and _ in variants table cell content to prevent format breakage', () => {
             const output = createValidComponentDocFixture({
-                anatomy: [{ name: 'Button_*wrapper', type: 'FRAME', description: 'Has * and _ chars', optional: false }],
+                variants: [{ id: 'v1', name: 'Button_*wrapper', description: 'Has * and _ chars', properties: { State: 'Default' } }],
             });
             const result = renderComponentDoc(output);
             assert.ok(result.includes('Button\\_\\*wrapper'));

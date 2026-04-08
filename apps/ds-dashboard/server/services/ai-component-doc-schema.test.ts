@@ -296,7 +296,7 @@ describe('ai-component-doc-schema', () => {
             }, /Missing required field: summary/);
         });
 
-        it('should reject missing anatomy array', () => {
+        it('should accept missing anatomy array (legacy field removed)', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
@@ -309,9 +309,8 @@ describe('ai-component-doc-schema', () => {
                 states: [],
                 accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /Missing required field: anatomy/);
+            const result = validateComponentDocOutput(fixture);
+            assert.equal(result.title, 'Button');
         });
 
         it('should reject missing variants array', () => {
@@ -383,7 +382,7 @@ describe('ai-component-doc-schema', () => {
                 accessibilityFacts: [],
             };
             const result = validateComponentDocOutput(fixture);
-            assert.deepEqual(result.anatomy, []);
+            assert.equal((result as { anatomy?: unknown }).anatomy, undefined);
             assert.deepEqual(result.variants, []);
             assert.deepEqual(result.tokens, []);
             assert.deepEqual(result.accessibilityNotes, []);
@@ -411,7 +410,7 @@ describe('ai-component-doc-schema', () => {
             assert.equal(result.title, 'Button');
         });
 
-        it('should reject anatomy item with missing name', () => {
+        it('should tolerate legacy anatomy payload with missing name', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
@@ -425,12 +424,11 @@ describe('ai-component-doc-schema', () => {
                 states: [],
                 accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /anatomy\[0\]: missing or invalid 'name' field/);
+            const result = validateComponentDocOutput(fixture);
+            assert.equal(result.title, 'Button');
         });
 
-        it('should reject anatomy item with missing type', () => {
+        it('should tolerate legacy anatomy payload with missing type', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
@@ -444,9 +442,8 @@ describe('ai-component-doc-schema', () => {
                 states: [],
                 accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /anatomy\[0\]: missing or invalid 'type' field/);
+            const result = validateComponentDocOutput(fixture);
+            assert.equal(result.title, 'Button');
         });
 
         it('should reject variant with missing properties', () => {

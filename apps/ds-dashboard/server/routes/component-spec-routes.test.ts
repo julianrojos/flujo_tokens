@@ -98,8 +98,8 @@ describe('component-spec-routes (DB-first)', () => {
     const payload = await res.json();
     assert.equal(payload.ok, true);
     assert.equal(payload.exists, false);
-    assert.ok(Array.isArray(payload.spec?.anatomy));
-    assert.equal(payload.spec.anatomy.length, 1);
+    // Anatomy is no longer returned in spec
+    assert.equal(payload.spec?.anatomy, undefined);
   });
 
   it('GET exposes figma_token_bindings as an array payload', async () => {
@@ -339,6 +339,49 @@ describe('component-spec-routes (DB-first)', () => {
     assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Screen reader validated']);
   });
 
+  it('PATCH /editorial with notes-only preserves existing accessibility_json', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'a11y-preserve', name: 'A11y Preserve', status: 'draft', docType: 'component' },
+    ]);
+    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'a11y-preserve') as { id: number };
+    const originalAccessibility = {
+      role: 'button',
+      focus: { tokens: { inner: '{color.focus.inner}' } },
+      labeling: { rules: ['Rule A'] },
+    };
+    db.prepare(`
+      INSERT OR REPLACE INTO component_editorial (component_id, accessibility_json, updated_at)
+      VALUES (?, ?, 1111)
+    `).run(component.id, JSON.stringify(originalAccessibility));
+
+    const res = await app.request('/api/component-spec/a11y-preserve/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 1111,
+        fields: {
+          accessibility: {
+            notes: ['Keep original accessibility object'],
+          },
+        },
+      }),
+    });
+
+    assert.equal(res.status, 200);
+    const row = db.prepare(`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ? AND c.slug = ?
+    `).get('sys-01', 'a11y-preserve') as {
+      accessibility_json: string | null;
+      accessibility_notes_json: string | null;
+    };
+
+    assert.deepEqual(JSON.parse(row.accessibility_json as string), originalAccessibility);
+    assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keep original accessibility object']);
+  });
+
   describe('editorial suggestions', () => {
     before(() => {
       repo.upsertFromRegistry('sys-01', [
@@ -434,5 +477,48 @@ describe('component-spec-routes (DB-first)', () => {
       });
       assert.equal(res.status, 403);
     });
+  });
+
+  it('PATCH /editorial with variants and tokens — persists and re-reads correctly', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'vt-test', name: 'VT Test', status: 'draft', docType: 'component' },
+    ]);
+
+    const variants = [
+      { id: 'v1', name: 'Primary', description: 'Primary variant', properties: { variant: 'primary' } },
+      { id: 'v2', name: 'Secondary', description: 'Secondary variant', properties: { variant: 'secondary' } },
+    ];
+    const tokens = [
+      { name: 'fill-primary', value: '#6366F1', type: 'color', description: 'Primary fill color' },
+      { name: 'spacing-sm', value: '8px', type: 'spacing', description: 'Small spacing' },
+    ];
+
+    // PATCH to create editorial with variants and tokens
+    const patchRes = await app.request('/api/component-spec/vt-test/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          summary: { purpose: 'Test component' },
+          variants,
+          tokens,
+        },
+      }),
+    });
+    assert.equal(patchRes.status, 200);
+    const patchPayload = await patchRes.json();
+    assert.equal(patchPayload.ok, true);
+    assert.ok(patchPayload.savedKeys.includes('variants'));
+    assert.ok(patchPayload.savedKeys.includes('tokens'));
+
+    // GET to verify the data was persisted and re-read correctly
+    const getRes = await app.request('/api/component-spec/vt-test');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.ok, true);
+    assert.equal(getPayload.exists, true);
+    assert.deepEqual(getPayload.spec.variants, variants);
+    assert.deepEqual(getPayload.spec.tokens, tokens);
   });
 });
