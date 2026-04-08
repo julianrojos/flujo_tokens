@@ -18,41 +18,11 @@ interface ComponentVisualProofSectionProps {
   variantVisuals?: SpecVariantVisual[];
 }
 
-function formatBytes(value: number | null | undefined): string | null {
-  if (!Number.isFinite(Number(value)) || Number(value) <= 0) return null;
-  const bytes = Number(value);
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatCapturedAt(value: string | null | undefined): string | null {
-  const normalized = String(value || "").trim();
-  if (!normalized) return null;
-  const date = new Date(normalized);
-  if (!Number.isFinite(date.getTime())) return null;
-  return date.toLocaleString();
-}
-
 export function ComponentVisualProofSection({ item, captureSummary, onOpenCapture, variantVisuals }: ComponentVisualProofSectionProps) {
   const proof = item?.visual_proof;
   const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
   const [mainImageFailed, setMainImageFailed] = useState(false);
   const [failedVariantKeys, setFailedVariantKeys] = useState<Set<string>>(new Set());
-  const capturedAt = formatCapturedAt(proof?.captured_at);
-  const imageBytes = formatBytes(proof?.image_bytes);
-  const imageDimensions =
-    Number.isFinite(Number(proof?.image_width)) && Number.isFinite(Number(proof?.image_height))
-      ? `${proof?.image_width} × ${proof?.image_height}`
-      : null;
-  const variantsCount = Number.isFinite(Number(proof?.variants_count))
-    ? Number(proof?.variants_count)
-    : Array.isArray(proof?.variants)
-      ? proof.variants.length
-      : 0;
-  const variantNames = Array.isArray(proof?.variants)
-    ? proof.variants.map((variant) => String(variant.name || "").trim()).filter(Boolean)
-    : [];
   const variantPreviews = useMemo(
     () =>
       Array.isArray(proof?.variants)
@@ -99,13 +69,6 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
     () => variantPreviews.filter((variant) => !failedVariantKeys.has(variant.key)),
     [failedVariantKeys, variantPreviews],
   );
-  const hasTechnicalEvidence =
-    Boolean(proof?.exists) ||
-    Boolean(capturedAt) ||
-    Boolean(imageBytes) ||
-    Boolean(imageDimensions) ||
-    Boolean(proof?.image_sha256) ||
-    Number(variantsCount) > 0;
   if (!item || !proof) return null;
 
   return (
@@ -122,19 +85,6 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {hasTechnicalEvidence && (
-          <div className="grid gap-2 rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground sm:grid-cols-2">
-            <div>Captured: {capturedAt || "N/A"}</div>
-            <div>Variants: {variantsCount}</div>
-            <div>Image size: {imageBytes || "N/A"}</div>
-            <div>Dimensions: {imageDimensions || "N/A"}</div>
-            <div className="sm:col-span-2">Node ID: {proof.node_id || "N/A"}</div>
-            <div className="sm:col-span-2">SHA-256: {proof.image_sha256 || "N/A"}</div>
-            {variantNames.length > 0 && (
-              <div className="sm:col-span-2">Variant names: {variantNames.join(", ")}</div>
-            )}
-          </div>
-        )}
         {screenshotUrl && !mainImageFailed && (
           <div>
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screenshot</h4>
