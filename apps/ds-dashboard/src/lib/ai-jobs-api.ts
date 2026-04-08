@@ -7,7 +7,6 @@ import { requestJson } from '@/lib/api';
 import { buildAiJobEventsUrl } from '@/types/ai-jobs';
 import type {
     AiJobResponse,
-    AiJobEditorialPatchResponse,
     CreateAiJobRequest,
     CreateAiJobResponse,
     AiDocStatusResponse,
@@ -40,13 +39,6 @@ export async function getAiJob(jobId: string): Promise<AiJobResponse> {
 }
 
 /**
- * Get full editorial patch payload for a completed job
- */
-export async function getAiJobEditorialPatch(jobId: string): Promise<AiJobEditorialPatchResponse> {
-    return requestJson<AiJobEditorialPatchResponse>(`/api/ai/jobs/${jobId}/editorial-patch`);
-}
-
-/**
  * Cancel a queued or running job
  */
 export async function cancelAiJob(jobId: string): Promise<{ ok: boolean }> {
@@ -67,20 +59,6 @@ export async function getAiDocStatus(): Promise<AiDocStatusResponse> {
  */
 export async function getAiJobDiff(jobId: string): Promise<DiffResult> {
     return requestJson<DiffResult>(`/api/ai/jobs/${jobId}/diff`);
-}
-
-/**
- * Apply editorial patch from a completed job — creates a pending suggestion in DB
- */
-export async function applyAiJobEditorial(jobId: string): Promise<{
-    ok: boolean;
-    suggestionId: number;
-    status: string;
-    createdAt: number;
-}> {
-    return requestJson(`/api/ai/jobs/${jobId}/apply-editorial`, {
-        method: 'POST',
-    });
 }
 
 export async function getAiProviderHealth(params: {

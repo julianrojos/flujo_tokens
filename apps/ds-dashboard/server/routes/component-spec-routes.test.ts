@@ -60,6 +60,25 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(payload.userMessage, 'Component "nonexistent" not found');
   });
 
+  it('does not expose legacy editorial-suggestion routes', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion');
+    assert.equal(res.status, 404);
+  });
+
+  it('does not expose legacy editorial-suggestion discard route', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion/discard', {
+      method: 'POST',
+    });
+    assert.equal(res.status, 404);
+  });
+
+  it('does not expose legacy editorial-suggestion mark-applied route', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion/mark-applied', {
+      method: 'POST',
+    });
+    assert.equal(res.status, 404);
+  });
+
   it('passes x-ds-system header to getSystemContext', async () => {
     let capturedHeader: string | undefined;
     const appWithSpy = new Hono();
@@ -82,16 +101,6 @@ describe('component-spec-routes (DB-first)', () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'button', name: 'Button', status: 'draft', docType: 'component' },
     ]);
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'button') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_figma_anatomy (component_id, anatomy_json, properties_json, run_id, captured_at, schema_version)
-      VALUES (?, ?, ?, ?, strftime('%s', 'now'), 1)
-    `).run(
-      component.id,
-      JSON.stringify([{ id: 'root', name: 'Root', type: 'FRAME' }]),
-      JSON.stringify([{ name: 'state', type: 'enum', default: 'default', required: false, description: '' }]),
-      'run-test',
-    );
 
     const res = await app.request('/api/component-spec/button');
     assert.equal(res.status, 200);
@@ -380,103 +389,6 @@ describe('component-spec-routes (DB-first)', () => {
 
     assert.deepEqual(JSON.parse(row.accessibility_json as string), originalAccessibility);
     assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keep original accessibility object']);
-  });
-
-  describe('editorial suggestions', () => {
-    before(() => {
-      repo.upsertFromRegistry('sys-01', [
-        { slug: 'suggestion-test', name: 'Suggestion Test', status: 'draft', docType: 'component' },
-      ]);
-      const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test') as { id: number };
-      db.prepare(`
-        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
-        VALUES (?, 'job-sug-test', ?, strftime('%s', 'now'))
-      `).run(component.id, JSON.stringify({ schemaVersion: 1, summary: { purpose: 'AI suggested' } }));
-    });
-
-    it('GET /editorial-suggestion returns pending suggestion', async () => {
-      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
-      assert.equal(res.status, 200);
-      const payload = await res.json();
-      assert.equal(payload.ok, true);
-      assert.ok(payload.suggestion);
-      assert.equal(payload.suggestion.jobId, 'job-sug-test');
-      assert.equal(payload.suggestion.patch.summary.purpose, 'AI suggested');
-    });
-
-    it('GET /editorial-suggestion returns null when no suggestion', async () => {
-      // Use a component that exists but has no suggestion
-      repo.upsertFromRegistry('sys-01', [
-        { slug: 'no-suggestion', name: 'No Suggestion', status: 'draft', docType: 'component' },
-      ]);
-      const res = await app.request('/api/component-spec/no-suggestion/editorial-suggestion');
-      assert.equal(res.status, 200);
-      const payload = await res.json();
-      assert.equal(payload.ok, true);
-      assert.equal(payload.suggestion, null);
-    });
-
-    it('POST /editorial-suggestion/discard marks suggestion as discarded', async () => {
-      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/discard', {
-        method: 'POST',
-      });
-      assert.equal(res.status, 200);
-      const payload = await res.json();
-      assert.equal(payload.ok, true);
-      assert.equal(payload.message, 'Suggestion discarded');
-
-      // Verify it's no longer returned as pending
-      const getRes = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
-      const getPayload = await getRes.json();
-      assert.equal(getPayload.suggestion, null);
-    });
-
-    it('POST /editorial-suggestion/mark-applied marks suggestion as applied', async () => {
-      // Re-insert a suggestion
-      const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test') as { id: number };
-      db.prepare(`
-        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
-        VALUES (?, 'job-sug-apply', ?, strftime('%s', 'now'))
-      `).run(component.id, JSON.stringify({ schemaVersion: 1 }));
-
-      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/mark-applied', {
-        method: 'POST',
-      });
-      assert.equal(res.status, 200);
-      const payload = await res.json();
-      assert.equal(payload.ok, true);
-      assert.equal(payload.message, 'Suggestion marked as applied');
-
-      // Verify it's no longer returned as pending
-      const getRes = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
-      const getPayload = await getRes.json();
-      assert.equal(getPayload.suggestion, null);
-    });
-
-    it('POST /editorial-suggestion/mark-applied rejects suggestionId from another component', async () => {
-      repo.upsertFromRegistry('sys-01', [
-        { slug: 'suggestion-test-2', name: 'Suggestion Test 2', status: 'draft', docType: 'component' },
-      ]);
-      const otherComponent = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test-2') as { id: number };
-      db.prepare(`
-        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
-        VALUES (?, 'job-sug-other', ?, strftime('%s', 'now'))
-      `).run(otherComponent.id, JSON.stringify({ schemaVersion: 1, summary: { purpose: 'other' } }));
-
-      const otherSuggestion = db.prepare(`
-        SELECT id
-        FROM component_editorial_suggestions
-        WHERE component_id = ? AND job_id = 'job-sug-other'
-        LIMIT 1
-      `).get(otherComponent.id) as { id: number };
-
-      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/mark-applied', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggestionId: otherSuggestion.id }),
-      });
-      assert.equal(res.status, 403);
-    });
   });
 
   it('PATCH /editorial with variants and tokens — persists and re-reads correctly', async () => {

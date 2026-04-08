@@ -499,7 +499,7 @@ export function AiJobStatusCard({
                         </Button>
                     )}
 
-                    {canApply && (
+                    {canApply && onApply && (
                         <Button
                             size="sm"
                             onClick={handleApply}

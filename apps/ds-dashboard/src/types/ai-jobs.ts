@@ -201,15 +201,6 @@ export interface AiJobResponse {
 }
 
 /**
- * Editorial patch payload from GET /api/ai/jobs/:id/editorial-patch
- */
-export interface AiJobEditorialPatchResponse {
-    ok: boolean;
-    id: string;
-    editorialPatch: Record<string, unknown>;
-}
-
-/**
  * Create job request body
  */
 export interface CreateAiJobRequest {

@@ -415,7 +415,7 @@ describe('ComponentRepository', () => {
         });
     });
 
-    describe('editorial and anatomy contracts', () => {
+    describe('editorial contracts', () => {
         let testComponentId: number;
 
         before(() => {
@@ -428,33 +428,12 @@ describe('ComponentRepository', () => {
             testComponentId = result.lastInsertRowid as number;
         });
 
-        it('Contract 1: getEditorial returns null when no row exists; getAnatomySpec returns row when data exists', () => {
-            // Editorial should be null initially
+        it('getEditorial returns null when no row exists', () => {
             const editorial = repo.getEditorial(testComponentId);
             assert.strictEqual(editorial, null, 'getEditorial should return null when no row exists');
-
-            // Insert anatomy data
-            const anatomy = [{ id: 'node-1', name: 'Root', type: 'FRAME' }];
-            const properties = [{ name: 'Variant', type: 'VARIANT', defaultValue: 'default' }];
-            const result = repo.upsertAnatomySpec(testComponentId, anatomy, properties, 'test-run-1');
-
-            assert.strictEqual(result.componentId, testComponentId);
-            assert.deepStrictEqual(result.anatomy, anatomy);
-            assert.deepStrictEqual(result.properties, properties);
-
-            // Retrieve anatomy
-            const retrieved = repo.getAnatomySpec(testComponentId);
-            assert.ok(retrieved, 'getAnatomySpec should return row when data exists');
-            assert.deepStrictEqual(retrieved.anatomy, anatomy);
-            assert.deepStrictEqual(retrieved.properties, properties);
         });
 
-        it('Contract 2: upsertEditorial does not modify component_figma_anatomy', () => {
-            // Get anatomy before
-            const anatomyBefore = repo.getAnatomySpec(testComponentId);
-            assert.ok(anatomyBefore, 'Anatomy should exist before editorial upsert');
-
-            // Upsert editorial
+        it('creates editorial row with expectedUpdatedAt = null', () => {
             const editorialFields = {
                 summary: { purpose: 'Test component' },
                 bestPractices: { usage: 'Use in forms' },
@@ -463,15 +442,9 @@ describe('ComponentRepository', () => {
 
             assert.strictEqual(editorial.componentId, testComponentId);
             assert.deepStrictEqual(editorial.summary, editorialFields.summary);
-
-            // Verify anatomy unchanged
-            const anatomyAfter = repo.getAnatomySpec(testComponentId);
-            assert.ok(anatomyAfter, 'Anatomy should still exist after editorial upsert');
-            assert.deepStrictEqual(anatomyAfter.anatomy, anatomyBefore.anatomy, 'Anatomy should not be modified');
-            assert.deepStrictEqual(anatomyAfter.properties, anatomyBefore.properties, 'Properties should not be modified');
         });
 
-        it('Contract 3: Optimistic locking - upsertEditorial with incorrect expectedUpdatedAt throws statusCode 409', () => {
+        it('optimistic locking: incorrect expectedUpdatedAt throws statusCode 409', () => {
             const wrongUpdatedAt = 999999;
 
             assert.throws(
@@ -485,6 +458,8 @@ describe('ComponentRepository', () => {
         });
 
         it('requires expectedUpdatedAt for updates and throws statusCode 400 when omitted', () => {
+            const existing = repo.getEditorial(testComponentId);
+            assert.ok(existing, 'Editorial row should exist before testing update precondition');
             assert.throws(
                 () =>
                     repo.upsertEditorial(
@@ -512,43 +487,9 @@ describe('ComponentRepository', () => {
             );
         });
 
-        it('Contract 4: upsertAnatomySpec with empty arrays when row exists is NO-OP (anti-deletion)', () => {
-            // Get current anatomy
-            const before = repo.getAnatomySpec(testComponentId);
-            assert.ok(before, 'Anatomy should exist');
-            assert.ok(before.anatomy.length > 0, 'Anatomy should have data');
-
-            // Attempt to upsert with empty arrays
-            const result = repo.upsertAnatomySpec(testComponentId, [], [], 'test-run-2');
-
-            // Should return existing data unchanged (NO-OP)
-            assert.deepStrictEqual(result.anatomy, before.anatomy, 'Anatomy should be unchanged (anti-deletion)');
-            assert.deepStrictEqual(result.properties, before.properties, 'Properties should be unchanged (anti-deletion)');
-
-            // Verify in DB
-            const after = repo.getAnatomySpec(testComponentId);
-            assert.deepStrictEqual(after?.anatomy, before.anatomy, 'DB should reflect no change');
-        });
-
-        it('preserves existing side when only one structured array is provided', () => {
-            const before = repo.getAnatomySpec(testComponentId);
-            assert.ok(before, 'Anatomy should exist');
-
-            const updatedProperties = [{ name: 'State', type: 'enum', values: ['default', 'hover'] }];
-            const result = repo.upsertAnatomySpec(testComponentId, [], updatedProperties, 'test-run-3');
-
-            assert.deepStrictEqual(result.anatomy, before.anatomy, 'Anatomy should be preserved when incoming anatomy is empty');
-            assert.deepStrictEqual(result.properties, updatedProperties, 'Properties should be updated');
-
-            const persisted = repo.getAnatomySpec(testComponentId);
-            assert.ok(persisted);
-            assert.deepStrictEqual(persisted.anatomy, before.anatomy, 'Persisted anatomy should remain unchanged');
-            assert.deepStrictEqual(persisted.properties, updatedProperties, 'Persisted properties should match update');
-        });
-
     });
 
-    describe('editorial suggestions', () => {
+    describe('component lookup helpers', () => {
         let testComponentId: number;
 
         before(() => {
@@ -563,75 +504,6 @@ describe('ComponentRepository', () => {
             }]);
             const row = repo.db.prepare("SELECT id FROM components WHERE slug = 'test-comp-sug'").get() as { id: number } | undefined;
             testComponentId = row!.id;
-        });
-
-        it('upserts and retrieves a pending suggestion', () => {
-            const result = repo.upsertEditorialSuggestion(testComponentId, 'job-sug-1', JSON.stringify({ schemaVersion: 1 }));
-            assert.strictEqual(result.status, 'pending');
-
-            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(suggestion);
-            assert.strictEqual(suggestion!.jobId, 'job-sug-1');
-            assert.deepStrictEqual(JSON.parse(suggestion!.patchJson), { schemaVersion: 1 });
-        });
-
-        it('is idempotent — upserting same job_id updates, does not duplicate', () => {
-            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-1', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'updated' } }));
-            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(suggestion);
-            assert.deepStrictEqual(JSON.parse(suggestion!.patchJson), { schemaVersion: 1, summary: { purpose: 'updated' } });
-        });
-
-        it('keeps one pending suggestion per component by discarding previous pending from a different job', () => {
-            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-A', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'A' } }));
-            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-B', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'B' } }));
-            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(suggestion);
-            assert.strictEqual(suggestion!.jobId, 'job-sug-B');
-        });
-
-        it('marks suggestion as applied', () => {
-            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(suggestion, 'Should have a pending suggestion');
-
-            repo.markSuggestionStatus(suggestion!.id, 'applied');
-            const after = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.strictEqual(after, null, 'Applied suggestion should not be returned as pending');
-        });
-
-        it('markSuggestionStatus is idempotent when called repeatedly with the same status', () => {
-            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-idempotent', JSON.stringify({ schemaVersion: 1 }));
-            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(suggestion);
-            repo.markSuggestionStatus(suggestion!.id, 'applied');
-            assert.doesNotThrow(() => repo.markSuggestionStatus(suggestion!.id, 'applied'));
-        });
-
-        it('marks suggestion as discarded', () => {
-            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-2', JSON.stringify({ schemaVersion: 1 }));
-            const before = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.ok(before, 'Should have a pending suggestion');
-
-            repo.markSuggestionStatus(before!.id, 'discarded');
-            const after = repo.getLatestEditorialSuggestion(testComponentId);
-            assert.strictEqual(after, null, 'Discarded suggestion should not be returned as pending');
-        });
-
-        it('throws when marking non-existent suggestion', () => {
-            let thrown: unknown;
-            try {
-                repo.markSuggestionStatus(99999, 'applied');
-            } catch (e) {
-                thrown = e;
-            }
-            assert.ok(thrown, 'Should have thrown');
-            assert.ok(thrown instanceof Error, 'Should throw an Error');
-            assert.match((thrown as Error).message, /Suggestion not found/);
-        });
-
-        it('returns null for component with no suggestions', () => {
-            const suggestion = repo.getLatestEditorialSuggestion(99999);
-            assert.strictEqual(suggestion, null);
         });
 
         it('resolves component by figma node id with design-system scope', () => {

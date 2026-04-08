@@ -3,7 +3,7 @@
  *
  * Defines the structured JSON contract for AI-generated editorial suggestions.
  * The LLM produces this as a second call after generating the markdown doc.
- * Each section maps to columns in component_editorial or component_editorial_suggestions.
+ * Each section maps to columns in component_editorial.
  */
 
 export const EDITORIAL_PATCH_SCHEMA_VERSION = 2 as const;
