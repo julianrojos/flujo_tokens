@@ -3,6 +3,9 @@
  *
  * Each section is rendered structurally (not as markdown), with a "Use this"
  * button that applies the section value to the form via the dispatch callback.
+ *
+ * Exports four standalone *SuggestionCard components for use in the desktop
+ * two-column layout, and composes them into AiSuggestionsPanel for mobile.
  */
 
 import { useCallback } from 'react';
@@ -11,18 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { SUGGESTION_SECTION_MAP, type SectionId, type FormDispatchAction } from '../constants/suggestion-section-map';
 
-interface AiSuggestionsPanelProps {
-  suggestion: ComponentDocOutput;
-  onApplySection: (action: FormDispatchAction) => void;
-}
+// ─── SummarySuggestionCard ──────────────────────────────────────────────
 
-function SummarySection({
-  value,
-  onApply,
-}: {
+export interface SummarySuggestionCardProps {
   value: string;
   onApply: () => void;
-}) {
+}
+
+export function SummarySuggestionCard({ value, onApply }: SummarySuggestionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -40,14 +39,14 @@ function SummarySection({
   );
 }
 
-function VariantsSection({
-  value,
-  onApply,
-}: {
+// ─── VariantsSuggestionCard ─────────────────────────────────────────────
+
+export interface VariantsSuggestionCardProps {
   value: ComponentDocVariant[];
   onApply: () => void;
-}) {
-  if (value.length === 0) return null;
+}
+
+export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -60,32 +59,36 @@ function VariantsSection({
         <CardDescription>{value.length} variant{value.length !== 1 ? 's' : ''}</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="space-y-2">
-          {value.map((v) => (
-            <li key={v.id} className="rounded-md border border-border bg-surface-2 p-3">
-              <p className="text-sm font-medium">{v.name}</p>
-              <p className="text-xs text-muted-foreground">{v.description}</p>
-              {Object.keys(v.properties).length > 0 && (
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                  {Object.entries(v.properties).map(([k, val]) => `${k}=${val}`).join(', ')}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
+        {value.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No variants in suggestion.</p>
+        ) : (
+          <ul className="space-y-2">
+            {value.map((v) => (
+              <li key={v.id} className="rounded-md border border-border bg-surface-2 p-3">
+                <p className="text-sm font-medium">{v.name}</p>
+                <p className="text-xs text-muted-foreground">{v.description}</p>
+                {Object.keys(v.properties).length > 0 && (
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    {Object.entries(v.properties).map(([k, val]) => `${k}=${val}`).join(', ')}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function TokensSection({
-  value,
-  onApply,
-}: {
+// ─── TokensSuggestionCard ───────────────────────────────────────────────
+
+export interface TokensSuggestionCardProps {
   value: ComponentDocToken[];
   onApply: () => void;
-}) {
-  if (value.length === 0) return null;
+}
+
+export function TokensSuggestionCard({ value, onApply }: TokensSuggestionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -98,30 +101,34 @@ function TokensSection({
         <CardDescription>{value.length} token{value.length !== 1 ? 's' : ''}</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="space-y-1">
-          {value.map((t, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm">
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{t.name}</code>
-              <span className="text-muted-foreground">{t.value}</span>
-              <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                {t.type}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {value.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No tokens in suggestion.</p>
+        ) : (
+          <ul className="space-y-1">
+            {value.map((t, i) => (
+              <li key={i} className="flex items-center gap-2 text-sm">
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{t.name}</code>
+                <span className="text-muted-foreground">{t.value}</span>
+                <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                  {t.type}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function AccessibilitySection({
-  value,
-  onApply,
-}: {
+// ─── AccessibilitySuggestionCard ────────────────────────────────────────
+
+export interface AccessibilitySuggestionCardProps {
   value: string[];
   onApply: () => void;
-}) {
-  if (value.length === 0) return null;
+}
+
+export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySuggestionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -133,14 +140,25 @@ function AccessibilitySection({
         </div>
       </CardHeader>
       <CardContent>
-        <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-          {value.map((note, i) => (
-            <li key={i}>{note}</li>
-          ))}
-        </ul>
+        {value.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No accessibility notes in suggestion.</p>
+        ) : (
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            {value.map((note, i) => (
+              <li key={i}>{note}</li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
+}
+
+// ─── AiSuggestionsPanel (mobile wrapper) ────────────────────────────────
+
+interface AiSuggestionsPanelProps {
+  suggestion: ComponentDocOutput;
+  onApplySection: (action: FormDispatchAction) => void;
 }
 
 export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestionsPanelProps) {
@@ -173,19 +191,19 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
 
   return (
     <div className="space-y-4">
-      <SummarySection
+      <SummarySuggestionCard
         value={suggestion.summary}
         onApply={() => handleApply('summary')}
       />
-      <VariantsSection
+      <VariantsSuggestionCard
         value={suggestion.variants}
         onApply={() => handleApply('variants')}
       />
-      <TokensSection
+      <TokensSuggestionCard
         value={suggestion.tokens}
         onApply={() => handleApply('tokens')}
       />
-      <AccessibilitySection
+      <AccessibilitySuggestionCard
         value={suggestion.accessibilityNotes}
         onApply={() => handleApply('accessibilityNotes')}
       />

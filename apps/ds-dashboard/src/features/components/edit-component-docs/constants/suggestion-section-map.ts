@@ -39,6 +39,18 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
   },
 } as const;
 
+/**
+ * Canonical order of sections for rendering in the edit-docs page.
+ * Desktop uses this to align form/suggestion rows; mobile iterates
+ * over it when toggling between panels.
+ */
+export const SECTION_ORDER = [
+  'summary',
+  'variants',
+  'tokens',
+  'accessibilityNotes',
+] as const satisfies readonly SectionId[];
+
 export type FormDispatchAction =
   | { type: 'SET_SUMMARY'; payload: string }
   | { type: 'SET_VARIANTS'; payload: ComponentDocVariant[] }

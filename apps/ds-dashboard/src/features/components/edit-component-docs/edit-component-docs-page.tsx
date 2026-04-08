@@ -17,10 +17,22 @@ import { Button } from '@/components/ui/button';
 import { getActiveSystemId } from '@/lib/api';
 import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
 import type { PartialComponentSpec } from 'ds-types';
-import type { FormDispatchAction } from './constants/suggestion-section-map';
-import { applySectionAction } from './constants/suggestion-section-map';
-import { EditDocsForm } from './components/edit-docs-form';
-import { AiSuggestionsPanel } from './components/ai-suggestions-panel';
+import type { FormDispatchAction, SectionId } from './constants/suggestion-section-map';
+import { SECTION_ORDER, applySectionAction } from './constants/suggestion-section-map';
+import {
+  EditDocsForm,
+  SummaryFormCard,
+  VariantsFormCard,
+  TokensFormCard,
+  AccessibilityFormCard,
+} from './components/edit-docs-form';
+import {
+  AiSuggestionsPanel,
+  SummarySuggestionCard,
+  VariantsSuggestionCard,
+  TokensSuggestionCard,
+  AccessibilitySuggestionCard,
+} from './components/ai-suggestions-panel';
 import { AiSuggestionsModal } from './components/ai-suggestions-modal';
 import { useAiSuggestion } from './hooks/use-ai-suggestion';
 import { useEditDocsDraft } from './hooks/use-edit-docs-draft';
@@ -210,6 +222,99 @@ export function EditComponentDocsPage() {
     [],
   );
 
+  // Per-section onApply guards — fail-fast if suggestion is absent (S-05).
+  const onApplySummary = useCallback(() => {
+    if (!suggestion) return;
+    handleApplySection({ type: 'SET_SUMMARY', payload: suggestion.summary });
+  }, [suggestion, handleApplySection]);
+
+  const onApplyVariants = useCallback(() => {
+    if (!suggestion) return;
+    handleApplySection({ type: 'SET_VARIANTS', payload: suggestion.variants });
+  }, [suggestion, handleApplySection]);
+
+  const onApplyTokens = useCallback(() => {
+    if (!suggestion) return;
+    handleApplySection({ type: 'SET_TOKENS', payload: suggestion.tokens });
+  }, [suggestion, handleApplySection]);
+
+  const onApplyAccessibility = useCallback(() => {
+    if (!suggestion) return;
+    handleApplySection({ type: 'SET_ACC_NOTES', payload: suggestion.accessibilityNotes });
+  }, [suggestion, handleApplySection]);
+
+  const getOnApplyForSection = useCallback((sectionId: SectionId): (() => void) => {
+    switch (sectionId) {
+      case 'summary':
+        return onApplySummary;
+      case 'variants':
+        return onApplyVariants;
+      case 'tokens':
+        return onApplyTokens;
+      case 'accessibilityNotes':
+        return onApplyAccessibility;
+      default: {
+        const _exhaustive: never = sectionId;
+        return _exhaustive;
+      }
+    }
+  }, [onApplySummary, onApplyVariants, onApplyTokens, onApplyAccessibility]);
+
+  const renderFormCard = useCallback((sectionId: SectionId) => {
+    switch (sectionId) {
+      case 'summary':
+        return (
+          <SummaryFormCard
+            value={formData.summary}
+            onChange={(v) => { setFormData((p) => ({ ...p, summary: v })); setIsDirty(true); }}
+          />
+        );
+      case 'variants':
+        return (
+          <VariantsFormCard
+            value={formData.variants}
+            onChange={(v) => { setFormData((p) => ({ ...p, variants: v })); setIsDirty(true); }}
+          />
+        );
+      case 'tokens':
+        return (
+          <TokensFormCard
+            value={formData.tokens}
+            onChange={(v) => { setFormData((p) => ({ ...p, tokens: v })); setIsDirty(true); }}
+          />
+        );
+      case 'accessibilityNotes':
+        return (
+          <AccessibilityFormCard
+            value={formData.accessibilityNotes}
+            onChange={(v) => { setFormData((p) => ({ ...p, accessibilityNotes: v })); setIsDirty(true); }}
+          />
+        );
+      default: {
+        const _exhaustive: never = sectionId;
+        return _exhaustive;
+      }
+    }
+  }, [formData.summary, formData.variants, formData.tokens, formData.accessibilityNotes]);
+
+  const renderSuggestionCard = useCallback((sectionId: SectionId, onApplyFn: () => void) => {
+    if (!suggestion) return null;
+    switch (sectionId) {
+      case 'summary':
+        return <SummarySuggestionCard value={suggestion.summary} onApply={onApplyFn} />;
+      case 'variants':
+        return <VariantsSuggestionCard value={suggestion.variants} onApply={onApplyFn} />;
+      case 'tokens':
+        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} />;
+      case 'accessibilityNotes':
+        return <AccessibilitySuggestionCard value={suggestion.accessibilityNotes} onApply={onApplyFn} />;
+      default: {
+        const _exhaustive: never = sectionId;
+        return _exhaustive;
+      }
+    }
+  }, [suggestion]);
+
   const handleSave = useCallback(async () => {
     if (!slug) return;
     setSaveError(null);
@@ -301,6 +406,7 @@ export function EditComponentDocsPage() {
               size="sm"
               onClick={() => setShowAiPanel(false)}
               className={!showAiPanel ? 'bg-surface-2' : ''}
+              aria-pressed={!showAiPanel}
             >
               Your doc
             </Button>
@@ -309,6 +415,7 @@ export function EditComponentDocsPage() {
               size="sm"
               onClick={() => setShowAiPanel(true)}
               className={showAiPanel ? 'bg-surface-2' : ''}
+              aria-pressed={showAiPanel}
             >
               AI suggestion
             </Button>
@@ -335,7 +442,7 @@ export function EditComponentDocsPage() {
         />
       )}
 
-      {/* Main content */}
+      {/* Main content — S-04: aligned grid rows iterated over SECTION_ORDER */}
       {isMobile ? (
         <div>
           {!showAiPanel ? (
@@ -354,27 +461,17 @@ export function EditComponentDocsPage() {
           ) : null}
         </div>
       ) : (
-        <div className={hasSuggestion ? 'grid grid-cols-2 gap-6' : 'max-w-3xl'}>
-          {/* Left column — editorial form */}
-          <div>
-            <EditDocsForm
-              value={formData}
-              onChange={(data) => {
-                setFormData(data);
-                setIsDirty(true);
-              }}
-            />
-          </div>
+        <div className="space-y-6">
+          {SECTION_ORDER.map((sectionId) => {
+            const onApplyFn = getOnApplyForSection(sectionId);
 
-          {/* Right column — AI suggestions panel */}
-          {hasSuggestion && suggestion && (
-            <div>
-              <AiSuggestionsPanel
-                suggestion={suggestion}
-                onApplySection={handleApplySection}
-              />
-            </div>
-          )}
+            return (
+              <div key={sectionId} className={hasSuggestion ? 'grid grid-cols-2 gap-6 items-start' : 'max-w-3xl'}>
+                {renderFormCard(sectionId)}
+                {renderSuggestionCard(sectionId, onApplyFn)}
+              </div>
+            );
+          })}
         </div>
       )}
 
