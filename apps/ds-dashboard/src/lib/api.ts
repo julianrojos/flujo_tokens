@@ -29,6 +29,7 @@ import type {
 import { API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-errors";
 import { normalizeEnvRef } from "@/lib/env-ref";
 import { resolveDsFileKeyFromConfig } from "@/lib/design-system-keys";
+import { bumpEditDocsStorageEpoch } from "@/lib/edit-docs-storage-namespace";
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -1553,6 +1554,11 @@ export async function syncFigmaTokens(
   const result = toRecord(job?.result);
   const payload = toRecord(result?.payload);
   const typed = toSyncFigmaTokensResult(payload || {}, toNonEmptyString(job?.id) || acceptedJobId);
+  const scopeSystemId = String(options?.systemId || getActiveSystemId() || "").trim();
+  if (scopeSystemId) {
+    // Invalidate edit-docs localStorage scope after each successful sync/import for this system.
+    bumpEditDocsStorageEpoch(scopeSystemId);
+  }
   onProgress?.({
     jobId: typed.jobId,
     status: "success",

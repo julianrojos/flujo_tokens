@@ -8,13 +8,15 @@
  * - Save to PATCH /api/component-spec/:slug/editorial
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/composites';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { Button } from '@/components/ui/button';
 import { getActiveSystemId, fetchTokenRegistry } from '@/lib/api';
+import { getEditDocsStorageScope } from '@/lib/edit-docs-storage-namespace';
+import { resolveVariableRef } from '@/lib/token-reference';
 import type { TokenRegistry } from '@/types/token-registry';
 import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
 import type { PartialComponentSpec } from 'ds-types';
@@ -51,6 +53,7 @@ const EMPTY_TOKEN_REGISTRY: TokenRegistry = {
   entries: [],
   byPath: {},
   bySlashPath: {},
+  byVariableId: {},
 };
 
 function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
@@ -96,9 +99,11 @@ export function EditComponentDocsPage() {
     tokens: [],
     accessibilityNotes: [],
   });
+  const activeSystemId = String(getActiveSystemId() || '').trim() || null;
+  const editDocsStorageScope = getEditDocsStorageScope(activeSystemId);
 
-  const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(slug!);
-  const { saveDraft, restoreDraft, clearDraft } = useEditDocsDraft(slug!);
+  const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(slug!, editDocsStorageScope);
+  const { saveDraft, restoreDraft, clearDraft } = useEditDocsDraft(slug!, editDocsStorageScope);
   const expectedUpdatedAtRef = useRef<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -110,7 +115,6 @@ export function EditComponentDocsPage() {
     accessibilityNotes: [],
   });
   const initializedSlugRef = useRef<string | null>(null);
-  const activeSystemId = String(getActiveSystemId() || '').trim() || null;
 
   // Mobile detection
   useEffect(() => {
@@ -135,9 +139,44 @@ export function EditComponentDocsPage() {
   const { data: tokenRegistryData, error: tokenRegistryError } = useQuery<TokenRegistry>({
     queryKey: ['token-registry', activeSystemId],
     queryFn: fetchTokenRegistry,
-    staleTime: 5 * 60_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
   const tokenRegistry = tokenRegistryData ?? EMPTY_TOKEN_REGISTRY;
+  const effectiveTokenRegistry = useMemo<TokenRegistry>(() => {
+    const specBindings = (data?.spec as Record<string, unknown> | undefined)?.figma_token_bindings;
+    if (!Array.isArray(specBindings) || specBindings.length === 0) return tokenRegistry;
+
+    const byVariableId = { ...(tokenRegistry.byVariableId ?? {}) } as Record<string, TokenRegistry['entries'][number]>;
+    let changed = false;
+    for (const rawBinding of specBindings) {
+      if (!rawBinding || typeof rawBinding !== 'object') continue;
+      const binding = rawBinding as Record<string, unknown>;
+      const variableId = String(binding.variable_id ?? binding.variableId ?? '').trim();
+      const tokenPath = String(binding.token_path ?? binding.tokenPath ?? '').trim();
+      if (!variableId || !tokenPath) continue;
+      const entry = tokenRegistry.byPath[tokenPath] ?? tokenRegistry.bySlashPath[tokenPath];
+      if (!entry) continue;
+      if (byVariableId[variableId] !== entry) {
+        byVariableId[variableId] = entry;
+        changed = true;
+      }
+    }
+    if (!changed) return tokenRegistry;
+    return { ...tokenRegistry, byVariableId };
+  }, [tokenRegistry, data?.spec]);
+
+  // If the loaded spec has no captured Figma component id, any suggestion for
+  // this page context is invalid and should be cleared.
+  useEffect(() => {
+    if (!suggestion || !data?.spec) return;
+    const specRecord = data.spec as Record<string, unknown>;
+    const figmaMetadata = specRecord.figma_metadata as Record<string, unknown> | null | undefined;
+    const currentFigmaComponentId = String(figmaMetadata?.component_set_node_id ?? '').trim();
+    if (currentFigmaComponentId) return;
+    clearSuggestion();
+    setShowAiPanel(false);
+  }, [suggestion, data?.spec, clearSuggestion]);
 
   // Initialize form data from spec
   useEffect(() => {
@@ -250,8 +289,17 @@ export function EditComponentDocsPage() {
 
   const onApplyTokens = useCallback(() => {
     if (!suggestion) return;
-    handleApplySection({ type: 'SET_TOKENS', payload: suggestion.tokens });
-  }, [suggestion, handleApplySection]);
+    const normalizedTokens = suggestion.tokens.map((token) => {
+      const resolvedName = resolveVariableRef(token.name, effectiveTokenRegistry);
+      const resolvedValue = resolveVariableRef(token.value, effectiveTokenRegistry);
+      return {
+        ...token,
+        name: resolvedName.debug.hadFallback ? token.name : resolvedName.tokenLabel,
+        value: resolvedValue.debug.hadFallback ? token.value : resolvedValue.tokenLabel,
+      };
+    });
+    handleApplySection({ type: 'SET_TOKENS', payload: normalizedTokens });
+  }, [suggestion, handleApplySection, effectiveTokenRegistry]);
 
   const onApplyAccessibility = useCallback(() => {
     if (!suggestion) return;
@@ -313,14 +361,14 @@ export function EditComponentDocsPage() {
   }, [formData.summary, formData.variants, formData.tokens, formData.accessibilityNotes]);
 
   const renderSuggestionCard = useCallback((sectionId: SectionId, onApplyFn: () => void) => {
-    if (!suggestion) return null;
+    if (!suggestion || !figmaComponentId) return null;
     switch (sectionId) {
       case 'summary':
         return <SummarySuggestionCard value={suggestion.summary} onApply={onApplyFn} />;
       case 'variants':
         return <VariantsSuggestionCard value={suggestion.variants} onApply={onApplyFn} />;
       case 'tokens':
-        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} tokenRegistry={tokenRegistry} />;
+        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} tokenRegistry={effectiveTokenRegistry} />;
       case 'accessibilityNotes':
         return <AccessibilitySuggestionCard value={suggestion.accessibilityNotes} onApply={onApplyFn} />;
       default: {
@@ -328,7 +376,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [suggestion, tokenRegistry]);
+  }, [suggestion, effectiveTokenRegistry, figmaComponentId]);
 
   const handleSave = useCallback(async () => {
     if (!slug) return;
@@ -392,7 +440,7 @@ export function EditComponentDocsPage() {
     );
   }
 
-  const hasSuggestion = suggestion !== null;
+  const hasSuggestion = suggestion !== null && Boolean(figmaComponentId);
 
   return (
     <div className="space-y-5">
@@ -442,7 +490,7 @@ export function EditComponentDocsPage() {
       {saveError && (
         <StatusAlert variant="error" title="Save failed" description={saveError} />
       )}
-      {isInMemoryOnly && suggestion && (
+      {isInMemoryOnly && hasSuggestion && (
         <StatusAlert
           variant="warning"
           title="Suggestion not persisted"
@@ -475,11 +523,11 @@ export function EditComponentDocsPage() {
                 setIsDirty(true);
               }}
             />
-          ) : suggestion ? (
+          ) : hasSuggestion && suggestion ? (
             <AiSuggestionsPanel
               suggestion={suggestion}
               onApplySection={handleApplySection}
-              tokenRegistry={tokenRegistry}
+              tokenRegistry={effectiveTokenRegistry}
             />
           ) : null}
         </div>

@@ -19,11 +19,12 @@ function makeEntry(partial: Partial<TokenEntry>): TokenEntry {
 function makeRegistry(entries: TokenEntry[]): TokenRegistry {
   const byPath: Record<string, TokenEntry> = {};
   const bySlashPath: Record<string, TokenEntry> = {};
+  const byVariableId: Record<string, TokenEntry> = {};
   for (const e of entries) {
     byPath[e.path] = e;
     bySlashPath[e.slashPath] = e;
   }
-  return { entries, byPath, bySlashPath };
+  return { entries, byPath, bySlashPath, byVariableId };
 }
 
 describe('resolveVariableRef', () => {
@@ -70,6 +71,43 @@ describe('resolveVariableRef', () => {
     assert.equal(result.debug.hadFallback, true);
   });
 
+  it('VariableID found in byVariableId → resolves to token path + value', () => {
+    const accent = makeEntry({ path: 'color.bg.primary', resolvedValue: '#5B6CFF', aliasOf: null });
+    const registry = makeRegistry([accent]);
+    registry.byVariableId['VariableID:1:20'] = accent;
+
+    const result = resolveVariableRef('VariableID:1:20', registry);
+    assert.equal(result.tokenLabel, 'color.bg.primary');
+    assert.equal(result.bracketLabel, '#5B6CFF');
+    assert.equal(result.debug.hadFallback, false);
+  });
+
+  it('mixed string with VariableID + css var resolves via extracted VariableID', () => {
+    const accent = makeEntry({ path: 'color.background.accent', resolvedValue: '#5B6CFF', aliasOf: null });
+    const registry = makeRegistry([accent]);
+    registry.byVariableId['VariableID:1:12'] = accent;
+
+    const result = resolveVariableRef('VariableID:1:12 var(--color-accent-bg)""', registry);
+    assert.equal(result.tokenLabel, 'color.background.accent');
+    assert.equal(result.bracketLabel, '#5B6CFF');
+    assert.equal(result.debug.hadFallback, false);
+  });
+
+  it('mixed string without VariableID mapping resolves via css var fallback', () => {
+    const accent = makeEntry({
+      path: 'color.background.accent',
+      cssVar: '--color-accent-bg',
+      resolvedValue: '#5B6CFF',
+      aliasOf: null,
+    });
+    const registry = makeRegistry([accent]);
+
+    const result = resolveVariableRef('VariableID:1:12 var(--color-accent-bg)""', registry);
+    assert.equal(result.tokenLabel, 'color.background.accent');
+    assert.equal(result.bracketLabel, '#5B6CFF');
+    assert.equal(result.debug.hadFallback, false);
+  });
+
   it('empty input → empty label without error', () => {
     const registry = makeRegistry([
       makeEntry({ path: 'color.bg.primary', resolvedValue: '#5B6CFF' }),
@@ -105,6 +143,46 @@ describe('resolveVariableRef', () => {
     assert.equal(result.tokenLabel, '42');
     assert.equal(result.bracketLabel, null);
     assert.equal(result.debug.hadFallback, true);
+  });
+
+  it('case-insensitive: "Primitives/Blue/300" resolves to "primitives/blue/300" entry', () => {
+    const registry = makeRegistry([
+      makeEntry({ path: 'primitives.blue.300', slashPath: 'primitives/blue/300', resolvedValue: '#5B6CFF', aliasOf: null }),
+    ]);
+    const result = resolveVariableRef('Primitives/Blue/300', registry);
+    assert.equal(result.tokenLabel, 'primitives.blue.300');
+    assert.equal(result.bracketLabel, '#5B6CFF');
+    assert.equal(result.debug.hadFallback, false);
+  });
+
+  it('bracketed input: "[color token]" strips brackets before lookup', () => {
+    const registry = makeRegistry([
+      makeEntry({ path: 'color.token', slashPath: 'color/token', resolvedValue: '#FF0000', aliasOf: null }),
+    ]);
+    const result = resolveVariableRef('[color token]', registry);
+    // "color token" has no dots/slashes so won't match any path → fallback
+    assert.equal(result.debug.hadFallback, true);
+
+    // But "[color/token]" should resolve after stripping brackets
+    const result2 = resolveVariableRef('[color/token]', registry);
+    assert.equal(result2.tokenLabel, 'color.token');
+    assert.equal(result2.bracketLabel, '#FF0000');
+    assert.equal(result2.debug.hadFallback, false);
+  });
+
+  it('dot-slash interchange: dot input resolves slash-indexed entry', () => {
+    const registry = makeRegistry([
+      makeEntry({ path: 'color.bg.accent', slashPath: 'color/bg/accent', resolvedValue: '#123456', aliasOf: null }),
+    ]);
+    // Input uses dots, should still resolve even if direct byPath match works
+    const result = resolveVariableRef('color.bg.accent', registry);
+    assert.equal(result.tokenLabel, 'color.bg.accent');
+    assert.equal(result.bracketLabel, '#123456');
+
+    // Input uses slashes
+    const result2 = resolveVariableRef('color/bg/accent', registry);
+    assert.equal(result2.tokenLabel, 'color.bg.accent');
+    assert.equal(result2.bracketLabel, '#123456');
   });
 });
 

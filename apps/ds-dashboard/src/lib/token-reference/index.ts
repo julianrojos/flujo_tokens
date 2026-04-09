@@ -2,12 +2,122 @@ import type { TokenRegistry, TokenEntry } from '@/types/token-registry';
 import type { ResolvedVariableRef } from './types';
 export type { ResolvedVariableRef } from './types';
 
+const VARIABLE_ID_PATTERN = /VariableID:[^\s"'`)\],;]+/;
+const CSS_VAR_PATTERN = /--[A-Za-z0-9_-]+/;
+const TOKEN_PATH_PATTERN = /[A-Za-z0-9_-]+(?:[./][A-Za-z0-9_-]+)+/g;
+
+/**
+ * Lazy, per-registry cache for CSS var → entry lookups.
+ * Avoids O(n) `entries.find` on every resolution.
+ * Rebuilt automatically when the registry reference changes (new fetch).
+ * Uses a WeakMap so the registry object itself is never mutated.
+ */
+const cssVarCache = new WeakMap<TokenRegistry, Record<string, TokenEntry>>();
+
+function getCssVarIndex(registry: TokenRegistry): Record<string, TokenEntry> {
+  const cached = cssVarCache.get(registry);
+  if (cached) return cached;
+  const index: Record<string, TokenEntry> = {};
+  for (const entry of registry.entries) {
+    if (entry.cssVar) index[entry.cssVar] = entry;
+  }
+  cssVarCache.set(registry, index);
+  return index;
+}
+
+/**
+ * Strip surrounding brackets like "[Token Value]" → "Token Value"
+ */
+function stripBrackets(text: string): string {
+  if (text.startsWith('[') && text.endsWith(']')) {
+    return text.slice(1, -1).trim();
+  }
+  return text;
+}
+
+/**
+ * Attempt to find a token entry from a normalized text form.
+ * Tries exact match, then dot-form, then slash-form in both byPath and bySlashPath.
+ */
+function tryNormalizedLookup(text: string, registry: TokenRegistry): TokenEntry | null {
+  if (!text) return null;
+  const dotForm = text.replace(/\//g, '.');
+  const slashForm = text.replace(/\./g, '/');
+  return registry.byPath[text]
+    ?? registry.bySlashPath[text]
+    ?? registry.byPath[dotForm]
+    ?? registry.bySlashPath[slashForm]
+    ?? null;
+}
+
+function findRegistryEntry(inputText: string, registry: TokenRegistry): TokenEntry | null {
+  // 1. Exact match by VariableID, path, or slash path
+  const fromDirectKeys =
+    registry.byVariableId[inputText]
+    ?? tryNormalizedLookup(inputText, registry)
+    ?? null;
+  if (fromDirectKeys) return fromDirectKeys;
+
+  // 2. Strip brackets — AI sometimes wraps values in [...]
+  const stripped = stripBrackets(inputText);
+  if (stripped !== inputText) {
+    const fromStripped =
+      registry.byVariableId[stripped]
+      ?? tryNormalizedLookup(stripped, registry)
+      ?? null;
+    if (fromStripped) return fromStripped;
+  }
+
+  // 3. Case-insensitive scan — handles casing mismatch between
+  //    orchestrator variable keys (e.g. "Primitives/Blue/300") and
+  //    registry paths (e.g. "primitives/blue/300").
+  const lowerInput = stripped.toLowerCase();
+  if (lowerInput !== stripped) {
+    const fromLower = tryNormalizedLookup(lowerInput, registry);
+    if (fromLower) return fromLower;
+  }
+
+  // 4. Extract VariableID from mixed strings like "VariableID:1:12 var(--color-accent-bg)"
+  const variableIdMatch = inputText.match(VARIABLE_ID_PATTERN)?.[0] ?? null;
+  if (variableIdMatch) {
+    const fromVariableId = registry.byVariableId[variableIdMatch] ?? null;
+    if (fromVariableId) return fromVariableId;
+    // Also try the bare numeric id (e.g. "1:12")
+    const bareId = variableIdMatch.replace(/^VariableID:/i, '');
+    if (bareId) {
+      const fromBareId = registry.byVariableId[bareId]
+        ?? registry.byVariableId[`VariableID:${bareId}`]
+        ?? null;
+      if (fromBareId) return fromBareId;
+    }
+  }
+
+  // 5. CSS custom property reference — use memoized index for O(1)
+  const cssVarMatch = inputText.match(CSS_VAR_PATTERN)?.[0] ?? null;
+  if (cssVarMatch) {
+    const cssVarIndex = getCssVarIndex(registry);
+    const fromCssVar = cssVarIndex[cssVarMatch] ?? null;
+    if (fromCssVar) return fromCssVar;
+  }
+
+  // 6. Token-like path fragments from mixed text
+  const candidates = inputText.match(TOKEN_PATH_PATTERN) ?? [];
+  for (const candidate of candidates) {
+    const fromCandidate = tryNormalizedLookup(candidate, registry)
+      ?? tryNormalizedLookup(candidate.toLowerCase(), registry)
+      ?? null;
+    if (fromCandidate) return fromCandidate;
+  }
+
+  return null;
+}
+
 /**
  * Resolve a raw variable reference string against a token registry.
  *
  * Handles:
  * - A dot-delimited or slash-delimited token path (resolvable)
- * - `VariableID:1:20` (passthrough fallback when not present in registry)
+ * - `VariableID:1:20` (resolved via `registry.byVariableId` when available)
  *
  * Performs a single-hop alias resolution:
  * - If the token has an alias, the alias target is shown.
@@ -41,12 +151,10 @@ export function resolveVariableRef(
 
   if (!inputText) return emptyResult('');
 
-  // Try to look up the text as a token path (both dot and slash forms).
-  const entry = registry.byPath[inputText] ?? registry.bySlashPath[inputText] ?? null;
+  const entry = findRegistryEntry(inputText, registry);
 
   if (!entry) {
-    // Registry currently indexes token paths, not raw Figma VariableID values.
-    // Keep unknown inputs (including VariableID:*) as-is.
+    // Keep unknown inputs (including unresolved VariableID:*) as-is.
     return emptyResult(inputText, true);
   }
 

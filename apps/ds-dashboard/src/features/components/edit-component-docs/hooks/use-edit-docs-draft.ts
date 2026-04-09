@@ -7,7 +7,10 @@
 
 import { useCallback } from 'react';
 
-const DRAFT_KEY = (slug: string) => `edit-docs-draft-${slug}`;
+const toScope = (storageScope: string | null | undefined) =>
+  String(storageScope || '').trim();
+const DRAFT_KEY = (slug: string, storageScope?: string | null) =>
+  `edit-docs-draft-v1-${toScope(storageScope)}-${slug}`;
 
 export interface EditDocsDraftPayload {
   summary: string;
@@ -17,21 +20,21 @@ export interface EditDocsDraftPayload {
   touchedFields?: Array<'summary' | 'variants' | 'tokens' | 'accessibilityNotes'>;
 }
 
-export function useEditDocsDraft(slug: string) {
+export function useEditDocsDraft(slug: string, storageScope?: string | null) {
   const saveDraft = useCallback(
     (state: EditDocsDraftPayload) => {
       try {
-        localStorage.setItem(DRAFT_KEY(slug), JSON.stringify(state));
+        localStorage.setItem(DRAFT_KEY(slug, storageScope), JSON.stringify(state));
       } catch {
         // Quota exceeded — fail-open
       }
     },
-    [slug],
+    [slug, storageScope],
   );
 
   const restoreDraft = useCallback((): EditDocsDraftPayload | null => {
     try {
-      const raw = localStorage.getItem(DRAFT_KEY(slug));
+      const raw = localStorage.getItem(DRAFT_KEY(slug, storageScope));
       if (!raw) return null;
       const parsed = JSON.parse(raw) as unknown;
       if (!parsed || typeof parsed !== 'object') return null;
@@ -39,15 +42,15 @@ export function useEditDocsDraft(slug: string) {
     } catch {
       return null;
     }
-  }, [slug]);
+  }, [slug, storageScope]);
 
   const clearDraft = useCallback(() => {
     try {
-      localStorage.removeItem(DRAFT_KEY(slug));
+      localStorage.removeItem(DRAFT_KEY(slug, storageScope));
     } catch {
       // Silently ignore
     }
-  }, [slug]);
+  }, [slug, storageScope]);
 
   return { saveDraft, restoreDraft, clearDraft };
 }
