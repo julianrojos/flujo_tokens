@@ -285,7 +285,10 @@ function summarizeError(error: unknown): string {
 }
 
 /**
- * Sync documentation indices atomically (DB registry + overview).
+ * Sync documentation indices atomically (DB registry + optional overview).
+ *
+ * `skipOverview` is useful for DB-only maintenance flows (e.g. `/ops`) where
+ * we want registry persistence without generating human-readable overview files.
  */
 export function syncDocumentationState(
   options: {
@@ -295,6 +298,7 @@ export function syncDocumentationState(
     docsDir?: string;
     proofsDir?: string;
     dryRun?: boolean;
+    skipOverview?: boolean;
     systemId?: string;
     projectRoot?: string;
   } = {},
@@ -306,6 +310,7 @@ export function syncDocumentationState(
     docsDir,
     proofsDir,
     dryRun = false,
+    skipOverview = false,
     systemId,
     projectRoot = PROJECT_ROOT,
   } = options;
@@ -335,12 +340,23 @@ export function syncDocumentationState(
       componentCount: registry.components.length,
     });
 
-    const overview = syncComponentOverview({
-      overviewPath: resolvedOverviewPath,
-      dryRun,
-      registry,
-      listState: overviewListState,
-    });
+    const overview = skipOverview
+      ? {
+        ok: true,
+        dryRun,
+        changed: false,
+        written: false,
+        overviewPath: resolvedOverviewPath,
+        registryDbPath: resolvedDbPath,
+        componentCount: registry.components.length,
+        listState: overviewListState,
+      }
+      : syncComponentOverview({
+        overviewPath: resolvedOverviewPath,
+        dryRun,
+        registry,
+        listState: overviewListState,
+      });
 
     const dbSync = persistRegistryToDb({
       projectRoot,
