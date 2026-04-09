@@ -23,6 +23,7 @@ export interface HealthHistorySnapshot {
   };
   meta: {
     before_ref: string;
+    diff_available?: boolean;
   };
 }
 

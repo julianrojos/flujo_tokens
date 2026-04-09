@@ -824,6 +824,7 @@ export function restartApiServer() {
 export async function captureHealthSnapshot(args?: {
   beforeRef?: string;
   retentionDays?: number;
+  // DB-only mode keeps this flag for request compatibility, but does not compute token diff yet.
   skipDiff?: boolean;
 }) {
   return getJson<CaptureHealthSnapshotResult>("/api/capture-health-snapshot", {

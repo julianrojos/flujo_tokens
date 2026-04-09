@@ -117,6 +117,7 @@ export interface NormalizedHealthHistoryPayload {
     };
     meta: {
       before_ref: string;
+      diff_available?: boolean;
     };
   }>;
   summary: {
@@ -260,6 +261,10 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
       },
       meta: {
         before_ref: String(meta.before_ref || 'HEAD~1'),
+        diff_available:
+          typeof (meta as Record<string, unknown>).diff_available === 'boolean'
+            ? ((meta as Record<string, unknown>).diff_available as boolean)
+            : undefined,
       },
     });
   }
