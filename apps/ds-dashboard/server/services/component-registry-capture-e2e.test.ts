@@ -139,7 +139,7 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes visual
   }
 });
 
-test('e2e: component-registry marks visual_proof.exists=false when local image path is missing on filesystem', async () => {
+test('e2e: component-registry keeps visual_proof.exists=true when DB has image path but file is missing', async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-missing-proof-'));
   const systemId = 'sys-e2e-missing-proof';
   const docPathRel = `design-systems/${systemId}/docs/components/chip.md`;
@@ -215,7 +215,7 @@ test('e2e: component-registry marks visual_proof.exists=false when local image p
       ? payload.components.find((entry: any) => entry.slug === 'chip')
       : null;
     assert.ok(chip);
-    assert.equal(chip.visual_proof.exists, false);
+    assert.equal(chip.visual_proof.exists, true);
     assert.equal(chip.visual_proof.image_path, imagePathRel);
     assert.ok(Array.isArray(chip.visual_proof.variants));
     assert.equal(chip.visual_proof.variants_count, 0);
@@ -230,7 +230,7 @@ test('e2e: component-registry marks visual_proof.exists=false when local image p
   }
 });
 
-test('e2e: component-registry keeps visual_proof.exists=false when screenshot_url exists but local image is missing', async () => {
+test('e2e: component-registry keeps visual_proof.exists=true when screenshot_url exists and local image is missing', async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-missing-proof-url-'));
   const systemId = 'sys-e2e-missing-proof-url';
   const docPathRel = `design-systems/${systemId}/docs/components/tag.md`;
@@ -307,7 +307,7 @@ test('e2e: component-registry keeps visual_proof.exists=false when screenshot_ur
       ? payload.components.find((entry: any) => entry.slug === 'tag')
       : null;
     assert.ok(tag);
-    assert.equal(tag.visual_proof.exists, false);
+    assert.equal(tag.visual_proof.exists, true);
     assert.equal(tag.visual_proof.image_path, imagePathRel);
     assert.equal(tag.visual_proof.screenshot_url, 'https://cdn.example.com/tag.png');
   } finally {

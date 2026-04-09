@@ -2,21 +2,7 @@ import {
   buildComponentUsageIndex,
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
-import fs from "node:fs/promises";
-import { resolveRepoFilePath } from "../lib/request-file-helpers.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
-
-async function fileExistsWithinRepo(repoRoot, relativePath, cache) {
-  const resolved = resolveRepoFilePath(repoRoot, relativePath);
-  if (!resolved) return false;
-  if (cache.has(resolved)) return cache.get(resolved);
-  const exists = await fs
-    .access(resolved)
-    .then(() => true)
-    .catch(() => false);
-  cache.set(resolved, exists);
-  return exists;
-}
 
 function createPipelineStage(item) {
   if (!item.spec.exists) return "missing-spec";
@@ -42,14 +28,13 @@ function emptyVisualProof() {
   };
 }
 
-function buildAssetUrlFromPath(imagePath) {
-  const value = String(imagePath || "").trim();
-  if (!value) return null;
-  return `/api/asset?path=${encodeURIComponent(value)}`;
-}
-
-function computeVisualProofExists(path, pathExists, dbRecord) {
-  if (path) return Boolean(pathExists);
+/**
+ * DB-only semantics:
+ * A visual proof is considered present when DB evidence exists.
+ * We intentionally do not verify file existence on disk here.
+ */
+function computeVisualProofExists(dbRecord) {
+  if (dbRecord.image_path) return true;
   return Boolean(dbRecord.screenshot_url) ||
     Number(dbRecord.variants_count || 0) > 0 ||
     (Array.isArray(dbRecord.variants) && dbRecord.variants.length > 0);
@@ -115,47 +100,33 @@ export async function handleComponentRegistryRoute(c, deps) {
   }
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const rows = componentRepo.getAll(sysCtx.systemId);
-  const existsCache = new Map();
-  const components = await Promise.all(rows.map(async (row) => {
+  const components = rows.map((row) => {
     const specEntry = Array.isArray(row.specs) && row.specs.length > 0 ? row.specs[0] : null;
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
-    const docPath = specEntry?.markdownPath || `design-systems/${sysCtx.systemId}/docs/components/${row.slug}.md`;
+    const docPath = typeof specEntry?.markdownPath === "string" && specEntry.markdownPath
+      ? specEntry.markdownPath
+      : null;
     const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry) || emptyVisualProof();
     const visualProofPath =
       typeof visualProofFromDb.image_path === "string" && visualProofFromDb.image_path
         ? visualProofFromDb.image_path
         : null;
-    const [docExists, visualProofExists] = await Promise.all([
-      fileExistsWithinRepo(sysCtx.repoRoot, docPath, existsCache),
-      visualProofPath
-        ? fileExistsWithinRepo(sysCtx.repoRoot, visualProofPath, existsCache)
-        : Promise.resolve(false),
-    ]);
-    const derivedScreenshotUrl =
-      visualProofFromDb.screenshot_url ||
-      (visualProofPath && visualProofExists ? buildAssetUrlFromPath(visualProofPath) : null);
+    // Preserve explicit screenshot URLs from DB.
+    // Do not synthesize screenshot_url from image_path to avoid implying file availability.
+    const derivedScreenshotUrl = visualProofFromDb.screenshot_url || null;
     const derivedVariants = Array.isArray(visualProofFromDb.variants)
-      ? await Promise.all(
-          visualProofFromDb.variants.map(async (variant) => {
-            const variantImagePath =
-              typeof variant.image_path === "string" && variant.image_path ? variant.image_path : null;
-            const variantImageExists = variantImagePath
-              ? await fileExistsWithinRepo(sysCtx.repoRoot, variantImagePath, existsCache)
-              : false;
-            return {
-              ...variant,
-              screenshot_url:
-                variant.screenshot_url ||
-                (variantImagePath && variantImageExists ? buildAssetUrlFromPath(variantImagePath) : null),
-            };
-          }),
-        )
+      ? visualProofFromDb.variants.map((variant) => {
+          return {
+            ...variant,
+            screenshot_url: variant.screenshot_url || null,
+          };
+        })
       : [];
     const visualProof = {
       ...visualProofFromDb,
       screenshot_url: derivedScreenshotUrl,
       variants: derivedVariants,
-      exists: computeVisualProofExists(visualProofPath, visualProofExists, visualProofFromDb),
+      exists: computeVisualProofExists(visualProofFromDb),
     };
     const component = {
       slug: row.slug,
@@ -170,7 +141,8 @@ export async function handleComponentRegistryRoute(c, deps) {
         status: row.status || "draft",
       },
       doc: {
-        exists: docExists,
+        // DB-only semantics: doc.exists means metadata exists in component_specs.
+        exists: Boolean(specEntry?.markdownPath),
         status: specEntry?.docStatus || "draft",
       },
       figma: {
@@ -188,7 +160,7 @@ export async function handleComponentRegistryRoute(c, deps) {
     component.pipeline_stage = createPipelineStage(component);
     component.ready_for_publish = component.pipeline_stage === "visual-proof";
     return component;
-  }));
+  });
   const summary = {
     total_components: 0,
     with_spec: 0,

@@ -9,7 +9,7 @@ export interface ComponentRegistryItem {
   display_name: string;
   paths: {
     spec: string;
-    doc: string;
+    doc: string | null;
     visual_proof: string | null;
   };
   spec: {
