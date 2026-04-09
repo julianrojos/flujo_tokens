@@ -12,7 +12,6 @@ describe("FigmaDescriptionSection", () => {
         variantDescriptions={[]}
         syncedAt={null}
         stale={true}
-        onRefresh={() => {}}
       />,
     );
     assert.equal(html, "");
@@ -27,7 +26,6 @@ describe("FigmaDescriptionSection", () => {
         ]}
         syncedAt={Math.floor(Date.now() / 1000)}
         stale={false}
-        onRefresh={() => {}}
       />,
     );
 
@@ -45,7 +43,6 @@ describe("FigmaDescriptionSection", () => {
         variantDescriptions={[]}
         syncedAt={Math.floor(Date.now() / 1000)}
         stale={true}
-        onRefresh={() => {}}
       />,
     );
 

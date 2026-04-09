@@ -2,21 +2,19 @@
  * Figma Description Section
  *
  * S-07: Displays Figma descriptions (component set + variants) on the component
- * detail page with a refresh button. Feature-local (Tier 2).
+ * detail page. Feature-local (Tier 2).
  *
  * If descriptions have never been synced, the section does not render (invisible).
  */
 
 import { SectionHeader } from "@/components/composites/section-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;
   variantDescriptions: Array<{ canonicalKey: string; description: string | null }>;
   syncedAt: number | null;
   stale: boolean;
-  onRefresh: () => void;
 }
 
 export function FigmaDescriptionSection({
@@ -24,7 +22,6 @@ export function FigmaDescriptionSection({
   variantDescriptions,
   syncedAt,
   stale,
-  onRefresh,
 }: FigmaDescriptionSectionProps) {
   // Don't render if never synced — section should be invisible
   if (syncedAt == null) return null;
@@ -41,16 +38,6 @@ export function FigmaDescriptionSection({
           <Badge variant={stale ? "warning" : "success"}>
             {stale ? "Stale" : "Synced"}
           </Badge>
-        }
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            aria-label="Sync descriptions from Figma"
-          >
-            ↻ Sync desde Figma
-          </Button>
         }
       />
 
@@ -88,7 +75,7 @@ export function FigmaDescriptionSection({
 
       <p className="text-xs text-muted-foreground">
         Last synced: {syncedLabel}
-        {stale && " — data may be outdated. Refresh to update."}
+        {stale && " — data may be outdated."}
       </p>
     </section>
   );

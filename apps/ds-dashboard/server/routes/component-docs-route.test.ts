@@ -274,7 +274,7 @@ describe('component-docs-route', () => {
     assert.equal((result as any).data.stale, false);
   });
 
-  it('returns source: cache when sync is requested but no Figma connection is available', async () => {
+  it('returns source: cache when descriptions are stale but no Figma connection is available', async () => {
     let handler: ((c: unknown) => Promise<unknown>) | null = null;
     const app = {
       get: (_path: string, h: (c: unknown) => Promise<unknown>) => { handler = h; },

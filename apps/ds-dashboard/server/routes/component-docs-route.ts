@@ -32,7 +32,7 @@ export interface ComponentDocsRouteDeps {
 }
 
 /**
- * GET /api/components/:slug/docs/markdown?refresh=true|false
+ * GET /api/components/:slug/docs/markdown
  *
  * Response:
  *   {
@@ -85,9 +85,6 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
     } as const, 404);
   }
 
-  const refreshParam = String(c.req.query('refresh') || '').toLowerCase();
-  const forceRefresh = refreshParam === 'true';
-
   // Check if descriptions are stale
   const existingDescriptions = componentRepo.getFigmaDescriptions(componentId);
   const nowSec = Math.floor(Date.now() / 1000);
@@ -96,9 +93,9 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
     existingDescriptions.syncedAt == null ||
     (nowSec - existingDescriptions.syncedAt) * 1000 > TTL_MS;
 
-  // Sync from Figma if stale or refresh requested
+  // Sync from Figma when stale
   let source: 'fresh' | 'cache' = 'cache';
-  if (isStale || forceRefresh) {
+  if (isStale) {
     // Attempt to refresh from Figma plugin (fail-open).
     // Mark as "fresh" only when sync actually wrote data to DB.
     try {
@@ -108,7 +105,6 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
       console.warn('[component-docs-route] Failed to sync Figma descriptions; using cache', {
         slug,
         componentId,
-        forceRefresh,
         error,
       });
       source = 'cache';

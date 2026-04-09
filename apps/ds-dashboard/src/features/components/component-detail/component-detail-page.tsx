@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
-import { useFigmaDescriptions, useRefreshFigmaDescriptions } from "./hooks/use-figma-descriptions";
+import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
 import { ComponentPipelineSection } from "./components/component-pipeline-section";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
@@ -51,15 +51,6 @@ export function ComponentDetailPage() {
 
   // S-11 (R-005): React Query for server-state fetching (MUST per §6.4)
   const { data: figmaDesc } = useFigmaDescriptions(slug);
-  const refreshFigmaDescriptions = useRefreshFigmaDescriptions();
-
-  const handleRefreshDescriptions = useCallback(() => {
-    if (!slug) return;
-    refreshFigmaDescriptions(slug).catch(() => {
-      // Fail-open: stale data remains in cache
-    });
-  }, [slug, refreshFigmaDescriptions]);
-
   const handleDownloadMarkdown = useCallback(() => {
     void downloadMarkdown();
   }, [downloadMarkdown]);
@@ -156,7 +147,6 @@ export function ComponentDetailPage() {
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
         figmaSyncedAt={descriptionsData.syncedAt}
         figmaStale={descriptionsData.stale}
-        onRefreshFigmaDescriptions={handleRefreshDescriptions}
       />
 
       {captureModalOpen && (

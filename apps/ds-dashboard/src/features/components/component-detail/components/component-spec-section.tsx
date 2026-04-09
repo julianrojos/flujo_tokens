@@ -23,7 +23,6 @@ interface ComponentSpecSectionProps {
   figmaVariantDescriptions?: Array<{ canonicalKey: string; description: string | null }>;
   figmaSyncedAt?: number | null;
   figmaStale?: boolean;
-  onRefreshFigmaDescriptions?: () => void;
 }
 
 export function ComponentSpecSection({
@@ -39,7 +38,6 @@ export function ComponentSpecSection({
   figmaVariantDescriptions = [],
   figmaSyncedAt = null,
   figmaStale = true,
-  onRefreshFigmaDescriptions = () => {},
 }: ComponentSpecSectionProps) {
   const hasFigmaContent = figmaSyncedAt != null && (
     Boolean(figmaComponentSetDescription?.trim()) ||
@@ -105,7 +103,6 @@ export function ComponentSpecSection({
           variantDescriptions={figmaVariantDescriptions}
           syncedAt={figmaSyncedAt}
           stale={figmaStale}
-          onRefresh={onRefreshFigmaDescriptions}
         />
         {hasFigmaContent && spec && (
           <div className="border-t border-border my-4" />

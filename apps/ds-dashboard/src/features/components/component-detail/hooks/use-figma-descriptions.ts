@@ -5,7 +5,7 @@
  * general-programming-principles.mdc §6.4 (escalated to MUST in ds-dashboard).
  */
 
-import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 interface FigmaDescriptionsData {
   componentSetDescription: string | null;
@@ -65,35 +65,4 @@ export function useFigmaDescriptions(
     enabled: !!slug,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-}
-
-/**
- * Invalidate and refetch Figma descriptions with ?refresh=true.
- * Returns the query function that forces a refresh.
- */
-export function useRefreshFigmaDescriptions() {
-  const queryClient = useQueryClient();
-
-  return async (slug: string) => {
-    const res = await fetch(
-      `/api/components/${encodeURIComponent(slug)}/docs/markdown?refresh=true`,
-    );
-    if (res.status === 404) {
-      queryClient.setQueryData([QUERY_KEY, slug], EMPTY_DESCRIPTIONS);
-      return EMPTY_DESCRIPTIONS;
-    }
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    }
-    const data: DocsResponse = await res.json();
-    const result: FigmaDescriptionsData = {
-      componentSetDescription: data.descriptions?.componentSet ?? null,
-      variantDescriptions: data.descriptions?.variants ?? [],
-      syncedAt: data.syncedAt ?? null,
-      stale: data.stale ?? true,
-    };
-    // Update the query cache with fresh data
-    queryClient.setQueryData([QUERY_KEY, slug], result);
-    return result;
-  };
 }
