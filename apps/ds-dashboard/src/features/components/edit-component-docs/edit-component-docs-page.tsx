@@ -14,7 +14,8 @@ import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/composites';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { Button } from '@/components/ui/button';
-import { getActiveSystemId } from '@/lib/api';
+import { getActiveSystemId, fetchTokenRegistry } from '@/lib/api';
+import type { TokenRegistry } from '@/types/token-registry';
 import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
 import type { PartialComponentSpec } from 'ds-types';
 import type { FormDispatchAction, SectionId } from './constants/suggestion-section-map';
@@ -45,6 +46,12 @@ interface EditorialFormData {
 }
 
 type DraftFieldKey = 'summary' | 'variants' | 'tokens' | 'accessibilityNotes';
+
+const EMPTY_TOKEN_REGISTRY: TokenRegistry = {
+  entries: [],
+  byPath: {},
+  bySlashPath: {},
+};
 
 function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const systemId = String(getActiveSystemId() || '').trim();
@@ -103,6 +110,7 @@ export function EditComponentDocsPage() {
     accessibilityNotes: [],
   });
   const initializedSlugRef = useRef<string | null>(null);
+  const activeSystemId = String(getActiveSystemId() || '').trim() || null;
 
   // Mobile detection
   useEffect(() => {
@@ -123,6 +131,13 @@ export function EditComponentDocsPage() {
     queryFn: () => fetchComponentSpec(slug!),
     enabled: !!slug,
   });
+
+  const { data: tokenRegistryData, error: tokenRegistryError } = useQuery<TokenRegistry>({
+    queryKey: ['token-registry', activeSystemId],
+    queryFn: fetchTokenRegistry,
+    staleTime: 5 * 60_000,
+  });
+  const tokenRegistry = tokenRegistryData ?? EMPTY_TOKEN_REGISTRY;
 
   // Initialize form data from spec
   useEffect(() => {
@@ -305,7 +320,7 @@ export function EditComponentDocsPage() {
       case 'variants':
         return <VariantsSuggestionCard value={suggestion.variants} onApply={onApplyFn} />;
       case 'tokens':
-        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} />;
+        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} tokenRegistry={tokenRegistry} />;
       case 'accessibilityNotes':
         return <AccessibilitySuggestionCard value={suggestion.accessibilityNotes} onApply={onApplyFn} />;
       default: {
@@ -313,7 +328,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [suggestion]);
+  }, [suggestion, tokenRegistry]);
 
   const handleSave = useCallback(async () => {
     if (!slug) return;
@@ -434,6 +449,13 @@ export function EditComponentDocsPage() {
           description="This AI suggestion is too large to persist in local storage and will be lost on page reload."
         />
       )}
+      {tokenRegistryError && (
+        <StatusAlert
+          variant="warning"
+          title="Token registry unavailable"
+          description="Token references are shown in fallback mode because the token registry could not be loaded."
+        />
+      )}
       {!figmaComponentId && (
         <StatusAlert
           variant="info"
@@ -457,6 +479,7 @@ export function EditComponentDocsPage() {
             <AiSuggestionsPanel
               suggestion={suggestion}
               onApplySection={handleApplySection}
+              tokenRegistry={tokenRegistry}
             />
           ) : null}
         </div>

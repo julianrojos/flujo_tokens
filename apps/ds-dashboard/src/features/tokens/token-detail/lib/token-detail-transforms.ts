@@ -31,7 +31,7 @@ export function extractLineNumber(detail: string): number | null {
 /**
  * Resolve the target token for an alias reference
  */
-export function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | undefined): TokenEntry | null {
+export function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | null): TokenEntry | null {
   const ref = String(aliasOf || "").trim();
   if (!registry || !ref) return null;
   const directMatch = registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;

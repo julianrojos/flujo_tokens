@@ -10,8 +10,10 @@
 
 import { useCallback } from 'react';
 import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
+import type { TokenRegistry } from '@/types/token-registry';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { resolveVariableRef, formatVariableRef } from '@/lib/token-reference';
 import { SUGGESTION_SECTION_MAP, type SectionId, type FormDispatchAction } from '../constants/suggestion-section-map';
 
 // ─── SummarySuggestionCard ──────────────────────────────────────────────
@@ -86,9 +88,10 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
 export interface TokensSuggestionCardProps {
   value: ComponentDocToken[];
   onApply: () => void;
+  tokenRegistry: TokenRegistry;
 }
 
-export function TokensSuggestionCard({ value, onApply }: TokensSuggestionCardProps) {
+export function TokensSuggestionCard({ value, onApply, tokenRegistry }: TokensSuggestionCardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -105,15 +108,19 @@ export function TokensSuggestionCard({ value, onApply }: TokensSuggestionCardPro
           <p className="text-sm text-muted-foreground">No tokens in suggestion.</p>
         ) : (
           <ul className="space-y-1">
-            {value.map((t, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
-                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{t.name}</code>
-                <span className="text-muted-foreground">{t.value}</span>
-                <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                  {t.type}
-                </span>
-              </li>
-            ))}
+            {value.map((t, i) => {
+              const displayName = t.name;
+              const displayValue = formatVariableRef(resolveVariableRef(t.value, tokenRegistry));
+              return (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{displayName}</code>
+                  <span className="text-muted-foreground">{displayValue}</span>
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    {t.type}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
@@ -159,9 +166,10 @@ export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySug
 interface AiSuggestionsPanelProps {
   suggestion: ComponentDocOutput;
   onApplySection: (action: FormDispatchAction) => void;
+  tokenRegistry: TokenRegistry;
 }
 
-export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestionsPanelProps) {
+export function AiSuggestionsPanel({ suggestion, onApplySection, tokenRegistry }: AiSuggestionsPanelProps) {
   const handleApply = useCallback(
     (sectionId: SectionId) => {
       const def = SUGGESTION_SECTION_MAP[sectionId];
@@ -202,6 +210,7 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
       <TokensSuggestionCard
         value={suggestion.tokens}
         onApply={() => handleApply('tokens')}
+        tokenRegistry={tokenRegistry}
       />
       <AccessibilitySuggestionCard
         value={suggestion.accessibilityNotes}
