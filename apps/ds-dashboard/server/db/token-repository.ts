@@ -7,6 +7,7 @@ export interface TokenRegistryEntry {
   type: string;
   resolvedValue: string;
   collection: string;
+  aliasOf: string | null;
 }
 
 export interface TokenUsageOccurrence {
@@ -76,6 +77,7 @@ export class TokenRepository {
             tmv.ds_id,
             tmv.token_path,
             tmv.resolved_value,
+            tmv.mode,
             ROW_NUMBER() OVER (
               PARTITION BY tmv.ds_id, tmv.token_path
               ORDER BY
@@ -88,13 +90,41 @@ export class TokenRepository {
                 tmv.id
             ) AS rn
           FROM token_mode_values tmv
+        ),
+        selected_mode AS (
+          SELECT ds_id, token_path, mode AS winning_mode
+          FROM ranked_mode_values WHERE rn = 1
+        ),
+        -- Pick at most one alias target per token, preferring:
+        -- 1) the same mode chosen for resolved_value, 2) Default,
+        -- 3) stable fallback by id (also used when no winning mode exists).
+        alias_candidates AS (
+          SELECT
+            fa.ds_id, fa.from_path, fa.to_path, je.value AS alias_mode,
+            ROW_NUMBER() OVER (
+              PARTITION BY fa.ds_id, fa.from_path
+              ORDER BY
+                CASE WHEN lower(je.value) = lower(sm.winning_mode) THEN 0
+                     WHEN lower(je.value) = 'default'               THEN 1
+                     ELSE 2 END,
+                fa.id
+            ) AS rn
+          FROM figma_aliases fa
+          JOIN json_each(fa.modes) je
+          LEFT JOIN selected_mode sm
+            ON sm.ds_id = fa.ds_id AND sm.token_path = fa.from_path
+        ),
+        preferred_alias AS (
+          SELECT ds_id, from_path, to_path FROM alias_candidates WHERE rn = 1
         )
-        SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, ranked_mode_values.resolved_value, t.raw_value
+        SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, ranked_mode_values.resolved_value, t.raw_value, pa.to_path AS alias_of
         FROM tokens t
         LEFT JOIN ranked_mode_values
           ON ranked_mode_values.ds_id = t.ds_id
          AND ranked_mode_values.token_path = t.id
          AND ranked_mode_values.rn = 1
+        LEFT JOIN preferred_alias pa
+          ON pa.ds_id = t.ds_id AND pa.from_path = t.id
         WHERE t.ds_id = ?
         ORDER BY t.id
       `,
@@ -107,6 +137,7 @@ export class TokenRepository {
       collection: string;
       resolved_value: string | null;
       raw_value: string;
+      alias_of: string | null;
     }>;
 
     const entries = rows.map((row) => ({
@@ -117,6 +148,7 @@ export class TokenRepository {
       // Fallback to raw_value when mode rows are missing to avoid masking data with empty strings.
       resolvedValue: row.resolved_value ?? row.raw_value,
       collection: row.collection,
+      aliasOf: row.alias_of ?? null,
     }));
 
     return {

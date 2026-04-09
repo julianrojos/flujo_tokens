@@ -137,4 +137,112 @@ describe('token-repository', () => {
     const graph = repo.getTokenGraph('sys-01') as { ok: boolean };
     assert.equal(graph.ok, true);
   });
+
+  it('getTokenRegistry returns exactly 1 row per token with multi-mode aliases', () => {
+    // Insert a token
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.primary', 'sys-01', 'color/primary', '--color-primary', 'color', 'Core', '{}');
+
+    // Insert Default mode value
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'Default', '#ffffff');
+
+    // Insert two aliases with different modes
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'semantic.brand', JSON.stringify(['Default', 'Brand']));
+
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'other.alias', JSON.stringify(['Dark']));
+
+    const payload = repo.getTokenRegistry('sys-01');
+
+    // Exactly 1 row
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.primary');
+    // Should prefer the Default mode alias
+    assert.equal(entry.aliasOf, 'semantic.brand');
+  });
+
+  it('getTokenRegistry resolves alias when token has aliases but no token_mode_values row', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.ghost', 'sys-01', 'color/ghost', '--color-ghost', 'color', 'Core', '{"value":"#f0f0f0"}');
+
+    // No token_mode_values inserted on purpose.
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.ghost', 'semantic.ghost.default', JSON.stringify(['Default']));
+
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.ghost', 'semantic.ghost.dark', JSON.stringify(['Dark']));
+
+    const payload = repo.getTokenRegistry('sys-01');
+
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.ghost');
+    assert.equal(entry.resolvedValue, '{"value":"#f0f0f0"}');
+    // With no winning mode available, query should still pick the stable fallback
+    // that prioritizes Default aliases.
+    assert.equal(entry.aliasOf, 'semantic.ghost.default');
+  });
+
+  it('getTokenRegistry falls back to stable insertion order when no winning mode and no Default alias exist', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.brand.cta', 'sys-01', 'color/brand/cta', '--color-brand-cta', 'color', 'Core', '{"value":"#123456"}');
+
+    // No token_mode_values and no Default aliases on purpose.
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.brand.cta', 'semantic.brand.dark', JSON.stringify(['Dark']));
+
+    db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.brand.cta', 'semantic.brand.high-contrast', JSON.stringify(['Brand']));
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.brand.cta');
+    // Contract: when no winning mode and no Default are available, fall back to
+    // a stable first-inserted alias choice (fa.id order).
+    assert.equal(entry.aliasOf, 'semantic.brand.dark');
+  });
 });
