@@ -12,7 +12,6 @@ function createFactory(overrides = {}) {
       {
         repoRoot: "/repo",
         systemId: "core",
-        healthSnapshotScriptPath: "tooling/scripts/ds-health-snapshot.mjs",
         wcagPairs: { pairs: [{ foreground: "text.primary", background: "bg.canvas", level: "AA", textSize: "normal" }] },
       },
     ],

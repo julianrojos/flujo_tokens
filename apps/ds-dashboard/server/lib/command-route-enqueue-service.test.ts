@@ -8,7 +8,6 @@ import { describe, it } from 'node:test';
 
 import {
   buildCaptureFigmaScreenshotQueueArgs,
-  buildHealthSnapshotQueueArgs,
   buildRefreshScriptQueueArgs,
   buildRunScriptQueueConfig,
   parseScriptNameFromRoute,
@@ -18,7 +17,6 @@ function createSysCtx() {
   return {
     repoRoot: '/repo',
     systemId: 'core',
-    healthSnapshotScriptPath: 'tooling/scripts/ds-health-snapshot.mjs',
     captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
   };
 }
@@ -69,21 +67,16 @@ describe('command-route-enqueue-service', () => {
     });
   });
 
-  describe('build node queue args for health/capture', () => {
+  describe('build node queue args for capture', () => {
     const sysCtx = createSysCtx();
     const requestId = 'req_1';
     const parsed = {
-      commandLabel: 'node tooling/scripts/ds-health-snapshot.mjs --before-ref HEAD~1',
-      scriptArgs: ['--before-ref', 'HEAD~1'],
+      commandLabel: 'node tooling/scripts/ds-capture-from-figma-url.mjs --url https://figma.com/file/abc',
+      scriptArgs: ['--url', 'https://figma.com/file/abc'],
       commandDisplayArgs: ['--url', 'https://figma.com/file/abc'],
       commandArgs: ['--url', 'https://figma.com/file/abc'],
       commandEnv: { FIGMA_TOKEN: 'secret' },
     };
-
-    it('buildHealthSnapshotQueueArgs', () => {
-      const health = buildHealthSnapshotQueueArgs({ sysCtx, requestId, parsed });
-      assert.equal(health.scriptPath, sysCtx.healthSnapshotScriptPath);
-    });
 
     it('buildCaptureFigmaScreenshotQueueArgs', () => {
       const capture = buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed });

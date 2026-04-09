@@ -39,7 +39,6 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     getSystemContext: () => ({
       repoRoot: '/repo',
       systemId: 'core',
-      healthSnapshotScriptPath: 'tooling/scripts/ds-health-snapshot.mjs',
       captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
     }),
     queueJobAcceptedPayload: (job: { id: string }) => ({ ok: true, jobId: job.id }),
@@ -48,6 +47,10 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     runQueuedSpawnCommand: async () => ({ ok: true }),
     queueNpmScript: () => ({ id: 'npm_job' }),
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
+    componentRepo: {
+      getAll: () => [],
+      upsertFromRegistry: () => 0,
+    },
     hasPluginSocketForFile: () => true,
     toBooleanString: (value: unknown, fallback: boolean) => {
       if (typeof value === 'boolean') return value ? 'true' : 'false';
@@ -196,10 +199,10 @@ describe('command-routes', () => {
   });
 
   describe('/api/refresh-registry', () => {
-    it('enqueues expected script', async () => {
+    it('enqueues db-only refresh job', async () => {
       const captured: any[] = [];
       const app = createTestApp({
-        queueNpmScript: (args: any) => {
+        enqueueQueueJob: (args: any) => {
           captured.push(args);
           return { id: 'registry_job' };
         },
@@ -213,7 +216,7 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.deepEqual(payload, { ok: true, jobId: 'registry_job' });
       assert.equal(captured.length, 1);
-      assert.equal(captured[0].script, 'ds:registry:refresh');
+      assert.equal(captured[0].operationName, 'refresh:registry');
       assert.equal(captured[0].systemId, 'core');
     });
   });
@@ -228,6 +231,48 @@ describe('command-routes', () => {
       assert.equal(res.status, 400);
       const payload = await res.json();
       assert.equal((payload as any).code, 'validation.invalid_git_ref');
+    });
+
+    it('returns 500 when DB health dependencies are missing', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({ beforeRef: 'HEAD~1' }),
+        validateGitRef: (value: string) => value,
+        tokenRepo: undefined,
+        healthRepo: undefined,
+        db: undefined,
+      });
+
+      const res = await app.request('/api/capture-health-snapshot', { method: 'POST' });
+      assert.equal(res.status, 500);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'internal.health_snapshot_dependencies_missing');
+    });
+
+    it('enqueues DB-only capture job when dependencies exist', async () => {
+      const queued: any[] = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({ beforeRef: 'HEAD~2', retentionDays: 30, skipDiff: false }),
+        validateGitRef: (value: string) => value,
+        tokenRepo: {} as any,
+        healthRepo: {} as any,
+        db: {} as any,
+        enqueueQueueJob: (args: any) => {
+          queued.push(args);
+          return { id: 'health_job_1' };
+        },
+      });
+
+      const res = await app.request('/api/capture-health-snapshot', {
+        method: 'POST',
+        headers: { 'x-ds-system': 'core' },
+      });
+
+      assert.equal(res.status, 202);
+      const payload = await res.json();
+      assert.deepEqual(payload, { ok: true, jobId: 'health_job_1' });
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].operationName, 'capture:health-snapshot');
+      assert.equal(queued[0].systemId, 'core');
     });
   });
 

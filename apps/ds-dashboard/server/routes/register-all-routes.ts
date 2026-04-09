@@ -68,10 +68,6 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
           typeof context.figmaFileId === 'string' && context.figmaFileId.trim()
             ? context.figmaFileId
             : undefined,
-        healthSnapshotScriptPath: ensureString(
-          context.healthSnapshotScriptPath,
-          'commandDeps.getSystemContext.healthSnapshotScriptPath',
-        ),
         captureFromFigmaUrlScriptPath: `${ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot')}/tooling/scripts/ds-capture-from-figma-url.mjs`,
       };
     },
@@ -112,6 +108,8 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
       return { id: job.id };
     },
     componentRepo: deps.componentRepo,
+    tokenRepo: deps.tokenRepo,
+    healthRepo: deps.healthRepo,
     db: deps.db,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,

@@ -64,7 +64,6 @@ export interface DashboardSystemContext {
     genDir: string;
     specBackupsDirPath: string;
     wcagPairs: Record<string, unknown>;
-    healthSnapshotScriptPath: string;
     figmaApiToken?: string;
 }
 
@@ -359,7 +358,6 @@ export class DesignSystemRepository {
             genDir: paths.generatedDir,
             specBackupsDirPath: path.join(paths.generatedDir, 'spec-backups'),
             wcagPairs: this.getJsonAppSetting('wcag_pairs', { pairs: [] }),
-            healthSnapshotScriptPath: path.join(this.repoRoot, 'tooling', 'scripts', 'ds-health-snapshot.mjs'),
             figmaApiToken: target.figmaApiToken,
         };
     }

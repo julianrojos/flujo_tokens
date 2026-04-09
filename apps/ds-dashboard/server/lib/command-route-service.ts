@@ -48,6 +48,7 @@ export interface HealthSnapshotCommandConfigOptions {
     beforeRef?: string;
     retentionDays?: number;
     skipDiff?: boolean;
+    allowDuplicateDay?: boolean;
     [key: string]: unknown;
   };
   validateGitRef: (value: string) => string | null;
@@ -66,8 +67,10 @@ type CommandConfigError = {
 
 type HealthSnapshotCommandConfigSuccess = {
   ok: true;
-  commandLabel: string;
-  scriptArgs: string[];
+  beforeRef: string;
+  retentionDays: number;
+  skipDiff: boolean;
+  allowDuplicateDay: boolean;
 };
 
 export type HealthSnapshotCommandConfigResult =
@@ -165,7 +168,10 @@ export function buildRunScriptCommandArgs(options: RunScriptCommandArgsOptions):
 }
 
 /**
- * Build command config for health snapshot.
+ * Build normalized config for health snapshot execution.
+ *
+ * Route handlers consume this output to enqueue DB-only jobs; this function no
+ * longer builds shell/script argument arrays.
  */
 export function buildHealthSnapshotCommandConfig(
   options: HealthSnapshotCommandConfigOptions
@@ -187,25 +193,16 @@ export function buildHealthSnapshotCommandConfig(
   }
 
   const retentionDaysRaw = Number(body.retentionDays);
-  const retentionDays =
-    Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0 ? String(Math.floor(retentionDaysRaw)) : '120';
-  const skipDiff = toBooleanString(body.skipDiff, false);
+  const retentionDays = Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0 ? Math.floor(retentionDaysRaw) : 120;
+  const skipDiff = toBooleanString(body.skipDiff, false) === 'true';
+  const allowDuplicateDay = toBooleanString(body.allowDuplicateDay, false) === 'true';
 
   return {
     ok: true,
-    commandLabel:
-      `node tooling/scripts/ds-health-snapshot.mjs --before-ref ${beforeRef} ` +
-      `--retention-days ${retentionDays} --skip-diff ${skipDiff}`,
-    scriptArgs: [
-      '--before-ref',
-      beforeRef,
-      '--retention-days',
-      retentionDays,
-      '--skip-diff',
-      skipDiff,
-      '--format',
-      'json',
-    ],
+    beforeRef,
+    retentionDays,
+    skipDiff,
+    allowDuplicateDay,
   };
 }
 

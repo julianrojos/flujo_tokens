@@ -15,7 +15,6 @@ import {
 } from '../lib/command-route-service.ts';
 import {
   buildCaptureFigmaScreenshotQueueArgs,
-  buildHealthSnapshotQueueArgs,
   buildRefreshScriptQueueArgs,
   buildRunScriptQueueConfig,
   parseScriptNameFromRoute,
@@ -23,6 +22,14 @@ import {
 import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
+import {
+  captureHealthSnapshotDbOnly,
+  refreshComponentsHealthSnapshotDbOnly,
+  refreshRegistryDbOnly,
+  refreshTokenGraphDbOnly,
+  refreshTokenHealthSnapshotDbOnly,
+  refreshUsageIndexDbOnly,
+} from './ops-db-maintenance-service.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
@@ -88,7 +95,6 @@ export interface CommandRouteHandlerDeps {
     repoRoot: string;
     systemId: string;
     figmaFileId?: string;
-    healthSnapshotScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };
@@ -106,6 +112,8 @@ export interface CommandRouteHandlerDeps {
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
   hasPluginSocketForFile?: (fileKey: string) => boolean;
   validateGitRef: (value: string) => string | null;
@@ -116,11 +124,167 @@ export interface CommandRouteHandlerDeps {
 export function enqueueRefreshScriptJob(
   c: Context,
   script: string,
-  deps: Pick<CommandRouteHandlerDeps, 'createApiRequestId' | 'getSystemContext' | 'queueNpmScript' | 'queueJobAcceptedPayload'>
+  deps: Pick<
+    CommandRouteHandlerDeps,
+    | 'failJson'
+    | 'createApiRequestId'
+    | 'getSystemContext'
+    | 'queueNpmScript'
+    | 'queueJobAcceptedPayload'
+    | 'enqueueQueueJob'
+    | 'sha256Text'
+    | 'componentRepo'
+    | 'tokenRepo'
+    | 'healthRepo'
+    | 'db'
+  >
 ): Response {
-  const { createApiRequestId, getSystemContext, queueNpmScript, queueJobAcceptedPayload } = deps;
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    queueNpmScript,
+    queueJobAcceptedPayload,
+    enqueueQueueJob,
+    sha256Text,
+    componentRepo,
+    tokenRepo,
+    healthRepo,
+    db,
+  } = deps;
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const normalizedScript = String(script || '').trim();
+  type RefreshDepKey = 'componentRepo' | 'db' | 'tokenRepo' | 'healthRepo';
+  const queueDbOnlyJob = (args: {
+    label: string;
+    operationName: string;
+    execute: (ctx: { emitChunk: (kind: string, text: string) => void }) => {
+      ok: boolean;
+      code?: number;
+      summary: string;
+      payload?: unknown;
+    };
+  }) =>
+    enqueueQueueJob({
+      label: args.label,
+      systemId: sysCtx.systemId,
+      operationName: args.operationName,
+      requestId,
+      inputHash: sha256Text(
+        JSON.stringify({
+          script: normalizedScript,
+          operationName: args.operationName,
+          systemId: sysCtx.systemId,
+          mode: 'db-only',
+        }),
+      ),
+      execute: async ({ emitChunk }: { emitChunk: (kind: string, text: string) => void }) =>
+        args.execute({ emitChunk }),
+    });
+
+  const hasDep = (dep: RefreshDepKey): boolean => {
+    if (dep === 'componentRepo') return Boolean(componentRepo);
+    if (dep === 'db') return Boolean(db);
+    if (dep === 'tokenRepo') return Boolean(tokenRepo);
+    return Boolean(healthRepo);
+  };
+
+  const refreshDbOnlyConfigByScript: Partial<Record<string, {
+    deps: RefreshDepKey[];
+    build: (emitChunk: (kind: string, text: string) => void) => {
+      ok: boolean;
+      code?: number;
+      summary: string;
+      payload?: unknown;
+    };
+    label: string;
+    operationName: string;
+  }>> = {
+    'ds:registry:refresh': {
+      deps: ['componentRepo'],
+      label: 'refresh registry (db-only)',
+      operationName: 'refresh:registry',
+      build: (emitChunk) =>
+        refreshRegistryDbOnly({
+          systemId: sysCtx.systemId,
+          componentRepo: componentRepo as NonNullable<typeof componentRepo>,
+          emitChunk,
+        }),
+    },
+    'ds:token-usage-index': {
+      deps: ['db', 'tokenRepo'],
+      label: 'refresh token usage (db-only)',
+      operationName: 'refresh:token-usage-index',
+      build: (emitChunk) =>
+        refreshUsageIndexDbOnly({
+          systemId: sysCtx.systemId,
+          emitChunk,
+          db: db as NonNullable<typeof db>,
+          tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
+        }),
+    },
+    'ds:token-graph': {
+      deps: ['db', 'tokenRepo'],
+      label: 'refresh token graph (db-only)',
+      operationName: 'refresh:token-graph',
+      build: (emitChunk) =>
+        refreshTokenGraphDbOnly({
+          systemId: sysCtx.systemId,
+          emitChunk,
+          db: db as NonNullable<typeof db>,
+          tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
+          sha256Text,
+        }),
+    },
+    'ds:token-health': {
+      deps: ['db', 'tokenRepo', 'healthRepo'],
+      label: 'refresh token health (db-only)',
+      operationName: 'refresh:token-health',
+      build: (emitChunk) =>
+        refreshTokenHealthSnapshotDbOnly({
+          systemId: sysCtx.systemId,
+          emitChunk,
+          tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
+          healthRepo: healthRepo as NonNullable<typeof healthRepo>,
+          db: db as NonNullable<typeof db>,
+          sha256Text,
+        }),
+    },
+    'ds:registry:report': {
+      deps: ['componentRepo', 'healthRepo'],
+      label: 'refresh components health (db-only)',
+      operationName: 'refresh:components-health',
+      build: (emitChunk) =>
+        refreshComponentsHealthSnapshotDbOnly({
+          systemId: sysCtx.systemId,
+          emitChunk,
+          componentRepo: componentRepo as NonNullable<typeof componentRepo>,
+          healthRepo: healthRepo as NonNullable<typeof healthRepo>,
+          sha256Text,
+        }),
+    },
+  };
+
+  const dbOnlyConfig = refreshDbOnlyConfigByScript[normalizedScript];
+  if (dbOnlyConfig) {
+    const missingDep = dbOnlyConfig.deps.find((dep) => !hasDep(dep));
+    if (missingDep) {
+      return failJson(c, 500, {
+        code: 'internal.refresh_dependencies_missing',
+        userMessage: `Missing dependency "${missingDep}" for ${normalizedScript}.`,
+        recoverable: false,
+        requestId,
+      });
+    }
+    const job = queueDbOnlyJob({
+      label: dbOnlyConfig.label,
+      operationName: dbOnlyConfig.operationName,
+      execute: ({ emitChunk }) => dbOnlyConfig.build(emitChunk),
+    });
+    return c.json(queueJobAcceptedPayload(job), 202);
+  }
+
   const job = queueNpmScript(buildRefreshScriptQueueArgs({ sysCtx, requestId, script }));
   return c.json(queueJobAcceptedPayload(job), 202);
 }
@@ -326,8 +490,12 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
     readJsonBody,
     validateGitRef,
     toBooleanString,
-    queueNodeJsonCommand,
+    enqueueQueueJob,
+    sha256Text,
     queueJobAcceptedPayload,
+    tokenRepo,
+    healthRepo,
+    db,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -346,7 +514,44 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
     });
   }
 
-  const job = queueNodeJsonCommand(buildHealthSnapshotQueueArgs({ sysCtx, requestId, parsed }));
+  if (!tokenRepo || !healthRepo || !db) {
+    return failJson(c, 500, {
+      code: 'internal.health_snapshot_dependencies_missing',
+      userMessage: 'Cannot capture health snapshot: DB repositories are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const job = enqueueQueueJob({
+    label: 'capture health snapshot (db-only)',
+    systemId: sysCtx.systemId,
+    operationName: 'capture:health-snapshot',
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        operation: 'capture:health-snapshot',
+        systemId: sysCtx.systemId,
+        beforeRef: parsed.beforeRef,
+        retentionDays: parsed.retentionDays,
+        skipDiff: parsed.skipDiff,
+        allowDuplicateDay: parsed.allowDuplicateDay,
+      }),
+    ),
+    execute: async ({ emitChunk }: { emitChunk: (kind: string, text: string) => void }) =>
+      captureHealthSnapshotDbOnly({
+        systemId: sysCtx.systemId,
+        beforeRef: parsed.beforeRef,
+        retentionDays: parsed.retentionDays,
+        allowDuplicateDay: parsed.allowDuplicateDay,
+        skipDiff: parsed.skipDiff,
+        emitChunk,
+        tokenRepo,
+        healthRepo,
+        db,
+        sha256Text,
+      }),
+  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 

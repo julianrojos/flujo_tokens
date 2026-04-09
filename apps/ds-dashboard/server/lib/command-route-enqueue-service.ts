@@ -8,7 +8,6 @@
 export interface SystemContext {
   repoRoot: string;
   systemId: string;
-  healthSnapshotScriptPath: string;
   captureFromFigmaUrlScriptPath: string;
 }
 
@@ -63,16 +62,6 @@ export interface BuildRunScriptQueueConfigOptions {
   sha256TextFn: (value: string) => string;
 }
 
-export interface HealthSnapshotQueueArgs {
-  repoRoot: string;
-  commandLabel: string;
-  scriptPath: string;
-  systemId: string;
-  requestId: string;
-  scriptArgs: string[];
-  commandEnv?: Record<string, string>;
-}
-
 
 export interface CaptureFigmaScreenshotQueueArgs {
   repoRoot: string;
@@ -83,12 +72,6 @@ export interface CaptureFigmaScreenshotQueueArgs {
   scriptArgs: string[];
   commandEnv?: Record<string, string>;
   allowNonZeroJson: boolean;
-}
-
-export interface ParsedHealthCommandConfig {
-  commandLabel: string;
-  scriptArgs: string[];
-  commandEnv?: Record<string, string>;
 }
 
 export interface ParsedNodeJsonCommandConfig {
@@ -168,26 +151,6 @@ export function buildRunScriptQueueConfig(options: BuildRunScriptQueueConfigOpti
       commandArgs: args,
       commandLabel,
     },
-  };
-}
-
-/**
- * Build queue args for health snapshot job.
- */
-export function buildHealthSnapshotQueueArgs(options: {
-  sysCtx: SystemContext;
-  requestId: string;
-  parsed: ParsedHealthCommandConfig;
-}): HealthSnapshotQueueArgs {
-  const { sysCtx, requestId, parsed } = options;
-  return {
-    repoRoot: sysCtx.repoRoot,
-    commandLabel: parsed.commandLabel,
-    scriptPath: sysCtx.healthSnapshotScriptPath,
-    systemId: sysCtx.systemId,
-    requestId,
-    scriptArgs: parsed.scriptArgs,
-    commandEnv: parsed.commandEnv,
   };
 }
 

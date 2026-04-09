@@ -67,6 +67,8 @@ export interface CommandDeps {
   queueNpmScript: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   db?: import('better-sqlite3').Database;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -212,6 +214,8 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueNpmScript: deps.queueNpmScript,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
       componentRepo: deps.componentRepo,
+      tokenRepo: deps.tokenRepo,
+      healthRepo: deps.healthRepo,
       db: deps.db,
       toBooleanString: deps.toBooleanString,
       toNumberString: deps.toNumberString,

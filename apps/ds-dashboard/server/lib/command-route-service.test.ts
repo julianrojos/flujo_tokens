@@ -114,12 +114,15 @@ describe('command-route-service', () => {
       assert.equal((invalid as any).errorArgs.code, 'validation.invalid_git_ref');
 
       const valid = buildHealthSnapshotCommandConfig({
-        body: { beforeRef: 'HEAD~2', retentionDays: 30, skipDiff: true },
+        body: { beforeRef: 'HEAD~2', retentionDays: 30, skipDiff: true, allowDuplicateDay: true },
         validateGitRef: (value: string) => value,
         toBooleanString: (value: unknown) => (value ? 'true' : 'false'),
       });
       assert.equal(valid.ok, true);
-      assert.ok((valid as any).commandLabel.includes('--before-ref HEAD~2'));
+      assert.equal((valid as any).beforeRef, 'HEAD~2');
+      assert.equal((valid as any).retentionDays, 30);
+      assert.equal((valid as any).skipDiff, true);
+      assert.equal((valid as any).allowDuplicateDay, true);
     });
   });
 

@@ -26,7 +26,6 @@ export interface CommandRoutesDeps {
     repoRoot: string;
     systemId: string;
     figmaFileId?: string;
-    healthSnapshotScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
@@ -36,6 +35,8 @@ export interface CommandRoutesDeps {
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   db?: import('better-sqlite3').Database;
   syncDesignSystemFromPluginFn?: CommandRouteHandlerDeps['syncDesignSystemFromPluginFn'];
   hasPluginSocketForFile?: CommandRouteHandlerDeps['hasPluginSocketForFile'];
@@ -89,6 +90,8 @@ function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandler
     queueNpmScript: (args) => assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
     queueNodeJsonCommand: (args) => assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
     componentRepo: deps.componentRepo,
+    tokenRepo: deps.tokenRepo,
+    healthRepo: deps.healthRepo,
     db: deps.db,
     syncDesignSystemFromPluginFn: deps.syncDesignSystemFromPluginFn,
     hasPluginSocketForFile: deps.hasPluginSocketForFile,
