@@ -400,7 +400,7 @@ function yamlBooleanOrString(value: unknown, fallback: boolean): string {
   return fallback ? 'true' : 'false';
 }
 
-function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Map<string, string> {
+export function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Map<string, string> {
   const out = new Map<string, string>();
   for (const variable of Object.values(meta?.variables || {})) {
     const variableId = String(variable?.id || '').trim();

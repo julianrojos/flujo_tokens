@@ -1602,6 +1602,38 @@ export class ComponentRepository {
   }
 
   /**
+   * Replace all token bindings for a component with the provided set.
+   * Used when enriching a component on-demand (e.g. during AI doc generation)
+   * without running a full Figma sync.
+   */
+  saveTokenBindingsForComponent(
+    componentId: number,
+    bindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string; tokenPath: string | undefined }>,
+  ): void {
+    const now = Math.floor(Date.now() / 1000);
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM component_figma_token_bindings WHERE component_id = ?').run(componentId);
+      const stmt = this.db.prepare(`
+        INSERT INTO component_figma_token_bindings (component_id, node_id, node_name, field, variable_id, token_path, mode, run_id, captured_at, schema_version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const seen = new Set<string>();
+      for (const b of bindings) {
+        const nodeId = String(b.nodeId || '').trim();
+        const nodeName = String(b.nodeName || '').trim();
+        const field = String(b.field || '').trim();
+        const variableId = String(b.variableId || '').trim();
+        if (!nodeId || !nodeName || !field || !variableId) continue;
+        const dedupeKey = `${nodeId}\x00${field}\x00${variableId}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        stmt.run(componentId, nodeId, nodeName, field, variableId, b.tokenPath ?? null, null, null, now, 1);
+      }
+    });
+    tx();
+  }
+
+  /**
    * Get Figma descriptions for a component.
    * Returns null if no descriptions have ever been synced.
    */

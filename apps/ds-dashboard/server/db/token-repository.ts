@@ -10,6 +10,12 @@ export interface TokenRegistryEntry {
   aliasOf: string | null;
 }
 
+interface VariableIdMappingRow {
+  /** Canonical form: lowercase without "variableid:" prefix (e.g. "1:12") */
+  variable_id: string;
+  token_path: string;
+}
+
 export interface TokenUsageOccurrence {
   kind: string;
   source: string;
@@ -48,6 +54,29 @@ export class TokenRepository {
     return { byPath, bySlashPath };
   }
 
+  private static buildVariableIdIndex(args: {
+    mappings: VariableIdMappingRow[];
+    byPath: Record<string, TokenRegistryEntry>;
+    bySlashPath: Record<string, TokenRegistryEntry>;
+  }): Record<string, TokenRegistryEntry> {
+    const { mappings, byPath, bySlashPath } = args;
+    const byVariableId: Record<string, TokenRegistryEntry> = {};
+    for (const mapping of mappings) {
+      // SQL already returns canonical form (lowercase, no "variableid:" prefix).
+      const bareId = String(mapping.variable_id || '').trim();
+      const tokenPath = String(mapping.token_path || '').trim();
+      if (!bareId || !tokenPath) continue;
+      const entry = byPath[tokenPath] ?? bySlashPath[tokenPath];
+      if (!entry) continue;
+      // Index variable ids in both forms:
+      // - `VariableID:1:12` (canonical prefixed form)
+      // - `1:12` (bare id seen in some payloads)
+      byVariableId[bareId] = entry;
+      byVariableId[`VariableID:${bareId}`] = entry;
+    }
+    return byVariableId;
+  }
+
   private static buildUsageIndexes(entries: TokenUsageEntry[]): {
     byPath: Record<string, TokenUsageEntry>;
     bySlashPath: Record<string, TokenUsageEntry>;
@@ -68,6 +97,7 @@ export class TokenRepository {
     entries: TokenRegistryEntry[];
     byPath: Record<string, TokenRegistryEntry>;
     bySlashPath: Record<string, TokenRegistryEntry>;
+    byVariableId: Record<string, TokenRegistryEntry>;
   } {
     const rows = this.db
       .prepare(
@@ -140,6 +170,48 @@ export class TokenRepository {
       alias_of: string | null;
     }>;
 
+    const variableIdMappings = this.db
+      .prepare(
+        `
+        WITH normalized_bindings AS (
+          SELECT
+            c.ds_id,
+            CASE
+              WHEN lower(trim(b.variable_id)) LIKE 'variableid:%'
+                THEN trim(substr(trim(b.variable_id), 12))
+              ELSE trim(b.variable_id)
+            END AS canonical_variable_id,
+            b.token_path,
+            b.captured_at,
+            b.id
+          FROM component_figma_token_bindings b
+          JOIN components c
+            ON c.id = b.component_id
+          WHERE c.ds_id = ?
+            AND length(trim(b.variable_id)) > 0
+            AND length(trim(COALESCE(b.token_path, ''))) > 0
+        ),
+        ranked_bindings AS (
+          SELECT
+            ds_id,
+            canonical_variable_id,
+            token_path,
+            captured_at,
+            id,
+            ROW_NUMBER() OVER (
+              PARTITION BY ds_id, canonical_variable_id
+              ORDER BY captured_at DESC, id DESC
+            ) AS rn
+          FROM normalized_bindings
+          WHERE length(canonical_variable_id) > 0
+        )
+        SELECT canonical_variable_id AS variable_id, token_path
+        FROM ranked_bindings
+        WHERE rn = 1
+      `,
+      )
+      .all(dsId) as VariableIdMappingRow[];
+
     const entries = rows.map((row) => ({
       path: row.id,
       slashPath: row.slash_path,
@@ -151,10 +223,14 @@ export class TokenRepository {
       aliasOf: row.alias_of ?? null,
     }));
 
-    return {
-      entries,
-      ...TokenRepository.buildRegistryIndexes(entries),
-    };
+    const registryIndexes = TokenRepository.buildRegistryIndexes(entries);
+    const byVariableId = TokenRepository.buildVariableIdIndex({
+      mappings: variableIdMappings,
+      byPath: registryIndexes.byPath,
+      bySlashPath: registryIndexes.bySlashPath,
+    });
+
+    return { entries, ...registryIndexes, byVariableId };
   }
 
   getTokenUsageIndex(dsId: string): {

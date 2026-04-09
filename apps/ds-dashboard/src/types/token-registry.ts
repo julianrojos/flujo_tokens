@@ -12,4 +12,5 @@ export interface TokenRegistry {
   entries: TokenEntry[];
   byPath: Record<string, TokenEntry>;
   bySlashPath: Record<string, TokenEntry>;
+  byVariableId: Record<string, TokenEntry>;
 }

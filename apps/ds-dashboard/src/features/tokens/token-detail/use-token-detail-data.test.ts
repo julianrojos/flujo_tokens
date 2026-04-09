@@ -22,11 +22,12 @@ function makeToken(overrides: Partial<TokenEntry>): TokenEntry {
 function buildRegistry(entries: TokenEntry[]): TokenRegistry {
   const byPath: Record<string, TokenEntry> = {};
   const bySlashPath: Record<string, TokenEntry> = {};
+  const byVariableId: Record<string, TokenEntry> = {};
   for (const entry of entries) {
     byPath[entry.path] = entry;
     bySlashPath[entry.slashPath] = entry;
   }
-  return { entries, byPath, bySlashPath };
+  return { entries, byPath, bySlashPath, byVariableId };
 }
 
 function makeReport(variableName: string, nodeCount = 1): VariableUsageReport {

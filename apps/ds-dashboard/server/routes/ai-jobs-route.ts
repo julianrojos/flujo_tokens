@@ -23,7 +23,8 @@ import { computeDocStatusesDb } from '../services/ai-doc-status-service.js';
 import { computeInMemoryDiff } from '../services/ai-diff-utils.js';
 import { renderEditorialPatchToMarkdown, renderEditorialEntryToMarkdown } from '../services/ai-component-doc-renderer.js';
 import { buildCanonicalKey, resolveDescriptionsForRender } from '../services/figma-descriptions-resolver.js';
-import { getComponentSpecDirect } from '../services/figma-direct-bridge-service.js';
+import { getComponentSpecDirect, fetchVariablesDirect } from '../services/figma-direct-bridge-service.js';
+import { buildVariableIdToTokenPathMap } from '../services/figma-db-sync-service.js';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
@@ -424,6 +425,36 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
                             syncedAt: Math.floor(Date.now() / 1000),
                             variants: extracted.variants,
                         });
+
+                        // Persist token bindings so VariableIDs resolve in AI suggestions.
+                        // Fail-open: generation must continue even if this fails.
+                        try {
+                            const rawBindings = Array.isArray((spec as Record<string, unknown>).tokenBindings)
+                                ? ((spec as Record<string, unknown>).tokenBindings as Array<Record<string, unknown>>)
+                                : [];
+                            if (rawBindings.length > 0) {
+                                const variablesResp = await fetchVariablesDirect(fileKey);
+                                const variableIdToTokenPath = buildVariableIdToTokenPathMap(variablesResp.meta);
+                                const bindings = rawBindings.map((b) => ({
+                                    nodeId: String(b.nodeId || '').trim(),
+                                    nodeName: String(b.nodeName || '').trim(),
+                                    field: String(b.field || '').trim(),
+                                    variableId: String(b.variableId || '').trim(),
+                                    tokenPath: variableIdToTokenPath.get(String(b.variableId || '').trim()),
+                                }));
+                                deps.componentRepo!.saveTokenBindingsForComponent(component.id, bindings);
+                            } else {
+                                // No bindings in this spec — clear stale mappings
+                                // from previous captures so VariableIDs don't resolve to old tokens.
+                                deps.componentRepo!.saveTokenBindingsForComponent(component.id, []);
+                            }
+                        } catch (bindingError) {
+                            console.warn('[ai-jobs-route] Failed to persist token bindings from generation spec', {
+                                jobId: job.id,
+                                componentId: job.input.componentId,
+                                error: bindingError,
+                            });
+                        }
                     }
                 } catch (error) {
                     console.warn('[ai-jobs-route] Failed to persist Figma descriptions from generation spec', {

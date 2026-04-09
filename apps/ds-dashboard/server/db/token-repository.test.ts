@@ -245,4 +245,152 @@ describe('token-repository', () => {
     // a stable first-inserted alias choice (fa.id order).
     assert.equal(entry.aliasOf, 'semantic.brand.dark');
   });
+
+  it('getTokenRegistry exposes byVariableId mapping using latest captured token binding', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.background.accent', 'sys-01', 'color/background/accent', '--color-background-accent', 'color', 'Core', '{}');
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.legacy', 'sys-01', 'color/legacy', '--color-legacy', 'color', 'Core', '{}');
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.legacy', 'Default', '#000000');
+
+    const component = db.prepare(
+      `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+    ).run('sys-01', 'button', 'Button');
+    const componentId = Number(component.lastInsertRowid);
+
+    db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(componentId, '1:1', 'Frame', 'fills', 'VariableID:1:12', 'color.legacy', 'Default', 100);
+
+    db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(componentId, '1:2', 'Frame', 'fills', 'VariableID:1:12', 'color.background.accent', 'Default', 200);
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.byVariableId['VariableID:1:12']?.path, 'color.background.accent');
+    assert.equal(payload.byVariableId['VariableID:1:12']?.resolvedValue, '#5B6CFF');
+  });
+
+  it('getTokenRegistry ranks latest binding across bare and prefixed variable id forms', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.background.accent', 'sys-01', 'color/background/accent', '--color-background-accent', 'color', 'Core', '{}');
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.legacy', 'sys-01', 'color/legacy', '--color-legacy', 'color', 'Core', '{}');
+
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.legacy', 'Default', '#000000');
+
+    const component = db.prepare(
+      `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+    ).run('sys-01', 'badge', 'Badge');
+    const componentId = Number(component.lastInsertRowid);
+
+    // Older capture with prefixed variable id points to legacy token.
+    db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(componentId, '3:1', 'Frame', 'fills', 'VariableID:1:12', 'color.legacy', 'Default', 100);
+
+    // Newer capture with bare id points to the correct current token.
+    db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(componentId, '3:2', 'Frame', 'fills', '1:12', 'color.background.accent', 'Default', 200);
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
+    assert.equal(payload.byVariableId['VariableID:1:12']?.path, 'color.background.accent');
+  });
+
+  it('getTokenRegistry indexes variable ids in prefixed and bare forms', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.background.accent', 'sys-01', 'color/background/accent', '--color-background-accent', 'color', 'Core', '{}');
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+
+    const component = db.prepare(
+      `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+    ).run('sys-01', 'chip', 'Chip');
+    const componentId = Number(component.lastInsertRowid);
+
+    db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(componentId, '2:1', 'Frame', 'fills', '1:12', 'color.background.accent', 'Default', 100);
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
+    assert.equal(payload.byVariableId['VariableID:1:12']?.path, 'color.background.accent');
+  });
 });
