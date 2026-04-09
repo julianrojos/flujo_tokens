@@ -6,6 +6,8 @@
  */
 
 export interface CreateServerAppRouteDepsConfig {
+  createApiRequestId: () => string;
+  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: import('../db/design-system-repository.js').DesignSystemRepository;
   normalizeSystemId: (value: string) => string;
@@ -53,6 +55,8 @@ export type CreateServerAppRouteDeps = CreateServerAppRouteDepsConfig;
  */
 export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsConfig): CreateServerAppRouteDeps {
   return {
+    createApiRequestId: config.createApiRequestId,
+    queueJobAcceptedPayload: config.queueJobAcceptedPayload,
     readJsonBody: config.readJsonBody,
     designSystemRepository: config.designSystemRepository,
     normalizeSystemId: config.normalizeSystemId,

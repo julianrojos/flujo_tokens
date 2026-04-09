@@ -26,6 +26,7 @@ export function createEmptyTokenRegistry() {
     entries: [],
     byPath: {},
     bySlashPath: {},
+    byVariableId: {},
   };
 }
 

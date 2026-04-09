@@ -129,6 +129,7 @@ export interface ServerDeps {
   toQueueTerminalEvent: (args: unknown) => unknown;
   buildApiErrorPayload: (args: unknown) => unknown;
   MAX_RETAINED_EVENTS: number;
+  queueJobAcceptedPayload: (job: unknown) => unknown;
   enqueueQueueJob: (args: unknown) => unknown;
   runQueuedSpawnCommand: (args: unknown) => Promise<unknown>;
   queueNpmScript: (args: unknown) => unknown;

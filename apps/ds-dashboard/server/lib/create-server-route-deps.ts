@@ -6,6 +6,8 @@
  */
 
 export interface CreateServerRouteDepsConfig {
+  createApiRequestId: () => string;
+  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
   buildHealthPayload: () => unknown;
   failJson: (...args: unknown[]) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
@@ -56,6 +58,8 @@ export type CreateServerRouteDeps = CreateServerRouteDepsConfig;
  */
 export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): CreateServerRouteDeps {
   return {
+    createApiRequestId: deps.createApiRequestId,
+    queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
     buildHealthPayload: deps.buildHealthPayload,
     failJson: deps.failJson,
     readJsonBody: deps.readJsonBody,

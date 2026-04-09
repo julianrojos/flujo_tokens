@@ -285,6 +285,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     buildApiErrorPayload: buildApiErrorPayloadAdapter,
     writeStructuredLog: writeStructuredLogAdapter,
     routeDeps: buildCreateServerAppRouteDeps({
+      createApiRequestId,
+      queueJobAcceptedPayload,
       readJsonBody: readJsonBody as (c: unknown) => Promise<Record<string, unknown>>,
       designSystemRepository,
       componentRepo,
