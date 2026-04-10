@@ -251,7 +251,7 @@ export function applyAuthoritativeFigmaDescriptions(
 
 /**
  * Build system prompt for component documentation
- * @param policyContext - Optional editorial policy context from .mdc rules
+ * @param policyContext - Optional editorial policy context from .mc rules
  * @returns System prompt string
  */
 export function buildSystemPrompt(policyContext?: string): string {

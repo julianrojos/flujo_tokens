@@ -212,7 +212,7 @@ describe('buildPromptPolicyContext', () => {
         (fsPromises as unknown as { readFile: typeof fsPromises.readFile }).readFile = originalFsReadFile;
     });
 
-    it('happy path: returns non-empty string with real .mdc files', async () => {
+    it('happy path: returns non-empty string with real .mc files', async () => {
         const result = await buildPromptPolicyContext(repoRoot);
         assert.ok(result.length > 0, 'Should return non-empty string');
     });
@@ -231,7 +231,8 @@ describe('buildPromptPolicyContext', () => {
         resetPromptPolicyCacheForTests();
         const result = await buildPromptPolicyContext(repoRoot);
         assert.ok(
-            result.includes('Nada que no sea visible o trazable') || result.includes('Clasificar primero. Documentar después.'),
+            result.includes('Nothing that is not visible or traceable')
+                || result.includes('Classify first. Document later.'),
             'Should include extraction stage policy content',
         );
     });
@@ -308,8 +309,8 @@ describe('buildPromptPolicyContext', () => {
         resetPromptPolicyCacheForTests();
         const result = await buildPromptPolicyContext(repoRoot);
 
-        const topPriorityPos = result.indexOf('[source: figma-component-extractor.SKILL.md > Regla madre');
-        const lowerPriorityPos = result.indexOf('[source: RULES.md > 4. Estado visual ≠ comportamiento real');
+        const topPriorityPos = result.indexOf('[source: figma-component-extractor.SKILL.md > Extraction Rules');
+        const lowerPriorityPos = result.indexOf('[source: RULES.md > 4. Visual State != Real Behavior');
 
         assert.ok(topPriorityPos >= 0, 'Top-priority extraction rule should be present');
         if (lowerPriorityPos >= 0) {
@@ -354,11 +355,11 @@ describe('buildPromptPolicyContext', () => {
 });
 
 // ---------------------------------------------------------------------------
-// S-06: Contract CI test — verifies headings exist in real .mdc files
+// S-06: Contract CI test — verifies headings exist in real .mc files
 // ---------------------------------------------------------------------------
 
-describe('Contract CI: .mdc headings exist', () => {
-    it('[contract] all configured headings are present in real .mdc files', () => {
+describe('Contract CI: .mc headings exist', () => {
+    it('[contract] all configured headings are present in real .mc files', () => {
         const failures: string[] = [];
 
         // Iterate over all stages
@@ -386,7 +387,7 @@ describe('Contract CI: .mdc headings exist', () => {
 
         if (failures.length > 0) {
             assert.fail(
-                `Contract violation — configured headings not found in .mdc files:\n`
+                `Contract violation — configured headings not found in .mc files:\n`
                 + failures.map((f) => `  - ${f}`).join('\n'),
             );
         }

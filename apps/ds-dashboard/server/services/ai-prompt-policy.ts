@@ -59,26 +59,26 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
         {
             relativePath: 'apps/ds-dashboard/ai-context/skills/figma-component-extractor.SKILL.md',
             sections: [
-                { heading: 'Regla madre', priority: 1 },
-                { heading: 'Reglas de extracción', priority: 2 },
-                { heading: 'Qué esta llamada NO debe hacer', priority: 3 },
-            ],
-        },
-        {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
-            sections: [
-                { heading: '2. Honestidad antes que completitud', priority: 4 },
-                { heading: '4. Estado visual ≠ comportamiento real', priority: 5 },
-                { heading: '5. Accesibilidad con niveles de confianza', priority: 6 },
-                { heading: '7. StructureWarning', priority: 7 },
-                { heading: '9. Placeholders obligatorios', priority: 8 },
+                { heading: 'Extraction Rules', priority: 1 },
+                { heading: 'What This Call Must NOT Do', priority: 4 },
             ],
         },
         {
             relativePath: 'apps/ds-dashboard/ai-context/skills/variant-state-classifier.SKILL.md',
             sections: [
-                { heading: 'Regla central', priority: 9 },
-                { heading: 'Qué NO debe hacer', priority: 10 },
+                { heading: 'Central Rule', priority: 2 },
+                { heading: 'What It Must NOT Do', priority: 3 },
+            ],
+        },
+        {
+            relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
+            sections: [
+                { heading: '1. Parent Rule', priority: 5 },
+                { heading: '2. Honesty Over Completeness', priority: 6 },
+                { heading: '4. Visual State != Real Behavior', priority: 7 },
+                { heading: '5. Accessibility With Confidence Levels', priority: 8 },
+                { heading: '7. StructureWarning', priority: 9 },
+                { heading: '9. Required Placeholders', priority: 10 },
             ],
         },
     ],
@@ -86,23 +86,23 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
         {
             relativePath: 'apps/ds-dashboard/ai-context/skills/editorial-patch-writer.SKILL.md',
             sections: [
-                { heading: 'Regla de oro', priority: 1 },
-                { heading: 'Reglas editoriales', priority: 2 },
-                { heading: 'Qué NO debe hacer', priority: 3 },
+                { heading: 'Golden Rule', priority: 1 },
+                { heading: 'Editorial Rules', priority: 2 },
+                { heading: 'What It Must NOT Do', priority: 3 },
             ],
         },
         {
             // Core rules first — must survive even at reduced budget
             relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
-                { heading: '1. Regla madre', priority: 4 },
-                { heading: '9. Placeholders obligatorios', priority: 5 },
-                { heading: '8. Coherencia terminológica', priority: 6 },
-                { heading: '10. QA específico', priority: 9 },
+                { heading: '1. Parent Rule', priority: 4 },
+                { heading: '9. Required Placeholders', priority: 5 },
+                { heading: '8. Terminology Consistency', priority: 6 },
+                { heading: '10. Specific QA', priority: 9 },
             ],
         },
         {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/docs-language-tone.mdc',
+            relativePath: 'apps/ds-dashboard/ai-context/rules/docs-language-tone.mc',
             sections: [
                 { heading: 'Tone policy', priority: 7 },
                 { heading: 'Writing style', priority: 8 },
@@ -110,7 +110,7 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
             ],
         },
         {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/inclusive-docs.mdc',
+            relativePath: 'apps/ds-dashboard/ai-context/rules/inclusive-docs.mc',
             sections: [
                 { heading: 'Prohibited claims', priority: 11 },
             ],
@@ -120,21 +120,21 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
         {
             relativePath: 'apps/ds-dashboard/ai-context/skills/doc-consistency-checker.SKILL.md',
             sections: [
-                { heading: 'Qué valida', priority: 1 },
-                { heading: 'Severidad recomendada', priority: 2 },
-                { heading: 'Regla final', priority: 3 },
+                { heading: 'What It Validates', priority: 1 },
+                { heading: 'Recommended Severity', priority: 2 },
+                { heading: 'Final Rule', priority: 3 },
             ],
         },
         {
             relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
-                { heading: '12. Regla de publicación', priority: 4 },
-                { heading: '11. Severidad de validación', priority: 5 },
-                { heading: '9. Placeholders obligatorios', priority: 6 },
+                { heading: '12. Publication Rule', priority: 4 },
+                { heading: '11. Validation Severity', priority: 5 },
+                { heading: '9. Required Placeholders', priority: 6 },
             ],
         },
         {
-            relativePath: 'apps/ds-dashboard/ai-context/rules/inclusive-docs.mdc',
+            relativePath: 'apps/ds-dashboard/ai-context/rules/inclusive-docs.mc',
             sections: [
                 { heading: 'Prohibited claims', priority: 7 },
             ],
