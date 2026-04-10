@@ -31,12 +31,6 @@ It may add:
 
 ---
 
-## Parent Rule
-
-Nothing that is not visible or traceable from Figma/MCP or from an explicit system convention may be presented as fact.
-
----
-
 ## Extraction Rules
 
 ### 1. Summary
@@ -47,66 +41,7 @@ Nothing that is not visible or traceable from Figma/MCP or from an explicit syst
 
 ### 2. Variants
 
-Classify each variant property before documenting it.
-
-#### Visual states
-
-Values such as:
-
-- `default`
-- `hover`
-- `pressed`
-- `active`
-- `focus`
-- `disabled`
-- `error`
-- `loading`
-- `selected`
-- `expanded`
-- `checked`
-- `success`
-
-Must be classified as **observable visual states**.
-
-#### Structural variants
-
-Values such as:
-
-- size
-- density
-- hierarchy
-- emphasis
-- style
-- appearance
-
-Must be classified as **structural variants**.
-
-#### Optional props
-
-Booleans such as:
-
-- `true/false`
-- `hasIcon`
-- `showLabel`
-- `fullWidth`
-
-Must be classified as **optional props**.
-
-#### id
-
-The `id` must be stable and in kebab-case.
-
-Suggested convention:
-
-- `variant-size-sm`
-- `variant-hierarchy-primary`
-- `state-disabled`
-- `prop-has-icon`
-
-If the classification is not certain, keep a stable id but mark a warning in validation.
-Do not invent ontological precision.
-
-#### properties
+Classify each variant property before documenting it. Apply `variant-state-classifier` rules for all classification decisions.
 
 `properties` must preserve the exact values from Figma, without reinterpretation or translation.
 
@@ -114,21 +49,7 @@ Do not invent ontological precision.
 
 If the schema supports `states[]`, populate it as a first-class field.
 
-#### Critical rule
-
-**Visual state yes; real behavior no.**
-
-You may state:
-
-- that a visual variant for `hover` exists
-- that a visual variant for `disabled` exists
-
-You may not state:
-
-- that real focus management exists
-- that real keyboard support exists
-- that real async loading exists
-- that correct screen reader announcements exist
+**Visual state yes; real behavior no** (RULES.md Rule 4). You may document that a visual `hover` or `disabled` variant exists; you may not claim real focus management, keyboard support, async loading, or screen reader behavior.
 
 ### 4. Accessibility facts
 

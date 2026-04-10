@@ -46,12 +46,6 @@ Turn a documentation generator into a system with **judgment, traceability, and 
 - If Figma mixes categories (for example `primary-disabled` on the same axis), preserve the source data and mark it as design debt.
 - Do not silently “fix” naming.
 
-## `qa[]` Quality
-
-- `qa[]` must contain component-specific and verifiable questions.
-- Avoid generic checklists (for example `Does it meet accessibility requirements?`).
-- Prioritize actionable questions for real review.
-
 ## Recommended Stack
 
 - `figma-component-extractor`
@@ -87,11 +81,4 @@ Notes:
 - `ComponentDocModelOutput` is the structured extraction returned by the model.
 - `ComponentDocOutput` is the final backend artifact after rendering `markdown`.
 
-## Placeholder Conventions
-
-Use explicit placeholders when needed:
-
-- `[Requires review]`
-- `[To confirm with dev]`
-- `[Inferred description]`
-- `[Outside Figma scope]`
+Placeholder conventions and severity levels are defined in `rules/RULES.md` (Rules 9 and 11).

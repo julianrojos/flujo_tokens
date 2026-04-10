@@ -181,18 +181,11 @@ Correct:
 
 ### 9. Terminology consistency
 
-The patch must reuse the naming from the base block.
-If `ComponentDocOutput` uses `leading-icon`, the patch must not switch to `prefix icon` without justification.
+Reuse naming from `ComponentDocOutput`. Do not rename fields without justification (RULES.md Rule 8).
 
 ### 10. Normative claims
 
-Do not claim normative compliance as fact without a verifiable audit.
-
-Avoid categorical compliance statements (for example WCAG levels) when there is no traceable external evidence.
-Instead:
-
-- state evidence limits
-- use `[To confirm with dev]` or `TBD`
+Do not claim normative compliance (WCAG, legal) without a verifiable audit. Use `TBD` or `[To confirm with dev]` (RULES.md Rule 14).
 
 ---
 

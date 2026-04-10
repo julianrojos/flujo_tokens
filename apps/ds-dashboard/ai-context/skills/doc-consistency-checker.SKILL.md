@@ -43,16 +43,7 @@ Pay special attention to:
 
 ### 3. Terminology Consistency
 
-Compare names across both blocks.
-Examples:
-
-- `leading-icon` vs `prefix icon`
-- `helper-text` vs `supporting copy`
-
-If there is a mismatch:
-
-- emit `terminologyMismatch`
-- do not block unless the meaning changes
+Compare names across both blocks. If there is a mismatch, emit `terminologyMismatch`. Do not block unless the meaning changes (RULES.md Rule 8).
 
 ### 4. Minimum Coverage
 
@@ -115,18 +106,7 @@ If the extractor already emitted `StructureWarning`, this skill must:
 - empty optional fields
 - non-critical editorial improvement
 
-## Suggested ValidationReport
-
-- `passes: boolean`
-- `score: number`
-- `severity: "blocking" | "warning" | "info"`
-- `structureWarnings[]`
-- `missingSections[]`
-- `unsupportedClaims[]`
-- `editorialConflicts[]`
-- `terminologyMismatches[]`
-- `a11yWarnings[]`
-- `notes[]`
+The output contract is defined in `server/services/ai-validation-report-schema.ts`.
 
 ---
 
