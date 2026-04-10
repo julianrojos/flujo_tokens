@@ -5,6 +5,7 @@
 Cerrar el sistema.
 
 Comparar:
+
 - `ComponentDocOutput`
 - `EditorialPatch`
 
@@ -18,61 +19,73 @@ Su salida ideal es un `ValidationReport`.
 ## Qué valida
 
 ### 1. Contradicciones factuales
+
 Detectar si el patch:
+
 - menciona variantes no presentes
 - menciona estados no presentes
-- describe anatomy no extraída
-- habla de tokens inexistentes
 - cambia el significado factual del componente
 
 ### 2. Claims no soportados
+
 Detectar afirmaciones que suenen verificadas pero no estén respaldadas por:
+
 - Figma/MCP
 - convención explícita del sistema
 - metadata externa confiable
 
 Especial atención a:
+
 - accesibilidad
 - comportamiento
 - theming
 - roles
 
 ### 3. Coherencia terminológica
+
 Comparar nombres entre ambos bloques.
 Ejemplos:
+
 - `leading-icon` vs `prefix icon`
 - `helper-text` vs `supporting copy`
 
 Si hay desajuste:
+
 - emitir `terminologyMismatch`
 - no bloquear salvo que cambie significado
 
 ### 4. Cobertura mínima
+
 Verificar si falta alguna pieza crítica.
 
 Sugerido comprobar:
+
 - `summary`
-- `anatomy[]`
 - `variants[]` y/o `states[]`
-- `tokens[]`
 - `accessibility`
 - `qa[]`
 
 ### 5. Calidad del QA
+
 Marcar como warning si `qa[]` contiene:
+
 - frases genéricas
 - preguntas imposibles de verificar
 - items no específicos al componente
 
 ### 6. Calidad de accesibilidad
+
 Bloquear o advertir si:
+
 - se declara un rol como hecho sin evidencia
 - se afirma soporte de teclado como verificado sin soporte
 - se presenta labeling como resuelto sin base
 - no se marca `[Por confirmar con dev]` cuando corresponde
 
 ### 7. StructureWarning
+
 Si el extractor ya emitió `StructureWarning`, este skill debe:
+
 - degradar la confianza global
 - subir la exigencia para claims editoriales
 - impedir compensar estructura pobre con inferencia agresiva
@@ -82,12 +95,14 @@ Si el extractor ya emitió `StructureWarning`, este skill debe:
 ## Severidad recomendada
 
 ### blocking
+
 - contradicción factual
 - claim presentado como hecho sin trazabilidad
 - estructura ilegible grave
 - accesibilidad presentada como verificada sin evidencia
 
 ### warning
+
 - clasificación ambigua
 - nomenclatura inconsistente
 - terminología desalineada
@@ -95,6 +110,7 @@ Si el extractor ya emitió `StructureWarning`, este skill debe:
 - theming inferido con cobertura parcial
 
 ### info
+
 - oportunidad de enriquecer descripción
 - campos opcionales vacíos
 - mejora editorial no crítica
@@ -112,7 +128,6 @@ Si el extractor ya emitió `StructureWarning`, este skill debe:
 - `editorialConflicts[]`
 - `terminologyMismatches[]`
 - `a11yWarnings[]`
-- `tokenWarnings[]`
 - `notes[]`
 
 ---

@@ -16,7 +16,7 @@ globs:
 - Use technical, prescriptive, and neutral tone.
 - Prioritize clarity and scanability over narrative style.
 - Avoid marketing language, slogans, and subjective claims.
-- Keep statements evidence-based (Figma, token JSON, explicit decisions).
+- Keep statements evidence-based (Figma, explicit decisions).
 
 ## Writing style
 
@@ -31,7 +31,6 @@ globs:
 | ❌ Violation | ✅ Replacement |
 |---|---|
 | `A beautifully crafted button component.` | `A button component with four visual variants.` |
-| `Seamlessly integrates with your design system.` | `Consumes tokens from the Semantic collection.` |
 | `Intuitive and delightful interactions.` | `Follows WCAG 2.1 AA keyboard navigation.` |
 | `Simply the best choice for CTAs.` | `Recommended for primary call-to-action flows.` |
 

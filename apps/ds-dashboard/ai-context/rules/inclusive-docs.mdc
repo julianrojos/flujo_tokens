@@ -83,4 +83,3 @@ Motion and zoom resilience:
 - Do not assert WCAG levels (AA/AAA) without a completed audit.
 - Do not invent contrast ratios; use tool output or `TBD`.
 - Do not imply i18n/RTL readiness without explicit behavior notes.
-- Do not claim localization readiness solely from token support.

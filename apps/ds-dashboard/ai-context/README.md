@@ -4,9 +4,7 @@ Este paquete está pensado para una IA que genera documentación en **dos llamad
 
 1. **Primera llamada** → `ComponentDocOutput`
 2. **Segunda llamada** → `EditorialPatch`
-
-Y una **tercera pasada silenciosa**:
-3. **Validación** → `ValidationReport`
+3. **tercera pasada silenciosa: Validación** → `ValidationReport`
 
 ## Objetivo
 
@@ -24,7 +22,6 @@ Convertir un generador de documentación en un sistema **con criterio, trazabili
 
 - `figma-component-extractor`
 - `variant-state-classifier`
-- `token-intent-resolver`
 - `editorial-patch-writer`
 - `doc-consistency-checker`
 
@@ -39,19 +36,22 @@ Convertir un generador de documentación en un sistema **con criterio, trazabili
 ## Archivos incluidos
 
 ### Skills
+
 - `skills/figma-component-extractor.SKILL.md`
 - `skills/variant-state-classifier.SKILL.md`
-- `skills/token-intent-resolver.SKILL.md`
 - `skills/editorial-patch-writer.SKILL.md`
 - `skills/doc-consistency-checker.SKILL.md`
 
 ### Reglas
+
 - `rules/RULES.md`
 
 ## Recomendaciones de schema
 
 ### ComponentDocOutput
+
 Recomendado ampliar con:
+
 - `states[]`
 - `accessibilityFacts[]`
 - `structureWarning?`
@@ -59,7 +59,9 @@ Recomendado ampliar con:
 - `unresolvedQuestions[]?`
 
 ### EditorialPatch
+
 Mantener como capa prescriptiva:
+
 - `purpose`
 - `when_to_use`
 - `when_not_to_use`
@@ -73,7 +75,9 @@ Mantener como capa prescriptiva:
 - `related_components[]`
 
 ### ValidationReport
+
 Sugerido:
+
 - `passes: boolean`
 - `severity: "blocking" | "warning" | "info"`
 - `score: number`
@@ -83,7 +87,6 @@ Sugerido:
 - `editorialConflicts[]`
 - `terminologyMismatches[]`
 - `a11yWarnings[]`
-- `tokenWarnings[]`
 - `notes[]`
 
 ## Convenciones de etiquetas
@@ -97,7 +100,4 @@ Usar placeholders explícitos cuando haga falta:
 
 ## Notas de implementación
 
-- Si el plugin solo expone un modo activo de Figma, marcar `modeCoverage: partial` en tokens semánticos observados en un único modo.
-- Si el plugin no expone alias chain, no inventarla ni poblar campos vacíos “por completar”.
 - Si no hay fuente de gobernanza real, no generar `owner`, `reviewedAt` o `status` como hechos.
-
