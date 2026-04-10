@@ -1011,7 +1011,60 @@ async function buildAnatomy(
 }
 
 async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
-  const layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }> = [];
+  const layerTokens: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+    modeId?: string;
+    modeName?: string;
+  }> = [];
+  const variableModeCache = new Map<string, { modeId?: string; modeName?: string }>();
+
+  async function resolveAliasModeContext(
+    alias: { id: string; modeId?: string; modeName?: string },
+  ): Promise<{ modeId?: string; modeName?: string }> {
+    const directModeId = typeof alias.modeId === 'string' ? alias.modeId.trim() : '';
+    const directModeName = typeof alias.modeName === 'string' ? alias.modeName.trim() : '';
+    if (directModeId || directModeName) {
+      return {
+        modeId: directModeId || undefined,
+        modeName: directModeName || undefined,
+      };
+    }
+
+    const variableId = String(alias.id || '').trim();
+    if (!variableId) return {};
+    const cached = variableModeCache.get(variableId);
+    if (cached) return cached;
+
+    try {
+      const variable = await figma.variables.getVariableByIdAsync(variableId);
+      if (!variable) {
+        variableModeCache.set(variableId, {});
+        return {};
+      }
+      const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+      const modeId =
+        String(collection?.defaultModeId || '').trim() ||
+        String(collection?.modes?.[0]?.modeId || '').trim() ||
+        Object.keys(variable.valuesByMode || {}).map((item) => String(item || '').trim()).find(Boolean) ||
+        '';
+      if (!modeId) {
+        variableModeCache.set(variableId, {});
+        return {};
+      }
+      const modeName =
+        String(collection?.modes?.find((mode) => String(mode?.modeId || '').trim() === modeId)?.name || '').trim() ||
+        modeId;
+      const resolved = { modeId, modeName };
+      variableModeCache.set(variableId, resolved);
+      return resolved;
+    } catch {
+      variableModeCache.set(variableId, {});
+      return {};
+    }
+  }
 
   // BFS to collect all boundVariables in the variant
   const queue: BaseNode[] = [variant];
@@ -1024,11 +1077,15 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
         const aliases = Array.isArray(aliasOrArray) ? aliasOrArray : [aliasOrArray];
         for (const alias of aliases) {
           if (alias && typeof alias === 'object' && 'id' in alias) {
+            const aliasRecord = alias as { id: string; modeId?: string; modeName?: string };
+            const modeContext = await resolveAliasModeContext(aliasRecord);
             layerTokens.push({
               nodeId: node.id,
               nodeName: node.name,
               field,
-              variableId: (alias as { id: string }).id,
+              variableId: aliasRecord.id,
+              modeId: modeContext.modeId,
+              modeName: modeContext.modeName,
             });
           }
         }

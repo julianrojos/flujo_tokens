@@ -774,7 +774,14 @@ export interface VariantSpec {
   name: string;
   description: string | null;
   variantProperties: Record<string, string>;
-  layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+  layerTokens: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+    modeId?: string;
+    modeName?: string;
+  }>;
 }
 
 export interface GetComponentSpecResult {
