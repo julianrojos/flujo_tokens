@@ -15,6 +15,7 @@ import { ComponentNavBar } from "./components/component-nav-bar";
 import { ComponentPipelineSection } from "./components/component-pipeline-section";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
+import { LayerTokenMappingSection } from "./components/layer-token-mapping-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
@@ -148,6 +149,8 @@ export function ComponentDetailPage() {
         figmaSyncedAt={descriptionsData.syncedAt}
         figmaStale={descriptionsData.stale}
       />
+
+      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} />
 
       {captureModalOpen && (
         <FigmaCaptureModal
