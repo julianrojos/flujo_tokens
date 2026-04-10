@@ -352,17 +352,10 @@ export default function App() {
           <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
               <div className="mb-2 flex items-center justify-between">
-                <p
-                  className={cn(
-                    "text-xs uppercase tracking-[0.18em] text-muted-foreground",
-                    sidebarCollapsed && "sr-only",
-                  )}
-                >
-                  Local Dashboard
-                </p>
                 <SidebarTrigger
                   collapsed={sidebarCollapsed}
                   onClick={() => setSidebarCollapsed((value) => !value)}
+                  aria-label="DS Graph sidebar toggle"
                 />
               </div>
               <SystemSwitcher collapsed={sidebarCollapsed} />

@@ -174,27 +174,29 @@ SidebarMenuButton.displayName = "SidebarMenuButton";
 
 export const SidebarTrigger = React.forwardRef<
   HTMLButtonElement,
-  {
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
     collapsed?: boolean;
-    onClick?: () => void;
-    className?: string;
   }
 >(function SidebarTrigger(
   {
   collapsed,
-  onClick,
   className,
+  "aria-label": ariaLabel,
+  title,
+  ...props
 },
   ref,
 ) {
+  const fallbackLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+
   return (
     <button
       ref={ref}
       type="button"
-      onClick={onClick}
       className={cn(sidebarTriggerVariants(), className)}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-label={ariaLabel || fallbackLabel}
+      title={title || fallbackLabel}
+      {...props}
     >
       {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
     </button>
