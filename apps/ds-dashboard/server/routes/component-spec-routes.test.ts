@@ -391,7 +391,7 @@ describe('component-spec-routes (DB-first)', () => {
     assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keep original accessibility object']);
   });
 
-  it('PATCH /editorial with variants and tokens — persists and re-reads correctly', async () => {
+  it('PATCH /editorial persists variants and omits tokens from GET response', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'vt-test', name: 'VT Test', status: 'draft', docType: 'component' },
     ]);
@@ -400,12 +400,7 @@ describe('component-spec-routes (DB-first)', () => {
       { id: 'v1', name: 'Primary', description: 'Primary variant', properties: { variant: 'primary' } },
       { id: 'v2', name: 'Secondary', description: 'Secondary variant', properties: { variant: 'secondary' } },
     ];
-    const tokens = [
-      { name: 'fill-primary', value: '#6366F1', type: 'color', description: 'Primary fill color' },
-      { name: 'spacing-sm', value: '8px', type: 'spacing', description: 'Small spacing' },
-    ];
 
-    // PATCH to create editorial with variants and tokens
     const patchRes = await app.request('/api/component-spec/vt-test/editorial', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -414,7 +409,6 @@ describe('component-spec-routes (DB-first)', () => {
         fields: {
           summary: { purpose: 'Test component' },
           variants,
-          tokens,
         },
       }),
     });
@@ -422,16 +416,37 @@ describe('component-spec-routes (DB-first)', () => {
     const patchPayload = await patchRes.json();
     assert.equal(patchPayload.ok, true);
     assert.ok(patchPayload.savedKeys.includes('variants'));
-    assert.ok(patchPayload.savedKeys.includes('tokens'));
 
-    // GET to verify the data was persisted and re-read correctly
     const getRes = await app.request('/api/component-spec/vt-test');
     assert.equal(getRes.status, 200);
     const getPayload = await getRes.json();
     assert.equal(getPayload.ok, true);
     assert.equal(getPayload.exists, true);
     assert.deepEqual(getPayload.spec.variants, variants);
-    assert.deepEqual(getPayload.spec.tokens, tokens);
+    assert.equal('tokens' in getPayload.spec, false);
+  });
+
+  it('PATCH /editorial rejects tokens as an unknown field', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'vt-legacy', name: 'VT Legacy', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/vt-legacy/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          tokens: [{ name: 'fill-primary', value: '#6366F1', type: 'color' }],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Unknown field: tokens/);
   });
 
   it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {

@@ -1,61 +1,49 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { SUGGESTION_SECTION_MAP, SECTION_ORDER, applySectionAction, type SectionId } from '../constants/suggestion-section-map';
 
-import { SUGGESTION_SECTION_MAP, applySectionAction } from "../constants/suggestion-section-map";
-
-describe("suggestion-section-map", () => {
-  it("keeps the expected sections exposed to the UI", () => {
-    assert.deepEqual(Object.keys(SUGGESTION_SECTION_MAP), [
-      "summary",
-      "variants",
-      "tokens",
-      "accessibilityNotes",
-    ]);
+describe('suggestion-section-map', () => {
+  it('excludes tokens from supported sections', () => {
+    const sectionIds = Object.keys(SUGGESTION_SECTION_MAP) as SectionId[];
+    assert.deepStrictEqual(sectionIds, ['summary', 'variants', 'accessibilityNotes']);
+    assert.ok(!sectionIds.includes('tokens' as never));
   });
 
-  it("extracts mapped values from suggestion payload", () => {
-    const suggestion = {
-      summary: "Button summary",
-      variants: [{ id: "v1", name: "Default", description: "", properties: {} }],
-      tokens: [{ name: "color.primary", value: "#000", type: "color" }],
-      accessibilityNotes: ["Has visible focus"],
-    } as const;
-
-    assert.equal(SUGGESTION_SECTION_MAP.summary.extract(suggestion as never), "Button summary");
-    assert.deepEqual(SUGGESTION_SECTION_MAP.variants.extract(suggestion as never), suggestion.variants);
-    assert.deepEqual(SUGGESTION_SECTION_MAP.tokens.extract(suggestion as never), suggestion.tokens);
-    assert.deepEqual(SUGGESTION_SECTION_MAP.accessibilityNotes.extract(suggestion as never), suggestion.accessibilityNotes);
-  });
-});
-
-describe("applySectionAction", () => {
-  const base = {
-    summary: "",
-    variants: [],
-    tokens: [],
-    accessibilityNotes: [],
-  };
-
-  it("applies summary", () => {
-    const result = applySectionAction({ type: "SET_SUMMARY", payload: "Updated" }, base);
-    assert.equal(result.summary, "Updated");
+  it('excludes tokens from section order', () => {
+    assert.ok(!SECTION_ORDER.includes('tokens' as never));
   });
 
-  it("applies variants", () => {
-    const variants = [{ id: "v1", name: "Default", description: "", properties: {} }];
-    const result = applySectionAction({ type: "SET_VARIANTS", payload: variants }, base);
+  it('extracts summary from suggestion', () => {
+    const suggestion = { summary: 'A button', variants: [], accessibilityNotes: [] };
+    assert.equal(SUGGESTION_SECTION_MAP.summary.extract(suggestion as never), 'A button');
+  });
+
+  it('extracts variants from suggestion', () => {
+    const suggestion = { summary: '', variants: [{ id: '1', name: 'Default', description: '', properties: {} }], accessibilityNotes: [] };
+    const result = SUGGESTION_SECTION_MAP.variants.extract(suggestion as never);
+    assert.equal((result as unknown[]).length, 1);
+  });
+
+  it('applies summary', () => {
+    const result = applySectionAction({ type: 'SET_SUMMARY', payload: 'New summary' }, {});
+    assert.equal(result.summary, 'New summary');
+  });
+
+  it('applies variants', () => {
+    const variants = [{ id: '1', name: 'Default', description: '', properties: {} }];
+    const result = applySectionAction({ type: 'SET_VARIANTS', payload: variants }, {});
     assert.deepEqual(result.variants, variants);
   });
 
-  it("applies tokens", () => {
-    const tokens = [{ name: "color.primary", value: "#000", type: "color" }];
-    const result = applySectionAction({ type: "SET_TOKENS", payload: tokens }, base);
-    assert.deepEqual(result.tokens, tokens);
+  it('applies accessibility notes', () => {
+    const notes = ['Has accessible label'];
+    const result = applySectionAction({ type: 'SET_ACC_NOTES', payload: notes }, {});
+    assert.deepEqual(result.accessibilityNotes, notes);
   });
 
-  it("applies accessibility notes", () => {
-    const notes = ["Keyboard navigable"];
-    const result = applySectionAction({ type: "SET_ACC_NOTES", payload: notes }, base);
-    assert.deepEqual(result.accessibilityNotes, notes);
+  it('returns unchanged state for unknown action type', () => {
+    const base = { summary: 'test' };
+    const result = applySectionAction({ type: 'UNKNOWN' as never, payload: '' } as never, base);
+    assert.deepEqual(result, base);
   });
 });

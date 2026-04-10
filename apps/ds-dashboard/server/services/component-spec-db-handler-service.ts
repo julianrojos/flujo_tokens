@@ -48,7 +48,6 @@ function buildSpecFromDb(params: {
     token_mapping: editorial?.tokenMapping ?? null,
     qa: editorial?.qa ?? null,
     variants: editorial?.variants ?? null,
-    tokens: editorial?.tokens ?? null,
 
     // Additional structured data
     variant_visuals: structured?.variants?.map((v) => ({
@@ -244,7 +243,6 @@ export async function handlePatchEditorialSpecRoute(
     'token_mapping',
     'qa',
     'variants',
-    'tokens',
   ]);
 
   for (const key of Object.keys(fields)) {
@@ -277,7 +275,6 @@ export async function handlePatchEditorialSpecRoute(
   if (fields.token_mapping !== undefined) camelCaseFields.tokenMapping = fields.token_mapping;
   if (fields.qa !== undefined) camelCaseFields.qa = fields.qa;
   if (fields.variants !== undefined) camelCaseFields.variants = fields.variants;
-  if (fields.tokens !== undefined) camelCaseFields.tokens = fields.tokens;
 
   // Upsert with optimistic locking
   let editorial: EditorialEntry;

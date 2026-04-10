@@ -2,23 +2,21 @@
  * EditComponentDocsPage — dedicated page for editing component documentation.
  *
  * Replaces the modal-based ComponentSpecEditor. Provides:
- * - Editorial form with summary, variants, tokens, accessibility
+ * - Editorial form with summary, variants, accessibility
  * - AI suggestions modal with "Use this" per section
  * - Autosave draft before opening AI modal
  * - Save to PATCH /api/component-spec/:slug/editorial
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/composites';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { Button } from '@/components/ui/button';
-import { getActiveSystemId, fetchTokenRegistry } from '@/lib/api';
+import { getActiveSystemId } from '@/lib/api';
 import { getEditDocsStorageScope } from '@/lib/edit-docs-storage-namespace';
-import { resolveVariableRef } from '@/lib/token-reference';
-import type { TokenRegistry } from '@/types/token-registry';
-import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
+import type { ComponentDocOutput, ComponentDocVariant } from '@/types/ai-jobs';
 import type { PartialComponentSpec } from 'ds-types';
 import type { FormDispatchAction, SectionId } from './constants/suggestion-section-map';
 import { SECTION_ORDER, applySectionAction } from './constants/suggestion-section-map';
@@ -26,14 +24,12 @@ import {
   EditDocsForm,
   SummaryFormCard,
   VariantsFormCard,
-  TokensFormCard,
   AccessibilityFormCard,
 } from './components/edit-docs-form';
 import {
   AiSuggestionsPanel,
   SummarySuggestionCard,
   VariantsSuggestionCard,
-  TokensSuggestionCard,
   AccessibilitySuggestionCard,
 } from './components/ai-suggestions-panel';
 import { AiSuggestionsModal } from './components/ai-suggestions-modal';
@@ -43,18 +39,10 @@ import { useEditDocsDraft } from './hooks/use-edit-docs-draft';
 interface EditorialFormData {
   summary: string;
   variants: ComponentDocVariant[];
-  tokens: ComponentDocToken[];
   accessibilityNotes: string[];
 }
 
-type DraftFieldKey = 'summary' | 'variants' | 'tokens' | 'accessibilityNotes';
-
-const EMPTY_TOKEN_REGISTRY: TokenRegistry = {
-  entries: [],
-  byPath: {},
-  bySlashPath: {},
-  byVariableId: {},
-};
+type DraftFieldKey = 'summary' | 'variants' | 'accessibilityNotes';
 
 function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const systemId = String(getActiveSystemId() || '').trim();
@@ -96,7 +84,6 @@ export function EditComponentDocsPage() {
   const [formData, setFormData] = useState<EditorialFormData>({
     summary: '',
     variants: [],
-    tokens: [],
     accessibilityNotes: [],
   });
   const activeSystemId = String(getActiveSystemId() || '').trim() || null;
@@ -111,7 +98,6 @@ export function EditComponentDocsPage() {
   const baseFormRef = useRef<EditorialFormData>({
     summary: '',
     variants: [],
-    tokens: [],
     accessibilityNotes: [],
   });
   const initializedSlugRef = useRef<string | null>(null);
@@ -136,36 +122,6 @@ export function EditComponentDocsPage() {
     enabled: !!slug,
   });
 
-  const { data: tokenRegistryData, error: tokenRegistryError } = useQuery<TokenRegistry>({
-    queryKey: ['token-registry', activeSystemId],
-    queryFn: fetchTokenRegistry,
-    staleTime: 0,
-    refetchOnMount: 'always',
-  });
-  const tokenRegistry = tokenRegistryData ?? EMPTY_TOKEN_REGISTRY;
-  const effectiveTokenRegistry = useMemo<TokenRegistry>(() => {
-    const specBindings = (data?.spec as Record<string, unknown> | undefined)?.figma_token_bindings;
-    if (!Array.isArray(specBindings) || specBindings.length === 0) return tokenRegistry;
-
-    const byVariableId = { ...(tokenRegistry.byVariableId ?? {}) } as Record<string, TokenRegistry['entries'][number]>;
-    let changed = false;
-    for (const rawBinding of specBindings) {
-      if (!rawBinding || typeof rawBinding !== 'object') continue;
-      const binding = rawBinding as Record<string, unknown>;
-      const variableId = String(binding.variable_id ?? binding.variableId ?? '').trim();
-      const tokenPath = String(binding.token_path ?? binding.tokenPath ?? '').trim();
-      if (!variableId || !tokenPath) continue;
-      const entry = tokenRegistry.byPath[tokenPath] ?? tokenRegistry.bySlashPath[tokenPath];
-      if (!entry) continue;
-      if (byVariableId[variableId] !== entry) {
-        byVariableId[variableId] = entry;
-        changed = true;
-      }
-    }
-    if (!changed) return tokenRegistry;
-    return { ...tokenRegistry, byVariableId };
-  }, [tokenRegistry, data?.spec]);
-
   // If the loaded spec has no captured Figma component id, any suggestion for
   // this page context is invalid and should be cleared.
   useEffect(() => {
@@ -186,7 +142,6 @@ export function EditComponentDocsPage() {
     const spec = data.spec;
     const summary = spec.summary?.purpose ?? '';
     const variants = Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [];
-    const tokens = Array.isArray(spec.tokens) ? (spec.tokens as ComponentDocToken[]) : [];
     const accNotes = Array.isArray(spec.accessibility?.notes) ? spec.accessibility.notes : [];
     const figmaMetadata = (spec as Record<string, unknown>).figma_metadata as Record<string, unknown> | null | undefined;
     const currentFigmaComponentId = (figmaMetadata?.component_set_node_id as string | null) ?? '';
@@ -195,7 +150,6 @@ export function EditComponentDocsPage() {
     let nextFormData: EditorialFormData = {
       summary: typeof summary === 'string' ? summary : '',
       variants,
-      tokens,
       accessibilityNotes: accNotes,
     };
     expectedUpdatedAtRef.current = (data.updatedAt as number | null) ?? null;
@@ -206,7 +160,7 @@ export function EditComponentDocsPage() {
       const touched = new Set<DraftFieldKey>(
         Array.isArray(draft.touchedFields)
           ? draft.touchedFields.filter((field): field is DraftFieldKey =>
-            field === 'summary' || field === 'variants' || field === 'tokens' || field === 'accessibilityNotes')
+            field === 'summary' || field === 'variants' || field === 'accessibilityNotes')
           : [],
       );
 
@@ -218,9 +172,6 @@ export function EditComponentDocsPage() {
       const shouldUseVariants = hasTouchedMetadata
         ? touched.has('variants')
         : Array.isArray(draft.variants) && draft.variants.length > 0;
-      const shouldUseTokens = hasTouchedMetadata
-        ? touched.has('tokens')
-        : Array.isArray(draft.tokens) && draft.tokens.length > 0;
       const shouldUseAccessibilityNotes = hasTouchedMetadata
         ? touched.has('accessibilityNotes')
         : Array.isArray(draft.accessibilityNotes) && draft.accessibilityNotes.length > 0;
@@ -230,9 +181,6 @@ export function EditComponentDocsPage() {
       }
       if (shouldUseVariants && Array.isArray(draft.variants)) {
         nextFormData.variants = draft.variants as ComponentDocVariant[];
-      }
-      if (shouldUseTokens && Array.isArray(draft.tokens)) {
-        nextFormData.tokens = draft.tokens as ComponentDocToken[];
       }
       if (shouldUseAccessibilityNotes && Array.isArray(draft.accessibilityNotes)) {
         nextFormData.accessibilityNotes = draft.accessibilityNotes;
@@ -255,7 +203,6 @@ export function EditComponentDocsPage() {
       const touchedFields: DraftFieldKey[] = [];
       if (formData.summary !== baseFormRef.current.summary) touchedFields.push('summary');
       if (JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants)) touchedFields.push('variants');
-      if (JSON.stringify(formData.tokens) !== JSON.stringify(baseFormRef.current.tokens)) touchedFields.push('tokens');
       if (JSON.stringify(formData.accessibilityNotes) !== JSON.stringify(baseFormRef.current.accessibilityNotes)) {
         touchedFields.push('accessibilityNotes');
       }
@@ -287,20 +234,6 @@ export function EditComponentDocsPage() {
     handleApplySection({ type: 'SET_VARIANTS', payload: suggestion.variants });
   }, [suggestion, handleApplySection]);
 
-  const onApplyTokens = useCallback(() => {
-    if (!suggestion) return;
-    const normalizedTokens = suggestion.tokens.map((token) => {
-      const resolvedName = resolveVariableRef(token.name, effectiveTokenRegistry);
-      const resolvedValue = resolveVariableRef(token.value, effectiveTokenRegistry);
-      return {
-        ...token,
-        name: resolvedName.debug.hadFallback ? token.name : resolvedName.tokenLabel,
-        value: resolvedValue.debug.hadFallback ? token.value : resolvedValue.tokenLabel,
-      };
-    });
-    handleApplySection({ type: 'SET_TOKENS', payload: normalizedTokens });
-  }, [suggestion, handleApplySection, effectiveTokenRegistry]);
-
   const onApplyAccessibility = useCallback(() => {
     if (!suggestion) return;
     handleApplySection({ type: 'SET_ACC_NOTES', payload: suggestion.accessibilityNotes });
@@ -312,8 +245,6 @@ export function EditComponentDocsPage() {
         return onApplySummary;
       case 'variants':
         return onApplyVariants;
-      case 'tokens':
-        return onApplyTokens;
       case 'accessibilityNotes':
         return onApplyAccessibility;
       default: {
@@ -321,7 +252,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [onApplySummary, onApplyVariants, onApplyTokens, onApplyAccessibility]);
+  }, [onApplySummary, onApplyVariants, onApplyAccessibility]);
 
   const renderFormCard = useCallback((sectionId: SectionId) => {
     switch (sectionId) {
@@ -339,13 +270,6 @@ export function EditComponentDocsPage() {
             onChange={(v) => { setFormData((p) => ({ ...p, variants: v })); setIsDirty(true); }}
           />
         );
-      case 'tokens':
-        return (
-          <TokensFormCard
-            value={formData.tokens}
-            onChange={(v) => { setFormData((p) => ({ ...p, tokens: v })); setIsDirty(true); }}
-          />
-        );
       case 'accessibilityNotes':
         return (
           <AccessibilityFormCard
@@ -358,7 +282,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [formData.summary, formData.variants, formData.tokens, formData.accessibilityNotes]);
+  }, [formData.summary, formData.variants, formData.accessibilityNotes]);
 
   const renderSuggestionCard = useCallback((sectionId: SectionId, onApplyFn: () => void) => {
     if (!suggestion || !figmaComponentId) return null;
@@ -367,8 +291,6 @@ export function EditComponentDocsPage() {
         return <SummarySuggestionCard value={suggestion.summary} onApply={onApplyFn} />;
       case 'variants':
         return <VariantsSuggestionCard value={suggestion.variants} onApply={onApplyFn} />;
-      case 'tokens':
-        return <TokensSuggestionCard value={suggestion.tokens} onApply={onApplyFn} tokenRegistry={effectiveTokenRegistry} />;
       case 'accessibilityNotes':
         return <AccessibilitySuggestionCard value={suggestion.accessibilityNotes} onApply={onApplyFn} />;
       default: {
@@ -376,7 +298,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [suggestion, effectiveTokenRegistry, figmaComponentId]);
+  }, [suggestion, figmaComponentId]);
 
   const handleSave = useCallback(async () => {
     if (!slug) return;
@@ -386,7 +308,6 @@ export function EditComponentDocsPage() {
 
       const summaryChanged = formData.summary !== baseFormRef.current.summary;
       const variantsChanged = JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants);
-      const tokensChanged = JSON.stringify(formData.tokens) !== JSON.stringify(baseFormRef.current.tokens);
       const accessibilityChanged =
         JSON.stringify(formData.accessibilityNotes) !== JSON.stringify(baseFormRef.current.accessibilityNotes);
 
@@ -395,9 +316,6 @@ export function EditComponentDocsPage() {
       }
       if (variantsChanged) {
         fields.variants = formData.variants;
-      }
-      if (tokensChanged) {
-        fields.tokens = formData.tokens;
       }
       if (accessibilityChanged) {
         fields.accessibility = { notes: formData.accessibilityNotes };
@@ -497,13 +415,6 @@ export function EditComponentDocsPage() {
           description="This AI suggestion is too large to persist in local storage and will be lost on page reload."
         />
       )}
-      {tokenRegistryError && (
-        <StatusAlert
-          variant="warning"
-          title="Token registry unavailable"
-          description="Token references are shown in fallback mode because the token registry could not be loaded."
-        />
-      )}
       {!figmaComponentId && (
         <StatusAlert
           variant="info"
@@ -527,7 +438,6 @@ export function EditComponentDocsPage() {
             <AiSuggestionsPanel
               suggestion={suggestion}
               onApplySection={handleApplySection}
-              tokenRegistry={effectiveTokenRegistry}
             />
           ) : null}
         </div>

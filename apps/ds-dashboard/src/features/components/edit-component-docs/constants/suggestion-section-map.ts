@@ -6,14 +6,14 @@
  * AI suggestions panel and how "Use this" applies each one.
  */
 
-import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
+import type { ComponentDocOutput, ComponentDocVariant } from '@/types/ai-jobs';
 
 /**
  * Sections currently supported by AI output for direct "Use this" application.
  * `bestPractices` is intentionally omitted because it is not generated in the
  * current structured suggestion payload.
  */
-export type SectionId = 'summary' | 'variants' | 'tokens' | 'accessibilityNotes';
+export type SectionId = 'summary' | 'variants' | 'accessibilityNotes';
 
 export interface SectionDefinition {
   label: string;
@@ -29,10 +29,6 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
     label: 'Variants',
     extract: (s) => s.variants,
   },
-  tokens: {
-    label: 'Tokens',
-    extract: (s) => s.tokens,
-  },
   accessibilityNotes: {
     label: 'Accessibility',
     extract: (s) => s.accessibilityNotes,
@@ -47,14 +43,12 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
 export const SECTION_ORDER = [
   'summary',
   'variants',
-  'tokens',
   'accessibilityNotes',
 ] as const satisfies readonly SectionId[];
 
 export type FormDispatchAction =
   | { type: 'SET_SUMMARY'; payload: string }
   | { type: 'SET_VARIANTS'; payload: ComponentDocVariant[] }
-  | { type: 'SET_TOKENS'; payload: ComponentDocToken[] }
   | { type: 'SET_ACC_NOTES'; payload: string[] };
 
 export function applySectionAction(
@@ -66,8 +60,6 @@ export function applySectionAction(
       return { ...current, summary: action.payload };
     case 'SET_VARIANTS':
       return { ...current, variants: action.payload };
-    case 'SET_TOKENS':
-      return { ...current, tokens: action.payload };
     case 'SET_ACC_NOTES':
       return { ...current, accessibilityNotes: action.payload };
     default: {

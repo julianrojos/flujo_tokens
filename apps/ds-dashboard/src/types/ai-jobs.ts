@@ -98,20 +98,6 @@ export interface ComponentDocVariant {
     properties: Record<string, string>;
 }
 
-/**
- * Design token reference used by the component
- */
-export interface ComponentDocToken {
-    /** Token name */
-    name: string;
-    /** Token value or reference */
-    value: string;
-    /** Token type */
-    type: string;
-    /** Description of how this token is used */
-    description?: string;
-}
-
 export interface ComponentDocState {
     name: string;
     description: string;
@@ -142,8 +128,6 @@ export interface ComponentDocOutput {
     summary: string;
     /** Available variants */
     variants: ComponentDocVariant[];
-    /** Design tokens used */
-    tokens: ComponentDocToken[];
     /** Accessibility considerations */
     accessibilityNotes: string[];
     /** Generated markdown */

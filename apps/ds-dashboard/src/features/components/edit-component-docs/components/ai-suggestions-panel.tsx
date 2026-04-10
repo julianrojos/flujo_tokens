@@ -4,83 +4,15 @@
  * Each section is rendered structurally (not as markdown), with a "Use this"
  * button that applies the section value to the form via the dispatch callback.
  *
- * Exports four standalone *SuggestionCard components for use in the desktop
+ * Exports three standalone *SuggestionCard components for use in the desktop
  * two-column layout, and composes them into AiSuggestionsPanel for mobile.
  */
 
 import { useCallback } from 'react';
-import type { ComponentDocOutput, ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
-import type { TokenRegistry } from '@/types/token-registry';
+import type { ComponentDocOutput, ComponentDocVariant } from '@/types/ai-jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { resolveVariableRef, formatVariableRef } from '@/lib/token-reference';
 import { SUGGESTION_SECTION_MAP, type SectionId, type FormDispatchAction } from '../constants/suggestion-section-map';
-
-const VARIABLE_ID_PATTERN = /VariableID:[^\s"'`)\],;]+/;
-
-function looksLikeOpaqueTokenRef(value: string): boolean {
-  const text = String(value || '').trim();
-  if (!text) return false;
-  return VARIABLE_ID_PATTERN.test(text);
-}
-
-function normalizeBracketedText(value: string): string {
-  const text = String(value || '').trim();
-  if (!text) return '';
-  if (text.startsWith('[') && text.endsWith(']')) {
-    return text.slice(1, -1).trim();
-  }
-  return text;
-}
-
-function normalizeForCompare(value: string): string {
-  return normalizeBracketedText(value).replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-function resolveDisplayName(token: ComponentDocToken, resolvedName: ReturnType<typeof resolveVariableRef>): string {
-  const rawName = String(token.name || '').trim();
-  const rawValue = String(token.value || '').trim();
-  const typeLabel = String(token.type || 'token').trim() || 'token';
-
-  if (!resolvedName.debug.hadFallback) return resolvedName.tokenLabel;
-  if (!looksLikeOpaqueTokenRef(rawName)) return rawName || typeLabel;
-  if (!looksLikeOpaqueTokenRef(rawValue)) return normalizeBracketedText(rawValue) || typeLabel;
-  return typeLabel;
-}
-
-function resolveDisplayValue(
-  token: ComponentDocToken,
-  tokenRegistry: TokenRegistry,
-  resolvedName: ReturnType<typeof resolveVariableRef>,
-  resolvedValue: ReturnType<typeof resolveVariableRef>,
-): string {
-  const rawName = String(token.name || '').trim();
-  const rawValue = String(token.value || '').trim();
-
-  if (!resolvedValue.debug.hadFallback) {
-    return formatVariableRef(resolvedValue);
-  }
-
-  // Heuristic: AI often puts the token ref in `name` using kebab-case labels.
-  const nameCandidates = [rawName, rawName.replace(/-/g, '.'), rawName.replace(/-/g, '/')];
-  for (const candidate of nameCandidates) {
-    const c = candidate.trim();
-    if (!c) continue;
-    const resolved = resolveVariableRef(c, tokenRegistry);
-    if (!resolved.debug.hadFallback) return formatVariableRef(resolved);
-  }
-
-  if (!resolvedName.debug.hadFallback) {
-    return formatVariableRef(resolvedName);
-  }
-
-  // If value is opaque VariableID but name is readable, prefer name as value.
-  if (looksLikeOpaqueTokenRef(rawValue) && rawName && !looksLikeOpaqueTokenRef(rawName)) {
-    return normalizeBracketedText(rawName);
-  }
-
-  return rawValue || rawName || 'Unresolved token reference';
-}
 
 // ─── SummarySuggestionCard ──────────────────────────────────────────────
 
@@ -149,66 +81,6 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
   );
 }
 
-// ─── TokensSuggestionCard ───────────────────────────────────────────────
-
-export interface TokensSuggestionCardProps {
-  value: ComponentDocToken[];
-  onApply: () => void;
-  tokenRegistry: TokenRegistry;
-}
-
-export function TokensSuggestionCard({ value, onApply, tokenRegistry }: TokensSuggestionCardProps) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Tokens</CardTitle>
-          <Button variant="outline" size="sm" onClick={onApply}>
-            Use this
-          </Button>
-        </div>
-        <CardDescription>{value.length} token{value.length !== 1 ? 's' : ''}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {value.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tokens in suggestion.</p>
-        ) : (
-          <ul className="space-y-1">
-            {value.map((t, i) => {
-              const resolvedName = resolveVariableRef(t.name, tokenRegistry);
-              const resolvedValue = resolveVariableRef(t.value, tokenRegistry);
-              let displayName = resolveDisplayName(t, resolvedName);
-              let displayValue = resolveDisplayValue(t, tokenRegistry, resolvedName, resolvedValue);
-
-              // Avoid duplicated output such as "[color token] [color token]".
-              // When name and value render identically, keep the readable label
-              // in the name column and suppress the duplicate in the value column.
-              if (
-                normalizeForCompare(displayName)
-                && normalizeForCompare(displayName) === normalizeForCompare(displayValue)
-              ) {
-                displayValue = '';
-              }
-
-              return (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{displayName}</code>
-                  {displayValue && (
-                    <span className="text-muted-foreground">{displayValue}</span>
-                  )}
-                  <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                    {t.type}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // ─── AccessibilitySuggestionCard ────────────────────────────────────────
 
 export interface AccessibilitySuggestionCardProps {
@@ -247,10 +119,9 @@ export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySug
 interface AiSuggestionsPanelProps {
   suggestion: ComponentDocOutput;
   onApplySection: (action: FormDispatchAction) => void;
-  tokenRegistry: TokenRegistry;
 }
 
-export function AiSuggestionsPanel({ suggestion, onApplySection, tokenRegistry }: AiSuggestionsPanelProps) {
+export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestionsPanelProps) {
   const handleApply = useCallback(
     (sectionId: SectionId) => {
       const def = SUGGESTION_SECTION_MAP[sectionId];
@@ -262,9 +133,6 @@ export function AiSuggestionsPanel({ suggestion, onApplySection, tokenRegistry }
           break;
         case 'variants':
           onApplySection({ type: 'SET_VARIANTS', payload: (value as ComponentDocVariant[]) ?? [] });
-          break;
-        case 'tokens':
-          onApplySection({ type: 'SET_TOKENS', payload: (value as ComponentDocToken[]) ?? [] });
           break;
         case 'accessibilityNotes':
           onApplySection({ type: 'SET_ACC_NOTES', payload: (value as string[]) ?? [] });
@@ -287,11 +155,6 @@ export function AiSuggestionsPanel({ suggestion, onApplySection, tokenRegistry }
       <VariantsSuggestionCard
         value={suggestion.variants}
         onApply={() => handleApply('variants')}
-      />
-      <TokensSuggestionCard
-        value={suggestion.tokens}
-        onApply={() => handleApply('tokens')}
-        tokenRegistry={tokenRegistry}
       />
       <AccessibilitySuggestionCard
         value={suggestion.accessibilityNotes}

@@ -1,15 +1,14 @@
 /**
- * EditDocsForm — editorial form with summary, variants, tokens, and accessibility.
+ * EditDocsForm — editorial form with summary, variants, and accessibility.
  *
- * Exports four standalone *FormCard components for use in the desktop
+ * Exports three standalone *FormCard components for use in the desktop
  * two-column layout, and composes them into EditDocsForm for mobile.
  */
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import type { ComponentDocVariant, ComponentDocToken } from '@/types/ai-jobs';
+import type { ComponentDocVariant } from '@/types/ai-jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Plus, X } from 'lucide-react';
 
 // ─── Shared utility ────────────────────────────────────────────────────
@@ -26,7 +25,6 @@ function createRowId(): string {
 interface EditDocsFormData {
   summary: string;
   variants: ComponentDocVariant[];
-  tokens: ComponentDocToken[];
   accessibilityNotes: string[];
 }
 
@@ -50,17 +48,17 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
         <label htmlFor={summaryId} className="sr-only">Summary</label>
         <textarea
           id={summaryId}
-          className="w-full min-h-[120px] rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
-          placeholder="Component purpose and usage..."
+          className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          rows={4}
         />
       </CardContent>
     </Card>
   );
 }
 
-// ─── VariantsFormCard ───────────────────────────────────────────────────
+// ─── VariantsFormCard ─────────────────────────────────────────────────
 
 export interface VariantsFormCardProps {
   value: ComponentDocVariant[];
@@ -80,102 +78,153 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
   }, [variants.length]);
 
   const addVariant = useCallback(() => {
-    const id = createRowId();
-    onChange([...variants, { id, name: '', description: '', properties: {} }]);
-    setVariantRowIds((prev) => [...prev, id]);
+    onChange([...variants, { id: createRowId(), name: '', description: '', properties: {} }]);
+    setVariantRowIds((prev) => [...prev, createRowId()]);
   }, [variants, onChange]);
 
   const updateVariant = useCallback((index: number, field: keyof ComponentDocVariant, fieldValue: unknown) => {
-    onChange(variants.map((v, i) => i === index ? { ...v, [field]: fieldValue } : v));
+    const next = [...variants];
+    next[index] = { ...next[index], [field]: fieldValue };
+    onChange(next);
+  }, [variants, onChange]);
+
+  const updateVariantProperty = useCallback((variantIndex: number, propKey: string, propValue: string) => {
+    const next = [...variants];
+    const props = { ...next[variantIndex].properties };
+    props[propKey] = propValue;
+    next[variantIndex] = { ...next[variantIndex], properties: props };
+    onChange(next);
+  }, [variants, onChange]);
+
+  const addVariantProperty = useCallback((variantIndex: number) => {
+    const next = [...variants];
+    const props = { ...next[variantIndex].properties };
+    let suffix = 1;
+    let candidate = 'property';
+    while (candidate in props) {
+      suffix += 1;
+      candidate = `property-${suffix}`;
+    }
+    props[candidate] = '';
+    next[variantIndex] = { ...next[variantIndex], properties: props };
+    onChange(next);
+  }, [variants, onChange]);
+
+  const renameVariantProperty = useCallback((variantIndex: number, currentKey: string, nextKeyRaw: string) => {
+    const nextKey = nextKeyRaw.trim();
+    if (!nextKey || nextKey === currentKey) return;
+
+    const next = [...variants];
+    const props = { ...next[variantIndex].properties };
+    if (nextKey in props) return;
+
+    const currentValue = props[currentKey];
+    delete props[currentKey];
+    props[nextKey] = currentValue;
+    next[variantIndex] = { ...next[variantIndex], properties: props };
+    onChange(next);
+  }, [variants, onChange]);
+
+  const removeVariantProperty = useCallback((variantIndex: number, propKey: string) => {
+    const next = [...variants];
+    const props = { ...next[variantIndex].properties };
+    delete props[propKey];
+    next[variantIndex] = { ...next[variantIndex], properties: props };
+    onChange(next);
   }, [variants, onChange]);
 
   const removeVariant = useCallback((index: number) => {
-    onChange(variants.filter((_, i) => i !== index));
+    const next = variants.filter((_, i) => i !== index);
+    onChange(next);
     setVariantRowIds((prev) => prev.filter((_, i) => i !== index));
   }, [variants, onChange]);
 
-  const formatVariantProperties = useCallback((properties: Record<string, string>): string => {
-    return Object.entries(properties)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n');
-  }, []);
-
-  const parseVariantProperties = useCallback((raw: string): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const line of raw.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const eqIndex = trimmed.indexOf('=');
-      if (eqIndex <= 0) continue;
-      const key = trimmed.slice(0, eqIndex).trim();
-      const value = trimmed.slice(eqIndex + 1).trim();
-      if (!key) continue;
-      out[key] = value;
-    }
-    return out;
-  }, []);
-
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Variants</CardTitle>
-            <CardDescription>{variants.length} variant{variants.length !== 1 ? 's' : ''}</CardDescription>
-          </div>
-          <Button variant="ghost" size="sm" onClick={addVariant} aria-label="Add variant">
-            <Plus className="h-4 w-4" />
+          <CardTitle className="text-base">Variants</CardTitle>
+          <Button variant="outline" size="sm" onClick={addVariant}>
+            <Plus className="mr-1 h-4 w-4" /> Add variant
           </Button>
         </div>
+        <CardDescription>{variants.length} variant{variants.length !== 1 ? 's' : ''}</CardDescription>
       </CardHeader>
       <CardContent>
         {variants.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No variants defined yet.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">No variants yet.</p>
         ) : (
           <ul className="space-y-3">
-            {variants.map((v, idx) => (
-              <li key={variantRowIds[idx] ?? `variant-${idx}`} className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <label htmlFor={`${variantsIdBase}-name-${variantRowIds[idx] ?? idx}`} className="sr-only">
-                    Variant name {idx + 1}
-                  </label>
-                  <Input
-                    id={`${variantsIdBase}-name-${variantRowIds[idx] ?? idx}`}
-                    className="flex-1 text-sm"
-                    placeholder="Variant name"
+            {variants.map((v, i) => (
+              <li key={variantRowIds[i]} className="rounded-md border border-border bg-surface-2 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <label htmlFor={`${variantsIdBase}-name-${i}`} className="sr-only">Variant name</label>
+                  <input
+                    id={`${variantsIdBase}-name-${i}`}
+                    className="flex-1 rounded-md border border-border bg-surface-1 px-2 py-1 text-sm font-medium"
                     value={v.name}
-                    onChange={(e) => updateVariant(idx, 'name', e.target.value)}
+                    onChange={(e) => updateVariant(i, 'name', e.target.value)}
+                    placeholder="Variant name"
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeVariant(idx)}
-                    className="shrink-0"
-                    aria-label={`Remove variant ${idx + 1}`}
+                  <button
+                    type="button"
+                    className="ml-2 rounded p-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => removeVariant(i)}
+                    aria-label={`Remove variant ${v.name || i + 1}`}
                   >
                     <X className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </div>
-                <label htmlFor={`${variantsIdBase}-description-${variantRowIds[idx] ?? idx}`} className="sr-only">
-                  Variant description {idx + 1}
-                </label>
-                <textarea
-                  id={`${variantsIdBase}-description-${variantRowIds[idx] ?? idx}`}
-                  className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
-                  placeholder="Description..."
+                <label htmlFor={`${variantsIdBase}-desc-${i}`} className="sr-only">Description</label>
+                <input
+                  id={`${variantsIdBase}-desc-${i}`}
+                  className="mb-2 w-full rounded-md border border-border bg-surface-1 px-2 py-1 text-sm"
                   value={v.description}
-                  onChange={(e) => updateVariant(idx, 'description', e.target.value)}
+                  onChange={(e) => updateVariant(i, 'description', e.target.value)}
+                  placeholder="Description"
                 />
-                <label htmlFor={`${variantsIdBase}-properties-${variantRowIds[idx] ?? idx}`} className="sr-only">
-                  Variant properties {idx + 1}
-                </label>
-                <textarea
-                  id={`${variantsIdBase}-properties-${variantRowIds[idx] ?? idx}`}
-                  className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 font-mono text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
-                  placeholder={'Properties (one per line)\nvariant=primary\nstate=default'}
-                  value={formatVariantProperties(v.properties)}
-                  onChange={(e) => updateVariant(idx, 'properties', parseVariantProperties(e.target.value))}
-                />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => addVariantProperty(i)}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" /> Add property
+                    </Button>
+                  </div>
+                  {Object.entries(v.properties).map(([k, val]) => (
+                    <div key={k} className="flex gap-2">
+                      <label htmlFor={`${variantsIdBase}-pk-${i}-${k}`} className="sr-only">Property key</label>
+                      <input
+                        id={`${variantsIdBase}-pk-${i}-${k}`}
+                        className="w-24 rounded border border-border bg-surface-1 px-2 py-0.5 font-mono text-xs"
+                        value={k}
+                        onChange={(e) => renameVariantProperty(i, k, e.target.value)}
+                        placeholder="Key"
+                      />
+                      <label htmlFor={`${variantsIdBase}-pv-${i}-${k}`} className="sr-only">Property value</label>
+                      <input
+                        id={`${variantsIdBase}-pv-${i}-${k}`}
+                        className="flex-1 rounded border border-border bg-surface-1 px-2 py-0.5 font-mono text-xs"
+                        value={val}
+                        onChange={(e) => updateVariantProperty(i, k, e.target.value)}
+                        placeholder="Value"
+                      />
+                      <button
+                        type="button"
+                        className="rounded p-1 text-muted-foreground hover:text-foreground"
+                        onClick={() => removeVariantProperty(i, k)}
+                        aria-label={`Remove property ${k || 'entry'} from variant ${v.name || i + 1}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </li>
             ))}
           </ul>
@@ -185,185 +234,77 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
   );
 }
 
-// ─── TokensFormCard ─────────────────────────────────────────────────────
-
-export interface TokensFormCardProps {
-  value: ComponentDocToken[];
-  onChange: (v: ComponentDocToken[]) => void;
-}
-
-export function TokensFormCard({ value: tokens, onChange }: TokensFormCardProps) {
-  const tokensIdBase = useId();
-  const [tokenRowIds, setTokenRowIds] = useState<string[]>(() => tokens.map(() => createRowId()));
-
-  useEffect(() => {
-    setTokenRowIds((prev) => {
-      if (prev.length === tokens.length) return prev;
-      if (prev.length > tokens.length) return prev.slice(0, tokens.length);
-      return [...prev, ...Array.from({ length: tokens.length - prev.length }, createRowId)];
-    });
-  }, [tokens.length]);
-
-  const addToken = useCallback(() => {
-    onChange([...tokens, { name: '', value: '', type: 'color' }]);
-    setTokenRowIds((prev) => [...prev, createRowId()]);
-  }, [tokens, onChange]);
-
-  const updateToken = useCallback((index: number, field: keyof ComponentDocToken, fieldValue: unknown) => {
-    onChange(tokens.map((t, i) => i === index ? { ...t, [field]: fieldValue } : t));
-  }, [tokens, onChange]);
-
-  const removeToken = useCallback((index: number) => {
-    onChange(tokens.filter((_, i) => i !== index));
-    setTokenRowIds((prev) => prev.filter((_, i) => i !== index));
-  }, [tokens, onChange]);
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Tokens</CardTitle>
-            <CardDescription>{tokens.length} token{tokens.length !== 1 ? 's' : ''}</CardDescription>
-          </div>
-          <Button variant="ghost" size="sm" onClick={addToken} aria-label="Add token">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {tokens.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tokens defined yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {tokens.map((t, idx) => (
-              <li key={tokenRowIds[idx] ?? `token-${idx}`} className="flex items-center gap-2">
-                <label htmlFor={`${tokensIdBase}-name-${tokenRowIds[idx] ?? idx}`} className="sr-only">
-                  Token name {idx + 1}
-                </label>
-                <Input
-                  id={`${tokensIdBase}-name-${tokenRowIds[idx] ?? idx}`}
-                  className="flex-1 font-mono text-xs"
-                  placeholder="Token name"
-                  value={t.name}
-                  onChange={(e) => updateToken(idx, 'name', e.target.value)}
-                />
-                <label htmlFor={`${tokensIdBase}-value-${tokenRowIds[idx] ?? idx}`} className="sr-only">
-                  Token value {idx + 1}
-                </label>
-                <Input
-                  id={`${tokensIdBase}-value-${tokenRowIds[idx] ?? idx}`}
-                  className="flex-1 text-xs"
-                  placeholder="Value"
-                  value={t.value}
-                  onChange={(e) => updateToken(idx, 'value', e.target.value)}
-                />
-                <label htmlFor={`${tokensIdBase}-type-${tokenRowIds[idx] ?? idx}`} className="sr-only">
-                  Token type {idx + 1}
-                </label>
-                <select
-                  id={`${tokensIdBase}-type-${tokenRowIds[idx] ?? idx}`}
-                  className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground"
-                  value={t.type}
-                  onChange={(e) => updateToken(idx, 'type', e.target.value)}
-                >
-                  <option value="color">color</option>
-                  <option value="spacing">spacing</option>
-                  <option value="typography">typography</option>
-                  <option value="border">border</option>
-                  <option value="shadow">shadow</option>
-                  <option value="other">other</option>
-                </select>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeToken(idx)}
-                  className="shrink-0"
-                  aria-label={`Remove token ${idx + 1}`}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── AccessibilityFormCard ──────────────────────────────────────────────
+// ─── AccessibilityFormCard ────────────────────────────────────────────
 
 export interface AccessibilityFormCardProps {
   value: string[];
   onChange: (v: string[]) => void;
 }
 
-export function AccessibilityFormCard({ value: notes, onChange }: AccessibilityFormCardProps) {
-  const notesIdBase = useId();
-  const [noteRowIds, setNoteRowIds] = useState<string[]>(() => notes.map(() => createRowId()));
+export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
+  const accIdBase = useId();
+  const [noteRowIds, setNoteRowIds] = useState<string[]>(() => value.map(() => createRowId()));
 
   useEffect(() => {
     setNoteRowIds((prev) => {
-      if (prev.length === notes.length) return prev;
-      if (prev.length > notes.length) return prev.slice(0, notes.length);
-      return [...prev, ...Array.from({ length: notes.length - prev.length }, createRowId)];
+      if (prev.length === value.length) return prev;
+      if (prev.length > value.length) return prev.slice(0, value.length);
+      return [...prev, ...Array.from({ length: value.length - prev.length }, createRowId)];
     });
-  }, [notes.length]);
+  }, [value.length]);
 
   const addNote = useCallback(() => {
-    onChange([...notes, '']);
+    onChange([...value, '']);
     setNoteRowIds((prev) => [...prev, createRowId()]);
-  }, [notes, onChange]);
+  }, [value, onChange]);
 
   const updateNote = useCallback((index: number, fieldValue: string) => {
-    onChange(notes.map((n, i) => i === index ? fieldValue : n));
-  }, [notes, onChange]);
+    const next = [...value];
+    next[index] = fieldValue;
+    onChange(next);
+  }, [value, onChange]);
 
   const removeNote = useCallback((index: number) => {
-    onChange(notes.filter((_, i) => i !== index));
+    const next = value.filter((_, i) => i !== index);
+    onChange(next);
     setNoteRowIds((prev) => prev.filter((_, i) => i !== index));
-  }, [notes, onChange]);
+  }, [value, onChange]);
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Accessibility</CardTitle>
-            <CardDescription>Accessibility considerations</CardDescription>
-          </div>
-          <Button variant="ghost" size="sm" onClick={addNote} aria-label="Add accessibility note">
-            <Plus className="h-4 w-4" />
+          <CardTitle className="text-base">Accessibility</CardTitle>
+          <Button variant="outline" size="sm" onClick={addNote}>
+            <Plus className="mr-1 h-4 w-4" /> Add note
           </Button>
         </div>
+        <CardDescription>{value.length} note{value.length !== 1 ? 's' : ''}</CardDescription>
       </CardHeader>
       <CardContent>
-        {notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No accessibility notes yet.</p>
+        {value.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">No accessibility notes yet.</p>
         ) : (
           <ul className="space-y-2">
-            {notes.map((note, idx) => (
-              <li key={noteRowIds[idx] ?? `note-${idx}`} className="flex items-center gap-2">
-                <label htmlFor={`${notesIdBase}-note-${noteRowIds[idx] ?? idx}`} className="sr-only">
-                  Accessibility note {idx + 1}
-                </label>
-                <Input
-                  id={`${notesIdBase}-note-${noteRowIds[idx] ?? idx}`}
-                  className="flex-1 text-sm"
-                  placeholder="Accessibility consideration..."
+            {value.map((note, i) => (
+              <li key={noteRowIds[i]} className="flex items-start gap-2">
+                <label htmlFor={`${accIdBase}-note-${i}`} className="sr-only">Accessibility note {i + 1}</label>
+                <textarea
+                  id={`${accIdBase}-note-${i}`}
+                  className="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
                   value={note}
-                  onChange={(e) => updateNote(idx, e.target.value)}
+                  onChange={(e) => updateNote(i, e.target.value)}
+                  rows={2}
+                  placeholder="Accessibility consideration..."
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeNote(idx)}
-                  className="shrink-0"
-                  aria-label={`Remove accessibility note ${idx + 1}`}
+                <button
+                  type="button"
+                  className="mt-1 rounded p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => removeNote(i)}
+                  aria-label={`Remove note ${i + 1}`}
                 >
                   <X className="h-4 w-4" />
-                </Button>
+                </button>
               </li>
             ))}
           </ul>
@@ -373,20 +314,28 @@ export function AccessibilityFormCard({ value: notes, onChange }: AccessibilityF
   );
 }
 
-// ─── EditDocsForm (mobile wrapper) ─────────────────────────────────────
+// ─── EditDocsForm (mobile wrapper) ────────────────────────────────────
 
 interface EditDocsFormProps {
-  value: EditDocsFormData;
-  onChange: (data: EditDocsFormData) => void;
+  formData: EditDocsFormData;
+  onChange: (v: Partial<EditDocsFormData>) => void;
 }
 
-export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
+export function EditDocsForm({ formData, onChange }: EditDocsFormProps) {
   return (
-    <div className="space-y-6">
-      <SummaryFormCard value={value.summary} onChange={(v) => onChange({ ...value, summary: v })} />
-      <VariantsFormCard value={value.variants} onChange={(v) => onChange({ ...value, variants: v })} />
-      <TokensFormCard value={value.tokens} onChange={(v) => onChange({ ...value, tokens: v })} />
-      <AccessibilityFormCard value={value.accessibilityNotes} onChange={(v) => onChange({ ...value, accessibilityNotes: v })} />
+    <div className="space-y-4">
+      <SummaryFormCard
+        value={formData.summary}
+        onChange={(v) => onChange({ summary: v })}
+      />
+      <VariantsFormCard
+        value={formData.variants}
+        onChange={(v) => onChange({ variants: v })}
+      />
+      <AccessibilityFormCard
+        value={formData.accessibilityNotes}
+        onChange={(v) => onChange({ accessibilityNotes: v })}
+      />
     </div>
   );
 }
