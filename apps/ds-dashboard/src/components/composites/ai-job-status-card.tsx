@@ -189,9 +189,6 @@ function ValidationReportPanel({
             {report.a11yWarnings.length > 0 && (
                 <ValidationSectionList title="Accessibility Warnings" severity="warning" items={report.a11yWarnings.map((a) => a.message)} />
             )}
-            {report.tokenWarnings.length > 0 && (
-                <ValidationSectionList title="Token Warnings" severity="info" items={report.tokenWarnings.map((t) => t.message)} />
-            )}
             {report.notes.length > 0 && (
                 <div className="mt-2 text-xs text-muted-foreground">
                     {report.notes.map((note, i) => <p key={i}>{note}</p>)}
@@ -222,8 +219,7 @@ export function AiJobStatusCard({
     const hasCompleteOutputForSuggestions = Boolean(
         job?.output
         && typeof job.output.summary === 'string'
-        && Array.isArray(job.output.variants)
-        && Array.isArray(job.output.tokens),
+        && Array.isArray(job.output.variants),
     );
     const hasMeaningfulSuggestionContent = Boolean(
         job?.output
@@ -231,7 +227,6 @@ export function AiJobStatusCard({
         && (
             job.output.summary.trim().length > 0
             || job.output.variants.length > 0
-            || job.output.tokens.length > 0
         ),
     );
 
