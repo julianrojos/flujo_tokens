@@ -339,7 +339,20 @@ type FullComponentSpecResult = {
   name: string;
   type: string;
   description: string | null;
-  variants?: Array<{ key: string; nodeId: string; name: string; variantProperties: Record<string, string> }>;
+  variants?: Array<{
+    key: string;
+    nodeId: string;
+    name: string;
+    variantProperties: Record<string, string>;
+    layerTokens?: Array<{
+      nodeId: string;
+      nodeName: string;
+      field: string;
+      variableId: string;
+      modeId?: string;
+      modeName?: string;
+    }>;
+  }>;
   variantAxes?: Array<{ name: string; values: string[] }>;
   props: Array<{ name: string; type: string; defaultValue: unknown }>;
   states: string[];
@@ -412,27 +425,63 @@ export function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta
   return out;
 }
 
+function buildVariableIdToDefaultModeContextMap(
+  meta: FigmaVariablesResponse['meta'],
+): Map<string, { modeId: string; modeName: string }> {
+  const out = new Map<string, { modeId: string; modeName: string }>();
+  const collections = meta?.variableCollections || {};
+  for (const variable of Object.values(meta?.variables || {})) {
+    const variableId = String(variable?.id || '').trim();
+    if (!variableId) continue;
+    const collectionId = String(variable.variableCollectionId || '').trim();
+    const collection = collections[collectionId];
+    const availableModeIds = Object.keys(variable.valuesByMode || {})
+      .map((item) => String(item || '').trim())
+      .filter(Boolean);
+    const modeId =
+      String(collection?.defaultModeId || '').trim() ||
+      availableModeIds[0] ||
+      String(collection?.modes?.[0]?.modeId || '').trim();
+    if (!modeId) continue;
+    const modeName =
+      String(collection?.modes?.find((item) => String(item?.modeId || '').trim() === modeId)?.name || '').trim() ||
+      modeId;
+    out.set(variableId, { modeId, modeName });
+  }
+  return out;
+}
+
 /**
  * Extract structured Figma data from spec result (SC-04)
- * Returns variants, tokenBindings, and unresolved variable IDs
+ * Returns variants, tokenBindings (now Layer Token Mapping rows), and unresolved variable IDs.
+ *
+ * Each binding row includes:
+ *  - variantNodeId / variantSignature: grouping context from the enclosing variant
+ *  - propertyPath: Figma field vocabulary (trimmed)
+ *  - status: 'resolved' when tokenPath found, 'unresolved' otherwise
+ *  - modeId / modeName: from variant's mode context (if available)
  */
 function extractStructuredFigmaData(args: {
   specData: FullComponentSpecResult | null;
   variableIdToTokenPath: Map<string, string>;
+  variableIdToDefaultModeContext: Map<string, { modeId: string; modeName: string }>;
 }): {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
   unresolvedVariableIds: string[];
+  ignoredLegacyFlatBindings: boolean;
 } {
-  const { specData, variableIdToTokenPath } = args;
-  if (!specData) return { unresolvedVariableIds: [] };
+  const { specData, variableIdToTokenPath, variableIdToDefaultModeContext } = args;
+  if (!specData) return { unresolvedVariableIds: [], ignoredLegacyFlatBindings: false };
 
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
     unresolvedVariableIds: string[];
+    ignoredLegacyFlatBindings: boolean;
   } = {
     unresolvedVariableIds: [],
+    ignoredLegacyFlatBindings: false,
   };
 
   // Extract variants from variantAxes + variantProperties
@@ -444,27 +493,71 @@ function extractStructuredFigmaData(args: {
     }));
   }
 
-  // Extract token bindings (crude, not curated - for evidence only)
-  if (specData.tokenBindings && specData.tokenBindings.length > 0) {
-    result.tokenBindings = [];
-    for (const binding of specData.tokenBindings) {
-      const nodeId = String(binding.nodeId || '').trim();
-      const nodeName = String(binding.nodeName || '').trim();
-      const field = String(binding.field || '').trim();
-      const variableId = String(binding.variableId || '').trim();
-      if (!nodeId || !nodeName || !field || !variableId) continue;
-      const tokenPath = variableIdToTokenPath.get(variableId);
-      if (!tokenPath) {
-        result.unresolvedVariableIds.push(variableId);
-      }
-      result.tokenBindings.push({
-        nodeId,
-        nodeName,
-        field,
-        variableId,
-        tokenPath,
-      });
+  // Helper: build a deterministic variant signature from properties
+  function buildVariantSignature(props: Record<string, string>): string {
+    return Object.entries(props)
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join('|');
+  }
+
+  // Helper: create a binding row with all new Layer Token Mapping fields
+  function makeBinding(
+    binding: {
+      nodeId: string;
+      nodeName: string;
+      field: string;
+      variableId: string;
+      modeId?: string;
+      modeName?: string;
+    },
+    variantNodeId: string,
+    variantSignature: string,
+  ): SyncComponentEntry['figma']['tokenBindings'][number] | null {
+    const nodeId = String(binding.nodeId || '').trim();
+    const nodeName = String(binding.nodeName || '').trim();
+    const field = String(binding.field || '').trim();
+    const variableId = String(binding.variableId || '').trim();
+    if (!nodeId || !nodeName || !field || !variableId) return null;
+
+    const tokenPath = variableIdToTokenPath.get(variableId);
+    if (!tokenPath) {
+      result.unresolvedVariableIds.push(variableId);
     }
+    const defaultModeContext = variableIdToDefaultModeContext.get(variableId);
+    const modeId = String(binding.modeId || defaultModeContext?.modeId || '').trim();
+    const modeName = String(binding.modeName || defaultModeContext?.modeName || '').trim();
+
+    return {
+      nodeId,
+      nodeName,
+      field,
+      variableId,
+      tokenPath,
+      mode: modeName ?? '',
+      // New Layer Token Mapping fields
+      variantNodeId,
+      variantSignature,
+      propertyPath: field.trim().toLowerCase(),
+      status: tokenPath ? 'resolved' : 'unresolved',
+      modeId: modeId ?? '',
+      modeName: modeName ?? '',
+    };
+  }
+
+  // Source of truth: variants[].layerTokens (no legacy fallback to flat tokenBindings)
+  result.tokenBindings = [];
+  for (const variant of specData.variants || []) {
+    const vNodeId = String(variant.nodeId || '').trim();
+    const vSignature = buildVariantSignature(variant.variantProperties || {});
+    for (const lt of variant.layerTokens || []) {
+      const row = makeBinding(lt, vNodeId, vSignature);
+      if (row) result.tokenBindings.push(row);
+    }
+  }
+  if (result.tokenBindings.length === 0 && (specData.tokenBindings || []).length > 0) {
+    // New contract is variants[].layerTokens only; flat tokenBindings are intentionally ignored.
+    result.ignoredLegacyFlatBindings = true;
   }
 
   return result;
@@ -481,6 +574,7 @@ async function enrichComponentEntriesWithStructuredData(options: {
   figmaFileId: string | null;
   fetchFullComponentSpec: FetchFullComponentSpecFn;
   variableIdToTokenPath: Map<string, string>;
+  variableIdToDefaultModeContext: Map<string, { modeId: string; modeName: string }>;
   concurrency: number;
   componentRepo: ComponentRepository;
   runId: string;
@@ -492,6 +586,7 @@ async function enrichComponentEntriesWithStructuredData(options: {
     figmaFileId,
     fetchFullComponentSpec,
     variableIdToTokenPath,
+    variableIdToDefaultModeContext,
     concurrency,
     componentRepo,
     runId,
@@ -527,7 +622,19 @@ async function enrichComponentEntriesWithStructuredData(options: {
     const structuredData = extractStructuredFigmaData({
       specData,
       variableIdToTokenPath,
+      variableIdToDefaultModeContext,
     });
+    if (structuredData.ignoredLegacyFlatBindings) {
+      // Guardrail: avoid deleting previously captured bindings when the plugin payload
+      // still uses legacy flat tokenBindings without variants[].layerTokens.
+      entry.figma.structuredCaptureStatus = 'failed';
+      if (warningSink) {
+        warningSink.push(
+          `[enrichComponentEntriesWithStructuredData] Skipping structured replacement for slug=${entry.slug}: received legacy flat tokenBindings without variants[].layerTokens.`,
+        );
+      }
+      return;
+    }
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
     entry.figma.structuredCaptureStatus = 'ok';
@@ -1107,6 +1214,13 @@ type SyncComponentEntry = {
       variableId: string;
       tokenPath?: string;
       mode?: string;
+      // Layer Token Mapping fields (Migration 027)
+      variantNodeId?: string;
+      variantSignature?: string;
+      propertyPath?: string;
+      status?: 'resolved' | 'unresolved';
+      modeId?: string;
+      modeName?: string;
     }>;
     layout?: Array<{
       nodeId: string;
@@ -1407,6 +1521,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   }
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
   const variableIdToTokenPath = buildVariableIdToTokenPathMap(variablesResponse.meta);
+  const variableIdToDefaultModeContext = buildVariableIdToDefaultModeContextMap(variablesResponse.meta);
 
   let componentEntries: SyncComponentEntry[] = [];
   let componentsTruncated = false;
@@ -1753,6 +1868,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
             figmaFileId,
             fetchFullComponentSpec,
             variableIdToTokenPath,
+            variableIdToDefaultModeContext,
             concurrency: safeEnrichComponentSpecConcurrency,
             componentRepo,
             runId,
@@ -1767,6 +1883,11 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           console.warn(
             `[syncDesignSystemFromPlugin] Structured data capture failed (continuing import): ${reason}`,
           );
+        }
+        if (structuredDataWarnings.length > 0) {
+          for (const warning of Array.from(new Set(structuredDataWarnings))) {
+            console.warn(warning);
+          }
         }
       }
 

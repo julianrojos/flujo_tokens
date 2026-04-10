@@ -433,4 +433,59 @@ describe('component-spec-routes (DB-first)', () => {
     assert.deepEqual(getPayload.spec.variants, variants);
     assert.deepEqual(getPayload.spec.tokens, tokens);
   });
+
+  it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {
+    // Use the existing sys-01 design system (configured in test app)
+    db.prepare(`
+      INSERT INTO components (ds_id, slug, name, status, doc_type)
+      VALUES ('sys-01', 'ltm-button', 'LTM Button', 'draft', 'component')
+    `).run();
+
+    const comp = db.prepare("SELECT id FROM components WHERE slug = 'ltm-button' AND ds_id = 'sys-01'").get() as { id: number };
+    db.prepare(`
+      INSERT INTO component_figma_token_bindings (
+        component_id, node_id, node_name, field, variable_id, token_path, mode,
+        variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      comp.id, '10:1', 'Button/Default', 'fills', '123:456', 'primitives.blue.500', 'Default',
+      '10:0', 'State=Default', 'fills', 'resolved', 'mode:1', 'Default',
+    );
+    db.prepare(`
+      INSERT INTO component_figma_token_bindings (
+        component_id, node_id, node_name, field, variable_id, token_path, mode,
+        variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      comp.id, '10:2', 'Button/Hover', 'fills', '999:999', null, 'Default',
+      '10:3', 'State=Hover', 'fills', 'unresolved', 'mode:1', 'Default',
+    );
+
+    // Create an editorial row so exists=true
+    db.prepare(`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (?, '{"purpose":"test"}', strftime('%s', 'now'))
+    `).run(comp.id);
+
+    const res = await app.request('/api/component-spec/ltm-button');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.exists, true);
+    assert.ok(Array.isArray(payload.spec.layer_token_mapping));
+    assert.equal(payload.spec.layer_token_mapping.length, 2);
+
+    const resolved = payload.spec.layer_token_mapping.find((e: any) => e.status === 'resolved');
+    assert.ok(resolved);
+    assert.equal(resolved.variant_node_id, '10:0');
+    assert.equal(resolved.variant_signature, 'State=Default');
+    assert.equal(resolved.layer_node_id, '10:1');
+    assert.equal(resolved.token_path, 'primitives.blue.500');
+
+    const unresolved = payload.spec.layer_token_mapping.find((e: any) => e.status === 'unresolved');
+    assert.ok(unresolved);
+    assert.equal(unresolved.variant_node_id, '10:3');
+    assert.equal(unresolved.variant_signature, 'State=Hover');
+    assert.equal(unresolved.token_path, null);
+  });
 });

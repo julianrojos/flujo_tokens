@@ -1231,4 +1231,294 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  describe('Layer Token Mapping extraction (extractStructuredFigmaData)', () => {
+    let db: Database.Database;
+    let componentRepo: ComponentRepository;
+
+    before(() => {
+      db = createTestDb();
+      componentRepo = new ComponentRepositoryClass(db);
+
+      // Insert design system
+      db.prepare("INSERT OR IGNORE INTO design_systems (id, name) VALUES ('ltm-sync-sys', 'LTM Sync Test')").run();
+
+      // Insert a component to receive bindings
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'ltm-test', 'LTM Test', 'draft', 'component', '100:1')
+      `).run();
+    });
+
+    after(() => {
+      if (db) db.close();
+    });
+
+    it('extracts layerTokens from variants with variant context fields', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '100:1', name: 'LTM Test' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async (_fileKey: string | null, params: { nodeId: string }) => ({
+        success: true,
+        nodeId: params.nodeId,
+        name: 'LTM Test',
+        type: 'COMPONENT_SET',
+        description: 'Test component',
+        variants: [
+          {
+            key: 'State=Default',
+            nodeId: '101:1',
+            name: 'Default',
+            variantProperties: { State: 'Default' },
+            layerTokens: [
+              { nodeId: '102:1', nodeName: 'Background', field: 'fills', variableId: 'v1' },
+            ],
+          },
+          {
+            key: 'State=Hover',
+            nodeId: '101:2',
+            name: 'Hover',
+            variantProperties: { State: 'Hover' },
+            layerTokens: [
+              { nodeId: '102:1', nodeName: 'Background', field: 'fills', variableId: 'v1' },
+            ],
+          },
+        ],
+        variantAxes: [{ name: 'State', values: ['Default', 'Hover'] }],
+        props: [],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_ltm',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-ltm',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      // specsEnriched = number of components that had markdown specs found on disk
+      // The structured data capture happened regardless
+      assert.ok(result.dryRun === false);
+
+      // Verify the entry has tokenBindings with variant context
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(entry.figma);
+      assert.ok(Array.isArray(entry.figma.tokenBindings));
+      assert.equal(entry.figma.tokenBindings.length, 2);
+
+      // Check variant context is present
+      const defaultBinding = entry.figma.tokenBindings.find(
+        (b: any) => b.variantSignature?.includes('State=Default'),
+      );
+      assert.ok(defaultBinding);
+      assert.equal(defaultBinding.variantNodeId, '101:1');
+      assert.equal(defaultBinding.propertyPath, 'fills');
+      assert.equal(defaultBinding.status, 'resolved');
+      assert.equal(defaultBinding.modeId, 'mode:1');
+      assert.equal(defaultBinding.modeName, 'Default');
+      // Variable name 'color/accent' is converted to 'color.accent' by toTokenPaths
+      assert.equal(defaultBinding.tokenPath, 'color.accent');
+
+      const hoverBinding = entry.figma.tokenBindings.find(
+        (b: any) => b.variantSignature?.includes('State=Hover'),
+      );
+      assert.ok(hoverBinding);
+      assert.equal(hoverBinding.variantNodeId, '101:2');
+    });
+
+    it('marks bindings with unknown variableId as unresolved', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '200:1', name: 'Unresolved Test' }],
+        truncated: false,
+      });
+
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'unresolved-test', 'Unresolved Test', 'draft', 'component', '200:1')
+      `).run();
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '200:1',
+        name: 'Unresolved Test',
+        type: 'COMPONENT_SET',
+        description: null,
+        variants: [
+          {
+            key: 'Size=MD',
+            nodeId: '201:1',
+            name: 'MD',
+            variantProperties: { Size: 'MD' },
+            layerTokens: [
+              { nodeId: '202:1', nodeName: 'Icon', field: 'fills', variableId: 'unknown:var' },
+            ],
+          },
+        ],
+        variantAxes: [{ name: 'Size', values: ['MD'] }],
+        props: [],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_unresolved',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-unresolved',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.equal(entry.figma.tokenBindings.length, 1);
+      assert.equal(entry.figma.tokenBindings[0].status, 'unresolved');
+      assert.equal(entry.figma.tokenBindings[0].tokenPath, undefined);
+    });
+
+    it('returns empty tokenBindings when no layerTokens exist (no fallback to flat tokenBindings)', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v2: {
+              id: 'v2',
+              name: 'spacing/md',
+              variableCollectionId: 'col1',
+              resolvedType: 'FLOAT',
+              valuesByMode: { 'mode:1': 16 },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '300:1', name: 'No LayerTokens Test' }],
+        truncated: false,
+      });
+
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'no-layer-test', 'No LayerTokens Test', 'draft', 'component', '300:1')
+      `).run();
+
+      // Spec has flat tokenBindings but NO layerTokens on any variant
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '300:1',
+        name: 'No LayerTokens Test',
+        type: 'COMPONENT_SET',
+        description: null,
+        variants: [],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [
+          { nodeId: '301:1', nodeName: 'Container', field: 'padding', variableId: 'v2' },
+        ],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_no_layer',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-no-layer',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      // No layerTokens → no tokenBindings extracted (no fallback)
+      assert.ok(
+        entry.figma.tokenBindings === undefined ||
+        (Array.isArray(entry.figma.tokenBindings) && entry.figma.tokenBindings.length === 0),
+        'Should NOT fallback to flat tokenBindings',
+      );
+    });
+  });
+
 });

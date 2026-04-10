@@ -44,6 +44,23 @@ export interface SpecVariantVisual {
     fingerprints: Record<string, any>;
 }
 
+/**
+ * Layer Token Mapping entry: which Figma variable (token) is bound to
+ * which layer and property, per variant. (Migration 027)
+ */
+export interface SpecLayerTokenMappingEntry {
+    variant_node_id: string;
+    variant_signature: string;
+    layer_node_id: string;
+    layer_name: string;
+    property_path: string;
+    variable_id: string;
+    token_path: string | null;
+    status: 'resolved' | 'unresolved';
+    mode_id: string;
+    mode_name: string;
+}
+
 export interface ComponentSpec {
     name: string;
     status: "draft" | "ready" | string;
@@ -77,6 +94,7 @@ export interface ComponentSpec {
     tokens?: unknown[] | null;
     layout?: SpecLayoutItem[];
     variant_visuals?: SpecVariantVisual[];
+    layer_token_mapping?: SpecLayerTokenMappingEntry[];
 }
 
 /**

@@ -76,6 +76,22 @@ function buildSpecFromDb(params: {
       token_path: binding.tokenPath ?? null,
       mode: binding.mode ?? null,
     })),
+
+    // Layer Token Mapping: per-variant, per-layer token bindings (Migration 027)
+    layer_token_mapping: structured?.tokenBindings?.length
+      ? structured.tokenBindings.map((binding) => ({
+          variant_node_id: binding.variantNodeId ?? '',
+          variant_signature: binding.variantSignature ?? '',
+          layer_node_id: binding.nodeId,
+          layer_name: binding.nodeName,
+          property_path: String(binding.propertyPath || binding.field || '').trim().toLowerCase(),
+          variable_id: binding.variableId,
+          token_path: binding.tokenPath ?? null,
+          status: binding.status ?? (binding.tokenPath ? 'resolved' : 'unresolved'),
+          mode_id: binding.modeId ?? '',
+          mode_name: binding.modeName ?? binding.mode ?? '',
+        }))
+      : [],
   };
 
   return spec;
