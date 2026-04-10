@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { APP_TITLE } from "@/lib/app-title";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   return (
     <div className={cn("mt-2 flex flex-col gap-2", collapsed && "sr-only")}>
       <h1 className="text-2xl font-semibold tracking-tight">
-        DS Graph
+        {APP_TITLE}
       </h1>
       
       <div className="mt-1">

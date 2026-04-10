@@ -3,6 +3,7 @@ import { Link, matchPath, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchConsumer } from "@/lib/api";
+import { buildDocumentTitleFromBreadcrumbs } from "@/lib/app-title";
 import {
   onCachedConsumerLabelUpdate,
   readCachedConsumerLabel,
@@ -144,6 +145,10 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     () => buildCrumbs(location.pathname, { consumerDetailLabel: consumerLabel }),
     [location.pathname, consumerLabel],
   );
+
+  useEffect(() => {
+    document.title = buildDocumentTitleFromBreadcrumbs(crumbs.map((crumb) => crumb.label));
+  }, [crumbs]);
 
   if (crumbs.length === 0) return null;
 
