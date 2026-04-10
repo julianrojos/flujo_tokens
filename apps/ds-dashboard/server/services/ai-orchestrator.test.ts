@@ -71,7 +71,6 @@ describe('ai-orchestrator authoritative figma descriptions', () => {
       summary: 'Resumen generado por IA',
       variants: [],
       accessibilityNotes: [],
-      markdown: '',
       states: [],
       accessibilityFacts: [],
     };
@@ -89,7 +88,6 @@ describe('ai-orchestrator authoritative figma descriptions', () => {
       summary: 'Resumen IA que debe mantenerse',
       variants: [],
       accessibilityNotes: [],
-      markdown: '',
       states: [],
       accessibilityFacts: [],
     };
@@ -120,7 +118,6 @@ describe('ai-orchestrator authoritative figma descriptions', () => {
         },
       ],
       accessibilityNotes: [],
-      markdown: '',
       states: [],
       accessibilityFacts: [],
     };
@@ -160,7 +157,6 @@ describe('ai-orchestrator authoritative figma descriptions', () => {
         },
       ],
       accessibilityNotes: [],
-      markdown: '',
       states: [],
       accessibilityFacts: [],
     };
@@ -194,7 +190,6 @@ describe('ai-orchestrator authoritative figma descriptions', () => {
         },
       ],
       accessibilityNotes: [],
-      markdown: '',
       states: [],
       accessibilityFacts: [],
     };
@@ -220,6 +215,11 @@ describe('ai-orchestrator prompts', () => {
     const prompt = buildSystemPrompt();
     assert.match(prompt, /JSON object/);
     assert.match(prompt, /schema/);
+  });
+
+  it('system prompt does not mention renderer-owned markdown field', () => {
+    const prompt = buildSystemPrompt();
+    assert.doesNotMatch(prompt, /markdown field should be empty|string - it will be filled by a renderer/i);
   });
 
   it('user prompt includes component id and json block', () => {
@@ -462,7 +462,6 @@ describe('ai-orchestrator pipeline', () => {
           summary: 'Summary',
           variants: [],
           accessibilityNotes: [],
-          markdown: '',
           states: [],
           accessibilityFacts: [],
         },
@@ -511,7 +510,6 @@ describe('ai-orchestrator pipeline', () => {
           summary: 'Summary',
           variants: [],
           accessibilityNotes: [],
-          markdown: '',
           states: [],
           accessibilityFacts: [],
         },
@@ -555,7 +553,6 @@ describe('ai-orchestrator pipeline', () => {
           summary: 'Summary',
           variants: [],
           accessibilityNotes: [],
-          markdown: '',
           states: [],
           accessibilityFacts: [],
         },
@@ -647,7 +644,6 @@ describe('ai-orchestrator pipeline', () => {
               summary: 'Summary',
               variants: [],
               accessibilityNotes: [],
-              markdown: '',
               states: [],
               accessibilityFacts: [],
             },
@@ -777,7 +773,6 @@ describe('ai-orchestrator policyContext', () => {
             summary: 'Summary',
             variants: [],
             accessibilityNotes: [],
-            markdown: '',
             states: [],
             accessibilityFacts: [],
           },
@@ -834,7 +829,6 @@ describe('ai-orchestrator policyContext', () => {
               summary: 'Summary',
               variants: [],
               accessibilityNotes: [],
-              markdown: '',
               states: [],
               accessibilityFacts: [],
             },
@@ -919,7 +913,6 @@ describe('ai-orchestrator policyContext', () => {
               summary: 'Summary',
               variants: [],
               accessibilityNotes: [],
-              markdown: '',
               states: [],
               accessibilityFacts: [],
             },
@@ -1002,7 +995,6 @@ describe('ai-orchestrator policyContext', () => {
               summary: 'Summary',
               variants: [],
               accessibilityNotes: [],
-              markdown: '',
               states: [],
               accessibilityFacts: [],
             },
@@ -1148,7 +1140,6 @@ function create3StageAdapter(options: {
           summary: 'Summary',
           variants: [],
           accessibilityNotes: [],
-          markdown: '',
           states: [],
           accessibilityFacts: [],
         },

@@ -101,6 +101,42 @@ export interface ComponentDocOutput {
 }
 
 /**
+ * Structured extraction returned by the LLM before markdown rendering.
+ * Keep this separate from ComponentDocOutput so the model does not need to
+ * reason about renderer-owned fields.
+ */
+export interface ComponentDocModelOutput {
+    /** Schema version for compatibility */
+    schemaVersion: number;
+    /** Figma component set node ID */
+    componentId: string;
+    /** Component display title */
+    title: string;
+    /** Brief summary of the component */
+    summary: string;
+    /** Available variants */
+    variants: ComponentDocVariant[];
+    /** Accessibility considerations */
+    accessibilityNotes: string[];
+    /** Visual states of the component */
+    states: ComponentDocState[];
+    /** Verified accessibility facts */
+    accessibilityFacts: AccessibilityFact[];
+    /** Additional metadata */
+    metadata?: {
+        generatedAt: string;
+        provider?: string;
+        model?: string;
+    };
+    /** Structural warnings (populated by validation stage) */
+    structureWarning?: StructureWarning;
+    /** Confidence level of the extraction */
+    confidence?: 'high' | 'medium' | 'low';
+    /** Unresolved questions for human review */
+    unresolvedQuestions?: string[];
+}
+
+/**
  * Job status types
  */
 export type AiJobStatus =
@@ -307,7 +343,7 @@ export type AiErrorCode = (typeof AI_ERROR_CODES)[keyof typeof AI_ERROR_CODES]['
 /**
  * JSON Schema representation for LLM structured output
  */
-export const COMPONENT_DOC_JSON_SCHEMA = {
+export const COMPONENT_DOC_MODEL_JSON_SCHEMA = {
     type: 'object',
     additionalProperties: false,
     required: [
@@ -317,7 +353,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
         'summary',
         'variants',
         'accessibilityNotes',
-        'markdown',
         'states',
         'accessibilityFacts',
     ],
@@ -361,10 +396,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
             type: 'array',
             description: 'Accessibility considerations',
             items: { type: 'string' },
-        },
-        markdown: {
-            type: 'string',
-            description: 'Markdown content. Must be empty string from model output.',
         },
         states: {
             type: 'array',
@@ -431,7 +462,7 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
 /**
  * Validate raw output from LLM
  */
-export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
+export function validateComponentDocModelOutput(raw: unknown): ComponentDocModelOutput {
     if (!raw || typeof raw !== 'object') {
         throw new Error('Output must be an object');
     }
@@ -450,7 +481,7 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     // Validate required string fields
-    const requiredStrings = ['componentId', 'title', 'summary', 'markdown'] as const;
+    const requiredStrings = ['componentId', 'title', 'summary'] as const;
     for (const field of requiredStrings) {
         if (typeof obj[field] !== 'string') {
             throw new Error(`Missing required field: ${field}`);
@@ -571,20 +602,19 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     // Build and return validated output
-    const output: ComponentDocOutput = {
+    const output: ComponentDocModelOutput = {
         schemaVersion,
         componentId: obj.componentId as string,
         title: obj.title as string,
         summary: obj.summary as string,
         variants: obj.variants as ComponentDocVariant[],
         accessibilityNotes: obj.accessibilityNotes as string[],
-        markdown: obj.markdown as string,
         states: obj.states as ComponentDocState[],
         accessibilityFacts: obj.accessibilityFacts as AccessibilityFact[],
     };
 
     if (obj.metadata) {
-        output.metadata = obj.metadata as ComponentDocOutput['metadata'];
+        output.metadata = obj.metadata as ComponentDocModelOutput['metadata'];
     }
     if (obj.structureWarning) {
         output.structureWarning = obj.structureWarning as StructureWarning;
@@ -597,6 +627,16 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     return output;
+}
+
+export function toComponentDocOutput(
+    modelOutput: ComponentDocModelOutput,
+    markdown: string,
+): ComponentDocOutput {
+    return {
+        ...modelOutput,
+        markdown,
+    };
 }
 
 /**
@@ -649,5 +689,53 @@ export function createValidComponentDocFixture(
         ],
     };
 
+    return { ...fixture, ...overrides };
+}
+
+export function createValidComponentDocModelFixture(
+    overrides?: Partial<ComponentDocModelOutput>,
+): ComponentDocModelOutput {
+    const fixture: ComponentDocModelOutput = {
+        schemaVersion: COMPONENT_DOC_SCHEMA_VERSION,
+        componentId: '68:4097',
+        title: 'Button',
+        summary: 'A button component for triggering actions',
+        variants: [
+            {
+                id: 'variant-1',
+                name: 'Primary/Default',
+                description: 'Default primary button state',
+                properties: { variant: 'Primary', state: 'Default' },
+            },
+        ],
+        accessibilityNotes: [
+            'Button has accessible name from label text',
+            'Supports keyboard navigation',
+        ],
+        metadata: {
+            generatedAt: new Date().toISOString(),
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-20250514',
+        },
+        states: [
+            {
+                name: 'hover',
+                description: 'Slightly darker background on hover',
+                visualChanges: [{ property: 'opacity', value: '0.9' }],
+            },
+            {
+                name: 'focus',
+                description: 'Visible focus ring for keyboard users',
+                visualChanges: [{ property: 'outline', value: '2px solid blue' }],
+            },
+        ],
+        accessibilityFacts: [
+            {
+                fact: 'Button has accessible name from visible label text',
+                source: 'spec',
+                wcagCriterion: 'WCAG 2.1 4.1.2',
+            },
+        ],
+    };
     return { ...fixture, ...overrides };
 }

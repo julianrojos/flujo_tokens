@@ -13,11 +13,13 @@ import { createOllamaAdapter } from './ai-ollama-adapter.js';
 import { createGeminiAdapter } from './ai-gemini-adapter.js';
 import type {
     AiJobState,
+    ComponentDocModelOutput,
     ComponentDocOutput,
 } from './ai-component-doc-schema.js';
 import {
-    validateComponentDocOutput,
-    COMPONENT_DOC_JSON_SCHEMA,
+    validateComponentDocModelOutput,
+    COMPONENT_DOC_MODEL_JSON_SCHEMA,
+    toComponentDocOutput,
     AI_ERROR_CODES,
 } from './ai-component-doc-schema.js';
 import type { EditorialPatch } from './ai-editorial-patch-schema.js';
@@ -205,10 +207,10 @@ function toVariantPropertiesMap(value: unknown): Record<string, string> {
  * - Keep AI-generated summary intact (component-set Figma description is rendered separately).
  */
 export function applyAuthoritativeFigmaDescriptions(
-    output: ComponentDocOutput,
+    output: ComponentDocModelOutput,
     spec: Record<string, unknown>,
-): ComponentDocOutput {
-    const next: ComponentDocOutput = { ...output };
+): ComponentDocModelOutput {
+    const next: ComponentDocModelOutput = { ...output };
 
     const rawSpecVariants = Array.isArray(spec.variants) ? spec.variants : [];
     const figmaVariantByNodeId = new Map<string, string>();
@@ -283,7 +285,6 @@ IMPORTANT:
 - Populate all fields in the schema
 - Use empty arrays "[]" if no items exist (not null)
 - Keep descriptions concise but informative
-- The "markdown" field should be empty string - it will be filled by a renderer
 - Ensure JSON is valid and matches the schema exactly`;
 
     return appendPolicyContext(prompt, policyContext);
@@ -491,14 +492,13 @@ function truncateJsonStringValues(value: unknown, maxStringLength: number): unkn
  * @returns Placeholder ComponentDocOutput
  */
 function createDryRunOutput(componentId: string, name?: string): ComponentDocOutput {
-    return {
+    const modelOutput: ComponentDocModelOutput = {
         schemaVersion: 2,
         componentId,
         title: `[DRY RUN] ${name || 'Unknown Component'}`,
         summary: 'This is a dry-run placeholder output - no actual LLM call was made.',
         variants: [],
         accessibilityNotes: [],
-        markdown: '',
         states: [],
         accessibilityFacts: [],
         metadata: {
@@ -506,6 +506,7 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
             provider: 'dry-run',
         },
     };
+    return toComponentDocOutput(modelOutput, '');
 }
 
 /**
@@ -775,7 +776,7 @@ export async function runGenerateComponentDoc(
                     adapter.generate({
                         systemPrompt,
                         userPrompt,
-                        jsonSchema: COMPONENT_DOC_JSON_SCHEMA as Record<string, unknown>,
+                        jsonSchema: COMPONENT_DOC_MODEL_JSON_SCHEMA as Record<string, unknown>,
                         model: job.input.model,
                         timeoutMs: jobTimeout,
                     }) as Promise<AiProviderResult>,
@@ -795,9 +796,10 @@ export async function runGenerateComponentDoc(
                 // Step 5: Validate output
                 store.pushEvent(job.id, 'schema.validating', {});
                 try {
-                    output = validateComponentDocOutput(result.parsedJson);
-                    store.pushEvent(job.id, 'schema.validated', { schemaVersion: output.schemaVersion });
-                    output = applyAuthoritativeFigmaDescriptions(output, spec);
+                    const extracted = validateComponentDocModelOutput(result.parsedJson);
+                    store.pushEvent(job.id, 'schema.validated', { schemaVersion: extracted.schemaVersion });
+                    const modelOutput = applyAuthoritativeFigmaDescriptions(extracted, spec);
+                    output = toComponentDocOutput(modelOutput, '');
                 } catch (validationError) {
                     // Schema validation failure is non-retryable
                     throw {

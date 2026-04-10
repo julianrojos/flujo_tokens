@@ -5,44 +5,44 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    validateComponentDocOutput,
-    createValidComponentDocFixture,
+    validateComponentDocModelOutput,
+    createValidComponentDocModelFixture,
     COMPONENT_DOC_SCHEMA_VERSION,
     AI_ERROR_CODES,
-    type ComponentDocOutput,
 } from './ai-component-doc-schema.js';
 
 describe('ai-component-doc-schema', () => {
-    describe('validateComponentDocOutput', () => {
+    describe('validateComponentDocModelOutput', () => {
         it('should accept valid fixture', () => {
-            const fixture = createValidComponentDocFixture();
-            const result = validateComponentDocOutput(fixture);
+            const fixture = createValidComponentDocModelFixture();
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.schemaVersion, COMPONENT_DOC_SCHEMA_VERSION);
             assert.equal(result.componentId, '68:4097');
             assert.equal(result.title, 'Button');
+            assert.equal('markdown' in result, false);
         });
 
         it('should accept fixture with v2 states field', () => {
-            const fixture = createValidComponentDocFixture({
+            const fixture = createValidComponentDocModelFixture({
                 states: [
                     { name: 'hover', description: 'Hover state' },
                     { name: 'focus', description: 'Focus state', visualChanges: [{ property: 'outline', value: '2px solid blue' }] },
                 ],
             });
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.states.length, 2);
             assert.equal(result.states[0].name, 'hover');
             assert.equal(result.states[1].visualChanges?.[0].property, 'outline');
         });
 
         it('should accept fixture with v2 accessibilityFacts field', () => {
-            const fixture = createValidComponentDocFixture({
+            const fixture = createValidComponentDocModelFixture({
                 accessibilityFacts: [
                     { fact: 'Has accessible name', source: 'spec', wcagCriterion: 'WCAG 2.1 4.1.2' },
                     { fact: 'Supports keyboard', source: 'inferred' },
                 ],
             });
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.accessibilityFacts.length, 2);
             assert.equal(result.accessibilityFacts[0].source, 'spec');
             assert.equal(result.accessibilityFacts[1].wcagCriterion, undefined);
@@ -56,11 +56,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: states/);
         });
 
@@ -72,11 +71,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: accessibilityFacts/);
         });
 
@@ -88,12 +86,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [{ description: 'Missing name' }],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /states\[0\]: missing or invalid 'name' field/);
         });
 
@@ -105,12 +102,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [{ fact: 'Has accessible name' }],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /accessibilityFacts\[0\]: missing or invalid 'source' field/);
         });
 
@@ -122,12 +118,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [{ fact: 'Has accessible name', source: 'verified' }],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /accessibilityFacts\[0\]\.source: must be one of spec\|inferred\|assumed/);
         });
 
@@ -139,13 +134,12 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
                 confidence: 'certain',
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /confidence: must be one of high\|medium\|low/);
         });
 
@@ -157,13 +151,12 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
                 unresolvedQuestions: ['ok', 123],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /unresolvedQuestions\[1\]: must be a string/);
         });
 
@@ -178,18 +171,17 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
                 structureWarning: { message: 'Missing section' }, // section missing
             };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.structureWarning, undefined, 'malformed structureWarning should be dropped, not throw');
         });
 
         it('should reject non-object input', () => {
             assert.throws(() => {
-                validateComponentDocOutput(null);
+                validateComponentDocModelOutput(null);
             }, /Output must be an object/);
         });
 
@@ -200,10 +192,9 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: schemaVersion/);
         });
 
@@ -215,10 +206,9 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Invalid schemaVersion/);
         });
 
@@ -229,12 +219,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: componentId/);
         });
 
@@ -245,12 +234,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: title/);
         });
 
@@ -261,12 +249,11 @@ describe('ai-component-doc-schema', () => {
                 title: 'Button',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: summary/);
         });
 
@@ -278,11 +265,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.title, 'Button');
         });
 
@@ -293,12 +279,11 @@ describe('ai-component-doc-schema', () => {
                 title: 'Button',
                 summary: 'Test',
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: variants/);
         });
 
@@ -310,11 +295,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            validateComponentDocOutput(fixture);
+            validateComponentDocModelOutput(fixture);
         });
 
         it('should reject missing accessibilityNotes array', () => {
@@ -324,12 +308,11 @@ describe('ai-component-doc-schema', () => {
                 title: 'Button',
                 summary: 'Test',
                 variants: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: accessibilityNotes/);
         });
 
@@ -341,11 +324,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.deepEqual(result.variants, []);
             assert.deepEqual(result.accessibilityNotes, []);
             assert.deepEqual(result.states, []);
@@ -360,13 +342,12 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
                 extraField: 'should be tolerated',
                 nested: { extra: 'also tolerated' },
             };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.title, 'Button');
         });
 
@@ -378,11 +359,10 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            const result = validateComponentDocOutput({ ...fixture, removedLegacyField: { anything: true } });
+            const result = validateComponentDocModelOutput({ ...fixture, removedLegacyField: { anything: true } });
             assert.equal(result.title, 'Button');
         });
 
@@ -394,12 +374,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [{ id: 'v1', name: 'Primary', description: 'Missing properties' }],
                 accessibilityNotes: [],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /variants\[0\]: missing or invalid 'properties' field/);
         });
 
@@ -411,12 +390,11 @@ describe('ai-component-doc-schema', () => {
                 summary: 'Test',
                 variants: [],
                 accessibilityNotes: [123],
-                markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /accessibilityNotes\[0\]: must be a string/);
         });
     });
