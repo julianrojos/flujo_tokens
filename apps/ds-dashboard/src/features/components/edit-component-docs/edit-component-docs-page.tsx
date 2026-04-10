@@ -89,12 +89,16 @@ export function EditComponentDocsPage() {
   const activeSystemId = String(getActiveSystemId() || '').trim() || null;
   const editDocsStorageScope = getEditDocsStorageScope(activeSystemId);
 
-  const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(slug!, editDocsStorageScope);
+  const [figmaComponentId, setFigmaComponentId] = useState<string | null>(null);
+  const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(
+    slug!,
+    editDocsStorageScope,
+    figmaComponentId,
+  );
   const { saveDraft, restoreDraft, clearDraft } = useEditDocsDraft(slug!, editDocsStorageScope);
   const expectedUpdatedAtRef = useRef<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [figmaComponentId, setFigmaComponentId] = useState('');
   const baseFormRef = useRef<EditorialFormData>({
     summary: '',
     variants: [],
@@ -144,8 +148,8 @@ export function EditComponentDocsPage() {
     const variants = Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [];
     const accNotes = Array.isArray(spec.accessibility?.notes) ? spec.accessibility.notes : [];
     const figmaMetadata = (spec as Record<string, unknown>).figma_metadata as Record<string, unknown> | null | undefined;
-    const currentFigmaComponentId = (figmaMetadata?.component_set_node_id as string | null) ?? '';
-    setFigmaComponentId(currentFigmaComponentId);
+    const currentFigmaComponentId = String(figmaMetadata?.component_set_node_id ?? '').trim();
+    setFigmaComponentId(currentFigmaComponentId || null);
 
     let nextFormData: EditorialFormData = {
       summary: typeof summary === 'string' ? summary : '',
@@ -195,7 +199,7 @@ export function EditComponentDocsPage() {
   useEffect(() => {
     initializedSlugRef.current = null;
     setIsDirty(false);
-    setFigmaComponentId('');
+    setFigmaComponentId(null);
   }, [slug]);
 
   const handleOpenAiModal = useCallback(() => {

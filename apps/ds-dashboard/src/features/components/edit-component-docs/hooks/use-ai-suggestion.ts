@@ -2,29 +2,39 @@
  * useAiSuggestion — localStorage versioned suggestion for a component.
  *
  * Stores AI-generated ComponentDocOutput in localStorage with a versioned payload.
- * Read failures (corrupt JSON, version mismatch, wrong slug) return null and
- * clean up the stale entry.
+ * Read failures (corrupt JSON, version mismatch, wrong slug, wrong scope, wrong
+ * Figma component identity) return null and clean up the stale entry.
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { ComponentDocOutput } from '@/types/ai-jobs';
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 const toScope = (storageScope: string | null | undefined) =>
   String(storageScope || '').trim();
 const SUGGESTION_KEY = (storageScope: string | null | undefined, slug: string) =>
-  `ai-suggestion-v1-${toScope(storageScope)}-${slug}`;
+  `ai-suggestion-v2-${toScope(storageScope)}-${slug}`;
 const MAX_SUGGESTION_BYTES = 4_000_000;
 
 interface StoredSuggestion {
   version: typeof CURRENT_VERSION;
   storageScope: string;
   slug: string;
+  figmaComponentId: string;
   generatedAt: string;
   suggestion: ComponentDocOutput;
 }
 
-function readStoredSuggestion(storageKey: string, slug: string, storageScope?: string | null) {
+export function readStoredSuggestion(
+  storageKey: string,
+  slug: string,
+  storageScope?: string | null,
+  figmaComponentId?: string | null,
+) {
+  const componentId = String(figmaComponentId || '').trim();
+  if (!componentId) {
+    return null;
+  }
   try {
     const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
@@ -35,7 +45,8 @@ function readStoredSuggestion(storageKey: string, slug: string, storageScope?: s
       parsed === null ||
       (parsed as StoredSuggestion).version !== CURRENT_VERSION ||
       (parsed as StoredSuggestion).slug !== slug ||
-      (parsed as StoredSuggestion).storageScope !== namespace
+      (parsed as StoredSuggestion).storageScope !== namespace ||
+      (parsed as StoredSuggestion).figmaComponentId !== componentId
     ) {
       localStorage.removeItem(storageKey);
       return null;
@@ -46,24 +57,36 @@ function readStoredSuggestion(storageKey: string, slug: string, storageScope?: s
   }
 }
 
-export function useAiSuggestion(slug: string, storageScope?: string | null) {
+export function useAiSuggestion(
+  slug: string,
+  storageScope?: string | null,
+  figmaComponentId?: string | null,
+) {
   const storageKey = useMemo(() => SUGGESTION_KEY(storageScope, slug), [slug, storageScope]);
   const [isInMemoryOnly, setIsInMemoryOnly] = useState(false);
   const [suggestion, setSuggestion] = useState<ComponentDocOutput | null>(() =>
-    readStoredSuggestion(storageKey, slug, storageScope),
+    readStoredSuggestion(storageKey, slug, storageScope, figmaComponentId),
   );
 
   useEffect(() => {
-    setSuggestion(readStoredSuggestion(storageKey, slug, storageScope));
+    setSuggestion(readStoredSuggestion(storageKey, slug, storageScope, figmaComponentId));
     setIsInMemoryOnly(false);
-  }, [storageKey, slug, storageScope]);
+  }, [storageKey, slug, storageScope, figmaComponentId]);
 
   const saveSuggestion = useCallback(
     (output: ComponentDocOutput) => {
+      const componentId = String(figmaComponentId || '').trim();
+      if (!componentId) {
+        setIsInMemoryOnly(true);
+        setSuggestion(output);
+        return;
+      }
+
       const stored: StoredSuggestion = {
         version: CURRENT_VERSION,
         storageScope: toScope(storageScope),
         slug,
+        figmaComponentId: componentId,
         generatedAt: new Date().toISOString(),
         suggestion: output,
       };
@@ -90,7 +113,7 @@ export function useAiSuggestion(slug: string, storageScope?: string | null) {
       setIsInMemoryOnly(false);
       setSuggestion(output);
     },
-    [slug, storageKey, storageScope],
+    [slug, storageKey, storageScope, figmaComponentId],
   );
 
   const clearSuggestion = useCallback(() => {
