@@ -4,6 +4,7 @@
 
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { APP_PLUGIN_TITLE } from '../constants/app-title';
 
 function reportUiError(message: string): void {
   try {
@@ -25,6 +26,7 @@ window.addEventListener('unhandledrejection', (event) => {
 const container = document.getElementById('root');
 if (container) {
   try {
+    document.title = APP_PLUGIN_TITLE;
     const root = createRoot(container);
     root.render(<App />);
   } catch (error) {
