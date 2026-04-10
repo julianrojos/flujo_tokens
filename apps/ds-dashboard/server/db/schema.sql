@@ -290,7 +290,6 @@ CREATE TABLE IF NOT EXISTS component_editorial (
   qa_json                 TEXT CHECK(qa_json IS NULL OR (json_valid(qa_json) AND json_type(qa_json) = 'array')),
   accessibility_notes_json TEXT CHECK(accessibility_notes_json IS NULL OR (json_valid(accessibility_notes_json) AND json_type(accessibility_notes_json) = 'array')),
   variants_json           TEXT CHECK(variants_json IS NULL OR (json_valid(variants_json) AND json_type(variants_json) = 'array')),
-  tokens_json             TEXT CHECK(tokens_json IS NULL OR (json_valid(tokens_json) AND json_type(tokens_json) = 'array')),
   updated_at              INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 

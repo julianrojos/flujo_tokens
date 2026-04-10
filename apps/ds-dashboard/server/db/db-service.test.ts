@@ -122,6 +122,87 @@ describe('db-service', () => {
             }
         });
 
+        it('does not keep legacy tokens_json in component_editorial after migrations', () => {
+            db = bootstrapDatabase({ dbPath: ':memory:' });
+
+            const columns = db
+                .prepare("PRAGMA table_info('component_editorial')")
+                .all() as Array<{ name: string }>;
+
+            const columnNames = columns.map((column) => column.name);
+            assert.ok(columnNames.includes('variants_json'));
+            assert.ok(!columnNames.includes('tokens_json'));
+        });
+
+        it('preserves existing editorial data when upgrading through migration 028', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migrations = loadMigrationsFromDir(migrationsDir);
+            const pre028 = migrations.filter((migration) => migration.version < 28);
+            const from028 = migrations.filter((migration) => migration.version >= 28);
+
+            runMigrations(db, pre028);
+
+            db.prepare(`
+                INSERT INTO design_systems (id, name)
+                VALUES ('sys-upgrade', 'Upgrade Test')
+            `).run();
+            db.prepare(`
+                INSERT INTO components (ds_id, slug, name, status, doc_type)
+                VALUES ('sys-upgrade', 'upgrade-button', 'Upgrade Button', 'draft', 'component')
+            `).run();
+
+            const component = db.prepare(`
+                SELECT id FROM components
+                WHERE ds_id = 'sys-upgrade' AND slug = 'upgrade-button'
+            `).get() as { id: number };
+
+            db.prepare(`
+                INSERT INTO component_editorial (
+                    component_id,
+                    summary_json,
+                    accessibility_notes_json,
+                    variants_json,
+                    tokens_json,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            `).run(
+                component.id,
+                JSON.stringify({ purpose: 'Upgrade-safe summary' }),
+                JSON.stringify(['Keyboard accessible']),
+                JSON.stringify([{ id: 'v1', name: 'Default', description: '', properties: { State: 'Default' } }]),
+                JSON.stringify([{ name: 'legacy-token', value: '#000', type: 'color' }]),
+                1234567890,
+            );
+
+            runMigrations(db, from028);
+
+            const columns = db
+                .prepare("PRAGMA table_info('component_editorial')")
+                .all() as Array<{ name: string }>;
+            const columnNames = columns.map((column) => column.name);
+            assert.ok(!columnNames.includes('tokens_json'));
+
+            const row = db.prepare(`
+                SELECT summary_json, accessibility_notes_json, variants_json, updated_at
+                FROM component_editorial
+                WHERE component_id = ?
+            `).get(component.id) as {
+                summary_json: string | null;
+                accessibility_notes_json: string | null;
+                variants_json: string | null;
+                updated_at: number;
+            };
+
+            assert.deepEqual(JSON.parse(row.summary_json as string), { purpose: 'Upgrade-safe summary' });
+            assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keyboard accessible']);
+            assert.deepEqual(JSON.parse(row.variants_json as string), [
+                { id: 'v1', name: 'Default', description: '', properties: { State: 'Default' } },
+            ]);
+            assert.equal(row.updated_at, 1234567890);
+        });
+
         it('creates all indexes from migrations', () => {
             db = bootstrapDatabase({ dbPath: ':memory:' });
 

@@ -219,7 +219,6 @@ export interface EditorialEntry {
   qa?: Array<unknown> | null;
   accessibilityNotes?: string[] | null;
   variants?: EditorialVariantEntry[] | null;
-  tokens?: EditorialTokenEntry[] | null;
   updatedAt: number;
 }
 
@@ -228,13 +227,6 @@ export interface EditorialVariantEntry {
   name: string;
   description: string;
   properties: Record<string, string>;
-}
-
-export interface EditorialTokenEntry {
-  name: string;
-  value: string;
-  type: string;
-  description?: string;
 }
 
 /**
@@ -560,7 +552,7 @@ export class ComponentRepository {
       .prepare(`
         SELECT component_id, summary_json, best_practices_json, accessibility_json,
                content_guidelines_json, related_components_json, token_mapping_json, qa_json,
-               accessibility_notes_json, variants_json, tokens_json, updated_at
+               accessibility_notes_json, variants_json, updated_at
         FROM component_editorial
         WHERE component_id = ?
       `)
@@ -575,7 +567,6 @@ export class ComponentRepository {
         qa_json: string | null;
         accessibility_notes_json: string | null;
         variants_json: string | null;
-        tokens_json: string | null;
         updated_at: number;
       }>[0];
 
@@ -592,7 +583,6 @@ export class ComponentRepository {
       qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
       accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(row.accessibility_notes_json, 'component_editorial.accessibility_notes_json'),
       variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, 'component_editorial.variants_json'),
-      tokens: ComponentRepository.parseJsonColumnValue<EditorialTokenEntry[]>(row.tokens_json, 'component_editorial.tokens_json'),
       updatedAt: row.updated_at,
     };
   }
@@ -611,7 +601,7 @@ export class ComponentRepository {
         .prepare(`
           SELECT component_id, summary_json, best_practices_json, accessibility_json,
                  content_guidelines_json, related_components_json, token_mapping_json, qa_json,
-                 variants_json, tokens_json, updated_at
+                 variants_json, updated_at
           FROM component_editorial
           WHERE component_id IN (${placeholders})
         `)
@@ -625,7 +615,6 @@ export class ComponentRepository {
           token_mapping_json: string | null;
           qa_json: string | null;
           variants_json: string | null;
-          tokens_json: string | null;
           updated_at: number;
         }>;
 
@@ -640,7 +629,6 @@ export class ComponentRepository {
           tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, "component_editorial.token_mapping_json"),
           qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, "component_editorial.qa_json"),
           variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, "component_editorial.variants_json"),
-          tokens: ComponentRepository.parseJsonColumnValue<EditorialTokenEntry[]>(row.tokens_json, "component_editorial.tokens_json"),
           updatedAt: row.updated_at,
         });
       }
@@ -676,8 +664,8 @@ export class ComponentRepository {
           INSERT OR IGNORE INTO component_editorial (
             component_id, summary_json, best_practices_json, accessibility_json,
             content_guidelines_json, related_components_json, token_mapping_json, qa_json,
-            accessibility_notes_json, variants_json, tokens_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            accessibility_notes_json, variants_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
@@ -689,7 +677,6 @@ export class ComponentRepository {
           ComponentRepository.toJsonColumnValue(fields.qa),
           ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
           ComponentRepository.toJsonColumnValue(fields.variants),
-          ComponentRepository.toJsonColumnValue(fields.tokens),
           now,
         );
 
@@ -720,7 +707,6 @@ export class ComponentRepository {
           qa_json = COALESCE(?, qa_json),
           accessibility_notes_json = COALESCE(?, accessibility_notes_json),
           variants_json = COALESCE(?, variants_json),
-          tokens_json = COALESCE(?, tokens_json),
           updated_at = ?
         WHERE component_id = ?
       `).run(
@@ -733,7 +719,6 @@ export class ComponentRepository {
         fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
         fields.accessibilityNotes !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibilityNotes) : null,
         fields.variants !== undefined ? ComponentRepository.toJsonColumnValue(fields.variants) : null,
-        fields.tokens !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokens) : null,
         now,
         componentId,
       );
