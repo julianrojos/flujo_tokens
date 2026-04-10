@@ -120,7 +120,7 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Layer Token Mapping</CardTitle>
+        <CardTitle>Tokens used</CardTitle>
         <CardDescription>
           {hasEntries
             ? `Token bindings per layer and variant — ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
