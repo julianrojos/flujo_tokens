@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createSearchParams, Link, useSearchParams } from "react-router-dom";
+import { createSearchParams, Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ShieldAlert, Target } from "lucide-react";
 
-import { fetchImpact, fetchTokenRegistry } from "@/lib/api";
+import { fetchImpact } from "@/lib/api";
 import { normalizeToHex6 } from "@/lib/color-utils";
 import type { ImpactReport, ImpactSeverity } from "@/types/impact";
-import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
@@ -72,18 +71,15 @@ function compareValues(left: string | number, right: string | number) {
 }
 
 export function ImpactExplorerPage() {
+  const { tokenPath: tokenPathParam } = useParams<{ tokenPath: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tokenParam = searchParams.get("token") ?? "";
   const newValueParam = searchParams.get("newValue") ?? "";
   const depthParam = parseDepth(searchParams.get("depth"));
 
-  const [tokens, setTokens] = useState<TokenEntry[]>([]);
-  const [tokenInput, setTokenInput] = useState(tokenParam);
   const [newValueInput, setNewValueInput] = useState(newValueParam);
   const [depth, setDepth] = useState(depthParam);
   const [report, setReport] = useState<ImpactReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingTokens, setLoadingTokens] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [affectedTokenSort, setAffectedTokenSort] = useState<{
     field: AffectedTokenSortField;
@@ -99,34 +95,12 @@ export function ImpactExplorerPage() {
   });
   const autoQueryRef = useRef("");
 
-  useEffect(() => {
-    const loadTokens = async () => {
-      setLoadingTokens(true);
-      try {
-        const payload = await fetchTokenRegistry();
-        setTokens(payload.entries ?? []);
-      } catch {
-        setTokens([]);
-      } finally {
-        setLoadingTokens(false);
-      }
-    };
-    void loadTokens();
-  }, []);
-
-  const runAnalysis = async (args?: {
-    tokenPath?: string;
-    newValue?: string;
-    depth?: number;
-  }) => {
-    const tokenPath = String(args?.tokenPath ?? tokenInput).trim();
+  const runAnalysis = async (args?: { newValue?: string; depth?: number }) => {
+    const tokenPath = String(tokenPathParam ?? "").trim();
     const nextValue = String(args?.newValue ?? newValueInput).trim();
     const nextDepth = args?.depth ?? depth;
 
-    if (!tokenPath) {
-      setError("Select a token first.");
-      return;
-    }
+    if (!tokenPath) return;
 
     setLoading(true);
     setError(null);
@@ -137,12 +111,10 @@ export function ImpactExplorerPage() {
         depth: nextDepth,
       });
       setReport(payload);
-      setTokenInput(tokenPath);
       setNewValueInput(nextValue);
       setDepth(nextDepth);
       setSearchParams(
         createSearchParams({
-          token: tokenPath,
           ...(nextValue ? { newValue: nextValue } : {}),
           depth: String(nextDepth),
         }),
@@ -156,29 +128,16 @@ export function ImpactExplorerPage() {
   };
 
   useEffect(() => {
-    const token = tokenParam.trim();
-    if (!token) return;
-    const signature = `${token}|${newValueParam}|${depthParam}`;
+    const tokenPath = String(tokenPathParam ?? "").trim();
+    if (!tokenPath) return;
+    const signature = `${tokenPath}|${newValueParam}|${depthParam}`;
     if (signature === autoQueryRef.current) return;
     autoQueryRef.current = signature;
-    setTokenInput(token);
     setNewValueInput(newValueParam);
     setDepth(depthParam);
-    void runAnalysis({
-      tokenPath: token,
-      newValue: newValueParam,
-      depth: depthParam,
-    });
-  }, [tokenParam, newValueParam, depthParam]);
-
-  const tokenOptions = useMemo(
-    () =>
-      tokens
-        .slice()
-        .sort((left, right) => left.path.localeCompare(right.path, "en", { sensitivity: "base" }))
-        .slice(0, 2500),
-    [tokens],
-  );
+    void runAnalysis({ newValue: newValueParam, depth: depthParam });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenPathParam, newValueParam, depthParam]);
 
   const rootCurrentColor = useMemo(
     () => (report ? normalizeToHex6(report.rootToken.resolvedValue) : null),
@@ -279,6 +238,10 @@ export function ImpactExplorerPage() {
     );
   };
 
+  if (!tokenPathParam) {
+    return <Navigate to="/tokens" replace />;
+  }
+
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <Card>
@@ -298,18 +261,11 @@ export function ImpactExplorerPage() {
                 Token
               </label>
               <Input
-                className="mt-2"
-                list="impact-token-options"
-                value={tokenInput}
-                onChange={(event) => setTokenInput(event.target.value)}
-                placeholder="Token path / slashPath / cssVar"
-                disabled={loadingTokens}
+                className="mt-2 font-mono text-xs"
+                value={tokenPathParam}
+                readOnly
+                tabIndex={-1}
               />
-              <datalist id="impact-token-options">
-                {tokenOptions.map((entry) => (
-                  <option key={entry.path} value={entry.path} />
-                ))}
-              </datalist>
             </div>
 
             <div className="md:col-span-3">

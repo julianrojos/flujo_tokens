@@ -23,8 +23,20 @@ function decodeSafe(value: string) {
 }
 
 function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string }): Crumb[] {
+  if (pathname === "/system/new") {
+    return [{ label: "System", to: "/system/admin" }, { label: "New System" }];
+  }
+
+  if (pathname === "/system/admin") {
+    return [{ label: "System" }, { label: "Design Systems Admin" }];
+  }
+
   if (pathname === "/health") {
     return [{ label: "Health" }];
+  }
+
+  if (pathname === "/ops") {
+    return [{ label: "System" }, { label: "Operations" }];
   }
 
   if (pathname === "/tokens") {
@@ -35,8 +47,14 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
   }
 
-  if (pathname === "/impact") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Impact" }];
+  const tokenImpactMatch = matchPath("/tokens/:tokenPath/impact", pathname);
+  if (tokenImpactMatch?.params.tokenPath) {
+    const tokenPath = decodeSafe(tokenImpactMatch.params.tokenPath);
+    return [
+      { label: "Tokens", to: "/tokens" },
+      { label: tokenPath, to: `/tokens/${tokenImpactMatch.params.tokenPath}` },
+      { label: "Impact" },
+    ];
   }
 
   const tokenMatch = matchPath("/tokens/:tokenPath", pathname);

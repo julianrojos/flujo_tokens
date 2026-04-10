@@ -16,7 +16,6 @@ import {
   GitBranch,
   Layers3,
   Settings2,
-  TrendingDown,
   type LucideIcon,
   Search,
   Zap,
@@ -239,12 +238,6 @@ const navSections: NavSection[] = [
         label: "Graph",
         description: "Dependencies and cycles",
         icon: GitBranch,
-      },
-      {
-        to: "/impact",
-        label: "Impact",
-        description: "What breaks if X changes",
-        icon: TrendingDown,
       },
       {
         to: "/consumers",
@@ -500,8 +493,9 @@ export default function App() {
                     <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
+                    <Route path="/tokens/:tokenPath/impact" element={<ImpactExplorerPage />} />
                     <Route path="/token-graph" element={<TokenGraphPage />} />
-                    <Route path="/impact" element={<ImpactExplorerPage />} />
+                    <Route path="/impact" element={<Navigate to="/tokens" replace />} />
                     <Route path="/file" element={<FileViewerPage />} />
                     <Route path="/consumers" element={<ConsumersPage />} />
                     <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
