@@ -18,6 +18,8 @@ Convertir un generador de documentación en un sistema **con criterio, trazabili
 - Separar **estado visual observable** de **comportamiento real implementado**.
 - Si la estructura del componente en Figma es pobre, el sistema debe degradar la confianza y emitir `StructureWarning`.
 - El patch editorial complementa; no reescribe ni contradice la extracción factual.
+- Document intent before visual detail.
+- Prioritize: what it is, when to use it, when not to use it.
 
 ## Guardrails por etapa (qué NO debe hacer)
 
