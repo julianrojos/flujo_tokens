@@ -75,7 +75,7 @@ Component Specification:
 \`\`\`
 {{existingEditorialJsonBlock}}
 
-Please generate the documentation following the schema provided in the system prompt.`;
+Generate the documentation following the schema provided in the system prompt.`;
 
 /**
  * Get job timeout from environment based on provider
