@@ -1,24 +1,22 @@
 # SKILL: editorial-patch-writer
 
-## Propósito
+## Purpose
 
-Usar `ComponentDocOutput` como base canónica y enriquecerlo con criterio editorial mediante `EditorialPatch`, sin contradecirlo ni reescribirlo.
-
----
-
-## Regla de oro
-
-El patch complementa, no reescribe.
-
-Si la primera llamada extrajo:
-
-- 4 variantes, el patch no puede ignorarlas ni inventar una quinta
+Use `ComponentDocOutput` as the canonical base and enrich it with editorial judgment through `EditorialPatch`, without contradicting or rewriting it.
 
 ---
 
-## Qué debe producir
+## Golden Rule
 
-Puede poblar:
+The patch complements, it does not rewrite.
+
+If the first call extracted:
+
+- 4 variants, the patch cannot ignore them or invent a fifth
+
+## What It Must Produce
+
+It may populate:
 
 - `summary`
 - `purpose`
@@ -35,172 +33,172 @@ Puede poblar:
 
 ---
 
-## Reglas editoriales
+## Editorial Rules
 
 ### 1. Summary
 
-- Puede mejorar claridad o escaneabilidad del resumen
-- No debe contradecir hechos del bloque base
+- It may improve the clarity or scannability of the summary
+- It must not contradict facts from the base block
 
 ### 2. Purpose
 
-- Una frase
-- Describe el problema de usuario o de interfaz que resuelve
-- No describir su apariencia
-- No usar lenguaje vacío
+- One sentence
+- Describe the user or interface problem it solves
+- Do not describe its appearance
+- Do not use empty language
 
-Correcto:
+Correct:
 
-- `Permite iniciar una acción principal con alta visibilidad dentro de una vista.`
+- `Allows a primary action to be started with high visibility within a view.`
 
-Incorrecto:
+Incorrect:
 
-- `Es un botón azul con icono opcional.`
+- `It is a blue button with an optional icon.`
 
 ### 3. when_to_use / when_not_to_use
 
-Basarse en:
+Base this on:
 
 - variants
 - states
-- tipo de componente
+- component type
 
-Si el componente tiene variante `destructive`, debe reflejarse si es relevante.
-Si no tiene estado `loading`, no inventarlo.
+If the component has a `destructive` variant, it should be reflected if relevant.
+If it does not have a `loading` state, do not invent it.
 
 ### 4. do / dont
 
-Deben ser concretos y verificables.
+They must be concrete and verifiable.
 
-Incorrecto:
+Incorrect:
 
-- `Usa el componente de forma consistente.`
+- `Use the component consistently.`
 
-Correcto:
+Correct:
 
-- `Usa la variante destructive solo para acciones irreversibles como eliminar o desconectar.`
+- `Use the destructive variant only for irreversible actions such as deleting or disconnecting.`
 
 ### 5. content_guidelines
 
-Solo incluir cuando el componente tenga contenido real:
+Only include this when the component has real content:
 
 - labels
 - helper text
 - placeholders
-- títulos
-- descripciones
+- titles
+- descriptions
 
-Debe ser accionable y específico al componente.
+It must be actionable and component-specific.
 
-### 5.1 resiliencia de contenido
+### 5.1 Content Resilience
 
-Cuando aplique, documentar cómo debe comportarse el componente ante contenido no ideal:
+When applicable, document how the component should behave with non-ideal content:
 
-- texto largo en labels, títulos o descripciones
-- truncación (si existe) y criterio de uso
-- wrapping (si existe) y límites esperados
+- long text in labels, titles, or descriptions
+- truncation (if it exists) and its usage criteria
+- wrapping (if it exists) and expected limits
 
-No asumir comportamiento por defecto del navegador como regla del componente.
-Si el comportamiento no es verificable desde evidencia disponible:
+Do not assume browser default behavior as a component rule.
+If the behavior is not verifiable from available evidence:
 
-- usar `[Por confirmar con dev]`
-- usar `TBD`
+- use `[To confirm with dev]`
+- use `TBD`
 
 ### 6. accessibility
 
-La accesibilidad en el patch debe reflejar límites de Figma.
+Accessibility in the patch must reflect Figma's limits.
 
-#### mínimo editorial obligatorio
+#### Mandatory editorial minimum
 
-El patch debe incluir siempre el bloque `accessibility`.
-Si no hay evidencia suficiente, incluir al menos una nota en `notes[]` con:
+The patch must always include the `accessibility` block.
+If there is not enough evidence, include at least one note in `notes[]` with:
 
 - `TBD`
-- `[Por confirmar con dev]`
+- `[To confirm with dev]`
 
 #### role
 
-No tratar el rol como hecho salvo evidencia muy fuerte.
-Usar esta lógica:
+Do not treat the role as fact unless there is very strong evidence.
+Use this logic:
 
-- `verified` si existe evidencia externa verificable
-- `recommended` si es la opción más probable desde nombre + estructura
-- `unknown` si no hay base suficiente
+- `verified` if there is verifiable external evidence
+- `recommended` if it is the most likely option based on name + structure
+- `unknown` if there is not enough basis
 
-Desde Figma-only, por defecto:
+From Figma-only, by default:
 
-- usar sugerencia conservadora
-- marcar con `[Por confirmar con dev]`
+- use a conservative suggestion
+- mark with `[To confirm with dev]`
 
 #### labeling.rules[]
 
-Deben ser instrucciones accionables:
+They must be actionable instructions:
 
-- `Si el componente se renderiza sin texto visible, proporcionar un nombre accesible mediante aria-label o equivalente.`
-- `Si el label visible cambia por variante, verificar que el nombre accesible siga siendo estable.`
+- `If the component renders without visible text, provide an accessible name through aria-label or an equivalent mechanism.`
+- `If the visible label changes by variant, verify that the accessible name remains stable.`
 
-No usar recordatorios genéricos tipo “cumple WCAG”.
+Do not use generic reminders such as “meets WCAG”.
 
 #### notes[]
 
-Usar para:
+Use for:
 
-- teclado
+- keyboard
 - screen reader
 - focus management
 - announcements
 
-siempre que no puedan verificarse desde Figma.
+whenever they cannot be verified from Figma.
 
-Marcar:
+Mark with:
 
-- `[Por confirmar con dev]`
-- `[Fuera de scope Figma]`
+- `[To confirm with dev]`
+- `[Outside Figma scope]`
 
 ### 7. related_components[]
 
-Ser muy conservador.
-Solo incluir con evidencia suficiente, idealmente:
+Be very conservative.
+Only include when there is enough evidence, ideally:
 
-- nombre compartido
-- prefijo común en la librería
-- cercanía muy clara en la familia del sistema
+- shared naming
+- common prefix in the library
+- very clear proximity in the system family
 
-Si no hay evidencia, dejar vacío.
+If there is no evidence, leave it empty.
 
 ### 8. qa[]
 
-`qa[]` no es una checklist genérica.
-Cada item debe ser una pregunta específica para ESTE componente.
+`qa[]` is not a generic checklist.
+Each item must be a question specific to THIS component.
 
-Incorrecto:
+Incorrect:
 
-- `¿Cumple accesibilidad?`
+- `Does it meet accessibility requirements?`
 
-Correcto:
+Correct:
 
-- `¿La variante \`destructive\` requiere confirmación antes de ejecutar la acción?`
+- `Does the \`destructive\` variant require confirmation before executing the action?`
 
-### 9. coherencia terminológica
+### 9. Terminology consistency
 
-El patch debe reusar naming del bloque base.
-Si `ComponentDocOutput` usa `leading-icon`, el patch no debe cambiar a `prefix icon` sin justificación.
+The patch must reuse the naming from the base block.
+If `ComponentDocOutput` uses `leading-icon`, the patch must not switch to `prefix icon` without justification.
 
-### 10. claims normativos
+### 10. Normative claims
 
-No afirmar cumplimiento normativo como hecho sin auditoría verificable.
+Do not claim normative compliance as fact without a verifiable audit.
 
-Evitar frases categóricas de cumplimiento (por ejemplo, niveles WCAG) cuando no exista evidencia externa trazable.
-En su lugar:
+Avoid categorical compliance statements (for example WCAG levels) when there is no traceable external evidence.
+Instead:
 
-- declarar límites de evidencia
-- usar `[Por confirmar con dev]` o `TBD`
+- state evidence limits
+- use `[To confirm with dev]` or `TBD`
 
 ---
 
-## Qué NO debe hacer
+## What It Must NOT Do
 
-- No inventar variantes no presentes en `ComponentDocOutput`
-- No presentar accesibilidad inferida como verificada
-- No afirmar compliance normativo sin auditoría verificable
-- No rellenar vacíos con convenciones no declaradas
+- Do not invent variants that are not present in `ComponentDocOutput`
+- Do not present inferred accessibility as verified
+- Do not claim normative compliance without a verifiable audit
+- Do not fill gaps with undeclared conventions

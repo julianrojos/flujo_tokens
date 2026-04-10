@@ -1,29 +1,29 @@
 # SKILL: figma-component-extractor
 
-## Propósito
+## Purpose
 
-Leer el output del plugin MCP de Figma y poblar `ComponentDocModelOutput` con precisión, trazabilidad y honestidad.
+Read the output from the Figma MCP plugin and populate `ComponentDocModelOutput` with precision, traceability, and honesty.
 
-Este skill **extrae hechos**. No redacta guidance editorial ni rellena huecos con intuición.
+This skill **extracts facts**. It does not write editorial guidance or fill gaps with intuition.
 
-`ComponentDocOutput` queda reservado para el artefacto final del backend, después de renderizar `markdown`.
+`ComponentDocOutput` is reserved for the final backend artifact, after rendering `markdown`.
 
 ---
 
-## Qué debe producir
+## What It Must Produce
 
-Debe poblar, como mínimo:
+It must populate at least:
 
 - `schemaVersion`
 - `componentId`
 - `title`
 - `summary`
 - `variants[]`
-- `states[]` si el schema ya lo soporta
-- `accessibilityFacts[]` si el schema ya lo soporta
+- `states[]` if the schema already supports it
+- `accessibilityFacts[]` if the schema already supports it
 - `metadata`
 
-Puede añadir:
+It may add:
 
 - `confidence`
 - `unresolvedQuestions[]`
@@ -31,27 +31,27 @@ Puede añadir:
 
 ---
 
-## Regla madre
+## Parent Rule
 
-Nada que no sea visible o trazable desde Figma/MCP o desde una convención explícita del sistema puede presentarse como hecho.
+Nothing that is not visible or traceable from Figma/MCP or from an explicit system convention may be presented as fact.
 
 ---
 
-## Reglas de extracción
+## Extraction Rules
 
 ### 1. Summary
 
-- Debe ser breve y factual.
-- Describe qué es el componente y qué partes o configuraciones principales expone.
-- No incluir `purpose`, `when_to_use`, `when_not_to_use` ni recomendaciones de uso.
+- It must be brief and factual.
+- Describe what the component is and which main parts or configurations it exposes.
+- Do not include `purpose`, `when_to_use`, `when_not_to_use`, or usage recommendations.
 
 ### 2. Variants
 
-Clasificar cada variant property antes de documentarla.
+Classify each variant property before documenting it.
 
-#### Estados visuales
+#### Visual states
 
-Valores como:
+Values such as:
 
 - `default`
 - `hover`
@@ -66,107 +66,105 @@ Valores como:
 - `checked`
 - `success`
 
-Se deben clasificar como **estados visuales observables**.
+Must be classified as **observable visual states**.
 
-#### Variantes estructurales
+#### Structural variants
 
-Valores como:
+Values such as:
 
-- tamaño
-- densidad
-- jerarquía
+- size
+- density
+- hierarchy
 - emphasis
 - style
 - appearance
 
-Se deben clasificar como **variantes estructurales**.
+Must be classified as **structural variants**.
 
-#### Props opcionales
+#### Optional props
 
-Booleanos como:
+Booleans such as:
 
 - `true/false`
 - `hasIcon`
 - `showLabel`
 - `fullWidth`
 
-Se deben clasificar como **props opcionales**.
+Must be classified as **optional props**.
 
 #### id
 
-El `id` debe ser estable y en kebab-case.
+The `id` must be stable and in kebab-case.
 
-Convención sugerida:
+Suggested convention:
 
 - `variant-size-sm`
 - `variant-hierarchy-primary`
 - `state-disabled`
 - `prop-has-icon`
 
-Si la clasificación no es segura, mantener un id estable pero marcar warning en validación.
-No inventar precisión ontológica.
+If the classification is not certain, keep a stable id but mark a warning in validation.
+Do not invent ontological precision.
 
 #### properties
 
-`properties` debe conservar los valores exactos de Figma, sin reinterpretarlos ni traducirlos.
+`properties` must preserve the exact values from Figma, without reinterpretation or translation.
 
 ### 3. States
 
-Si el schema soporta `states[]`, poblarlo como primera clase.
+If the schema supports `states[]`, populate it as a first-class field.
 
-#### Regla crítica
+#### Critical rule
 
-**Estado visual sí; comportamiento real no.**
+**Visual state yes; real behavior no.**
 
-Se puede afirmar:
+You may state:
 
-- que existe una variante visual para `hover`
-- que existe una variante visual para `disabled`
+- that a visual variant for `hover` exists
+- that a visual variant for `disabled` exists
 
-No se puede afirmar:
+You may not state:
 
-- que existe focus management real
-- que existe soporte de teclado real
-- que existe loading async real
-- que existe anuncio correcto para screen readers
+- that real focus management exists
+- that real keyboard support exists
+- that real async loading exists
+- that correct screen reader announcements exist
 
 ### 4. Accessibility facts
 
-Si el schema soporta `accessibilityFacts[]`, limitarlo a hechos observables o inferencias claramente marcadas.
+If the schema supports `accessibilityFacts[]`, limit it to observable facts or clearly marked inferences.
 
-Ejemplos permitidos:
+Allowed examples:
 
 - `isInteractive: inferred`
 - `hasTextLabel: observed`
 - `possibleRole: recommended`
 - `requiresAccessibleName: recommended`
 
-Nunca presentar como verificado:
+Never present as verified:
 
-- rol ARIA definitivo
-- labeling final
-- comportamiento de teclado
-- announcements reales
+- definitive ARIA role
+- final labeling
+- keyboard behavior
+- real announcements
 
 ### 5. StructureWarning
 
-Emitir `StructureWarning` cuando:
+Emit `StructureWarning` when:
 
-- las variantes mezclen categorías sin patrón claro
-- el componente no supere un umbral mínimo de estructura legible
+- variants mix categories without a clear pattern
+- the component does not meet a minimum readable structure threshold
 
-En ese caso:
+In that case:
 
-- bajar confianza global
-- no compensar con inferencia agresiva
+- lower overall confidence
+- do not compensate with aggressive inference
 
----
+## What This Call Must NOT Do
 
-## Qué esta llamada NO debe hacer
-
-- No generar `purpose`
-- No generar `when_to_use`
-- No generar `when_not_to_use`
-- No generar `do/dont`
-- No inferir comportamiento real desde estados visuales de Figma
-- No declarar accesibilidad como verificada sin evidencia
+- Do not generate `purpose`
+- Do not generate `when_to_use`
+- Do not generate `when_not_to_use`
+- Do not generate `do/dont`
+- Do not infer real behavior from Figma visual states
+- Do not declare accessibility as verified without evidence

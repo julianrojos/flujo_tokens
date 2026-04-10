@@ -1,123 +1,121 @@
 # SKILL: doc-consistency-checker
 
-## Propósito
+## Purpose
 
-Cerrar el sistema.
+Close the system.
 
-Comparar:
+Compare:
 
-- `ComponentDocModelOutput` como base factual estructurada
-- `ComponentDocOutput` como artefacto final renderizado
+- `ComponentDocModelOutput` as the structured factual base
+- `ComponentDocOutput` as the final rendered artifact
 - `EditorialPatch`
 
-y generar un informe interno de coherencia y calidad antes de permitir publicación.
+and generate an internal consistency and quality report before publication is allowed.
 
-La salida ideal de esta skill es un `ValidationReport`.
+The ideal output of this skill is a `ValidationReport`.
 
 ---
 
-## Qué valida
+## What It Validates
 
-### 1. Contradicciones factuales
+### 1. Factual Contradictions
 
-Detectar si el patch:
+Detect whether the patch:
 
-- menciona variantes no presentes
-- menciona estados no presentes
-- cambia el significado factual del componente
+- mentions variants that are not present
+- mentions states that are not present
+- changes the factual meaning of the component
 
-### 2. Claims no soportados
+### 2. Unsupported Claims
 
-Detectar afirmaciones que suenen verificadas pero no estén respaldadas por:
+Detect claims that sound verified but are not backed by:
 
 - Figma/MCP
-- convención explícita del sistema
-- metadata externa confiable
+- an explicit system convention
+- reliable external metadata
 
-Especial atención a:
+Pay special attention to:
 
-- accesibilidad
-- comportamiento
+- accessibility
+- behavior
 - theming
 - roles
 
-### 3. Coherencia terminológica
+### 3. Terminology Consistency
 
-Comparar nombres entre ambos bloques.
-Ejemplos:
+Compare names across both blocks.
+Examples:
 
 - `leading-icon` vs `prefix icon`
 - `helper-text` vs `supporting copy`
 
-Si hay desajuste:
+If there is a mismatch:
 
-- emitir `terminologyMismatch`
-- no bloquear salvo que cambie significado
+- emit `terminologyMismatch`
+- do not block unless the meaning changes
 
-### 4. Cobertura mínima
+### 4. Minimum Coverage
 
-Verificar si falta alguna pieza crítica.
+Check whether any critical piece is missing.
 
-Sugerido comprobar:
+Suggested checks:
 
 - `summary`
 - `variants[]` y/o `states[]`
 - `accessibility`
 - `qa[]`
 
-### 5. Calidad del QA
+### 5. QA Quality
 
-Marcar como warning si `qa[]` contiene:
+Mark as warning if `qa[]` contains:
 
-- frases genéricas
-- preguntas imposibles de verificar
-- items no específicos al componente
+- generic phrases
+- questions that cannot be verified
+- items that are not component-specific
 
-### 6. Calidad de accesibilidad
+### 6. Accessibility Quality
 
-Bloquear o advertir si:
+Block or warn if:
 
-- se declara un rol como hecho sin evidencia
-- se afirma soporte de teclado como verificado sin soporte
-- se presenta labeling como resuelto sin base
-- no se marca `[Por confirmar con dev]` cuando corresponde
+- a role is stated as fact without evidence
+- keyboard support is presented as verified without support
+- labeling is presented as resolved without basis
+- `[To confirm with dev]` is not used when appropriate
 
 ### 7. StructureWarning
 
-Si el extractor ya emitió `StructureWarning`, este skill debe:
+If the extractor already emitted `StructureWarning`, this skill must:
 
-- degradar la confianza global
-- subir la exigencia para claims editoriales
-- impedir compensar estructura pobre con inferencia agresiva
+- lower overall confidence
+- raise the bar for editorial claims
+- prevent poor structure from being compensated with aggressive inference
 
 ---
 
-## Severidad recomendada
+## Recommended Severity
 
 ### blocking
 
-- contradicción factual
-- claim presentado como hecho sin trazabilidad
-- estructura ilegible grave
-- accesibilidad presentada como verificada sin evidencia
+- factual contradiction
+- claim presented as fact without traceability
+- severely unreadable structure
+- accessibility presented as verified without evidence
 
 ### warning
 
-- clasificación ambigua
-- nomenclatura inconsistente
-- terminología desalineada
-- QA demasiado genérico
-- theming inferido con cobertura parcial
+- ambiguous classification
+- inconsistent naming
+- misaligned terminology
+- overly generic QA
+- inferred theming with partial coverage
 
 ### info
 
-- oportunidad de enriquecer descripción
-- campos opcionales vacíos
-- mejora editorial no crítica
+- opportunity to enrich the description
+- empty optional fields
+- non-critical editorial improvement
 
----
-
-## ValidationReport sugerido
+## Suggested ValidationReport
 
 - `passes: boolean`
 - `score: number`
@@ -132,6 +130,6 @@ Si el extractor ya emitió `StructureWarning`, este skill debe:
 
 ---
 
-## Regla final
+## Final Rule
 
-La publicación debe bloquearse si la documentación parece más segura de lo que realmente es.
+Publication must be blocked if the documentation looks more certain than it really is.

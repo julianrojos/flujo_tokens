@@ -1,29 +1,29 @@
 # SKILL: variant-state-classifier
 
-## Propósito
+## Purpose
 
-Evitar el error más frecuente al documentar componentes desde Figma:
-mezclar **estados**, **variantes estructurales** y **props opcionales**.
+Avoid the most common mistake when documenting components from Figma:
+mixing **states**, **structural variants**, and **optional props**.
 
-Este skill puede usarse:
-- dentro de `figma-component-extractor`
-- como paso compartido antes del `editorial-patch-writer`
-- como apoyo del validador
-
----
-
-## Regla central
-
-Clasificar primero. Documentar después.
+This skill can be used:
+- inside `figma-component-extractor`
+- as a shared step before `editorial-patch-writer`
+- as validator support
 
 ---
 
-## Categorías oficiales
+## Central Rule
 
-### 1. Estados visuales
-Un componente solo puede estar en uno de estos a la vez dentro de un mismo eje de estado.
+Classify first. Document later.
 
-Estados admitidos:
+---
+
+## Official Categories
+
+### 1. Visual states
+A component can only be in one of these at a time within the same state axis.
+
+Accepted states:
 - `default`
 - `hover`
 - `pressed`
@@ -37,19 +37,19 @@ Estados admitidos:
 - `expanded`
 - `checked`
 
-### 2. Variantes estructurales
-Configuración estática del componente.
+### 2. Structural variants
+Static component configuration.
 
-Grupos típicos:
+Typical groups:
 - `size`: `xs/sm/md/lg/xl`
-- `hierarchy` o `emphasis`: `primary/secondary/tertiary/ghost`
-- `style` o `appearance`: `filled/outlined/tonal`
+- `hierarchy` or `emphasis`: `primary/secondary/tertiary/ghost`
+- `style` or `appearance`: `filled/outlined/tonal`
 - `density`: `compact/default/comfortable`
 
-### 3. Props opcionales
-Booleanos o toggles de presencia.
+### 3. Optional props
+Booleans or presence toggles.
 
-Ejemplos:
+Examples:
 - `has-icon`
 - `has-badge`
 - `is-full-width`
@@ -58,10 +58,10 @@ Ejemplos:
 
 ---
 
-## Heurísticas de clasificación
+## Classification Heuristics
 
-### Detectar estados
-Si una property o un valor contiene:
+### Detect states
+If a property or a value contains:
 - `hover`
 - `focus`
 - `pressed`
@@ -72,69 +72,65 @@ Si una property o un valor contiene:
 - `selected`
 - `checked`
 
-Clasificar como estado, salvo evidencia clara en contra.
+Classify it as a state, unless there is clear evidence otherwise.
 
-### Detectar variantes estructurales
-Si el valor representa:
-- tamaño
-- estilo
-- jerarquía
-- densidad
+### Detect structural variants
+If the value represents:
+- size
+- style
+- hierarchy
+- density
 - layout
 
-Clasificar como variante estructural.
+Classify it as a structural variant.
 
-### Detectar props opcionales
-Si la propiedad es booleana o su naming implica presencia/ausencia:
+### Detect optional props
+If the property is boolean or its naming implies presence/absence:
 - `has`
 - `show`
 - `with`
 - `is`
 
-Clasificar como prop opcional.
+Classify it as an optional prop.
 
 ---
 
-## Convención de ids
+## ID Convention
 
-Sugerida:
+Suggested:
 - `state-*`
 - `variant-*`
 - `prop-*`
 
-Ejemplos:
+Examples:
 - `state-disabled`
 - `variant-size-sm`
 - `variant-appearance-outlined`
 - `prop-has-icon`
 
-### Regla de tolerancia
-Si el clasificador no puede determinar con suficiente confianza un prefijo correcto:
-- usar un id estable y legible
-- disparar warning en validación
-- no bloquear por sí solo
+### Tolerance rule
+If the classifier cannot determine a correct prefix with enough confidence:
+- use a stable and readable id
+- trigger a warning in validation
+- do not block on that alone
 
----
+## Design Debt
 
-## Deuda de diseño
-
-Si una property mezcla categorías, por ejemplo:
+If a property mixes categories, for example:
 - `Type: primary-disabled`
 - `Size: small-loading`
 - `State: secondary-hover`
 
-entonces:
-- documentarla tal como viene de Figma
-- marcarla como **deuda de diseño**
-- anotarla en `qa[]`, `unresolvedQuestions[]` o warnings internos
+then:
+- document it exactly as it comes from Figma
+- mark it as **design debt**
+- note it in `qa[]`, `unresolvedQuestions[]`, or internal warnings
 
-No intentar “corregir” la fuente en silencio.
+Do not try to silently “fix” the source.
 
----
+## What It Must NOT Do
 
-## Qué NO debe hacer
-
-- No inventar nuevas categorías
-- No suponer comportamiento real a partir de estados
-- No reescribir los valores exactos de Figma
-- No esconder nomenclatura mala bajo ids “bonitos”
+- Do not invent new categories
+- Do not assume real behavior from states
+- Do not rewrite Figma's exact values
+- Do not hide bad naming behind “pretty” ids
