@@ -124,10 +124,6 @@ export function ComponentDetailPage() {
         onOpenEditorial={() => navigate(`/components/${slug}/edit-docs`)}
       />
 
-      <ComponentGraphSection usage={usage} allItems={allItems} />
-
-      {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
-
       <ComponentVisualProofSection
         item={item}
         captureSummary={captureSummary}
@@ -150,7 +146,11 @@ export function ComponentDetailPage() {
         figmaStale={descriptionsData.stale}
       />
 
-      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} />
+      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenRegistry={tokenRegistry} />
+
+      <ComponentGraphSection usage={usage} allItems={allItems} />
+
+      {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
 
       {captureModalOpen && (
         <FigmaCaptureModal

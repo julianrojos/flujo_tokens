@@ -3,11 +3,13 @@
  */
 
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, it } from "vitest";
+import { StaticRouter } from "react-router-dom/server";
 import { LayerTokenMappingSection } from "../components/layer-token-mapping-section";
 import type { LayerTokenMappingEntry } from "../components/layer-token-mapping-section";
+import type { TokenRegistry } from "@/types/token-registry";
 
 function makeEntry(overrides: Partial<LayerTokenMappingEntry> = {}): LayerTokenMappingEntry {
   return {
@@ -26,85 +28,116 @@ function makeEntry(overrides: Partial<LayerTokenMappingEntry> = {}): LayerTokenM
 }
 
 describe("LayerTokenMappingSection", () => {
-  it("renders empty state when entries array is empty", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[]} />,
+  const tokenRegistry: TokenRegistry = {
+    entries: [],
+    byPath: {
+      "primitives.blue.500": {
+        path: "primitives.blue.500",
+        slashPath: "primitives/blue/500",
+        cssVar: "--primitives-blue-500",
+        type: "color",
+        resolvedValue: "#0000ff",
+        aliasOf: null,
+        collection: "Primitives",
+      },
+    },
+    bySlashPath: {},
+    byVariableId: {},
+  };
+
+  function renderSection(
+    entries: LayerTokenMappingEntry[],
+    registry: TokenRegistry | null | undefined = tokenRegistry,
+  ): string {
+    return renderToStaticMarkup(
+      <StaticRouter location="/">
+        <LayerTokenMappingSection entries={entries} tokenRegistry={registry} />
+      </StaticRouter>,
     );
-    assert.match(html, /No token bindings captured/);
+  }
+
+  function extractTbody(html: string): string {
+    const bodyMatch = html.match(/<tbody[^>]*>([\s\S]*)<\/tbody>/);
+    assert.ok(bodyMatch, "tbody should exist");
+    return bodyMatch[1] ?? "";
+  }
+
+  it("renders empty state when entries array is empty", () => {
+    const html = renderSection([]);
+    assert.match(html, /No layer-token bindings available yet/);
+    assert.match(html, /Reimport this component from Figma/);
   });
 
   it("renders table headers with all expected columns", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry()]} />,
-    );
+    const html = renderSection([makeEntry()]);
+    assert.match(html, /Token/);
+    assert.match(html, /Property/);
+    assert.match(html, /Collection/);
     assert.match(html, /Variant/);
     assert.match(html, /Layer/);
-    assert.match(html, /Property/);
-    assert.match(html, /Token/);
-    assert.match(html, /Variable ID/);
     assert.match(html, /Mode/);
-    assert.match(html, /Status/);
   });
 
-  it("renders variable_id in each row", () => {
+  it("renders token link and collection in each row", () => {
+    const html = renderSection([makeEntry()]);
+    assert.match(html, /href=\"\/tokens\/primitives\.blue\.500\"/);
+    assert.match(html, /Primitives/);
+  });
+
+  it("handles null tokenRegistry gracefully", () => {
+    const html = renderSection([makeEntry()], null);
+    const tbody = extractTbody(html);
+    assert.match(tbody, /primitives\.blue\.500/);
+    assert.match(tbody, /fills/);
+    assert.equal((tbody.match(/—/g) || []).length, 1);
+  });
+
+  it("handles undefined tokenRegistry gracefully", () => {
     const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry()]} />,
+      <StaticRouter location="/">
+        <LayerTokenMappingSection entries={[makeEntry()]} tokenRegistry={undefined} />
+      </StaticRouter>,
     );
-    assert.match(html, /123:456/);
+    const tbody = extractTbody(html);
+    assert.match(tbody, /primitives\.blue\.500/);
+    assert.match(tbody, /fills/);
+    assert.equal((tbody.match(/—/g) || []).length, 1);
   });
 
   it("renders one row per entry with correct data", () => {
     const entry = makeEntry();
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[entry]} />,
-    );
+    const html = renderSection([entry]);
+    assert.match(html, /primitives\.blue\.500/);
+    assert.match(html, /fills/);
+    assert.match(html, /Primitives/);
     assert.match(html, /State=Default\|Size=MD/);
     assert.match(html, /Button/);
-    assert.match(html, /fills/);
-    assert.match(html, /primitives\.blue\.500/);
     assert.match(html, /Default/);
   });
 
-  it("shows status badge for resolved entries", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry({ status: "resolved" })]} />,
-    );
-    assert.match(html, /Resolved/);
-  });
-
-  it("shows status badge for unresolved entries", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry({
+  it("renders unresolved entries without token link", () => {
+    const html = renderSection([makeEntry({
         status: "unresolved",
         token_path: null,
-      })]} />,
-    );
-    assert.match(html, /Unresolved/);
+      })]);
+    assert.match(html, /—/);
   });
 
   it("renders dash placeholder when no variant signature", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry({ variant_signature: "" })]} />,
-    );
+    const html = renderSection([makeEntry({ variant_signature: "" })]);
     // The dash character used as placeholder
     assert.match(html, /—/);
   });
 
   it("renders dash placeholder when no mode", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry({ mode_name: "" })]} />,
-    );
+    const html = renderSection([makeEntry({ mode_name: "" })]);
     assert.match(html, /—/);
   });
 
   it("renders dash for missing token path", () => {
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={[makeEntry({ token_path: null })]} />,
-    );
+    const html = renderSection([makeEntry({ token_path: null })]);
     // Should show the dash placeholder for the token column
-    const bodyMatch = html.match(/<tbody[^>]*>([\s\S]*)<\/tbody>/);
-    assert.ok(bodyMatch, "tbody should exist");
-    assert.match(bodyMatch[1], /—/);
+    assert.match(extractTbody(html), /—/);
   });
 
   it("renders multiple entries as separate rows", () => {
@@ -112,9 +145,7 @@ describe("LayerTokenMappingSection", () => {
       makeEntry({ layer_name: "Button", property_path: "fills" }),
       makeEntry({ layer_name: "Icon", property_path: "strokes" }),
     ];
-    const html = renderToStaticMarkup(
-      <LayerTokenMappingSection entries={entries} />,
-    );
+    const html = renderSection(entries);
     assert.match(html, /Button/);
     assert.match(html, /Icon/);
     assert.match(html, /fills/);
