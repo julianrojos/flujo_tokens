@@ -27,6 +27,13 @@ export interface FigmaTokenBindingEntry {
   runId?: string;
   capturedAtEpoch?: number;
   schemaVersion?: number;
+  // Layer Token Mapping fields (Migration 027)
+  variantNodeId?: string;
+  variantSignature?: string;
+  propertyPath?: string;
+  status?: 'resolved' | 'unresolved';
+  modeId?: string;
+  modeName?: string;
 }
 
 export interface FigmaLayoutRowEntry {
@@ -175,6 +182,13 @@ export interface ComponentRegistryEntry {
       variableId: string;
       tokenPath?: string;
       mode?: string;
+      // Layer Token Mapping fields (Migration 027)
+      variantNodeId?: string;
+      variantSignature?: string;
+      propertyPath?: string;
+      status?: 'resolved' | 'unresolved';
+      modeId?: string;
+      modeName?: string;
     }>;
     layout?: Array<{
       nodeId: string;
@@ -412,7 +426,9 @@ export class ComponentRepository {
 
       const bindingRows = this.db
         .prepare(`
-          SELECT component_id, node_id, node_name, field, variable_id, token_path, mode, run_id, captured_at, schema_version
+          SELECT component_id, node_id, node_name, field, variable_id, token_path, mode,
+                 run_id, captured_at, schema_version,
+                 variant_node_id, variant_signature, property_path, status, mode_id, mode_name
           FROM component_figma_token_bindings
           WHERE component_id IN (${placeholders})
           ORDER BY id ASC
@@ -428,6 +444,12 @@ export class ComponentRepository {
           run_id: string | null;
           captured_at: number;
           schema_version: number;
+          variant_node_id: string | null;
+          variant_signature: string | null;
+          property_path: string | null;
+          status: string | null;
+          mode_id: string | null;
+          mode_name: string | null;
         }>;
 
       for (const row of bindingRows) {
@@ -443,6 +465,13 @@ export class ComponentRepository {
           runId: String(row.run_id || '').trim() || undefined,
           capturedAtEpoch: Number.isFinite(Number(row.captured_at)) ? Number(row.captured_at) : undefined,
           schemaVersion: Number.isFinite(Number(row.schema_version)) ? Number(row.schema_version) : undefined,
+          // Layer Token Mapping fields (Migration 027)
+          variantNodeId: String(row.variant_node_id || '').trim() || undefined,
+          variantSignature: String(row.variant_signature || '').trim() || undefined,
+          propertyPath: String(row.property_path || '').trim() || undefined,
+          status: (row.status as 'resolved' | 'unresolved' | null) || undefined,
+          modeId: String(row.mode_id || '').trim() || undefined,
+          modeName: String(row.mode_name || '').trim() || undefined,
         });
         current.tokenBindings = tokenBindings;
         out.set(row.component_id, current);
@@ -1161,8 +1190,16 @@ export class ComponentRepository {
             entry.figma.tokenBindings.length > 0
           ) {
             const bindingStmt = this.db.prepare(`
-              INSERT INTO component_figma_token_bindings (component_id, node_id, node_name, field, variable_id, token_path, mode, run_id, captured_at, schema_version)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              INSERT INTO component_figma_token_bindings (
+                component_id, node_id, node_name, field, variable_id, token_path, mode,
+                run_id, captured_at, schema_version,
+                variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+              )
+              VALUES (
+                @component_id, @node_id, @node_name, @field, @variable_id, @token_path, @mode,
+                @run_id, @captured_at, @schema_version,
+                @variant_node_id, @variant_signature, @property_path, @status, @mode_id, @mode_name
+              )
             `);
             const seenBindings = new Set<string>();
             for (const binding of entry.figma.tokenBindings) {
@@ -1172,21 +1209,40 @@ export class ComponentRepository {
               const variableId = String(binding.variableId || '').trim();
               const mode = String(binding.mode || '').trim();
               if (!nodeId || !nodeName || !field || !variableId) continue;
-              const dedupeKey = `${nodeId}\x00${field}\x00${variableId}\x00${mode}`;
+
+              // Dedupe key aligned with unique index
+              // (component_id, variant_node_id, node_id, property_path, mode_id, variable_id)
+              const variantNodeId = String(binding.variantNodeId || '').trim();
+              const propertyPath = String(binding.propertyPath || field).trim().toLowerCase();
+              const modeId = String(binding.modeId || '').trim();
+              const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
               if (seenBindings.has(dedupeKey)) continue;
               seenBindings.add(dedupeKey);
-              bindingStmt.run(
-                componentId,
-                nodeId,
-                nodeName,
+
+              const status = binding.status
+                ? (binding.status === 'unresolved' ? 'unresolved' : 'resolved')
+                : (String(binding.tokenPath || '').trim() ? 'resolved' : 'unresolved');
+              const variantSignature = String(binding.variantSignature || '').trim();
+              const modeName = String(binding.modeName || mode).trim();
+
+              bindingStmt.run({
+                component_id: componentId,
+                node_id: nodeId,
+                node_name: nodeName,
                 field,
-                variableId,
-                String(binding.tokenPath || '').trim() || null,
+                variable_id: variableId,
+                token_path: String(binding.tokenPath || '').trim() || null,
                 mode,
-                figmaRunId,
-                figmaCapturedAt,
-                figmaSchemaVersion,
-              );
+                run_id: figmaRunId,
+                captured_at: figmaCapturedAt,
+                schema_version: figmaSchemaVersion,
+                variant_node_id: variantNodeId,
+                variant_signature: variantSignature,
+                property_path: propertyPath,
+                status,
+                mode_id: modeId,
+                mode_name: modeName,
+              });
             }
           }
 
@@ -1608,14 +1664,34 @@ export class ComponentRepository {
    */
   saveTokenBindingsForComponent(
     componentId: number,
-    bindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string; tokenPath: string | undefined }>,
+    bindings: Array<{
+      nodeId: string;
+      nodeName: string;
+      field: string;
+      variableId: string;
+      tokenPath: string | undefined;
+      variantNodeId?: string;
+      variantSignature?: string;
+      propertyPath?: string;
+      status?: 'resolved' | 'unresolved';
+      modeId?: string;
+      modeName?: string;
+    }>,
   ): void {
     const now = Math.floor(Date.now() / 1000);
     const tx = this.db.transaction(() => {
       this.db.prepare('DELETE FROM component_figma_token_bindings WHERE component_id = ?').run(componentId);
       const stmt = this.db.prepare(`
-        INSERT INTO component_figma_token_bindings (component_id, node_id, node_name, field, variable_id, token_path, mode, run_id, captured_at, schema_version)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO component_figma_token_bindings (
+          component_id, node_id, node_name, field, variable_id, token_path, mode,
+          run_id, captured_at, schema_version,
+          variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+        )
+        VALUES (
+          @component_id, @node_id, @node_name, @field, @variable_id, @token_path, @mode,
+          @run_id, @captured_at, @schema_version,
+          @variant_node_id, @variant_signature, @property_path, @status, @mode_id, @mode_name
+        )
       `);
       const seen = new Set<string>();
       for (const b of bindings) {
@@ -1624,10 +1700,33 @@ export class ComponentRepository {
         const field = String(b.field || '').trim();
         const variableId = String(b.variableId || '').trim();
         if (!nodeId || !nodeName || !field || !variableId) continue;
-        const dedupeKey = `${nodeId}\x00${field}\x00${variableId}`;
+        const variantNodeId = String(b.variantNodeId || '').trim();
+        const propertyPath = String(b.propertyPath || field).trim().toLowerCase();
+        const modeId = String(b.modeId || '').trim();
+        const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
         if (seen.has(dedupeKey)) continue;
         seen.add(dedupeKey);
-        stmt.run(componentId, nodeId, nodeName, field, variableId, b.tokenPath ?? null, null, null, now, 1);
+        const status = b.status
+          ? (b.status === 'unresolved' ? 'unresolved' : 'resolved')
+          : (String(b.tokenPath || '').trim() ? 'resolved' : 'unresolved');
+        stmt.run({
+          component_id: componentId,
+          node_id: nodeId,
+          node_name: nodeName,
+          field,
+          variable_id: variableId,
+          token_path: b.tokenPath ?? null,
+          mode: '',
+          run_id: null,
+          captured_at: now,
+          schema_version: 1,
+          variant_node_id: variantNodeId,
+          variant_signature: String(b.variantSignature || '').trim(),
+          property_path: propertyPath,
+          status,
+          mode_id: modeId,
+          mode_name: String(b.modeName || '').trim(),
+        });
       }
     });
     tx();

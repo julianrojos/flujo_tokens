@@ -571,4 +571,256 @@ describe('ComponentRepository', () => {
             assert.ok(scopedRows.every((item) => item.id > 0));
         });
     });
+
+    describe('Layer Token Mapping (Migration 027)', () => {
+        it('persists token bindings with new Layer Token Mapping fields', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-sys', 'Layer Token Mapping Test')");
+            repo.upsertFromRegistry('ltm-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    figma: {
+                        pageName: 'Components',
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [
+                            {
+                                nodeId: '10:2',
+                                nodeName: 'Button/Default',
+                                field: 'fills',
+                                variableId: '123:456',
+                                tokenPath: 'primitives.blue.500',
+                                mode: 'Default',
+                                variantNodeId: '10:1',
+                                variantSignature: 'State=Default|Size=MD',
+                                propertyPath: 'fills',
+                                status: 'resolved',
+                                modeId: 'mode:1',
+                                modeName: 'Default',
+                            },
+                            {
+                                nodeId: '10:3',
+                                nodeName: 'Button/Hover',
+                                field: 'fills',
+                                variableId: '999:999',
+                                tokenPath: undefined,
+                                mode: 'Default',
+                                variantNodeId: '10:4',
+                                variantSignature: 'State=Hover|Size=MD',
+                                propertyPath: 'fills',
+                                status: 'unresolved',
+                                modeId: 'mode:1',
+                                modeName: 'Default',
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const component = repo.getBySlug('ltm-sys', 'button');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.tokenBindings?.length, 2);
+
+            const resolved = component.figma?.tokenBindings?.find((b) => b.status === 'resolved');
+            assert.ok(resolved);
+            assert.strictEqual(resolved.variantNodeId, '10:1');
+            assert.strictEqual(resolved.variantSignature, 'State=Default|Size=MD');
+            assert.strictEqual(resolved.propertyPath, 'fills');
+            assert.strictEqual(resolved.tokenPath, 'primitives.blue.500');
+            assert.strictEqual(resolved.modeId, 'mode:1');
+            assert.strictEqual(resolved.modeName, 'Default');
+
+            const unresolved = component.figma?.tokenBindings?.find((b) => b.status === 'unresolved');
+            assert.ok(unresolved);
+            assert.strictEqual(unresolved.variantNodeId, '10:4');
+            assert.strictEqual(unresolved.variantSignature, 'State=Hover|Size=MD');
+            assert.strictEqual(unresolved.tokenPath, undefined);
+        });
+
+        it('replaces all bindings on reimport (delete + insert)', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-replace-sys', 'LTM Replace Test')");
+
+            // First import
+            repo.upsertFromRegistry('ltm-replace-sys', [
+                {
+                    slug: 'card',
+                    name: 'Card',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [
+                            {
+                                nodeId: '20:1',
+                                nodeName: 'Card',
+                                field: 'fills',
+                                variableId: '111:111',
+                                tokenPath: 'primitives.gray.100',
+                                variantNodeId: '20:0',
+                                variantSignature: '',
+                                propertyPath: 'fills',
+                                status: 'resolved',
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const comp1 = repo.getBySlug('ltm-replace-sys', 'card');
+            assert.strictEqual(comp1.figma?.tokenBindings?.length, 1);
+
+            // Reimport with different bindings (old ones should be gone)
+            repo.upsertFromRegistry('ltm-replace-sys', [
+                {
+                    slug: 'card',
+                    name: 'Card',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [
+                            {
+                                nodeId: '20:2',
+                                nodeName: 'Card/New',
+                                field: 'strokes',
+                                variableId: '222:222',
+                                tokenPath: 'primitives.blue.300',
+                                variantNodeId: '20:0',
+                                variantSignature: 'Style=Outlined',
+                                propertyPath: 'strokes',
+                                status: 'resolved',
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const comp2 = repo.getBySlug('ltm-replace-sys', 'card');
+            assert.strictEqual(comp2.figma?.tokenBindings?.length, 1);
+            assert.strictEqual(comp2.figma?.tokenBindings?.[0]?.nodeId, '20:2');
+            assert.strictEqual(comp2.figma?.tokenBindings?.[0]?.field, 'strokes');
+        });
+
+        it('clears previous bindings when reimport contains zero token bindings', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-clear-sys', 'LTM Clear Test')");
+            repo.upsertFromRegistry('ltm-clear-sys', [
+                {
+                    slug: 'alert',
+                    name: 'Alert',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [
+                            {
+                                nodeId: '40:1',
+                                nodeName: 'Alert',
+                                field: 'fills',
+                                variableId: '111:111',
+                                tokenPath: 'semantic.alert.bg',
+                                variantNodeId: '40:0',
+                                propertyPath: 'fills',
+                                status: 'resolved',
+                            },
+                        ],
+                    },
+                },
+            ]);
+            const firstImport = repo.getBySlug('ltm-clear-sys', 'alert');
+            assert.strictEqual(firstImport.figma?.tokenBindings?.length, 1);
+
+            repo.upsertFromRegistry('ltm-clear-sys', [
+                {
+                    slug: 'alert',
+                    name: 'Alert',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [],
+                    },
+                },
+            ]);
+
+            const secondImport = repo.getBySlug('ltm-clear-sys', 'alert');
+            assert.strictEqual(secondImport.figma?.tokenBindings?.length ?? 0, 0);
+            const remainingRows = db.prepare(`
+                SELECT COUNT(*) as c
+                FROM component_figma_token_bindings
+                WHERE component_id = ?
+            `).get(secondImport.id) as { c: number };
+            assert.strictEqual(remainingRows.c, 0);
+        });
+
+        it('saveTokenBindingsForComponent supports new fields', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-standalone-sys', 'LTM Standalone Test')");
+            repo.upsertFromRegistry('ltm-standalone-sys', [
+                { slug: 'badge', name: 'Badge' },
+            ]);
+            const comp = repo.getBySlug('ltm-standalone-sys', 'badge');
+            assert.ok(comp);
+
+            repo.saveTokenBindingsForComponent(comp.id, [
+                {
+                    nodeId: '30:1',
+                    nodeName: 'Badge',
+                    field: 'fills',
+                    variableId: '333:333',
+                    tokenPath: 'primitives.green.500',
+                    variantNodeId: '30:0',
+                    variantSignature: 'Variant=Success',
+                    propertyPath: 'fills',
+                    status: 'resolved',
+                    modeId: 'mode:1',
+                    modeName: 'Default',
+                },
+            ]);
+
+            const reloaded = repo.getBySlug('ltm-standalone-sys', 'badge');
+            assert.strictEqual(reloaded.figma?.tokenBindings?.length, 1);
+            const binding = reloaded.figma?.tokenBindings?.[0];
+            assert.strictEqual(binding?.variantNodeId, '30:0');
+            assert.strictEqual(binding?.variantSignature, 'Variant=Success');
+            assert.strictEqual(binding?.status, 'resolved');
+        });
+
+        it('keeps multiple variable bindings for same layer/property/mode', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-multi-var-sys', 'LTM Multi Variable Test')");
+            repo.upsertFromRegistry('ltm-multi-var-sys', [
+                {
+                    slug: 'chip',
+                    name: 'Chip',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        tokenBindings: [
+                            {
+                                nodeId: '50:1',
+                                nodeName: 'Chip/Label',
+                                field: 'fills',
+                                variableId: 'var:color-a',
+                                tokenPath: 'semantic.chip.label.default',
+                                variantNodeId: '50:0',
+                                variantSignature: 'State=Default',
+                                propertyPath: 'fills',
+                                status: 'resolved',
+                                modeId: 'mode:1',
+                                modeName: 'Default',
+                            },
+                            {
+                                nodeId: '50:1',
+                                nodeName: 'Chip/Label',
+                                field: 'fills',
+                                variableId: 'var:color-b',
+                                tokenPath: 'semantic.chip.label.hover',
+                                variantNodeId: '50:0',
+                                variantSignature: 'State=Default',
+                                propertyPath: 'fills',
+                                status: 'resolved',
+                                modeId: 'mode:1',
+                                modeName: 'Default',
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const component = repo.getBySlug('ltm-multi-var-sys', 'chip');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.tokenBindings?.length, 2);
+            const variableIds = new Set((component.figma?.tokenBindings || []).map((item) => item.variableId));
+            assert.ok(variableIds.has('var:color-a'));
+            assert.ok(variableIds.has('var:color-b'));
+        });
+    });
 });

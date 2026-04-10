@@ -207,20 +207,27 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_variants_component_run
 
 -- ============================================================================
 -- component_figma_token_bindings: Raw Figma node/field variable bindings (Migration 020)
+-- Extended with Layer Token Mapping columns (Migration 027)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS component_figma_token_bindings (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   component_id     INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
-  node_id          TEXT NOT NULL,
-  node_name        TEXT NOT NULL,
-  field            TEXT NOT NULL,
+  node_id          TEXT NOT NULL,                 -- layer_node_id (Figma node ID of the layer)
+  node_name        TEXT NOT NULL,                 -- display only, not used in keys
+  field            TEXT NOT NULL,                 -- original Figma field name
   variable_id      TEXT NOT NULL,
   token_path       TEXT,
   mode             TEXT NOT NULL DEFAULT '',
   run_id           TEXT,
   captured_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   schema_version   INTEGER NOT NULL DEFAULT 1,
-  UNIQUE(component_id, node_id, field, variable_id, mode)
+  -- Layer Token Mapping columns (Migration 027)
+  variant_node_id  TEXT NOT NULL DEFAULT '',      -- variant's node ID for grouping
+  variant_signature TEXT NOT NULL DEFAULT '',      -- sorted "Prop=Val|Prop=Val" fingerprint
+  property_path    TEXT NOT NULL DEFAULT '',       -- Figma field vocabulary (trimmed, canonicalized in dedupe key)
+  status           TEXT NOT NULL DEFAULT 'resolved' CHECK (status IN ('resolved', 'unresolved')),
+  mode_id          TEXT NOT NULL DEFAULT '',      -- Figma mode ID
+  mode_name        TEXT NOT NULL DEFAULT ''       -- Figma mode display name
 );
 CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_component_id
   ON component_figma_token_bindings(component_id);
@@ -230,6 +237,14 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_variable_id
   ON component_figma_token_bindings(variable_id);
 CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_component_variable
   ON component_figma_token_bindings(component_id, variable_id);
+CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_variant_node
+  ON component_figma_token_bindings(component_id, variant_node_id);
+CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_property_path
+  ON component_figma_token_bindings(component_id, property_path);
+CREATE INDEX IF NOT EXISTS idx_component_figma_bindings_status
+  ON component_figma_token_bindings(component_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS udx_component_figma_bindings_layer_token_mapping
+  ON component_figma_token_bindings(component_id, variant_node_id, node_id, property_path, mode_id, variable_id);
 
 -- ============================================================================
 -- component_figma_layout_rows: Flattened layout metadata per anatomy node (Migration 020)
