@@ -119,28 +119,6 @@ export function renderComponentDoc(
     }
     lines.push('');
 
-    // Design Tokens section
-    lines.push('## Design Tokens');
-    lines.push('');
-    if (output.tokens.length === 0) {
-        lines.push('None documented.');
-    } else {
-        lines.push('| Name | Value | Type | Description |');
-        lines.push('|------|-------|------|-------------|');
-        for (const token of output.tokens) {
-            const unresolvedVariableId = /^VariableID:/i.test(token.name)
-                || /^VariableID:/i.test(String(token.value));
-            const description = token.description?.trim()
-                || (unresolvedVariableId
-                    ? '[Por confirmar con dev] Token reference unresolved from Figma variable id.'
-                    : '-');
-            lines.push(
-                `| ${escapeMarkdownTableCell(token.name)} | \`${token.value}\` | ${token.type} | ${escapeMarkdownTableCell(description)} |`
-            );
-        }
-    }
-    lines.push('');
-
     // Accessibility section
     lines.push('## Accessibility');
     lines.push('');

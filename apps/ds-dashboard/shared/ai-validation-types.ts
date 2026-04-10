@@ -43,12 +43,6 @@ export interface A11yWarning {
     wcagCriterion?: string;
 }
 
-export interface TokenWarning {
-    message: string;
-    tokenName?: string;
-    severity: ValidationSeverity;
-}
-
 export interface ValidationReport {
     schemaVersion: number;
     passes: boolean;
@@ -60,6 +54,5 @@ export interface ValidationReport {
     editorialConflicts: EditorialConflict[];
     terminologyMismatches: TerminologyMismatch[];
     a11yWarnings: A11yWarning[];
-    tokenWarnings: TokenWarning[];
     notes: string[];
 }

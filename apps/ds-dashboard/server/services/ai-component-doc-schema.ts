@@ -25,20 +25,6 @@ export interface ComponentDocVariant {
 }
 
 /**
- * Design token reference used by the component
- */
-export interface ComponentDocToken {
-    /** Token name (e.g., "primary-fill") */
-    name: string;
-    /** Token value or reference (e.g., "#007AFF" or "{colors.blue.500}") */
-    value: string;
-    /** Token type (e.g., "color", "spacing", "typography") */
-    type: string;
-    /** Description of how this token is used */
-    description?: string;
-}
-
-/**
  * Visual state of a component variant
  */
 export interface ComponentDocState {
@@ -91,8 +77,6 @@ export interface ComponentDocOutput {
     summary: string;
     /** Available variants */
     variants: ComponentDocVariant[];
-    /** Design tokens used */
-    tokens: ComponentDocToken[];
     /** Accessibility considerations */
     accessibilityNotes: string[];
     /** Generated markdown (filled by renderer) */
@@ -332,7 +316,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
         'title',
         'summary',
         'variants',
-        'tokens',
         'accessibilityNotes',
         'markdown',
         'states',
@@ -371,21 +354,6 @@ export const COMPONENT_DOC_JSON_SCHEMA = {
                         type: 'object',
                         additionalProperties: { type: 'string' },
                     },
-                },
-            },
-        },
-        tokens: {
-            type: 'array',
-            description: 'Design tokens used',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['name', 'value', 'type'],
-                properties: {
-                    name: { type: 'string' },
-                    value: { type: 'string' },
-                    type: { type: 'string' },
-                    description: { type: 'string' },
                 },
             },
         },
@@ -490,7 +458,7 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
     }
 
     // Validate required array fields
-    const requiredArrays = ['variants', 'tokens', 'accessibilityNotes', 'states', 'accessibilityFacts'] as const;
+    const requiredArrays = ['variants', 'accessibilityNotes', 'states', 'accessibilityFacts'] as const;
     for (const field of requiredArrays) {
         if (!Array.isArray(obj[field])) {
             throw new Error(`Missing required field: ${field}`);
@@ -516,25 +484,6 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
         }
         if (!variant.properties || typeof variant.properties !== 'object') {
             throw new Error(`variants[${i}]: missing or invalid 'properties' field`);
-        }
-    }
-
-    // Validate nested token items
-    const tokens = obj.tokens as unknown[];
-    for (let i = 0; i < tokens.length; i++) {
-        const item = tokens[i];
-        if (!item || typeof item !== 'object') {
-            throw new Error(`tokens[${i}]: must be an object`);
-        }
-        const token = item as Record<string, unknown>;
-        if (typeof token.name !== 'string') {
-            throw new Error(`tokens[${i}]: missing or invalid 'name' field`);
-        }
-        if (typeof token.value !== 'string') {
-            throw new Error(`tokens[${i}]: missing or invalid 'value' field`);
-        }
-        if (typeof token.type !== 'string') {
-            throw new Error(`tokens[${i}]: missing or invalid 'type' field`);
         }
     }
 
@@ -628,7 +577,6 @@ export function validateComponentDocOutput(raw: unknown): ComponentDocOutput {
         title: obj.title as string,
         summary: obj.summary as string,
         variants: obj.variants as ComponentDocVariant[],
-        tokens: obj.tokens as ComponentDocToken[],
         accessibilityNotes: obj.accessibilityNotes as string[],
         markdown: obj.markdown as string,
         states: obj.states as ComponentDocState[],
@@ -668,14 +616,6 @@ export function createValidComponentDocFixture(
                 name: 'Primary/Default',
                 description: 'Default primary button state',
                 properties: { variant: 'Primary', state: 'Default' },
-            },
-        ],
-        tokens: [
-            {
-                name: 'primary-fill',
-                value: '#007AFF',
-                type: 'color',
-                description: 'Background fill color',
             },
         ],
         accessibilityNotes: [

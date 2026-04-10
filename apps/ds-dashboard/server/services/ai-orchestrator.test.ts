@@ -7,9 +7,6 @@ import {
   buildUserPrompt,
   pruneSpecForPrompt,
   runGenerateComponentDoc,
-  enrichSpecVariableReferences,
-  normalizeVariableIdText,
-  normalizeOutputTokenReferences,
   applyAuthoritativeFigmaDescriptions,
   isLikelyFigmaConnectionError,
 } from './ai-orchestrator.js';
@@ -24,7 +21,7 @@ describe('ai-orchestrator preprocessing', () => {
     assert.equal((result.pruned.variants as unknown[]).length, 20);
   });
 
-  it('sanitizes token binding internal id fields', () => {
+  it('omits token bindings from pruned prompt context', () => {
     const result = pruneSpecForPrompt({
       name: 'Button',
       tokenBindings: [
@@ -39,12 +36,7 @@ describe('ai-orchestrator preprocessing', () => {
       ],
     });
 
-    const first = (result.pruned.tokenBindings as Array<Record<string, unknown>>)[0];
-    assert.equal(first.name, 'Primary Fill');
-    assert.equal(first.tokenName, 'color/primary');
-    assert.equal(first.variableId, undefined);
-    assert.equal(first.collectionId, undefined);
-    assert.equal(first.nodeId, undefined);
+    assert.equal((result.pruned as Record<string, unknown>).tokenBindings, undefined);
   });
 
   it('signals truncation for oversized specs', () => {
@@ -70,83 +62,14 @@ describe('ai-orchestrator preprocessing', () => {
   });
 });
 
-describe('ai-orchestrator variable enrichment', () => {
-  it('normalizes exact bracketed VariableID to semantic key', () => {
-    const variableKeyMap = new Map([
-      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
-    ]);
-    assert.equal(
-      normalizeVariableIdText('[VariableID:1:10]', variableKeyMap),
-      'color/button/bg/default',
-    );
-  });
-
-  it('normalizes token output fields from VariableID to semantic keys', () => {
-    const variableKeyMap = new Map([
-      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
-      ['1:20', { name: 'Button Text', key: 'color/button/text/default' }],
-    ]);
-
-    const output = {
-      schemaVersion: 2,
-      componentId: '1:23',
-      title: 'Boton',
-      summary: 'Summary',
-      anatomy: [],
-      variants: [],
-      tokens: [
-        {
-          name: 'fills',
-          value: '[VariableID:1:10]',
-          type: 'color',
-          description: 'Uses VariableID:1:20 for text color',
-        },
-      ],
-      accessibilityNotes: [],
-      markdown: '',
-      states: [],
-      accessibilityFacts: [],
-    };
-
-    const normalized = normalizeOutputTokenReferences(output, variableKeyMap);
-    assert.equal(normalized.tokens[0].value, 'color/button/bg/default');
-    assert.equal(normalized.tokens[0].description, 'Uses color/button/text/default for text color');
-  });
-
-  it('normalizes embedded bracketed VariableID references consistently', () => {
-    const variableKeyMap = new Map([
-      ['1:10', { name: 'Button BG', key: 'color/button/bg/default' }],
-    ]);
-    assert.equal(
-      normalizeVariableIdText('Use [VariableID:1:10] for button background', variableKeyMap),
-      'Use color/button/bg/default for button background',
-    );
-  });
-
-  it('applies authoritative Figma token descriptions and keeps AI summary', () => {
-    const variableKeyMap = new Map([
-      ['1:10', {
-        name: 'Button BG',
-        key: 'color/button/bg/default',
-        description: 'Color de fondo por defecto del botón',
-      }],
-    ]);
-
+describe('ai-orchestrator authoritative figma descriptions', () => {
+  it('keeps AI summary unchanged when applying authoritative descriptions', () => {
     const output = {
       schemaVersion: 2,
       componentId: '1:23',
       title: 'Boton',
       summary: 'Resumen generado por IA',
-      anatomy: [],
       variants: [],
-      tokens: [
-        {
-          name: 'fills',
-          value: 'VariableID:1:10',
-          type: 'color',
-          description: 'Descripción inventada por IA',
-        },
-      ],
       accessibilityNotes: [],
       markdown: '',
       states: [],
@@ -154,9 +77,8 @@ describe('ai-orchestrator variable enrichment', () => {
     };
 
     const spec = { description: 'Descripción oficial de Figma' };
-    const result = applyAuthoritativeFigmaDescriptions(output, spec, variableKeyMap);
+    const result = applyAuthoritativeFigmaDescriptions(output, spec);
     assert.equal(result.summary, 'Resumen generado por IA');
-    assert.equal(result.tokens[0].description, 'Color de fondo por defecto del botón');
   });
 
   it('does not override summary when spec.description is whitespace-only', () => {
@@ -165,9 +87,7 @@ describe('ai-orchestrator variable enrichment', () => {
       componentId: '1:23',
       title: 'Boton',
       summary: 'Resumen IA que debe mantenerse',
-      anatomy: [],
       variants: [],
-      tokens: [],
       accessibilityNotes: [],
       markdown: '',
       states: [],
@@ -175,7 +95,7 @@ describe('ai-orchestrator variable enrichment', () => {
     };
 
     const spec = { description: '   ' };
-    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    const result = applyAuthoritativeFigmaDescriptions(output, spec);
     assert.equal(result.summary, 'Resumen IA que debe mantenerse');
   });
 
@@ -185,7 +105,6 @@ describe('ai-orchestrator variable enrichment', () => {
       componentId: '1:23',
       title: 'Boton',
       summary: 'Resumen IA',
-      anatomy: [],
       variants: [
         {
           id: '1:24',
@@ -200,7 +119,6 @@ describe('ai-orchestrator variable enrichment', () => {
           properties: { Variant: 'Default' },
         },
       ],
-      tokens: [],
       accessibilityNotes: [],
       markdown: '',
       states: [],
@@ -222,7 +140,7 @@ describe('ai-orchestrator variable enrichment', () => {
       ],
     };
 
-    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    const result = applyAuthoritativeFigmaDescriptions(output, spec);
     assert.equal(result.variants[0].description, 'Descripción oficial Accent');
     assert.equal(result.variants[1].description, 'Descripción oficial Default');
   });
@@ -233,7 +151,6 @@ describe('ai-orchestrator variable enrichment', () => {
       componentId: '1:23',
       title: 'Boton',
       summary: 'Resumen IA',
-      anatomy: [],
       variants: [
         {
           id: 'unmatched-node-id',
@@ -242,7 +159,6 @@ describe('ai-orchestrator variable enrichment', () => {
           properties: { Variant: 'Accent', State: 'Default' },
         },
       ],
-      tokens: [],
       accessibilityNotes: [],
       markdown: '',
       states: [],
@@ -259,7 +175,7 @@ describe('ai-orchestrator variable enrichment', () => {
       ],
     };
 
-    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    const result = applyAuthoritativeFigmaDescriptions(output, spec);
     assert.equal(result.variants[0].description, 'Descripción Figma por canonical key');
   });
 
@@ -269,7 +185,6 @@ describe('ai-orchestrator variable enrichment', () => {
       componentId: '1:23',
       title: 'Boton',
       summary: 'Resumen IA',
-      anatomy: [],
       variants: [
         {
           id: '1:99',
@@ -278,7 +193,6 @@ describe('ai-orchestrator variable enrichment', () => {
           properties: { Variant: 'Ghost' },
         },
       ],
-      tokens: [],
       accessibilityNotes: [],
       markdown: '',
       states: [],
@@ -295,167 +209,10 @@ describe('ai-orchestrator variable enrichment', () => {
       ],
     };
 
-    const result = applyAuthoritativeFigmaDescriptions(output, spec, new Map());
+    const result = applyAuthoritativeFigmaDescriptions(output, spec);
     assert.equal(result.variants[0].description, 'Descripción IA Ghost');
   });
 
-  it('enriches VariableID references with key when map has entry', () => {
-    const variableKeyMap = new Map([
-      ['1:12', { name: 'Primary Fill', key: 'Core/Primary Fill' }],
-      ['2:34', { name: 'Border Radius', key: 'Radius/Default' }],
-    ]);
-
-    const input = {
-      tokens: [{ name: 'fills', value: 'VariableID:1:12' }],
-      description: 'Uses VariableID:2:34 for corners',
-    };
-
-    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
-    assert.equal((result.tokens as Array<Record<string, unknown>>)[0].value, 'VariableID:1:12 (Core/Primary Fill)');
-    assert.equal(result.description, 'Uses VariableID:2:34 (Radius/Default) for corners');
-  });
-
-  it('leaves VariableID unchanged when not in map', () => {
-    const variableKeyMap = new Map<string, { name: string; key: string }>();
-    const input = { tokenRef: 'VariableID:9:99' };
-    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
-    assert.equal(result.tokenRef, 'VariableID:9:99');
-  });
-
-  it('handles nested arrays and objects with VariableID references', () => {
-    const variableKeyMap = new Map([
-      ['1:1', { name: 'Color', key: 'Colors/Primary' }],
-    ]);
-    const input = {
-      variants: [
-        { fill: 'VariableID:1:1', stroke: 'VariableID:unknown' },
-        { nested: [{ bg: 'VariableID:1:1' }] },
-      ],
-    };
-    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
-    const variants = result.variants as Array<Record<string, unknown>>;
-    assert.equal(variants[0].fill, 'VariableID:1:1 (Colors/Primary)');
-    assert.equal(variants[0].stroke, 'VariableID:unknown');
-    assert.equal((variants[1].nested as Array<Record<string, unknown>>)[0].bg, 'VariableID:1:1 (Colors/Primary)');
-  });
-
-  it('does not duplicate key annotations when VariableID already contains hint', () => {
-    const variableKeyMap = new Map([
-      ['1:12', { name: 'Primary Fill', key: 'tokens.color.primary' }],
-    ]);
-    const input = {
-      tokenRef: 'VariableID:1:12 (tokens.color.primary)',
-      description: 'Keeps VariableID:1:12 (tokens.color.primary) as-is',
-    };
-    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
-    assert.equal(result.tokenRef, 'VariableID:1:12 (tokens.color.primary)');
-    assert.equal(result.description, 'Keeps VariableID:1:12 (tokens.color.primary) as-is');
-  });
-
-  it('injects VariableID key annotations into generation user prompt', async () => {
-    const store = new AiJobsStore();
-    const job = store.enqueue({
-      type: 'GENERATE_COMPONENT_DOC',
-      provider: 'anthropic',
-      componentId: '68:4097',
-      dryRun: false,
-    });
-    const dequeued = store.tryDequeue('anthropic');
-    assert.ok(dequeued);
-
-    let generationUserPrompt = '';
-    let callIndex = 0;
-    const fakeAdapter = {
-      generate: async (input: { userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
-        callIndex += 1;
-        if (callIndex === 1) {
-          generationUserPrompt = input.userPrompt;
-          return {
-            rawText: '{...}',
-            parsedJson: {
-              schemaVersion: 2,
-              componentId: '68:4097',
-              title: 'Button',
-              summary: 'Summary',
-              anatomy: [],
-              variants: [],
-              tokens: [],
-              accessibilityNotes: [],
-              markdown: '',
-              states: [],
-              accessibilityFacts: [],
-            },
-            usage: { promptTokens: 10, completionTokens: 5, durationMs: 30 },
-          };
-        }
-        if (callIndex === 2) {
-          return {
-            rawText: '{...}',
-            parsedJson: { schemaVersion: 2, summary: { purpose: 'Enhanced summary' } },
-            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
-          };
-        }
-        return {
-          rawText: '{...}',
-          parsedJson: {
-            schemaVersion: 1,
-            passes: true,
-            severity: 'info',
-            score: 100,
-            structureWarnings: [],
-            missingSections: [],
-            unsupportedClaims: [],
-            editorialConflicts: [],
-            terminologyMismatches: [],
-            a11yWarnings: [],
-            tokenWarnings: [],
-            notes: [],
-          },
-          usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
-        };
-      },
-    };
-
-    await runGenerateComponentDoc(
-      job,
-      store,
-      fakeAdapter,
-      async () => ({
-        name: 'Button',
-        type: 'COMPONENT_SET',
-        tokenBindings: [{ fill: 'VariableID:1:12' }],
-      }),
-      undefined,
-      undefined,
-      async () =>
-        new Map([
-          ['1:12', { name: 'Primary Fill', key: 'tokens.color.primary' }],
-        ]),
-    );
-
-    const completed = store.findById(job.id);
-    assert.ok(completed);
-    assert.equal(completed?.status, 'completed');
-    assert.match(generationUserPrompt, /VariableID:1:12 \(tokens\.color\.primary\)/);
-  });
-
-  it('R-001: enrich matches keys when map uses VariableID:-prefixed ids from API', () => {
-    // normalizeVariablesMeta indexes variables by variable.id which may include "VariableID:" prefix.
-    // resolveVariableKeyMap now strips that prefix before inserting.
-    // The enrichment regex captures the part after "VariableID:" in spec strings.
-    const variableKeyMap = new Map([
-      ['1:12', { name: 'Primary Fill', key: 'Core/Primary Fill' }],
-    ]);
-
-    const input = {
-      token: { name: 'fills', value: 'VariableID:1:12' },
-    };
-    const result = enrichSpecVariableReferences(input, variableKeyMap) as Record<string, unknown>;
-    assert.equal(
-      (result.token as Record<string, unknown>).value,
-      'VariableID:1:12 (Core/Primary Fill)',
-    );
-  });
 });
 
 describe('ai-orchestrator prompts', () => {
@@ -703,9 +460,7 @@ describe('ai-orchestrator pipeline', () => {
           componentId: '68:4097',
           title: 'Button',
           summary: 'Summary',
-          anatomy: [],
           variants: [],
-          tokens: [],
           accessibilityNotes: [],
           markdown: '',
           states: [],
@@ -754,9 +509,7 @@ describe('ai-orchestrator pipeline', () => {
           componentId: '68:4097',
           title: 'Button',
           summary: 'Summary',
-          anatomy: [],
           variants: [],
-          tokens: [],
           accessibilityNotes: [],
           markdown: '',
           states: [],
@@ -778,6 +531,48 @@ describe('ai-orchestrator pipeline', () => {
     assert.equal(completed?.usage?.promptTokens, 123);
     assert.equal(completed?.usage?.completionTokens, 45);
     assert.equal(completed?.usage?.durationMs, 678);
+  });
+
+  it('keeps rendered markdown without design token section', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'openai',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('openai');
+    assert.ok(dequeued);
+
+    const adapter = {
+      generate: async () => ({
+        rawText: '{...}',
+        parsedJson: {
+          schemaVersion: 2,
+          componentId: '68:4097',
+          title: 'Button',
+          summary: 'Summary',
+          variants: [],
+          accessibilityNotes: [],
+          markdown: '',
+          states: [],
+          accessibilityFacts: [],
+        },
+        usage: { promptTokens: 10, completionTokens: 10, durationMs: 30 },
+      }),
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' })
+    );
+
+    const completed = store.findById(job.id);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.output?.markdown.includes('## Design'), false);
   });
 
   it('continues processing queued jobs via onJobStarted callback', async () => {
@@ -850,9 +645,7 @@ describe('ai-orchestrator pipeline', () => {
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
-              anatomy: [],
               variants: [],
-              tokens: [],
               accessibilityNotes: [],
               markdown: '',
               states: [],
@@ -881,7 +674,6 @@ describe('ai-orchestrator pipeline', () => {
             editorialConflicts: [],
             terminologyMismatches: [],
             a11yWarnings: [],
-            tokenWarnings: [],
             notes: [],
           },
           usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
@@ -983,9 +775,7 @@ describe('ai-orchestrator policyContext', () => {
             componentId: '68:4097',
             title: 'Button',
             summary: 'Summary',
-            anatomy: [],
             variants: [],
-            tokens: [],
             accessibilityNotes: [],
             markdown: '',
             states: [],
@@ -1042,9 +832,7 @@ describe('ai-orchestrator policyContext', () => {
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
-              anatomy: [],
               variants: [],
-              tokens: [],
               accessibilityNotes: [],
               markdown: '',
               states: [],
@@ -1076,7 +864,6 @@ describe('ai-orchestrator policyContext', () => {
             editorialConflicts: [],
             terminologyMismatches: [],
             a11yWarnings: [],
-            tokenWarnings: [],
             notes: [],
           },
           usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
@@ -1130,9 +917,7 @@ describe('ai-orchestrator policyContext', () => {
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
-              anatomy: [],
               variants: [],
-              tokens: [],
               accessibilityNotes: [],
               markdown: '',
               states: [],
@@ -1164,7 +949,6 @@ describe('ai-orchestrator policyContext', () => {
             editorialConflicts: [],
             terminologyMismatches: [],
             a11yWarnings: [],
-            tokenWarnings: [],
             notes: [],
           },
           usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
@@ -1216,9 +1000,7 @@ describe('ai-orchestrator policyContext', () => {
               componentId: '68:4097',
               title: 'Button',
               summary: 'Summary',
-              anatomy: [],
               variants: [],
-              tokens: [],
               accessibilityNotes: [],
               markdown: '',
               states: [],
@@ -1250,7 +1032,6 @@ describe('ai-orchestrator policyContext', () => {
             editorialConflicts: [],
             terminologyMismatches: [],
             a11yWarnings: [],
-            tokenWarnings: [],
             notes: [],
           },
           usage: { promptTokens: 2, completionTokens: 2, durationMs: 10 },
@@ -1345,7 +1126,6 @@ function create3StageAdapter(options: {
             editorialConflicts: [],
             terminologyMismatches: [],
             a11yWarnings: [],
-            tokenWarnings: [],
             notes: [],
           },
           usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
@@ -1366,9 +1146,7 @@ function create3StageAdapter(options: {
           componentId: '68:4097',
           title: 'Button',
           summary: 'Summary',
-          anatomy: [],
           variants: [],
-          tokens: [],
           accessibilityNotes: [],
           markdown: '',
           states: [],
@@ -1436,7 +1214,6 @@ describe('3-stage pipeline', () => {
         editorialConflicts: [],
         terminologyMismatches: [],
         a11yWarnings: [],
-        tokenWarnings: [],
         notes: ['Blocking issues found'],
       },
     });
@@ -1479,7 +1256,6 @@ describe('3-stage pipeline', () => {
         editorialConflicts: [],
         terminologyMismatches: [],
         a11yWarnings: [],
-        tokenWarnings: [],
         notes: [],
       },
     });
@@ -1520,7 +1296,6 @@ describe('3-stage pipeline', () => {
         editorialConflicts: [],
         terminologyMismatches: [],
         a11yWarnings: [],
-        tokenWarnings: [],
         notes: [],
       },
     });

@@ -34,9 +34,7 @@ describe('ai-ollama-adapter', () => {
             componentId: '68:4097',
             title: 'Button',
             summary: 'A button component',
-            anatomy: [],
             variants: [],
-            tokens: [],
             accessibilityNotes: [],
             markdown: '',
         };
@@ -186,9 +184,7 @@ describe('ai-ollama-adapter', () => {
             componentId: '68:4097',
             title: 'Button',
             summary: 'A button component',
-            anatomy: [],
             variants: [],
-            tokens: [],
             accessibilityNotes: [],
             markdown: '',
         };

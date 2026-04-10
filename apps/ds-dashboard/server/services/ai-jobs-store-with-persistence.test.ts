@@ -249,15 +249,15 @@ describe('ai-jobs-store-with-persistence', () => {
             const job = store.enqueue(input);
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: 'test',
                 title: 'Test',
                 summary: 'Test summary',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,
@@ -346,9 +346,12 @@ describe('ai-jobs-store-with-persistence', () => {
             const job = store.enqueue(input);
             store.pushEvent(job.id, 'job.started', {});
             store.complete(job.id, {
-                schemaVersion: 1, componentId: 'test', title: 'Test',
-                summary: 'Test', anatomy: [], variants: [], tokens: [],
+                schemaVersion: 2, componentId: 'test', title: 'Test',
+                summary: 'Test',
+                variants: [],
                 accessibilityNotes: [], markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, { promptTokens: 100, completionTokens: 50, durationMs: 1000 });
 
             // Create new store instance and load from DB
@@ -384,9 +387,12 @@ describe('ai-jobs-store-with-persistence', () => {
 
             // Update job status
             store.complete(job.id, {
-                schemaVersion: 1, componentId: 'test', title: 'Test',
-                summary: 'Test', anatomy: [], variants: [], tokens: [],
+                schemaVersion: 2, componentId: 'test', title: 'Test',
+                summary: 'Test',
+                variants: [],
                 accessibilityNotes: [], markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, { promptTokens: 100, completionTokens: 50, durationMs: 1000 });
 
             // Job events should still exist after upsert
@@ -461,15 +467,15 @@ describe('ai-jobs-store-with-persistence', () => {
             const job = store.enqueue(input);
 
             store.complete(job.id, {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: 'test',
                 title: 'Test',
                 summary: 'Test summary',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '# Test',
+                states: [],
+                accessibilityFacts: [],
             }, {
                 promptTokens: 100,
                 completionTokens: 50,

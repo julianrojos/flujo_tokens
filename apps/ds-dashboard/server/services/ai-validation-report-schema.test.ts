@@ -31,7 +31,6 @@ describe('ai-validation-report-schema', () => {
                 editorialConflicts: [],
                 terminologyMismatches: [],
                 a11yWarnings: [],
-                tokenWarnings: [],
                 notes: [],
             });
             assert.ok(result.valid);
@@ -65,7 +64,6 @@ describe('ai-validation-report-schema', () => {
                 editorialConflicts: [],
                 terminologyMismatches: [],
                 a11yWarnings: [],
-                tokenWarnings: [],
                 notes: [],
             });
             assert.ok(!result.valid);
@@ -84,7 +82,6 @@ describe('ai-validation-report-schema', () => {
                 editorialConflicts: [],
                 terminologyMismatches: [],
                 a11yWarnings: [],
-                tokenWarnings: [],
                 notes: [],
             });
             assert.ok(!result.valid);
@@ -103,7 +100,6 @@ describe('ai-validation-report-schema', () => {
                 editorialConflicts: [],
                 terminologyMismatches: [],
                 a11yWarnings: [],
-                tokenWarnings: [],
                 notes: [],
             });
             assert.ok(!result.valid);
@@ -122,7 +118,6 @@ describe('ai-validation-report-schema', () => {
                 editorialConflicts: [],
                 terminologyMismatches: [],
                 a11yWarnings: [],
-                tokenWarnings: [],
                 notes: [],
             });
             assert.ok(!result.valid);

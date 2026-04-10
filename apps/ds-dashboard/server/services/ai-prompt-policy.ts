@@ -51,6 +51,8 @@ export const MAX_POLICY_CHARS = 3000;
  * Stage-specific file configs.
  * Each stage loads sections from SKILL.md files + RULES.md.
  * Headings match the H2 sections in those files (case-insensitive).
+ * Priority values are intentionally non-sequential in some stages:
+ * gaps keep ordering stable when sections are removed/added without renumber churn.
  */
 export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> = {
     extraction: [
@@ -68,8 +70,8 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
                 { heading: '2. Honestidad antes que completitud', priority: 4 },
                 { heading: '4. Estado visual ≠ comportamiento real', priority: 5 },
                 { heading: '5. Accesibilidad con niveles de confianza', priority: 6 },
-                { heading: '8. StructureWarning', priority: 7 },
-                { heading: '10. Placeholders obligatorios', priority: 8 },
+                { heading: '7. StructureWarning', priority: 7 },
+                { heading: '9. Placeholders obligatorios', priority: 8 },
             ],
         },
         {
@@ -77,13 +79,6 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
             sections: [
                 { heading: 'Regla central', priority: 9 },
                 { heading: 'Qué NO debe hacer', priority: 10 },
-            ],
-        },
-        {
-            relativePath: 'apps/ds-dashboard/ai-context/skills/token-intent-resolver.SKILL.md',
-            sections: [
-                { heading: 'Regla central', priority: 11 },
-                { heading: 'Qué NO debe hacer', priority: 12 },
             ],
         },
     ],
@@ -101,9 +96,9 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
             relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
                 { heading: '1. Regla madre', priority: 4 },
-                { heading: '10. Placeholders obligatorios', priority: 5 },
-                { heading: '9. Coherencia terminológica', priority: 6 },
-                { heading: '11. QA específico', priority: 9 },
+                { heading: '9. Placeholders obligatorios', priority: 5 },
+                { heading: '8. Coherencia terminológica', priority: 6 },
+                { heading: '10. QA específico', priority: 9 },
             ],
         },
         {
@@ -133,9 +128,9 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
         {
             relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
-                { heading: '14. Regla de publicación', priority: 4 },
-                { heading: '13. Severidad de validación', priority: 5 },
-                { heading: '10. Placeholders obligatorios', priority: 6 },
+                { heading: '13. Regla de publicación', priority: 4 },
+                { heading: '12. Severidad de validación', priority: 5 },
+                { heading: '9. Placeholders obligatorios', priority: 6 },
             ],
         },
         {

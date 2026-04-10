@@ -285,7 +285,7 @@ function buildComponentDocTemplate(args: {
     `- Source node: \`${componentNodeId || 'TBD'}\``,
     '- Metadata source: component registry (database-backed)',
     '',
-    '## Anatomy',
+    '## Structure',
     '',
     '_TBD_',
     '',

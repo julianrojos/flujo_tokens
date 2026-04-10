@@ -23,8 +23,9 @@ import {
 import type { EditorialPatch } from './ai-editorial-patch-schema.js';
 import { validateEditorialPatch, EDITORIAL_PATCH_JSON_SCHEMA } from './ai-editorial-patch-schema.js';
 import { renderComponentDoc } from './ai-component-doc-renderer.js';
+import { buildCanonicalKey } from './figma-descriptions-resolver.js';
 import type { AiJobsStore } from './ai-jobs-store.js';
-import { getComponentSpecDirect, fetchVariablesDirect } from './figma-direct-bridge-service.js';
+import { getComponentSpecDirect } from './figma-direct-bridge-service.js';
 import { buildPromptPolicyContext, type PolicyCallStage } from './ai-prompt-policy.js';
 import type { ValidationReport } from './ai-validation-report-schema.js';
 import { validateValidationReport, VALIDATION_REPORT_JSON_SCHEMA } from './ai-validation-report-schema.js';
@@ -113,47 +114,6 @@ function getStageTimeoutCapMs(): number {
 }
 
 /**
- * Sanitize token bindings by removing internal IDs while preserving useful names
- * @param tokenBindings - Raw token bindings from Figma spec
- * @returns Sanitized token bindings
- */
-function sanitizeTokenBindings(tokenBindings: unknown): unknown {
-    if (!Array.isArray(tokenBindings)) {
-        return tokenBindings;
-    }
-
-    return tokenBindings.map((binding) => {
-        if (!binding || typeof binding !== 'object') {
-            return binding;
-        }
-
-        const b = binding as Record<string, unknown>;
-        const sanitized: Record<string, unknown> = {};
-
-        // Preserve useful fields
-        if (typeof b.name === 'string') sanitized.name = b.name;
-        if (typeof b.tokenName === 'string') sanitized.tokenName = b.tokenName;
-        if (typeof b.tokenValue === 'string') sanitized.tokenValue = b.tokenValue;
-        if (typeof b.type === 'string') sanitized.type = b.type;
-        if (typeof b.description === 'string') sanitized.description = b.description;
-
-        // Strip internal IDs (common patterns in Figma API)
-        // Fields like: id, fileId, nodeId, variableId, collectionId, etc.
-        const internalIdPatterns = ['Id', 'ID', 'id', 'Key', 'key', 'Hash', 'hash'];
-        for (const key of Object.keys(b)) {
-            if (internalIdPatterns.some((pattern) => key.includes(pattern))) {
-                continue; // Skip internal ID fields
-            }
-            if (!sanitized[key]) {
-                sanitized[key] = b[key];
-            }
-        }
-
-        return sanitized;
-    });
-}
-
-/**
  * Prune Figma spec for LLM prompt
  * Removes deep children, internal IDs, and truncates if needed
  * @param spec - Raw Figma component spec
@@ -178,8 +138,6 @@ export function pruneSpecForPrompt(spec: Record<string, unknown>): {
         // Keep other fields as-is
         props: spec.props,
         states: spec.states,
-        // Sanitize token bindings to remove internal IDs
-        tokenBindings: sanitizeTokenBindings(spec.tokenBindings),
     };
 
     // Serialize and check size
@@ -206,62 +164,6 @@ export function pruneSpecForPrompt(spec: Record<string, unknown>): {
     return { pruned: cleaned, truncated: true };
 }
 
-/**
- * Warn-once guard for resolveVariableKeyMap failures.
- * Prevents log spam during repeated polling/tests with the same fileKey.
- */
-const VARIABLE_KEY_MAP_WARNED = new Set<string>();
-
-/**
- * Resolve Figma variables and build a lookup map: VariableID -> { name, key }.
- * Priority: variable.key (canonical) > collection/name fallback > raw id.
- * Fail-open: returns empty map on any error so the pipeline continues with raw IDs.
- */
-export async function resolveVariableKeyMap(
-    fileKey: string | null,
-): Promise<Map<string, { name: string; key: string; description?: string }>> {
-    const map = new Map<string, { name: string; key: string; description?: string }>();
-    if (!fileKey) {
-        return map;
-    }
-    try {
-        const result = await fetchVariablesDirect(fileKey);
-        const variables = result.meta?.variables ?? {};
-        for (const [id, variable] of Object.entries(variables)) {
-            const v = variable as Record<string, unknown>;
-            const name = typeof v.name === 'string' ? v.name : id;
-            const description = typeof v.description === 'string' && v.description.trim().length > 0
-                ? v.description.trim()
-                : undefined;
-
-            // Normalize id: strip "VariableID:" prefix if present.
-            // normalizeVariablesMeta indexes by variable.id which may include the prefix,
-            // but the enrichment regex captures the bare id after "VariableID:".
-            const strippedId = id.startsWith('VariableID:')
-                ? id.slice('VariableID:'.length)
-                : id;
-
-            // Primary: use variable.key if available (canonical semantic key)
-            const rawKey = typeof v.key === 'string' && v.key.trim().length > 0 ? v.key.trim() : '';
-            const key = rawKey || resolveFallbackKey(strippedId, v, result.meta?.variableCollections);
-            map.set(strippedId, { name, key, description });
-        }
-    } catch (error) {
-        // fail-open: return empty map, pipeline continues with raw VariableID
-        // Warn-once to avoid spam during repeated polling with same fileKey
-        const reason = error instanceof Error ? error.message : String(error);
-        const warnKey = `${fileKey ?? 'null'}:${reason}`;
-        if (!VARIABLE_KEY_MAP_WARNED.has(warnKey)) {
-            VARIABLE_KEY_MAP_WARNED.add(warnKey);
-            console.warn('[ai-orchestrator] resolveVariableKeyMap failed (fail-open)', {
-                fileKey,
-                reason,
-            });
-        }
-    }
-    return map;
-}
-
 const FIGMA_CONNECTION_ERROR_PATTERNS = [
     'no_socket',
     'connection',
@@ -283,122 +185,6 @@ export function isLikelyFigmaConnectionError(message: string): boolean {
     return FIGMA_CONNECTION_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
 }
 
-/**
- * Fallback when variable.key is missing: try collection/name, then name, then id.
- */
-function resolveFallbackKey(
-    rawId: string,
-    variable: Record<string, unknown>,
-    collections: Record<string, unknown> | undefined,
-): string {
-    // Try collection/name variableName pattern
-    const collectionId = typeof variable.variableCollectionId === 'string'
-        ? variable.variableCollectionId
-        : undefined;
-    if (collectionId && collections && typeof collections === 'object') {
-        const collection = collections[collectionId] as Record<string, unknown> | undefined;
-        if (collection && typeof collection.name === 'string') {
-            return `${collection.name}/${variable.name || rawId}`;
-        }
-    }
-    // Fallback to variable name
-    if (typeof variable.name === 'string' && variable.name.trim().length > 0) {
-        return variable.name.trim();
-    }
-    // Last resort: raw id
-    return rawId;
-}
-
-/**
- * Walk a serializable spec value and replace VariableID:<id> tokens in strings
- * with VariableID:<id> (<key>) when a semantic key is known.
- * Uses the provided variableKeyMap; falls through unchanged on unknown IDs.
- */
-export function enrichSpecVariableReferences(
-    value: unknown,
-    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
-): unknown {
-    if (typeof value === 'string') {
-        // Match VariableID:<id> patterns that are not already annotated as
-        // "VariableID:<id> (<key>)", making enrichment idempotent.
-        return value.replace(/VariableID:([^,\s}\]]+)(?!\s*\()/g, (_match, rawId: string) => {
-            const entry = variableKeyMap.get(rawId);
-            if (entry) {
-                return `VariableID:${rawId} (${entry.key})`;
-            }
-            return `VariableID:${rawId}`;
-        });
-    }
-    if (Array.isArray(value)) {
-        return value.map((item) => enrichSpecVariableReferences(item, variableKeyMap));
-    }
-    if (value && typeof value === 'object') {
-        const result: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-            result[k] = enrichSpecVariableReferences(v, variableKeyMap);
-        }
-        return result;
-    }
-    return value;
-}
-
-/**
- * Replace VariableID references in plain text with semantic variable keys.
- * - Exact forms like "VariableID:1:10" or "[VariableID:1:10]" become "token.key.path".
- * - Embedded forms inside longer text are replaced in-place.
- * Unknown IDs are preserved unchanged (fail-open).
- */
-export function normalizeVariableIdText(
-    text: string,
-    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
-): string {
-    if (!text || variableKeyMap.size === 0 || !text.includes('VariableID:')) {
-        return text;
-    }
-
-    const exactBracket = text.match(/^\[VariableID:([^\]\s]+)\]$/);
-    if (exactBracket) {
-        const entry = variableKeyMap.get(exactBracket[1]);
-        if (entry) return entry.key;
-    }
-
-    const exactPlain = text.match(/^VariableID:([^,\s}\]\)]+)$/);
-    if (exactPlain) {
-        const entry = variableKeyMap.get(exactPlain[1]);
-        if (entry) return entry.key;
-    }
-
-    return text.replace(/\[?VariableID:([^,\s}\]\)]+)\]?/g, (_match, rawId: string) => {
-        const entry = variableKeyMap.get(rawId);
-        return entry ? entry.key : `VariableID:${rawId}`;
-    });
-}
-
-/**
- * Normalize token fields in ComponentDocOutput so markdown preview does not expose
- * raw Figma VariableID references when semantic keys are known.
- */
-export function normalizeOutputTokenReferences(
-    output: ComponentDocOutput,
-    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
-): ComponentDocOutput {
-    if (variableKeyMap.size === 0 || !Array.isArray(output.tokens) || output.tokens.length === 0) {
-        return output;
-    }
-
-    return {
-        ...output,
-        tokens: output.tokens.map((token) => ({
-            ...token,
-            name: normalizeVariableIdText(token.name, variableKeyMap),
-            value: normalizeVariableIdText(token.value, variableKeyMap),
-            description: token.description
-                ? normalizeVariableIdText(token.description, variableKeyMap)
-                : token.description,
-        })),
-    };
-}
-
 function toVariantPropertiesMap(value: unknown): Record<string, string> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return {};
@@ -414,21 +200,13 @@ function toVariantPropertiesMap(value: unknown): Record<string, string> {
     return mapped;
 }
 
-function extractVariableIdFromText(text: string | undefined): string | null {
-    if (!text || !text.includes('VariableID:')) return null;
-    const match = text.match(/VariableID:([^,\s}\]\)]+)/);
-    return match ? match[1] : null;
-}
-
 /**
  * Enforce authoritative descriptions from Figma over AI-generated prose.
  * - Keep AI-generated summary intact (component-set Figma description is rendered separately).
- * - If a token maps to a Figma variable with description, use that description.
  */
 export function applyAuthoritativeFigmaDescriptions(
     output: ComponentDocOutput,
     spec: Record<string, unknown>,
-    variableKeyMap: Map<string, { name: string; key: string; description?: string }>,
 ): ComponentDocOutput {
     const next: ComponentDocOutput = { ...output };
 
@@ -446,10 +224,7 @@ export function applyAuthoritativeFigmaDescriptions(
             figmaVariantByNodeId.set(nodeId, desc);
         }
         const props = toVariantPropertiesMap(variant.variantProperties);
-        const canonicalKey = Object.entries(props)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, v]) => `${k}=${v}`)
-            .join('|');
+        const canonicalKey = buildCanonicalKey(props);
         if (canonicalKey) {
             figmaVariantByCanonicalKey.set(canonicalKey, desc);
         }
@@ -458,34 +233,13 @@ export function applyAuthoritativeFigmaDescriptions(
     if (Array.isArray(next.variants) && next.variants.length > 0) {
         next.variants = next.variants.map((variant) => {
             const byNodeId = variant.id ? figmaVariantByNodeId.get(variant.id) : undefined;
-            const canonicalKey = Object.entries(variant.properties ?? {})
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([k, v]) => `${k}=${v}`)
-                .join('|');
+            const canonicalKey = buildCanonicalKey(variant.properties ?? {});
             const byKey = canonicalKey ? figmaVariantByCanonicalKey.get(canonicalKey) : undefined;
             const authoritative = byNodeId ?? byKey;
             if (!authoritative) return variant;
             return {
                 ...variant,
                 description: authoritative,
-            };
-        });
-    }
-
-    if (Array.isArray(next.tokens) && next.tokens.length > 0 && variableKeyMap.size > 0) {
-        next.tokens = next.tokens.map((token) => {
-            const tokenId =
-                extractVariableIdFromText(token.value)
-                ?? extractVariableIdFromText(token.name)
-                ?? extractVariableIdFromText(token.description);
-            if (!tokenId) return token;
-            const mapped = variableKeyMap.get(tokenId);
-            if (!mapped?.description || mapped.description.trim().length === 0) {
-                return token;
-            }
-            return {
-                ...token,
-                description: mapped.description,
             };
         });
     }
@@ -518,12 +272,7 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
    - Do NOT include structural variant axes like "Size", "Layout", "Orientation" as states
    - If no state-like properties are found, use empty array []
    - Do NOT invent states that are not present in the spec
-5. TOKENS: List design tokens used:
-   - Name: token name
-   - Value: token value or reference
-   - Type: color, spacing, typography, etc.
-   - Description: how the token is used
-6. ACCESSIBILITY: Document accessibility considerations:
+5. ACCESSIBILITY: Document accessibility considerations:
    - Keyboard navigation support
    - Screen reader considerations
    - Focus states
@@ -662,7 +411,6 @@ ${stringifyJsonForPrompt({
         title: docOutput.title,
         summary: docOutput.summary,
         variants: docOutput.variants?.slice(0, 5),
-        tokens: docOutput.tokens?.slice(0, 10),
         accessibilityNotes: docOutput.accessibilityNotes,
         accessibilityFacts: docOutput.accessibilityFacts,
     }, 8000)}
@@ -749,7 +497,6 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
         title: `[DRY RUN] ${name || 'Unknown Component'}`,
         summary: 'This is a dry-run placeholder output - no actual LLM call was made.',
         variants: [],
-        tokens: [],
         accessibilityNotes: [],
         markdown: '',
         states: [],
@@ -794,14 +541,12 @@ Focus on:
 - Unsupported claims not backed by Figma spec
 - Terminology matching the design system's canonical terms
 - Accessibility: claims presented as "verified" when only inferred/assumed
-- Token usage warnings for non-standard patterns
 
 COMPONENT DOCUMENTATION:
 ${stringifyJsonForPrompt({
         title: docOutput.title,
         summary: docOutput.summary,
         variants: docOutput.variants?.slice(0, 5),
-        tokens: docOutput.tokens?.slice(0, 10),
         states: docOutput.states?.slice(0, 10),
         accessibilityNotes: docOutput.accessibilityNotes,
         accessibilityFacts: docOutput.accessibilityFacts,
@@ -934,9 +679,6 @@ export async function runGenerateComponentDoc(
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
     getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>,
     getPolicyContextOverride?: PolicyContextOverride,
-    getVariableKeyMapOverride?: (
-        fileKey: string | null
-    ) => Promise<Map<string, { name: string; key: string; description?: string }>>,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -983,19 +725,6 @@ export async function runGenerateComponentDoc(
             });
         }
 
-        // Step 2.5: Enrich VariableID references with semantic keys (fail-open)
-        const variableKeyMap = getVariableKeyMapOverride
-            ? await getVariableKeyMapOverride(fileKey)
-            : await resolveVariableKeyMap(fileKey);
-        const enrichedPruned = variableKeyMap.size > 0
-            ? enrichSpecVariableReferences(pruned, variableKeyMap) as Record<string, unknown>
-            : pruned;
-        if (variableKeyMap.size > 0) {
-            store.pushEvent(job.id, 'context.variables_enriched', {
-                count: variableKeyMap.size,
-            });
-        }
-
         // Step 3: Build prompts
         let existingEditorial: Record<string, unknown> | null = null;
         if (getExistingEditorialOverride) {
@@ -1009,7 +738,7 @@ export async function runGenerateComponentDoc(
             ? appendPolicyContext(customSystemPrompt, policyContext)
             : buildSystemPrompt(policyContext);
         const userPrompt = buildUserPrompt(
-            enrichedPruned,
+            pruned,
             job.input.componentId,
             existingEditorial,
             job.input.userPrompt,
@@ -1068,8 +797,7 @@ export async function runGenerateComponentDoc(
                 try {
                     output = validateComponentDocOutput(result.parsedJson);
                     store.pushEvent(job.id, 'schema.validated', { schemaVersion: output.schemaVersion });
-                    output = applyAuthoritativeFigmaDescriptions(output, spec, variableKeyMap);
-                    output = normalizeOutputTokenReferences(output, variableKeyMap);
+                    output = applyAuthoritativeFigmaDescriptions(output, spec);
                 } catch (validationError) {
                     // Schema validation failure is non-retryable
                     throw {
@@ -1183,11 +911,4 @@ export async function runGenerateComponentDoc(
         // Try to dequeue next job
         store.tryDequeueNext(job.input.provider);
     }
-}
-
-/**
- * Reset the warn-once cache for tests.
- */
-export function resetVariableKeyMapWarnCacheForTests(): void {
-    VARIABLE_KEY_MAP_WARNED.clear();
 }

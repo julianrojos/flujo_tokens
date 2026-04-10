@@ -54,9 +54,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 accessibilityFacts: [],
@@ -72,9 +70,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -90,9 +86,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [{ description: 'Missing name' }],
@@ -109,9 +103,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -128,9 +120,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -147,9 +137,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -167,9 +155,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -190,9 +176,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -214,9 +198,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
             };
@@ -231,9 +213,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
             };
@@ -247,9 +227,7 @@ describe('ai-component-doc-schema', () => {
                 schemaVersion: 2,
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -265,9 +243,7 @@ describe('ai-component-doc-schema', () => {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -283,9 +259,7 @@ describe('ai-component-doc-schema', () => {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -296,14 +270,13 @@ describe('ai-component-doc-schema', () => {
             }, /Missing required field: summary/);
         });
 
-        it('should accept missing anatomy array (legacy field removed)', () => {
+        it('accepts payload without deprecated sections', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -319,8 +292,6 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -331,22 +302,19 @@ describe('ai-component-doc-schema', () => {
             }, /Missing required field: variants/);
         });
 
-        it('should reject missing tokens array', () => {
+        it('accepts payload without removed extra sections', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /Missing required field: tokens/);
+            validateComponentDocOutput(fixture);
         });
 
         it('should reject missing accessibilityNotes array', () => {
@@ -355,9 +323,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 markdown: '',
                 states: [],
                 accessibilityFacts: [],
@@ -373,18 +339,14 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
             const result = validateComponentDocOutput(fixture);
-            assert.equal((result as { anatomy?: unknown }).anatomy, undefined);
             assert.deepEqual(result.variants, []);
-            assert.deepEqual(result.tokens, []);
             assert.deepEqual(result.accessibilityNotes, []);
             assert.deepEqual(result.states, []);
             assert.deepEqual(result.accessibilityFacts, []);
@@ -396,9 +358,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -410,39 +370,19 @@ describe('ai-component-doc-schema', () => {
             assert.equal(result.title, 'Button');
         });
 
-        it('should tolerate legacy anatomy payload with missing name', () => {
+        it('tolerates extra unknown fields in payload', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [{ type: 'FRAME', description: 'Missing name' }],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
                 accessibilityFacts: [],
             };
-            const result = validateComponentDocOutput(fixture);
-            assert.equal(result.title, 'Button');
-        });
-
-        it('should tolerate legacy anatomy payload with missing type', () => {
-            const fixture: Record<string, unknown> = {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title: 'Button',
-                summary: 'Test',
-                anatomy: [{ name: 'Container', description: 'Missing type' }],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '',
-                states: [],
-                accessibilityFacts: [],
-            };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocOutput({ ...fixture, removedLegacyField: { anything: true } });
             assert.equal(result.title, 'Button');
         });
 
@@ -452,9 +392,7 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [{ id: 'v1', name: 'Primary', description: 'Missing properties' }],
-                tokens: [],
                 accessibilityNotes: [],
                 markdown: '',
                 states: [],
@@ -465,34 +403,13 @@ describe('ai-component-doc-schema', () => {
             }, /variants\[0\]: missing or invalid 'properties' field/);
         });
 
-        it('should reject token with missing value', () => {
-            const fixture: Record<string, unknown> = {
-                schemaVersion: 2,
-                componentId: '68:4097',
-                title: 'Button',
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [{ name: 'primary-fill', type: 'color' }],
-                accessibilityNotes: [],
-                markdown: '',
-                states: [],
-                accessibilityFacts: [],
-            };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /tokens\[0\]: missing or invalid 'value' field/);
-        });
-
         it('should reject accessibility note that is not a string', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [123],
                 markdown: '',
                 states: [],

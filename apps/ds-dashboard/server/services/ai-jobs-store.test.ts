@@ -26,9 +26,7 @@ function makeOutput(): ComponentDocOutput {
     componentId: '68:1',
     title: 'Test',
     summary: 'Test',
-    anatomy: [],
     variants: [],
-    tokens: [],
     accessibilityNotes: [],
     markdown: '# Test',
     states: [],
@@ -410,9 +408,7 @@ describe('ai-jobs-store', () => {
         componentId: '68:1',
         title: 'Test',
         summary: 'Test',
-        anatomy: [],
         variants: [],
-        tokens: [],
         accessibilityNotes: [],
         markdown: '# Test',
         states: [],
@@ -460,7 +456,6 @@ describe('ai-jobs-store', () => {
         editorialConflicts: [],
         terminologyMismatches: [],
         a11yWarnings: [],
-        tokenWarnings: [],
         notes: [],
       };
 

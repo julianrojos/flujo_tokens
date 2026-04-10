@@ -26,14 +26,15 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('ai.schema_version: 2'));
             assert.ok(result.includes('# Button'));
             assert.ok(result.includes('## Variants'));
-            assert.ok(result.includes('## Design Tokens'));
+            assert.doesNotMatch(result, /^## Design Tokens$/m);
             assert.ok(result.includes('## Accessibility'));
         });
 
-        it('does not render anatomy section', () => {
+        it('does not render anatomy and design tokens sections', () => {
             const output = createValidComponentDocFixture();
             const result = renderComponentDoc(output);
-            assert.ok(!result.includes('## Anatomy'));
+            assert.doesNotMatch(result, /^## Anatomy$/m);
+            assert.doesNotMatch(result, /^## Design Tokens$/m);
         });
 
         it('handles empty variants gracefully', () => {
@@ -43,11 +44,10 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('None documented.'));
         });
 
-        it('handles empty tokens gracefully', () => {
-            const output = createValidComponentDocFixture({ tokens: [] });
+        it('does not render removed token section', () => {
+            const output = createValidComponentDocFixture();
             const result = renderComponentDoc(output);
-            assert.ok(result.includes('## Design Tokens'));
-            assert.ok(result.includes('None documented.'));
+            assert.doesNotMatch(result, /^## Design Tokens$/m);
         });
 
         it('renders accessibility facts when notes are empty', () => {
@@ -71,22 +71,7 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('TBD (pending accessibility validation).'));
         });
 
-        it('adds unresolved variable fallback description from token value', () => {
-            const output = createValidComponentDocFixture({
-                tokens: [
-                    {
-                        name: 'fills',
-                        value: 'VariableID:1:12',
-                        type: 'color',
-                    },
-                ],
-            });
-
-            const result = renderComponentDoc(output);
-            assert.ok(result.includes('Token reference unresolved from Figma variable id.'));
-        });
-
-        it('preserves stable markdown table format for variants and tokens', () => {
+        it('preserves stable markdown table format for variants', () => {
             const output = createValidComponentDocFixture({
                 variants: [
                     {
@@ -96,21 +81,11 @@ describe('ai-component-doc-renderer', () => {
                         properties: { Variant: 'Accent', State: 'Default' },
                     },
                 ],
-                tokens: [
-                    {
-                        name: 'container-fill',
-                        value: '#111111',
-                        type: 'color',
-                        description: 'Container fill color',
-                    },
-                ],
             });
 
             const result = renderComponentDoc(output);
             assert.ok(result.includes('| Name | Description | Properties |'));
             assert.ok(result.includes('| Accent/Default | Accent emphasis variant | Variant: Accent, State: Default |'));
-            assert.ok(result.includes('| Name | Value | Type | Description |'));
-            assert.ok(result.includes('| container-fill | `#111111` | color | Container fill color |'));
         });
 
         it('escapes special characters in title', () => {
@@ -123,12 +98,12 @@ describe('ai-component-doc-renderer', () => {
 
         it('escapes emphasis markers in table cell content but preserves them in lists', () => {
             const output = createValidComponentDocFixture({
-                tokens: [
+                variants: [
                     {
-                        name: 'content_rule',
-                        value: '#111111',
-                        type: 'color',
+                        id: 'v1',
+                        name: 'Default',
                         description: 'Use *required* _labels_ only',
+                        properties: { State: 'Default' },
                     },
                 ],
                 accessibilityNotes: ['Use _aria-label_ when *text* is missing'],
@@ -201,7 +176,6 @@ describe('ai-component-doc-renderer', () => {
         it('preserves base sections unchanged when editorial patch is provided', () => {
             const output = createValidComponentDocFixture({
                 variants: [{ id: 'v1', name: 'Default', description: 'Default variant', properties: { State: 'Default' } }],
-                tokens: [{ name: 'fill', value: '#000', type: 'color', description: 'Background' }],
                 accessibilityNotes: ['Keyboard accessible'],
             });
             const patch: EditorialPatch = {
@@ -217,7 +191,7 @@ describe('ai-component-doc-renderer', () => {
 
             // Base sections still present
             assert.ok(result.includes('## Variants'));
-            assert.ok(result.includes('## Design Tokens'));
+            assert.doesNotMatch(result, /^## Design Tokens$/m);
             assert.ok(result.includes('## Accessibility'));
             // Editorial appended after
             assert.ok(result.includes('## Editorial: Purpose & Usage'));

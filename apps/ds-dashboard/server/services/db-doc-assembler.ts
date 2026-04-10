@@ -66,7 +66,6 @@ export function buildDocOutputFromDb(
     title,
     summary,
     variants,
-    tokens: aiOutput?.tokens ?? [],
     accessibilityNotes: aiOutput?.accessibilityNotes ?? [],
     markdown: '',  // renderer fills this
     states: aiOutput?.states ?? [],

@@ -14,7 +14,6 @@ import type {
     EditorialConflict,
     TerminologyMismatch,
     A11yWarning,
-    TokenWarning,
     ValidationReport as SharedValidationReport,
 } from '../../shared/ai-validation-types.js';
 
@@ -29,7 +28,6 @@ export type {
     EditorialConflict,
     TerminologyMismatch,
     A11yWarning,
-    TokenWarning,
 };
 
 /**
@@ -56,7 +54,6 @@ export const VALIDATION_REPORT_JSON_SCHEMA = {
         'editorialConflicts',
         'terminologyMismatches',
         'a11yWarnings',
-        'tokenWarnings',
         'notes',
     ],
     properties: {
@@ -137,18 +134,6 @@ export const VALIDATION_REPORT_JSON_SCHEMA = {
                     message: { type: 'string' },
                     severity: { type: 'string', enum: [...VALID_SEVERITIES] },
                     wcagCriterion: { type: 'string' },
-                },
-            },
-        },
-        tokenWarnings: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['message', 'severity'],
-                properties: {
-                    message: { type: 'string' },
-                    tokenName: { type: 'string' },
-                    severity: { type: 'string', enum: [...VALID_SEVERITIES] },
                 },
             },
         },
@@ -295,11 +280,6 @@ export function validateValidationReport(
             requiredKeys: ['message', 'severity'],
             enumFields: { severity: [...VALID_SEVERITIES] },
         },
-        {
-            key: 'tokenWarnings',
-            requiredKeys: ['message', 'severity'],
-            enumFields: { severity: [...VALID_SEVERITIES] },
-        },
     ];
 
     for (const field of arrayFields) {
@@ -330,7 +310,6 @@ export function validateValidationReport(
         'editorialConflicts',
         'terminologyMismatches',
         'a11yWarnings',
-        'tokenWarnings',
         'notes',
     ];
     for (const key of Object.keys(report)) {
@@ -363,7 +342,6 @@ export function createValidValidationReportFixture(
         editorialConflicts: [],
         terminologyMismatches: [],
         a11yWarnings: [],
-        tokenWarnings: [],
         notes: ['No critical issues found'],
     };
 
