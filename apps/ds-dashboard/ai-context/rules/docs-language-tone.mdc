@@ -1,7 +1,5 @@
 ---
-description: Language and tone consistency for Design System documentation pages.
-globs:
-  - "docs/**/*.md"
+description: Language and tone consistency for Design System documentation suggestions.
 ---
 
 # Language and tone consistency
@@ -9,7 +7,7 @@ globs:
 ## Default language policy
 
 - Default language for docs is English.
-- Do not mix languages in the same page. All section headings and table headers must be in English.
+- Do not mix languages within the same suggestion or document unless a system convention explicitly requires it.
 
 ## Tone policy
 

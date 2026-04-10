@@ -22,13 +22,21 @@ Nada que no sea visible o trazable desde Figma/MCP o desde una convención expl�
 
 ## 3. Separación entre bloques
 
-### ComponentDocOutput
+### Extracción factual (`ComponentDocModelOutput`)
 
 Debe contener:
 
 - hechos observables
 - extracción estructurada
 - inferencias mínimas y marcadas
+
+### Output final (`ComponentDocOutput`)
+
+Debe contener:
+
+- la extracción factual validada
+- el `markdown` renderizado por backend
+- el mismo contenido estructurado sin ampliar claims del modelo
 
 ### EditorialPatch
 
@@ -146,27 +154,7 @@ Evitar:
 
 ---
 
-## 11. Gobernanza
-
-No generar como hechos:
-
-- `owner`
-- `status`
-- `reviewedAt`
-- `deprecated`
-- `replacement`
-
-salvo que exista fuente real:
-
-- metadata del sistema
-- JSON de configuración
-- spreadsheet
-- CMS interno
-- convención explícita verificable
-
----
-
-## 12. Severidad de validación
+## 11. Severidad de validación
 
 ### blocking
 
@@ -190,7 +178,7 @@ salvo que exista fuente real:
 
 ---
 
-## 13. Regla de publicación
+## 12. Regla de publicación
 
 No publicar documentación si:
 
@@ -201,13 +189,13 @@ No publicar documentación si:
 
 ---
 
-## 14. Regla de diseño del sistema
+## 13. Regla de diseño del sistema
 
 No diseñar campos para el sistema que te gustaría tener, sino para el sistema que hoy puede sostener evidencia real.
 
 ---
 
-## 15. Claims normativos
+## 14. Claims normativos
 
 No afirmar cumplimiento normativo como hecho si no existe auditoría verificable.
 

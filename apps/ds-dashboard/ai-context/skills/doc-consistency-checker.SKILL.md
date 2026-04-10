@@ -6,13 +6,13 @@ Cerrar el sistema.
 
 Comparar:
 
-- `ComponentDocOutput`
+- `ComponentDocModelOutput` como base factual estructurada
+- `ComponentDocOutput` como artefacto final renderizado
 - `EditorialPatch`
 
 y generar un informe interno de coherencia y calidad antes de permitir publicación.
 
-Este skill no está pensado para el usuario final.
-Su salida ideal es un `ValidationReport`.
+La salida ideal de esta skill es un `ValidationReport`.
 
 ---
 

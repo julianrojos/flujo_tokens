@@ -2,9 +2,11 @@
 
 ## Propósito
 
-Leer el output del plugin MCP de Figma y poblar `ComponentDocOutput` con precisión, trazabilidad y honestidad.
+Leer el output del plugin MCP de Figma y poblar `ComponentDocModelOutput` con precisión, trazabilidad y honestidad.
 
 Este skill **extrae hechos**. No redacta guidance editorial ni rellena huecos con intuición.
+
+`ComponentDocOutput` queda reservado para el artefacto final del backend, después de renderizar `markdown`.
 
 ---
 

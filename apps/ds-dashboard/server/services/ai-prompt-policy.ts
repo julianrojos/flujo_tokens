@@ -128,8 +128,8 @@ export const POLICY_FILES_BY_STAGE: Record<PolicyCallStage, PolicyFileConfig[]> 
         {
             relativePath: 'apps/ds-dashboard/ai-context/rules/RULES.md',
             sections: [
-                { heading: '13. Regla de publicación', priority: 4 },
-                { heading: '12. Severidad de validación', priority: 5 },
+                { heading: '12. Regla de publicación', priority: 4 },
+                { heading: '11. Severidad de validación', priority: 5 },
                 { heading: '9. Placeholders obligatorios', priority: 6 },
             ],
         },

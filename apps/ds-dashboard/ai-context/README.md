@@ -1,10 +1,11 @@
 # Paquete de skills y rules para documentar componentes desde Figma/MCP
 
-Este paquete está pensado para una IA que genera documentación en **dos llamadas**:
+Este paquete está pensado para una IA que genera documentación con este pipeline:
 
-1. **Primera llamada** → `ComponentDocOutput`
-2. **Segunda llamada** → `EditorialPatch`
-3. **tercera pasada silenciosa: Validación** → `ValidationReport`
+1. **Primera llamada** → `ComponentDocModelOutput` (extracción estructurada)
+2. **Paso backend** → normalización factual + render a `ComponentDocOutput`
+3. **Segunda llamada** → `EditorialPatch`
+4. **Tercera llamada opcional** → `ValidationReport` (no genera contenido final, pero sí afecta `canPublish`)
 
 ## Objetivo
 
@@ -18,20 +19,43 @@ Convertir un generador de documentación en un sistema **con criterio, trazabili
 - Si la estructura del componente en Figma es pobre, el sistema debe degradar la confianza y emitir `StructureWarning`.
 - El patch editorial complementa; no reescribe ni contradice la extracción factual.
 
+## Guardrails por etapa (qué NO debe hacer)
+
+### Extracción (`ComponentDocModelOutput`)
+
+- No generar `purpose`, `when_to_use`, `when_not_to_use` ni `do/dont`.
+- No inferir comportamiento real desde estados visuales de Figma.
+- No declarar accesibilidad como verificada sin evidencia.
+
+### Editorial (`EditorialPatch`)
+
+- No inventar variantes que no existan en `ComponentDocOutput`.
+- No presentar accesibilidad inferida como verificada.
+- No rellenar huecos con convenciones no declaradas.
+
+### Validación (`ValidationReport`)
+
+- Es una pasada interna de calidad, opcional según el job, no contenido para usuario final.
+- Debe validar contradicciones, claims no soportados y trazabilidad antes de `canPublish`.
+
+## Clasificación ambigua y deuda de diseño
+
+- Si no hay confianza para clasificar (`state-*`, `variant-*`, `prop-*`), usar id estable y emitir warning.
+- Si Figma mezcla categorías (ej. `primary-disabled` en un mismo eje), conservar el dato fuente y marcar deuda de diseño.
+- No “corregir” naming en silencio.
+
+## Calidad de `qa[]`
+
+- `qa[]` debe contener preguntas específicas y verificables del componente.
+- Evitar checklist genérica (ej. `¿Cumple accesibilidad?`).
+- Priorizar preguntas accionables para revisión real.
+
 ## Stack recomendado
 
 - `figma-component-extractor`
 - `variant-state-classifier`
 - `editorial-patch-writer`
 - `doc-consistency-checker`
-
-## Orden recomendado de implementación
-
-1. Añadir `states[]` al schema base.
-2. Reemplazar `accessibilityNotes[]` por `accessibilityFacts[]` con niveles de confianza.
-3. Implementar `StructureWarning`.
-4. Implementar `doc-consistency-checker`.
-5. Añadir `ValidationReport` silencioso.
 
 ## Archivos incluidos
 
@@ -46,48 +70,20 @@ Convertir un generador de documentación en un sistema **con criterio, trazabili
 
 - `rules/RULES.md`
 
-## Recomendaciones de schema
+## Contrato vigente (schema)
 
-### ComponentDocOutput
+El contrato efectivo de salida lo define el backend y no este README:
 
-Recomendado ampliar con:
+- `ComponentDocModelOutput`, `ComponentDocOutput` y `AiJobState`: `apps/ds-dashboard/server/services/ai-component-doc-schema.ts`
+- `EditorialPatch`: `apps/ds-dashboard/server/services/ai-editorial-patch-schema.ts`
+- `ValidationReport`: `apps/ds-dashboard/server/services/ai-validation-report-schema.ts`
 
-- `states[]`
-- `accessibilityFacts[]`
-- `structureWarning?`
-- `confidence?`
-- `unresolvedQuestions[]?`
+Notas:
 
-### EditorialPatch
-
-Mantener como capa prescriptiva:
-
-- `purpose`
-- `when_to_use`
-- `when_not_to_use`
-- `do[]`
-- `dont[]`
-- `best_practices`
-- `content_guidelines`
-- `rules[]`
-- `accessibility`
-- `qa[]`
-- `related_components[]`
-
-### ValidationReport
-
-Sugerido:
-
-- `passes: boolean`
-- `severity: "blocking" | "warning" | "info"`
-- `score: number`
-- `structureWarnings[]`
-- `missingSections[]`
-- `unsupportedClaims[]`
-- `editorialConflicts[]`
-- `terminologyMismatches[]`
-- `a11yWarnings[]`
-- `notes[]`
+- Este README describe intención y guardrails; no reemplaza los schemas.
+- Si hay conflicto entre README y schema, prevalece el schema vigente.
+- `ComponentDocModelOutput` es la extracción estructurada que devuelve el modelo.
+- `ComponentDocOutput` es el artefacto final del backend después de renderizar `markdown`.
 
 ## Convenciones de etiquetas
 
@@ -97,7 +93,3 @@ Usar placeholders explícitos cuando haga falta:
 - `[Por confirmar con dev]`
 - `[Descripción inferida]`
 - `[Fuera de scope Figma]`
-
-## Notas de implementación
-
-- Si no hay fuente de gobernanza real, no generar `owner`, `reviewedAt` o `status` como hechos.
