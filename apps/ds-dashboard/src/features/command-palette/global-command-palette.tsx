@@ -147,13 +147,6 @@ export function GlobalCommandPalette({
         run: () => navigate("/components"),
       },
       {
-        id: "go:token-graph",
-        title: "Open Token Graph",
-        subtitle: "Go to /token-graph",
-        keywords: ["open", "graph", "token", "dependencies"],
-        run: () => navigate("/token-graph"),
-      },
-      {
         id: "refresh:registry",
         title: "Refresh Registry",
         subtitle: "Run ds:registry:refresh",

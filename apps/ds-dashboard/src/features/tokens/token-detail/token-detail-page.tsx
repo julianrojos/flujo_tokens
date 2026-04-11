@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/composites";
 import { useTokenDetail } from "./hooks/use-token-detail";
 import { TokenIdentitySection } from "./components/token-identity-section";
 import { TokenAliasSection } from "./components/token-alias-section";
+import { TokenRelationsSection } from "./components/token-relations-section";
 import { TokenUsageSection } from "./components/token-usage-section";
 import { TokenHealthSection } from "./components/token-health-section";
 
@@ -101,6 +102,12 @@ export function TokenDetailPage() {
         nextToken={nextToken}
         currentTokenIndex={currentTokenIndex}
         scopedTokens={scopedTokens}
+      />
+
+      <TokenRelationsSection
+        tokenPath={token.path}
+        aliasOf={token.aliasOf}
+        hasDescendantAliases={aliasDescendantChains.size > 0}
       />
 
       {tokenAliasChain.length > 0 && (

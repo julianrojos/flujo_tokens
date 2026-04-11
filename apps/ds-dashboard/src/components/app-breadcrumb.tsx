@@ -43,8 +43,13 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "Tokens" }];
   }
 
-  if (pathname === "/token-graph") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
+  const tokenGraphMatch = matchPath("/tokens/:tokenPath/graph", pathname);
+  if (tokenGraphMatch?.params.tokenPath) {
+    return [
+      { label: "Tokens", to: "/tokens" },
+      { label: decodeSafe(tokenGraphMatch.params.tokenPath), to: `/tokens/${tokenGraphMatch.params.tokenPath}` },
+      { label: "Graph" },
+    ];
   }
 
   const tokenMatch = matchPath("/tokens/:tokenPath", pathname);

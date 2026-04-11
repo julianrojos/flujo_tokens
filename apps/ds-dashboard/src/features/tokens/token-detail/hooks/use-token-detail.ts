@@ -82,7 +82,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     token,
     usage,
     tokenHealth,
-    graphQuery,
     components,
   } = useTokenDetailData(decoded);
 

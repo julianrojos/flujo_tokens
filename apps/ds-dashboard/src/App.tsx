@@ -13,7 +13,6 @@ import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom"
 import {
   Activity,
   Boxes,
-  GitBranch,
   Layers3,
   Settings2,
   type LucideIcon,
@@ -228,12 +227,6 @@ const navSections: NavSection[] = [
         icon: Layers3,
       },
       {
-        to: "/token-graph",
-        label: "Graph",
-        description: "Dependencies and cycles",
-        icon: GitBranch,
-      },
-      {
         to: "/consumers",
         label: "Consumer Files",
         description: "Cross-file usage tracking",
@@ -268,9 +261,7 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const componentsPrefetchedRef = useRef(false);
-  const tokenGraphPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
-  const tokenGraphPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
   const { systems } = useDesignSystem();
   const hasSystems = systems.length > 0;
@@ -289,28 +280,14 @@ export default function App() {
     });
   }, []);
 
-  const prefetchTokenGraphRoute = useCallback(() => {
-    if (Date.now() < tokenGraphPrefetchRetryAfterRef.current) return;
-    if (tokenGraphPrefetchedRef.current) return;
-    tokenGraphPrefetchedRef.current = true;
-    void import("@/features/tokens/token-graph/token-graph-page").catch(() => {
-      tokenGraphPrefetchedRef.current = false;
-      tokenGraphPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
-    });
-  }, []);
-
   const prefetchRoute = useCallback(
     (to: string) => {
       if (to === "/components") {
         prefetchComponentsRoutes();
         return;
       }
-      if (to === "/token-graph") {
-        prefetchTokenGraphRoute();
-        return;
-      }
     },
-    [prefetchComponentsRoutes, prefetchTokenGraphRoute],
+    [prefetchComponentsRoutes],
   );
 
   useEffect(() => {
@@ -487,7 +464,7 @@ export default function App() {
                     <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
-                    <Route path="/token-graph" element={<TokenGraphPage />} />
+                    <Route path="/tokens/:tokenPath/graph" element={<TokenGraphPage />} />
                     <Route path="/file" element={<FileViewerPage />} />
                     <Route path="/consumers" element={<ConsumersPage />} />
                     <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
