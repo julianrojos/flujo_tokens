@@ -34,6 +34,11 @@ const STORAGE_KEY_PREFIX = "ops:lastRunAt:";
 const JOB_POLL_INTERVAL_MS = 900;
 const JOB_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
 
+function buildStorageKey(systemId: string | undefined, operationId: string): string {
+  const storageScope = String(systemId || "global").trim() || "global";
+  return `${STORAGE_KEY_PREFIX}${storageScope}:${operationId}`;
+}
+
 // Strip ANSI escape codes for clean text output
 export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "").replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
@@ -59,8 +64,7 @@ export function useOperationRunner(
   onRunSuccess?: () => void,
   options?: OperationRunnerOptions,
 ): [OperationRunnerState, OperationRunnerActions] {
-  const storageScope = String(options?.systemId || "global").trim() || "global";
-  const storedKey = `${STORAGE_KEY_PREFIX}${storageScope}:${operationId}`;
+  const storedKey = buildStorageKey(options?.systemId, operationId);
 
   const [status, setStatus] = useState<RunStatus>("idle");
   const [logLines, setLogLines] = useState<LogLine[]>([]);

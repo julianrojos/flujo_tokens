@@ -10,6 +10,61 @@ interface OpsActionsSectionsProps {
   systemId?: string;
 }
 
+type OperationConfig = {
+  id: string;
+  label: string;
+  description: string;
+  endpoint: string;
+  triggerRefresh?: boolean;
+};
+
+const DATA_INDEXING_OPERATIONS: OperationConfig[] = [
+  {
+    id: "refresh-registry",
+    label: "Refresh Component Registry",
+    description: "Reconcila y normaliza metadatos de componentes directamente en la base de datos.",
+    endpoint: "/api/refresh-registry",
+    triggerRefresh: true,
+  },
+  {
+    id: "usage-index",
+    label: "Rebuild Usage Index",
+    description: "Reconstruye el índice de uso de tokens desde señales persistidas en base de datos.",
+    endpoint: "/api/refresh-token-usage-index",
+    triggerRefresh: true,
+  },
+  {
+    id: "token-health",
+    label: "Recompute Token Health",
+    description: "Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución.",
+    endpoint: "/api/refresh-token-health",
+    triggerRefresh: true,
+  },
+  {
+    id: "health-snapshot",
+    label: "Capture Health Snapshot",
+    description: "Guarda el estado actual de salud en el historial de tendencias.",
+    endpoint: "/api/capture-health-snapshot",
+    triggerRefresh: true,
+  },
+  {
+    id: "rebuild-token-graph",
+    label: "Rebuild Token Graph",
+    description: "Recomputa el grafo de dependencias entre tokens, detectando ciclos.",
+    endpoint: "/api/refresh-token-graph",
+    triggerRefresh: true,
+  },
+];
+
+const DIAGNOSTIC_OPERATIONS: OperationConfig[] = [
+  {
+    id: "refresh-components-health",
+    label: "Refresh Components Health",
+    description: "Genera el reporte de salud de componentes: pipeline, docs, readiness.",
+    endpoint: "/api/refresh-components-health",
+  },
+];
+
 export function OpsActionsSections({ onRunSuccess, systemId }: OpsActionsSectionsProps) {
   return (
     <>
@@ -23,11 +78,17 @@ export function OpsActionsSections({ onRunSuccess, systemId }: OpsActionsSection
           Regenera los índices y artefactos derivados de tokens y componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Reconcila y normaliza metadatos de componentes directamente en la base de datos." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} systemId={systemId} />
-          <OperationRow id="usage-index" label="Rebuild Usage Index" description="Reconstruye el índice de uso de tokens desde señales persistidas en base de datos." endpoint="/api/refresh-token-usage-index" onRunSuccess={onRunSuccess} systemId={systemId} />
-          <OperationRow id="token-health" label="Recompute Token Health" description="Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución." endpoint="/api/refresh-token-health" onRunSuccess={onRunSuccess} systemId={systemId} />
-          <OperationRow id="health-snapshot" label="Capture Health Snapshot" description="Guarda el estado actual de salud en el historial de tendencias." endpoint="/api/capture-health-snapshot" onRunSuccess={onRunSuccess} systemId={systemId} />
-          <OperationRow id="rebuild-token-graph" label="Rebuild Token Graph" description="Recomputa el grafo de dependencias entre tokens, detectando ciclos." endpoint="/api/refresh-token-graph" onRunSuccess={onRunSuccess} systemId={systemId} />
+          {DATA_INDEXING_OPERATIONS.map((operation) => (
+            <OperationRow
+              key={operation.id}
+              id={operation.id}
+              label={operation.label}
+              description={operation.description}
+              endpoint={operation.endpoint}
+              onRunSuccess={operation.triggerRefresh ? onRunSuccess : undefined}
+              systemId={systemId}
+            />
+          ))}
         </div>
       </section>
 
@@ -41,7 +102,17 @@ export function OpsActionsSections({ onRunSuccess, systemId }: OpsActionsSection
           Reportes de calidad y estado de componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-components-health" label="Refresh Components Health" description="Genera el reporte de salud de componentes: pipeline, docs, readiness." endpoint="/api/refresh-components-health" systemId={systemId} />
+          {DIAGNOSTIC_OPERATIONS.map((operation) => (
+            <OperationRow
+              key={operation.id}
+              id={operation.id}
+              label={operation.label}
+              description={operation.description}
+              endpoint={operation.endpoint}
+              onRunSuccess={operation.triggerRefresh ? onRunSuccess : undefined}
+              systemId={systemId}
+            />
+          ))}
         </div>
       </section>
     </>
