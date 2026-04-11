@@ -460,9 +460,8 @@ export function TokenGraphPage() {
                 </Link>
                 <Link
                   to={{
-                    pathname: "/impact",
+                    pathname: `/tokens/${encodeURIComponent(selectedNode.path)}/impact`,
                     search: new URLSearchParams({
-                      token: selectedNode.path,
                       depth: String(Math.max(2, depth)),
                     }).toString(),
                   }}

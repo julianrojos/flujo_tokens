@@ -27,9 +27,11 @@ import {
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function parseDepth(raw: string | null) {
-  const parsed = Number.parseInt(String(raw || ""), 10);
-  if (!Number.isFinite(parsed)) return 4;
-  return Math.max(0, Math.min(8, parsed));
+  if (raw === null) return null;
+  if (!/^\d+$/.test(raw)) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 8) return null;
+  return parsed;
 }
 
 function severityBadgeVariant(severity: ImpactSeverity) {
@@ -77,7 +79,7 @@ export function ImpactExplorerPage() {
   const depthParam = parseDepth(searchParams.get("depth"));
 
   const [newValueInput, setNewValueInput] = useState(newValueParam);
-  const [depth, setDepth] = useState(depthParam);
+  const [depth, setDepth] = useState(depthParam ?? 4);
   const [report, setReport] = useState<ImpactReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export function ImpactExplorerPage() {
 
   useEffect(() => {
     const tokenPath = String(tokenPathParam ?? "").trim();
-    if (!tokenPath) return;
+    if (!tokenPath || depthParam === null) return;
     const signature = `${tokenPath}|${newValueParam}|${depthParam}`;
     if (signature === autoQueryRef.current) return;
     autoQueryRef.current = signature;
@@ -242,6 +244,10 @@ export function ImpactExplorerPage() {
     return <Navigate to="/tokens" replace />;
   }
 
+  if (depthParam === null) {
+    return <Navigate to={`/tokens/${encodeURIComponent(tokenPathParam)}`} replace />;
+  }
+
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <Card>
@@ -295,7 +301,7 @@ export function ImpactExplorerPage() {
               <Select
                 className="mt-2 w-full"
                 value={String(depth)}
-                onChange={(event) => setDepth(parseDepth(event.target.value))}
+                onChange={(event) => setDepth(parseDepth(event.target.value) ?? 4)}
               >
                 {Array.from({ length: 9 }).map((_, index) => (
                   <option key={index} value={String(index)}>

@@ -154,13 +154,6 @@ export function GlobalCommandPalette({
         run: () => navigate("/token-graph"),
       },
       {
-        id: "go:impact",
-        title: "Open Impact Explorer",
-        subtitle: "Go to /impact",
-        keywords: ["open", "impact", "blast", "radius"],
-        run: () => navigate("/impact"),
-      },
-      {
         id: "refresh:registry",
         title: "Refresh Registry",
         subtitle: "Run ds:registry:refresh",
