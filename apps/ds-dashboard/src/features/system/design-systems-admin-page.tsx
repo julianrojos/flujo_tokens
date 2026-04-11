@@ -345,6 +345,12 @@ export function DesignSystemsAdminPage() {
                         Save
                       </Button>
                     ) : null}
+                    <Link
+                      to={`/system/${encodeURIComponent(id)}/operations`}
+                      className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    >
+                      Operations
+                    </Link>
                     <Button
                       size="sm"
                       variant="outline"

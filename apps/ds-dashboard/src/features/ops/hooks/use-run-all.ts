@@ -177,7 +177,8 @@ export async function executeRunAllSequence({
   onDone();
 }
 
-export function useRunAll(onDone: () => void): [RunAllState, () => void] {
+export function useRunAll(onDone: () => void, options?: { systemId?: string }): [RunAllState, () => void] {
+  const { systemId } = options ?? {};
   const [state, setState] = useState<RunAllState>({
     isRunning: false,
     stepIndex: 0,
@@ -185,12 +186,14 @@ export function useRunAll(onDone: () => void): [RunAllState, () => void] {
   });
 
   const runAll = useCallback(async () => {
+    const headers = systemId ? { "x-ds-system": systemId } : undefined;
     await executeRunAllSequence({
       requestJsonFn: requestJson,
       setState,
       onDone,
+      getHeaders: () => headers,
     });
-  }, [onDone]);
+  }, [onDone, systemId]);
 
   return [state, runAll];
 }

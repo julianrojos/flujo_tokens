@@ -17,7 +17,6 @@ import {
   Settings2,
   type LucideIcon,
   Search,
-  Zap,
   Network,
 } from "lucide-react";
 
@@ -201,12 +200,6 @@ const navSections: NavSection[] = [
         label: "Health",
         description: "Operational status",
         icon: Activity,
-      },
-      {
-        to: "/ops",
-        label: "Operations",
-        description: "Pipeline & synchronization",
-        icon: Zap,
       },
       {
         to: "/system/admin",
@@ -458,7 +451,7 @@ export default function App() {
                     <Route path="/system/new" element={<NewSystemPage />} />
                     <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
                     <Route path="/health" element={<HealthDashboardPage />} />
-                    <Route path="/ops" element={<OperationsPage />} />
+                    <Route path="/system/:systemId/operations" element={<OperationsPage />} />
                     <Route path="/components" element={<ComponentsPage />} />
                     <Route path="/components/:slug" element={<ComponentDetailPage />} />
                     <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />

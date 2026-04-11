@@ -3,6 +3,7 @@ import { Link, matchPath, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchConsumer } from "@/lib/api";
+import { useDesignSystem } from "@/lib/design-system-context";
 import {
   onCachedConsumerLabelUpdate,
   readCachedConsumerLabel,
@@ -22,7 +23,9 @@ function decodeSafe(value: string) {
   }
 }
 
-function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string }): Crumb[] {
+type DesignSystemEntry = { id: string; name: string };
+
+function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string; systems?: DesignSystemEntry[] }): Crumb[] {
   if (pathname === "/system/new") {
     return [{ label: "System", to: "/system/admin" }, { label: "New System" }];
   }
@@ -31,12 +34,21 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "System" }, { label: "Design Systems Admin" }];
   }
 
-  if (pathname === "/health") {
-    return [{ label: "Health" }];
+  const systemOpsMatch = matchPath("/system/:systemId/operations", pathname);
+  if (systemOpsMatch?.params.systemId) {
+    const systemId = systemOpsMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      { label: "Design Systems Admin", to: "/system/admin" },
+      { label: systemLabel },
+      { label: "Operations" },
+    ];
   }
 
-  if (pathname === "/ops") {
-    return [{ label: "System" }, { label: "Operations" }];
+  if (pathname === "/health") {
+    return [{ label: "Health" }];
   }
 
   if (pathname === "/tokens") {
@@ -153,9 +165,11 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     };
   }, [consumerId]);
 
+  const { systems } = useDesignSystem();
+
   const crumbs = useMemo(
-    () => buildCrumbs(location.pathname, { consumerDetailLabel: consumerLabel }),
-    [location.pathname, consumerLabel],
+    () => buildCrumbs(location.pathname, { consumerDetailLabel: consumerLabel, systems }),
+    [location.pathname, consumerLabel, systems],
   );
 
   if (crumbs.length === 0) return null;

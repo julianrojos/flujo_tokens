@@ -7,9 +7,10 @@ import { OperationRow } from "./operation-row";
 
 interface OpsActionsSectionsProps {
   onRunSuccess: () => void;
+  systemId?: string;
 }
 
-export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
+export function OpsActionsSections({ onRunSuccess, systemId }: OpsActionsSectionsProps) {
   return (
     <>
       {/* Data & Indexing */}
@@ -22,11 +23,11 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
           Regenera los índices y artefactos derivados de tokens y componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Reconcila y normaliza metadatos de componentes directamente en la base de datos." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} />
-          <OperationRow id="usage-index" label="Rebuild Usage Index" description="Reconstruye el índice de uso de tokens desde señales persistidas en base de datos." endpoint="/api/refresh-token-usage-index" onRunSuccess={onRunSuccess} />
-          <OperationRow id="token-health" label="Recompute Token Health" description="Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución." endpoint="/api/refresh-token-health" onRunSuccess={onRunSuccess} />
-          <OperationRow id="health-snapshot" label="Capture Health Snapshot" description="Guarda el estado actual de salud en el historial de tendencias." endpoint="/api/capture-health-snapshot" onRunSuccess={onRunSuccess} />
-          <OperationRow id="rebuild-token-graph" label="Rebuild Token Graph" description="Recomputa el grafo de dependencias entre tokens, detectando ciclos." endpoint="/api/refresh-token-graph" onRunSuccess={onRunSuccess} />
+          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Reconcila y normaliza metadatos de componentes directamente en la base de datos." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} systemId={systemId} />
+          <OperationRow id="usage-index" label="Rebuild Usage Index" description="Reconstruye el índice de uso de tokens desde señales persistidas en base de datos." endpoint="/api/refresh-token-usage-index" onRunSuccess={onRunSuccess} systemId={systemId} />
+          <OperationRow id="token-health" label="Recompute Token Health" description="Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución." endpoint="/api/refresh-token-health" onRunSuccess={onRunSuccess} systemId={systemId} />
+          <OperationRow id="health-snapshot" label="Capture Health Snapshot" description="Guarda el estado actual de salud en el historial de tendencias." endpoint="/api/capture-health-snapshot" onRunSuccess={onRunSuccess} systemId={systemId} />
+          <OperationRow id="rebuild-token-graph" label="Rebuild Token Graph" description="Recomputa el grafo de dependencias entre tokens, detectando ciclos." endpoint="/api/refresh-token-graph" onRunSuccess={onRunSuccess} systemId={systemId} />
         </div>
       </section>
 
@@ -40,7 +41,7 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
           Reportes de calidad y estado de componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-components-health" label="Refresh Components Health" description="Genera el reporte de salud de componentes: pipeline, docs, readiness." endpoint="/api/refresh-components-health" />
+          <OperationRow id="refresh-components-health" label="Refresh Components Health" description="Genera el reporte de salud de componentes: pipeline, docs, readiness." endpoint="/api/refresh-components-health" systemId={systemId} />
         </div>
       </section>
     </>
