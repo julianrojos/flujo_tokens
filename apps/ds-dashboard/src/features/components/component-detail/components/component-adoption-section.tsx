@@ -4,6 +4,7 @@ import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { Link } from "react-router-dom";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { splitComponentName } from "@/lib/component-identity";
+import { toConsumerDetail } from "@/lib/routes";
 import { useComponentAdoption } from "../hooks/use-component-adoption";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 
@@ -130,7 +131,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
                       <tr key={consumer.id} className="border-t">
                         <td className="px-3 py-2">
                           <Link
-                            to={`/consumers/${encodeURIComponent(consumer.id)}`}
+                            to={toConsumerDetail(consumer.id)}
                             className="text-app-accent hover:underline"
                           >
                             {consumer.name}

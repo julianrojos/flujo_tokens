@@ -25,6 +25,7 @@ import {
   ModalContent,
 } from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { ROUTE_PATTERNS } from "@/lib/routes";
 import { useGlobalSearch, type GlobalSearchItem } from "./use-global-search";
 
 interface GlobalCommandPaletteProps {
@@ -128,37 +129,23 @@ export function GlobalCommandPalette({
       {
         id: "go:health",
         title: "Open Health Dashboard",
-        subtitle: "Go to /health",
+        subtitle: `Go to ${ROUTE_PATTERNS.health}`,
         keywords: ["open", "health", "dashboard"],
-        run: () => navigate("/health"),
+        run: () => navigate(ROUTE_PATTERNS.health),
       },
       {
         id: "go:tokens",
         title: "Open Tokens",
-        subtitle: "Go to /tokens",
+        subtitle: `Go to ${ROUTE_PATTERNS.tokens}`,
         keywords: ["open", "tokens", "properties"],
-        run: () => navigate("/tokens"),
+        run: () => navigate(ROUTE_PATTERNS.tokens),
       },
       {
         id: "go:components",
         title: "Open Components",
-        subtitle: "Go to /components",
+        subtitle: `Go to ${ROUTE_PATTERNS.components}`,
         keywords: ["open", "components"],
-        run: () => navigate("/components"),
-      },
-      {
-        id: "go:token-graph",
-        title: "Open Token Graph",
-        subtitle: "Go to /token-graph",
-        keywords: ["open", "graph", "token", "dependencies"],
-        run: () => navigate("/token-graph"),
-      },
-      {
-        id: "go:impact",
-        title: "Open Impact Explorer",
-        subtitle: "Go to /impact",
-        keywords: ["open", "impact", "blast", "radius"],
-        run: () => navigate("/impact"),
+        run: () => navigate(ROUTE_PATTERNS.components),
       },
       {
         id: "refresh:registry",

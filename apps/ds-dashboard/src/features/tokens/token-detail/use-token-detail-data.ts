@@ -2,7 +2,6 @@ import {
   fetchComponentRegistry,
   fetchDesignSystemsConfig,
   fetchReportByVariable,
-  fetchTokenGraphQuery,
   fetchTokenHealth,
   fetchTokenRegistry,
   fetchTokenUsageIndex,
@@ -15,7 +14,6 @@ import { QUERY_DEFAULTS } from "@/lib/query-client";
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { VariableUsageReport } from "@/types/consumers";
 import type { TokenRegistry } from "@/types/token-registry";
-import type { TokenGraphQueryResult } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { TokenUsageEntry, TokenUsageIndex, TokenUsageOccurrence } from "@/types/token-usage-index";
 import { buildFigmaConsumerUsageOccurrences } from "./lib/token-detail-usage-derivation";
@@ -27,7 +25,6 @@ type TokenDetailQueryData = {
   dsFileKey: string | null;
   registry: TokenRegistry;
   tokenHealth: TokenHealthReport | null;
-  graphQuery: TokenGraphQueryResult | null;
   componentRegistry: ComponentRegistry | null;
 };
 
@@ -50,15 +47,10 @@ export function useTokenDetailQuery(tokenPath: string) {
         activeSystemId,
       );
 
-      const [registry, tokenHealth, graphQuery, componentRegistry] =
+      const [registry, tokenHealth, componentRegistry] =
         await Promise.all([
           fetchTokenRegistry(),
           fetchTokenHealth().catch(() => null),
-          fetchTokenGraphQuery({
-            tokenPath,
-            direction: "both",
-            depth: 4,
-          }).catch(() => null),
           fetchComponentRegistry().catch(() => null),
         ]);
 
@@ -67,7 +59,6 @@ export function useTokenDetailQuery(tokenPath: string) {
         dsFileKey,
         registry,
         tokenHealth,
-        graphQuery,
         componentRegistry,
       };
     },
@@ -204,7 +195,6 @@ export function useTokenDetailData(tokenPath: string) {
   }, [tokenPath, registry, variableReportsQuery.data]);
 
   const tokenHealth = query.data?.tokenHealth ?? null;
-  const graphQuery = query.data?.graphQuery ?? null;
   const components = query.data?.componentRegistry?.components ?? [];
 
   return {
@@ -215,7 +205,6 @@ export function useTokenDetailData(tokenPath: string) {
     usage,
     usageByPath,
     tokenHealth,
-    graphQuery,
     components,
     usageIndexHasError: usageIndexQuery.data?.hasError ?? false,
   };

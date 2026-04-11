@@ -7,7 +7,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  normalizeImpactWcagPairs,
   runNodeJsonCommandOnce,
   validateGitRef,
 } from './analysis-artifacts-service.js';
@@ -19,23 +18,6 @@ describe('analysis-artifacts-service', () => {
       assert.equal(validateGitRef('feature/my-branch'), 'feature/my-branch');
       assert.equal(validateGitRef('invalid ref'), null);
       assert.equal(validateGitRef('refs:bad'), null);
-    });
-  });
-
-  describe('normalizeImpactWcagPairs()', () => {
-    it('sanitizes payload', () => {
-      const pairs = normalizeImpactWcagPairs({
-        pairs: [
-          { foreground: 'a', background: 'b', level: 'aaa', textSize: 'large' },
-          { foreground: 'x', background: 'y', level: 'AA', textSize: 'normal' },
-          { foreground: '', background: 'y' },
-        ],
-      });
-
-      assert.deepEqual(pairs, [
-        { foreground: 'a', background: 'b', level: 'AAA', textSize: 'large' },
-        { foreground: 'x', background: 'y', level: 'AA', textSize: 'normal' },
-      ]);
     });
   });
 

@@ -60,7 +60,6 @@ test('register-all-routes-service: buildAllRouteDeps returns grouped route contr
   const grouped = buildAllRouteDeps(deps);
 
   assert.equal(grouped.registryDeps.failJson, deps.failJson);
-  assert.equal(grouped.analysisDeps.getSystemContext, deps.getSystemContext);
   assert.equal(grouped.fileDeps.MAX_FILE_BYTES, deps.MAX_FILE_BYTES);
   assert.equal(grouped.jobDeps.MAX_RETAINED_EVENTS, deps.MAX_RETAINED_EVENTS);
   assert.equal(grouped.commandDeps.validateGitRef, deps.validateGitRef);

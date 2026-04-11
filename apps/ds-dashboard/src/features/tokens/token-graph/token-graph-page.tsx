@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createSearchParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, RefreshCcw } from "lucide-react";
 
 import { fetchTokenGraph, refreshTokenGraph } from "@/lib/api";
@@ -8,7 +8,6 @@ import type { TokenGraphViz } from "@/types/token-graph";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { cn } from "@/lib/utils";
@@ -128,9 +127,8 @@ function normalizeDepth(raw: string | null) {
 }
 
 export function TokenGraphPage() {
+  const { tokenPath } = useParams<{ tokenPath: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const tokenQuery = searchParams.get("token") ?? "";
   const direction = normalizeDirection(searchParams.get("dir"));
   const depth = normalizeDepth(searchParams.get("depth"));
 
@@ -140,12 +138,7 @@ export function TokenGraphPage() {
   const [syncing, setSyncing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
 
-  const [tokenInput, setTokenInput] = useState(tokenQuery);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setTokenInput(tokenQuery);
-  }, [tokenQuery]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -192,28 +185,16 @@ export function TokenGraphPage() {
   }, [refreshNotice]);
 
   useEffect(() => {
-    if (!graph) return;
-    const resolved = resolveNodeIdFromQuery(graph, tokenQuery);
+    if (!graph || !tokenPath) return;
+    const resolved = resolveNodeIdFromQuery(graph, tokenPath);
     if (resolved) {
       setSelectedId(resolved);
       return;
     }
     setSelectedId(null);
-  }, [graph, tokenQuery]);
+  }, [graph, tokenPath]);
 
   const indexes = useMemo(() => (graph ? buildGraphIndexes(graph) : null), [graph]);
-
-  const tokenOptions = useMemo(() => {
-    if (!graph) return [];
-    return graph.nodes
-      .slice()
-      .sort((a, b) =>
-        getNodeDisplayKey(a).localeCompare(getNodeDisplayKey(b), "en", {
-          sensitivity: "base",
-        }),
-      )
-      .slice(0, 2500);
-  }, [graph]);
 
   const positioned = useMemo(() => {
     if (!graph || !selectedId) return null;
@@ -225,17 +206,7 @@ export function TokenGraphPage() {
     if (!selectedId || !indexes) return null;
     return indexes.nodeById.get(selectedId) ?? null;
   }, [indexes, selectedId]);
-
-  const onSubmitToken = () => {
-    const q = tokenInput.trim();
-    setSearchParams(
-      createSearchParams({
-        ...(q ? { token: q } : {}),
-        dir: direction,
-        depth: String(depth),
-      }),
-    );
-  };
+  const resolvedRootLabel = tokenPath ?? "";
 
   const onRefresh = async () => {
     setSyncing(true);
@@ -261,16 +232,13 @@ export function TokenGraphPage() {
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => {
-          if (window.history.length > 1) {
-            navigate(-1);
-          } else {
-            navigate("/tokens");
-          }
-        }}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+        <Link
+          to={`/tokens/${encodeURIComponent(tokenPath ?? "")}`}
+          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to token
+        </Link>
         {graph ? <Badge variant="neutral">{graph.summary.nodes} nodes</Badge> : null}
         {graph ? <Badge variant="neutral">{graph.summary.edges} edges</Badge> : null}
         {graph ? (
@@ -283,9 +251,13 @@ export function TokenGraphPage() {
       <Card>
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <CardTitle>Token Graph</CardTitle>
+            <CardTitle>Dependency Graph</CardTitle>
             <CardDescription>
-              Visualiza dependencias (referencias <span className="font-mono">var(--…)</span>) entre tokens.
+              {resolvedRootLabel ? (
+                <>Root: <span className="font-mono text-foreground">{resolvedRootLabel}</span></>
+              ) : (
+                "No token specified"
+              )}
             </CardDescription>
             {refreshNotice ? (
               <p className="mt-2 text-sm text-status-success">
@@ -309,30 +281,8 @@ export function TokenGraphPage() {
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading token graph…</div>
           ) : graph ? (
-            <div className="grid gap-3 md:grid-cols-12">
-              <div className="md:col-span-8">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Token
-                </label>
-                <div className="mt-2 flex flex-col gap-2 md:flex-row">
-                  <div className="flex-1">
-                    <Input
-                      value={tokenInput}
-                      onChange={(e) => setTokenInput(e.target.value)}
-                      placeholder="Token path / slashPath / cssVar (ej: Semantic.Color… o --color-…)"
-                      list="token-graph-options"
-                    />
-                    <datalist id="token-graph-options">
-                      {tokenOptions.map((node) => (
-                        <option key={node.id} value={node.path || getNodeDisplayKey(node)} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <Button onClick={onSubmitToken}>Go</Button>
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Direction
                 </label>
@@ -340,13 +290,7 @@ export function TokenGraphPage() {
                   className="mt-2 w-full"
                   value={direction}
                   onChange={(e) =>
-                    setSearchParams(
-                      createSearchParams({
-                        ...(tokenQuery ? { token: tokenQuery } : {}),
-                        dir: e.target.value,
-                        depth: String(depth),
-                      }),
-                    )
+                    setSearchParams({ dir: e.target.value, depth: String(depth) })
                   }
                 >
                   <option value="dependencies">dependencies</option>
@@ -355,7 +299,7 @@ export function TokenGraphPage() {
                 </Select>
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Depth
                 </label>
@@ -363,13 +307,7 @@ export function TokenGraphPage() {
                   className="mt-2 w-full"
                   value={String(depth)}
                   onChange={(e) =>
-                    setSearchParams(
-                      createSearchParams({
-                        ...(tokenQuery ? { token: tokenQuery } : {}),
-                        dir: direction,
-                        depth: e.target.value,
-                      }),
-                    )
+                    setSearchParams({ dir: direction, depth: e.target.value })
                   }
                 >
                   {Array.from({ length: 7 }).map((_, i) => {
@@ -392,6 +330,21 @@ export function TokenGraphPage() {
           )}
         </CardContent>
       </Card>
+
+      {graph && !selectedNode && resolvedRootLabel ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Token not found in graph</CardTitle>
+            <CardDescription>
+              The current graph does not contain a node for{" "}
+              <span className="font-mono text-foreground">{resolvedRootLabel}</span>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Refresh the token graph if the token was added recently, or return to the token detail page to confirm the token path.
+          </CardContent>
+        </Card>
+      ) : null}
 
       {graph && selectedNode ? (
         <div className="grid gap-4 lg:grid-cols-12">
@@ -457,18 +410,6 @@ export function TokenGraphPage() {
                   className="text-sm font-semibold text-primary hover:underline"
                 >
                   Open token detail →
-                </Link>
-                <Link
-                  to={{
-                    pathname: "/impact",
-                    search: new URLSearchParams({
-                      token: selectedNode.path,
-                      depth: String(Math.max(2, depth)),
-                    }).toString(),
-                  }}
-                  className="mt-2 block text-sm font-semibold text-primary hover:underline"
-                >
-                  Analyze impact →
                 </Link>
               </div>
             </CardContent>

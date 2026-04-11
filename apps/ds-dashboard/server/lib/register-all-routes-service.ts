@@ -88,7 +88,6 @@ export interface AllRouteDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
-  analysisDeps: SharedSystemContextDeps;
   componentSpecDeps: ComponentSpecDeps;
   fileDeps: FileDeps;
   jobDeps: JobDeps;
@@ -173,7 +172,6 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
     componentRepo: deps.componentRepo,
     tokenRepo: deps.tokenRepo,
     healthRepo: deps.healthRepo,
-    analysisDeps: sharedSystemContextDeps,
     componentSpecDeps: {
       ...sharedSystemContextDeps,
       isDevRuntime: deps.isDevRuntime,

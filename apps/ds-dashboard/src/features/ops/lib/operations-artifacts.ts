@@ -48,11 +48,14 @@ export const getSystemHeaders = (): HeadersInit | undefined => {
 /**
  * Fetch artifact metadata from API endpoints
  */
-export async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>> {
+export async function fetchArtifactMeta(id: ArtifactId, systemId?: string): Promise<Partial<ArtifactMeta>> {
+  const headers: HeadersInit | undefined = systemId
+    ? { "x-ds-system": systemId }
+    : getSystemHeaders();
   try {
     switch (id) {
       case "registry": {
-        const r = await fetch("/api/component-registry", { headers: getSystemHeaders() });
+        const r = await fetch("/api/component-registry", { headers });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
@@ -61,7 +64,7 @@ export async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<Artifac
         return { generatedAt, summary: `${count} components · v${d.schema_version ?? 1}` };
       }
       case "usage": {
-        const r = await fetch("/api/token-usage-index", { headers: getSystemHeaders() });
+        const r = await fetch("/api/token-usage-index", { headers });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
@@ -70,7 +73,7 @@ export async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<Artifac
         return { generatedAt, summary: `${total} tokens indexados` };
       }
       case "health": {
-        const r = await fetch("/api/token-health", { headers: getSystemHeaders() });
+        const r = await fetch("/api/token-health", { headers });
         if (!r.ok) return {};
         const d = await r.json();
         const generatedAt = d.generated_at;
@@ -79,7 +82,7 @@ export async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<Artifac
         return { generatedAt, summary: `${broken} broken · ${unused} unused` };
       }
       case "graph": {
-        const r = await fetch("/api/token-graph", { headers: getSystemHeaders() });
+        const r = await fetch("/api/token-graph", { headers });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");

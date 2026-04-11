@@ -2,9 +2,13 @@
  * useOperationsArtifacts hook - encapsulates artifact state + refresh.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ArtifactMeta, ArtifactId } from "../lib/operations-artifacts";
 import { INITIAL_ARTIFACTS, fetchArtifactMeta, staleness } from "../lib/operations-artifacts";
+
+export interface UseOperationsArtifactsOptions {
+  systemId?: string;
+}
 
 export interface UseOperationsArtifactsResult {
   artifacts: ArtifactMeta[];
@@ -12,16 +16,21 @@ export interface UseOperationsArtifactsResult {
   refreshStatuses: () => Promise<void>;
 }
 
-export function useOperationsArtifacts(): UseOperationsArtifactsResult {
+export function useOperationsArtifacts(options?: UseOperationsArtifactsOptions): UseOperationsArtifactsResult {
+  const { systemId } = options ?? {};
   const [artifacts, setArtifacts] = useState<ArtifactMeta[]>(INITIAL_ARTIFACTS);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    setArtifacts(INITIAL_ARTIFACTS);
+  }, [systemId]);
 
   const refreshStatuses = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const updates = await Promise.all(
         (["registry", "usage", "health", "graph"] as ArtifactId[]).map((id) =>
-          fetchArtifactMeta(id).then((meta) => ({ id, ...meta }))
+          fetchArtifactMeta(id, systemId).then((meta) => ({ id, ...meta }))
         )
       );
       setArtifacts((prev) =>
@@ -39,7 +48,7 @@ export function useOperationsArtifacts(): UseOperationsArtifactsResult {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [systemId]);
 
   return { artifacts, isRefreshing, refreshStatuses };
 }

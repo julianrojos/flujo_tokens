@@ -11,6 +11,7 @@ interface OperationRowProps {
   description: string;
   endpoint: string;
   onRunSuccess?: () => void;
+  systemId?: string;
 }
 
 export function OperationRow({
@@ -19,10 +20,11 @@ export function OperationRow({
   description,
   endpoint,
   onRunSuccess,
+  systemId,
 }: OperationRowProps) {
   const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [{ status, isRunning, logLines, summary, lastRunAt, elapsedMs }, { run, clearLogs }] =
-    useOperationRunner(id, endpoint, onRunSuccess);
+    useOperationRunner(id, endpoint, onRunSuccess, { systemId });
 
   // Use a callback that receives the result status directly to avoid stale closure
   const handleRun = useCallback(async () => {

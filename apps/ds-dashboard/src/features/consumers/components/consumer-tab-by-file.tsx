@@ -10,6 +10,7 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
+import { toConsumerDetail } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { Info, Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
@@ -427,7 +428,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   <td className="px-3 py-3">
                     <div className="space-y-0.5">
                       <Link
-                        to={`/consumers/${report.consumerId}`}
+                        to={toConsumerDetail(report.consumerId)}
                         className="font-medium text-foreground hover:underline"
                       >
                         {report.consumerName}

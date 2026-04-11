@@ -8,6 +8,7 @@ import {
   getActiveSystemId,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { ROUTE_PATTERNS, toComponentDetail, toTokenDetail } from "@/lib/routes";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { TokenHealthReport } from "@/types/token-health";
 
@@ -65,7 +66,7 @@ function buildHealthIssueItems(
         kind: "health-issue",
         title: issue.title,
         subtitle: "Token Health",
-        href: "/health",
+        href: ROUTE_PATTERNS.health,
         keywords: issue.keywords,
       });
     }
@@ -98,7 +99,7 @@ function buildHealthIssueItems(
         kind: "health-issue",
         title: issue.title,
         subtitle: "Components Health",
-        href: "/health",
+        href: ROUTE_PATTERNS.health,
         keywords: issue.keywords,
       });
     }
@@ -133,7 +134,7 @@ export function useGlobalSearch() {
         kind: "token",
         title: entry.path,
         subtitle: `${entry.collection} · ${entry.type} · ${entry.resolvedValue}`,
-        href: `/tokens/${encodeURIComponent(entry.path)}`,
+        href: toTokenDetail(entry.path),
         keywords: [entry.path, entry.slashPath, entry.cssVar, entry.collection, entry.type],
       }));
 
@@ -144,7 +145,7 @@ export function useGlobalSearch() {
         kind: "component",
         title: item.display_name,
         subtitle: `${item.pipeline_stage} · ${item.doc.status}`,
-        href: `/components/${encodeURIComponent(item.slug)}`,
+        href: toComponentDetail(item.slug),
         keywords: [item.display_name, item.slug, item.pipeline_stage, item.doc.status],
       }));
 

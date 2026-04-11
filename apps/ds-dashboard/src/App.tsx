@@ -13,13 +13,10 @@ import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom"
 import {
   Activity,
   Boxes,
-  GitBranch,
   Layers3,
   Settings2,
-  TrendingDown,
   type LucideIcon,
   Search,
-  Zap,
   Network,
 } from "lucide-react";
 
@@ -43,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { Button } from "@/components/ui/button";
+import { ROUTE_PATTERNS } from "@/lib/routes";
 
 const GlobalCommandPalette = lazy(() =>
   import("@/features/command-palette/global-command-palette").then((module) => ({
@@ -101,12 +99,6 @@ const TokenDetailPage = lazy(() =>
 const TokenGraphPage = lazy(() =>
   import("@/features/tokens/token-graph/token-graph-page").then((module) => ({
     default: module.TokenGraphPage,
-  })),
-);
-
-const ImpactExplorerPage = lazy(() =>
-  import("@/features/impact/impact-explorer-page").then((module) => ({
-    default: module.ImpactExplorerPage,
   })),
 );
 
@@ -205,19 +197,13 @@ const navSections: NavSection[] = [
     label: "System",
     items: [
       {
-        to: "/health",
+        to: ROUTE_PATTERNS.health,
         label: "Health",
         description: "Operational status",
         icon: Activity,
       },
       {
-        to: "/ops",
-        label: "Operations",
-        description: "Pipeline & synchronization",
-        icon: Zap,
-      },
-      {
-        to: "/system/admin",
+        to: ROUTE_PATTERNS.systemAdmin,
         label: "Design Systems Admin",
         description: "Manage system configuration",
         icon: Settings2,
@@ -229,25 +215,13 @@ const navSections: NavSection[] = [
     label: "Tokens",
     items: [
       {
-        to: "/tokens",
+        to: ROUTE_PATTERNS.tokens,
         label: "Explore",
         description: "Registry and properties",
         icon: Layers3,
       },
       {
-        to: "/token-graph",
-        label: "Graph",
-        description: "Dependencies and cycles",
-        icon: GitBranch,
-      },
-      {
-        to: "/impact",
-        label: "Impact",
-        description: "What breaks if X changes",
-        icon: TrendingDown,
-      },
-      {
-        to: "/consumers",
+        to: ROUTE_PATTERNS.consumers,
         label: "Consumer Files",
         description: "Cross-file usage tracking",
         icon: Network,
@@ -259,7 +233,7 @@ const navSections: NavSection[] = [
     label: "Components",
     items: [
       {
-        to: "/components",
+        to: ROUTE_PATTERNS.components,
         label: "Explore",
         description: "Status and docs pipeline",
         icon: Boxes,
@@ -281,9 +255,7 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const componentsPrefetchedRef = useRef(false);
-  const tokenGraphPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
-  const tokenGraphPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
   const { systems } = useDesignSystem();
   const hasSystems = systems.length > 0;
@@ -302,28 +274,14 @@ export default function App() {
     });
   }, []);
 
-  const prefetchTokenGraphRoute = useCallback(() => {
-    if (Date.now() < tokenGraphPrefetchRetryAfterRef.current) return;
-    if (tokenGraphPrefetchedRef.current) return;
-    tokenGraphPrefetchedRef.current = true;
-    void import("@/features/tokens/token-graph/token-graph-page").catch(() => {
-      tokenGraphPrefetchedRef.current = false;
-      tokenGraphPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
-    });
-  }, []);
-
   const prefetchRoute = useCallback(
     (to: string) => {
-      if (to === "/components") {
+      if (to === ROUTE_PATTERNS.components) {
         prefetchComponentsRoutes();
         return;
       }
-      if (to === "/token-graph") {
-        prefetchTokenGraphRoute();
-        return;
-      }
     },
-    [prefetchComponentsRoutes, prefetchTokenGraphRoute],
+    [prefetchComponentsRoutes],
   );
 
   useEffect(() => {
@@ -483,21 +441,20 @@ export default function App() {
               <RouteErrorBoundary key={`${location.pathname}${location.search}${location.hash}`}>
                 <Suspense fallback={<RouteLoadingFallback />}>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/health" replace />} />
-                    <Route path="/system/new" element={<NewSystemPage />} />
-                    <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
-                    <Route path="/health" element={<HealthDashboardPage />} />
-                    <Route path="/ops" element={<OperationsPage />} />
-                    <Route path="/components" element={<ComponentsPage />} />
-                    <Route path="/components/:slug" element={<ComponentDetailPage />} />
-                    <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
-                    <Route path="/tokens" element={<TokensPage />} />
-                    <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
-                    <Route path="/token-graph" element={<TokenGraphPage />} />
-                    <Route path="/impact" element={<ImpactExplorerPage />} />
-                    <Route path="/file" element={<FileViewerPage />} />
-                    <Route path="/consumers" element={<ConsumersPage />} />
-                    <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.root} element={<Navigate to={ROUTE_PATTERNS.health} replace />} />
+                    <Route path={ROUTE_PATTERNS.systemNew} element={<NewSystemPage />} />
+                    <Route path={ROUTE_PATTERNS.systemAdmin} element={<DesignSystemsAdminPage />} />
+                    <Route path={ROUTE_PATTERNS.health} element={<HealthDashboardPage />} />
+                    <Route path={ROUTE_PATTERNS.systemOperations} element={<OperationsPage />} />
+                    <Route path={ROUTE_PATTERNS.components} element={<ComponentsPage />} />
+                    <Route path={ROUTE_PATTERNS.componentDetail} element={<ComponentDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.componentEditDocs} element={<EditComponentDocsPage />} />
+                    <Route path={ROUTE_PATTERNS.tokens} element={<TokensPage />} />
+                    <Route path={ROUTE_PATTERNS.tokenDetail} element={<TokenDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.tokenGraph} element={<TokenGraphPage />} />
+                    <Route path={ROUTE_PATTERNS.fileViewer} element={<FileViewerPage />} />
+                    <Route path={ROUTE_PATTERNS.consumers} element={<ConsumersPage />} />
+                    <Route path={ROUTE_PATTERNS.consumerDetail} element={<ConsumerDetailPage />} />
                   </Routes>
                 </Suspense>
               </RouteErrorBoundary>

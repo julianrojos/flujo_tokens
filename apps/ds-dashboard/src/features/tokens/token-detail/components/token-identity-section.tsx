@@ -2,12 +2,11 @@
  * Token Identity Section - displays token header, swatch, type, collection.
  */
 
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy } from "lucide-react";
 import type { TokenEntry } from "@/types/token-registry";
 
 interface TokenIdentitySectionProps {
@@ -70,15 +69,6 @@ export function TokenIdentitySection({
               </CardDescription>
             </div>
           </div>
-          <Link
-            to={{
-              pathname: "/impact",
-              search: new URLSearchParams({ token: token.path, depth: "4" }).toString(),
-            }}
-            className="text-xs font-semibold text-primary hover:underline"
-          >
-            Analyze impact →
-          </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -1,24 +1,12 @@
 /**
  * Analysis Artifacts Service
  *
- * Provides analysis utilities for WCAG pairs and shared node-JSON command helpers.
- * Migrated from apps/ds-dashboard/server/services/analysis-artifacts-service.mjs
+ * Provides shared git-ref validation and node-JSON command helpers.
  */
 
 import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from '../lib/spawn-runner.ts';
 
 const DEFAULT_MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2MB
-
-export interface WcagPair {
-  foreground: string;
-  background: string;
-  level: 'AA' | 'AAA';
-  textSize: 'normal' | 'large';
-}
-
-export interface WcagPairsPayload {
-  pairs: Array<Partial<WcagPair>>;
-}
 
 export interface RunNodeJsonCommandOnceOptions {
   cwd: string;
@@ -49,31 +37,6 @@ export function validateGitRef(raw: unknown): string | null {
   if (/\s/.test(value)) return null;
   if (!/^[A-Za-z0-9._/~^-]+$/.test(value)) return null;
   return value;
-}
-
-/**
- * Normalize and sanitize WCAG pairs payload.
- */
-export function normalizeImpactWcagPairs(raw: unknown): WcagPair[] {
-  const list =
-    raw && typeof raw === 'object' && Array.isArray((raw as WcagPairsPayload).pairs)
-      ? (raw as WcagPairsPayload).pairs
-      : [];
-
-  const pairs: WcagPair[] = [];
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue;
-    const foreground = String((item as any).foreground ?? '').trim();
-    const background = String((item as any).background ?? '').trim();
-    if (!foreground || !background) continue;
-    const level = String((item as any).level ?? 'AA').trim().toUpperCase() === 'AAA' ? 'AAA' : 'AA';
-    const textSize =
-      String((item as any).textSize ?? 'normal').trim().toLowerCase() === 'large'
-        ? 'large'
-        : 'normal';
-    pairs.push({ foreground, background, level, textSize });
-  }
-  return pairs;
 }
 
 /**
