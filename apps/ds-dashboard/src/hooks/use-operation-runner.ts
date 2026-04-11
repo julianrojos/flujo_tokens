@@ -59,7 +59,8 @@ export function useOperationRunner(
   onRunSuccess?: () => void,
   options?: OperationRunnerOptions,
 ): [OperationRunnerState, OperationRunnerActions] {
-  const storedKey = STORAGE_KEY_PREFIX + operationId;
+  const storageScope = String(options?.systemId || "global").trim() || "global";
+  const storedKey = `${STORAGE_KEY_PREFIX}${storageScope}:${operationId}`;
 
   const [status, setStatus] = useState<RunStatus>("idle");
   const [logLines, setLogLines] = useState<LogLine[]>([]);
