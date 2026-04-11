@@ -18,6 +18,7 @@ import { ComponentSpecSection } from "./components/component-spec-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
+import { toComponentEditDocs } from "@/lib/routes";
 
 export function ComponentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -129,7 +130,7 @@ export function ComponentDetailPage() {
         hasFigmaUrl={Boolean(item.figma.file_url)}
         canOpenDocs={canOpenDocs}
         onCapture={() => setCaptureModalOpen(true)}
-        onOpenEditorial={() => navigate(`/components/${slug}/edit-docs`)}
+        onOpenEditorial={() => navigate(toComponentEditDocs(slug ?? ""))}
       />
 
       <ComponentGraphSection usage={usage} allItems={allItems} />
@@ -150,7 +151,7 @@ export function ComponentDetailPage() {
         downloadError={downloadError}
         downloadWarnings={downloadWarnings}
         onDownloadMarkdown={handleDownloadMarkdown}
-        onOpenEditorial={() => navigate(`/components/${slug}/edit-docs`)}
+        onOpenEditorial={() => navigate(toComponentEditDocs(slug ?? ""))}
         selfSlug={item.slug}
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}

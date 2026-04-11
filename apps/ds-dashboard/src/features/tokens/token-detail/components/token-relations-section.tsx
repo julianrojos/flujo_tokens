@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { toTokenGraph } from "@/lib/routes";
 
 interface TokenRelationsSectionProps {
   tokenPath: string;
@@ -31,7 +32,7 @@ export function TokenRelationsSection({
   aliasOf,
   hasDescendantAliases,
 }: TokenRelationsSectionProps) {
-  const graphPath = `/tokens/${encodeURIComponent(tokenPath)}/graph`;
+  const graphPath = toTokenGraph(tokenPath);
   const prefetch = useGraphPrefetch();
 
   return (

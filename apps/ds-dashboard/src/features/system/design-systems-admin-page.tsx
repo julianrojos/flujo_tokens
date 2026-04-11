@@ -16,6 +16,7 @@ import {
 import type { DeletePreviewResponse } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { ROUTE_PATTERNS, toConsumerDetail, toSystemOperations } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { NewSystemPage } from "@/features/system/new-system-page";
 import { DesignSystemUpdateActions } from "@/features/system/design-system-update-actions";
@@ -346,7 +347,7 @@ export function DesignSystemsAdminPage() {
                       </Button>
                     ) : null}
                     <Link
-                      to={`/system/${encodeURIComponent(id)}/operations`}
+                      to={toSystemOperations(id)}
                       className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
                     >
                       Operations
@@ -541,7 +542,7 @@ export function DesignSystemsAdminPage() {
                       {registeredConsumers.map((consumer) => (
                         <li key={consumer.id}>
                           <Link
-                            to={`/consumers/${consumer.id}`}
+                            to={toConsumerDetail(consumer.id)}
                             className="text-sm text-app-accent hover:underline"
                           >
                             {consumer.consumerName || consumer.consumerFileKey || "Unnamed Consumer"}
@@ -555,7 +556,7 @@ export function DesignSystemsAdminPage() {
                     </p>
                   )}
                   <Link
-                    to="/consumers"
+                    to={ROUTE_PATTERNS.consumers}
                     className={cn(
                       buttonVariants({ variant: "outline", size: "sm" }),
                       "mt-3 inline-flex",

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
+import { toConsumerDetail } from "@/lib/routes";
 import { ConsumerSyncStatusBadge } from "./consumer-sync-status-badge";
 import type { DsConsumer, DsSyncRun, ImpactLevel } from "@/types/consumers";
 
@@ -42,7 +43,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-base font-semibold">
               <Link
-                to={`/consumers/${consumer.id}`}
+                to={toConsumerDetail(consumer.id)}
                 className="hover:underline"
               >
                 {consumer.consumerName}

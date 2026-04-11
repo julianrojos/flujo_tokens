@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { Button } from "@/components/ui/button";
+import { ROUTE_PATTERNS } from "@/lib/routes";
 
 const GlobalCommandPalette = lazy(() =>
   import("@/features/command-palette/global-command-palette").then((module) => ({
@@ -196,13 +197,13 @@ const navSections: NavSection[] = [
     label: "System",
     items: [
       {
-        to: "/health",
+        to: ROUTE_PATTERNS.health,
         label: "Health",
         description: "Operational status",
         icon: Activity,
       },
       {
-        to: "/system/admin",
+        to: ROUTE_PATTERNS.systemAdmin,
         label: "Design Systems Admin",
         description: "Manage system configuration",
         icon: Settings2,
@@ -214,13 +215,13 @@ const navSections: NavSection[] = [
     label: "Tokens",
     items: [
       {
-        to: "/tokens",
+        to: ROUTE_PATTERNS.tokens,
         label: "Explore",
         description: "Registry and properties",
         icon: Layers3,
       },
       {
-        to: "/consumers",
+        to: ROUTE_PATTERNS.consumers,
         label: "Consumer Files",
         description: "Cross-file usage tracking",
         icon: Network,
@@ -232,7 +233,7 @@ const navSections: NavSection[] = [
     label: "Components",
     items: [
       {
-        to: "/components",
+        to: ROUTE_PATTERNS.components,
         label: "Explore",
         description: "Status and docs pipeline",
         icon: Boxes,
@@ -275,7 +276,7 @@ export default function App() {
 
   const prefetchRoute = useCallback(
     (to: string) => {
-      if (to === "/components") {
+      if (to === ROUTE_PATTERNS.components) {
         prefetchComponentsRoutes();
         return;
       }
@@ -447,20 +448,20 @@ export default function App() {
               <RouteErrorBoundary key={`${location.pathname}${location.search}${location.hash}`}>
                 <Suspense fallback={<RouteLoadingFallback />}>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/health" replace />} />
-                    <Route path="/system/new" element={<NewSystemPage />} />
-                    <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
-                    <Route path="/health" element={<HealthDashboardPage />} />
-                    <Route path="/system/:systemId/operations" element={<OperationsPage />} />
-                    <Route path="/components" element={<ComponentsPage />} />
-                    <Route path="/components/:slug" element={<ComponentDetailPage />} />
-                    <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
-                    <Route path="/tokens" element={<TokensPage />} />
-                    <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
-                    <Route path="/tokens/:tokenPath/graph" element={<TokenGraphPage />} />
-                    <Route path="/file" element={<FileViewerPage />} />
-                    <Route path="/consumers" element={<ConsumersPage />} />
-                    <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.root} element={<Navigate to={ROUTE_PATTERNS.health} replace />} />
+                    <Route path={ROUTE_PATTERNS.systemNew} element={<NewSystemPage />} />
+                    <Route path={ROUTE_PATTERNS.systemAdmin} element={<DesignSystemsAdminPage />} />
+                    <Route path={ROUTE_PATTERNS.health} element={<HealthDashboardPage />} />
+                    <Route path={ROUTE_PATTERNS.systemOperations} element={<OperationsPage />} />
+                    <Route path={ROUTE_PATTERNS.components} element={<ComponentsPage />} />
+                    <Route path={ROUTE_PATTERNS.componentDetail} element={<ComponentDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.componentEditDocs} element={<EditComponentDocsPage />} />
+                    <Route path={ROUTE_PATTERNS.tokens} element={<TokensPage />} />
+                    <Route path={ROUTE_PATTERNS.tokenDetail} element={<TokenDetailPage />} />
+                    <Route path={ROUTE_PATTERNS.tokenGraph} element={<TokenGraphPage />} />
+                    <Route path={ROUTE_PATTERNS.fileViewer} element={<FileViewerPage />} />
+                    <Route path={ROUTE_PATTERNS.consumers} element={<ConsumersPage />} />
+                    <Route path={ROUTE_PATTERNS.consumerDetail} element={<ConsumerDetailPage />} />
                   </Routes>
                 </Suspense>
               </RouteErrorBoundary>
