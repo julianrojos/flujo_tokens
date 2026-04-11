@@ -106,7 +106,7 @@ export function TokenDetailPage() {
 
       <TokenRelationsSection
         tokenPath={token.path}
-        aliasOf={token.aliasOf}
+        aliasOf={token.aliasOf ?? null}
         hasDescendantAliases={aliasDescendantChains.size > 0}
       />
 
