@@ -103,12 +103,6 @@ const TokenGraphPage = lazy(() =>
   })),
 );
 
-const ImpactExplorerPage = lazy(() =>
-  import("@/features/impact/impact-explorer-page").then((module) => ({
-    default: module.ImpactExplorerPage,
-  })),
-);
-
 const FileViewerPage = lazy(() =>
   import("@/features/files/file-viewer-page").then((module) => ({
     default: module.FileViewerPage,
@@ -493,9 +487,7 @@ export default function App() {
                     <Route path="/components/:slug/edit-docs" element={<EditComponentDocsPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
-                    <Route path="/tokens/:tokenPath/impact" element={<ImpactExplorerPage />} />
                     <Route path="/token-graph" element={<TokenGraphPage />} />
-                    <Route path="/impact" element={<Navigate to="/tokens" replace />} />
                     <Route path="/file" element={<FileViewerPage />} />
                     <Route path="/consumers" element={<ConsumersPage />} />
                     <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />

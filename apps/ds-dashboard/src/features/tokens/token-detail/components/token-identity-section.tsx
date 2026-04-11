@@ -2,14 +2,12 @@
  * Token Identity Section - displays token header, swatch, type, collection.
  */
 
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Copy } from "lucide-react";
 import type { TokenEntry } from "@/types/token-registry";
-import { AnalyzeImpactModal } from "./analyze-impact-modal";
 
 interface TokenIdentitySectionProps {
   token: TokenEntry;
@@ -36,8 +34,6 @@ export function TokenIdentitySection({
   currentTokenIndex,
   scopedTokens,
 }: TokenIdentitySectionProps) {
-  const [impactModalOpen, setImpactModalOpen] = useState(false);
-
   return (
     <Card>
       <CardHeader>
@@ -73,13 +69,6 @@ export function TokenIdentitySection({
               </CardDescription>
             </div>
           </div>
-          <button
-            type="button"
-            className="text-xs font-semibold text-primary hover:underline"
-            onClick={() => setImpactModalOpen(true)}
-          >
-            Analyze impact →
-          </button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -153,11 +142,6 @@ export function TokenIdentitySection({
           ) : null}
         </div>
       </CardContent>
-      <AnalyzeImpactModal
-        token={token}
-        open={impactModalOpen}
-        onClose={() => setImpactModalOpen(false)}
-      />
     </Card>
   );
 }

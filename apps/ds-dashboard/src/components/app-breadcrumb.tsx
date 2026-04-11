@@ -47,16 +47,6 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
   }
 
-  const tokenImpactMatch = matchPath("/tokens/:tokenPath/impact", pathname);
-  if (tokenImpactMatch?.params.tokenPath) {
-    const tokenPath = decodeSafe(tokenImpactMatch.params.tokenPath);
-    return [
-      { label: "Tokens", to: "/tokens" },
-      { label: tokenPath, to: `/tokens/${tokenImpactMatch.params.tokenPath}` },
-      { label: "Impact" },
-    ];
-  }
-
   const tokenMatch = matchPath("/tokens/:tokenPath", pathname);
   if (tokenMatch?.params.tokenPath) {
     return [

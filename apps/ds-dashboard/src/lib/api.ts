@@ -6,7 +6,6 @@ import type { TokenUsageIndex } from "@/types/token-usage-index";
 import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
-import type { ImpactReport } from "@/types/impact";
 import type {
   CaptureHealthSnapshotResult,
   HealthHistoryBucket,
@@ -383,19 +382,6 @@ export function fetchHealthHistory(args?: {
   if (args?.bucket) params.set("bucket", args.bucket);
   const suffix = params.size ? `?${params.toString()}` : "";
   return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
-}
-
-export function fetchImpact(args: {
-  tokenPath: string;
-  newValue?: string | null;
-  depth?: number;
-}) {
-  const params = new URLSearchParams({ tokenPath: args.tokenPath });
-  if (args.newValue) params.set("newValue", args.newValue);
-  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
-    params.set("depth", String(args.depth));
-  }
-  return getJson<ImpactReport>(`/api/impact?${params.toString()}`);
 }
 
 export interface ComponentSpecPayload {

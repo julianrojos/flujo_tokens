@@ -10,7 +10,6 @@ import { registerSystemRoutes } from './system-routes.mjs';
 import { registerRegistryRoutes } from './registry-routes.mjs';
 import { registerTokenGraphRoutes } from './token-graph-routes.ts';
 import { registerHealthRoutes } from './health-routes.mjs';
-import { registerAnalysisRoutes } from './analysis-routes.mjs';
 import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
 import { registerFileRoutes } from './file-routes.mjs';
 import { registerJobRoutes } from './job-routes.mjs';
@@ -150,11 +149,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerRegistryRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
   registerTokenGraphRoutes(app, { ...routeDeps.tokenGraphDeps, tokenRepo: routeDeps.tokenRepo });
   registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });
-  registerAnalysisRoutes(app, {
-    ...routeDeps.analysisDeps,
-    tokenRepo: routeDeps.tokenRepo,
-    healthRepo: routeDeps.healthRepo,
-  });
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);
   registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
