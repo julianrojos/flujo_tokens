@@ -29,8 +29,7 @@ export interface EditDocsSummaryValue {
 
 export interface EditDocsAccessibilityValue {
   role: string;
-  labelingRules: string[];
-  notes: string[];
+  guidance: string[];
 }
 
 export interface EditDocsFormData {
@@ -455,16 +454,7 @@ interface StringListCardProps {
   itemLabel: (index: number) => string;
 }
 
-function StringListCard({
-  title,
-  description,
-  value,
-  onChange,
-  addLabel,
-  emptyLabel,
-  placeholder,
-  itemLabel,
-}: StringListCardProps) {
+function useStringListRows(value: string[], onChange: (v: string[]) => void) {
   const idBase = useId();
   const [rowIds, setRowIds] = useState<string[]>(() => value.map(() => createRowId()));
 
@@ -493,6 +483,75 @@ function StringListCard({
     setRowIds((prev) => prev.filter((_, i) => i !== index));
   }, [value, onChange]);
 
+  return { idBase, rowIds, addItem, updateItem, removeItem };
+}
+
+function StringListEditor({
+  title,
+  description,
+  value,
+  onChange,
+  addLabel,
+  emptyLabel,
+  placeholder,
+  itemLabel,
+}: StringListCardProps) {
+  const { idBase, rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        <Button variant="outline" size="sm" onClick={addItem}>
+          <Plus className="mr-1 h-4 w-4" /> {addLabel}
+        </Button>
+      </div>
+      {value.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="space-y-2">
+          {value.map((item, i) => (
+            <li key={rowIds[i]} className="flex items-start gap-2">
+              <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
+              <textarea
+                id={`${idBase}-${i}`}
+                className="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+                value={item}
+                onChange={(e) => updateItem(i, e.target.value)}
+                rows={2}
+                placeholder={placeholder}
+              />
+              <button
+                type="button"
+                className="mt-1 rounded p-1 text-muted-foreground hover:text-foreground"
+                onClick={() => removeItem(i)}
+                aria-label={`Remove ${title.toLowerCase()} item ${i + 1}`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function StringListCard({
+  title,
+  description,
+  value,
+  onChange,
+  addLabel,
+  emptyLabel,
+  placeholder,
+  itemLabel,
+}: StringListCardProps) {
+  const { idBase, rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -502,7 +561,7 @@ function StringListCard({
             <Plus className="mr-1 h-4 w-4" /> {addLabel}
           </Button>
         </div>
-        <CardDescription>{description}</CardDescription>
+        {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>
         {value.length === 0 ? (
@@ -546,7 +605,7 @@ export function ContentGuidelinesFormCard({ value, onChange }: ContentGuidelines
   return (
     <StringListCard
       title="Content Guidelines"
-      description="Content rules shown in the detail spec"
+      description=""
       value={value}
       onChange={onChange}
       addLabel="Add rule"
@@ -564,47 +623,33 @@ export interface AccessibilityFormCardProps {
 
 export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Accessibility</CardTitle>
-          <CardDescription>Role, labeling rules, and notes</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
-            <Input
-              id="accessibility-role"
-              value={value.role}
-              onChange={(e) => onChange({ ...value, role: e.target.value })}
-              placeholder="button"
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Accessibility</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
+          <Input
+            id="accessibility-role"
+            value={value.role}
+            onChange={(e) => onChange({ ...value, role: e.target.value })}
+            placeholder="button"
+          />
+        </div>
 
-      <StringListCard
-        title="Accessibility Labeling Rules"
-        description="Rules rendered under accessibility.labeling.rules"
-        value={value.labelingRules}
-        onChange={(items) => onChange({ ...value, labelingRules: items })}
-        addLabel="Add rule"
-        emptyLabel="No labeling rules yet."
-        placeholder="Labeling rule..."
-        itemLabel={(index) => `Labeling rule ${index + 1}`}
-      />
-
-      <StringListCard
-        title="Accessibility Notes"
-        description="Additional accessibility considerations"
-        value={value.notes}
-        onChange={(items) => onChange({ ...value, notes: items })}
-        addLabel="Add note"
-        emptyLabel="No accessibility notes yet."
-        placeholder="Accessibility consideration..."
-        itemLabel={(index) => `Accessibility note ${index + 1}`}
-      />
-    </div>
+        <StringListEditor
+          title="Accessibility Guidance"
+          description="Labeling and other accessibility guidance for this component"
+          value={value.guidance}
+          onChange={(items) => onChange({ ...value, guidance: items })}
+          addLabel="Add guidance"
+          emptyLabel="No accessibility guidance yet."
+          placeholder="Accessibility guidance..."
+          itemLabel={(index) => `Accessibility guidance ${index + 1}`}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -628,23 +673,22 @@ export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
         value={value.behaviour}
         onChange={(v) => onChange({ behaviour: v })}
       />
-      <VariantsFormCard
-        value={value.variants}
-        onChange={(v) => onChange({ variants: v })}
-      />
-      <ContentGuidelinesFormCard
-        value={value.contentGuidelines}
-        onChange={(v) => onChange({ contentGuidelines: normalizeStringList(v) })}
-      />
       <AccessibilityFormCard
         value={value.accessibility}
         onChange={(v) => onChange({
           accessibility: {
             role: v.role,
-            labelingRules: normalizeStringList(v.labelingRules),
-            notes: normalizeStringList(v.notes),
+            guidance: normalizeStringList(v.guidance),
           },
         })}
+      />
+      <ContentGuidelinesFormCard
+        value={value.contentGuidelines}
+        onChange={(v) => onChange({ contentGuidelines: normalizeStringList(v) })}
+      />
+      <VariantsFormCard
+        value={value.variants}
+        onChange={(v) => onChange({ variants: v })}
       />
     </div>
   );

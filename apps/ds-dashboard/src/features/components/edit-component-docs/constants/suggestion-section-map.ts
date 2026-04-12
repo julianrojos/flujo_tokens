@@ -28,11 +28,15 @@ function extractContentGuidelines(suggestion: AiSuggestionPayload): string[] {
 
 function extractAccessibility(suggestion: AiSuggestionPayload): EditDocsAccessibilityValue {
   const accessibility = suggestion.editorialPatch?.accessibility;
-  const editorialNotes = normalizeStringList(accessibility?.notes);
+  const editorialGuidance = Array.from(new Set([
+    ...normalizeStringList(accessibility?.labeling?.rules),
+    ...normalizeStringList(accessibility?.notes),
+  ]));
   return {
     role: String(accessibility?.role ?? '').trim(),
-    labelingRules: normalizeStringList(accessibility?.labeling?.rules),
-    notes: editorialNotes.length > 0 ? editorialNotes : normalizeStringList(suggestion.output.accessibilityNotes),
+    guidance: editorialGuidance.length > 0
+      ? editorialGuidance
+      : normalizeStringList(suggestion.output.accessibilityNotes),
   };
 }
 

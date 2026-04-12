@@ -55,13 +55,12 @@ describe('AiSuggestionsPanel cards', () => {
     assert.match(html, /Start labels with a verb/);
   });
 
-  it('renders accessibility suggestion card with role and labeling rules', () => {
+  it('renders accessibility suggestion card with role and guidance', () => {
     const html = renderToStaticMarkup(
       React.createElement(AccessibilitySuggestionCard, {
         value: {
           role: 'button',
-          labelingRules: ['Provide an accessible name'],
-          notes: ['Supports keyboard activation'],
+          guidance: ['Provide an accessible name', 'Supports keyboard activation'],
         },
         onApply: () => {},
       }),
@@ -92,7 +91,7 @@ describe('AiSuggestionsPanel cards', () => {
         }),
         React.createElement(AccessibilitySuggestionCard, {
           key: 'accessibility',
-          value: { role: '', labelingRules: [], notes: [] },
+          value: { role: '', guidance: [] },
           onApply: () => {},
         }),
       ]),

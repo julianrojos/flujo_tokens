@@ -20,6 +20,7 @@ export interface EditDocsDraftPayload {
   variants: unknown[];
   contentGuidelines?: string[];
   accessibility?: unknown;
+  accessibilityGuidance?: string[];
   accessibilityNotes?: string[];
   touchedFields?: Array<'summary' | 'properties' | 'behaviour' | 'variants' | 'contentGuidelines' | 'accessibility'>;
 }

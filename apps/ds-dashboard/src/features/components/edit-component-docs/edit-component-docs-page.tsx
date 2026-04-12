@@ -69,17 +69,34 @@ const EMPTY_FORM_DATA: EditorialFormData = {
   behaviour: '',
   variants: [],
   contentGuidelines: [],
-  accessibility: { role: '', labelingRules: [], notes: [] },
+  accessibility: { role: '', guidance: [] },
 };
 
 const FORM_SECTION_ORDER: readonly EditDocsSectionId[] = [
   'summary',
   'properties',
   'behaviour',
-  'variants',
-  'contentGuidelines',
   'accessibility',
+  'contentGuidelines',
+  'variants',
 ];
+
+function mergeAccessibilityGuidance(...sources: Array<unknown>): string[] {
+  return Array.from(new Set(sources.flatMap((source) => normalizeStringList(source))));
+}
+
+function hasDraftAccessibilityGuidance(
+  draft: Record<string, unknown>,
+  draftAccessibility: Record<string, unknown> | null,
+): boolean {
+  return (
+    Array.isArray(draftAccessibility?.guidance) ||
+    Array.isArray(draftAccessibility?.labelingRules) ||
+    Array.isArray(draftAccessibility?.notes) ||
+    Array.isArray(draft.accessibilityGuidance) ||
+    Array.isArray(draft.accessibilityNotes)
+  );
+}
 
 function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const systemId = String(getActiveSystemId() || '').trim();
@@ -145,25 +162,24 @@ function normalizeVariantsForSave(variants: ComponentDocVariant[]): ComponentDoc
     );
 }
 
-function normalizeAccessibilityForSave(
+export function normalizeAccessibilityForSave(
   accessibility: EditDocsAccessibilityValue,
 ): {
   role?: string;
   labeling?: { rules: string[] };
-  notes?: string[];
+  notes?: null;
 } | null {
   const role = accessibility.role.trim();
-  const labelingRules = normalizeStringList(accessibility.labelingRules);
-  const notes = normalizeStringList(accessibility.notes);
+  const guidance = normalizeStringList(accessibility.guidance);
 
-  if (!role && labelingRules.length === 0 && notes.length === 0) {
+  if (!role && guidance.length === 0) {
     return null;
   }
 
   return {
     ...(role ? { role } : {}),
-    ...(labelingRules.length > 0 ? { labeling: { rules: labelingRules } } : {}),
-    ...(notes.length > 0 ? { notes } : {}),
+    ...(guidance.length > 0 ? { labeling: { rules: guidance } } : {}),
+    notes: null,
   };
 }
 
@@ -209,13 +225,15 @@ function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
     contentGuidelines: normalizeStringList(spec.content_guidelines?.rules as unknown[] | undefined),
     accessibility: {
       role: String(accessibility.role ?? '').trim(),
-      labelingRules: normalizeStringList(accessibility.labeling?.rules as unknown[] | undefined),
-      notes: normalizeStringList(accessibility.notes as unknown[] | undefined),
+      guidance: mergeAccessibilityGuidance(
+        accessibility.labeling?.rules as unknown[] | undefined,
+        accessibility.notes as unknown[] | undefined,
+      ),
     },
   };
 }
 
-function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: EditorialFormData): EditorialFormData {
+export function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: EditorialFormData): EditorialFormData {
   const draftSummary = draft.summary;
   const summaryValue: EditDocsSummaryValue =
     draftSummary && typeof draftSummary === 'object'
@@ -242,6 +260,14 @@ function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: Editor
   const hasDraftAccessibilityRole =
     draftAccessibility !== null
     && Object.prototype.hasOwnProperty.call(draftAccessibility, 'role');
+  const draftGuidance = mergeAccessibilityGuidance(
+    draftAccessibility?.guidance,
+    draftAccessibility?.labelingRules,
+    draftAccessibility?.notes,
+    draft.accessibilityGuidance,
+    draft.accessibilityNotes,
+  );
+  const hasDraftGuidance = hasDraftAccessibilityGuidance(draft, draftAccessibility);
 
   return {
     summary: summaryValue,
@@ -259,14 +285,7 @@ function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: Editor
       role: hasDraftAccessibilityRole
         ? String(draftAccessibility?.role ?? '').trim()
         : fallback.accessibility.role,
-      labelingRules: Array.isArray(draftAccessibility?.labelingRules)
-        ? normalizeStringList(draftAccessibility?.labelingRules as unknown[])
-        : fallback.accessibility.labelingRules,
-      notes: Array.isArray(draftAccessibility?.notes)
-        ? normalizeStringList(draftAccessibility.notes as unknown[])
-        : Array.isArray(draft.accessibilityNotes)
-          ? normalizeStringList(draft.accessibilityNotes as unknown[])
-          : fallback.accessibility.notes,
+      guidance: hasDraftGuidance ? draftGuidance : fallback.accessibility.guidance,
     },
   };
 }
@@ -381,6 +400,7 @@ export function EditComponentDocsPage() {
         Array.isArray(draftRecord.variants) ||
         Array.isArray(draftRecord.contentGuidelines) ||
         draftRecord.accessibility ||
+        Array.isArray(draftRecord.accessibilityGuidance) ||
         Array.isArray(draftRecord.accessibilityNotes)
       ) {
         nextFormData = candidate;

@@ -127,7 +127,7 @@ export interface AccessibilitySuggestionCardProps {
 }
 
 export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySuggestionCardProps) {
-  const hasAnything = Boolean(value.role) || value.labelingRules.length > 0 || value.notes.length > 0;
+  const hasAnything = Boolean(value.role) || value.guidance.length > 0;
 
   return (
     <Card>
@@ -149,22 +149,12 @@ export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySug
               <p className="text-sm text-muted-foreground">{value.role || 'No role in suggestion.'}</p>
             </div>
             <div>
-              <p className="text-sm font-medium">Labeling rules</p>
-              {value.labelingRules.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No labeling rules in suggestion.</p>
+              <p className="text-sm font-medium">Accessibility guidance</p>
+              {value.guidance.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No accessibility guidance in suggestion.</p>
               ) : (
                 <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {value.labelingRules.map((rule, index) => <li key={index}>{rule}</li>)}
-                </ul>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium">Notes</p>
-              {value.notes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No accessibility notes in suggestion.</p>
-              ) : (
-                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {value.notes.map((note, index) => <li key={index}>{note}</li>)}
+                  {value.guidance.map((item, index) => <li key={index}>{item}</li>)}
                 </ul>
               )}
             </div>

@@ -86,16 +86,17 @@ describe('EditDocsForm cards', () => {
     assert.match(html, /Opens a menu when activated/);
   });
 
-  it('renders accessibility role and labeling rules fields', () => {
+  it('renders accessibility role and guidance fields', () => {
     const html = renderToStaticMarkup(
       React.createElement(AccessibilityFormCard, {
-        value: { role: 'button', labelingRules: ['Provide accessible name'], notes: ['Keyboard accessible'] },
+        value: { role: 'button', guidance: ['Provide accessible name', 'Keyboard accessible'] },
         onChange: () => {},
       }),
     );
 
     assert.match(html, /Role/);
-    assert.match(html, /Accessibility Labeling Rules/);
-    assert.match(html, /Accessibility Notes/);
+    assert.match(html, /Accessibility Guidance/);
+    assert.match(html, /Provide accessible name/);
+    assert.match(html, /Keyboard accessible/);
   });
 });

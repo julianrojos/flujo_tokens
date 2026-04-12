@@ -68,8 +68,30 @@ describe('suggestion-section-map', () => {
     } as never);
     assert.deepStrictEqual(result, {
       role: 'button',
-      labelingRules: [],
-      notes: ['Accessible note'],
+      guidance: ['Accessible note'],
+    });
+  });
+
+  it('prefers editorial accessibility guidance over factual accessibility notes', () => {
+    const result = SUGGESTION_SECTION_MAP.accessibility.extract({
+      ...suggestion,
+      output: {
+        ...suggestion.output,
+        accessibilityNotes: ['Factual note that should not be merged'],
+      },
+      editorialPatch: {
+        ...suggestion.editorialPatch,
+        accessibility: {
+          role: 'button',
+          labeling: { rules: ['Provide an accessible name'] },
+          notes: ['Supports keyboard activation'],
+        },
+      },
+    } as never);
+
+    assert.deepStrictEqual(result, {
+      role: 'button',
+      guidance: ['Provide an accessible name', 'Supports keyboard activation'],
     });
   });
 
@@ -82,7 +104,7 @@ describe('suggestion-section-map', () => {
   });
 
   it('applies accessibility payload', () => {
-    const payload = { role: 'button', labelingRules: ['Rule'], notes: ['Note'] };
+    const payload = { role: 'button', guidance: ['Rule', 'Note'] };
     const result = applySectionAction({ type: 'SET_ACCESSIBILITY', payload }, {});
     assert.deepEqual(result.accessibility, payload);
   });
