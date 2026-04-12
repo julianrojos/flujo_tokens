@@ -6,31 +6,18 @@ export interface ComponentsHealthFilter<TItem> {
 
 export interface ComponentsHealthSummary {
   total_components: number;
-  ready: number;
-  needs_review: number;
-  draft: number;
-  missing: number;
-  with_visual_proof: number;
+  with_spec: number;
+  without_spec: number;
   average_coverage_percent: number;
-  by_pipeline_stage: Record<string, number>;
 }
 
 export interface ComponentsHealthRow {
   slug: string;
   display_name: string;
-  pipeline_stage: string;
-  status: string;
   coverage: number;
-  ready_for_publish: boolean;
-  spec_exists: boolean;
-  doc_exists: boolean;
-  visual_proof_exists: boolean;
-  doc_status: string;
-  spec_status: string;
+  with_spec: boolean;
   paths: {
     spec?: string;
-    doc?: string;
-    visual_proof?: string;
   };
 }
 
@@ -41,9 +28,7 @@ export interface ComponentsHealthReport {
   };
   summary: ComponentsHealthSummary;
   filters: {
-    needs_review: ComponentsHealthFilter<string>;
-    missing_visual_proof: ComponentsHealthFilter<string>;
-    blocked_in_pipeline: ComponentsHealthFilter<{ component: string; stage: string }>;
+    without_spec: ComponentsHealthFilter<string>;
   };
   components: ComponentsHealthRow[];
   fingerprint_sha256: string;

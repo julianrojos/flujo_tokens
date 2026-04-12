@@ -64,18 +64,12 @@ export interface ComponentsHealthReport {
   };
   summary: {
     total_components: number;
-    ready: number;
-    needs_review: number;
-    draft: number;
-    missing: number;
-    with_visual_proof: number;
+    with_spec: number;
+    without_spec: number;
     average_coverage_percent: number;
-    by_pipeline_stage: Record<string, unknown>;
   };
   filters: {
-    needs_review: { items: unknown[]; total: number; truncated: boolean };
-    missing_visual_proof: { items: unknown[]; total: number; truncated: boolean };
-    blocked_in_pipeline: { items: unknown[]; total: number; truncated: boolean };
+    without_spec: { items: unknown[]; total: number; truncated: boolean };
   };
   components: unknown[];
   fingerprint_sha256: string;
@@ -106,7 +100,7 @@ export interface NormalizedHealthHistoryPayload {
       coverage_avg: number;
       unresolved_total: number;
       unused_tokens_total: number;
-      needs_review_total: number;
+      without_spec_total: number;
     };
     fingerprints: {
       token_health: string;
@@ -180,24 +174,18 @@ export function buildEmptyComponentsHealthReport(args: EmptyComponentsHealthRepo
   return {
     ok: false,
     bootstrapped: true,
-    schema_version: 1,
+    schema_version: 2,
     source: {
       registry_path: `db://components/${args.systemId}`,
     },
     summary: {
       total_components: 0,
-      ready: 0,
-      needs_review: 0,
-      draft: 0,
-      missing: 0,
-      with_visual_proof: 0,
+      with_spec: 0,
+      without_spec: 0,
       average_coverage_percent: 0,
-      by_pipeline_stage: {},
     },
     filters: {
-      needs_review: { items: [], total: 0, truncated: false },
-      missing_visual_proof: { items: [], total: 0, truncated: false },
-      blocked_in_pipeline: { items: [], total: 0, truncated: false },
+      without_spec: { items: [], total: 0, truncated: false },
     },
     components: [],
     fingerprint_sha256: '',
@@ -250,7 +238,7 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
         coverage_avg: Number(metrics.coverage_avg || 0),
         unresolved_total: Number(metrics.unresolved_total || 0),
         unused_tokens_total: Number(metrics.unused_tokens_total || 0),
-        needs_review_total: Number(metrics.needs_review_total || 0),
+        without_spec_total: Number(metrics.without_spec_total || 0),
       },
       fingerprints: {
         token_health: String(fingerprints.token_health || ''),

@@ -780,18 +780,6 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
   };
 }
 
-function toPipelineStage(args: {
-  specExists: boolean;
-  docExists: boolean;
-  visualProofExists: boolean;
-}): string {
-  const { specExists, docExists, visualProofExists } = args;
-  if (specExists && docExists && visualProofExists) return 'visual-proof';
-  if (specExists && docExists) return 'markdown';
-  if (specExists) return 'spec';
-  return 'missing-spec';
-}
-
 /**
  * Rebuilds component health report from component repository data in DB.
  * The resulting snapshot is stored in `health_snapshots` (kind=components).
@@ -809,78 +797,39 @@ export function refreshComponentsHealthSnapshotDbOnly(args: {
 
   const components = rows.map((row) => {
     const spec = row.specs?.[0];
-    const visualProof = row.visualProofs?.[0];
     const specExists = Boolean(row.editorialExists);
-    const docExists = Boolean(spec?.markdownPath);
-    const visualProofExists = Boolean(visualProof?.imagePath || visualProof?.screenshotUrl);
-    const pipelineStage = toPipelineStage({
-      specExists,
-      docExists,
-      visualProofExists,
-    });
 
     return {
       slug: row.slug,
       display_name: row.name || row.slug,
-      pipeline_stage: pipelineStage,
-      status: row.status,
       coverage: asNumber(spec?.coverage, 0),
-      ready_for_publish: row.status === 'ready',
-      spec_exists: specExists,
-      doc_exists: docExists,
-      visual_proof_exists: visualProofExists,
-      doc_status: asString(spec?.docStatus || 'draft'),
-      spec_status: specExists ? 'ready' : 'missing',
+      with_spec: specExists,
       paths: {
-        doc: spec?.markdownPath,
-        visual_proof: visualProof?.imagePath,
+        spec: `db://component_editorial/${row.id}`,
       },
     };
   });
 
-  const byPipelineStage: Record<string, number> = {};
-  for (const component of components) {
-    byPipelineStage[component.pipeline_stage] = (byPipelineStage[component.pipeline_stage] || 0) + 1;
-  }
-
   const summary = {
     total_components: components.length,
-    ready: components.filter((entry) => entry.status === 'ready').length,
-    needs_review: components.filter((entry) => entry.status === 'needs-review' || entry.doc_status === 'needs-review').length,
-    draft: components.filter((entry) => entry.status === 'draft').length,
-    missing: components.filter((entry) => entry.status === 'missing').length,
-    with_visual_proof: components.filter((entry) => entry.visual_proof_exists).length,
+    with_spec: components.filter((entry) => entry.with_spec).length,
+    without_spec: components.filter((entry) => !entry.with_spec).length,
     average_coverage_percent:
       components.length > 0
         ? Number((components.reduce((acc, entry) => acc + asNumber(entry.coverage, 0), 0) / components.length).toFixed(2))
         : 0,
-    by_pipeline_stage: byPipelineStage,
   };
 
   const reportBase = {
-    schema_version: 1,
+    schema_version: 2,
     source: {
       registry_path: `db://components/${systemId}`,
     },
     summary,
     filters: {
-      needs_review: {
-        items: components
-          .filter((entry) => entry.status === 'needs-review' || entry.doc_status === 'needs-review')
-          .map((entry) => entry.slug),
-        total: components.filter((entry) => entry.status === 'needs-review' || entry.doc_status === 'needs-review').length,
-        truncated: false,
-      },
-      missing_visual_proof: {
-        items: components.filter((entry) => !entry.visual_proof_exists).map((entry) => entry.slug),
-        total: components.filter((entry) => !entry.visual_proof_exists).length,
-        truncated: false,
-      },
-      blocked_in_pipeline: {
-        items: components
-          .filter((entry) => entry.pipeline_stage !== 'visual-proof')
-          .map((entry) => ({ component: entry.slug, stage: entry.pipeline_stage })),
-        total: components.filter((entry) => entry.pipeline_stage !== 'visual-proof').length,
+      without_spec: {
+        items: components.filter((entry) => !entry.with_spec).map((entry) => entry.slug),
+        total: components.filter((entry) => !entry.with_spec).length,
         truncated: false,
       },
     },
@@ -960,7 +909,7 @@ export function captureHealthSnapshotDbOnly(args: {
       coverage_avg: asNumber((componentsSnapshot.summary as Record<string, unknown> | undefined)?.average_coverage_percent, 0),
       unresolved_total: asInt((usageIndex.summary as { unresolved_total?: unknown }).unresolved_total, 0),
       unused_tokens_total: asInt((tokenSnapshot.summary as Record<string, unknown> | undefined)?.unused_tokens_total, 0),
-      needs_review_total: asInt((componentsSnapshot.summary as Record<string, unknown> | undefined)?.needs_review, 0),
+      without_spec_total: asInt((componentsSnapshot.summary as Record<string, unknown> | undefined)?.without_spec, 0),
     },
     fingerprints: {
       token_health: asString(tokenSnapshot.fingerprint_sha256),

@@ -2,42 +2,11 @@ import {
   buildComponentUsageIndex,
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
-import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
+import { createHash } from "node:crypto";
+import { COMPONENT_REGISTRY_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
 
-function createPipelineStage(item) {
-  if (!item.spec.exists) return "missing-spec";
-  if (!item.doc.exists) return "spec";
-  if (!item.visual_proof.exists) return "markdown";
-  return "visual-proof";
-}
-
-function emptyVisualProof() {
-  return {
-    exists: false,
-    screenshot_url: null,
-    image_path: null,
-    captured_at: null,
-    node_id: null,
-    image_sha256: null,
-    image_bytes: null,
-    image_content_type: null,
-    image_width: null,
-    image_height: null,
-    variants_count: 0,
-    variants: [],
-  };
-}
-
-/**
- * DB-only semantics:
- * A visual proof is considered present when DB evidence exists.
- * We intentionally do not verify file existence on disk here.
- */
-function computeVisualProofExists(dbRecord) {
-  if (dbRecord.image_path) return true;
-  return Boolean(dbRecord.screenshot_url) ||
-    Number(dbRecord.variants_count || 0) > 0 ||
-    (Array.isArray(dbRecord.variants) && dbRecord.variants.length > 0);
+function sha256Json(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 function normalizeFigmaVariantsForApi(variants) {
@@ -101,49 +70,15 @@ export async function handleComponentRegistryRoute(c, deps) {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const rows = componentRepo.getAll(sysCtx.systemId);
   const components = rows.map((row) => {
-    const specEntry = Array.isArray(row.specs) && row.specs.length > 0 ? row.specs[0] : null;
-    const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
-    const docPath = typeof specEntry?.markdownPath === "string" && specEntry.markdownPath
-      ? specEntry.markdownPath
-      : null;
-    const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry) || emptyVisualProof();
-    const visualProofPath =
-      typeof visualProofFromDb.image_path === "string" && visualProofFromDb.image_path
-        ? visualProofFromDb.image_path
-        : null;
-    // Preserve explicit screenshot URLs from DB.
-    // Do not synthesize screenshot_url from image_path to avoid implying file availability.
-    const derivedScreenshotUrl = visualProofFromDb.screenshot_url || null;
-    const derivedVariants = Array.isArray(visualProofFromDb.variants)
-      ? visualProofFromDb.variants.map((variant) => {
-          return {
-            ...variant,
-            screenshot_url: variant.screenshot_url || null,
-          };
-        })
-      : [];
-    const visualProof = {
-      ...visualProofFromDb,
-      screenshot_url: derivedScreenshotUrl,
-      variants: derivedVariants,
-      exists: computeVisualProofExists(visualProofFromDb),
-    };
-    const component = {
+    const specExists = row.editorialExists;
+    const componentBase = {
       slug: row.slug,
       display_name: row.name,
       paths: {
         spec: `db://component_editorial/${row.id}`,
-        doc: docPath,
-        visual_proof: visualProofPath,
       },
       spec: {
-        exists: row.editorialExists,
-        status: row.status || "draft",
-      },
-      doc: {
-        // DB-only semantics: doc.exists means metadata exists in component_specs.
-        exists: Boolean(specEntry?.markdownPath),
-        status: specEntry?.docStatus || "draft",
+        exists: specExists,
       },
       figma: {
         file_url: row.figmaFileUrl || null,
@@ -153,39 +88,28 @@ export async function handleComponentRegistryRoute(c, deps) {
         token_bindings: normalizeFigmaTokenBindingsForApi(row.figma?.tokenBindings),
         layout: normalizeFigmaLayoutForApi(row.figma?.layout),
       },
-      visual_proof: visualProof,
-      pipeline_stage: "missing-spec",
-      ready_for_publish: false,
     };
-    component.pipeline_stage = createPipelineStage(component);
-    component.ready_for_publish = component.pipeline_stage === "visual-proof";
-    return component;
+    return {
+      ...componentBase,
+      fingerprint_sha256: sha256Json(componentBase),
+    };
   });
   const summary = {
     total_components: 0,
     with_spec: 0,
-    with_doc: 0,
-    with_visual_proof: 0,
-    ready_for_publish: 0,
-    by_pipeline_stage: {
-      "missing-spec": 0,
-      spec: 0,
-      markdown: 0,
-      "visual-proof": 0,
-    },
   };
   for (const item of components) {
     summary.total_components++;
     if (item.spec.exists) summary.with_spec++;
-    if (item.doc.exists) summary.with_doc++;
-    if (item.visual_proof.exists) summary.with_visual_proof++;
-    if (item.ready_for_publish) summary.ready_for_publish++;
-    summary.by_pipeline_stage[item.pipeline_stage]++;
   }
-  return c.json({
-    schema_version: 1,
+  const responseBase = {
+    schema_version: COMPONENT_REGISTRY_SCHEMA_VERSION,
     components,
     summary,
+  };
+  return c.json({
+    ...responseBase,
+    fingerprint_sha256: sha256Json(responseBase),
   });
 }
 

@@ -1,4 +1,4 @@
-export const COMPONENT_REGISTRY_SCHEMA_VERSION = 1;
+export const COMPONENT_REGISTRY_SCHEMA_VERSION = 2;
 
 export function createEmptyComponentRegistry() {
   return {
@@ -7,15 +7,6 @@ export function createEmptyComponentRegistry() {
     summary: {
       total_components: 0,
       with_spec: 0,
-      with_doc: 0,
-      with_visual_proof: 0,
-      ready_for_publish: 0,
-      by_pipeline_stage: {
-        "missing-spec": 0,
-        spec: 0,
-        markdown: 0,
-        "visual-proof": 0,
-      },
     },
     fingerprint_sha256: "",
   };

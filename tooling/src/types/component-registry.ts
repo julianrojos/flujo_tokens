@@ -1,5 +1,10 @@
 /**
  * Type definitions for component registry module.
+ *
+ * IMPORTANT:
+ * This is the tooling/build-artifact schema used by `tooling/` scripts.
+ * It is intentionally independent from the dashboard API contract
+ * (`apps/ds-dashboard/src/types/component-registry.ts`).
  */
 
 /**

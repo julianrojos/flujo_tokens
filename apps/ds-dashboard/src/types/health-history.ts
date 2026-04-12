@@ -8,7 +8,7 @@ export interface HealthHistorySnapshotMetrics {
   coverage_avg: number;
   unresolved_total: number;
   unused_tokens_total: number;
-  needs_review_total: number;
+  without_spec_total: number;
 }
 
 export interface HealthHistorySnapshot {
