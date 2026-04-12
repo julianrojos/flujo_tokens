@@ -14,7 +14,7 @@ import { useAiJobStatus } from '@/hooks/use-ai-job-status';
 import { useJobProgress } from '@/hooks/use-job-progress';
 import { cancelAiJob } from '@/lib/ai-jobs-api';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import type { AiJobStatus, AiJobResponse, AiJobInput, ComponentDocOutput, ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
+import type { AiJobStatus, AiJobResponse, AiJobInput, AiSuggestionPayload, ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
 
 interface AiJobStatusCardProps {
     /** Job ID to display */
@@ -24,7 +24,7 @@ interface AiJobStatusCardProps {
     /** Callback when apply is requested */
     onApply?: (jobId: string) => void;
     /** Called once when job completes with output. Use useRef guard to prevent duplicates. */
-    onJobComplete?: (output: ComponentDocOutput) => void;
+    onJobComplete?: (suggestion: AiSuggestionPayload) => void;
     /** Whether to show streaming indicator (for SSE) */
     isStreaming?: boolean;
     /** External events to display (from SSE) */
@@ -222,11 +222,27 @@ export function AiJobStatusCard({
         && Array.isArray(job.output.variants),
     );
     const hasMeaningfulSuggestionContent = Boolean(
-        job?.output
-        && typeof job.output.summary === 'string'
-        && (
-            job.output.summary.trim().length > 0
-            || job.output.variants.length > 0
+        (
+            job?.output
+            && typeof job.output.summary === 'string'
+            && (
+                job.output.summary.trim().length > 0
+                || job.output.variants.length > 0
+            )
+        )
+        || (
+            job?.editorialPatch
+            && (
+                Boolean(job.editorialPatch.summary?.purpose?.trim())
+                || Boolean(job.editorialPatch.summary?.when_to_use?.trim())
+                || Boolean(job.editorialPatch.summary?.when_not_to_use?.trim())
+                || (job.editorialPatch.best_practices?.do?.length ?? 0) > 0
+                || (job.editorialPatch.best_practices?.dont?.length ?? 0) > 0
+                || (job.editorialPatch.content_guidelines?.rules?.length ?? 0) > 0
+                || Boolean(job.editorialPatch.accessibility?.role?.trim())
+                || (job.editorialPatch.accessibility?.labeling?.rules?.length ?? 0) > 0
+                || (job.editorialPatch.accessibility?.notes?.length ?? 0) > 0
+            )
         ),
     );
 
@@ -270,9 +286,12 @@ export function AiJobStatusCard({
             && !jobCompleteCalledRef.current
         ) {
             jobCompleteCalledRef.current = true;
-            onJobComplete(job.output);
+            onJobComplete({
+                output: job.output,
+                editorialPatch: job.editorialPatch ?? null,
+            });
         }
-    }, [job?.status, job?.output, onJobComplete, hasCompleteOutputForSuggestions, hasMeaningfulSuggestionContent]);
+    }, [job?.status, job?.output, job?.editorialPatch, onJobComplete, hasCompleteOutputForSuggestions, hasMeaningfulSuggestionContent]);
     // Reset guard when jobId changes (new job)
     useEffect(() => {
         jobCompleteCalledRef.current = false;

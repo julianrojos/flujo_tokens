@@ -1,23 +1,24 @@
 /**
  * AiSuggestionsPanel — renders AI suggestion sections with "Use this" buttons.
- *
- * Each section is rendered structurally (not as markdown), with a "Use this"
- * button that applies the section value to the form via the dispatch callback.
- *
- * Exports three standalone *SuggestionCard components for use in the desktop
- * two-column layout, and composes them into AiSuggestionsPanel for mobile.
  */
 
 import { useCallback } from 'react';
-import type { ComponentDocOutput, ComponentDocVariant } from '@/types/ai-jobs';
+import type { AiSuggestionPayload, ComponentDocVariant } from '@/types/ai-jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SUGGESTION_SECTION_MAP, type SectionId, type FormDispatchAction } from '../constants/suggestion-section-map';
-
-// ─── SummarySuggestionCard ──────────────────────────────────────────────
+import {
+  SUGGESTION_SECTION_MAP,
+  type SectionId,
+  type FormDispatchAction,
+} from '../constants/suggestion-section-map';
+import type {
+  EditDocsAccessibilityValue,
+  EditDocsBestPracticesValue,
+  EditDocsSummaryValue,
+} from './edit-docs-form';
 
 export interface SummarySuggestionCardProps {
-  value: string;
+  value: EditDocsSummaryValue;
   onApply: () => void;
 }
 
@@ -32,14 +33,25 @@ export function SummarySuggestionCard({ value, onApply }: SummarySuggestionCardP
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{value}</p>
+      <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <div>
+          <p className="font-medium text-foreground">Purpose</p>
+          <p>{value.purpose || 'No purpose in suggestion.'}</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <p className="font-medium text-foreground">When to use</p>
+            <p>{value.whenToUse || 'No usage guidance in suggestion.'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">When not to use</p>
+            <p>{value.whenNotToUse || 'No exclusion guidance in suggestion.'}</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
-
-// ─── VariantsSuggestionCard ─────────────────────────────────────────────
 
 export interface VariantsSuggestionCardProps {
   value: ComponentDocVariant[];
@@ -63,13 +75,13 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
           <p className="text-sm text-muted-foreground">No variants in suggestion.</p>
         ) : (
           <ul className="space-y-2">
-            {value.map((v) => (
-              <li key={v.id} className="rounded-md border border-border bg-surface-2 p-3">
-                <p className="text-sm font-medium">{v.name}</p>
-                <p className="text-xs text-muted-foreground">{v.description}</p>
-                {Object.keys(v.properties).length > 0 && (
+            {value.map((variant) => (
+              <li key={variant.id} className="rounded-md border border-border bg-surface-2 p-3">
+                <p className="text-sm font-medium">{variant.name}</p>
+                <p className="text-xs text-muted-foreground">{variant.description}</p>
+                {Object.keys(variant.properties).length > 0 && (
                   <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                    {Object.entries(v.properties).map(([k, val]) => `${k}=${val}`).join(', ')}
+                    {Object.entries(variant.properties).map(([key, val]) => `${key}=${val}`).join(', ')}
                   </p>
                 )}
               </li>
@@ -81,14 +93,93 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
   );
 }
 
-// ─── AccessibilitySuggestionCard ────────────────────────────────────────
+export interface BestPracticesSuggestionCardProps {
+  value: EditDocsBestPracticesValue;
+  onApply: () => void;
+}
 
-export interface AccessibilitySuggestionCardProps {
+export function BestPracticesSuggestionCard({ value, onApply }: BestPracticesSuggestionCardProps) {
+  const hasItems = value.do.length > 0 || value.dont.length > 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Best Practices</CardTitle>
+          <Button variant="outline" size="sm" onClick={onApply}>
+            Use this
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!hasItems ? (
+          <p className="text-sm text-muted-foreground">No best practices in suggestion.</p>
+        ) : (
+          <>
+            <div>
+              <p className="text-sm font-medium">Do</p>
+              {value.do.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No do guidance.</p>
+              ) : (
+                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                  {value.do.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium">Don't</p>
+              {value.dont.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No don't guidance.</p>
+              ) : (
+                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                  {value.dont.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export interface ContentGuidelinesSuggestionCardProps {
   value: string[];
   onApply: () => void;
 }
 
+export function ContentGuidelinesSuggestionCard({ value, onApply }: ContentGuidelinesSuggestionCardProps) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Content Guidelines</CardTitle>
+          <Button variant="outline" size="sm" onClick={onApply}>
+            Use this
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {value.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No content guidelines in suggestion.</p>
+        ) : (
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            {value.map((rule, index) => <li key={index}>{rule}</li>)}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export interface AccessibilitySuggestionCardProps {
+  value: EditDocsAccessibilityValue;
+  onApply: () => void;
+}
+
 export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySuggestionCardProps) {
+  const hasAnything = Boolean(value.role) || value.labelingRules.length > 0 || value.notes.length > 0;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -99,43 +190,66 @@ export function AccessibilitySuggestionCard({ value, onApply }: AccessibilitySug
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        {value.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No accessibility notes in suggestion.</p>
+      <CardContent className="space-y-3">
+        {!hasAnything ? (
+          <p className="text-sm text-muted-foreground">No accessibility guidance in suggestion.</p>
         ) : (
-          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-            {value.map((note, i) => (
-              <li key={i}>{note}</li>
-            ))}
-          </ul>
+          <>
+            <div>
+              <p className="text-sm font-medium">Role</p>
+              <p className="text-sm text-muted-foreground">{value.role || 'No role in suggestion.'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Labeling rules</p>
+              {value.labelingRules.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No labeling rules in suggestion.</p>
+              ) : (
+                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                  {value.labelingRules.map((rule, index) => <li key={index}>{rule}</li>)}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium">Notes</p>
+              {value.notes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No accessibility notes in suggestion.</p>
+              ) : (
+                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                  {value.notes.map((note, index) => <li key={index}>{note}</li>)}
+                </ul>
+              )}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
   );
 }
 
-// ─── AiSuggestionsPanel (mobile wrapper) ────────────────────────────────
-
 interface AiSuggestionsPanelProps {
-  suggestion: ComponentDocOutput;
+  suggestion: AiSuggestionPayload;
   onApplySection: (action: FormDispatchAction) => void;
 }
 
 export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestionsPanelProps) {
   const handleApply = useCallback(
     (sectionId: SectionId) => {
-      const def = SUGGESTION_SECTION_MAP[sectionId];
-      if (!def) return;
-      const value = def.extract(suggestion);
+      const value = SUGGESTION_SECTION_MAP[sectionId].extract(suggestion);
       switch (sectionId) {
         case 'summary':
-          onApplySection({ type: 'SET_SUMMARY', payload: String(value ?? '') });
+          onApplySection({ type: 'SET_SUMMARY', payload: value as EditDocsSummaryValue });
           break;
         case 'variants':
-          onApplySection({ type: 'SET_VARIANTS', payload: (value as ComponentDocVariant[]) ?? [] });
+          onApplySection({ type: 'SET_VARIANTS', payload: value as ComponentDocVariant[] });
           break;
-        case 'accessibilityNotes':
-          onApplySection({ type: 'SET_ACC_NOTES', payload: (value as string[]) ?? [] });
+        case 'bestPractices':
+          onApplySection({ type: 'SET_BEST_PRACTICES', payload: value as EditDocsBestPracticesValue });
+          break;
+        case 'contentGuidelines':
+          onApplySection({ type: 'SET_CONTENT_GUIDELINES', payload: value as string[] });
+          break;
+        case 'accessibility':
+          onApplySection({ type: 'SET_ACCESSIBILITY', payload: value as EditDocsAccessibilityValue });
           break;
         default: {
           const _exhaustive: never = sectionId;
@@ -149,16 +263,24 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
   return (
     <div className="space-y-4">
       <SummarySuggestionCard
-        value={suggestion.summary}
+        value={SUGGESTION_SECTION_MAP.summary.extract(suggestion) as EditDocsSummaryValue}
         onApply={() => handleApply('summary')}
       />
       <VariantsSuggestionCard
-        value={suggestion.variants}
+        value={SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[]}
         onApply={() => handleApply('variants')}
       />
+      <BestPracticesSuggestionCard
+        value={SUGGESTION_SECTION_MAP.bestPractices.extract(suggestion) as EditDocsBestPracticesValue}
+        onApply={() => handleApply('bestPractices')}
+      />
+      <ContentGuidelinesSuggestionCard
+        value={SUGGESTION_SECTION_MAP.contentGuidelines.extract(suggestion) as string[]}
+        onApply={() => handleApply('contentGuidelines')}
+      />
       <AccessibilitySuggestionCard
-        value={suggestion.accessibilityNotes}
-        onApply={() => handleApply('accessibilityNotes')}
+        value={SUGGESTION_SECTION_MAP.accessibility.extract(suggestion) as EditDocsAccessibilityValue}
+        onApply={() => handleApply('accessibility')}
       />
     </div>
   );

@@ -42,49 +42,59 @@ describe('useAiSuggestion storage validation', () => {
   });
 
   it('returns suggestion when slug, scope, version and figma component id match', () => {
-    const key = 'ai-suggestion-v2-sys-button';
+    const key = 'ai-suggestion-v3-sys-button';
     storage.setItem(key, JSON.stringify({
-      version: 2,
+      version: 3,
       storageScope: 'sys',
       slug: 'button',
       figmaComponentId: '123:456',
       generatedAt: '2026-04-10T10:00:00.000Z',
       suggestion: {
-        schemaVersion: 1,
-        componentId: '123:456',
-        title: 'Button',
-        summary: 'Primary action button',
-        variants: [],
-        accessibilityNotes: [],
-        markdown: '# Button',
-        states: [],
-        accessibilityFacts: [],
+        output: {
+          schemaVersion: 1,
+          componentId: '123:456',
+          title: 'Button',
+          summary: 'Primary action button',
+          variants: [],
+          accessibilityNotes: [],
+          markdown: '# Button',
+          states: [],
+          accessibilityFacts: [],
+        },
+        editorialPatch: {
+          schemaVersion: 2,
+          summary: { purpose: 'Primary action button' },
+        },
       },
     }));
 
     const suggestion = readStoredSuggestion(key, 'button', 'sys', '123:456');
     assert.ok(suggestion);
-    assert.equal(suggestion?.title, 'Button');
+    assert.equal(suggestion?.output.title, 'Button');
+    assert.equal(suggestion?.editorialPatch?.summary?.purpose, 'Primary action button');
   });
 
   it('invalidates suggestion when figma component id does not match', () => {
-    const key = 'ai-suggestion-v2-sys-button';
+    const key = 'ai-suggestion-v3-sys-button';
     storage.setItem(key, JSON.stringify({
-      version: 2,
+      version: 3,
       storageScope: 'sys',
       slug: 'button',
       figmaComponentId: '123:456',
       generatedAt: '2026-04-10T10:00:00.000Z',
       suggestion: {
-        schemaVersion: 1,
-        componentId: '123:456',
-        title: 'Button',
-        summary: 'Primary action button',
-        variants: [],
-        accessibilityNotes: [],
-        markdown: '# Button',
-        states: [],
-        accessibilityFacts: [],
+        output: {
+          schemaVersion: 1,
+          componentId: '123:456',
+          title: 'Button',
+          summary: 'Primary action button',
+          variants: [],
+          accessibilityNotes: [],
+          markdown: '# Button',
+          states: [],
+          accessibilityFacts: [],
+        },
+        editorialPatch: null,
       },
     }));
 
@@ -94,23 +104,26 @@ describe('useAiSuggestion storage validation', () => {
   });
 
   it('does not invalidate stored suggestion before figma component id is resolved', () => {
-    const key = 'ai-suggestion-v2-sys-button';
+    const key = 'ai-suggestion-v3-sys-button';
     storage.setItem(key, JSON.stringify({
-      version: 2,
+      version: 3,
       storageScope: 'sys',
       slug: 'button',
       figmaComponentId: '123:456',
       generatedAt: '2026-04-10T10:00:00.000Z',
       suggestion: {
-        schemaVersion: 1,
-        componentId: '123:456',
-        title: 'Button',
-        summary: 'Primary action button',
-        variants: [],
-        accessibilityNotes: [],
-        markdown: '# Button',
-        states: [],
-        accessibilityFacts: [],
+        output: {
+          schemaVersion: 1,
+          componentId: '123:456',
+          title: 'Button',
+          summary: 'Primary action button',
+          variants: [],
+          accessibilityNotes: [],
+          markdown: '# Button',
+          states: [],
+          accessibilityFacts: [],
+        },
+        editorialPatch: null,
       },
     }));
 
@@ -120,23 +133,26 @@ describe('useAiSuggestion storage validation', () => {
   });
 
   it('does not load stored suggestion when figma component id is empty', () => {
-    const key = 'ai-suggestion-v2-sys-button';
+    const key = 'ai-suggestion-v3-sys-button';
     storage.setItem(key, JSON.stringify({
-      version: 2,
+      version: 3,
       storageScope: 'sys',
       slug: 'button',
       figmaComponentId: '123:456',
       generatedAt: '2026-04-10T10:00:00.000Z',
       suggestion: {
-        schemaVersion: 1,
-        componentId: '123:456',
-        title: 'Button',
-        summary: 'Primary action button',
-        variants: [],
-        accessibilityNotes: [],
-        markdown: '# Button',
-        states: [],
-        accessibilityFacts: [],
+        output: {
+          schemaVersion: 1,
+          componentId: '123:456',
+          title: 'Button',
+          summary: 'Primary action button',
+          variants: [],
+          accessibilityNotes: [],
+          markdown: '# Button',
+          states: [],
+          accessibilityFacts: [],
+        },
+        editorialPatch: null,
       },
     }));
 

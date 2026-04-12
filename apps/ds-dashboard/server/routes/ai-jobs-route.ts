@@ -1046,6 +1046,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             status: job.status,
             input: job.input,
             output: job.output,
+            editorialPatch: job.editorialPatch ?? null,
             error: job.error,
             errorCode: job.errorCode,
             retryable: job.retryable,

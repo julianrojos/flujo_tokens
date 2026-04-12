@@ -517,6 +517,7 @@ describe('ai-jobs-route', () => {
 
             assert.equal(res.status, 200);
             const json = await res.json();
+            assert.deepEqual(json.editorialPatch?.summary, { purpose: 'AI suggested purpose' });
             assert.ok(typeof json.previewMarkdown === 'string');
             assert.ok(json.previewMarkdown.includes('# Test Button'));
             assert.ok(json.previewMarkdown.includes('## Editorial: Purpose & Usage'));

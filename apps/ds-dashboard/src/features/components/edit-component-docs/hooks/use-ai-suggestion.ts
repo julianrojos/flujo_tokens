@@ -1,19 +1,19 @@
 /**
  * useAiSuggestion — localStorage versioned suggestion for a component.
  *
- * Stores AI-generated ComponentDocOutput in localStorage with a versioned payload.
+ * Stores AI-generated suggestion payloads in localStorage with a versioned payload.
  * Read failures (corrupt JSON, version mismatch, wrong slug, wrong scope, wrong
  * Figma component identity) return null and clean up the stale entry.
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import type { ComponentDocOutput } from '@/types/ai-jobs';
+import type { AiSuggestionPayload } from '@/types/ai-jobs';
 
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 const toScope = (storageScope: string | null | undefined) =>
   String(storageScope || '').trim();
 const SUGGESTION_KEY = (storageScope: string | null | undefined, slug: string) =>
-  `ai-suggestion-v2-${toScope(storageScope)}-${slug}`;
+  `ai-suggestion-v3-${toScope(storageScope)}-${slug}`;
 const MAX_SUGGESTION_BYTES = 4_000_000;
 
 interface StoredSuggestion {
@@ -22,7 +22,7 @@ interface StoredSuggestion {
   slug: string;
   figmaComponentId: string;
   generatedAt: string;
-  suggestion: ComponentDocOutput;
+  suggestion: AiSuggestionPayload;
 }
 
 export function readStoredSuggestion(
@@ -64,7 +64,7 @@ export function useAiSuggestion(
 ) {
   const storageKey = useMemo(() => SUGGESTION_KEY(storageScope, slug), [slug, storageScope]);
   const [isInMemoryOnly, setIsInMemoryOnly] = useState(false);
-  const [suggestion, setSuggestion] = useState<ComponentDocOutput | null>(() =>
+  const [suggestion, setSuggestion] = useState<AiSuggestionPayload | null>(() =>
     readStoredSuggestion(storageKey, slug, storageScope, figmaComponentId),
   );
 
@@ -74,11 +74,11 @@ export function useAiSuggestion(
   }, [storageKey, slug, storageScope, figmaComponentId]);
 
   const saveSuggestion = useCallback(
-    (output: ComponentDocOutput) => {
+    (suggestionPayload: AiSuggestionPayload) => {
       const componentId = String(figmaComponentId || '').trim();
       if (!componentId) {
         setIsInMemoryOnly(true);
-        setSuggestion(output);
+        setSuggestion(suggestionPayload);
         return;
       }
 
@@ -88,7 +88,7 @@ export function useAiSuggestion(
         slug,
         figmaComponentId: componentId,
         generatedAt: new Date().toISOString(),
-        suggestion: output,
+        suggestion: suggestionPayload,
       };
       const serialized = JSON.stringify(stored);
       const byteSize = new Blob([serialized]).size;
@@ -98,7 +98,7 @@ export function useAiSuggestion(
           `[useAiSuggestion] Suggestion too large for localStorage (${byteSize} bytes, max ${MAX_SUGGESTION_BYTES}). Keeping it in memory only.`,
         );
         setIsInMemoryOnly(true);
-        setSuggestion(output);
+        setSuggestion(suggestionPayload);
         return;
       }
 
@@ -107,11 +107,11 @@ export function useAiSuggestion(
       } catch {
         // Quota exceeded or localStorage blocked — fail-open
         setIsInMemoryOnly(true);
-        setSuggestion(output);
+        setSuggestion(suggestionPayload);
         return;
       }
       setIsInMemoryOnly(false);
-      setSuggestion(output);
+      setSuggestion(suggestionPayload);
     },
     [slug, storageKey, storageScope, figmaComponentId],
   );

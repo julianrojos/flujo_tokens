@@ -1,17 +1,18 @@
 /**
- * EditDocsForm — editorial form with summary, variants, and accessibility.
+ * EditDocsForm — editorial form for component documentation.
  *
- * Exports three standalone *FormCard components for use in the desktop
- * two-column layout, and composes them into EditDocsForm for mobile.
+ * Exports standalone form cards for the desktop layout and composes them for
+ * mobile rendering.
  */
 
 import { useCallback, useEffect, useId, useState } from 'react';
+import type { SpecProperty } from 'ds-types';
 import type { ComponentDocVariant } from '@/types/ai-jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Plus, X } from 'lucide-react';
-
-// ─── Shared utility ────────────────────────────────────────────────────
+import { normalizeStringList } from '../normalizers';
 
 function createRowId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -20,45 +21,231 @@ function createRowId(): string {
   return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ─── Data interfaces ────────────────────────────────────────────────────
-
-interface EditDocsFormData {
-  summary: string;
-  variants: ComponentDocVariant[];
-  accessibilityNotes: string[];
+export interface EditDocsSummaryValue {
+  purpose: string;
+  whenToUse: string;
+  whenNotToUse: string;
 }
 
-// ─── SummaryFormCard ────────────────────────────────────────────────────
+export interface EditDocsBestPracticesValue {
+  do: string[];
+  dont: string[];
+}
+
+export interface EditDocsAccessibilityValue {
+  role: string;
+  labelingRules: string[];
+  notes: string[];
+}
+
+export interface EditDocsFormData {
+  summary: EditDocsSummaryValue;
+  properties: SpecProperty[];
+  variants: ComponentDocVariant[];
+  bestPractices: EditDocsBestPracticesValue;
+  contentGuidelines: string[];
+  accessibility: EditDocsAccessibilityValue;
+}
 
 export interface SummaryFormCardProps {
-  value: string;
-  onChange: (v: string) => void;
+  value: EditDocsSummaryValue;
+  onChange: (v: EditDocsSummaryValue) => void;
 }
 
 export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
-  const summaryId = useId();
+  const purposeId = useId();
+  const whenToUseId = useId();
+  const whenNotToUseId = useId();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Summary</CardTitle>
-        <CardDescription>Brief description of the component</CardDescription>
+        <CardDescription>Core purpose and decision guidance for the component</CardDescription>
       </CardHeader>
-      <CardContent>
-        <label htmlFor={summaryId} className="sr-only">Summary</label>
-        <textarea
-          id={summaryId}
-          className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={4}
-        />
+      <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <label htmlFor={purposeId} className="text-sm font-medium">Purpose</label>
+          <textarea
+            id={purposeId}
+            className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+            value={value.purpose}
+            onChange={(e) => onChange({ ...value, purpose: e.target.value })}
+            rows={4}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1">
+            <label htmlFor={whenToUseId} className="text-sm font-medium">When to use</label>
+            <textarea
+              id={whenToUseId}
+              className="min-h-[90px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+              value={value.whenToUse}
+              onChange={(e) => onChange({ ...value, whenToUse: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor={whenNotToUseId} className="text-sm font-medium">When not to use</label>
+            <textarea
+              id={whenNotToUseId}
+              className="min-h-[90px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+              value={value.whenNotToUse}
+              onChange={(e) => onChange({ ...value, whenNotToUse: e.target.value })}
+              rows={3}
+            />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-// ─── VariantsFormCard ─────────────────────────────────────────────────
+export interface PropertiesFormCardProps {
+  value: SpecProperty[];
+  onChange: (v: SpecProperty[]) => void;
+}
+
+function createEmptyProperty(_index: number): SpecProperty {
+  return {
+    name: '',
+    type: 'text',
+    values: [],
+    default: '',
+    required: false,
+    description: '',
+  };
+}
+
+export function PropertiesFormCard({ value: properties, onChange }: PropertiesFormCardProps) {
+  const propsIdBase = useId();
+  const [rowIds, setRowIds] = useState<string[]>(() => properties.map(() => createRowId()));
+
+  useEffect(() => {
+    setRowIds((prev) => {
+      if (prev.length === properties.length) return prev;
+      if (prev.length > properties.length) return prev.slice(0, properties.length);
+      return [...prev, ...Array.from({ length: properties.length - prev.length }, createRowId)];
+    });
+  }, [properties.length]);
+
+  const addProperty = useCallback(() => {
+    onChange([...properties, createEmptyProperty(properties.length + 1)]);
+    setRowIds((prev) => [...prev, createRowId()]);
+  }, [properties, onChange]);
+
+  const updateProperty = useCallback((index: number, nextValue: Partial<SpecProperty>) => {
+    const next = [...properties];
+    next[index] = { ...next[index], ...nextValue };
+    onChange(next);
+  }, [properties, onChange]);
+
+  const removeProperty = useCallback((index: number) => {
+    onChange(properties.filter((_, i) => i !== index));
+    setRowIds((prev) => prev.filter((_, i) => i !== index));
+  }, [properties, onChange]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Properties</CardTitle>
+          <Button variant="outline" size="sm" onClick={addProperty}>
+            <Plus className="mr-1 h-4 w-4" /> Add property
+          </Button>
+        </div>
+        <CardDescription>{properties.length} top-level propert{properties.length === 1 ? 'y' : 'ies'}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {properties.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">No top-level properties yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {properties.map((property, index) => (
+              <li key={rowIds[index]} className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr),140px,120px,120px,auto] md:items-end">
+                  <div className="space-y-1">
+                    <label htmlFor={`${propsIdBase}-name-${index}`} className="text-xs font-medium text-muted-foreground">Name</label>
+                    <Input
+                      id={`${propsIdBase}-name-${index}`}
+                      value={property.name}
+                      onChange={(e) => updateProperty(index, { name: e.target.value })}
+                      placeholder="Property name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor={`${propsIdBase}-type-${index}`} className="text-xs font-medium text-muted-foreground">Type</label>
+                    <select
+                      id={`${propsIdBase}-type-${index}`}
+                      className="h-10 w-full rounded-md border border-border bg-surface-1 px-3 text-sm"
+                      value={property.type}
+                      onChange={(e) => updateProperty(index, { type: e.target.value })}
+                    >
+                      <option value="enum">enum</option>
+                      <option value="text">text</option>
+                      <option value="boolean">boolean</option>
+                      <option value="instance_swap">instance_swap</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor={`${propsIdBase}-default-${index}`} className="text-xs font-medium text-muted-foreground">Default</label>
+                    <Input
+                      id={`${propsIdBase}-default-${index}`}
+                      value={property.default === null || property.default === undefined ? '' : String(property.default)}
+                      onChange={(e) => updateProperty(index, { default: e.target.value })}
+                      placeholder="Default"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(property.required)}
+                      onChange={(e) => updateProperty(index, { required: e.target.checked })}
+                    />
+                    Required
+                  </label>
+                  <button
+                    type="button"
+                    className="rounded p-2 text-muted-foreground hover:text-foreground"
+                    onClick={() => removeProperty(index)}
+                    aria-label={`Remove property ${property.name || index + 1}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <label htmlFor={`${propsIdBase}-values-${index}`} className="text-xs font-medium text-muted-foreground">Values</label>
+                    <Input
+                      id={`${propsIdBase}-values-${index}`}
+                      value={(property.values ?? []).join(', ')}
+                      onChange={(e) => updateProperty(index, {
+                        values: e.target.value
+                          .split(',')
+                          .map((item) => item.trim())
+                          .filter((item) => item.length > 0),
+                      })}
+                      placeholder="Comma-separated values"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor={`${propsIdBase}-description-${index}`} className="text-xs font-medium text-muted-foreground">Description</label>
+                    <Input
+                      id={`${propsIdBase}-description-${index}`}
+                      value={property.description}
+                      onChange={(e) => updateProperty(index, { description: e.target.value })}
+                      placeholder="Description"
+                    />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export interface VariantsFormCardProps {
   value: ComponentDocVariant[];
@@ -234,74 +421,87 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
   );
 }
 
-// ─── AccessibilityFormCard ────────────────────────────────────────────
-
-export interface AccessibilityFormCardProps {
+interface StringListCardProps {
+  title: string;
+  description: string;
   value: string[];
   onChange: (v: string[]) => void;
+  addLabel: string;
+  emptyLabel: string;
+  placeholder: string;
+  itemLabel: (index: number) => string;
 }
 
-export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
-  const accIdBase = useId();
-  const [noteRowIds, setNoteRowIds] = useState<string[]>(() => value.map(() => createRowId()));
+function StringListCard({
+  title,
+  description,
+  value,
+  onChange,
+  addLabel,
+  emptyLabel,
+  placeholder,
+  itemLabel,
+}: StringListCardProps) {
+  const idBase = useId();
+  const [rowIds, setRowIds] = useState<string[]>(() => value.map(() => createRowId()));
 
   useEffect(() => {
-    setNoteRowIds((prev) => {
+    setRowIds((prev) => {
       if (prev.length === value.length) return prev;
       if (prev.length > value.length) return prev.slice(0, value.length);
       return [...prev, ...Array.from({ length: value.length - prev.length }, createRowId)];
     });
   }, [value.length]);
 
-  const addNote = useCallback(() => {
+  const addItem = useCallback(() => {
     onChange([...value, '']);
-    setNoteRowIds((prev) => [...prev, createRowId()]);
+    setRowIds((prev) => [...prev, createRowId()]);
   }, [value, onChange]);
 
-  const updateNote = useCallback((index: number, fieldValue: string) => {
+  const updateItem = useCallback((index: number, fieldValue: string) => {
     const next = [...value];
     next[index] = fieldValue;
     onChange(next);
   }, [value, onChange]);
 
-  const removeNote = useCallback((index: number) => {
+  const removeItem = useCallback((index: number) => {
     const next = value.filter((_, i) => i !== index);
     onChange(next);
-    setNoteRowIds((prev) => prev.filter((_, i) => i !== index));
+    setRowIds((prev) => prev.filter((_, i) => i !== index));
   }, [value, onChange]);
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Accessibility</CardTitle>
-          <Button variant="outline" size="sm" onClick={addNote}>
-            <Plus className="mr-1 h-4 w-4" /> Add note
+          <CardTitle className="text-base">{title}</CardTitle>
+          <Button variant="outline" size="sm" onClick={addItem}>
+            <Plus className="mr-1 h-4 w-4" /> {addLabel}
           </Button>
         </div>
-        <CardDescription>{value.length} note{value.length !== 1 ? 's' : ''}</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {value.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No accessibility notes yet.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
           <ul className="space-y-2">
-            {value.map((note, i) => (
-              <li key={noteRowIds[i]} className="flex items-start gap-2">
-                <label htmlFor={`${accIdBase}-note-${i}`} className="sr-only">Accessibility note {i + 1}</label>
+            {value.map((item, i) => (
+              <li key={rowIds[i]} className="flex items-start gap-2">
+                <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
                 <textarea
-                  id={`${accIdBase}-note-${i}`}
+                  id={`${idBase}-${i}`}
                   className="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
-                  value={note}
-                  onChange={(e) => updateNote(i, e.target.value)}
+                  value={item}
+                  onChange={(e) => updateItem(i, e.target.value)}
                   rows={2}
-                  placeholder="Accessibility consideration..."
+                  placeholder={placeholder}
                 />
                 <button
                   type="button"
                   className="mt-1 rounded p-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => removeNote(i)}
-                  aria-label={`Remove note ${i + 1}`}
+                  onClick={() => removeItem(i)}
+                  aria-label={`Remove ${title.toLowerCase()} item ${i + 1}`}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -314,27 +514,146 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
   );
 }
 
-// ─── EditDocsForm (mobile wrapper) ────────────────────────────────────
+export interface BestPracticesFormCardProps {
+  value: EditDocsBestPracticesValue;
+  onChange: (v: EditDocsBestPracticesValue) => void;
+}
+
+export function BestPracticesFormCard({ value, onChange }: BestPracticesFormCardProps) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <StringListCard
+        title="Best Practices: Do"
+        description="Recommended usage patterns"
+        value={value.do}
+        onChange={(items) => onChange({ ...value, do: items })}
+        addLabel="Add do"
+        emptyLabel="No do items yet."
+        placeholder="Recommended practice..."
+        itemLabel={(index) => `Do item ${index + 1}`}
+      />
+      <StringListCard
+        title="Best Practices: Don't"
+        description="Misuses and anti-patterns"
+        value={value.dont}
+        onChange={(items) => onChange({ ...value, dont: items })}
+        addLabel="Add don't"
+        emptyLabel="No don't items yet."
+        placeholder="Anti-pattern..."
+        itemLabel={(index) => `Don't item ${index + 1}`}
+      />
+    </div>
+  );
+}
+
+export interface ContentGuidelinesFormCardProps {
+  value: string[];
+  onChange: (v: string[]) => void;
+}
+
+export function ContentGuidelinesFormCard({ value, onChange }: ContentGuidelinesFormCardProps) {
+  return (
+    <StringListCard
+      title="Content Guidelines"
+      description="Content rules shown in the detail spec"
+      value={value}
+      onChange={onChange}
+      addLabel="Add rule"
+      emptyLabel="No content guidelines yet."
+      placeholder="Guideline..."
+      itemLabel={(index) => `Content guideline ${index + 1}`}
+    />
+  );
+}
+
+export interface AccessibilityFormCardProps {
+  value: EditDocsAccessibilityValue;
+  onChange: (v: EditDocsAccessibilityValue) => void;
+}
+
+export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Accessibility</CardTitle>
+          <CardDescription>Role, labeling rules, and notes</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
+            <Input
+              id="accessibility-role"
+              value={value.role}
+              onChange={(e) => onChange({ ...value, role: e.target.value })}
+              placeholder="button"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <StringListCard
+        title="Accessibility Labeling Rules"
+        description="Rules rendered under accessibility.labeling.rules"
+        value={value.labelingRules}
+        onChange={(items) => onChange({ ...value, labelingRules: items })}
+        addLabel="Add rule"
+        emptyLabel="No labeling rules yet."
+        placeholder="Labeling rule..."
+        itemLabel={(index) => `Labeling rule ${index + 1}`}
+      />
+
+      <StringListCard
+        title="Accessibility Notes"
+        description="Additional accessibility considerations"
+        value={value.notes}
+        onChange={(items) => onChange({ ...value, notes: items })}
+        addLabel="Add note"
+        emptyLabel="No accessibility notes yet."
+        placeholder="Accessibility consideration..."
+        itemLabel={(index) => `Accessibility note ${index + 1}`}
+      />
+    </div>
+  );
+}
 
 interface EditDocsFormProps {
-  formData: EditDocsFormData;
+  value: EditDocsFormData;
   onChange: (v: Partial<EditDocsFormData>) => void;
 }
 
-export function EditDocsForm({ formData, onChange }: EditDocsFormProps) {
+export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
   return (
     <div className="space-y-4">
       <SummaryFormCard
-        value={formData.summary}
+        value={value.summary}
         onChange={(v) => onChange({ summary: v })}
       />
+      <PropertiesFormCard
+        value={value.properties}
+        onChange={(v) => onChange({ properties: v })}
+      />
       <VariantsFormCard
-        value={formData.variants}
+        value={value.variants}
         onChange={(v) => onChange({ variants: v })}
       />
+      <BestPracticesFormCard
+        value={value.bestPractices}
+        onChange={(v) => onChange({ bestPractices: v })}
+      />
+      <ContentGuidelinesFormCard
+        value={value.contentGuidelines}
+        onChange={(v) => onChange({ contentGuidelines: normalizeStringList(v) })}
+      />
       <AccessibilityFormCard
-        value={formData.accessibilityNotes}
-        onChange={(v) => onChange({ accessibilityNotes: v })}
+        value={value.accessibility}
+        onChange={(v) => onChange({
+          accessibility: {
+            role: v.role,
+            labelingRules: normalizeStringList(v.labelingRules),
+            notes: normalizeStringList(v.notes),
+          },
+        })}
       />
     </div>
   );

@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { AiJobStatus, ComponentDocOutput } from '@/types/ai-jobs';
+import type { AiJobStatus, AiSuggestionPayload } from '@/types/ai-jobs';
 import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,7 @@ interface AiSuggestionsModalProps {
   onClose: () => void;
   /** Figma component node ID (not slug) for the locked job */
   figmaComponentId: string;
-  onSaveSuggestion: (output: ComponentDocOutput) => void;
+  onSaveSuggestion: (suggestion: AiSuggestionPayload) => void;
 }
 
 export function AiSuggestionsModal({
@@ -60,8 +60,8 @@ export function AiSuggestionsModal({
   }, []);
 
   const handleJobComplete = useCallback(
-    (output: ComponentDocOutput) => {
-      onSaveSuggestion(output);
+    (suggestion: AiSuggestionPayload) => {
+      onSaveSuggestion(suggestion);
       setCanViewSuggestions(true);
     },
     [onSaveSuggestion],

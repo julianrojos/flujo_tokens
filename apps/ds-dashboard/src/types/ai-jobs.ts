@@ -150,6 +150,36 @@ export interface ComponentDocOutput {
     };
 }
 
+export interface EditorialPatch {
+    schemaVersion: number;
+    summary?: {
+        purpose?: string;
+        when_to_use?: string;
+        when_not_to_use?: string;
+    };
+    best_practices?: {
+        do?: string[];
+        dont?: string[];
+    };
+    content_guidelines?: {
+        rules?: string[];
+    };
+    accessibility?: {
+        role?: string;
+        labeling?: {
+            rules?: string[];
+        };
+        notes?: string[];
+    };
+    related_components?: string[];
+    qa?: string[];
+}
+
+export interface AiSuggestionPayload {
+    output: ComponentDocOutput;
+    editorialPatch?: EditorialPatch | null;
+}
+
 export type { ValidationSeverity, ValidationReport };
 
 // ============================================================================
@@ -170,6 +200,7 @@ export interface AiJobResponse {
     retryable?: boolean;
     events: AiJobEvent[];
     usage?: AiUsageMetrics;
+    editorialPatch?: EditorialPatch | null;
     hasEditorialPatch: boolean;
     validationReport?: ValidationReport;
     canPublish?: boolean;

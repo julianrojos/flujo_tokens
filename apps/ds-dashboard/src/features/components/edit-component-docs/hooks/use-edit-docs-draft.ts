@@ -13,10 +13,14 @@ const DRAFT_KEY = (slug: string, storageScope?: string | null) =>
   `edit-docs-draft-v1-${toScope(storageScope)}-${slug}`;
 
 export interface EditDocsDraftPayload {
-  summary: string;
+  summary: unknown;
+  properties?: unknown[];
   variants: unknown[];
-  accessibilityNotes: string[];
-  touchedFields?: Array<'summary' | 'variants' | 'accessibilityNotes'>;
+  bestPractices?: unknown;
+  contentGuidelines?: string[];
+  accessibility?: unknown;
+  accessibilityNotes?: string[];
+  touchedFields?: Array<'summary' | 'properties' | 'variants' | 'bestPractices' | 'contentGuidelines' | 'accessibility'>;
 }
 
 export function useEditDocsDraft(slug: string, storageScope?: string | null) {

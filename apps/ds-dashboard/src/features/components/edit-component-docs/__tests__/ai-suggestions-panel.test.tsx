@@ -5,20 +5,27 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   SummarySuggestionCard,
   VariantsSuggestionCard,
+  BestPracticesSuggestionCard,
+  ContentGuidelinesSuggestionCard,
   AccessibilitySuggestionCard,
 } from '../components/ai-suggestions-panel';
 
 describe('AiSuggestionsPanel cards', () => {
-  it('renders summary suggestion card', () => {
+  it('renders structured summary suggestion card', () => {
     const html = renderToStaticMarkup(
       React.createElement(SummarySuggestionCard, {
-        value: 'A button component for primary actions',
+        value: {
+          purpose: 'A button component for primary actions',
+          whenToUse: 'Use for the main action',
+          whenNotToUse: 'Avoid for secondary actions',
+        },
         onApply: () => {},
       }),
     );
     assert.match(html, /Summary/);
     assert.match(html, /A button component for primary actions/);
-    assert.match(html, /Use this/);
+    assert.match(html, /When to use/);
+    assert.match(html, /When not to use/);
   });
 
   it('renders variants suggestion card', () => {
@@ -38,37 +45,47 @@ describe('AiSuggestionsPanel cards', () => {
     assert.match(html, /Hover/);
   });
 
-  it('renders empty variants state', () => {
+  it('renders best practices suggestion card', () => {
     const html = renderToStaticMarkup(
-      React.createElement(VariantsSuggestionCard, {
-        value: [],
+      React.createElement(BestPracticesSuggestionCard, {
+        value: {
+          do: ['Use short labels'],
+          dont: ['Mix unrelated actions'],
+        },
         onApply: () => {},
       }),
     );
-    assert.match(html, /No variants in suggestion/);
+    assert.match(html, /Best Practices/);
+    assert.match(html, /Use short labels/);
+    assert.match(html, /Mix unrelated actions/);
   });
 
-  it('renders accessibility suggestion card', () => {
-    const notes = ['Has accessible name', 'Supports keyboard navigation'];
+  it('renders content guidelines suggestion card', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ContentGuidelinesSuggestionCard, {
+        value: ['Start labels with a verb'],
+        onApply: () => {},
+      }),
+    );
+    assert.match(html, /Content Guidelines/);
+    assert.match(html, /Start labels with a verb/);
+  });
+
+  it('renders accessibility suggestion card with role and labeling rules', () => {
     const html = renderToStaticMarkup(
       React.createElement(AccessibilitySuggestionCard, {
-        value: notes,
+        value: {
+          role: 'button',
+          labelingRules: ['Provide an accessible name'],
+          notes: ['Supports keyboard activation'],
+        },
         onApply: () => {},
       }),
     );
     assert.match(html, /Accessibility/);
-    assert.match(html, /Has accessible name/);
-    assert.match(html, /Supports keyboard navigation/);
-  });
-
-  it('renders empty accessibility state', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(AccessibilitySuggestionCard, {
-        value: [],
-        onApply: () => {},
-      }),
-    );
-    assert.match(html, /No accessibility notes in suggestion/);
+    assert.match(html, /button/);
+    assert.match(html, /Provide an accessible name/);
+    assert.match(html, /Supports keyboard activation/);
   });
 
   it('does not render any tokens section in suggestion cards', () => {
@@ -76,7 +93,7 @@ describe('AiSuggestionsPanel cards', () => {
       React.createElement('div', {}, [
         React.createElement(SummarySuggestionCard, {
           key: 'summary',
-          value: 'A button component for primary actions',
+          value: { purpose: 'A button', whenToUse: '', whenNotToUse: '' },
           onApply: () => {},
         }),
         React.createElement(VariantsSuggestionCard, {
@@ -84,9 +101,19 @@ describe('AiSuggestionsPanel cards', () => {
           value: [],
           onApply: () => {},
         }),
+        React.createElement(BestPracticesSuggestionCard, {
+          key: 'best-practices',
+          value: { do: [], dont: [] },
+          onApply: () => {},
+        }),
+        React.createElement(ContentGuidelinesSuggestionCard, {
+          key: 'content-guidelines',
+          value: [],
+          onApply: () => {},
+        }),
         React.createElement(AccessibilitySuggestionCard, {
           key: 'accessibility',
-          value: [],
+          value: { role: '', labelingRules: [], notes: [] },
           onApply: () => {},
         }),
       ]),
