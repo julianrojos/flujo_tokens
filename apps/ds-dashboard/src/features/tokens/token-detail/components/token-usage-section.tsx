@@ -140,7 +140,6 @@ export function TokenUsageSection({
             <TableHeader>
               <TableRow>
                 <TableHead>Component</TableHead>
-                <TableHead>Stage</TableHead>
                 <TableHead>Mode</TableHead>
                 <TableHead>Occurrences</TableHead>
                 <TableHead>Slots</TableHead>
@@ -150,7 +149,6 @@ export function TokenUsageSection({
               {filteredComponentUsages.map((usage) => (
                 <TableRow key={usage.slug}>
                   <TableCell className="font-medium">{usage.displayName}</TableCell>
-                  <TableCell><Badge variant={usage.pipelineStage === "visual-proof" ? "success" : "neutral"}>{usage.pipelineStage ?? "—"}</Badge></TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       {(usage.mode === "direct" || usage.mode === "both") && (

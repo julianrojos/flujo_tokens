@@ -3,7 +3,6 @@
  * No React hooks, no JSX — pure transformations only.
  */
 
-import type { PipelineStage } from "@/types/component-registry";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 
@@ -145,15 +144,6 @@ export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntr
 }
 
 /**
- * Get badge variant for a pipeline stage
- */
-export function stageBadge(stage: PipelineStage): "success" | "warning" | "neutral" {
-  if (stage === "visual-proof") return "success";
-  if (stage === "markdown") return "warning";
-  return "neutral";
-}
-
-/**
  * Parse component usage detail to extract slot and condition
  */
 export function parseComponentUsageDetail(detail: string) {
@@ -234,14 +224,4 @@ export const KIND_LABELS: Record<string, string> = {
   "figma-alias": "Figma alias",
   "figma-applied": "Figma parent usage",
   "figma-consumer-applied": "Figma consumer usage",
-};
-
-/**
- * Labels for component pipeline stages
- */
-export const COMPONENT_STAGE_LABELS: Record<PipelineStage, string> = {
-  "missing-spec": "Missing spec",
-  spec: "Spec",
-  markdown: "Markdown",
-  "visual-proof": "Visual proof",
 };

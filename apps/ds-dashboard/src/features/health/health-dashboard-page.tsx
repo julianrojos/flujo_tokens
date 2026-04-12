@@ -10,7 +10,7 @@ import { RANGE_LABEL } from "./lib/health-transforms";
 import { useHealthDashboard } from "./hooks/use-health-dashboard";
 import { HealthMetricsOverview } from "./components/health-metrics-overview";
 import { HealthActiveIssues } from "./components/health-active-issues";
-import { HealthPipelineProgress } from "./components/health-pipeline-progress";
+import { HealthSpecProgress } from "./components/health-spec-progress";
 import { HealthTokenPriorities } from "./components/health-token-priorities";
 import { HealthBrokenAliases } from "./components/health-broken-aliases";
 
@@ -88,12 +88,9 @@ export function HealthDashboardPage() {
       />
 
       {componentsHealth && (
-        <HealthPipelineProgress
-          ready={componentsHealth.summary.ready}
-          withVisualProof={componentsHealth.summary.with_visual_proof}
-          needsReview={componentsHealth.summary.needs_review}
-          draft={componentsHealth.summary.draft}
-          missing={componentsHealth.summary.missing}
+        <HealthSpecProgress
+          withSpec={componentsHealth.summary.with_spec}
+          missing={componentsHealth.summary.without_spec}
           total={componentsTotal}
           anchorId="at-risk-components"
         />

@@ -16,7 +16,6 @@ type TrendPoint = {
   unresolved: number;
   coverage: number;
   unusedTokens: number;
-  needsReview: number;
 };
 
 type TrendLine = {
@@ -72,7 +71,6 @@ function buildTrendPoints(
       unresolved: snapshot.metrics.unresolved_total,
       coverage: snapshot.metrics.coverage_avg,
       unusedTokens: snapshot.metrics.unused_tokens_total,
-      needsReview: snapshot.metrics.needs_review_total,
     }))
     .sort((left, right) => left.key.localeCompare(right.key));
 }

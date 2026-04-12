@@ -9,13 +9,11 @@ import {
   fetchComponentSpec,
   fetchComponentUsageIndex,
   fetchTokenRegistry,
-  fetchTokenUsageIndex,
 } from "@/lib/api";
-import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
+import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { PartialComponentSpec } from "ds-types";
 import type { TokenRegistry } from "@/types/token-registry";
-import type { TokenUsageIndex } from "@/types/token-usage-index";
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
 interface ComponentDetailViewModel {
@@ -26,30 +24,21 @@ interface ComponentDetailViewModel {
   usage: ComponentUsageEntry | null;
   allItems: ComponentRegistryItem[];
   spec: PartialComponentSpec | null;
-  specUpdatedAt: number | null;
   tokenRegistry: TokenRegistry | null;
-  tokenUsageIndex: TokenUsageIndex | null;
   downloadError: string | null;
   downloadWarnings: string[];
 
   // UI state
-  captureModalOpen: boolean;
-  captureSummary: string | null;
-  reloadNonce: number;
   canOpenDocs: boolean;
   isDownloadingMarkdown: boolean;
 
   // Derived
-  nextStep: PipelineStage | null;
   previousItem: ComponentRegistryItem | null;
   nextItem: ComponentRegistryItem | null;
   currentIndex: number;
   totalItems: number;
 
   // Handlers
-  setCaptureModalOpen: (open: boolean) => void;
-  setCaptureSummary: (summary: string | null) => void;
-  handleReload: () => void;
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
   downloadMarkdown: () => Promise<void>;
@@ -63,12 +52,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
   const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
-  const [specUpdatedAt, setSpecUpdatedAt] = useState<number | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
-  const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
-  const [captureModalOpen, setCaptureModalOpen] = useState(false);
-  const [captureSummary, setCaptureSummary] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDownloadingMarkdown, setIsDownloadingMarkdown] = useState(false);
@@ -76,7 +60,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [downloadWarnings, setDownloadWarnings] = useState<string[]>([]);
 
   useEffect(() => {
-    setCaptureSummary(null);
     setDownloadError(null);
     setDownloadWarnings([]);
     setIsDownloadingMarkdown(false);
@@ -88,13 +71,12 @@ export function useComponentDetail(): ComponentDetailViewModel {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, specPayload, tokenRegistryPayload, tokenUsagePayload] =
+        const [registry, usageIndex, specPayload, tokenRegistryPayload] =
           await Promise.all([
             fetchComponentRegistry(),
             fetchComponentUsageIndex().catch(() => EMPTY_COMPONENT_USAGE_INDEX),
             fetchComponentSpec(slug).catch(() => null),
             fetchTokenRegistry().catch(() => null),
-            fetchTokenUsageIndex().catch(() => null),
           ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
         setItem(found);
@@ -104,14 +86,11 @@ export function useComponentDetail(): ComponentDetailViewModel {
         // Spec comes complete from API (DB-first, no merge needed)
         if (specPayload?.ok) {
           setSpec(specPayload.spec ?? null);
-          setSpecUpdatedAt(specPayload.updatedAt ?? null);
         } else {
           setSpec(null);
-          setSpecUpdatedAt(null);
         }
 
         setTokenRegistry(tokenRegistryPayload);
-        setTokenUsageIndex(tokenUsagePayload);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -119,14 +98,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
       }
     };
     load();
-  }, [slug, reloadNonce]);
-
-  const nextStep = useMemo<PipelineStage | null>(() => {
-    if (!item?.pipeline_stage) return null;
-    const stages: PipelineStage[] = ["missing-spec", "spec", "markdown", "visual-proof"];
-    const idx = stages.indexOf(item.pipeline_stage);
-    return idx < stages.length - 1 ? stages[idx + 1] : null;
-  }, [item?.pipeline_stage]);
+  }, [slug]);
 
   const { previousItem, nextItem, currentIndex, totalItems } = useMemo(() => {
     const idx = allItems.findIndex((i) => i.slug === slug);
@@ -137,10 +109,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
       totalItems: allItems.length,
     };
   }, [allItems, slug]);
-
-  const handleReload = useCallback(() => {
-    setReloadNonce((n) => n + 1);
-  }, []);
 
   const handleNavigate = useCallback((targetSlug: string) => {
     navigate(`/components/${encodeURIComponent(targetSlug)}`);
@@ -202,24 +170,15 @@ export function useComponentDetail(): ComponentDetailViewModel {
     usage,
     allItems,
     spec,
-    specUpdatedAt,
     tokenRegistry,
-    tokenUsageIndex,
     downloadError,
     downloadWarnings,
-    captureModalOpen,
-    captureSummary,
-    reloadNonce,
     canOpenDocs: Boolean(item),
     isDownloadingMarkdown,
-    nextStep,
     previousItem,
     nextItem,
     currentIndex,
     totalItems,
-    setCaptureModalOpen,
-    setCaptureSummary,
-    handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,

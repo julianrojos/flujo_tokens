@@ -67,9 +67,9 @@ export function useHealthDashboard() {
   );
   const componentsScore = componentsHealth
     ? Math.round(
-      (componentsHealth.summary.ready / Math.max(1, componentsHealth.summary.total_components)) * 45
-      + (componentsHealth.summary.with_visual_proof / Math.max(1, componentsHealth.summary.total_components)) * 35
-      + (componentsHealth.summary.average_coverage_percent / 100) * 20,
+      (componentsHealth.summary.with_spec
+        / Math.max(1, componentsHealth.summary.total_components)) * 60
+      + (componentsHealth.summary.average_coverage_percent / 100) * 40,
     )
     : 0;
   const overallScore = useMemo(
@@ -110,12 +110,12 @@ export function useHealthDashboard() {
         to: "/health#unused-tokens",
       });
     }
-    if (componentsHealth.summary.missing > 0) {
+    if (componentsHealth.summary.without_spec > 0) {
       issues.push({
         id: "missing-specs",
         label: "Missing specs",
-        description: `${componentsHealth.summary.missing} components are missing from the pipeline`,
-        count: componentsHealth.summary.missing,
+        description: `${componentsHealth.summary.without_spec} components have no spec`,
+        count: componentsHealth.summary.without_spec,
         severity: "warning",
         to: "/health#at-risk-components",
       });

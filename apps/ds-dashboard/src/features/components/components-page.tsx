@@ -21,9 +21,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
@@ -35,22 +34,11 @@ import {
 
 type SortField =
   | "display_name"
-  | "pipeline_stage"
-  | "doc_status"
-  | "spec_status"
-  | "usage_count"
-  | "ready_for_publish";
+  | "spec_exists"
+  | "usage_count";
 
-function stageBadge(stage: string) {
-  if (stage === "visual-proof") return "success" as const;
-  if (stage === "markdown") return "warning" as const;
-  return "neutral" as const;
-}
-
-function statusBadge(status: string) {
-  if (status === "ready") return "success" as const;
-  if (status === "needs-review") return "warning" as const;
-  return "neutral" as const;
+function specBadgeVariant(exists: boolean) {
+  return exists ? ("success" as const) : ("neutral" as const);
 }
 
 export function ComponentsPage() {
@@ -61,8 +49,7 @@ export function ComponentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
-  const [stage, setStage] = useState("all");
-  const [docStatus, setDocStatus] = useState("all");
+  const [specFilter, setSpecFilter] = useState("all");
   const [sort, toggleSort] = useSortState<SortField>({
     field: "display_name",
     dir: "asc",
@@ -102,19 +89,19 @@ export function ComponentsPage() {
         !lowered ||
         item.display_name.toLowerCase().includes(lowered) ||
         item.slug.toLowerCase().includes(lowered);
-      const matchesStage = stage === "all" || item.pipeline_stage === stage;
-      const matchesDoc = docStatus === "all" || item.doc.status === docStatus;
-      return matchesSearch && matchesStage && matchesDoc;
+      const matchesSpec =
+        specFilter === "all"
+          || (specFilter === "with-spec" && item.spec.exists)
+          || (specFilter === "without-spec" && !item.spec.exists);
+      return matchesSearch && matchesSpec;
     });
 
     next.sort((a, b) => {
       const valueFor = (row: ComponentRegistryItem): string | number => {
         if (sort.field === "display_name") return row.display_name.toLowerCase();
-        if (sort.field === "pipeline_stage") return row.pipeline_stage;
-        if (sort.field === "doc_status") return row.doc.status;
-        if (sort.field === "spec_status") return row.spec.status;
+        if (sort.field === "spec_exists") return row.spec.exists ? 1 : 0;
         if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
-        return row.ready_for_publish ? 1 : 0;
+        return 0;
       };
 
       const aValue = valueFor(a);
@@ -124,16 +111,12 @@ export function ComponentsPage() {
     });
 
     return next;
-  }, [rows, search, stage, docStatus, sort, usageBySlug]);
+  }, [rows, search, specFilter, sort, usageBySlug]);
 
   const stats = useMemo(() => {
     const total = rows.length;
-    const ready = rows.filter((item) => item.doc.status === "ready").length;
-    const needsReview = rows.filter(
-      (item) => item.doc.status === "needs-review",
-    ).length;
-    const withProof = rows.filter((item) => item.visual_proof.exists).length;
-    return { total, ready, needsReview, withProof };
+    const withSpec = rows.filter((item) => item.spec.exists).length;
+    return { total, withSpec };
   }, [rows]);
 
   const displayNameBySlug = useMemo(() => {
@@ -163,7 +146,7 @@ export function ComponentsPage() {
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardDescription>Total componentes</CardDescription>
@@ -172,20 +155,8 @@ export function ComponentsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Docs ready</CardDescription>
-            <CardTitle>{stats.ready}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Needs review</CardDescription>
-            <CardTitle>{stats.needsReview}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Con visual proof</CardDescription>
-            <CardTitle>{stats.withProof}</CardTitle>
+            <CardDescription>Con spec</CardDescription>
+            <CardTitle>{stats.withSpec}</CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -214,23 +185,12 @@ export function ComponentsPage() {
             count={filtered.length}
           >
             <Select
-              value={stage}
-              onChange={(event) => setStage(event.target.value)}
+              value={specFilter}
+              onChange={(event) => setSpecFilter(event.target.value)}
             >
-              <option value="all">Stage: All</option>
-              <option value="missing-spec">missing-spec</option>
-              <option value="spec">spec</option>
-              <option value="markdown">markdown</option>
-              <option value="visual-proof">visual-proof</option>
-            </Select>
-            <Select
-              value={docStatus}
-              onChange={(event) => setDocStatus(event.target.value)}
-            >
-              <option value="all">Doc status: All</option>
-              <option value="draft">draft</option>
-              <option value="needs-review">needs-review</option>
-              <option value="ready">ready</option>
+              <option value="all">Spec: All</option>
+              <option value="with-spec">With spec</option>
+              <option value="without-spec">Without spec</option>
             </Select>
           </FilterBar>
 
@@ -242,18 +202,15 @@ export function ComponentsPage() {
             <TableHeader>
               <TableRow>
                 <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
-                <SortableTableHead label="Stage" onSort={() => toggleSort("pipeline_stage")} />
-                <SortableTableHead label="Doc status" onSort={() => toggleSort("doc_status")} />
-                <SortableTableHead label="Spec status" onSort={() => toggleSort("spec_status")} />
+                <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
                 <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
-                <SortableTableHead label="Ready" onSort={() => toggleSort("ready_for_publish")} />
               </TableRow>
             </TableHeader>
             <TableBody>
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={3}
                     className="text-center text-muted-foreground"
                   >
                     No components match your filters.
@@ -262,9 +219,9 @@ export function ComponentsPage() {
               ) : null}
 
               {loading
-                ? Array.from({ length: 6 }).map((_, index) => (
+                ? Array.from({ length: 4 }).map((_, index) => (
                     <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={6} className="text-muted-foreground">
+                      <TableCell colSpan={3} className="text-muted-foreground">
                         Loading components...
                       </TableCell>
                     </TableRow>
@@ -304,18 +261,8 @@ export function ComponentsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={stageBadge(item.pipeline_stage)}>
-                          {item.pipeline_stage}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge(item.doc.status)}>
-                          {item.doc.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge(item.spec.status)}>
-                          {item.spec.status}
+                        <Badge variant={specBadgeVariant(item.spec.exists)}>
+                          {item.spec.exists ? "With spec" : "Without spec"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -327,9 +274,6 @@ export function ComponentsPage() {
                           );
                           return labels.join(", ");
                         })()}
-                      </TableCell>
-                      <TableCell>
-                        {item.ready_for_publish ? "Yes" : "No"}
                       </TableCell>
                     </TableRow>
                   ))}

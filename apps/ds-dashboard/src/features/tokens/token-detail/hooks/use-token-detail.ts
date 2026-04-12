@@ -6,7 +6,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTokenDetailData } from "../use-token-detail-data";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
-import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
+import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   resolveColorSwatch,
@@ -20,7 +20,6 @@ import {
 export interface ComponentTokenUsage {
   slug: string;
   displayName: string;
-  pipelineStage: PipelineStage | null;
   figmaUrl: string | null;
   figmaNodeId: string | null;
   mode: "direct" | "via_alias" | "both";
@@ -195,7 +194,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       {
         slug: string;
         displayName: string;
-        pipelineStage: PipelineStage | null;
         figmaUrl: string | null;
         figmaNodeId: string | null;
         occurrences: number;
@@ -218,7 +216,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       const created = {
         slug: trimmed,
         displayName: component?.display_name ?? trimmed,
-        pipelineStage: component?.pipeline_stage ?? null,
         figmaUrl: component?.figma?.file_url ?? null,
         figmaNodeId: component?.figma?.component_set_node_id ?? null,
         occurrences: 0,
@@ -278,7 +275,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
         return {
         slug: row.slug,
         displayName: row.displayName,
-        pipelineStage: row.pipelineStage,
         figmaUrl: row.figmaUrl,
         figmaNodeId: row.figmaNodeId,
         mode,

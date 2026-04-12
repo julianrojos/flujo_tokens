@@ -73,22 +73,11 @@ function buildHealthIssueItems(
   }
 
   if (componentsHealth) {
-    const summary = componentsHealth.summary;
     const componentIssues: Array<{ count: number; title: string; keywords: string[] }> = [
       {
-        count: summary.needs_review,
-        title: `${summary.needs_review} components need review`,
-        keywords: ["components", "review", "health"],
-      },
-      {
-        count: componentsHealth.filters.missing_visual_proof.total,
-        title: `${componentsHealth.filters.missing_visual_proof.total} components without visual proof`,
-        keywords: ["visual", "proof", "components"],
-      },
-      {
-        count: componentsHealth.filters.blocked_in_pipeline.total,
-        title: `${componentsHealth.filters.blocked_in_pipeline.total} components blocked in pipeline`,
-        keywords: ["pipeline", "blocked", "components"],
+        count: componentsHealth.filters.without_spec.total,
+        title: `${componentsHealth.filters.without_spec.total} components without spec`,
+        keywords: ["spec", "components"],
       },
     ];
 
@@ -144,9 +133,15 @@ export function useGlobalSearch() {
         id: `component:${item.slug}`,
         kind: "component",
         title: item.display_name,
-        subtitle: `${item.pipeline_stage} · ${item.doc.status}`,
+        subtitle: item.spec.exists ? "with spec" : "without spec",
         href: toComponentDetail(item.slug),
-        keywords: [item.display_name, item.slug, item.pipeline_stage, item.doc.status],
+        keywords: [
+          item.display_name,
+          item.slug,
+          item.spec.exists ? "with spec" : "without spec",
+          "spec",
+          item.spec.exists ? "documented" : "missing",
+        ],
       }));
 
       const healthItems = buildHealthIssueItems(

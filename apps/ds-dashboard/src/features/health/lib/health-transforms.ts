@@ -16,28 +16,6 @@ export function formatDate(iso: string | undefined): string {
 }
 
 /**
- * Get badge variant for component status
- */
-export function componentStatusBadge(status: string): "success" | "warning" | "neutral" {
-  if (status === "ready") return "success" as const;
-  if (status === "needs-review") return "warning" as const;
-  return "neutral" as const;
-}
-
-/**
- * Get order index for pipeline stage (for sorting)
- */
-export function stageOrder(stage: string): number {
-  const order: Record<string, number> = {
-    "missing-spec": 0,
-    spec: 1,
-    markdown: 2,
-    "visual-proof": 3,
-  };
-  return order[stage] ?? 99;
-}
-
-/**
  * Labels for history range options
  */
 export const RANGE_LABEL: Record<HealthHistoryRange, string> = {
