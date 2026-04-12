@@ -22,6 +22,7 @@ import {
     type DbServiceOptions,
     type MigrationEntry,
 } from './db-service.js';
+import { createInMemoryDbFromSchema } from './test-db-helpers.ts';
 
 /**
  * Create a temporary in-memory database for testing
@@ -456,6 +457,23 @@ describe('db-service', () => {
                 .prepare('SELECT version FROM schema_migrations WHERE version = 29')
                 .get() as { version: number } | undefined;
             assert.equal(applied?.version, 29);
+        });
+
+        it('skips migration 032 when behaviour_json already exists in schema-initialized databases', () => {
+            db = createInMemoryDbFromSchema();
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migration032 = loadMigrationsFromDir(migrationsDir).find(
+                (migration) => migration.version === 32
+            );
+
+            assert.ok(migration032, 'Migration 032 should exist');
+            assert.doesNotThrow(() => runMigrations(db!, [migration032]));
+
+            const applied = db
+                .prepare('SELECT version FROM schema_migrations WHERE version = 32')
+                .get() as { version: number } | undefined;
+            assert.equal(applied?.version, 32);
         });
 
     });

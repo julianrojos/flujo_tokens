@@ -40,6 +40,11 @@ function shouldSkipMigration(db: Database.Database, migration: MigrationEntry): 
     if (migration.version === 29) {
         return hasColumn(db, 'component_editorial', 'properties_json');
     }
+    // Migration 032 adds behaviour_json to component_editorial.
+    // In hybrid init/migrate environments this column may already exist.
+    if (migration.version === 32) {
+        return hasColumn(db, 'component_editorial', 'behaviour_json');
+    }
     return false;
 }
 
