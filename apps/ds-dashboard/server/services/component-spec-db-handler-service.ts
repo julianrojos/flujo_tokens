@@ -16,6 +16,32 @@ interface ComponentSpecHandlerDeps {
   failJson: (ctx: Context, status: number, payload: { code: string; userMessage: string;[key: string]: unknown }) => Response;
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isValidPropertiesPayload(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((entry) => {
+    if (!isPlainRecord(entry)) return false;
+    if (typeof entry.name !== 'string' || entry.name.trim().length === 0) return false;
+    if (entry.type !== undefined && typeof entry.type !== 'string') return false;
+    if (entry.values !== undefined) {
+      if (!Array.isArray(entry.values) || entry.values.some((item) => typeof item !== 'string')) return false;
+    }
+    if (entry.required !== undefined && typeof entry.required !== 'boolean') return false;
+    if (entry.description !== undefined && typeof entry.description !== 'string') return false;
+    if (
+      entry.default !== undefined &&
+      entry.default !== null &&
+      typeof entry.default !== 'string' &&
+      typeof entry.default !== 'number' &&
+      typeof entry.default !== 'boolean'
+    ) return false;
+    return true;
+  });
+}
+
 /**
  * Build a complete PartialComponentSpec from DB sources
  */
@@ -34,6 +60,7 @@ function buildSpecFromDb(params: {
   const spec: PartialComponentSpec = {
     // Editorial fields (null if not yet created)
     summary: editorial?.summary ?? null,
+    properties: editorial?.properties ?? null,
     best_practices: editorial?.bestPractices ?? null,
     accessibility: editorial?.accessibility
       ? {
@@ -236,6 +263,7 @@ export async function handlePatchEditorialSpecRoute(
   // Validate field keys against allowlist
   const allowedKeys = new Set([
     'summary',
+    'properties',
     'best_practices',
     'accessibility',
     'content_guidelines',
@@ -253,11 +281,18 @@ export async function handlePatchEditorialSpecRoute(
       });
     }
   }
+  if (fields.properties !== undefined && !isValidPropertiesPayload(fields.properties)) {
+    return failJson(c, 400, {
+      code: 'invalid.field',
+      userMessage: 'Invalid field: properties must be an array of property objects with non-empty name.',
+    });
+  }
   const savedKeys = Object.keys(fields);
 
   // Convert snake_case keys to camelCase for repository
   const camelCaseFields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>> = {};
   if (fields.summary !== undefined) camelCaseFields.summary = fields.summary;
+  if (fields.properties !== undefined) camelCaseFields.properties = fields.properties;
   if (fields.best_practices !== undefined) camelCaseFields.bestPractices = fields.best_practices;
   if (fields.accessibility !== undefined) {
     const acc = fields.accessibility as Record<string, unknown>;

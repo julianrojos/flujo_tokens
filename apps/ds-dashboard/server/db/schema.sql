@@ -282,6 +282,7 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_layout_component_run
 CREATE TABLE IF NOT EXISTS component_editorial (
   component_id            INTEGER PRIMARY KEY REFERENCES components(id) ON DELETE CASCADE,
   summary_json            TEXT CHECK(summary_json IS NULL OR (json_valid(summary_json) AND json_type(summary_json) = 'object')),
+  properties_json         TEXT CHECK(properties_json IS NULL OR (json_valid(properties_json) AND json_type(properties_json) = 'array')),
   best_practices_json     TEXT CHECK(best_practices_json IS NULL OR (json_valid(best_practices_json) AND json_type(best_practices_json) = 'object')),
   accessibility_json      TEXT CHECK(accessibility_json IS NULL OR (json_valid(accessibility_json) AND json_type(accessibility_json) = 'object')),
   content_guidelines_json TEXT CHECK(content_guidelines_json IS NULL OR (json_valid(content_guidelines_json) AND json_type(content_guidelines_json) = 'object')),

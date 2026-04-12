@@ -426,6 +426,87 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal('tokens' in getPayload.spec, false);
   });
 
+  it('PATCH /editorial persists properties, best_practices, content_guidelines, and accessibility labeling', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/menu-button/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          summary: {
+            purpose: 'Opens a menu',
+            when_to_use: 'Use when actions are contextual',
+            when_not_to_use: 'Avoid for single primary actions',
+          },
+          properties: [
+            {
+              name: 'size',
+              type: 'enum',
+              values: ['sm', 'md'],
+              default: 'md',
+              required: false,
+              description: 'Controls the button size',
+            },
+          ],
+          best_practices: {
+            do: ['Keep the trigger label concise'],
+            dont: ['Use as a generic submit button'],
+          },
+          content_guidelines: {
+            rules: ['Use a verb that reflects the menu content'],
+          },
+          accessibility: {
+            role: 'button',
+            labeling: { rules: ['If icon-only, provide an accessible name'] },
+            notes: ['Supports keyboard activation'],
+          },
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+    const patchPayload = await patchRes.json();
+    assert.ok(patchPayload.savedKeys.includes('properties'));
+    assert.ok(patchPayload.savedKeys.includes('best_practices'));
+    assert.ok(patchPayload.savedKeys.includes('content_guidelines'));
+    assert.ok(patchPayload.savedKeys.includes('accessibility'));
+
+    const getRes = await app.request('/api/component-spec/menu-button');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.deepEqual(getPayload.spec.summary, {
+      purpose: 'Opens a menu',
+      when_to_use: 'Use when actions are contextual',
+      when_not_to_use: 'Avoid for single primary actions',
+    });
+    assert.deepEqual(getPayload.spec.properties, [
+      {
+        name: 'size',
+        type: 'enum',
+        values: ['sm', 'md'],
+        default: 'md',
+        required: false,
+        description: 'Controls the button size',
+      },
+    ]);
+    assert.deepEqual(getPayload.spec.best_practices, {
+      do: ['Keep the trigger label concise'],
+      dont: ['Use as a generic submit button'],
+    });
+    assert.deepEqual(getPayload.spec.content_guidelines, {
+      rules: ['Use a verb that reflects the menu content'],
+    });
+    assert.equal(getPayload.spec.accessibility.role, 'button');
+    assert.deepEqual(getPayload.spec.accessibility.labeling, {
+      rules: ['If icon-only, provide an accessible name'],
+    });
+    assert.deepEqual(getPayload.spec.accessibility.notes, ['Supports keyboard activation']);
+  });
+
   it('PATCH /editorial rejects tokens as an unknown field', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'vt-legacy', name: 'VT Legacy', status: 'draft', docType: 'component' },
@@ -447,6 +528,31 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(payload.ok, false);
     assert.equal(payload.code, 'invalid.field');
     assert.match(String(payload.userMessage), /Unknown field: tokens/);
+  });
+
+  it('PATCH /editorial rejects malformed properties payload', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'bad-properties', name: 'Bad Properties', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/bad-properties/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          properties: [
+            { type: 'enum', values: ['a', 'b'] },
+          ],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Invalid field: properties/);
   });
 
   it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {
