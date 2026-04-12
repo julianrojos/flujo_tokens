@@ -555,6 +555,132 @@ describe('component-spec-routes (DB-first)', () => {
     assert.match(String(payload.userMessage), /Invalid field: properties/);
   });
 
+  it('PATCH /editorial rejects malformed best_practices payload', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'bad-best-practices', name: 'Bad Best Practices', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/bad-best-practices/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          best_practices: 'invalid',
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Invalid field: best_practices/);
+  });
+
+  it('PATCH /editorial rejects malformed best_practices.do shape', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'bad-best-practices-shape', name: 'Bad Best Practices Shape', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/bad-best-practices-shape/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          best_practices: { do: 'invalid' },
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Invalid field: best_practices/);
+  });
+
+  it('PATCH /editorial with summary: null clears summary_json and returns summary = null', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'clear-summary', name: 'Clear Summary', status: 'draft', docType: 'component' },
+    ]);
+
+    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'clear-summary') as { id: number };
+    db.prepare(`
+      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (?, ?, 5000)
+    `).run(component.id, JSON.stringify({ purpose: 'Will be cleared' }));
+
+    const patchRes = await app.request('/api/component-spec/clear-summary/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 5000,
+        fields: { summary: null },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+
+    const row = db.prepare(`
+      SELECT summary_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ? AND c.slug = ?
+    `).get('sys-01', 'clear-summary') as { summary_json: string | null };
+    assert.equal(row.summary_json, null);
+
+    const getRes = await app.request('/api/component-spec/clear-summary');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.spec.summary, null);
+  });
+
+  it('PATCH /editorial with accessibility: null clears both accessibility columns', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'clear-a11y', name: 'Clear A11y', status: 'draft', docType: 'component' },
+    ]);
+
+    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'clear-a11y') as { id: number };
+    db.prepare(`
+      INSERT OR REPLACE INTO component_editorial (component_id, accessibility_json, accessibility_notes_json, updated_at)
+      VALUES (?, ?, ?, 5100)
+    `).run(
+      component.id,
+      JSON.stringify({ role: 'button', labeling: { rules: ['Rule 1'] } }),
+      JSON.stringify(['legacy note']),
+    );
+
+    const patchRes = await app.request('/api/component-spec/clear-a11y/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 5100,
+        fields: { accessibility: null },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+
+    const row = db.prepare(`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ? AND c.slug = ?
+    `).get('sys-01', 'clear-a11y') as {
+      accessibility_json: string | null;
+      accessibility_notes_json: string | null;
+    };
+    assert.equal(row.accessibility_json, null);
+    assert.equal(row.accessibility_notes_json, null);
+
+    const getRes = await app.request('/api/component-spec/clear-a11y');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.spec.accessibility, null);
+  });
+
   it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {
     // Use the existing sys-01 design system (configured in test app)
     db.prepare(`

@@ -111,6 +111,64 @@ function normalizeProperties(properties: SpecProperty[]): SpecProperty[] {
     .filter((property) => property.name.length > 0);
 }
 
+function normalizeSummaryForSave(summary: EditDocsSummaryValue): {
+  purpose: string;
+  when_to_use: string;
+  when_not_to_use: string;
+} | null {
+  const normalized = {
+    purpose: summary.purpose.trim(),
+    when_to_use: summary.whenToUse.trim(),
+    when_not_to_use: summary.whenNotToUse.trim(),
+  };
+  return Object.values(normalized).some((value) => value.length > 0) ? normalized : null;
+}
+
+function normalizeVariantsForSave(variants: ComponentDocVariant[]): ComponentDocVariant[] {
+  return variants
+    .map((variant, index) => {
+      const normalizedProperties = Object.fromEntries(
+        Object.entries(variant.properties ?? {})
+          .map(([key, value]) => [String(key ?? '').trim(), String(value ?? '').trim()] as const)
+          .filter(([key]) => key.length > 0),
+      );
+      const normalized = {
+        id: String(variant.id ?? '').trim() || `variant-${index + 1}`,
+        name: String(variant.name ?? '').trim(),
+        description: String(variant.description ?? '').trim(),
+        properties: normalizedProperties,
+      } satisfies ComponentDocVariant;
+      return normalized;
+    })
+    .filter((variant) =>
+      variant.name.length > 0 ||
+      variant.description.length > 0 ||
+      Object.keys(variant.properties).length > 0,
+    );
+}
+
+function normalizeAccessibilityForSave(
+  accessibility: EditDocsAccessibilityValue,
+): {
+  role?: string;
+  labeling?: { rules: string[] };
+  notes?: string[];
+} | null {
+  const role = accessibility.role.trim();
+  const labelingRules = normalizeStringList(accessibility.labelingRules);
+  const notes = normalizeStringList(accessibility.notes);
+
+  if (!role && labelingRules.length === 0 && notes.length === 0) {
+    return null;
+  }
+
+  return {
+    ...(role ? { role } : {}),
+    ...(labelingRules.length > 0 ? { labeling: { rules: labelingRules } } : {}),
+    ...(notes.length > 0 ? { notes } : {}),
+  };
+}
+
 function fetchComponentSpec(slug: string) {
   return fetch(`/api/component-spec/${slug}`, {
     headers: buildSystemHeaders(),
@@ -471,38 +529,35 @@ export function EditComponentDocsPage() {
       const accessibilityChanged = JSON.stringify(formData.accessibility) !== JSON.stringify(baseFormRef.current.accessibility);
 
       if (summaryChanged) {
-        const nextSummary = {
-          purpose: formData.summary.purpose.trim(),
-          when_to_use: formData.summary.whenToUse.trim(),
-          when_not_to_use: formData.summary.whenNotToUse.trim(),
-        };
-        fields.summary = Object.values(nextSummary).some((value) => value.length > 0) ? nextSummary : {};
+        fields.summary = normalizeSummaryForSave(formData.summary);
       }
       if (propertiesChanged) {
-        fields.properties = normalizeProperties(formData.properties);
+        const normalizedProperties = normalizeProperties(formData.properties);
+        fields.properties = normalizedProperties.length > 0 ? normalizedProperties : null;
       }
       if (variantsChanged) {
-        fields.variants = formData.variants;
+        const normalizedVariants = normalizeVariantsForSave(formData.variants);
+        fields.variants = normalizedVariants.length > 0 ? normalizedVariants : null;
       }
       if (bestPracticesChanged) {
+        const normalizedDo = normalizeStringList(formData.bestPractices.do);
+        const normalizedDont = normalizeStringList(formData.bestPractices.dont);
         fields.best_practices = {
-          do: normalizeStringList(formData.bestPractices.do),
-          dont: normalizeStringList(formData.bestPractices.dont),
+          do: normalizedDo,
+          dont: normalizedDont,
         };
+        if (normalizedDo.length === 0 && normalizedDont.length === 0) {
+          fields.best_practices = null;
+        }
       }
       if (contentGuidelinesChanged) {
-        fields.content_guidelines = {
-          rules: normalizeStringList(formData.contentGuidelines),
-        };
+        const normalizedRules = normalizeStringList(formData.contentGuidelines);
+        fields.content_guidelines = normalizedRules.length > 0
+          ? { rules: normalizedRules }
+          : null;
       }
       if (accessibilityChanged) {
-        fields.accessibility = {
-          role: formData.accessibility.role.trim(),
-          labeling: {
-            rules: normalizeStringList(formData.accessibility.labelingRules),
-          },
-          notes: normalizeStringList(formData.accessibility.notes),
-        };
+        fields.accessibility = normalizeAccessibilityForSave(formData.accessibility);
       }
 
       if (Object.keys(fields).length === 0) {

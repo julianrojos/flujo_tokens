@@ -42,6 +42,17 @@ function isValidPropertiesPayload(value: unknown): boolean {
   });
 }
 
+function isValidBestPracticesPayload(value: unknown): boolean {
+  if (!isPlainRecord(value)) return false;
+  if (value.do !== undefined) {
+    if (!Array.isArray(value.do) || value.do.some((item) => typeof item !== 'string')) return false;
+  }
+  if (value.dont !== undefined) {
+    if (!Array.isArray(value.dont) || value.dont.some((item) => typeof item !== 'string')) return false;
+  }
+  return true;
+}
+
 /**
  * Build a complete PartialComponentSpec from DB sources
  */
@@ -281,10 +292,26 @@ export async function handlePatchEditorialSpecRoute(
       });
     }
   }
-  if (fields.properties !== undefined && !isValidPropertiesPayload(fields.properties)) {
+  if (fields.properties !== undefined && fields.properties !== null && !isValidPropertiesPayload(fields.properties)) {
     return failJson(c, 400, {
       code: 'invalid.field',
       userMessage: 'Invalid field: properties must be an array of property objects with non-empty name.',
+    });
+  }
+  if (fields.accessibility !== undefined && fields.accessibility !== null && !isPlainRecord(fields.accessibility)) {
+    return failJson(c, 400, {
+      code: 'invalid.field',
+      userMessage: 'Invalid field: accessibility must be an object or null.',
+    });
+  }
+  if (
+    fields.best_practices !== undefined &&
+    fields.best_practices !== null &&
+    !isValidBestPracticesPayload(fields.best_practices)
+  ) {
+    return failJson(c, 400, {
+      code: 'invalid.field',
+      userMessage: 'Invalid field: best_practices must be an object with optional do/dont string arrays, or null.',
     });
   }
   const savedKeys = Object.keys(fields);
@@ -295,14 +322,19 @@ export async function handlePatchEditorialSpecRoute(
   if (fields.properties !== undefined) camelCaseFields.properties = fields.properties;
   if (fields.best_practices !== undefined) camelCaseFields.bestPractices = fields.best_practices;
   if (fields.accessibility !== undefined) {
-    const acc = fields.accessibility as Record<string, unknown>;
-    // Extract notes from accessibility object — stored separately in DB
-    const { notes, ...accWithoutNotes } = acc;
-    if (notes !== undefined) {
-      camelCaseFields.accessibilityNotes = Array.isArray(notes) ? notes : null;
-    }
-    if (Object.keys(accWithoutNotes).length > 0) {
-      camelCaseFields.accessibility = accWithoutNotes;
+    if (fields.accessibility === null) {
+      camelCaseFields.accessibility = null;
+      camelCaseFields.accessibilityNotes = null;
+    } else {
+      const acc = fields.accessibility as Record<string, unknown>;
+      // Extract notes from accessibility object — stored separately in DB
+      const { notes, ...accWithoutNotes } = acc;
+      if (notes !== undefined) {
+        camelCaseFields.accessibilityNotes = Array.isArray(notes) ? notes : null;
+      }
+      if (Object.keys(accWithoutNotes).length > 0) {
+        camelCaseFields.accessibility = accWithoutNotes;
+      }
     }
   }
   if (fields.content_guidelines !== undefined) camelCaseFields.contentGuidelines = fields.content_guidelines;
