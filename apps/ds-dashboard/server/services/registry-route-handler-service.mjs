@@ -3,6 +3,7 @@ import {
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
+import path from "node:path";
 import { COMPONENT_REGISTRY_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
@@ -73,6 +74,25 @@ function normalizeFigmaLayoutForApi(layoutRows) {
     });
   }
   return normalizedRows.length > 0 ? normalizedRows : undefined;
+}
+
+function toSpecPathForUsageIndex(row, systemId) {
+  const firstSpecPath = Array.isArray(row?.specs) && row.specs.length > 0
+    ? String(row.specs[0]?.markdownPath || "").trim()
+    : "";
+
+  if (firstSpecPath) {
+    const normalized = firstSpecPath.replace(/\\/g, "/");
+    if (normalized.includes("/docs/components/")) {
+      return normalized
+        .replace("/docs/components/", "/docs/_spec/components/")
+        .replace(/\.md$/i, ".yml");
+    }
+  }
+
+  const slug = String(row?.slug || "").trim();
+  if (!slug) return "";
+  return path.posix.join("design-systems", String(systemId || "").trim(), "docs", "_spec", "components", `${slug}.yml`);
 }
 
 export async function handleComponentRegistryRoute(c, deps) {
@@ -149,19 +169,14 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   }
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const rows = componentRepo.getAll(sysCtx.systemId);
-  const componentIds = rows.map((row) => row.id);
-  const editorialById = componentRepo.getEditorialByComponentIds(componentIds);
   const registry = {
     components: rows.map((row) => {
-      const editorial = editorialById.get(row.id) || null;
+      const specPath = toSpecPathForUsageIndex(row, sysCtx.systemId);
       return {
         slug: row.slug,
         paths: {
-          spec: `db://component_editorial/${row.id}`,
+          spec: specPath || `db://component_editorial/${row.id}`,
         },
-        related_components: Array.isArray(editorial?.relatedComponents)
-          ? editorial.relatedComponents.filter((item) => typeof item === "string")
-          : [],
       };
     }),
   };

@@ -248,23 +248,6 @@ function singularizeSlug(slug) {
   return normalized;
 }
 
-function extractExplicitRelatedComponents(rawSpec) {
-  const blockMatch = String(rawSpec || "").match(
-    /^related_components:\s*\n((?:[ \t]*-\s*[^\n]+\n?)*)/m,
-  );
-  if (!blockMatch) return [];
-
-  const rows = String(blockMatch[1] || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- "));
-
-  return rows
-    .map((line) => line.replace(/^- /, "").trim().replace(/^['"]|['"]$/g, ""))
-    .filter(Boolean)
-    .map((item) => normalizeSlug(item));
-}
-
 function extractAnatomyItemRefs(rawSpec) {
   const refs = new Set();
   const text = String(rawSpec || "");
@@ -294,14 +277,6 @@ function extractAnatomyItemRefs(rawSpec) {
   return Array.from(refs);
 }
 
-function extractRelatedComponentsFromRow(row) {
-  const source = row?.related_components;
-  if (!Array.isArray(source)) return [];
-  return source
-    .map((item) => normalizeSlug(String(item || "")))
-    .filter(Boolean);
-}
-
 export function buildComponentUsageIndex(rows, root, options = {}) {
   const readFileSync = options.readFileSync || fsSync.readFileSync;
   const slugSet = new Set(rows.map((row) => normalizeSlug(String(row.slug || ""))).filter(Boolean));
@@ -314,14 +289,6 @@ export function buildComponentUsageIndex(rows, root, options = {}) {
     const specRelPath = String(row.paths?.spec || "").trim();
     if (!specRelPath) continue;
     if (specRelPath.startsWith("db://")) {
-      const refs = new Set(extractRelatedComponentsFromRow(row));
-      for (const ref of Array.from(refs)) {
-        const normalized = normalizeSlug(ref);
-        const singular = singularizeSlug(normalized);
-        const finalRef = slugSet.has(normalized) ? normalized : slugSet.has(singular) ? singular : "";
-        if (!finalRef || finalRef === ownerSlug) continue;
-        usesMap.get(ownerSlug)?.add(finalRef);
-      }
       continue;
     }
     const specPath = path.resolve(root, specRelPath);
@@ -333,10 +300,7 @@ export function buildComponentUsageIndex(rows, root, options = {}) {
       continue;
     }
 
-    const refs = new Set([
-      ...extractExplicitRelatedComponents(rawSpec),
-      ...extractAnatomyItemRefs(rawSpec),
-    ]);
+    const refs = new Set(extractAnatomyItemRefs(rawSpec));
     for (const ref of Array.from(refs)) {
       const normalized = normalizeSlug(ref);
       const singular = singularizeSlug(normalized);
