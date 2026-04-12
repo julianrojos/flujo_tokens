@@ -7,9 +7,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
+import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
+import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
 import { LayerTokenMappingSection } from "./components/layer-token-mapping-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
@@ -28,6 +30,8 @@ export function ComponentDetailPage() {
     allItems,
     spec,
     tokenRegistry,
+    captureModalOpen,
+    captureSummary,
     canOpenDocs,
     previousItem,
     nextItem,
@@ -36,6 +40,9 @@ export function ComponentDetailPage() {
     downloadError,
     downloadWarnings,
     isDownloadingMarkdown,
+    setCaptureModalOpen,
+    setCaptureSummary,
+    handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,
@@ -88,6 +95,13 @@ export function ComponentDetailPage() {
         onBack={handleBack}
       />
 
+      <ComponentVisualProofSection
+        item={item}
+        captureSummary={captureSummary}
+        onOpenCapture={() => setCaptureModalOpen(true)}
+        variantVisuals={spec?.variant_visuals}
+      />
+
       <ComponentSpecSection
         spec={spec}
         canOpenDocs={canOpenDocs}
@@ -108,6 +122,21 @@ export function ComponentDetailPage() {
       <ComponentGraphSection usage={usage} allItems={allItems} />
 
       {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
+
+      {captureModalOpen && (
+        <FigmaCaptureModal
+          open={captureModalOpen}
+          onClose={() => setCaptureModalOpen(false)}
+          defaultFigmaUrl={item.figma.file_url || ""}
+          componentSlug={slug!}
+          onCaptured={(summary) => {
+            setCaptureSummary(
+              `Captured ${summary.capturedCount}, failed ${summary.failedCount}, skipped ${summary.skippedCount}.`,
+            );
+            handleReload();
+          }}
+        />
+      )}
     </div>
   );
 }

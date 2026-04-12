@@ -4,9 +4,26 @@ import {
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
 import { COMPONENT_REGISTRY_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
+import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
 function sha256Json(value) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function emptyVisualProof() {
+  return {
+    screenshot_url: null,
+    image_path: null,
+    captured_at: null,
+    node_id: null,
+    image_sha256: null,
+    image_bytes: null,
+    image_content_type: null,
+    image_width: null,
+    image_height: null,
+    variants_count: 0,
+    variants: [],
+  };
 }
 
 function normalizeFigmaVariantsForApi(variants) {
@@ -71,6 +88,13 @@ export async function handleComponentRegistryRoute(c, deps) {
   const rows = componentRepo.getAll(sysCtx.systemId);
   const components = rows.map((row) => {
     const specExists = row.editorialExists;
+    const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
+    const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry);
+    const visualProof = {
+      ...emptyVisualProof(),
+      ...(visualProofFromDb || {}),
+      variants: Array.isArray(visualProofFromDb?.variants) ? visualProofFromDb.variants : [],
+    };
     const componentBase = {
       slug: row.slug,
       display_name: row.name,
@@ -88,6 +112,7 @@ export async function handleComponentRegistryRoute(c, deps) {
         token_bindings: normalizeFigmaTokenBindingsForApi(row.figma?.tokenBindings),
         layout: normalizeFigmaLayoutForApi(row.figma?.layout),
       },
+      visual_proof: visualProof,
     };
     return {
       ...componentBase,
