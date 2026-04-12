@@ -110,7 +110,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
                     <img
                       src={variant.previewUrl || undefined}
                       alt={`${item.display_name} ${variant.name}`}
-                      className="max-h-40 w-full rounded-lg border border-border object-contain"
+                      className="max-h-40 w-full rounded-lg object-contain"
                       onError={() =>
                         setFailedVariantKeys((prev) => {
                           const next = new Set(prev);
