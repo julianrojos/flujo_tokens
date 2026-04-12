@@ -95,6 +95,10 @@ describe('EditDocsForm cards', () => {
     );
 
     assert.match(html, /Role/);
+    assert.match(html, /Select a role/);
+    assert.match(html, /<option value="button" selected="">button<\/option>/);
+    assert.match(html, /<option value="alert">alert<\/option>/);
+    assert.match(html, /<option value="dialog">dialog<\/option>/);
     assert.match(html, /Accessibility Guidance/);
     assert.match(html, /Provide accessible name/);
     assert.match(html, /Keyboard accessible/);

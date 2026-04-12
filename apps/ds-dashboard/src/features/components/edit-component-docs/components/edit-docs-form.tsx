@@ -621,6 +621,28 @@ export interface AccessibilityFormCardProps {
   onChange: (v: EditDocsAccessibilityValue) => void;
 }
 
+const ARIA_ROLE_OPTIONS = {
+  widget: [
+    'button', 'checkbox', 'combobox', 'gridcell', 'link', 'menuitem', 'menuitemcheckbox',
+    'menuitemradio', 'option', 'progressbar', 'radio', 'scrollbar', 'searchbox', 'separator',
+    'slider', 'spinbutton', 'switch', 'tab', 'tabpanel', 'textbox', 'treeitem',
+  ],
+  composite: [
+    'combobox', 'grid', 'listbox', 'menu', 'menubar', 'radiogroup', 'tablist', 'tree', 'treegrid',
+  ],
+  document: [
+    'article', 'cell', 'code', 'columnheader', 'definition', 'deletion', 'directory', 'document',
+    'emphasis', 'feed', 'figure', 'generic', 'group', 'heading', 'img', 'insertion', 'list',
+    'listitem', 'math', 'meter', 'none', 'note', 'paragraph', 'presentation', 'row', 'rowgroup',
+    'rowheader', 'separator', 'strong', 'subscript', 'superscript', 'table', 'term', 'time', 'toolbar',
+  ],
+  landmark: [
+    'application', 'banner', 'complementary', 'contentinfo', 'form', 'main', 'navigation', 'region', 'search',
+  ],
+  liveRegion: ['alert', 'log', 'marquee', 'status', 'timer'],
+  window: ['alertdialog', 'dialog', 'tooltip'],
+} as const;
+
 export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
   return (
     <Card>
@@ -630,12 +652,44 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
       <CardContent className="space-y-4">
         <div className="space-y-1">
           <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
-          <Input
+          <select
             id="accessibility-role"
+            className="h-10 w-full rounded-md border border-border bg-surface-1 px-3 text-sm"
             value={value.role}
             onChange={(e) => onChange({ ...value, role: e.target.value })}
-            placeholder="button"
-          />
+          >
+            <option value="">Select a role</option>
+            <optgroup label="Widget roles">
+              {ARIA_ROLE_OPTIONS.widget.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Composite roles">
+              {ARIA_ROLE_OPTIONS.composite.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Document structure roles">
+              {ARIA_ROLE_OPTIONS.document.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Landmark roles">
+              {ARIA_ROLE_OPTIONS.landmark.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Live region roles">
+              {ARIA_ROLE_OPTIONS.liveRegion.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Window roles">
+              {ARIA_ROLE_OPTIONS.window.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </optgroup>
+          </select>
         </div>
 
         <StringListEditor
