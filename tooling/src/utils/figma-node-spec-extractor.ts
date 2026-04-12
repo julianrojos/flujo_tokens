@@ -559,10 +559,6 @@ ${sections.statesMarkdown}
 - Hit area: \`A11y.A11y.Dimension.Min-Hit-Area\` (\`24px\`) and \`Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA\` (\`48px\`).
 - Contrast: TBD (pending audit)
 
-## Related Components
-
-- [TBD](tbd.md): TBD
-
 ## Gaps / TBD
 
 - [ ] [CONTENT_UNKNOWN] Complete usage, accessibility, and token mapping details with product evidence.
@@ -660,10 +656,6 @@ ${renderStatesMarkdown(spec?.properties)}
 - Focus: \`Semantic.Color.Focus-Outline.Inner\` (\`#FFFFFF\`) and \`Semantic.Color.Focus-Outline.Outer\` (\`#567680\`).
 - Hit area: \`A11y.A11y.Dimension.Min-Hit-Area\` (\`24px\`) and \`Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA\` (\`48px\`).
 - Contrast: TBD (pending audit)
-
-## Related Components
-
-- [TBD](tbd.md): TBD
 
 ## Gaps / TBD
 

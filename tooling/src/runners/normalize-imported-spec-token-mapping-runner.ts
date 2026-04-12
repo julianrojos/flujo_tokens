@@ -49,7 +49,6 @@ const SPEC_TOP_LEVEL_ORDER = Object.freeze([
   'accessibility',
   'token_mapping',
   'qa',
-  'related_components',
 ]);
 
 const CLI_CONFIG = {

@@ -18,13 +18,12 @@
     "Usage Guidelines",
     "Content Guidelines",
     "Accessibility",
-    "Related Components",
     "Design\u2013Token Discrepancies",
     "Gaps / TBD"
   ],
 
-  "required_count": 10,
-  "note_on_split": "Sections 0–9 (indices) are required. Sections 10–11 are optional and conditional.",
+  "required_count": 9,
+  "note_on_split": "Sections 0–8 (indices) are required. Sections 9–10 are optional and conditional.",
 
   "sections": [
     {
@@ -91,15 +90,8 @@
       "notes": "Role, keyboard interaction, focus management, labeling, contrast. Follow accessibility-docs.mdc."
     },
     {
-      "heading":   "Related Components",
-      "index":     9,
-      "required":  true,
-      "conditional": false,
-      "notes": "Links to sibling/alternative components with one-line differentiation."
-    },
-    {
       "heading":   "Design\u2013Token Discrepancies",
-      "index":     10,
+      "index":     9,
       "required":  false,
       "conditional": true,
       "include_when": "One or more verifiable mismatches exist between design and token values.",
@@ -107,7 +99,7 @@
     },
     {
       "heading":   "Gaps / TBD",
-      "index":     11,
+      "index":     10,
       "required":  false,
       "conditional": true,
       "include_when": "Unresolved gaps exist in the linked spec (binary contract: include or omit, never partially filled).",

@@ -39,9 +39,6 @@ Text patterns.
 
 ## Accessibility
 A11y nodes.
-
-## Related Components
-Links.
 `;
 
   describe("constants", () => {
@@ -207,7 +204,7 @@ figma:
       assert.ok(result.errors.some(e => e.message.includes("Missing required section")));
     });
 
-    it("accepts Usage Guidelines, Content Guidelines, and Related Components as valid sections", () => {
+    it("accepts Usage Guidelines, Content Guidelines, and Accessibility as valid sections", () => {
       const markdown = `---
 doc_type: component
 doc_status: draft

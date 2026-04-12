@@ -359,106 +359,6 @@ function validateSpecTokenMapping(
   walk(tokenMapping, "");
 }
 
-function validateSpecRelatedComponents(
-  filePath,
-  specStatus,
-  relatedComponents,
-  report,
-  specComponentsDir,
-) {
-  if (relatedComponents === undefined || relatedComponents === null) return;
-  if (!Array.isArray(relatedComponents)) {
-    report.errors.push({
-      code: "SPEC01",
-      file: filePath,
-      message: "Field `related_components` must be an array when declared.",
-    });
-    return;
-  }
-
-  const normalizedStatus = String(specStatus || "").trim().toLowerCase();
-  const isReadySpec = normalizedStatus === "ready";
-  const specSlug = path.basename(filePath, path.extname(filePath)).trim();
-  const specSlugKey = specSlug.toLowerCase();
-  const seen = new Set();
-
-  for (let i = 0; i < relatedComponents.length; i += 1) {
-    const rawEntry = relatedComponents[i];
-    if (typeof rawEntry !== "string") {
-      report.errors.push({
-        code: "SPEC01",
-        file: filePath,
-        message: `related_components[${i}] must be a string.`,
-      });
-      continue;
-    }
-
-    const slug = rawEntry.trim();
-    if (!slug || isTbdMarker(slug)) {
-      report.errors.push({
-        code: "SPEC01",
-        file: filePath,
-        message: `related_components[${i}] must be a concrete non-TBD string.`,
-      });
-      continue;
-    }
-
-    const suggestedSlug = componentNameToSnakeCase(slug);
-    if (!isSnakeCaseFileSlug(slug)) {
-      report.errors.push({
-        code: "SPEC01",
-        file: filePath,
-        message:
-          `related_components[${i}] must be a snake_case component slug (example: \`status_bar\`): \`${slug}\`.`,
-        suggested:
-          suggestedSlug && isSnakeCaseFileSlug(suggestedSlug)
-            ? suggestedSlug
-            : undefined,
-      });
-      continue;
-    }
-
-    const slugKey = slug.toLowerCase();
-    if (seen.has(slugKey)) {
-      report.errors.push({
-        code: "SPEC01",
-        file: filePath,
-        message: `Duplicate entry in related_components is not allowed: \`${slug}\`.`,
-      });
-      continue;
-    }
-    seen.add(slugKey);
-
-    if (slugKey === specSlugKey) {
-      report.errors.push({
-        code: "SPEC01",
-        file: filePath,
-        message:
-          `related_components must not include the current component slug: \`${slug}\`.`,
-      });
-      continue;
-    }
-
-    const expectedSpecPath = path.resolve(specComponentsDir, `${slug}.yml`);
-    if (fs.existsSync(expectedSpecPath)) continue;
-
-    const finding = {
-      code: isReadySpec ? "SPEC01" : "REL01",
-      file: filePath,
-      message:
-        `related_components entry \`${slug}\` does not resolve to an existing component spec YAML file: ` +
-        `\`${path.relative(process.cwd(), expectedSpecPath)}\`.`,
-      suggested: path.relative(process.cwd(), expectedSpecPath),
-    };
-
-    if (isReadySpec) {
-      report.errors.push(finding);
-    } else {
-      report.warnings.push(finding);
-    }
-  }
-}
-
 function validateSpecYamlFile({
   filePath,
   report,
@@ -565,14 +465,6 @@ function validateSpecYamlFile({
   validateSpecPropertyOrder(filePath, parsed.properties, report, {
     skipGroupOrder: Boolean(propertyContracts && propertyContracts.hasInvalidTypes),
   });
-
-  validateSpecRelatedComponents(
-    filePath,
-    status,
-    parsed.related_components,
-    report,
-    specComponentsDir,
-  );
 
   const specBase = path.basename(filePath, path.extname(filePath));
   if (!isSnakeCaseFileSlug(specBase)) {

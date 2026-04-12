@@ -206,16 +206,6 @@
       "minItems": 2,
       "description": "Verification statements. Minimum 2 items: property match + token validity checks.",
       "items": { "type": "string", "minLength": 1 }
-    },
-
-    "related_components": {
-      "type": ["array", "null"],
-      "description": "Optional array of snake_case component slugs for related components. Duplicates not allowed. Must not include the current component's slug. For 'ready' specs, all entries must resolve to existing spec files.",
-      "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
-      },
-      "uniqueItems": true
     }
   },
 

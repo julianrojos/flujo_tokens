@@ -105,7 +105,3 @@ Auto-layout tree describing direction, alignment, resizing, spacing, and padding
 - Role: native button semantics.
 - Keyboard: reachable by tab and activated with Enter/Space.
 - Contrast: maintain minimum 4.5:1 for text.
-
-## Related Components
-
-- [alert.md](alert.md): Use when feedback is informational, not actionable.

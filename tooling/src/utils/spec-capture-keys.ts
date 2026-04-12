@@ -19,7 +19,6 @@ export const EDITORIAL_KEYS = Object.freeze([
   'token_mapping',
   'content_guidelines',
   'qa',
-  'related_components',
 ] as const);
 
 export type EditorialKey = (typeof EDITORIAL_KEYS)[number];

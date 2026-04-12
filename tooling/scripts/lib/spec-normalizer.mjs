@@ -20,7 +20,6 @@ export const SPEC_TOP_LEVEL_ORDER = Object.freeze([
   "accessibility",
   "token_mapping",
   "qa",
-  "related_components",
 ]);
 
 export function countTbdValues(value) {

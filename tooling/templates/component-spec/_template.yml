@@ -96,5 +96,3 @@ token_mapping:             # Keys: "{anatomy_id}.{css_property}"; values keyed b
 qa:                        # Minimum 2 items; add component-specific invariants below
   - "Properties match the Figma component set."
   - "Token mapping uses real token keys."
-
-related_components: []     # Optional - list of related snake_case component names

@@ -26,7 +26,6 @@ export const SPEC_TOP_LEVEL_ORDER = Object.freeze([
     'accessibility',
     'token_mapping',
     'qa',
-    'related_components',
 ]);
 
 const FIGMA_FIELD_ORDER = Object.freeze([

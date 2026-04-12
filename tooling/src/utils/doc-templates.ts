@@ -152,10 +152,6 @@ Auto-layout tree describing direction, alignment, resizing, spacing, and padding
 - ARIA: TBD
 - Keyboard: TBD
 - Contrast: TBD
-
-## Related Components
-
-- [TBD](tbd.md): TBD
 `;
 }
 
