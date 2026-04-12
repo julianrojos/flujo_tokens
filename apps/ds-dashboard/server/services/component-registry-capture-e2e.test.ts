@@ -115,6 +115,15 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
     // Spec-centric contract
     assert.equal(button.spec.exists, true, 'spec.exists should be true');
     assert.ok(button.figma.file_url, 'figma.file_url should be set');
+    assert.equal(button.visual_proof.screenshot_url, 'https://cdn.example.com/button.png');
+    assert.ok(String(button.visual_proof.image_path || '').endsWith('/visual-proofs/images/button.png'));
+    assert.equal(button.visual_proof.variants_count, 1);
+    assert.ok(Array.isArray(button.visual_proof.variants));
+    assert.equal(button.visual_proof.variants.length, 1);
+    assert.equal(
+      button.visual_proof.variants[0].screenshot_url,
+      'https://cdn.example.com/button-primary.png',
+    );
     // Summary is spec-only (no with_visual_proof, no by_pipeline_stage)
     assert.equal(payload.summary.total_components, 1);
     assert.equal(payload.summary.with_spec, 1);
@@ -192,6 +201,8 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
       : null;
     assert.ok(chip);
     assert.equal(chip.spec.exists, false, 'spec.exists should be false (no editorial row)');
+    assert.ok(String(chip.visual_proof.image_path || '').endsWith('/visual-proofs/images/chip.png'));
+    assert.equal(chip.visual_proof.variants_count, 0);
     assert.equal(payload.summary.with_spec, 0);
   } finally {
     try { db.close(); } catch { /* ignore */ }
@@ -275,6 +286,19 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
     assert.ok(button, 'button component should exist in registry');
     assert.ok(button.figma, 'figma object should be present');
     assert.equal(button.figma.page_name, 'Components', 'page_name should be exposed');
+    assert.deepEqual(button.visual_proof, {
+      screenshot_url: null,
+      image_path: null,
+      captured_at: null,
+      node_id: null,
+      image_sha256: null,
+      image_bytes: null,
+      image_content_type: null,
+      image_width: null,
+      image_height: null,
+      variants_count: 0,
+      variants: [],
+    });
 
     assert.ok(Array.isArray(button.figma.variants), 'variants should be an array');
     assert.equal(button.figma.variants.length, 2, 'should have 2 variants');
