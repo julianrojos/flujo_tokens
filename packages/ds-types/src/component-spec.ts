@@ -87,7 +87,6 @@ export interface ComponentSpec {
         labeling?: { rules?: string[] };
         notes?: string[];
     };
-    token_mapping: Record<string, Record<string, string>>;
     qa: string[];
     related_components?: string[];
     variants?: unknown[] | null;

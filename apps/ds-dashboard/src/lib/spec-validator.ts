@@ -60,19 +60,6 @@ function collectTokenRefChecks(spec: ComponentSpec): Array<{ path: string; value
     refs.push({ path, value: tokenRef });
   };
 
-  if (isObjectRecord(spec.token_mapping)) {
-    for (const [mappingKey, mappingValue] of Object.entries(spec.token_mapping)) {
-      if (typeof mappingValue === "string") {
-        pushRef(`token_mapping.${mappingKey}`, mappingValue);
-        continue;
-      }
-      if (!isObjectRecord(mappingValue)) continue;
-      for (const [condition, tokenRef] of Object.entries(mappingValue)) {
-        pushRef(`token_mapping.${mappingKey}.${condition}`, tokenRef);
-      }
-    }
-  }
-
   pushRef("accessibility.focus.tokens.inner", spec.accessibility?.focus?.tokens?.inner);
   pushRef("accessibility.focus.tokens.outer", spec.accessibility?.focus?.tokens?.outer);
   pushRef("accessibility.hit_area.desktop_token", spec.accessibility?.hit_area?.desktop_token);
@@ -135,7 +122,6 @@ function validateRequiredTopLevelFields(
     "content_guidelines",
     "best_practices",
     "accessibility",
-    "token_mapping",
     "qa",
   ];
 

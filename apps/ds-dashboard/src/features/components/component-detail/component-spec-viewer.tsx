@@ -1,6 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import type { PartialComponentSpec, SpecProperty, SpecLayoutItem } from "ds-types";
-import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
@@ -11,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Link } from "react-router-dom";
 import {
   deduplicateRelated,
   slugToComponentRouteSlug,
@@ -105,7 +103,6 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
 
 interface ComponentSpecViewerProps {
   spec: PartialComponentSpec;
-  resolveToken?: (tokenRef: string) => { token: TokenEntry | null; usageCount: number | null };
   selfSlug?: string;
 }
 
@@ -120,15 +117,6 @@ const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> 
   { field: "description", label: "Description" },
 ];
 
-type TokenMappingSortField = "condition" | "token" | "resolved" | "refs";
-
-const TOKEN_MAPPING_SORT_COLUMNS: Array<{ field: TokenMappingSortField; label: string }> = [
-  { field: "condition", label: "Condition" },
-  { field: "token", label: "Token" },
-  { field: "resolved", label: "Resolved" },
-  { field: "refs", label: "Refs" },
-];
-
 const LAYOUT_COLUMNS = [
   "Node",
   "Direction",
@@ -139,7 +127,7 @@ const LAYOUT_COLUMNS = [
   "Padding",
 ] as const;
 
-export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentSpecViewerProps) {
+export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps) {
   const summary = spec.summary ?? {
     purpose: "",
     when_to_use: "",
@@ -179,10 +167,6 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
     field: PropertySortField;
     dir: "asc" | "desc";
   }>({ field: "name", dir: "asc" });
-  const [tokenMappingSort, setTokenMappingSort] = useState<{
-    field: TokenMappingSortField;
-    dir: "asc" | "desc";
-  }>({ field: "condition", dir: "asc" });
 
   const sortedProperties = useMemo(() => {
     const rows = propertyItems.slice();
@@ -210,44 +194,6 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
         : { field, dir: "asc" },
     );
   };
-
-  const toggleTokenMappingSort = (field: TokenMappingSortField) => {
-    setTokenMappingSort((current) =>
-      current.field === field
-        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" },
-    );
-  };
-
-  const sortedTokenMappings = useMemo(() => {
-    if (!spec.token_mapping) return [];
-    return Object.entries(spec.token_mapping).map(([slot, conditions]) => {
-      const rows = Object.entries(conditions).map(([condition, tokenRef]) => ({
-        condition,
-        tokenRef,
-        meta: resolveToken ? resolveToken(tokenRef) : null,
-      }));
-      rows.sort((left, right) => {
-        const valueFor = (row: {
-          condition: string;
-          tokenRef: string;
-          meta: { token: TokenEntry | null; usageCount: number | null } | null;
-        }) => {
-          if (tokenMappingSort.field === "condition") return row.condition.toLowerCase();
-          if (tokenMappingSort.field === "token") return row.tokenRef.toLowerCase();
-          if (tokenMappingSort.field === "resolved") {
-            return String(row.meta?.token?.resolvedValue ?? "").toLowerCase();
-          }
-          return row.meta?.usageCount ?? -1;
-        };
-        const aValue = valueFor(left);
-        const bValue = valueFor(right);
-        const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-        return tokenMappingSort.dir === "asc" ? comparison : comparison * -1;
-      });
-      return { slot, rows };
-    });
-  }, [spec.token_mapping, resolveToken, tokenMappingSort]);
 
   const renderSummaryMarkdown = (value: string) => {
     const content = String(value || "").trim();
@@ -316,80 +262,6 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
               ))}
             </TableBody>
           </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">—</p>
-        )}
-      </section>
-
-      {/* Token mapping */}
-      <section>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Token Mapping
-        </h4>
-        {sortedTokenMappings.length > 0 ? (
-          <div className="space-y-3">
-            {sortedTokenMappings.map(({ slot, rows }) => (
-              <div key={slot}>
-                <p className="mb-1 font-mono text-xs font-semibold">{slot}</p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {TOKEN_MAPPING_SORT_COLUMNS.map((column) => (
-                        <SortableTableHead
-                          key={column.field}
-                          label={column.label}
-                          onSort={() => toggleTokenMappingSort(column.field)}
-                        />
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map(({ condition, tokenRef, meta }) => {
-                      return (
-                        <TableRow key={condition}>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {condition}
-                          </TableCell>
-                          <TableCell className="space-y-0.5">
-                            {tokenRef === "TBD" ? (
-                              <Badge variant="warning">TBD</Badge>
-                            ) : meta?.token ? (
-                              <>
-                                <Link
-                                  to={`/tokens/${encodeURIComponent(meta.token.path)}`}
-                                  className="font-mono text-xs text-primary hover:underline"
-                                >
-                                  {tokenRef}
-                                </Link>
-                                <div className="font-mono text-[11px] text-muted-foreground">
-                                  {meta.token.cssVar}
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <code className="font-mono text-xs">{tokenRef}</code>
-                                <Badge variant="warning">Unknown</Badge>
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {meta?.token ? meta.token.resolvedValue : "—"}
-                          </TableCell>
-                          <TableCell>
-                            {meta && meta.usageCount !== null ? (
-                              <Badge variant="neutral">{meta.usageCount} refs</Badge>
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            ))}
-          </div>
         ) : (
           <p className="text-sm text-muted-foreground">—</p>
         )}

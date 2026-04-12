@@ -39,7 +39,6 @@ export type SpecDiffCategory =
   | "figma"
   | "summary"
   | "properties"
-  | "token_mapping"
   | "accessibility"
   | "content"
   | "qa"

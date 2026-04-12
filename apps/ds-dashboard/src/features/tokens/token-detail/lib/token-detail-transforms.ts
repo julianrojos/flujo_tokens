@@ -144,21 +144,6 @@ export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntr
 }
 
 /**
- * Parse component usage detail to extract slot and condition
- */
-export function parseComponentUsageDetail(detail: string) {
-  const raw = String(detail || "").trim();
-  if (!raw) return { slot: null as string | null, condition: null as string | null };
-  const tokenMappingMatch = raw.match(/^token_mapping\.([^:]+)(?::(.+))?$/i);
-  if (!tokenMappingMatch) {
-    return { slot: null as string | null, condition: null as string | null };
-  }
-  const slot = tokenMappingMatch[1] ? tokenMappingMatch[1].trim() : null;
-  const condition = tokenMappingMatch[2] ? tokenMappingMatch[2].trim() : null;
-  return { slot, condition };
-}
-
-/**
  * Normalize token/variable identifiers for resilient matching between token paths and Figma variable names.
  * Important: dashes are preserved because they can be meaningful inside a single segment.
  */
