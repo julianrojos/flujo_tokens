@@ -12,13 +12,9 @@ const BASE_ITEMS: ComponentRegistryItem[] = [
   {
     slug: "boton",
     display_name: "Botón",
-    paths: { spec: "", doc: "", visual_proof: null },
-    spec: { exists: false, status: "draft" },
-    doc: { exists: false, status: "draft" },
+    paths: { spec: "" },
+    spec: { exists: false },
     figma: { file_url: null, component_set_node_id: null },
-    visual_proof: { exists: false, screenshot_url: null, variants_count: null, variants: [] },
-    pipeline_stage: "missing-spec",
-    ready_for_publish: false,
     fingerprint_sha256: "",
   },
 ];

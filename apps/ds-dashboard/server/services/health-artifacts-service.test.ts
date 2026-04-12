@@ -41,7 +41,7 @@ describe('health-artifacts-service', () => {
       assert.equal(report.ok, false);
       assert.equal(report.bootstrapped, true);
       assert.equal(report.summary.total_components, 0);
-      assert.deepEqual(report.filters.needs_review.items, []);
+      assert.deepEqual(report.filters.without_spec.items, []);
     });
   });
 
