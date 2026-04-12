@@ -108,7 +108,6 @@ function editorialToPromptContext(editorial: {
     summary?: unknown;
     accessibility?: unknown;
     contentGuidelines?: unknown;
-    relatedComponents?: unknown;
     qa?: unknown;
     accessibilityNotes?: unknown;
 }): Record<string, unknown> | null {
@@ -116,7 +115,6 @@ function editorialToPromptContext(editorial: {
     if (editorial.summary) result.summary = editorial.summary;
     if (editorial.accessibility) result.accessibility = editorial.accessibility;
     if (editorial.contentGuidelines) result.content_guidelines = editorial.contentGuidelines;
-    if (editorial.relatedComponents) result.related_components = editorial.relatedComponents;
     if (editorial.qa) result.qa = editorial.qa;
     if (editorial.accessibilityNotes) result.accessibility_notes = editorial.accessibilityNotes;
     return Object.keys(result).length > 0 ? result : null;

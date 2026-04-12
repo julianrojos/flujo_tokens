@@ -23,7 +23,6 @@ export interface EditorialPatch {
     labeling?: { rules?: string[] };
     notes?: string[];
   };
-  related_components?: string[];
   qa?: string[];
 }
 
@@ -66,7 +65,6 @@ export const EDITORIAL_PATCH_JSON_SCHEMA = {
       },
       additionalProperties: false,
     },
-    related_components: { type: "array", items: { type: "string" } },
     qa: { type: "array", items: { type: "string" } },
   },
   additionalProperties: false,
@@ -210,11 +208,6 @@ export function validateEditorialPatch(
         },
       },
       {
-        section: "related_components",
-        allowedKeys: [],
-        arrayFields: [],
-      },
-      {
         section: "qa",
         allowedKeys: [],
         arrayFields: [],
@@ -222,7 +215,7 @@ export function validateEditorialPatch(
     ];
 
   for (const check of sectionChecks) {
-    // For array-only sections (related_components, qa), validate directly
+    // For array-only sections (qa), validate directly
     if (check.allowedKeys.length === 0 && check.arrayFields?.length === 0) {
       const val = patch[check.section];
       if (val !== undefined && val !== null) {
@@ -241,7 +234,6 @@ export function validateEditorialPatch(
     "summary",
     "content_guidelines",
     "accessibility",
-    "related_components",
     "qa",
   ];
   for (const key of Object.keys(patch)) {

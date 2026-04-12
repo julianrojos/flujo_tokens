@@ -123,7 +123,7 @@ describe('db-service', () => {
             }
         });
 
-        it('does not keep legacy tokens_json, token_mapping_json, or best_practices_json in component_editorial after migrations', () => {
+        it('does not keep legacy tokens_json, token_mapping_json, best_practices_json, or related_components_json in component_editorial after migrations', () => {
             db = bootstrapDatabase({ dbPath: ':memory:' });
 
             const columns = db
@@ -137,6 +137,7 @@ describe('db-service', () => {
             assert.ok(!columnNames.includes('tokens_json'));
             assert.ok(!columnNames.includes('token_mapping_json'));
             assert.ok(!columnNames.includes('best_practices_json'));
+            assert.ok(!columnNames.includes('related_components_json'));
         });
 
         it('preserves existing editorial data when upgrading through migration 028', () => {
@@ -294,6 +295,76 @@ describe('db-service', () => {
                 .all() as Array<{ name: string }>;
             const columnNames = columns.map((column) => column.name);
             assert.ok(columnNames.includes('behaviour_json'));
+        });
+
+        it('drops related_components_json when upgrading through migration 033 while preserving other editorial data', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migrations = loadMigrationsFromDir(migrationsDir);
+            const pre033 = migrations.filter((migration) => migration.version < 33);
+            const migration033 = migrations.filter((migration) => migration.version === 33);
+
+            runMigrations(db, pre033);
+
+            db.prepare(`
+                INSERT INTO design_systems (id, name)
+                VALUES ('sys-related-components', 'Related Components Upgrade Test')
+            `).run();
+            db.prepare(`
+                INSERT INTO components (ds_id, slug, name, status, doc_type)
+                VALUES ('sys-related-components', 'upgrade-tag', 'Upgrade Tag', 'draft', 'component')
+            `).run();
+
+            const component = db.prepare(`
+                SELECT id FROM components
+                WHERE ds_id = 'sys-related-components' AND slug = 'upgrade-tag'
+            `).get() as { id: number };
+
+            db.prepare(`
+                INSERT INTO component_editorial (
+                    component_id,
+                    summary_json,
+                    behaviour_json,
+                    related_components_json,
+                    qa_json,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            `).run(
+                component.id,
+                JSON.stringify({ purpose: 'Tag summary survives migration' }),
+                JSON.stringify('Communicates compact status information'),
+                JSON.stringify(['badge', 'icon']),
+                JSON.stringify(['Verify semantic color usage', 'Check truncation behaviour']),
+                1234567892,
+            );
+
+            runMigrations(db, migration033);
+
+            const columns = db
+                .prepare("PRAGMA table_info('component_editorial')")
+                .all() as Array<{ name: string }>;
+            const columnNames = columns.map((column) => column.name);
+            assert.ok(!columnNames.includes('related_components_json'));
+
+            const row = db.prepare(`
+                SELECT summary_json, behaviour_json, qa_json, updated_at
+                FROM component_editorial
+                WHERE component_id = ?
+            `).get(component.id) as {
+                summary_json: string | null;
+                behaviour_json: string | null;
+                qa_json: string | null;
+                updated_at: number;
+            };
+
+            assert.deepEqual(JSON.parse(row.summary_json as string), { purpose: 'Tag summary survives migration' });
+            assert.equal(JSON.parse(row.behaviour_json as string), 'Communicates compact status information');
+            assert.deepEqual(JSON.parse(row.qa_json as string), [
+                'Verify semantic color usage',
+                'Check truncation behaviour',
+            ]);
+            assert.equal(row.updated_at, 1234567892);
         });
 
         it('creates all indexes from migrations', () => {

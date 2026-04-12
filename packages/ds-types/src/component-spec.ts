@@ -89,7 +89,6 @@ export interface ComponentSpec {
         notes?: string[];
     };
     qa: string[];
-    related_components?: string[];
     variants?: unknown[] | null;
     tokens?: unknown[] | null;
     layout?: SpecLayoutItem[];

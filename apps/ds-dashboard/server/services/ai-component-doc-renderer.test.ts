@@ -131,7 +131,6 @@ describe('ai-component-doc-renderer', () => {
                     when_to_use: 'When user needs clear CTA',
                     when_not_to_use: 'Avoid for secondary actions',
                 },
-                related_components: ['Icon', 'Text'],
                 qa: ['Verify hover state works', 'Check focus order'],
                 content_guidelines: { rules: ['Use sentence case', 'Keep labels under 3 words'] },
                 accessibility: { role: 'button', labeling: { rules: ['Must have aria-label if icon-only'] }, notes: [] },
@@ -141,7 +140,6 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('## Editorial: Purpose & Usage'));
             assert.ok(result.includes('**Purpose:** Use for primary actions'));
             assert.ok(result.includes('**When to use:** When user needs clear CTA'));
-            assert.ok(result.includes('## Editorial: Related Components'));
             assert.ok(result.includes('## Editorial: QA Checklist'));
             assert.ok(result.includes('## Editorial: Content Guidelines'));
         });
@@ -151,7 +149,6 @@ describe('ai-component-doc-renderer', () => {
             const patch: EditorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'Only purpose' },
-                related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
                 accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
@@ -160,7 +157,6 @@ describe('ai-component-doc-renderer', () => {
 
             assert.ok(result.includes('## Editorial: Purpose & Usage'));
             assert.doesNotMatch(result, /Best Practices/);
-            assert.doesNotMatch(result, /Related Components/);
             assert.doesNotMatch(result, /QA Checklist/);
             assert.doesNotMatch(result, /Content Guidelines/);
         });
@@ -173,7 +169,6 @@ describe('ai-component-doc-renderer', () => {
             const patch: EditorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'Test purpose' },
-                related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
                 accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
@@ -197,7 +192,6 @@ describe('ai-component-doc-renderer', () => {
                     when_to_use: 'When you need _strong_ visual **hierarchy**',
                     when_not_to_use: 'Avoid for **secondary** items',
                 },
-                related_components: [],
                 qa: ['Verify **hover** state'],
                 content_guidelines: { rules: ['Use _sentence_ case'] },
                 accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
@@ -376,14 +370,12 @@ describe('ai-component-doc-renderer', () => {
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
                 content_guidelines: { rules: ['Rule 1'] },
                 accessibility: { role: 'button', labeling: { rules: ['Label A'] }, notes: ['Note Z'] },
-                related_components: ['Comp1'],
                 qa: ['Check A'],
             };
             const md = renderEditorialPatchToMarkdown(patch);
             assert.ok(md.includes('## Summary'));
             assert.ok(md.includes('## Content Guidelines'));
             assert.ok(md.includes('## Accessibility'));
-            assert.ok(md.includes('## Related Components'));
             assert.ok(md.includes('## QA'));
             assert.ok(md.includes('Check A'));
         });
@@ -412,14 +404,12 @@ describe('ai-component-doc-renderer', () => {
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
                 contentGuidelines: { rules: ['Rule X'] },
                 accessibility: { role: 'dialog', labeling: { rules: ['L1'] }, notes: ['N1'] },
-                relatedComponents: ['RC1', 'RC2'],
                 qa: ['QA1'],
                 updatedAt: Date.now(),
             };
             const md = renderEditorialEntryToMarkdown(entry);
             assert.ok(md.includes('## Summary'));
             assert.ok(md.includes('## Content Guidelines'));
-            assert.ok(md.includes('## Related Components'));
             assert.ok(md.includes('## Accessibility'));
             assert.ok(md.includes('## QA'));
             assert.ok(md.includes('P'));

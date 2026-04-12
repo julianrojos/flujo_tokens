@@ -751,7 +751,7 @@ describe('ai-orchestrator policyContext', () => {
         const schemaProperties = (
           (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
         ) ?? {};
-        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+        const isEditorialPatchCall = 'summary' in schemaProperties && 'qa' in schemaProperties;
         if (isEditorialPatchCall) {
           // Editorial patch prompt call
           editorialPatchPrompt = input.userPrompt;
@@ -1099,7 +1099,7 @@ function create3StageAdapter(options: {
         (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
       ) ?? {};
       const isValidationCall = 'passes' in schemaProperties && 'severity' in schemaProperties;
-      const isEditorialCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+      const isEditorialCall = 'summary' in schemaProperties && 'qa' in schemaProperties;
 
       if (isValidationCall) {
         if (options.validationFail) {

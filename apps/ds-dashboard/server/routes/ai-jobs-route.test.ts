@@ -481,7 +481,6 @@ describe('ai-jobs-route', () => {
             const editorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'AI suggested purpose' },
-                related_components: ['Icon'],
                 qa: ['Check hover'],
                 content_guidelines: { rules: [] },
                 accessibility: { role: 'button', labeling: { rules: [] }, notes: [] },
@@ -861,7 +860,6 @@ describe('ai-jobs-route', () => {
             }, {
                 schemaVersion: 2,
                 summary: { purpose: 'Container for content' },
-                related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
                 accessibility: { role: 'article', labeling: { rules: [] }, notes: [] },

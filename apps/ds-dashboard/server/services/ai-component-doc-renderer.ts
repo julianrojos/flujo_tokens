@@ -157,17 +157,6 @@ export function renderComponentDoc(
             }
         }
 
-        // Related Components
-        const related = editorialPatch.related_components;
-        if (related && related.length > 0) {
-            lines.push('## Editorial: Related Components');
-            lines.push('');
-            for (const comp of related) {
-                lines.push(`- ${escapeMarkdown(comp)}`);
-            }
-            lines.push('');
-        }
-
         // QA Checklist
         const qa = editorialPatch.qa;
         if (qa && qa.length > 0) {
@@ -273,12 +262,6 @@ export function renderEditorialPatchToMarkdown(patch: EditorialPatch | null | un
             lines.push('**Notes:**');
             for (const item of patch.accessibility.notes) lines.push(`- ${escapeMarkdown(item)}`);
         }
-        lines.push('');
-    }
-
-    if (patch.related_components?.length) {
-        lines.push('## Related Components');
-        for (const comp of patch.related_components) lines.push(`- ${escapeMarkdown(comp)}`);
         lines.push('');
     }
 

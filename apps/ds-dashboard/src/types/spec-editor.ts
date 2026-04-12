@@ -42,7 +42,6 @@ export type SpecDiffCategory =
   | "accessibility"
   | "content"
   | "qa"
-  | "related_components"
   | "other";
 
 export type SpecDiffRisk = "high" | "medium" | "low";

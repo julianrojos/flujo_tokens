@@ -42,10 +42,6 @@ export function entryToEditorialPatch(entry: EditorialEntry | null | undefined):
     };
   }
 
-  if (Array.isArray(entry.relatedComponents)) {
-    patch.related_components = entry.relatedComponents.filter((x): x is string => typeof x === 'string');
-  }
-
   if (Array.isArray(entry.qa)) {
     patch.qa = entry.qa.filter((x): x is string => typeof x === 'string');
   }

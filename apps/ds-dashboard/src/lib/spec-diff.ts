@@ -93,7 +93,6 @@ function classifyCategory(path: string): SpecDiffEntry["category"] {
   if (path.startsWith("accessibility")) return "accessibility";
   if (path.startsWith("content_guidelines")) return "content";
   if (path.startsWith("qa")) return "qa";
-  if (path.startsWith("related_components")) return "related_components";
   return "other";
 }
 

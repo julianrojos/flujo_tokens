@@ -18,7 +18,6 @@ interface ComponentSpecSectionProps {
   downloadWarnings?: string[];
   onDownloadMarkdown: () => void;
   onOpenEditorial: () => void;
-  selfSlug?: string;
   figmaComponentSetDescription?: string | null;
   figmaVariantDescriptions?: Array<{ canonicalKey: string; description: string | null }>;
   figmaSyncedAt?: number | null;
@@ -33,7 +32,6 @@ export function ComponentSpecSection({
   downloadWarnings = [],
   onDownloadMarkdown,
   onOpenEditorial,
-  selfSlug,
   figmaComponentSetDescription = null,
   figmaVariantDescriptions = [],
   figmaSyncedAt = null,
@@ -103,7 +101,7 @@ export function ComponentSpecSection({
           <div className="border-t border-border my-4" />
         )}
         {spec ? (
-          <ComponentSpecViewer spec={spec} selfSlug={selfSlug} />
+          <ComponentSpecViewer spec={spec} />
         ) : (
           <div className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             No specification yet. Click "Add spec" to create one.

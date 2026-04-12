@@ -21,7 +21,6 @@ describe("validateEditorialPatch", () => {
       summary: { purpose: "A button", when_to_use: "Actions", when_not_to_use: "Links" },
       content_guidelines: { rules: ["Use title case"] },
       accessibility: { role: "button", labeling: { rules: ["Include name"] }, notes: ["Test with screen readers"] },
-      related_components: ["icon-button"],
       qa: ["Verify focus ring"],
     });
     assert.strictEqual(result.valid, true);
@@ -124,23 +123,4 @@ describe("validateEditorialPatch", () => {
     }
   });
 
-  it("rejects non-array related_components", () => {
-    const result = validateEditorialPatch(makePatch({
-      related_components: "not-an-array",
-    }));
-    assert.strictEqual(result.valid, false);
-    if (!result.valid) {
-      assert.ok(result.errors.some((e) => e.path === "related_components"));
-    }
-  });
-
-  it("rejects non-string items in related_components", () => {
-    const result = validateEditorialPatch(makePatch({
-      related_components: [123],
-    }));
-    assert.strictEqual(result.valid, false);
-    if (!result.valid) {
-      assert.ok(result.errors.some((e) => e.path === "related_components[0]"));
-    }
-  });
 });

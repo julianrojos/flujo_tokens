@@ -167,7 +167,6 @@ export interface EditorialPatch {
         };
         notes?: string[];
     };
-    related_components?: string[];
     qa?: string[];
 }
 

@@ -25,7 +25,6 @@ It may populate:
 - `content_guidelines`
 - `rules[]`
 - `accessibility`
-- `related_components[]`
 - `qa[]`
 
 ---
@@ -140,18 +139,7 @@ Mark with:
 - `[To confirm with dev]`
 - `[Outside Figma scope]`
 
-### 7. related_components[]
-
-Be very conservative.
-Only include when there is enough evidence, ideally:
-
-- shared naming
-- common prefix in the library
-- very clear proximity in the system family
-
-If there is no evidence, leave it empty.
-
-### 8. qa[]
+### 7. qa[]
 
 `qa[]` is not a generic checklist.
 Each item must be a question specific to THIS component.
@@ -164,11 +152,11 @@ Correct:
 
 - `Does the \`destructive\` variant require confirmation before executing the action?`
 
-### 9. Terminology consistency
+### 8. Terminology consistency
 
 Reuse naming from `ComponentDocOutput`. Do not rename fields without justification (RULES.md Rule 8).
 
-### 10. Normative claims
+### 9. Normative claims
 
 Do not claim normative compliance (WCAG, legal) without a verifiable audit. Use `TBD` or `[To confirm with dev]` (RULES.md Rule 14).
 

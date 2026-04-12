@@ -71,7 +71,6 @@ function buildSpecFromDb(params: {
         ? { notes: editorial.accessibilityNotes }
         : null,
     content_guidelines: editorial?.contentGuidelines ?? null,
-    related_components: editorial?.relatedComponents ?? null,
     qa: editorial?.qa ?? null,
     variants: editorial?.variants ?? null,
 
@@ -312,7 +311,6 @@ export async function handlePatchEditorialSpecRoute(
     }
   }
   if (fields.content_guidelines !== undefined) camelCaseFields.contentGuidelines = fields.content_guidelines;
-  if (fields.related_components !== undefined) camelCaseFields.relatedComponents = fields.related_components;
   if (fields.qa !== undefined) camelCaseFields.qa = fields.qa;
   if (fields.variants !== undefined) camelCaseFields.variants = fields.variants;
 

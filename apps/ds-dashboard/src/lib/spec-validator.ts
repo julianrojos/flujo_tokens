@@ -378,38 +378,6 @@ function validateQa(
   }
 }
 
-function validateRelatedComponents(
-  issues: SpecValidationIssue[],
-  spec: ComponentSpec,
-) {
-  if (spec.related_components && Array.isArray(spec.related_components)) {
-    const seenRelated = new Set<string>();
-    for (let index = 0; index < spec.related_components.length; index += 1) {
-      const related = String(spec.related_components[index] || "").trim();
-      const itemPath = `related_components[${index}]`;
-      if (!SNAKE_CASE_RE.test(related)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_RELATED_COMPONENT_INVALID",
-          path: itemPath,
-          message: "related component values must be snake_case slugs.",
-        });
-        continue;
-      }
-      if (seenRelated.has(related)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_RELATED_COMPONENT_DUPLICATE",
-          path: itemPath,
-          message: `related component '${related}' is duplicated.`,
-        });
-        continue;
-      }
-      seenRelated.add(related);
-    }
-  }
-}
-
 function validateTokenReferences(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
@@ -454,7 +422,6 @@ export function validateComponentSpec(
   validateContentGuidelines(issues, spec);
   validateAccessibility(issues, spec);
   validateQa(issues, spec);
-  validateRelatedComponents(issues, spec);
   validateTokenReferences(issues, spec, context);
 
   validateGuardrails(issues, context.previousSpec, spec);

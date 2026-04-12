@@ -110,7 +110,6 @@ export function ComponentDetailPage() {
         downloadWarnings={downloadWarnings}
         onDownloadMarkdown={handleDownloadMarkdown}
         onOpenEditorial={() => navigate(toComponentEditDocs(slug ?? ""))}
-        selfSlug={item.slug}
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
         figmaSyncedAt={descriptionsData.syncedAt}

@@ -119,7 +119,7 @@ export function runMigrations(
 
     // Run each pending migration in a transaction
     const insertStmt = db.prepare(
-        'INSERT INTO schema_migrations (version, applied_at) VALUES (?, strftime(\'%s\', \'now\'))'
+        'INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, strftime(\'%s\', \'now\'))'
     );
 
     for (const migration of pending) {

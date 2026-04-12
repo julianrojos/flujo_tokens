@@ -1,5 +1,4 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import type { PartialComponentSpec, SpecProperty } from "ds-types";
 import { Badge } from "@/components/ui/badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -11,11 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  deduplicateRelated,
-  slugToComponentRouteSlug,
-  slugToDisplayName,
-} from "./lib/spec-viewer-utils";
 
 const SummaryMarkdownPreview = lazy(() =>
   import("@/components/markdown/markdown-preview").then((module) => ({
@@ -104,7 +98,6 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
 
 interface ComponentSpecViewerProps {
   spec: PartialComponentSpec;
-  selfSlug?: string;
 }
 
 type PropertySortField = "name" | "type" | "values" | "default" | "required" | "description";
@@ -118,7 +111,7 @@ const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> 
   { field: "description", label: "Description" },
 ];
 
-export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps) {
+export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
   const summary = spec.summary ?? {
     purpose: "",
     when_to_use: "",
@@ -182,11 +175,6 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
       </Suspense>
     );
   };
-  const dedupedRelated = useMemo(
-    () => deduplicateRelated(spec.related_components ?? [], selfSlug ?? ""),
-    [spec.related_components, selfSlug],
-  );
-
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -319,27 +307,6 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
         )}
       </section>
 
-      {/* Related Components */}
-      <section>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Related Components
-        </h4>
-        {dedupedRelated.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {dedupedRelated.map((slug) => (
-              <Link
-                key={slug}
-                to={`/components/${encodeURIComponent(slugToComponentRouteSlug(slug))}`}
-                className="inline-flex items-center rounded border border-border px-2.5 py-1 text-xs hover:bg-muted"
-              >
-                {slugToDisplayName(slug)}
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">—</p>
-        )}
-      </section>
     </div>
   );
 }
