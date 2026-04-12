@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { PartialComponentSpec, SpecProperty, SpecLayoutItem } from "ds-types";
+import type { PartialComponentSpec, SpecProperty } from "ds-types";
 import { Badge } from "@/components/ui/badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
@@ -118,16 +118,6 @@ const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> 
   { field: "description", label: "Description" },
 ];
 
-const LAYOUT_COLUMNS = [
-  "Node",
-  "Direction",
-  "H Sizing",
-  "V Sizing",
-  "Alignment",
-  "Item Spacing",
-  "Padding",
-] as const;
-
 export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps) {
   const summary = spec.summary ?? {
     purpose: "",
@@ -139,17 +129,12 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
     () => extractGuidanceItems(spec, ["behaviour", "behavior"]),
     [spec.behaviour, (spec as Record<string, unknown>).behavior],
   );
-  const edgeCaseItems = useMemo(
-    () => extractGuidanceItems(spec, ["edge_cases", "edgeCases", "edge-cases"]),
-    [spec.edge_cases, (spec as Record<string, unknown>).edgeCases, (spec as Record<string, unknown>)["edge-cases"]],
-  );
-  const accessibilityLabelingRules = useMemo(
-    () => normalizeStringItems(spec.accessibility?.labeling?.rules),
-    [spec.accessibility?.labeling?.rules],
-  );
-  const accessibilityNotes = useMemo(
-    () => normalizeStringItems(spec.accessibility?.notes),
-    [spec.accessibility?.notes],
+  const accessibilityGuidance = useMemo(
+    () => Array.from(new Set([
+      ...normalizeStringItems(spec.accessibility?.labeling?.rules),
+      ...normalizeStringItems(spec.accessibility?.notes),
+    ])),
+    [spec.accessibility?.labeling?.rules, spec.accessibility?.notes],
   );
   const contentGuidelineRules = useMemo(
     () => normalizeStringItems(spec.content_guidelines?.rules),
@@ -303,46 +288,19 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
               </div>
             </div>
           ) : null}
-          {accessibilityLabelingRules.length > 0 ? (
+          {accessibilityGuidance.length > 0 ? (
             <div>
-              <h5 className="font-medium text-sm">Labeling</h5>
+              <h5 className="font-medium text-sm">Guidance</h5>
               <div>
                 <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
-                  {accessibilityLabelingRules.map((rule, i) => (
-                    <li key={i}>{rule}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : null}
-          {accessibilityNotes.length > 0 ? (
-            <div>
-              <h5 className="font-medium text-sm">Notes</h5>
-              <div>
-                <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
-                  {accessibilityNotes.map((note, i) => (
-                    <li key={i}>{note}</li>
+                  {accessibilityGuidance.map((item, i) => (
+                    <li key={i}>{item}</li>
                   ))}
                 </ul>
               </div>
             </div>
           ) : null}
         </div>
-      </section>
-
-      <section>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Edge cases
-        </h4>
-        {edgeCaseItems.length > 0 ? (
-          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-            {edgeCaseItems.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">—</p>
-        )}
       </section>
 
       {/* Content Guidelines */}
@@ -356,49 +314,6 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
               <li key={i}>{rule}</li>
             ))}
           </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">—</p>
-        )}
-      </section>
-
-      {/* Layout */}
-      <section>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Layout
-        </h4>
-        {spec.layout?.length ? (
-          <div className="max-h-96 overflow-x-auto overflow-y-auto rounded-md border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {LAYOUT_COLUMNS.map((col) => (
-                    <TableHead key={col}>{col}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {spec.layout.map((row: SpecLayoutItem, i) => (
-                  <TableRow key={`${row.node}-${i}`}>
-                    <TableCell className="font-mono text-xs">{row.node ?? "—"}</TableCell>
-                    <TableCell>{row.direction ?? "—"}</TableCell>
-                    <TableCell>{row.hSizing ?? "—"}</TableCell>
-                    <TableCell>{row.vSizing ?? "—"}</TableCell>
-                    <TableCell>{row.alignment ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {row.itemSpacing === undefined || row.itemSpacing === null
-                        ? "—"
-                        : String(row.itemSpacing)}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs" title="Top/Right/Bottom/Left">
-                      {row.padding
-                        ? `${row.padding.top}/${row.padding.right}/${row.padding.bottom}/${row.padding.left}`
-                        : "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         ) : (
           <p className="text-sm text-muted-foreground">—</p>
         )}
