@@ -39,11 +39,6 @@ export function ComponentSpecSection({
   figmaSyncedAt = null,
   figmaStale = true,
 }: ComponentSpecSectionProps) {
-  const hasFigmaContent = figmaSyncedAt != null && (
-    Boolean(figmaComponentSetDescription?.trim()) ||
-    figmaVariantDescriptions.some((variant) => Boolean(variant.description?.trim()))
-  );
-
   return (
     <Card>
       <CardHeader>
@@ -104,7 +99,7 @@ export function ComponentSpecSection({
           syncedAt={figmaSyncedAt}
           stale={figmaStale}
         />
-        {hasFigmaContent && spec && (
+        {spec && (
           <div className="border-t border-border my-4" />
         )}
         {spec ? (

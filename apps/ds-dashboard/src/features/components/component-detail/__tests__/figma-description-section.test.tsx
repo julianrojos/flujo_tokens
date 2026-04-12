@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FigmaDescriptionSection } from "../components/figma-description-section";
 
 describe("FigmaDescriptionSection", () => {
-  it("does not render when syncedAt is null", () => {
+  it("renders even when syncedAt is null", () => {
     const html = renderToStaticMarkup(
       <FigmaDescriptionSection
         componentSetDescription={null}
@@ -14,7 +14,9 @@ describe("FigmaDescriptionSection", () => {
         stale={true}
       />,
     );
-    assert.equal(html, "");
+    assert.match(html, /Figma descriptions/);
+    assert.match(html, /Variant descriptions/);
+    assert.match(html, /—/);
   });
 
   it("renders component and variant descriptions when content exists", () => {
@@ -47,6 +49,19 @@ describe("FigmaDescriptionSection", () => {
     );
 
     assert.match(html, /Stale/);
-    assert.match(html, /data may be outdated/i);
+  });
+
+  it("shows not synced status when syncedAt is null", () => {
+    const html = renderToStaticMarkup(
+      <FigmaDescriptionSection
+        componentSetDescription={null}
+        variantDescriptions={[]}
+        syncedAt={null}
+        stale={true}
+      />,
+    );
+
+    assert.match(html, /Not synced/);
+    assert.doesNotMatch(html, /Stale/);
   });
 });

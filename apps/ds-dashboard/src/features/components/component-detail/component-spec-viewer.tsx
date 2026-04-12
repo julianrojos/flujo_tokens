@@ -37,6 +37,34 @@ function typeBadgeVariant(type: string): "neutral" | "success" | "warning" {
   return "neutral";
 }
 
+function extractGuidanceItems(spec: PartialComponentSpec, candidateKeys: string[]): string[] {
+  const looseSpec = spec as Record<string, unknown>;
+  const collected: string[] = [];
+  for (const key of candidateKeys) {
+    if (!(key in looseSpec)) continue;
+    const value = looseSpec[key];
+    if (typeof value === "string") {
+      const normalized = value.trim();
+      if (normalized) collected.push(normalized);
+      continue;
+    }
+    if (!Array.isArray(value)) continue;
+    for (const item of value) {
+      if (typeof item !== "string") continue;
+      const normalized = item.trim();
+      if (normalized) collected.push(normalized);
+    }
+  }
+  return Array.from(new Set(collected));
+}
+
+function normalizeStringItems(items: unknown): string[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => String(item ?? "").trim())
+    .filter((item) => item.length > 0);
+}
+
 function PropertyRow({ prop }: { prop: SpecProperty }) {
   const displayType = TYPE_DISPLAY[prop.type.toLowerCase()] ?? prop.type.toUpperCase();
   return (
@@ -118,6 +146,34 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
     when_not_to_use: "",
   };
   const propertyItems = spec.properties ?? [];
+  const behaviourItems = useMemo(
+    () => extractGuidanceItems(spec, ["behaviour", "behavior"]),
+    [spec.behaviour, (spec as Record<string, unknown>).behavior],
+  );
+  const edgeCaseItems = useMemo(
+    () => extractGuidanceItems(spec, ["edge_cases", "edgeCases", "edge-cases"]),
+    [spec.edge_cases, (spec as Record<string, unknown>).edgeCases, (spec as Record<string, unknown>)["edge-cases"]],
+  );
+  const accessibilityLabelingRules = useMemo(
+    () => normalizeStringItems(spec.accessibility?.labeling?.rules),
+    [spec.accessibility?.labeling?.rules],
+  );
+  const accessibilityNotes = useMemo(
+    () => normalizeStringItems(spec.accessibility?.notes),
+    [spec.accessibility?.notes],
+  );
+  const bestPracticesDo = useMemo(
+    () => normalizeStringItems(spec.best_practices?.do),
+    [spec.best_practices?.do],
+  );
+  const bestPracticesDont = useMemo(
+    () => normalizeStringItems(spec.best_practices?.dont),
+    [spec.best_practices?.dont],
+  );
+  const contentGuidelineRules = useMemo(
+    () => normalizeStringItems(spec.content_guidelines?.rules),
+    [spec.content_guidelines?.rules],
+  );
 
   const [propertySort, setPropertySort] = useState<{
     field: PropertySortField;
@@ -214,30 +270,34 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Summary
         </h4>
-        <dl className="space-y-3 text-sm">
+        <div className="space-y-3 text-sm">
           <div>
-            <dt className="font-medium">Purpose</dt>
-            <dd>{renderSummaryMarkdown(summary.purpose)}</dd>
+            <h5 className="font-medium text-sm">Purpose</h5>
+            <div>{renderSummaryMarkdown(summary.purpose)}</div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <dt className="font-medium">When to use</dt>
-              <dd>{renderSummaryMarkdown(summary.when_to_use)}</dd>
+              <h5 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                When to use
+              </h5>
+              <div>{renderSummaryMarkdown(summary.when_to_use)}</div>
             </div>
             <div>
-              <dt className="font-medium">When not to use</dt>
-              <dd>{renderSummaryMarkdown(summary.when_not_to_use)}</dd>
+              <h5 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                When not to use
+              </h5>
+              <div>{renderSummaryMarkdown(summary.when_not_to_use)}</div>
             </div>
           </div>
-        </dl>
+        </div>
       </section>
 
       {/* Properties */}
-      {propertyItems.length > 0 ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Properties
-          </h4>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Properties
+        </h4>
+        {propertyItems.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -256,15 +316,17 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
               ))}
             </TableBody>
           </Table>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
 
       {/* Token mapping */}
-      {sortedTokenMappings.length > 0 ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Token Mapping
-          </h4>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Token Mapping
+        </h4>
+        {sortedTokenMappings.length > 0 ? (
           <div className="space-y-3">
             {sortedTokenMappings.map(({ slot, rows }) => (
               <div key={slot}>
@@ -328,108 +390,151 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
+
+      {/* Behaviour */}
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Behaviour
+        </h4>
+        {behaviourItems.length > 0 ? (
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            {behaviourItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
 
       {/* Accessibility */}
-      {spec.accessibility ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Accessibility
-          </h4>
-          <dl className="space-y-2 text-sm">
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Accessibility
+        </h4>
+        <div className="space-y-2 text-sm">
+          <div>
+            <h5 className="font-medium text-sm">Role</h5>
+            <p className="font-mono text-xs">
+              {String(spec.accessibility?.role ?? "").trim() || (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </p>
+          </div>
+          {spec.accessibility?.focus?.tokens ? (
             <div>
-              <dt className="font-medium">Role</dt>
-              <dd className="font-mono text-xs">{spec.accessibility.role}</dd>
+              <h5 className="font-medium text-sm">Focus tokens</h5>
+              <div className="space-y-0.5 font-mono text-xs text-muted-foreground">
+                {spec.accessibility.focus.tokens.inner ? (
+                  <div>inner: {spec.accessibility.focus.tokens.inner}</div>
+                ) : null}
+                {spec.accessibility.focus.tokens.outer ? (
+                  <div>outer: {spec.accessibility.focus.tokens.outer}</div>
+                ) : null}
+              </div>
             </div>
-            {spec.accessibility.focus?.tokens ? (
+          ) : null}
+          {accessibilityLabelingRules.length > 0 ? (
+            <div>
+              <h5 className="font-medium text-sm">Labeling</h5>
               <div>
-                <dt className="font-medium">Focus tokens</dt>
-                <dd className="space-y-0.5 font-mono text-xs text-muted-foreground">
-                  {spec.accessibility.focus.tokens.inner ? (
-                    <div>inner: {spec.accessibility.focus.tokens.inner}</div>
-                  ) : null}
-                  {spec.accessibility.focus.tokens.outer ? (
-                    <div>outer: {spec.accessibility.focus.tokens.outer}</div>
-                  ) : null}
-                </dd>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                  {accessibilityLabelingRules.map((rule, i) => (
+                    <li key={i}>{rule}</li>
+                  ))}
+                </ul>
               </div>
-            ) : null}
-            {spec.accessibility.labeling?.rules?.length ? (
+            </div>
+          ) : null}
+          {accessibilityNotes.length > 0 ? (
+            <div>
+              <h5 className="font-medium text-sm">Notes</h5>
               <div>
-                <dt className="font-medium">Labeling</dt>
-                <dd>
-                  <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
-                    {spec.accessibility.labeling.rules.map((rule, i) => (
-                      <li key={i}>{rule}</li>
-                    ))}
-                  </ul>
-                </dd>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                  {accessibilityNotes.map((note, i) => (
+                    <li key={i}>{note}</li>
+                  ))}
+                </ul>
               </div>
-            ) : null}
-            {spec.accessibility.notes?.length ? (
-              <div>
-                <dt className="font-medium">Notes</dt>
-                <dd>
-                  <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
-                    {spec.accessibility.notes.map((note, i) => (
-                      <li key={i}>{note}</li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-      ) : null}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Edge cases
+        </h4>
+        {edgeCaseItems.length > 0 ? (
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            {edgeCaseItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
 
       {/* Best practices */}
-      {spec.best_practices ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Best Practices
-          </h4>
-          <div className="grid gap-4 md:grid-cols-2 text-sm">
-            <div>
-              <p className="mb-1 font-semibold text-status-success">Do</p>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Best Practices
+        </h4>
+        <div className="grid gap-4 md:grid-cols-2 text-sm">
+          <div>
+            <p className="mb-1 font-semibold text-status-success">Do</p>
+            {bestPracticesDo.length > 0 ? (
               <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
-                {(spec.best_practices.do ?? []).map((item, i) => (
+                {bestPracticesDo.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
               </ul>
-            </div>
-            <div>
-              <p className="mb-1 font-semibold text-status-error">Don't</p>
-              <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
-                {(spec.best_practices.dont ?? []).map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </div>
+            ) : (
+              <p className="text-muted-foreground">—</p>
+            )}
           </div>
-        </section>
-      ) : null}
+          <div>
+            <p className="mb-1 font-semibold text-status-error">Don't</p>
+            {bestPracticesDont.length > 0 ? (
+              <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
+                {bestPracticesDont.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">—</p>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Content Guidelines */}
-      {spec.content_guidelines?.rules?.length ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Content Guidelines
-          </h4>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Content Guidelines
+        </h4>
+        {contentGuidelineRules.length > 0 ? (
           <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-            {spec.content_guidelines.rules.map((rule, i) => (
+            {contentGuidelineRules.map((rule, i) => (
               <li key={i}>{rule}</li>
             ))}
           </ul>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
 
       {/* Layout */}
-      {spec.layout?.length ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Layout
-          </h4>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Layout
+        </h4>
+        {spec.layout?.length ? (
           <div className="max-h-96 overflow-x-auto overflow-y-auto rounded-md border border-border">
             <Table>
               <TableHeader>
@@ -462,15 +567,17 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
               </TableBody>
             </Table>
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
 
       {/* Related Components */}
-      {dedupedRelated.length > 0 ? (
-        <section>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Related Components
-          </h4>
+      <section>
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Related Components
+        </h4>
+        {dedupedRelated.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {dedupedRelated.map((slug) => (
               <Link
@@ -482,8 +589,10 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
               </Link>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
     </div>
   );
 }
