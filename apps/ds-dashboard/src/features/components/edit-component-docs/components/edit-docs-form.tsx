@@ -521,7 +521,7 @@ export interface BestPracticesFormCardProps {
 
 export function BestPracticesFormCard({ value, onChange }: BestPracticesFormCardProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="space-y-4">
       <StringListCard
         title="Best Practices: Do"
         description="Recommended usage patterns"
