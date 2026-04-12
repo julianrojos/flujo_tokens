@@ -122,7 +122,7 @@ describe('db-service', () => {
             }
         });
 
-        it('does not keep legacy tokens_json in component_editorial after migrations', () => {
+        it('does not keep legacy tokens_json or token_mapping_json in component_editorial after migrations', () => {
             db = bootstrapDatabase({ dbPath: ':memory:' });
 
             const columns = db
@@ -133,6 +133,7 @@ describe('db-service', () => {
             assert.ok(columnNames.includes('variants_json'));
             assert.ok(columnNames.includes('properties_json'));
             assert.ok(!columnNames.includes('tokens_json'));
+            assert.ok(!columnNames.includes('token_mapping_json'));
         });
 
         it('preserves existing editorial data when upgrading through migration 028', () => {
@@ -163,14 +164,16 @@ describe('db-service', () => {
                 INSERT INTO component_editorial (
                     component_id,
                     summary_json,
+                    token_mapping_json,
                     accessibility_notes_json,
                     variants_json,
                     tokens_json,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
             `).run(
                 component.id,
                 JSON.stringify({ purpose: 'Upgrade-safe summary' }),
+                JSON.stringify({ surface: { default: 'color.surface.default' } }),
                 JSON.stringify(['Keyboard accessible']),
                 JSON.stringify([{ id: 'v1', name: 'Default', description: '', properties: { State: 'Default' } }]),
                 JSON.stringify([{ name: 'legacy-token', value: '#000', type: 'color' }]),
@@ -184,6 +187,7 @@ describe('db-service', () => {
                 .all() as Array<{ name: string }>;
             const columnNames = columns.map((column) => column.name);
             assert.ok(!columnNames.includes('tokens_json'));
+            assert.ok(!columnNames.includes('token_mapping_json'));
 
             const row = db.prepare(`
                 SELECT summary_json, accessibility_notes_json, variants_json, updated_at
