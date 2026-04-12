@@ -78,6 +78,7 @@ export interface ComponentSpec {
     /** @deprecated Anatomy is no longer captured. Do not use. */
     anatomy?: SpecAnatomyItem[];
     properties: SpecProperty[];
+    behaviour?: string;
     content_guidelines: { rules: string[] };
     accessibility: {
         role: string;

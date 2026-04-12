@@ -132,6 +132,7 @@ describe('db-service', () => {
             const columnNames = columns.map((column) => column.name);
             assert.ok(columnNames.includes('variants_json'));
             assert.ok(columnNames.includes('properties_json'));
+            assert.ok(columnNames.includes('behaviour_json'));
             assert.ok(!columnNames.includes('tokens_json'));
             assert.ok(!columnNames.includes('token_mapping_json'));
             assert.ok(!columnNames.includes('best_practices_json'));
@@ -274,6 +275,24 @@ describe('db-service', () => {
             assert.deepEqual(JSON.parse(row.properties_json as string), [{ name: 'variant', type: 'enum' }]);
             assert.deepEqual(JSON.parse(row.content_guidelines_json as string), { rules: ['Use concise titles'] });
             assert.equal(row.updated_at, 1234567891);
+        });
+
+        it('adds behaviour_json when upgrading through migration 032', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migrations = loadMigrationsFromDir(migrationsDir);
+            const pre032 = migrations.filter((migration) => migration.version < 32);
+            const migration032 = migrations.filter((migration) => migration.version === 32);
+
+            runMigrations(db, pre032);
+            runMigrations(db, migration032);
+
+            const columns = db
+                .prepare("PRAGMA table_info('component_editorial')")
+                .all() as Array<{ name: string }>;
+            const columnNames = columns.map((column) => column.name);
+            assert.ok(columnNames.includes('behaviour_json'));
         });
 
         it('creates all indexes from migrations', () => {
@@ -438,6 +457,7 @@ describe('db-service', () => {
                 .get() as { version: number } | undefined;
             assert.equal(applied?.version, 29);
         });
+
     });
 
     describe('loadMigrationsFromDir()', () => {

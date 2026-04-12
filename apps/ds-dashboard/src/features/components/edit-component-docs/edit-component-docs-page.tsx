@@ -2,7 +2,7 @@
  * EditComponentDocsPage — dedicated page for editing component documentation.
  *
  * Replaces the modal-based ComponentSpecEditor. Provides:
- * - Editorial form with structured summary, properties, variants, content guidelines,
+ * - Editorial form with structured summary, properties, behaviour, variants, content guidelines,
  *   and accessibility
  * - AI suggestions modal with "Use this" per supported section
  * - Autosave draft before opening AI modal
@@ -25,6 +25,7 @@ import {
   EditDocsForm,
   SummaryFormCard,
   PropertiesFormCard,
+  BehaviourFormCard,
   VariantsFormCard,
   ContentGuidelinesFormCard,
   AccessibilityFormCard,
@@ -46,6 +47,7 @@ import { normalizeStringList } from './normalizers';
 interface EditorialFormData {
   summary: EditDocsSummaryValue;
   properties: SpecProperty[];
+  behaviour: string;
   variants: ComponentDocVariant[];
   contentGuidelines: string[];
   accessibility: EditDocsAccessibilityValue;
@@ -54,15 +56,17 @@ interface EditorialFormData {
 type DraftFieldKey =
   | 'summary'
   | 'properties'
+  | 'behaviour'
   | 'variants'
   | 'contentGuidelines'
   | 'accessibility';
 
-type EditDocsSectionId = SectionId | 'properties';
+type EditDocsSectionId = SectionId | 'properties' | 'behaviour';
 
 const EMPTY_FORM_DATA: EditorialFormData = {
   summary: { purpose: '', whenToUse: '', whenNotToUse: '' },
   properties: [],
+  behaviour: '',
   variants: [],
   contentGuidelines: [],
   accessibility: { role: '', labelingRules: [], notes: [] },
@@ -71,6 +75,7 @@ const EMPTY_FORM_DATA: EditorialFormData = {
 const FORM_SECTION_ORDER: readonly EditDocsSectionId[] = [
   'summary',
   'properties',
+  'behaviour',
   'variants',
   'contentGuidelines',
   'accessibility',
@@ -199,6 +204,7 @@ function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
       whenNotToUse: String(summary.when_not_to_use ?? '').trim(),
     },
     properties: Array.isArray(spec.properties) ? (spec.properties as SpecProperty[]) : [],
+    behaviour: String((spec as Record<string, unknown>).behaviour ?? (spec as Record<string, unknown>).behavior ?? '').trim(),
     variants: Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [],
     contentGuidelines: normalizeStringList(spec.content_guidelines?.rules as unknown[] | undefined),
     accessibility: {
@@ -240,6 +246,11 @@ function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: Editor
   return {
     summary: summaryValue,
     properties: Array.isArray(draft.properties) ? (draft.properties as SpecProperty[]) : fallback.properties,
+    behaviour: typeof draft.behaviour === 'string'
+      ? draft.behaviour.trim()
+      : typeof draft.behavior === 'string'
+        ? draft.behavior.trim()
+        : fallback.behaviour,
     variants: Array.isArray(draft.variants) ? (draft.variants as ComponentDocVariant[]) : fallback.variants,
     contentGuidelines: Array.isArray(draft.contentGuidelines)
       ? normalizeStringList(draft.contentGuidelines as unknown[])
@@ -264,6 +275,7 @@ function getTouchedFields(formData: EditorialFormData, base: EditorialFormData):
   const touchedFields: DraftFieldKey[] = [];
   if (JSON.stringify(formData.summary) !== JSON.stringify(base.summary)) touchedFields.push('summary');
   if (JSON.stringify(formData.properties) !== JSON.stringify(base.properties)) touchedFields.push('properties');
+  if (formData.behaviour !== base.behaviour) touchedFields.push('behaviour');
   if (JSON.stringify(formData.variants) !== JSON.stringify(base.variants)) touchedFields.push('variants');
   if (JSON.stringify(formData.contentGuidelines) !== JSON.stringify(base.contentGuidelines)) touchedFields.push('contentGuidelines');
   if (JSON.stringify(formData.accessibility) !== JSON.stringify(base.accessibility)) touchedFields.push('accessibility');
@@ -341,6 +353,7 @@ export function EditComponentDocsPage() {
           ? draftRecord.touchedFields.filter((field): field is DraftFieldKey =>
               field === 'summary' ||
               field === 'properties' ||
+              field === 'behaviour' ||
               field === 'variants' ||
               field === 'contentGuidelines' ||
               field === 'accessibility')
@@ -354,6 +367,7 @@ export function EditComponentDocsPage() {
         nextFormData = {
           summary: touched.has('summary') ? candidate.summary : nextFormData.summary,
           properties: touched.has('properties') ? candidate.properties : nextFormData.properties,
+          behaviour: touched.has('behaviour') ? candidate.behaviour : nextFormData.behaviour,
           variants: touched.has('variants') ? candidate.variants : nextFormData.variants,
           contentGuidelines: touched.has('contentGuidelines') ? candidate.contentGuidelines : nextFormData.contentGuidelines,
           accessibility: touched.has('accessibility') ? candidate.accessibility : nextFormData.accessibility,
@@ -362,6 +376,8 @@ export function EditComponentDocsPage() {
         typeof draftRecord.summary === 'string' ||
         draftRecord.summary && typeof draftRecord.summary === 'object' ||
         Array.isArray(draftRecord.properties) ||
+        typeof draftRecord.behaviour === 'string' ||
+        typeof draftRecord.behavior === 'string' ||
         Array.isArray(draftRecord.variants) ||
         Array.isArray(draftRecord.contentGuidelines) ||
         draftRecord.accessibility ||
@@ -448,6 +464,8 @@ export function EditComponentDocsPage() {
         return <SummaryFormCard value={formData.summary} onChange={(v) => { setFormData((p) => ({ ...p, summary: v })); setIsDirty(true); }} />;
       case 'properties':
         return <PropertiesFormCard value={formData.properties} onChange={(v) => { setFormData((p) => ({ ...p, properties: v })); setIsDirty(true); }} />;
+      case 'behaviour':
+        return <BehaviourFormCard value={formData.behaviour} onChange={(v) => { setFormData((p) => ({ ...p, behaviour: v })); setIsDirty(true); }} />;
       case 'variants':
         return <VariantsFormCard value={formData.variants} onChange={(v) => { setFormData((p) => ({ ...p, variants: v })); setIsDirty(true); }} />;
       case 'contentGuidelines':
@@ -487,6 +505,7 @@ export function EditComponentDocsPage() {
 
       const summaryChanged = JSON.stringify(formData.summary) !== JSON.stringify(baseFormRef.current.summary);
       const propertiesChanged = JSON.stringify(formData.properties) !== JSON.stringify(baseFormRef.current.properties);
+      const behaviourChanged = formData.behaviour !== baseFormRef.current.behaviour;
       const variantsChanged = JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants);
       const contentGuidelinesChanged = JSON.stringify(formData.contentGuidelines) !== JSON.stringify(baseFormRef.current.contentGuidelines);
       const accessibilityChanged = JSON.stringify(formData.accessibility) !== JSON.stringify(baseFormRef.current.accessibility);
@@ -497,6 +516,10 @@ export function EditComponentDocsPage() {
       if (propertiesChanged) {
         const normalizedProperties = normalizeProperties(formData.properties);
         fields.properties = normalizedProperties.length > 0 ? normalizedProperties : null;
+      }
+      if (behaviourChanged) {
+        const normalizedBehaviour = formData.behaviour.trim();
+        fields.behaviour = normalizedBehaviour.length > 0 ? normalizedBehaviour : null;
       }
       if (variantsChanged) {
         const normalizedVariants = normalizeVariantsForSave(formData.variants);

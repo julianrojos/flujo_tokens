@@ -426,7 +426,7 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal('tokens' in getPayload.spec, false);
   });
 
-  it('PATCH /editorial persists properties, content_guidelines, and accessibility labeling', async () => {
+  it('PATCH /editorial persists properties, behaviour, content_guidelines, and accessibility labeling', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
     ]);
@@ -452,6 +452,7 @@ describe('component-spec-routes (DB-first)', () => {
               description: 'Controls the button size',
             },
           ],
+          behaviour: 'Opens the menu and keeps focus on the trigger until the menu is navigated.',
           content_guidelines: {
             rules: ['Use a verb that reflects the menu content'],
           },
@@ -467,6 +468,7 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(patchRes.status, 200);
     const patchPayload = await patchRes.json();
     assert.ok(patchPayload.savedKeys.includes('properties'));
+    assert.ok(patchPayload.savedKeys.includes('behaviour'));
     assert.ok(patchPayload.savedKeys.includes('content_guidelines'));
     assert.ok(patchPayload.savedKeys.includes('accessibility'));
 
@@ -488,6 +490,10 @@ describe('component-spec-routes (DB-first)', () => {
         description: 'Controls the button size',
       },
     ]);
+    assert.equal(
+      getPayload.spec.behaviour,
+      'Opens the menu and keeps focus on the trigger until the menu is navigated.',
+    );
     assert.equal('best_practices' in getPayload.spec, false);
     assert.deepEqual(getPayload.spec.content_guidelines, {
       rules: ['Use a verb that reflects the menu content'],
@@ -570,6 +576,29 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(payload.ok, false);
     assert.equal(payload.code, 'invalid.field');
     assert.match(String(payload.userMessage), /Invalid field: properties/);
+  });
+
+  it('PATCH /editorial rejects non-string behaviour payload', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'bad-behaviour', name: 'Bad Behaviour', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/bad-behaviour/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          behaviour: ['invalid'],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Invalid field: behaviour/);
   });
 
   it('PATCH /editorial rejects best_practices as an unknown field', async () => {

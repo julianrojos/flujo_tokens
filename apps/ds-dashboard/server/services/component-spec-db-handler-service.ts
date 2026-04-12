@@ -61,6 +61,7 @@ function buildSpecFromDb(params: {
     // Editorial fields (null if not yet created)
     summary: editorial?.summary ?? null,
     properties: editorial?.properties ?? null,
+    behaviour: editorial?.behaviour ?? null,
     accessibility: editorial?.accessibility
       ? {
         ...editorial.accessibility,
@@ -275,6 +276,12 @@ export async function handlePatchEditorialSpecRoute(
       userMessage: 'Invalid field: properties must be an array of property objects with non-empty name.',
     });
   }
+  if (fields.behaviour !== undefined && fields.behaviour !== null && typeof fields.behaviour !== 'string') {
+    return failJson(c, 400, {
+      code: 'invalid.field',
+      userMessage: 'Invalid field: behaviour must be a string or null.',
+    });
+  }
   if (fields.accessibility !== undefined && fields.accessibility !== null && !isPlainRecord(fields.accessibility)) {
     return failJson(c, 400, {
       code: 'invalid.field',
@@ -287,6 +294,7 @@ export async function handlePatchEditorialSpecRoute(
   const camelCaseFields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>> = {};
   if (fields.summary !== undefined) camelCaseFields.summary = fields.summary;
   if (fields.properties !== undefined) camelCaseFields.properties = fields.properties;
+  if (fields.behaviour !== undefined) camelCaseFields.behaviour = fields.behaviour;
   if (fields.accessibility !== undefined) {
     if (fields.accessibility === null) {
       camelCaseFields.accessibility = null;

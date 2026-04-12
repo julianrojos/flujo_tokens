@@ -283,6 +283,7 @@ CREATE TABLE IF NOT EXISTS component_editorial (
   component_id            INTEGER PRIMARY KEY REFERENCES components(id) ON DELETE CASCADE,
   summary_json            TEXT CHECK(summary_json IS NULL OR (json_valid(summary_json) AND json_type(summary_json) = 'object')),
   properties_json         TEXT CHECK(properties_json IS NULL OR (json_valid(properties_json) AND json_type(properties_json) = 'array')),
+  behaviour_json          TEXT CHECK(behaviour_json IS NULL OR (json_valid(behaviour_json) AND json_type(behaviour_json) = 'text')),
   accessibility_json      TEXT CHECK(accessibility_json IS NULL OR (json_valid(accessibility_json) AND json_type(accessibility_json) = 'object')),
   content_guidelines_json TEXT CHECK(content_guidelines_json IS NULL OR (json_valid(content_guidelines_json) AND json_type(content_guidelines_json) = 'object')),
   related_components_json TEXT CHECK(related_components_json IS NULL OR (json_valid(related_components_json) AND json_type(related_components_json) = 'array')),

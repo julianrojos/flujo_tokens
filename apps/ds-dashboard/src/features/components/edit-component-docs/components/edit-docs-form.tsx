@@ -36,6 +36,7 @@ export interface EditDocsAccessibilityValue {
 export interface EditDocsFormData {
   summary: EditDocsSummaryValue;
   properties: SpecProperty[];
+  behaviour: string;
   variants: ComponentDocVariant[];
   contentGuidelines: string[];
   accessibility: EditDocsAccessibilityValue;
@@ -68,7 +69,7 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
             rows={4}
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-4">
           <div className="space-y-1">
             <label htmlFor={whenToUseId} className="text-sm font-medium">When to use</label>
             <textarea
@@ -98,6 +99,34 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
 export interface PropertiesFormCardProps {
   value: SpecProperty[];
   onChange: (v: SpecProperty[]) => void;
+}
+
+export interface BehaviourFormCardProps {
+  value: string;
+  onChange: (v: string) => void;
+}
+
+export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
+  const behaviourId = useId();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Behaviour</CardTitle>
+        <CardDescription>What the component does when people interact with it</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        <label htmlFor={behaviourId} className="text-sm font-medium">Behaviour</label>
+        <textarea
+          id={behaviourId}
+          className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={4}
+        />
+      </CardContent>
+    </Card>
+  );
 }
 
 function createEmptyProperty(_index: number): SpecProperty {
@@ -594,6 +623,10 @@ export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
       <PropertiesFormCard
         value={value.properties}
         onChange={(v) => onChange({ properties: v })}
+      />
+      <BehaviourFormCard
+        value={value.behaviour}
+        onChange={(v) => onChange({ behaviour: v })}
       />
       <VariantsFormCard
         value={value.variants}

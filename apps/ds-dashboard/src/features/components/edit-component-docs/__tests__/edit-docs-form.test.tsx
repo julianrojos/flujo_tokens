@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
+  BehaviourFormCard,
   PropertiesFormCard,
   SummaryFormCard,
   VariantsFormCard,
@@ -71,6 +72,18 @@ describe('EditDocsForm cards', () => {
 
     assert.match(html, /Add property/);
     assert.match(html, /No top-level properties yet/);
+  });
+
+  it('renders behaviour field', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(BehaviourFormCard, {
+        value: 'Opens a menu when activated.',
+        onChange: () => {},
+      }),
+    );
+
+    assert.match(html, /Behaviour/);
+    assert.match(html, /Opens a menu when activated/);
   });
 
   it('renders accessibility role and labeling rules fields', () => {
