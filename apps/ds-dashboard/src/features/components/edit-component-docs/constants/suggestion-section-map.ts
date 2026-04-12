@@ -9,7 +9,6 @@
 import type { AiSuggestionPayload, ComponentDocVariant } from '@/types/ai-jobs';
 import type {
   EditDocsAccessibilityValue,
-  EditDocsBestPracticesValue,
   EditDocsSummaryValue,
 } from '../components/edit-docs-form';
 import { normalizeStringList } from '../normalizers';
@@ -20,14 +19,6 @@ function extractSummary(suggestion: AiSuggestionPayload): EditDocsSummaryValue {
     purpose: String(summary?.purpose ?? suggestion.output.summary ?? '').trim(),
     whenToUse: String(summary?.when_to_use ?? '').trim(),
     whenNotToUse: String(summary?.when_not_to_use ?? '').trim(),
-  };
-}
-
-function extractBestPractices(suggestion: AiSuggestionPayload): EditDocsBestPracticesValue {
-  const bestPractices = suggestion.editorialPatch?.best_practices;
-  return {
-    do: normalizeStringList(bestPractices?.do),
-    dont: normalizeStringList(bestPractices?.dont),
   };
 }
 
@@ -48,7 +39,6 @@ function extractAccessibility(suggestion: AiSuggestionPayload): EditDocsAccessib
 export type SectionId =
   | 'summary'
   | 'variants'
-  | 'bestPractices'
   | 'contentGuidelines'
   | 'accessibility';
 
@@ -66,10 +56,6 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
     label: 'Variants',
     extract: (suggestion) => suggestion.output.variants,
   },
-  bestPractices: {
-    label: 'Best Practices',
-    extract: extractBestPractices,
-  },
   contentGuidelines: {
     label: 'Content Guidelines',
     extract: extractContentGuidelines,
@@ -83,7 +69,6 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
 export const SECTION_ORDER = [
   'summary',
   'variants',
-  'bestPractices',
   'contentGuidelines',
   'accessibility',
 ] as const satisfies readonly SectionId[];
@@ -91,7 +76,6 @@ export const SECTION_ORDER = [
 export type FormDispatchAction =
   | { type: 'SET_SUMMARY'; payload: EditDocsSummaryValue }
   | { type: 'SET_VARIANTS'; payload: ComponentDocVariant[] }
-  | { type: 'SET_BEST_PRACTICES'; payload: EditDocsBestPracticesValue }
   | { type: 'SET_CONTENT_GUIDELINES'; payload: string[] }
   | { type: 'SET_ACCESSIBILITY'; payload: EditDocsAccessibilityValue };
 
@@ -104,8 +88,6 @@ export function applySectionAction(
       return { ...current, summary: action.payload };
     case 'SET_VARIANTS':
       return { ...current, variants: action.payload };
-    case 'SET_BEST_PRACTICES':
-      return { ...current, bestPractices: action.payload };
     case 'SET_CONTENT_GUIDELINES':
       return { ...current, contentGuidelines: action.payload };
     case 'SET_ACCESSIBILITY':

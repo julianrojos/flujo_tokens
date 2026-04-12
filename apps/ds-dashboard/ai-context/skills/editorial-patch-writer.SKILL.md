@@ -22,9 +22,6 @@ It may populate:
 - `purpose`
 - `when_to_use`
 - `when_not_to_use`
-- `best_practices`
-- `do[]`
-- `dont[]`
 - `content_guidelines`
 - `rules[]`
 - `accessibility`
@@ -66,19 +63,7 @@ Base this on:
 If the component has a `destructive` variant, it should be reflected if relevant.
 If it does not have a `loading` state, do not invent it.
 
-### 4. do / dont
-
-They must be concrete and verifiable.
-
-Incorrect:
-
-- `Use the component consistently.`
-
-Correct:
-
-- `Use the destructive variant only for irreversible actions such as deleting or disconnecting.`
-
-### 5. content_guidelines
+### 4. content_guidelines
 
 Only include this when the component has real content:
 
@@ -90,7 +75,7 @@ Only include this when the component has real content:
 
 It must be actionable and component-specific.
 
-### 5.1 Content Resilience
+### 4.1 Content Resilience
 
 When applicable, document how the component should behave with non-ideal content:
 
@@ -104,7 +89,7 @@ If the behavior is not verifiable from available evidence:
 - use `[To confirm with dev]`
 - use `TBD`
 
-### 6. accessibility
+### 5. accessibility
 
 Accessibility in the patch must reflect Figma's limits.
 

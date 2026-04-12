@@ -481,7 +481,6 @@ describe('ai-jobs-route', () => {
             const editorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'AI suggested purpose' },
-                best_practices: { do: ['Use consistently'], dont: [] },
                 related_components: ['Icon'],
                 qa: ['Check hover'],
                 content_guidelines: { rules: [] },
@@ -522,7 +521,6 @@ describe('ai-jobs-route', () => {
             assert.ok(json.previewMarkdown.includes('# Test Button'));
             assert.ok(json.previewMarkdown.includes('## Editorial: Purpose & Usage'));
             assert.ok(json.previewMarkdown.includes('**Purpose:** AI suggested purpose'));
-            assert.ok(json.previewMarkdown.includes('## Editorial: Best Practices'));
         });
     });
 
@@ -863,7 +861,6 @@ describe('ai-jobs-route', () => {
             }, {
                 schemaVersion: 2,
                 summary: { purpose: 'Container for content' },
-                best_practices: { do: ['Use consistent sizing'], dont: [] },
                 related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },

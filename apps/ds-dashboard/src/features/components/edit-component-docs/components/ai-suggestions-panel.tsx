@@ -13,7 +13,6 @@ import {
 } from '../constants/suggestion-section-map';
 import type {
   EditDocsAccessibilityValue,
-  EditDocsBestPracticesValue,
   EditDocsSummaryValue,
 } from './edit-docs-form';
 
@@ -87,56 +86,6 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
               </li>
             ))}
           </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export interface BestPracticesSuggestionCardProps {
-  value: EditDocsBestPracticesValue;
-  onApply: () => void;
-}
-
-export function BestPracticesSuggestionCard({ value, onApply }: BestPracticesSuggestionCardProps) {
-  const hasItems = value.do.length > 0 || value.dont.length > 0;
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Best Practices</CardTitle>
-          <Button variant="outline" size="sm" onClick={onApply}>
-            Use this
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {!hasItems ? (
-          <p className="text-sm text-muted-foreground">No best practices in suggestion.</p>
-        ) : (
-          <>
-            <div>
-              <p className="text-sm font-medium">Do</p>
-              {value.do.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No do guidance.</p>
-              ) : (
-                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {value.do.map((item, index) => <li key={index}>{item}</li>)}
-                </ul>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium">Don't</p>
-              {value.dont.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No don't guidance.</p>
-              ) : (
-                <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                  {value.dont.map((item, index) => <li key={index}>{item}</li>)}
-                </ul>
-              )}
-            </div>
-          </>
         )}
       </CardContent>
     </Card>
@@ -242,9 +191,6 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
         case 'variants':
           onApplySection({ type: 'SET_VARIANTS', payload: value as ComponentDocVariant[] });
           break;
-        case 'bestPractices':
-          onApplySection({ type: 'SET_BEST_PRACTICES', payload: value as EditDocsBestPracticesValue });
-          break;
         case 'contentGuidelines':
           onApplySection({ type: 'SET_CONTENT_GUIDELINES', payload: value as string[] });
           break;
@@ -269,10 +215,6 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
       <VariantsSuggestionCard
         value={SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[]}
         onApply={() => handleApply('variants')}
-      />
-      <BestPracticesSuggestionCard
-        value={SUGGESTION_SECTION_MAP.bestPractices.extract(suggestion) as EditDocsBestPracticesValue}
-        onApply={() => handleApply('bestPractices')}
       />
       <ContentGuidelinesSuggestionCard
         value={SUGGESTION_SECTION_MAP.contentGuidelines.extract(suggestion) as string[]}

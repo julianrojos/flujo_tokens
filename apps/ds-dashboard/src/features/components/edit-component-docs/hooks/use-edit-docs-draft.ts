@@ -16,11 +16,10 @@ export interface EditDocsDraftPayload {
   summary: unknown;
   properties?: unknown[];
   variants: unknown[];
-  bestPractices?: unknown;
   contentGuidelines?: string[];
   accessibility?: unknown;
   accessibilityNotes?: string[];
-  touchedFields?: Array<'summary' | 'properties' | 'variants' | 'bestPractices' | 'contentGuidelines' | 'accessibility'>;
+  touchedFields?: Array<'summary' | 'properties' | 'variants' | 'contentGuidelines' | 'accessibility'>;
 }
 
 export function useEditDocsDraft(slug: string, storageScope?: string | null) {

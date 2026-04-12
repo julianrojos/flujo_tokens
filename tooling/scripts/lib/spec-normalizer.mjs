@@ -17,7 +17,6 @@ export const SPEC_TOP_LEVEL_ORDER = Object.freeze([
   "anatomy",
   "properties",
   "content_guidelines",
-  "best_practices",
   "accessibility",
   "token_mapping",
   "qa",

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { PartialComponentSpec, SpecProperty, SpecLayoutItem } from "ds-types";
 import { Badge } from "@/components/ui/badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -149,14 +150,6 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
   const accessibilityNotes = useMemo(
     () => normalizeStringItems(spec.accessibility?.notes),
     [spec.accessibility?.notes],
-  );
-  const bestPracticesDo = useMemo(
-    () => normalizeStringItems(spec.best_practices?.do),
-    [spec.best_practices?.do],
-  );
-  const bestPracticesDont = useMemo(
-    () => normalizeStringItems(spec.best_practices?.dont),
-    [spec.best_practices?.dont],
   );
   const contentGuidelineRules = useMemo(
     () => normalizeStringItems(spec.content_guidelines?.rules),
@@ -350,39 +343,6 @@ export function ComponentSpecViewer({ spec, selfSlug }: ComponentSpecViewerProps
         ) : (
           <p className="text-sm text-muted-foreground">—</p>
         )}
-      </section>
-
-      {/* Best practices */}
-      <section>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Best Practices
-        </h4>
-        <div className="grid gap-4 md:grid-cols-2 text-sm">
-          <div>
-            <p className="mb-1 font-semibold text-status-success">Do</p>
-            {bestPracticesDo.length > 0 ? (
-              <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
-                {bestPracticesDo.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground">—</p>
-            )}
-          </div>
-          <div>
-            <p className="mb-1 font-semibold text-status-error">Don't</p>
-            {bestPracticesDont.length > 0 ? (
-              <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
-                {bestPracticesDont.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground">—</p>
-            )}
-          </div>
-        </div>
       </section>
 
       {/* Content Guidelines */}

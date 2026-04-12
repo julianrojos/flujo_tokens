@@ -17,7 +17,6 @@ export const EDITORIAL_KEYS = Object.freeze([
   'summary',
   'accessibility',
   'token_mapping',
-  'best_practices',
   'content_guidelines',
   'qa',
   'related_components',

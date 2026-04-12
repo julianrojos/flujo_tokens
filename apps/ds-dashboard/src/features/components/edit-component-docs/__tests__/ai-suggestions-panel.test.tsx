@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import {
   SummarySuggestionCard,
   VariantsSuggestionCard,
-  BestPracticesSuggestionCard,
   ContentGuidelinesSuggestionCard,
   AccessibilitySuggestionCard,
 } from '../components/ai-suggestions-panel';
@@ -43,21 +42,6 @@ describe('AiSuggestionsPanel cards', () => {
     assert.match(html, /2 variants/);
     assert.match(html, /Default/);
     assert.match(html, /Hover/);
-  });
-
-  it('renders best practices suggestion card', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(BestPracticesSuggestionCard, {
-        value: {
-          do: ['Use short labels'],
-          dont: ['Mix unrelated actions'],
-        },
-        onApply: () => {},
-      }),
-    );
-    assert.match(html, /Best Practices/);
-    assert.match(html, /Use short labels/);
-    assert.match(html, /Mix unrelated actions/);
   });
 
   it('renders content guidelines suggestion card', () => {
@@ -99,11 +83,6 @@ describe('AiSuggestionsPanel cards', () => {
         React.createElement(VariantsSuggestionCard, {
           key: 'variants',
           value: [],
-          onApply: () => {},
-        }),
-        React.createElement(BestPracticesSuggestionCard, {
-          key: 'best-practices',
-          value: { do: [], dont: [] },
           onApply: () => {},
         }),
         React.createElement(ContentGuidelinesSuggestionCard, {

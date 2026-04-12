@@ -131,10 +131,6 @@ describe('ai-component-doc-renderer', () => {
                     when_to_use: 'When user needs clear CTA',
                     when_not_to_use: 'Avoid for secondary actions',
                 },
-                best_practices: {
-                    do: ['Use consistent sizing', 'Provide clear labels'],
-                    dont: ['Mix sizes in same group', 'Use without text'],
-                },
                 related_components: ['Icon', 'Text'],
                 qa: ['Verify hover state works', 'Check focus order'],
                 content_guidelines: { rules: ['Use sentence case', 'Keep labels under 3 words'] },
@@ -145,9 +141,6 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('## Editorial: Purpose & Usage'));
             assert.ok(result.includes('**Purpose:** Use for primary actions'));
             assert.ok(result.includes('**When to use:** When user needs clear CTA'));
-            assert.ok(result.includes('## Editorial: Best Practices'));
-            assert.ok(result.includes('### Do'));
-            assert.ok(result.includes('### Don\'t'));
             assert.ok(result.includes('## Editorial: Related Components'));
             assert.ok(result.includes('## Editorial: QA Checklist'));
             assert.ok(result.includes('## Editorial: Content Guidelines'));
@@ -158,7 +151,6 @@ describe('ai-component-doc-renderer', () => {
             const patch: EditorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'Only purpose' },
-                best_practices: { do: [], dont: [] },
                 related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
@@ -181,7 +173,6 @@ describe('ai-component-doc-renderer', () => {
             const patch: EditorialPatch = {
                 schemaVersion: 2,
                 summary: { purpose: 'Test purpose' },
-                best_practices: { do: [], dont: [] },
                 related_components: [],
                 qa: [],
                 content_guidelines: { rules: [] },
@@ -206,10 +197,6 @@ describe('ai-component-doc-renderer', () => {
                     when_to_use: 'When you need _strong_ visual **hierarchy**',
                     when_not_to_use: 'Avoid for **secondary** items',
                 },
-                best_practices: {
-                    do: ['Use **consistent** sizing', 'Provide _clear_ labels'],
-                    dont: ['Mix _sizes_ in same **group**'],
-                },
                 related_components: [],
                 qa: ['Verify **hover** state'],
                 content_guidelines: { rules: ['Use _sentence_ case'] },
@@ -221,9 +208,7 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('**primary**'));
             assert.ok(result.includes('_critical_'));
             assert.ok(result.includes('_strong_'));
-            assert.ok(result.includes('_clear_'));
             assert.ok(result.includes('**secondary**'));
-            assert.ok(result.includes('**consistent**'));
         });
 
         it('R-002: escapes * and _ in variants table cell content to prevent format breakage', () => {
@@ -389,7 +374,6 @@ describe('ai-component-doc-renderer', () => {
             const patch: EditorialPatch = {
                 schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
-                best_practices: { do: ['Do X'], dont: ['Don\'t Y'] },
                 content_guidelines: { rules: ['Rule 1'] },
                 accessibility: { role: 'button', labeling: { rules: ['Label A'] }, notes: ['Note Z'] },
                 related_components: ['Comp1'],
@@ -397,12 +381,10 @@ describe('ai-component-doc-renderer', () => {
             };
             const md = renderEditorialPatchToMarkdown(patch);
             assert.ok(md.includes('## Summary'));
-            assert.ok(md.includes('## Best Practices'));
             assert.ok(md.includes('## Content Guidelines'));
             assert.ok(md.includes('## Accessibility'));
             assert.ok(md.includes('## Related Components'));
             assert.ok(md.includes('## QA'));
-            assert.ok(md.includes('Do X'));
             assert.ok(md.includes('Check A'));
         });
     });
@@ -428,7 +410,6 @@ describe('ai-component-doc-renderer', () => {
             const entry: EditorialEntry = {
                 componentId: 2,
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
-                bestPractices: { do: ['Do A'], dont: ['Dont B'] },
                 contentGuidelines: { rules: ['Rule X'] },
                 accessibility: { role: 'dialog', labeling: { rules: ['L1'] }, notes: ['N1'] },
                 relatedComponents: ['RC1', 'RC2'],
@@ -437,7 +418,6 @@ describe('ai-component-doc-renderer', () => {
             };
             const md = renderEditorialEntryToMarkdown(entry);
             assert.ok(md.includes('## Summary'));
-            assert.ok(md.includes('## Best Practices'));
             assert.ok(md.includes('## Content Guidelines'));
             assert.ok(md.includes('## Related Components'));
             assert.ok(md.includes('## Accessibility'));

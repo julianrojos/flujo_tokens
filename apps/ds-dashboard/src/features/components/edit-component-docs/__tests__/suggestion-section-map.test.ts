@@ -21,10 +21,6 @@ const suggestion = {
       when_to_use: 'Use for main actions',
       when_not_to_use: 'Do not use for destructive actions',
     },
-    best_practices: {
-      do: ['Keep labels short'],
-      dont: ['Use vague wording'],
-    },
     content_guidelines: {
       rules: ['Start with a verb'],
     },
@@ -41,12 +37,12 @@ const suggestion = {
 describe('suggestion-section-map', () => {
   it('supports the current editorial suggestion sections', () => {
     const sectionIds = Object.keys(SUGGESTION_SECTION_MAP) as SectionId[];
-    assert.deepStrictEqual(sectionIds, ['summary', 'variants', 'bestPractices', 'contentGuidelines', 'accessibility']);
+    assert.deepStrictEqual(sectionIds, ['summary', 'variants', 'contentGuidelines', 'accessibility']);
     assert.ok(!sectionIds.includes('tokens' as never));
   });
 
   it('orders sections without tokens or properties', () => {
-    assert.deepStrictEqual(SECTION_ORDER, ['summary', 'variants', 'bestPractices', 'contentGuidelines', 'accessibility']);
+    assert.deepStrictEqual(SECTION_ORDER, ['summary', 'variants', 'contentGuidelines', 'accessibility']);
   });
 
   it('extracts structured summary from editorial patch', () => {
@@ -55,14 +51,6 @@ describe('suggestion-section-map', () => {
       purpose: 'Primary action button',
       whenToUse: 'Use for main actions',
       whenNotToUse: 'Do not use for destructive actions',
-    });
-  });
-
-  it('extracts best practices from editorial patch', () => {
-    const result = SUGGESTION_SECTION_MAP.bestPractices.extract(suggestion as never);
-    assert.deepStrictEqual(result, {
-      do: ['Keep labels short'],
-      dont: ['Use vague wording'],
     });
   });
 
@@ -91,12 +79,6 @@ describe('suggestion-section-map', () => {
       payload: { purpose: 'New summary', whenToUse: 'Use', whenNotToUse: 'Avoid' },
     }, {});
     assert.deepEqual(result.summary, { purpose: 'New summary', whenToUse: 'Use', whenNotToUse: 'Avoid' });
-  });
-
-  it('applies best practices payload', () => {
-    const payload = { do: ['Do'], dont: ['Dont'] };
-    const result = applySectionAction({ type: 'SET_BEST_PRACTICES', payload }, {});
-    assert.deepEqual(result.bestPractices, payload);
   });
 
   it('applies accessibility payload', () => {

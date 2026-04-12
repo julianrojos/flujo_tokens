@@ -98,7 +98,6 @@ export function classifyGapType(pathKey: string): string {
     key.startsWith('properties.') ||
     key.startsWith('summary.') ||
     key.startsWith('content_guidelines.') ||
-    key.startsWith('best_practices.') ||
     key.startsWith('related_components.')
   ) {
     return GAP_TYPE.CONTENT_UNKNOWN;

@@ -22,7 +22,6 @@
     "anatomy",
     "properties",
     "content_guidelines",
-    "best_practices",
     "accessibility",
     "token_mapping",
     "qa"
@@ -127,27 +126,6 @@
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 },
           "description": "Short imperative rules."
-        }
-      }
-    },
-
-    "best_practices": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["do", "dont"],
-      "description": "Best practices and anti-patterns.",
-      "properties": {
-        "do": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 },
-          "description": "Recommended usage patterns."
-        },
-        "dont": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 },
-          "description": "Anti-patterns to avoid."
         }
       }
     },

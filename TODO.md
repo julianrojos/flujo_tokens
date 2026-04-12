@@ -66,7 +66,7 @@ Implementation Order (Dependency Graph)
 1. `figma_search_components` / `figma_get_component_details` → extract `name`, `properties`, layer tree
 2. Read `input/Components.json` → match token entries for this component → pre-fill `token_mapping`
 3. Pre-fill `accessibility` with standard tokens from `_template.yml`
-4. Leave subjective fields (`summary`, `best_practices`, `content_guidelines`) as `TBD`
+4. Leave subjective fields (`summary`, `content_guidelines`) as `TBD`
 5. Write to `docs/_spec/components/{snake_name}.yml`
 
 #### Applicable rules

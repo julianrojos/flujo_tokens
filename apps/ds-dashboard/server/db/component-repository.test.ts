@@ -436,7 +436,6 @@ describe('ComponentRepository', () => {
         it('creates editorial row with expectedUpdatedAt = null', () => {
             const editorialFields = {
                 summary: { purpose: 'Test component' },
-                bestPractices: { usage: 'Use in forms' },
             };
             const editorial = repo.upsertEditorial(testComponentId, editorialFields, null);
 

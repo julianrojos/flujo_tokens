@@ -15,10 +15,6 @@ export interface EditorialPatch {
     when_to_use?: string;
     when_not_to_use?: string;
   };
-  best_practices?: {
-    do?: string[];
-    dont?: string[];
-  };
   content_guidelines?: {
     rules?: string[];
   };
@@ -45,14 +41,6 @@ export const EDITORIAL_PATCH_JSON_SCHEMA = {
         purpose: { type: "string" },
         when_to_use: { type: "string" },
         when_not_to_use: { type: "string" },
-      },
-      additionalProperties: false,
-    },
-    best_practices: {
-      type: "object",
-      properties: {
-        do: { type: "array", items: { type: "string" } },
-        dont: { type: "array", items: { type: "string" } },
       },
       additionalProperties: false,
     },
@@ -209,11 +197,6 @@ export function validateEditorialPatch(
         allowedKeys: ["purpose", "when_to_use", "when_not_to_use"],
       },
       {
-        section: "best_practices",
-        allowedKeys: ["do", "dont"],
-        arrayFields: ["do", "dont"],
-      },
-      {
         section: "content_guidelines",
         allowedKeys: ["rules"],
         arrayFields: ["rules"],
@@ -256,7 +239,6 @@ export function validateEditorialPatch(
   const allowedTopLevel = [
     "schemaVersion",
     "summary",
-    "best_practices",
     "content_guidelines",
     "accessibility",
     "related_components",

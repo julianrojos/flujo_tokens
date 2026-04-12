@@ -426,7 +426,7 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal('tokens' in getPayload.spec, false);
   });
 
-  it('PATCH /editorial persists properties, best_practices, content_guidelines, and accessibility labeling', async () => {
+  it('PATCH /editorial persists properties, content_guidelines, and accessibility labeling', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
     ]);
@@ -452,10 +452,6 @@ describe('component-spec-routes (DB-first)', () => {
               description: 'Controls the button size',
             },
           ],
-          best_practices: {
-            do: ['Keep the trigger label concise'],
-            dont: ['Use as a generic submit button'],
-          },
           content_guidelines: {
             rules: ['Use a verb that reflects the menu content'],
           },
@@ -471,7 +467,6 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(patchRes.status, 200);
     const patchPayload = await patchRes.json();
     assert.ok(patchPayload.savedKeys.includes('properties'));
-    assert.ok(patchPayload.savedKeys.includes('best_practices'));
     assert.ok(patchPayload.savedKeys.includes('content_guidelines'));
     assert.ok(patchPayload.savedKeys.includes('accessibility'));
 
@@ -493,10 +488,7 @@ describe('component-spec-routes (DB-first)', () => {
         description: 'Controls the button size',
       },
     ]);
-    assert.deepEqual(getPayload.spec.best_practices, {
-      do: ['Keep the trigger label concise'],
-      dont: ['Use as a generic submit button'],
-    });
+    assert.equal('best_practices' in getPayload.spec, false);
     assert.deepEqual(getPayload.spec.content_guidelines, {
       rules: ['Use a verb that reflects the menu content'],
     });
@@ -580,12 +572,12 @@ describe('component-spec-routes (DB-first)', () => {
     assert.match(String(payload.userMessage), /Invalid field: properties/);
   });
 
-  it('PATCH /editorial rejects malformed best_practices payload', async () => {
+  it('PATCH /editorial rejects best_practices as an unknown field', async () => {
     repo.upsertFromRegistry('sys-01', [
-      { slug: 'bad-best-practices', name: 'Bad Best Practices', status: 'draft', docType: 'component' },
+      { slug: 'unknown-best-practices', name: 'Unknown Best Practices', status: 'draft', docType: 'component' },
     ]);
 
-    const patchRes = await app.request('/api/component-spec/bad-best-practices/editorial', {
+    const patchRes = await app.request('/api/component-spec/unknown-best-practices/editorial', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -600,30 +592,7 @@ describe('component-spec-routes (DB-first)', () => {
     const payload = await patchRes.json();
     assert.equal(payload.ok, false);
     assert.equal(payload.code, 'invalid.field');
-    assert.match(String(payload.userMessage), /Invalid field: best_practices/);
-  });
-
-  it('PATCH /editorial rejects malformed best_practices.do shape', async () => {
-    repo.upsertFromRegistry('sys-01', [
-      { slug: 'bad-best-practices-shape', name: 'Bad Best Practices Shape', status: 'draft', docType: 'component' },
-    ]);
-
-    const patchRes = await app.request('/api/component-spec/bad-best-practices-shape/editorial', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        expectedUpdatedAt: null,
-        fields: {
-          best_practices: { do: 'invalid' },
-        },
-      }),
-    });
-
-    assert.equal(patchRes.status, 400);
-    const payload = await patchRes.json();
-    assert.equal(payload.ok, false);
-    assert.equal(payload.code, 'invalid.field');
-    assert.match(String(payload.userMessage), /Invalid field: best_practices/);
+    assert.match(String(payload.userMessage), /Unknown field: best_practices/);
   });
 
   it('PATCH /editorial with summary: null clears summary_json and returns summary = null', async () => {

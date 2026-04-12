@@ -9,7 +9,7 @@ The component detail feature now follows a **DB-first architecture** for structu
 | Data Category  | Source          | Rationale                                                         | Fields                                                                                         |
 | -------------- | --------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | **Structural** | Database (DB)   | Mechanical data from Figma plugin; should not diverge from import | `layout`, `variant_visuals`, `figma_metadata`, `figma_token_bindings`                          |
-| **Editorial**  | YAML filesystem | Human-curated content; designers edit this directly               | `summary`, `best_practices`, `accessibility_notes`, `content_guidelines`, `related_components` |
+| **Editorial**  | YAML filesystem | Human-curated content; designers edit this directly               | `summary`, `accessibility_notes`, `content_guidelines`, `related_components` |
 
 ## Structured Figma Data (DB)
 
@@ -71,10 +71,9 @@ interface StructuredFigmaData {
 ### When YAML Is Authoritative
 
 1. **Summary** — Human-written component description
-2. **Best practices** — Usage guidelines and recommendations
-3. **Accessibility notes** — ARIA patterns, keyboard navigation guidance
-4. **Content guidelines** — Writing style, tone, voice
-5. **Related components** — Curated list of related patterns
+2. **Accessibility notes** — ARIA patterns, keyboard navigation guidance
+3. **Content guidelines** — Writing style, tone, voice
+4. **Related components** — Curated list of related patterns
 
 ## Merge Logic
 
@@ -95,7 +94,6 @@ effectiveSpec = {
   figma_token_bindings: db.figma.tokenBindings, // DB evidence
   // YAML-only fields preserved
   summary: yamlSpec.summary,
-  best_practices: yamlSpec.best_practices,
   // ...
 };
 ```

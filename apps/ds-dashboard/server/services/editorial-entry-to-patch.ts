@@ -21,14 +21,6 @@ export function entryToEditorialPatch(entry: EditorialEntry | null | undefined):
     };
   }
 
-  const bp = entry.bestPractices as Record<string, unknown> | undefined;
-  if (bp && typeof bp === 'object' && !Array.isArray(bp)) {
-    patch.best_practices = {
-      do: Array.isArray(bp.do) ? bp.do.filter((x): x is string => typeof x === 'string') : undefined,
-      dont: Array.isArray(bp.dont) ? bp.dont.filter((x): x is string => typeof x === 'string') : undefined,
-    };
-  }
-
   const cg = entry.contentGuidelines as Record<string, unknown> | undefined;
   if (cg && typeof cg === 'object' && !Array.isArray(cg) && Array.isArray(cg.rules)) {
     patch.content_guidelines = {

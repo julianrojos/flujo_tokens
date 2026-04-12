@@ -79,7 +79,6 @@ export interface ComponentSpec {
     anatomy?: SpecAnatomyItem[];
     properties: SpecProperty[];
     content_guidelines: { rules: string[] };
-    best_practices: { do: string[]; dont: string[] };
     accessibility: {
         role: string;
         focus?: { tokens?: { inner?: string; outer?: string } };

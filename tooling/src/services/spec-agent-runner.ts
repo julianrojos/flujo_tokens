@@ -27,7 +27,6 @@ export const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   'anatomy',
   'properties',
   'content_guidelines',
-  'best_practices',
   'accessibility',
   'token_mapping',
   'qa',

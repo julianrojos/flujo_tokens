@@ -53,12 +53,6 @@ content_guidelines:
   tone: "Action-oriented and concise."
   max_length: "24 characters"
 
-best_practices:
-  do:
-    - "Use one primary button per context."
-  dont:
-    - "Do not use vague labels."
-
 accessibility:
   role: "button"
   keyboard: "Enter and Space trigger action."

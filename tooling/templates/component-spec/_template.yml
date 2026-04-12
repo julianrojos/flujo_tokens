@@ -70,12 +70,6 @@ content_guidelines:
   rules:
     - TBD
 
-best_practices:
-  do:
-    - TBD
-  dont:
-    - TBD
-
 accessibility:
   role: TBD                # ARIA role, e.g., button, alert, navigation
   focus:

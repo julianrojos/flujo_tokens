@@ -212,7 +212,6 @@ export interface EditorialEntry {
   componentId: number;
   summary?: Record<string, unknown> | null;
   properties?: Array<Record<string, unknown>> | null;
-  bestPractices?: Record<string, unknown> | null;
   accessibility?: Record<string, unknown> | null;
   contentGuidelines?: Record<string, unknown> | null;
   relatedComponents?: Array<unknown> | null;
@@ -235,7 +234,6 @@ export interface EditorialVariantEntry {
 export const EDITORIAL_ALLOWED_KEYS = [
   'summary',
   'properties',
-  'best_practices',
   'accessibility',
   'content_guidelines',
   'related_components',
@@ -549,7 +547,7 @@ export class ComponentRepository {
   getEditorial(componentId: number): EditorialEntry | null {
     const row = this.db
       .prepare(`
-        SELECT component_id, summary_json, properties_json, best_practices_json, accessibility_json,
+        SELECT component_id, summary_json, properties_json, accessibility_json,
                content_guidelines_json, related_components_json, qa_json,
                accessibility_notes_json, variants_json, updated_at
         FROM component_editorial
@@ -559,7 +557,6 @@ export class ComponentRepository {
         component_id: number;
         summary_json: string | null;
         properties_json: string | null;
-        best_practices_json: string | null;
         accessibility_json: string | null;
         content_guidelines_json: string | null;
         related_components_json: string | null;
@@ -575,7 +572,6 @@ export class ComponentRepository {
       componentId: row.component_id,
       summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, 'component_editorial.summary_json'),
       properties: ComponentRepository.parseJsonColumnValue<Array<Record<string, unknown>>>(row.properties_json, 'component_editorial.properties_json'),
-      bestPractices: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.best_practices_json, 'component_editorial.best_practices_json'),
       accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, 'component_editorial.accessibility_json'),
       contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, 'component_editorial.content_guidelines_json'),
       relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, 'component_editorial.related_components_json'),
@@ -598,7 +594,7 @@ export class ComponentRepository {
       const placeholders = batch.map(() => "?").join(", ");
       const rows = this.db
         .prepare(`
-          SELECT component_id, summary_json, properties_json, best_practices_json, accessibility_json,
+          SELECT component_id, summary_json, properties_json, accessibility_json,
                  content_guidelines_json, related_components_json, qa_json,
                  variants_json, updated_at
           FROM component_editorial
@@ -608,7 +604,6 @@ export class ComponentRepository {
           component_id: number;
           summary_json: string | null;
           properties_json: string | null;
-          best_practices_json: string | null;
           accessibility_json: string | null;
           content_guidelines_json: string | null;
           related_components_json: string | null;
@@ -622,7 +617,6 @@ export class ComponentRepository {
           componentId: row.component_id,
           summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, "component_editorial.summary_json"),
           properties: ComponentRepository.parseJsonColumnValue<Array<Record<string, unknown>>>(row.properties_json, "component_editorial.properties_json"),
-          bestPractices: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.best_practices_json, "component_editorial.best_practices_json"),
           accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, "component_editorial.accessibility_json"),
           contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, "component_editorial.content_guidelines_json"),
           relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, "component_editorial.related_components_json"),
@@ -661,15 +655,14 @@ export class ComponentRepository {
         const now = Math.floor(Date.now() / 1000);
         const insertResult = this.db.prepare(`
           INSERT OR IGNORE INTO component_editorial (
-            component_id, summary_json, properties_json, best_practices_json, accessibility_json,
+            component_id, summary_json, properties_json, accessibility_json,
             content_guidelines_json, related_components_json, qa_json,
             accessibility_notes_json, variants_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
           ComponentRepository.toJsonColumnValue(fields.properties),
-          ComponentRepository.toJsonColumnValue(fields.bestPractices),
           ComponentRepository.toJsonColumnValue(fields.accessibility),
           ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
           ComponentRepository.toJsonColumnValue(fields.relatedComponents),
@@ -699,7 +692,6 @@ export class ComponentRepository {
         UPDATE component_editorial SET
           summary_json = CASE WHEN ? = 1 THEN ? ELSE summary_json END,
           properties_json = CASE WHEN ? = 1 THEN ? ELSE properties_json END,
-          best_practices_json = CASE WHEN ? = 1 THEN ? ELSE best_practices_json END,
           accessibility_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_json END,
           content_guidelines_json = CASE WHEN ? = 1 THEN ? ELSE content_guidelines_json END,
           related_components_json = CASE WHEN ? = 1 THEN ? ELSE related_components_json END,
@@ -713,8 +705,6 @@ export class ComponentRepository {
         fields.summary !== undefined ? ComponentRepository.toJsonColumnValue(fields.summary) : null,
         fields.properties !== undefined ? 1 : 0,
         fields.properties !== undefined ? ComponentRepository.toJsonColumnValue(fields.properties) : null,
-        fields.bestPractices !== undefined ? 1 : 0,
-        fields.bestPractices !== undefined ? ComponentRepository.toJsonColumnValue(fields.bestPractices) : null,
         fields.accessibility !== undefined ? 1 : 0,
         fields.accessibility !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibility) : null,
         fields.contentGuidelines !== undefined ? 1 : 0,

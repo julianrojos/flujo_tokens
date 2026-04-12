@@ -19,7 +19,6 @@ describe("validateEditorialPatch", () => {
     const result = validateEditorialPatch({
       schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
       summary: { purpose: "A button", when_to_use: "Actions", when_not_to_use: "Links" },
-      best_practices: { do: ["Use semantic HTML"], dont: ["Use divs as buttons"] },
       content_guidelines: { rules: ["Use title case"] },
       accessibility: { role: "button", labeling: { rules: ["Include name"] }, notes: ["Test with screen readers"] },
       related_components: ["icon-button"],
@@ -62,23 +61,23 @@ describe("validateEditorialPatch", () => {
     }
   });
 
-  it("rejects non-array values where array expected", () => {
+  it("rejects best_practices as unknown top-level field", () => {
     const result = validateEditorialPatch(makePatch({
-      best_practices: { do: "not an array" },
+      best_practices: { do: ["legacy"] },
     }));
     assert.strictEqual(result.valid, false);
     if (!result.valid) {
-      assert.ok(result.errors.some((e) => e.path === "best_practices.do"));
+      assert.ok(result.errors.some((e) => e.path === "best_practices"));
     }
   });
 
-  it("rejects non-string items in arrays", () => {
+  it("rejects non-array values where array expected", () => {
     const result = validateEditorialPatch(makePatch({
-      best_practices: { do: [123] },
+      content_guidelines: { rules: "not an array" },
     }));
     assert.strictEqual(result.valid, false);
     if (!result.valid) {
-      assert.ok(result.errors.some((e) => e.path === "best_practices.do[0]"));
+      assert.ok(result.errors.some((e) => e.path === "content_guidelines.rules"));
     }
   });
 
@@ -101,7 +100,6 @@ describe("validateEditorialPatch", () => {
 
   it("accepts empty arrays in sections", () => {
     const result = validateEditorialPatch(makePatch({
-      best_practices: { do: [], dont: [] },
       content_guidelines: { rules: [] },
       accessibility: { notes: [] },
     }));

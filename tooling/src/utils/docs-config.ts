@@ -80,7 +80,6 @@ export const SPEC_REQUIRED_TOP_LEVEL_FIELDS: string[] = [
   'anatomy',
   'properties',
   'content_guidelines',
-  'best_practices',
   'accessibility',
   'token_mapping',
   'qa',

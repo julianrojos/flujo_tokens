@@ -27,11 +27,6 @@ export interface EditDocsSummaryValue {
   whenNotToUse: string;
 }
 
-export interface EditDocsBestPracticesValue {
-  do: string[];
-  dont: string[];
-}
-
 export interface EditDocsAccessibilityValue {
   role: string;
   labelingRules: string[];
@@ -42,7 +37,6 @@ export interface EditDocsFormData {
   summary: EditDocsSummaryValue;
   properties: SpecProperty[];
   variants: ComponentDocVariant[];
-  bestPractices: EditDocsBestPracticesValue;
   contentGuidelines: string[];
   accessibility: EditDocsAccessibilityValue;
 }
@@ -514,38 +508,6 @@ function StringListCard({
   );
 }
 
-export interface BestPracticesFormCardProps {
-  value: EditDocsBestPracticesValue;
-  onChange: (v: EditDocsBestPracticesValue) => void;
-}
-
-export function BestPracticesFormCard({ value, onChange }: BestPracticesFormCardProps) {
-  return (
-    <div className="space-y-4">
-      <StringListCard
-        title="Best Practices: Do"
-        description="Recommended usage patterns"
-        value={value.do}
-        onChange={(items) => onChange({ ...value, do: items })}
-        addLabel="Add do"
-        emptyLabel="No do items yet."
-        placeholder="Recommended practice..."
-        itemLabel={(index) => `Do item ${index + 1}`}
-      />
-      <StringListCard
-        title="Best Practices: Don't"
-        description="Misuses and anti-patterns"
-        value={value.dont}
-        onChange={(items) => onChange({ ...value, dont: items })}
-        addLabel="Add don't"
-        emptyLabel="No don't items yet."
-        placeholder="Anti-pattern..."
-        itemLabel={(index) => `Don't item ${index + 1}`}
-      />
-    </div>
-  );
-}
-
 export interface ContentGuidelinesFormCardProps {
   value: string[];
   onChange: (v: string[]) => void;
@@ -636,10 +598,6 @@ export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
       <VariantsFormCard
         value={value.variants}
         onChange={(v) => onChange({ variants: v })}
-      />
-      <BestPracticesFormCard
-        value={value.bestPractices}
-        onChange={(v) => onChange({ bestPractices: v })}
       />
       <ContentGuidelinesFormCard
         value={value.contentGuidelines}

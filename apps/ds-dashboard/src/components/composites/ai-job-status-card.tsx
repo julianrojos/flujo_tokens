@@ -236,8 +236,6 @@ export function AiJobStatusCard({
                 Boolean(job.editorialPatch.summary?.purpose?.trim())
                 || Boolean(job.editorialPatch.summary?.when_to_use?.trim())
                 || Boolean(job.editorialPatch.summary?.when_not_to_use?.trim())
-                || (job.editorialPatch.best_practices?.do?.length ?? 0) > 0
-                || (job.editorialPatch.best_practices?.dont?.length ?? 0) > 0
                 || (job.editorialPatch.content_guidelines?.rules?.length ?? 0) > 0
                 || Boolean(job.editorialPatch.accessibility?.role?.trim())
                 || (job.editorialPatch.accessibility?.labeling?.rules?.length ?? 0) > 0

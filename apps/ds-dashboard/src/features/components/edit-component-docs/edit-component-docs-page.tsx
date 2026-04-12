@@ -2,8 +2,8 @@
  * EditComponentDocsPage — dedicated page for editing component documentation.
  *
  * Replaces the modal-based ComponentSpecEditor. Provides:
- * - Editorial form with structured summary, properties, variants, best practices,
- *   content guidelines, and accessibility
+ * - Editorial form with structured summary, properties, variants, content guidelines,
+ *   and accessibility
  * - AI suggestions modal with "Use this" per supported section
  * - Autosave draft before opening AI modal
  * - Save to PATCH /api/component-spec/:slug/editorial
@@ -26,18 +26,15 @@ import {
   SummaryFormCard,
   PropertiesFormCard,
   VariantsFormCard,
-  BestPracticesFormCard,
   ContentGuidelinesFormCard,
   AccessibilityFormCard,
   type EditDocsAccessibilityValue,
-  type EditDocsBestPracticesValue,
   type EditDocsSummaryValue,
 } from './components/edit-docs-form';
 import {
   AiSuggestionsPanel,
   SummarySuggestionCard,
   VariantsSuggestionCard,
-  BestPracticesSuggestionCard,
   ContentGuidelinesSuggestionCard,
   AccessibilitySuggestionCard,
 } from './components/ai-suggestions-panel';
@@ -50,7 +47,6 @@ interface EditorialFormData {
   summary: EditDocsSummaryValue;
   properties: SpecProperty[];
   variants: ComponentDocVariant[];
-  bestPractices: EditDocsBestPracticesValue;
   contentGuidelines: string[];
   accessibility: EditDocsAccessibilityValue;
 }
@@ -59,7 +55,6 @@ type DraftFieldKey =
   | 'summary'
   | 'properties'
   | 'variants'
-  | 'bestPractices'
   | 'contentGuidelines'
   | 'accessibility';
 
@@ -69,7 +64,6 @@ const EMPTY_FORM_DATA: EditorialFormData = {
   summary: { purpose: '', whenToUse: '', whenNotToUse: '' },
   properties: [],
   variants: [],
-  bestPractices: { do: [], dont: [] },
   contentGuidelines: [],
   accessibility: { role: '', labelingRules: [], notes: [] },
 };
@@ -78,7 +72,6 @@ const FORM_SECTION_ORDER: readonly EditDocsSectionId[] = [
   'summary',
   'properties',
   'variants',
-  'bestPractices',
   'contentGuidelines',
   'accessibility',
 ];
@@ -197,7 +190,6 @@ async function patchEditorial(
 
 function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
   const summary = spec.summary ?? {};
-  const bestPractices = spec.best_practices ?? {};
   const accessibility = spec.accessibility ?? {};
 
   return {
@@ -208,10 +200,6 @@ function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
     },
     properties: Array.isArray(spec.properties) ? (spec.properties as SpecProperty[]) : [],
     variants: Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [],
-    bestPractices: {
-      do: normalizeStringList(bestPractices.do as unknown[] | undefined),
-      dont: normalizeStringList(bestPractices.dont as unknown[] | undefined),
-    },
     contentGuidelines: normalizeStringList(spec.content_guidelines?.rules as unknown[] | undefined),
     accessibility: {
       role: String(accessibility.role ?? '').trim(),
@@ -253,12 +241,6 @@ function buildFormDataFromDraft(draft: Record<string, unknown>, fallback: Editor
     summary: summaryValue,
     properties: Array.isArray(draft.properties) ? (draft.properties as SpecProperty[]) : fallback.properties,
     variants: Array.isArray(draft.variants) ? (draft.variants as ComponentDocVariant[]) : fallback.variants,
-    bestPractices: draft.bestPractices && typeof draft.bestPractices === 'object'
-      ? {
-          do: normalizeStringList((draft.bestPractices as Record<string, unknown>).do as unknown[] | undefined),
-          dont: normalizeStringList((draft.bestPractices as Record<string, unknown>).dont as unknown[] | undefined),
-        }
-      : fallback.bestPractices,
     contentGuidelines: Array.isArray(draft.contentGuidelines)
       ? normalizeStringList(draft.contentGuidelines as unknown[])
       : fallback.contentGuidelines,
@@ -283,7 +265,6 @@ function getTouchedFields(formData: EditorialFormData, base: EditorialFormData):
   if (JSON.stringify(formData.summary) !== JSON.stringify(base.summary)) touchedFields.push('summary');
   if (JSON.stringify(formData.properties) !== JSON.stringify(base.properties)) touchedFields.push('properties');
   if (JSON.stringify(formData.variants) !== JSON.stringify(base.variants)) touchedFields.push('variants');
-  if (JSON.stringify(formData.bestPractices) !== JSON.stringify(base.bestPractices)) touchedFields.push('bestPractices');
   if (JSON.stringify(formData.contentGuidelines) !== JSON.stringify(base.contentGuidelines)) touchedFields.push('contentGuidelines');
   if (JSON.stringify(formData.accessibility) !== JSON.stringify(base.accessibility)) touchedFields.push('accessibility');
   return touchedFields;
@@ -361,7 +342,6 @@ export function EditComponentDocsPage() {
               field === 'summary' ||
               field === 'properties' ||
               field === 'variants' ||
-              field === 'bestPractices' ||
               field === 'contentGuidelines' ||
               field === 'accessibility')
           : [],
@@ -375,7 +355,6 @@ export function EditComponentDocsPage() {
           summary: touched.has('summary') ? candidate.summary : nextFormData.summary,
           properties: touched.has('properties') ? candidate.properties : nextFormData.properties,
           variants: touched.has('variants') ? candidate.variants : nextFormData.variants,
-          bestPractices: touched.has('bestPractices') ? candidate.bestPractices : nextFormData.bestPractices,
           contentGuidelines: touched.has('contentGuidelines') ? candidate.contentGuidelines : nextFormData.contentGuidelines,
           accessibility: touched.has('accessibility') ? candidate.accessibility : nextFormData.accessibility,
         };
@@ -384,7 +363,6 @@ export function EditComponentDocsPage() {
         draftRecord.summary && typeof draftRecord.summary === 'object' ||
         Array.isArray(draftRecord.properties) ||
         Array.isArray(draftRecord.variants) ||
-        draftRecord.bestPractices ||
         Array.isArray(draftRecord.contentGuidelines) ||
         draftRecord.accessibility ||
         Array.isArray(draftRecord.accessibilityNotes)
@@ -431,14 +409,6 @@ export function EditComponentDocsPage() {
     handleApplySection({ type: 'SET_VARIANTS', payload: SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[] });
   }, [suggestion, handleApplySection]);
 
-  const onApplyBestPractices = useCallback(() => {
-    if (!suggestion) return;
-    handleApplySection({
-      type: 'SET_BEST_PRACTICES',
-      payload: SUGGESTION_SECTION_MAP.bestPractices.extract(suggestion) as EditDocsBestPracticesValue,
-    });
-  }, [suggestion, handleApplySection]);
-
   const onApplyContentGuidelines = useCallback(() => {
     if (!suggestion) return;
     handleApplySection({
@@ -461,8 +431,6 @@ export function EditComponentDocsPage() {
         return onApplySummary;
       case 'variants':
         return onApplyVariants;
-      case 'bestPractices':
-        return onApplyBestPractices;
       case 'contentGuidelines':
         return onApplyContentGuidelines;
       case 'accessibility':
@@ -472,7 +440,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [onApplySummary, onApplyVariants, onApplyBestPractices, onApplyContentGuidelines, onApplyAccessibility]);
+  }, [onApplySummary, onApplyVariants, onApplyContentGuidelines, onApplyAccessibility]);
 
   const renderFormCard = useCallback((sectionId: EditDocsSectionId) => {
     switch (sectionId) {
@@ -482,8 +450,6 @@ export function EditComponentDocsPage() {
         return <PropertiesFormCard value={formData.properties} onChange={(v) => { setFormData((p) => ({ ...p, properties: v })); setIsDirty(true); }} />;
       case 'variants':
         return <VariantsFormCard value={formData.variants} onChange={(v) => { setFormData((p) => ({ ...p, variants: v })); setIsDirty(true); }} />;
-      case 'bestPractices':
-        return <BestPracticesFormCard value={formData.bestPractices} onChange={(v) => { setFormData((p) => ({ ...p, bestPractices: v })); setIsDirty(true); }} />;
       case 'contentGuidelines':
         return <ContentGuidelinesFormCard value={formData.contentGuidelines} onChange={(v) => { setFormData((p) => ({ ...p, contentGuidelines: v })); setIsDirty(true); }} />;
       case 'accessibility':
@@ -502,8 +468,6 @@ export function EditComponentDocsPage() {
         return <SummarySuggestionCard value={SUGGESTION_SECTION_MAP.summary.extract(suggestion) as EditDocsSummaryValue} onApply={onApplyFn} />;
       case 'variants':
         return <VariantsSuggestionCard value={SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[]} onApply={onApplyFn} />;
-      case 'bestPractices':
-        return <BestPracticesSuggestionCard value={SUGGESTION_SECTION_MAP.bestPractices.extract(suggestion) as EditDocsBestPracticesValue} onApply={onApplyFn} />;
       case 'contentGuidelines':
         return <ContentGuidelinesSuggestionCard value={SUGGESTION_SECTION_MAP.contentGuidelines.extract(suggestion) as string[]} onApply={onApplyFn} />;
       case 'accessibility':
@@ -524,7 +488,6 @@ export function EditComponentDocsPage() {
       const summaryChanged = JSON.stringify(formData.summary) !== JSON.stringify(baseFormRef.current.summary);
       const propertiesChanged = JSON.stringify(formData.properties) !== JSON.stringify(baseFormRef.current.properties);
       const variantsChanged = JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants);
-      const bestPracticesChanged = JSON.stringify(formData.bestPractices) !== JSON.stringify(baseFormRef.current.bestPractices);
       const contentGuidelinesChanged = JSON.stringify(formData.contentGuidelines) !== JSON.stringify(baseFormRef.current.contentGuidelines);
       const accessibilityChanged = JSON.stringify(formData.accessibility) !== JSON.stringify(baseFormRef.current.accessibility);
 
@@ -538,17 +501,6 @@ export function EditComponentDocsPage() {
       if (variantsChanged) {
         const normalizedVariants = normalizeVariantsForSave(formData.variants);
         fields.variants = normalizedVariants.length > 0 ? normalizedVariants : null;
-      }
-      if (bestPracticesChanged) {
-        const normalizedDo = normalizeStringList(formData.bestPractices.do);
-        const normalizedDont = normalizeStringList(formData.bestPractices.dont);
-        fields.best_practices = {
-          do: normalizedDo,
-          dont: normalizedDont,
-        };
-        if (normalizedDo.length === 0 && normalizedDont.length === 0) {
-          fields.best_practices = null;
-        }
       }
       if (contentGuidelinesChanged) {
         const normalizedRules = normalizeStringList(formData.contentGuidelines);

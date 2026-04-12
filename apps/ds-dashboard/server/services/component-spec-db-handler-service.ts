@@ -42,17 +42,6 @@ function isValidPropertiesPayload(value: unknown): boolean {
   });
 }
 
-function isValidBestPracticesPayload(value: unknown): boolean {
-  if (!isPlainRecord(value)) return false;
-  if (value.do !== undefined) {
-    if (!Array.isArray(value.do) || value.do.some((item) => typeof item !== 'string')) return false;
-  }
-  if (value.dont !== undefined) {
-    if (!Array.isArray(value.dont) || value.dont.some((item) => typeof item !== 'string')) return false;
-  }
-  return true;
-}
-
 /**
  * Build a complete PartialComponentSpec from DB sources
  */
@@ -72,7 +61,6 @@ function buildSpecFromDb(params: {
     // Editorial fields (null if not yet created)
     summary: editorial?.summary ?? null,
     properties: editorial?.properties ?? null,
-    best_practices: editorial?.bestPractices ?? null,
     accessibility: editorial?.accessibility
       ? {
         ...editorial.accessibility,
@@ -293,23 +281,12 @@ export async function handlePatchEditorialSpecRoute(
       userMessage: 'Invalid field: accessibility must be an object or null.',
     });
   }
-  if (
-    fields.best_practices !== undefined &&
-    fields.best_practices !== null &&
-    !isValidBestPracticesPayload(fields.best_practices)
-  ) {
-    return failJson(c, 400, {
-      code: 'invalid.field',
-      userMessage: 'Invalid field: best_practices must be an object with optional do/dont string arrays, or null.',
-    });
-  }
   const savedKeys = Object.keys(fields);
 
   // Convert snake_case keys to camelCase for repository
   const camelCaseFields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>> = {};
   if (fields.summary !== undefined) camelCaseFields.summary = fields.summary;
   if (fields.properties !== undefined) camelCaseFields.properties = fields.properties;
-  if (fields.best_practices !== undefined) camelCaseFields.bestPractices = fields.best_practices;
   if (fields.accessibility !== undefined) {
     if (fields.accessibility === null) {
       camelCaseFields.accessibility = null;

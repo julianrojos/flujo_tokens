@@ -120,7 +120,6 @@ function validateRequiredTopLevelFields(
     "summary",
     "properties",
     "content_guidelines",
-    "best_practices",
     "accessibility",
     "qa",
   ];
@@ -319,7 +318,7 @@ function validateProperties(
   });
 }
 
-function validateContentGuidelinesAndBestPractices(
+function validateContentGuidelines(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
 ) {
@@ -329,23 +328,6 @@ function validateContentGuidelinesAndBestPractices(
       code: "SPEC_CONTENT_GUIDELINES_REQUIRED",
       path: "content_guidelines.rules",
       message: "content_guidelines.rules must contain at least one item.",
-    });
-  }
-
-  if (!hasMinItems(spec.best_practices?.do)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_BEST_PRACTICES_DO_REQUIRED",
-      path: "best_practices.do",
-      message: "best_practices.do must contain at least one item.",
-    });
-  }
-  if (!hasMinItems(spec.best_practices?.dont)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_BEST_PRACTICES_DONT_REQUIRED",
-      path: "best_practices.dont",
-      message: "best_practices.dont must contain at least one item.",
     });
   }
 }
@@ -469,7 +451,7 @@ export function validateComponentSpec(
   validateFigma(issues, spec);
   validateSummary(issues, spec);
   validateProperties(issues, spec);
-  validateContentGuidelinesAndBestPractices(issues, spec);
+  validateContentGuidelines(issues, spec);
   validateAccessibility(issues, spec);
   validateQa(issues, spec);
   validateRelatedComponents(issues, spec);

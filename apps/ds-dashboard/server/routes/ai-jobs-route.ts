@@ -106,7 +106,6 @@ function normalizeHeaderValue(value: string | undefined): string {
 
 function editorialToPromptContext(editorial: {
     summary?: unknown;
-    bestPractices?: unknown;
     accessibility?: unknown;
     contentGuidelines?: unknown;
     relatedComponents?: unknown;
@@ -115,7 +114,6 @@ function editorialToPromptContext(editorial: {
 }): Record<string, unknown> | null {
     const result: Record<string, unknown> = {};
     if (editorial.summary) result.summary = editorial.summary;
-    if (editorial.bestPractices) result.best_practices = editorial.bestPractices;
     if (editorial.accessibility) result.accessibility = editorial.accessibility;
     if (editorial.contentGuidelines) result.content_guidelines = editorial.contentGuidelines;
     if (editorial.relatedComponents) result.related_components = editorial.relatedComponents;

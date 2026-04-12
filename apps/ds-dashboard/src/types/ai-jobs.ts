@@ -157,10 +157,6 @@ export interface EditorialPatch {
         when_to_use?: string;
         when_not_to_use?: string;
     };
-    best_practices?: {
-        do?: string[];
-        dont?: string[];
-    };
     content_guidelines?: {
         rules?: string[];
     };

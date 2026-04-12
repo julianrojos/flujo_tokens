@@ -391,7 +391,6 @@ function buildEditorialPatchPrompt(
 
 The patch should include:
 - summary: purpose, when_to_use, when_not_to_use (if the docs suggest good editorial content)
-- best_practices: do/dont lists (practical guidance for using this component)
 - content_guidelines: rules for content that appears in/with this component
 - accessibility: role (ARIA), labeling rules, and notes (accessibility observations)
 - related_components: component slugs that are commonly used together

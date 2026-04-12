@@ -157,29 +157,6 @@ export function renderComponentDoc(
             }
         }
 
-        // Best Practices (Do/Don't)
-        const bestPractices = editorialPatch.best_practices;
-        if (bestPractices && (bestPractices.do?.length || bestPractices.dont?.length)) {
-            lines.push('## Editorial: Best Practices');
-            lines.push('');
-            if (bestPractices.do?.length) {
-                lines.push('### Do');
-                lines.push('');
-                for (const item of bestPractices.do) {
-                    lines.push(`- ${escapeMarkdown(item)}`);
-                }
-                lines.push('');
-            }
-            if (bestPractices.dont?.length) {
-                lines.push('### Don\'t');
-                lines.push('');
-                for (const item of bestPractices.dont) {
-                    lines.push(`- ${escapeMarkdown(item)}`);
-                }
-                lines.push('');
-            }
-        }
-
         // Related Components
         const related = editorialPatch.related_components;
         if (related && related.length > 0) {
@@ -276,19 +253,6 @@ export function renderEditorialPatchToMarkdown(patch: EditorialPatch | null | un
         if (patch.summary?.purpose) lines.push(`**Purpose:** ${escapeMarkdown(patch.summary.purpose)}`);
         if (patch.summary?.when_to_use) lines.push(`**When to use:** ${escapeMarkdown(patch.summary.when_to_use)}`);
         if (patch.summary?.when_not_to_use) lines.push(`**When not to use:** ${escapeMarkdown(patch.summary.when_not_to_use)}`);
-        lines.push('');
-    }
-
-    if (patch.best_practices?.do?.length || patch.best_practices?.dont?.length) {
-        lines.push('## Best Practices');
-        if (patch.best_practices?.do?.length) {
-            lines.push('**Do:**');
-            for (const item of patch.best_practices.do) lines.push(`- ${escapeMarkdown(item)}`);
-        }
-        if (patch.best_practices?.dont?.length) {
-            lines.push('**Don\'t:**');
-            for (const item of patch.best_practices.dont) lines.push(`- ${escapeMarkdown(item)}`);
-        }
         lines.push('');
     }
 
