@@ -8,8 +8,8 @@ export interface SpecProperty {
     narrative_notes?: string;
 }
 
+/** @deprecated Anatomy is no longer captured. Do not use. */
 export interface SpecAnatomyItem {
-    /** @deprecated Anatomy is no longer captured. Do not use. */
     id: string;
     description?: string;
     name?: string;
@@ -41,7 +41,7 @@ export interface SpecVariantVisual {
     /**
      * Opaque blob of structural properties (fills, strokes, effects) used strictly for visual regression detection
      */
-    fingerprints: Record<string, any>;
+    fingerprints: Record<string, unknown>;
 }
 
 /**
@@ -63,7 +63,8 @@ export interface SpecLayerTokenMappingEntry {
 
 export interface ComponentSpec {
     name: string;
-    status: "draft" | "ready" | string;
+    /** Known values are "draft" and "ready", but other persisted statuses may exist. */
+    status: string;
     figma: {
         file: string;
         page: string;
@@ -99,6 +100,7 @@ export interface ComponentSpec {
 /**
  * UI/runtime-friendly shape for partially captured specs (e.g. raw Figma extraction).
  * Use this type in ingestion and read-only surfaces that must tolerate missing fields.
- * Keep `ComponentSpec` strict for validated/editorial contracts.
+ * Keep `ComponentSpec` as the canonical editorial contract, while allowing
+ * `PartialComponentSpec` to tolerate incomplete captures.
  */
 export type PartialComponentSpec = Partial<ComponentSpec>;
