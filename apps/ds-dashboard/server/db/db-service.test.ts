@@ -122,7 +122,7 @@ describe('db-service', () => {
             }
         });
 
-        it('does not keep legacy tokens_json or token_mapping_json in component_editorial after migrations', () => {
+        it('does not keep legacy tokens_json, token_mapping_json, or best_practices_json in component_editorial after migrations', () => {
             db = bootstrapDatabase({ dbPath: ':memory:' });
 
             const columns = db
@@ -134,6 +134,7 @@ describe('db-service', () => {
             assert.ok(columnNames.includes('properties_json'));
             assert.ok(!columnNames.includes('tokens_json'));
             assert.ok(!columnNames.includes('token_mapping_json'));
+            assert.ok(!columnNames.includes('best_practices_json'));
         });
 
         it('preserves existing editorial data when upgrading through migration 028', () => {
@@ -206,6 +207,73 @@ describe('db-service', () => {
                 { id: 'v1', name: 'Default', description: '', properties: { State: 'Default' } },
             ]);
             assert.equal(row.updated_at, 1234567890);
+        });
+
+        it('drops best_practices_json when upgrading through migration 031 while preserving other editorial data', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migrations = loadMigrationsFromDir(migrationsDir);
+            const pre031 = migrations.filter((migration) => migration.version < 31);
+            const migration031 = migrations.filter((migration) => migration.version === 31);
+
+            runMigrations(db, pre031);
+
+            db.prepare(`
+                INSERT INTO design_systems (id, name)
+                VALUES ('sys-best-practices', 'Best Practices Upgrade Test')
+            `).run();
+            db.prepare(`
+                INSERT INTO components (ds_id, slug, name, status, doc_type)
+                VALUES ('sys-best-practices', 'upgrade-card', 'Upgrade Card', 'draft', 'component')
+            `).run();
+
+            const component = db.prepare(`
+                SELECT id FROM components
+                WHERE ds_id = 'sys-best-practices' AND slug = 'upgrade-card'
+            `).get() as { id: number };
+
+            db.prepare(`
+                INSERT INTO component_editorial (
+                    component_id,
+                    summary_json,
+                    properties_json,
+                    best_practices_json,
+                    content_guidelines_json,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            `).run(
+                component.id,
+                JSON.stringify({ purpose: 'Card summary survives migration' }),
+                JSON.stringify([{ name: 'variant', type: 'enum' }]),
+                JSON.stringify({ do: ['Legacy guidance'], dont: ['Legacy anti-pattern'] }),
+                JSON.stringify({ rules: ['Use concise titles'] }),
+                1234567891,
+            );
+
+            runMigrations(db, migration031);
+
+            const columns = db
+                .prepare("PRAGMA table_info('component_editorial')")
+                .all() as Array<{ name: string }>;
+            const columnNames = columns.map((column) => column.name);
+            assert.ok(!columnNames.includes('best_practices_json'));
+
+            const row = db.prepare(`
+                SELECT summary_json, properties_json, content_guidelines_json, updated_at
+                FROM component_editorial
+                WHERE component_id = ?
+            `).get(component.id) as {
+                summary_json: string | null;
+                properties_json: string | null;
+                content_guidelines_json: string | null;
+                updated_at: number;
+            };
+
+            assert.deepEqual(JSON.parse(row.summary_json as string), { purpose: 'Card summary survives migration' });
+            assert.deepEqual(JSON.parse(row.properties_json as string), [{ name: 'variant', type: 'enum' }]);
+            assert.deepEqual(JSON.parse(row.content_guidelines_json as string), { rules: ['Use concise titles'] });
+            assert.equal(row.updated_at, 1234567891);
         });
 
         it('creates all indexes from migrations', () => {
