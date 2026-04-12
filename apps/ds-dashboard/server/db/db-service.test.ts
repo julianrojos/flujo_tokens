@@ -131,6 +131,7 @@ describe('db-service', () => {
 
             const columnNames = columns.map((column) => column.name);
             assert.ok(columnNames.includes('variants_json'));
+            assert.ok(columnNames.includes('properties_json'));
             assert.ok(!columnNames.includes('tokens_json'));
         });
 
@@ -337,6 +338,33 @@ describe('db-service', () => {
                     'Migrations should be sorted by version ascending'
                 );
             }
+        });
+
+        it('skips migration 029 when properties_json already exists', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+            if (!db) throw new Error('Database should not be null');
+
+            db.exec(`
+                CREATE TABLE component_editorial (
+                    component_id INTEGER PRIMARY KEY,
+                    properties_json TEXT
+                );
+            `);
+
+            const migration029: MigrationEntry = {
+                version: 29,
+                sql: `
+                    ALTER TABLE component_editorial ADD COLUMN properties_json TEXT
+                      CHECK(properties_json IS NULL OR (json_valid(properties_json) AND json_type(properties_json) = 'array'));
+                `,
+            };
+
+            runMigrations(db, [migration029]);
+
+            const applied = db
+                .prepare('SELECT version FROM schema_migrations WHERE version = 29')
+                .get() as { version: number } | undefined;
+            assert.equal(applied?.version, 29);
         });
     });
 

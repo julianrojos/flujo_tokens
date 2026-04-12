@@ -27,6 +27,22 @@ export interface MigrationEntry {
     sql: string;
 }
 
+function hasColumn(db: Database.Database, tableName: string, columnName: string): boolean {
+    const rows = db
+        .prepare(`PRAGMA table_info(${tableName})`)
+        .all() as Array<{ name: string }>;
+    return rows.some((row) => row.name === columnName);
+}
+
+function shouldSkipMigration(db: Database.Database, migration: MigrationEntry): boolean {
+    // Migration 029 adds properties_json to component_editorial.
+    // In hybrid init/migrate environments this column may already exist.
+    if (migration.version === 29) {
+        return hasColumn(db, 'component_editorial', 'properties_json');
+    }
+    return false;
+}
+
 /**
  * Ensure schema_migrations table exists
  */
@@ -103,6 +119,11 @@ export function runMigrations(
 
     for (const migration of pending) {
         const tx = db.transaction(() => {
+            if (shouldSkipMigration(db, migration)) {
+                insertStmt.run(migration.version);
+                return;
+            }
+
             // Execute migration SQL
             db.exec(migration.sql);
 
