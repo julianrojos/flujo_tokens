@@ -216,7 +216,6 @@ export interface EditorialEntry {
   accessibility?: Record<string, unknown> | null;
   contentGuidelines?: Record<string, unknown> | null;
   relatedComponents?: Array<unknown> | null;
-  tokenMapping?: Record<string, unknown> | null;
   qa?: Array<unknown> | null;
   accessibilityNotes?: string[] | null;
   variants?: EditorialVariantEntry[] | null;
@@ -240,7 +239,6 @@ export const EDITORIAL_ALLOWED_KEYS = [
   'accessibility',
   'content_guidelines',
   'related_components',
-  'token_mapping',
   'qa',
   'variants',
 ] as const;
@@ -552,7 +550,7 @@ export class ComponentRepository {
     const row = this.db
       .prepare(`
         SELECT component_id, summary_json, properties_json, best_practices_json, accessibility_json,
-               content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+               content_guidelines_json, related_components_json, qa_json,
                accessibility_notes_json, variants_json, updated_at
         FROM component_editorial
         WHERE component_id = ?
@@ -565,7 +563,6 @@ export class ComponentRepository {
         accessibility_json: string | null;
         content_guidelines_json: string | null;
         related_components_json: string | null;
-        token_mapping_json: string | null;
         qa_json: string | null;
         accessibility_notes_json: string | null;
         variants_json: string | null;
@@ -582,7 +579,6 @@ export class ComponentRepository {
       accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, 'component_editorial.accessibility_json'),
       contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, 'component_editorial.content_guidelines_json'),
       relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, 'component_editorial.related_components_json'),
-      tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, 'component_editorial.token_mapping_json'),
       qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
       accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(row.accessibility_notes_json, 'component_editorial.accessibility_notes_json'),
       variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, 'component_editorial.variants_json'),
@@ -603,7 +599,7 @@ export class ComponentRepository {
       const rows = this.db
         .prepare(`
           SELECT component_id, summary_json, properties_json, best_practices_json, accessibility_json,
-                 content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+                 content_guidelines_json, related_components_json, qa_json,
                  variants_json, updated_at
           FROM component_editorial
           WHERE component_id IN (${placeholders})
@@ -616,7 +612,6 @@ export class ComponentRepository {
           accessibility_json: string | null;
           content_guidelines_json: string | null;
           related_components_json: string | null;
-          token_mapping_json: string | null;
           qa_json: string | null;
           variants_json: string | null;
           updated_at: number;
@@ -631,7 +626,6 @@ export class ComponentRepository {
           accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, "component_editorial.accessibility_json"),
           contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, "component_editorial.content_guidelines_json"),
           relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, "component_editorial.related_components_json"),
-          tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, "component_editorial.token_mapping_json"),
           qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, "component_editorial.qa_json"),
           variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, "component_editorial.variants_json"),
           updatedAt: row.updated_at,
@@ -668,9 +662,9 @@ export class ComponentRepository {
         const insertResult = this.db.prepare(`
           INSERT OR IGNORE INTO component_editorial (
             component_id, summary_json, properties_json, best_practices_json, accessibility_json,
-            content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+            content_guidelines_json, related_components_json, qa_json,
             accessibility_notes_json, variants_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
@@ -679,7 +673,6 @@ export class ComponentRepository {
           ComponentRepository.toJsonColumnValue(fields.accessibility),
           ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
           ComponentRepository.toJsonColumnValue(fields.relatedComponents),
-          ComponentRepository.toJsonColumnValue(fields.tokenMapping),
           ComponentRepository.toJsonColumnValue(fields.qa),
           ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
           ComponentRepository.toJsonColumnValue(fields.variants),
@@ -710,7 +703,6 @@ export class ComponentRepository {
           accessibility_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_json END,
           content_guidelines_json = CASE WHEN ? = 1 THEN ? ELSE content_guidelines_json END,
           related_components_json = CASE WHEN ? = 1 THEN ? ELSE related_components_json END,
-          token_mapping_json = CASE WHEN ? = 1 THEN ? ELSE token_mapping_json END,
           qa_json = CASE WHEN ? = 1 THEN ? ELSE qa_json END,
           accessibility_notes_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_notes_json END,
           variants_json = CASE WHEN ? = 1 THEN ? ELSE variants_json END,
@@ -729,8 +721,6 @@ export class ComponentRepository {
         fields.contentGuidelines !== undefined ? ComponentRepository.toJsonColumnValue(fields.contentGuidelines) : null,
         fields.relatedComponents !== undefined ? 1 : 0,
         fields.relatedComponents !== undefined ? ComponentRepository.toJsonColumnValue(fields.relatedComponents) : null,
-        fields.tokenMapping !== undefined ? 1 : 0,
-        fields.tokenMapping !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokenMapping) : null,
         fields.qa !== undefined ? 1 : 0,
         fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
         fields.accessibilityNotes !== undefined ? 1 : 0,

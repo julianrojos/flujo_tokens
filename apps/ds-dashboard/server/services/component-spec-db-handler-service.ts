@@ -5,7 +5,7 @@
  * All data is read from and written to SQLite DB (no filesystem).
  */
 
-import type { ComponentRepository } from '../db/component-repository.js';
+import { EDITORIAL_ALLOWED_KEYS, type ComponentRepository } from '../db/component-repository.js';
 import type { EditorialEntry, StructuredFigmaData } from '../db/component-repository.js';
 import type { PartialComponentSpec } from 'ds-types';
 import type { Context } from 'hono';
@@ -83,7 +83,6 @@ function buildSpecFromDb(params: {
         : null,
     content_guidelines: editorial?.contentGuidelines ?? null,
     related_components: editorial?.relatedComponents ?? null,
-    token_mapping: editorial?.tokenMapping ?? null,
     qa: editorial?.qa ?? null,
     variants: editorial?.variants ?? null,
 
@@ -272,17 +271,7 @@ export async function handlePatchEditorialSpecRoute(
   }
 
   // Validate field keys against allowlist
-  const allowedKeys = new Set([
-    'summary',
-    'properties',
-    'best_practices',
-    'accessibility',
-    'content_guidelines',
-    'related_components',
-    'token_mapping',
-    'qa',
-    'variants',
-  ]);
+  const allowedKeys = new Set<string>(EDITORIAL_ALLOWED_KEYS);
 
   for (const key of Object.keys(fields)) {
     if (!allowedKeys.has(key)) {
@@ -339,7 +328,6 @@ export async function handlePatchEditorialSpecRoute(
   }
   if (fields.content_guidelines !== undefined) camelCaseFields.contentGuidelines = fields.content_guidelines;
   if (fields.related_components !== undefined) camelCaseFields.relatedComponents = fields.related_components;
-  if (fields.token_mapping !== undefined) camelCaseFields.tokenMapping = fields.token_mapping;
   if (fields.qa !== undefined) camelCaseFields.qa = fields.qa;
   if (fields.variants !== undefined) camelCaseFields.variants = fields.variants;
 

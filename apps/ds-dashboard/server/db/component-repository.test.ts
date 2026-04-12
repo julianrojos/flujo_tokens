@@ -480,7 +480,7 @@ describe('ComponentRepository', () => {
                 () =>
                     repo.upsertEditorial(
                         testComponentId,
-                        { tokenMapping: { surface: { default: Number.NaN } } as unknown as Record<string, unknown> },
+                        { summary: { score: Number.NaN } as unknown as Record<string, unknown> },
                         repo.getEditorial(testComponentId)?.updatedAt ?? null,
                     ),
                 /NaN\/Infinity are not allowed/,

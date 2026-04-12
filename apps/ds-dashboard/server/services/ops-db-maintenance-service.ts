@@ -31,11 +31,6 @@ type AliasRow = {
   modes: string;
 };
 
-type ComponentEditorialTokenMappingRow = {
-  component_id: number;
-  token_mapping_json: string | null;
-};
-
 type ComponentFigmaTokenBindingRow = {
   component_id: number;
   node_id: string | null;
@@ -109,36 +104,6 @@ function buildTokenRegistryFromDb(args: {
   };
 }
 
-function parseTokenMappingUsages(tokenMappingJson: string | null): Array<{ tokenPath: string; detail: string }> {
-  if (!tokenMappingJson) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(tokenMappingJson);
-  } catch {
-    return [];
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
-
-  const out: Array<{ tokenPath: string; detail: string }> = [];
-  for (const [slotRaw, value] of Object.entries(parsed as Record<string, unknown>)) {
-    const slot = asString(slotRaw) || 'slot';
-    if (typeof value === 'string') {
-      const tokenPath = asString(value);
-      if (tokenPath) out.push({ tokenPath, detail: `${slot}:default` });
-      continue;
-    }
-    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
-    for (const [conditionRaw, tokenRef] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof tokenRef !== 'string') continue;
-      const tokenPath = asString(tokenRef);
-      if (!tokenPath) continue;
-      const condition = asString(conditionRaw) || 'default';
-      out.push({ tokenPath, detail: `${slot}:${condition}` });
-    }
-  }
-  return out;
-}
-
 function buildUsageRowsFromDb(args: {
   systemId: string;
   db: Database.Database;
@@ -157,33 +122,6 @@ function buildUsageRowsFromDb(args: {
     dedupe.add(key);
     rows.push(row);
   };
-
-  const editorialRows = db
-    .prepare(
-      `
-      SELECT ce.component_id, ce.token_mapping_json
-      FROM component_editorial ce
-      INNER JOIN components c ON c.id = ce.component_id
-      WHERE c.ds_id = ?
-    `,
-    )
-    .all(systemId) as ComponentEditorialTokenMappingRow[];
-
-  for (const row of editorialRows) {
-    const usages = parseTokenMappingUsages(row.token_mapping_json);
-    if (usages.length === 0 && row.token_mapping_json) {
-      warnings.push(`Invalid or empty token_mapping_json for component_id=${row.component_id}.`);
-    }
-    for (const usage of usages) {
-      addRow({
-        tokenId: usage.tokenPath,
-        kind: 'component-spec',
-        source: 'component-spec',
-        owner: `db://component_editorial/${row.component_id}`,
-        detail: usage.detail,
-      });
-    }
-  }
 
   const figmaBindingRows = db
     .prepare(
@@ -320,7 +258,6 @@ export function refreshRegistryDbOnly(args: {
  * Rebuilds token usage occurrences from DB-backed evidence.
  *
  * Sources:
- * - `component_editorial.token_mapping_json`
  * - `component_figma_token_bindings.token_path`
  * - `figma_aliases`
  *

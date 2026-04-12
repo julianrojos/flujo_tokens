@@ -530,6 +530,31 @@ describe('component-spec-routes (DB-first)', () => {
     assert.match(String(payload.userMessage), /Unknown field: tokens/);
   });
 
+  it('PATCH /editorial rejects token_mapping as an unknown field', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'legacy-token-mapping', name: 'Legacy Token Mapping', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/legacy-token-mapping/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          token_mapping: {
+            surface: { default: 'color.surface.default' },
+          },
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Unknown field: token_mapping/);
+  });
+
   it('PATCH /editorial rejects malformed properties payload', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'bad-properties', name: 'Bad Properties', status: 'draft', docType: 'component' },
@@ -734,5 +759,30 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(unresolved.variant_node_id, '10:3');
     assert.equal(unresolved.variant_signature, 'State=Hover');
     assert.equal(unresolved.token_path, null);
+  });
+
+  it('GET /api/component-spec/:slug does not expose token_mapping', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'token-mapping-cutover', name: 'Token Mapping Cutover', status: 'draft', docType: 'component' },
+    ]);
+
+    const component = db.prepare(
+      'SELECT id FROM components WHERE ds_id = ? AND slug = ?',
+    ).get('sys-01', 'token-mapping-cutover') as { id: number };
+
+    db.prepare(`
+      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (?, ?, strftime('%s', 'now'))
+    `).run(
+      component.id,
+      JSON.stringify({ purpose: 'Legacy editorial row with token mapping' }),
+    );
+
+    const res = await app.request('/api/component-spec/token-mapping-cutover');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.exists, true);
+    assert.equal('token_mapping' in payload.spec, false);
   });
 });
