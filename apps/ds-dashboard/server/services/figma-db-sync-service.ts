@@ -373,11 +373,19 @@ function toSnakeCaseId(value: string, fallback = 'part'): string {
   return normalized || fallback;
 }
 
-function mapFigmaPropertyType(value: string): 'enum' | 'text' | 'boolean' | 'instance_swap' {
-  const type = String(value || '').trim().toUpperCase();
+const warnedUnknownFigmaPropertyTypes = new Set<string>();
+
+function mapFigmaPropertyType(value: string): 'enum' | 'text' | 'boolean' | 'instance_swap' | 'slot' {
+  const rawType = String(value || '').trim();
+  const type = rawType.toUpperCase();
   if (type === 'VARIANT') return 'enum';
   if (type === 'BOOLEAN') return 'boolean';
   if (type === 'INSTANCE_SWAP') return 'instance_swap';
+  if (type === 'SLOT') return 'slot';
+  if (rawType && !warnedUnknownFigmaPropertyTypes.has(type)) {
+    warnedUnknownFigmaPropertyTypes.add(type);
+    console.warn(`[mapFigmaPropertyType] Unknown Figma property type "${rawType}", falling back to "text"`);
+  }
   return 'text';
 }
 
@@ -550,6 +558,7 @@ function extractStructuredFigmaData(args: {
 }): {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+  props?: SyncComponentEntry['figma']['props'];
   unresolvedVariableIds: string[];
   ignoredLegacyFlatBindings: boolean;
 } {
@@ -559,6 +568,7 @@ function extractStructuredFigmaData(args: {
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+    props?: SyncComponentEntry['figma']['props'];
     unresolvedVariableIds: string[];
     ignoredLegacyFlatBindings: boolean;
   } = {
@@ -572,6 +582,21 @@ function extractStructuredFigmaData(args: {
       name: v.name,
       properties: v.variantProperties,
       nodeId: v.nodeId,
+    }));
+  }
+
+  // Extract props from specData.props (Migration 034).
+  // Preserve explicit empty array to support "clear all props" updates downstream.
+  if (Array.isArray(specData.props)) {
+    result.props = specData.props.map((p) => ({
+      name: String(p.name || '').trim(),
+      type: mapFigmaPropertyType(String(p.type || '')),
+      values: Array.isArray((p as Record<string, unknown>).values)
+        ? (p as Record<string, unknown>).values as string[]
+        : undefined,
+      defaultValue: (p as Record<string, unknown>).defaultValue,
+      required: Boolean((p as Record<string, unknown>).required),
+      description: String((p as Record<string, unknown>).description || '').trim(),
     }));
   }
 
@@ -668,6 +693,9 @@ async function enrichComponentEntriesWithStructuredData(options: {
     }
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
+    if (Object.prototype.hasOwnProperty.call(structuredData, 'props')) {
+      entry.figma.props = structuredData.props ?? [];
+    }
     entry.figma.structuredCaptureStatus = 'ok';
     if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
       const unresolved = Array.from(new Set(structuredData.unresolvedVariableIds));
@@ -1264,6 +1292,14 @@ type SyncComponentEntry = {
       alignmentV?: string;
       itemSpacing?: number;
       padding?: { top: number; right: number; bottom: number; left: number };
+    }>;
+    props?: Array<{
+      name: string;
+      type: 'enum' | 'text' | 'boolean' | 'instance_swap' | 'slot';
+      values?: string[];
+      defaultValue?: unknown;
+      required?: boolean;
+      description?: string;
     }>;
   };
   specs?: Array<{

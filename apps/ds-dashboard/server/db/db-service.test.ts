@@ -123,7 +123,7 @@ describe('db-service', () => {
             }
         });
 
-        it('does not keep legacy tokens_json, token_mapping_json, best_practices_json, or related_components_json in component_editorial after migrations', () => {
+        it('does not keep legacy tokens_json, token_mapping_json, best_practices_json, related_components_json, or properties_json in component_editorial after migrations', () => {
             db = bootstrapDatabase({ dbPath: ':memory:' });
 
             const columns = db
@@ -132,7 +132,8 @@ describe('db-service', () => {
 
             const columnNames = columns.map((column) => column.name);
             assert.ok(columnNames.includes('variants_json'));
-            assert.ok(columnNames.includes('properties_json'));
+            // Migration 034 removed properties_json from component_editorial
+            assert.ok(!columnNames.includes('properties_json'));
             assert.ok(columnNames.includes('behaviour_json'));
             assert.ok(!columnNames.includes('tokens_json'));
             assert.ok(!columnNames.includes('token_mapping_json'));
@@ -212,13 +213,16 @@ describe('db-service', () => {
             assert.equal(row.updated_at, 1234567890);
         });
 
-        it('drops best_practices_json when upgrading through migration 031 while preserving other editorial data', () => {
+        it('drops best_practices_json and properties_json when upgrading through migrations 031+032+033+034 while preserving other editorial data', () => {
             db = openDatabase({ dbPath: ':memory:' });
 
             const migrationsDir = path.join(__dirname, 'migrations');
             const migrations = loadMigrationsFromDir(migrationsDir);
             const pre031 = migrations.filter((migration) => migration.version < 31);
             const migration031 = migrations.filter((migration) => migration.version === 31);
+            const migration032 = migrations.filter((migration) => migration.version === 32);
+            const migration033 = migrations.filter((migration) => migration.version === 33);
+            const migration034 = migrations.filter((migration) => migration.version === 34);
 
             runMigrations(db, pre031);
 
@@ -255,26 +259,28 @@ describe('db-service', () => {
             );
 
             runMigrations(db, migration031);
+            runMigrations(db, migration032);
+            runMigrations(db, migration033);
+            runMigrations(db, migration034);
 
             const columns = db
                 .prepare("PRAGMA table_info('component_editorial')")
                 .all() as Array<{ name: string }>;
             const columnNames = columns.map((column) => column.name);
             assert.ok(!columnNames.includes('best_practices_json'));
+            assert.ok(!columnNames.includes('properties_json'));
 
             const row = db.prepare(`
-                SELECT summary_json, properties_json, content_guidelines_json, updated_at
+                SELECT summary_json, content_guidelines_json, updated_at
                 FROM component_editorial
                 WHERE component_id = ?
             `).get(component.id) as {
                 summary_json: string | null;
-                properties_json: string | null;
                 content_guidelines_json: string | null;
                 updated_at: number;
             };
 
             assert.deepEqual(JSON.parse(row.summary_json as string), { purpose: 'Card summary survives migration' });
-            assert.deepEqual(JSON.parse(row.properties_json as string), [{ name: 'variant', type: 'enum' }]);
             assert.deepEqual(JSON.parse(row.content_guidelines_json as string), { rules: ['Use concise titles'] });
             assert.equal(row.updated_at, 1234567891);
         });
@@ -503,33 +509,6 @@ describe('db-service', () => {
             }
         });
 
-        it('skips migration 029 when properties_json already exists', () => {
-            db = openDatabase({ dbPath: ':memory:' });
-            if (!db) throw new Error('Database should not be null');
-
-            db.exec(`
-                CREATE TABLE component_editorial (
-                    component_id INTEGER PRIMARY KEY,
-                    properties_json TEXT
-                );
-            `);
-
-            const migration029: MigrationEntry = {
-                version: 29,
-                sql: `
-                    ALTER TABLE component_editorial ADD COLUMN properties_json TEXT
-                      CHECK(properties_json IS NULL OR (json_valid(properties_json) AND json_type(properties_json) = 'array'));
-                `,
-            };
-
-            runMigrations(db, [migration029]);
-
-            const applied = db
-                .prepare('SELECT version FROM schema_migrations WHERE version = 29')
-                .get() as { version: number } | undefined;
-            assert.equal(applied?.version, 29);
-        });
-
         it('skips migration 032 when behaviour_json already exists in schema-initialized databases', () => {
             db = createInMemoryDbFromSchema();
 
@@ -545,6 +524,23 @@ describe('db-service', () => {
                 .prepare('SELECT version FROM schema_migrations WHERE version = 32')
                 .get() as { version: number } | undefined;
             assert.equal(applied?.version, 32);
+        });
+
+        it('skips migration 034 when properties_json is already removed and component_figma_props exists', () => {
+            db = createInMemoryDbFromSchema();
+
+            const migrationsDir = path.join(__dirname, 'migrations');
+            const migration034 = loadMigrationsFromDir(migrationsDir).find(
+                (migration) => migration.version === 34
+            );
+
+            assert.ok(migration034, 'Migration 034 should exist');
+            assert.doesNotThrow(() => runMigrations(db!, [migration034]));
+
+            const applied = db
+                .prepare('SELECT version FROM schema_migrations WHERE version = 34')
+                .get() as { version: number } | undefined;
+            assert.equal(applied?.version, 34);
         });
 
     });

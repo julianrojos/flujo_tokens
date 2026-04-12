@@ -14,7 +14,6 @@ const DRAFT_KEY = (slug: string, storageScope?: string | null) =>
 
 export interface EditDocsDraftPayload {
   summary: unknown;
-  properties?: unknown[];
   behaviour?: string;
   behavior?: string;
   variants: unknown[];
@@ -22,7 +21,7 @@ export interface EditDocsDraftPayload {
   accessibility?: unknown;
   accessibilityGuidance?: string[];
   accessibilityNotes?: string[];
-  touchedFields?: Array<'summary' | 'properties' | 'behaviour' | 'variants' | 'contentGuidelines' | 'accessibility'>;
+  touchedFields?: Array<'summary' | 'behaviour' | 'variants' | 'contentGuidelines' | 'accessibility'>;
 }
 
 export function useEditDocsDraft(slug: string, storageScope?: string | null) {

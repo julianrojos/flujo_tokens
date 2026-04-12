@@ -6,6 +6,8 @@
  */
 
 import Database from 'better-sqlite3';
+import type { PropertyType } from 'ds-types';
+
 import { normalizeVisualProofVariants } from '../lib/visual-proof-normalizer.js';
 
 export interface FigmaVariantEntry {
@@ -53,6 +55,18 @@ export interface FigmaLayoutRowEntry {
 }
 
 /**
+ * Captured Figma property for a component (Migration 034)
+ */
+export interface CapturedPropertyEntry {
+  name: string;
+  type: PropertyType;
+  values?: string[];
+  defaultValue?: unknown;
+  required: boolean;
+  description: string;
+}
+
+/**
  * Structured Figma data for a component
  */
 export interface StructuredFigmaData {
@@ -60,6 +74,7 @@ export interface StructuredFigmaData {
   variants?: FigmaVariantEntry[];
   tokenBindings?: FigmaTokenBindingEntry[];
   layout?: FigmaLayoutRowEntry[];
+  properties?: CapturedPropertyEntry[];
 }
 
 /**
@@ -202,16 +217,24 @@ export interface ComponentRegistryEntry {
       itemSpacing?: number;
       padding?: { top: number; right: number; bottom: number; left: number };
     }>;
+    props?: Array<{
+      name: string;
+      type: PropertyType;
+      values?: string[];
+      defaultValue?: unknown;
+      required?: boolean;
+      description?: string;
+    }>;
   };
 }
 
 /**
  * Editorial data (human-authored component spec fields)
+ * Note: properties removed in Migration 034 — now sourced from component_figma_props
  */
 export interface EditorialEntry {
   componentId: number;
   summary?: Record<string, unknown> | null;
-  properties?: Array<Record<string, unknown>> | null;
   behaviour?: string | null;
   accessibility?: Record<string, unknown> | null;
   contentGuidelines?: Record<string, unknown> | null;
@@ -230,10 +253,10 @@ export interface EditorialVariantEntry {
 
 /**
  * Allowed keys for editorial upsert (validation allowlist)
+ * Note: 'properties' removed in Migration 034 — Figma capture is now source of truth
  */
 export const EDITORIAL_ALLOWED_KEYS = [
   'summary',
-  'properties',
   'behaviour',
   'accessibility',
   'content_guidelines',
@@ -354,7 +377,7 @@ export class ComponentRepository {
     const status = String(entry.structuredCaptureStatus || '').trim().toLowerCase();
     if (status === 'failed') return false;
     if (status === 'ok') return true;
-    return entry.variants !== undefined || entry.tokenBindings !== undefined || entry.layout !== undefined;
+    return entry.variants !== undefined || entry.tokenBindings !== undefined || entry.layout !== undefined || entry.props !== undefined;
   }
 
   private static buildFigmaData(
@@ -536,6 +559,45 @@ export class ComponentRepository {
         current.layout = layout;
         out.set(row.component_id, current);
       }
+
+      // Load captured properties from component_figma_props (Migration 034)
+      const propsRows = this.db
+        .prepare(`
+          SELECT component_id, prop_name, prop_type, prop_values_json, prop_default, prop_required, prop_description
+          FROM component_figma_props
+          WHERE component_id IN (${placeholders})
+          ORDER BY id ASC
+        `)
+        .all(...batch) as Array<{
+          component_id: number;
+          prop_name: string;
+          prop_type: string;
+          prop_values_json: string | null;
+          prop_default: string | null;
+          prop_required: number;
+          prop_description: string;
+        }>;
+
+      for (const row of propsRows) {
+        const current = out.get(row.component_id) || {};
+        const properties = current.properties || [];
+        const values = row.prop_values_json
+          ? (ComponentRepository.parseJsonColumnValue<string[]>(row.prop_values_json, 'component_figma_props.prop_values_json') ?? undefined)
+          : undefined;
+        const defaultValue = row.prop_default
+          ? ComponentRepository.parseJsonColumnValue<unknown>(row.prop_default, 'component_figma_props.prop_default')
+          : undefined;
+        properties.push({
+          name: String(row.prop_name || '').trim(),
+          type: row.prop_type as CapturedPropertyEntry['type'],
+          values,
+          defaultValue,
+          required: row.prop_required === 1,
+          description: String(row.prop_description || '').trim(),
+        });
+        current.properties = properties;
+        out.set(row.component_id, current);
+      }
     }
 
     return out;
@@ -547,7 +609,7 @@ export class ComponentRepository {
   getEditorial(componentId: number): EditorialEntry | null {
     const row = this.db
       .prepare(`
-        SELECT component_id, summary_json, properties_json, behaviour_json, accessibility_json,
+        SELECT component_id, summary_json, behaviour_json, accessibility_json,
                content_guidelines_json, qa_json,
                accessibility_notes_json, variants_json, updated_at
         FROM component_editorial
@@ -556,7 +618,6 @@ export class ComponentRepository {
       .get(componentId) as Array<{
         component_id: number;
         summary_json: string | null;
-        properties_json: string | null;
         behaviour_json: string | null;
         accessibility_json: string | null;
         content_guidelines_json: string | null;
@@ -571,7 +632,6 @@ export class ComponentRepository {
     return {
       componentId: row.component_id,
       summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, 'component_editorial.summary_json'),
-      properties: ComponentRepository.parseJsonColumnValue<Array<Record<string, unknown>>>(row.properties_json, 'component_editorial.properties_json'),
       behaviour: ComponentRepository.parseJsonColumnValue<string>(row.behaviour_json, 'component_editorial.behaviour_json'),
       accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, 'component_editorial.accessibility_json'),
       contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, 'component_editorial.content_guidelines_json'),
@@ -594,7 +654,7 @@ export class ComponentRepository {
       const placeholders = batch.map(() => "?").join(", ");
       const rows = this.db
         .prepare(`
-          SELECT component_id, summary_json, properties_json, behaviour_json, accessibility_json,
+          SELECT component_id, summary_json, behaviour_json, accessibility_json,
                  content_guidelines_json, qa_json,
                  variants_json, updated_at
           FROM component_editorial
@@ -603,7 +663,6 @@ export class ComponentRepository {
         .all(...batch) as Array<{
           component_id: number;
           summary_json: string | null;
-          properties_json: string | null;
           behaviour_json: string | null;
           accessibility_json: string | null;
           content_guidelines_json: string | null;
@@ -616,7 +675,6 @@ export class ComponentRepository {
         out.set(row.component_id, {
           componentId: row.component_id,
           summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, "component_editorial.summary_json"),
-          properties: ComponentRepository.parseJsonColumnValue<Array<Record<string, unknown>>>(row.properties_json, "component_editorial.properties_json"),
           behaviour: ComponentRepository.parseJsonColumnValue<string>(row.behaviour_json, "component_editorial.behaviour_json"),
           accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, "component_editorial.accessibility_json"),
           contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, "component_editorial.content_guidelines_json"),
@@ -655,14 +713,13 @@ export class ComponentRepository {
         const now = Math.floor(Date.now() / 1000);
         const insertResult = this.db.prepare(`
           INSERT OR IGNORE INTO component_editorial (
-            component_id, summary_json, properties_json, behaviour_json, accessibility_json,
+            component_id, summary_json, behaviour_json, accessibility_json,
             content_guidelines_json, qa_json,
             accessibility_notes_json, variants_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
-          ComponentRepository.toJsonColumnValue(fields.properties),
           ComponentRepository.toJsonColumnValue(fields.behaviour),
           ComponentRepository.toJsonColumnValue(fields.accessibility),
           ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
@@ -691,7 +748,6 @@ export class ComponentRepository {
       this.db.prepare(`
         UPDATE component_editorial SET
           summary_json = CASE WHEN ? = 1 THEN ? ELSE summary_json END,
-          properties_json = CASE WHEN ? = 1 THEN ? ELSE properties_json END,
           behaviour_json = CASE WHEN ? = 1 THEN ? ELSE behaviour_json END,
           accessibility_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_json END,
           content_guidelines_json = CASE WHEN ? = 1 THEN ? ELSE content_guidelines_json END,
@@ -703,8 +759,6 @@ export class ComponentRepository {
       `).run(
         fields.summary !== undefined ? 1 : 0,
         fields.summary !== undefined ? ComponentRepository.toJsonColumnValue(fields.summary) : null,
-        fields.properties !== undefined ? 1 : 0,
-        fields.properties !== undefined ? ComponentRepository.toJsonColumnValue(fields.properties) : null,
         fields.behaviour !== undefined ? 1 : 0,
         fields.behaviour !== undefined ? ComponentRepository.toJsonColumnValue(fields.behaviour) : null,
         fields.accessibility !== undefined ? 1 : 0,
@@ -1262,6 +1316,37 @@ export class ComponentRepository {
                 figmaCapturedAt,
                 figmaSchemaVersion,
               );
+            }
+          }
+
+          // Upsert captured properties (Migration 034).
+          // Snapshot semantics: if props are provided (including []), replace all props for the component.
+          if (shouldReplaceStructuredData && Array.isArray(entry.figma.props)) {
+            this.db.prepare('DELETE FROM component_figma_props WHERE component_id = ?').run(componentId);
+            if (entry.figma.props.length > 0) {
+              const propStmt = this.db.prepare(`
+                INSERT INTO component_figma_props (
+                  component_id, prop_name, prop_type, prop_values_json, prop_default,
+                  prop_required, prop_description, run_id, captured_at, schema_version
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `);
+              for (const prop of entry.figma.props) {
+                const propName = String(prop.name || '').trim();
+                if (!propName) continue;
+                propStmt.run(
+                  componentId,
+                  propName,
+                  prop.type || 'text',
+                  Array.isArray(prop.values) ? JSON.stringify(prop.values) : null,
+                  prop.defaultValue !== undefined ? JSON.stringify(prop.defaultValue) : null,
+                  prop.required ? 1 : 0,
+                  String(prop.description || '').trim(),
+                  figmaRunId,
+                  figmaCapturedAt,
+                  figmaSchemaVersion,
+                );
+              }
             }
           }
         }

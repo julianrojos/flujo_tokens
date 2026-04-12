@@ -20,26 +20,10 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isValidPropertiesPayload(value: unknown): boolean {
-  if (!Array.isArray(value)) return false;
-  return value.every((entry) => {
-    if (!isPlainRecord(entry)) return false;
-    if (typeof entry.name !== 'string' || entry.name.trim().length === 0) return false;
-    if (entry.type !== undefined && typeof entry.type !== 'string') return false;
-    if (entry.values !== undefined) {
-      if (!Array.isArray(entry.values) || entry.values.some((item) => typeof item !== 'string')) return false;
-    }
-    if (entry.required !== undefined && typeof entry.required !== 'boolean') return false;
-    if (entry.description !== undefined && typeof entry.description !== 'string') return false;
-    if (
-      entry.default !== undefined &&
-      entry.default !== null &&
-      typeof entry.default !== 'string' &&
-      typeof entry.default !== 'number' &&
-      typeof entry.default !== 'boolean'
-    ) return false;
-    return true;
-  });
+function normalizeSpecPropertyDefault(value: unknown): string | boolean | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' || typeof value === 'boolean') return value;
+  return String(value);
 }
 
 /**
@@ -57,10 +41,22 @@ function buildSpecFromDb(params: {
     Boolean(figmaComponentSetNodeId) ||
     Boolean(figmaFileUrl);
 
+  // Properties now come from Figma capture (Migration 034), not editorial
+  const capturedProperties = structured?.properties
+    ? structured.properties.map((p) => ({
+        name: p.name,
+        type: p.type,
+        values: p.values,
+        default: normalizeSpecPropertyDefault(p.defaultValue),
+        required: p.required,
+        description: p.description,
+      }))
+    : null;
+
   const spec: PartialComponentSpec = {
     // Editorial fields (null if not yet created)
     summary: editorial?.summary ?? null,
-    properties: editorial?.properties ?? null,
+    properties: capturedProperties,
     behaviour: editorial?.behaviour ?? null,
     accessibility: editorial?.accessibility
       ? {
@@ -258,6 +254,14 @@ export async function handlePatchEditorialSpecRoute(
     });
   }
 
+  // Hard cut: properties are no longer editable via PATCH (Migration 034)
+  if (fields.properties !== undefined) {
+    return failJson(c, 400, {
+      code: 'invalid.field',
+      userMessage: 'properties is read-only and sourced from Figma capture. Use the Figma plugin to update component properties.',
+    });
+  }
+
   // Validate field keys against allowlist
   const allowedKeys = new Set<string>(EDITORIAL_ALLOWED_KEYS);
 
@@ -269,12 +273,7 @@ export async function handlePatchEditorialSpecRoute(
       });
     }
   }
-  if (fields.properties !== undefined && fields.properties !== null && !isValidPropertiesPayload(fields.properties)) {
-    return failJson(c, 400, {
-      code: 'invalid.field',
-      userMessage: 'Invalid field: properties must be an array of property objects with non-empty name.',
-    });
-  }
+
   if (fields.behaviour !== undefined && fields.behaviour !== null && typeof fields.behaviour !== 'string') {
     return failJson(c, 400, {
       code: 'invalid.field',
@@ -292,7 +291,6 @@ export async function handlePatchEditorialSpecRoute(
   // Convert snake_case keys to camelCase for repository
   const camelCaseFields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>> = {};
   if (fields.summary !== undefined) camelCaseFields.summary = fields.summary;
-  if (fields.properties !== undefined) camelCaseFields.properties = fields.properties;
   if (fields.behaviour !== undefined) camelCaseFields.behaviour = fields.behaviour;
   if (fields.accessibility !== undefined) {
     if (fields.accessibility === null) {

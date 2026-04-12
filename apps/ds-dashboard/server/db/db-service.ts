@@ -34,16 +34,25 @@ function hasColumn(db: Database.Database, tableName: string, columnName: string)
     return rows.some((row) => row.name === columnName);
 }
 
+function hasTable(db: Database.Database, tableName: string): boolean {
+    const row = db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(tableName) as { name: string } | undefined;
+    return Boolean(row?.name);
+}
+
 function shouldSkipMigration(db: Database.Database, migration: MigrationEntry): boolean {
-    // Migration 029 adds properties_json to component_editorial.
-    // In hybrid init/migrate environments this column may already exist.
-    if (migration.version === 29) {
-        return hasColumn(db, 'component_editorial', 'properties_json');
-    }
     // Migration 032 adds behaviour_json to component_editorial.
     // In hybrid init/migrate environments this column may already exist.
     if (migration.version === 32) {
         return hasColumn(db, 'component_editorial', 'behaviour_json');
+    }
+    // Migration 034 drops properties_json and creates component_figma_props.
+    // In schema-initialized or partially-upgraded DBs this end-state may already exist.
+    if (migration.version === 34) {
+        // Skip only when both conditions are true: column already removed and props table exists.
+        return !hasColumn(db, 'component_editorial', 'properties_json')
+            && hasTable(db, 'component_figma_props');
     }
     return false;
 }

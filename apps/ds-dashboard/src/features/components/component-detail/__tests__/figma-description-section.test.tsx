@@ -11,7 +11,6 @@ describe("FigmaDescriptionSection", () => {
         componentSetDescription={null}
         variantDescriptions={[]}
         syncedAt={null}
-        stale={true}
       />,
     );
     assert.match(html, /Figma descriptions/);
@@ -27,7 +26,6 @@ describe("FigmaDescriptionSection", () => {
           { canonicalKey: "Variant=Accent", description: "Used for high-emphasis actions." },
         ]}
         syncedAt={Math.floor(Date.now() / 1000)}
-        stale={false}
       />,
     );
 
@@ -38,17 +36,16 @@ describe("FigmaDescriptionSection", () => {
     assert.match(html, /Used for high-emphasis actions\./);
   });
 
-  it("shows stale indicator when stale is true", () => {
+  it("does not show stale indicator", () => {
     const html = renderToStaticMarkup(
       <FigmaDescriptionSection
         componentSetDescription="Old text"
         variantDescriptions={[]}
         syncedAt={Math.floor(Date.now() / 1000)}
-        stale={true}
       />,
     );
 
-    assert.match(html, /Stale/);
+    assert.doesNotMatch(html, /Stale/);
   });
 
   it("shows not synced status when syncedAt is null", () => {
@@ -57,7 +54,6 @@ describe("FigmaDescriptionSection", () => {
         componentSetDescription={null}
         variantDescriptions={[]}
         syncedAt={null}
-        stale={true}
       />,
     );
 

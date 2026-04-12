@@ -22,6 +22,7 @@ const TYPE_DISPLAY: Record<string, string> = {
   text: "TEXT",
   boolean: "BOOLEAN",
   instance_swap: "INSTANCE_SWAP",
+  slot: "SLOT",
 };
 
 function typeBadgeVariant(type: string): "neutral" | "success" | "warning" {
@@ -209,7 +210,11 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Properties
         </h4>
-        {propertyItems.length > 0 ? (
+        {spec.properties === null ? (
+          <p className="text-sm text-muted-foreground">
+            Properties available after Figma capture.
+          </p>
+        ) : propertyItems.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -229,7 +234,9 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-muted-foreground">—</p>
+          <p className="text-sm text-muted-foreground">
+            No properties defined for this component.
+          </p>
         )}
       </section>
 

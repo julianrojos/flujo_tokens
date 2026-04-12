@@ -142,6 +142,49 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(payload.spec.figma_token_bindings[0].variable_id, 'var:123');
   });
 
+  it('GET returns spec.properties from captured Figma props (Migration 034)', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'button-props',
+        name: 'Button Props',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          props: [
+            { name: 'size', type: 'enum', values: ['sm', 'md', 'lg'], defaultValue: 'md', required: true, description: 'Button size' },
+            { name: 'disabled', type: 'boolean', defaultValue: false, required: false, description: 'Whether the button is disabled' },
+            { name: 'icon', type: 'slot', required: false, description: 'Optional icon slot' },
+            { name: 'component', type: 'instance_swap', required: false, description: 'Swapped component' },
+          ],
+        },
+      },
+    ]);
+
+    const res = await app.request('/api/component-spec/button-props');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.ok(Array.isArray(payload.spec?.properties));
+    assert.equal(payload.spec.properties.length, 4);
+    assert.equal(payload.spec.properties[0].name, 'size');
+    assert.equal(payload.spec.properties[0].type, 'enum');
+    assert.deepEqual(payload.spec.properties[0].values, ['sm', 'md', 'lg']);
+    assert.equal(payload.spec.properties[0].default, 'md');
+    assert.equal(payload.spec.properties[0].required, true);
+    assert.equal(payload.spec.properties[2].type, 'slot');
+    assert.equal(payload.spec.properties[3].type, 'instance_swap');
+  });
+
+  it('GET returns empty properties when no Figma props captured', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'no-props', name: 'No Props', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/no-props');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.spec.properties, null);
+  });
+
   it('GET builds figma_metadata from component record, not from token bindings', async () => {
     repo.upsertFromRegistry('sys-01', [
       {
@@ -426,7 +469,7 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal('tokens' in getPayload.spec, false);
   });
 
-  it('PATCH /editorial persists properties, behaviour, content_guidelines, and accessibility labeling', async () => {
+  it('PATCH /editorial persists behaviour, content_guidelines, and accessibility labeling', async () => {
     repo.upsertFromRegistry('sys-01', [
       { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
     ]);
@@ -442,16 +485,6 @@ describe('component-spec-routes (DB-first)', () => {
             when_to_use: 'Use when actions are contextual',
             when_not_to_use: 'Avoid for single primary actions',
           },
-          properties: [
-            {
-              name: 'size',
-              type: 'enum',
-              values: ['sm', 'md'],
-              default: 'md',
-              required: false,
-              description: 'Controls the button size',
-            },
-          ],
           behaviour: 'Opens the menu and keeps focus on the trigger until the menu is navigated.',
           content_guidelines: {
             rules: ['Use a verb that reflects the menu content'],
@@ -467,7 +500,6 @@ describe('component-spec-routes (DB-first)', () => {
 
     assert.equal(patchRes.status, 200);
     const patchPayload = await patchRes.json();
-    assert.ok(patchPayload.savedKeys.includes('properties'));
     assert.ok(patchPayload.savedKeys.includes('behaviour'));
     assert.ok(patchPayload.savedKeys.includes('content_guidelines'));
     assert.ok(patchPayload.savedKeys.includes('accessibility'));
@@ -480,16 +512,8 @@ describe('component-spec-routes (DB-first)', () => {
       when_to_use: 'Use when actions are contextual',
       when_not_to_use: 'Avoid for single primary actions',
     });
-    assert.deepEqual(getPayload.spec.properties, [
-      {
-        name: 'size',
-        type: 'enum',
-        values: ['sm', 'md'],
-        default: 'md',
-        required: false,
-        description: 'Controls the button size',
-      },
-    ]);
+    // Properties now come from Figma capture, not editorial
+    assert.equal(getPayload.spec.properties, null);
     assert.equal(
       getPayload.spec.behaviour,
       'Opens the menu and keeps focus on the trigger until the menu is navigated.',
@@ -503,6 +527,52 @@ describe('component-spec-routes (DB-first)', () => {
       rules: ['If icon-only, provide an accessible name'],
     });
     assert.deepEqual(getPayload.spec.accessibility.notes, ['Supports keyboard activation']);
+  });
+
+  it('PATCH /editorial rejects properties as a read-only field (hard cut, Migration 034) without mutating captured props', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'readonly-props',
+        name: 'Readonly Props',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          props: [
+            { name: 'size', type: 'enum', values: ['sm', 'md'], defaultValue: 'md', required: true, description: 'Captured from Figma' },
+          ],
+        },
+      },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/readonly-props/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          properties: [
+            { name: 'size', type: 'enum', values: ['sm', 'md'], default: 'md', required: false, description: 'Button size' },
+          ],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /read-only/i);
+    assert.match(String(payload.userMessage), /Figma capture/i);
+
+    const getRes = await app.request('/api/component-spec/readonly-props');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.ok(Array.isArray(getPayload.spec?.properties));
+    assert.equal(getPayload.spec.properties.length, 1);
+    assert.equal(getPayload.spec.properties[0].name, 'size');
+    assert.equal(getPayload.spec.properties[0].type, 'enum');
+    assert.deepEqual(getPayload.spec.properties[0].values, ['sm', 'md']);
+    assert.equal(getPayload.spec.properties[0].default, 'md');
   });
 
   it('PATCH /editorial rejects tokens as an unknown field', async () => {
@@ -551,31 +621,6 @@ describe('component-spec-routes (DB-first)', () => {
     assert.equal(payload.ok, false);
     assert.equal(payload.code, 'invalid.field');
     assert.match(String(payload.userMessage), /Unknown field: token_mapping/);
-  });
-
-  it('PATCH /editorial rejects malformed properties payload', async () => {
-    repo.upsertFromRegistry('sys-01', [
-      { slug: 'bad-properties', name: 'Bad Properties', status: 'draft', docType: 'component' },
-    ]);
-
-    const patchRes = await app.request('/api/component-spec/bad-properties/editorial', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        expectedUpdatedAt: null,
-        fields: {
-          properties: [
-            { type: 'enum', values: ['a', 'b'] },
-          ],
-        },
-      }),
-    });
-
-    assert.equal(patchRes.status, 400);
-    const payload = await patchRes.json();
-    assert.equal(payload.ok, false);
-    assert.equal(payload.code, 'invalid.field');
-    assert.match(String(payload.userMessage), /Invalid field: properties/);
   });
 
   it('PATCH /editorial rejects non-string behaviour payload', async () => {

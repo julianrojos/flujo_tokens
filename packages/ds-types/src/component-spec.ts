@@ -1,6 +1,8 @@
+export type PropertyType = 'enum' | 'text' | 'boolean' | 'instance_swap' | 'slot';
+
 export interface SpecProperty {
     name: string;
-    type: string;
+    type: PropertyType;
     values?: string[];
     default: string | boolean | null;
     required: boolean;

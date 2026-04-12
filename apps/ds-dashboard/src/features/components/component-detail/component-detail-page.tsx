@@ -113,7 +113,6 @@ export function ComponentDetailPage() {
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
         figmaSyncedAt={descriptionsData.syncedAt}
-        figmaStale={descriptionsData.stale}
       />
 
       <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenRegistry={tokenRegistry} />

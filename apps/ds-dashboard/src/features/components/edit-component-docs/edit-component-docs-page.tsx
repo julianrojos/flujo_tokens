@@ -2,7 +2,7 @@
  * EditComponentDocsPage — dedicated page for editing component documentation.
  *
  * Replaces the modal-based ComponentSpecEditor. Provides:
- * - Editorial form with structured summary, properties, behaviour, variants, content guidelines,
+ * - Editorial form with structured summary, behaviour, variants, content guidelines,
  *   and accessibility
  * - AI suggestions modal with "Use this" per supported section
  * - Autosave draft before opening AI modal
@@ -18,13 +18,12 @@ import { Button } from '@/components/ui/button';
 import { getActiveSystemId } from '@/lib/api';
 import { getEditDocsStorageScope } from '@/lib/edit-docs-storage-namespace';
 import type { ComponentDocVariant } from '@/types/ai-jobs';
-import type { PartialComponentSpec, SpecProperty } from 'ds-types';
+import type { PartialComponentSpec } from 'ds-types';
 import type { FormDispatchAction, SectionId } from './constants/suggestion-section-map';
 import { SECTION_ORDER, SUGGESTION_SECTION_MAP, applySectionAction } from './constants/suggestion-section-map';
 import {
   EditDocsForm,
   SummaryFormCard,
-  PropertiesFormCard,
   BehaviourFormCard,
   VariantsFormCard,
   ContentGuidelinesFormCard,
@@ -46,7 +45,6 @@ import { normalizeStringList } from './normalizers';
 
 interface EditorialFormData {
   summary: EditDocsSummaryValue;
-  properties: SpecProperty[];
   behaviour: string;
   variants: ComponentDocVariant[];
   contentGuidelines: string[];
@@ -55,17 +53,15 @@ interface EditorialFormData {
 
 type DraftFieldKey =
   | 'summary'
-  | 'properties'
   | 'behaviour'
   | 'variants'
   | 'contentGuidelines'
   | 'accessibility';
 
-type EditDocsSectionId = SectionId | 'properties' | 'behaviour';
+type EditDocsSectionId = SectionId | 'behaviour';
 
 const EMPTY_FORM_DATA: EditorialFormData = {
   summary: { purpose: '', whenToUse: '', whenNotToUse: '' },
-  properties: [],
   behaviour: '',
   variants: [],
   contentGuidelines: [],
@@ -74,7 +70,6 @@ const EMPTY_FORM_DATA: EditorialFormData = {
 
 const FORM_SECTION_ORDER: readonly EditDocsSectionId[] = [
   'summary',
-  'properties',
   'behaviour',
   'accessibility',
   'contentGuidelines',
@@ -101,29 +96,6 @@ function hasDraftAccessibilityGuidance(
 function buildSystemHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const systemId = String(getActiveSystemId() || '').trim();
   return systemId ? { ...extra, 'x-ds-system': systemId } : extra;
-}
-
-function normalizeProperties(properties: SpecProperty[]): SpecProperty[] {
-  return properties
-    .map((property) => {
-      const defaultValue = property.default;
-      const normalizedDefault = typeof defaultValue === 'string'
-        ? defaultValue.trim()
-        : defaultValue === undefined
-          ? ''
-          : defaultValue;
-
-      return {
-        ...property,
-        name: String(property.name ?? '').trim(),
-        type: String(property.type ?? '').trim() || 'text',
-        values: normalizeStringList(Array.isArray(property.values) ? property.values : []),
-        default: normalizedDefault,
-        required: Boolean(property.required),
-        description: String(property.description ?? '').trim(),
-      } satisfies SpecProperty;
-    })
-    .filter((property) => property.name.length > 0);
 }
 
 function normalizeSummaryForSave(summary: EditDocsSummaryValue): {
@@ -219,7 +191,6 @@ function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
       whenToUse: String(summary.when_to_use ?? '').trim(),
       whenNotToUse: String(summary.when_not_to_use ?? '').trim(),
     },
-    properties: Array.isArray(spec.properties) ? (spec.properties as SpecProperty[]) : [],
     behaviour: String((spec as Record<string, unknown>).behaviour ?? (spec as Record<string, unknown>).behavior ?? '').trim(),
     variants: Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [],
     contentGuidelines: normalizeStringList(spec.content_guidelines?.rules as unknown[] | undefined),
@@ -271,7 +242,6 @@ export function buildFormDataFromDraft(draft: Record<string, unknown>, fallback:
 
   return {
     summary: summaryValue,
-    properties: Array.isArray(draft.properties) ? (draft.properties as SpecProperty[]) : fallback.properties,
     behaviour: typeof draft.behaviour === 'string'
       ? draft.behaviour.trim()
       : typeof draft.behavior === 'string'
@@ -293,7 +263,6 @@ export function buildFormDataFromDraft(draft: Record<string, unknown>, fallback:
 function getTouchedFields(formData: EditorialFormData, base: EditorialFormData): DraftFieldKey[] {
   const touchedFields: DraftFieldKey[] = [];
   if (JSON.stringify(formData.summary) !== JSON.stringify(base.summary)) touchedFields.push('summary');
-  if (JSON.stringify(formData.properties) !== JSON.stringify(base.properties)) touchedFields.push('properties');
   if (formData.behaviour !== base.behaviour) touchedFields.push('behaviour');
   if (JSON.stringify(formData.variants) !== JSON.stringify(base.variants)) touchedFields.push('variants');
   if (JSON.stringify(formData.contentGuidelines) !== JSON.stringify(base.contentGuidelines)) touchedFields.push('contentGuidelines');
@@ -371,7 +340,6 @@ export function EditComponentDocsPage() {
         Array.isArray(draftRecord.touchedFields)
           ? draftRecord.touchedFields.filter((field): field is DraftFieldKey =>
               field === 'summary' ||
-              field === 'properties' ||
               field === 'behaviour' ||
               field === 'variants' ||
               field === 'contentGuidelines' ||
@@ -385,7 +353,6 @@ export function EditComponentDocsPage() {
       if (hasTouchedMetadata) {
         nextFormData = {
           summary: touched.has('summary') ? candidate.summary : nextFormData.summary,
-          properties: touched.has('properties') ? candidate.properties : nextFormData.properties,
           behaviour: touched.has('behaviour') ? candidate.behaviour : nextFormData.behaviour,
           variants: touched.has('variants') ? candidate.variants : nextFormData.variants,
           contentGuidelines: touched.has('contentGuidelines') ? candidate.contentGuidelines : nextFormData.contentGuidelines,
@@ -394,7 +361,6 @@ export function EditComponentDocsPage() {
       } else if (
         typeof draftRecord.summary === 'string' ||
         draftRecord.summary && typeof draftRecord.summary === 'object' ||
-        Array.isArray(draftRecord.properties) ||
         typeof draftRecord.behaviour === 'string' ||
         typeof draftRecord.behavior === 'string' ||
         Array.isArray(draftRecord.variants) ||
@@ -482,8 +448,6 @@ export function EditComponentDocsPage() {
     switch (sectionId) {
       case 'summary':
         return <SummaryFormCard value={formData.summary} onChange={(v) => { setFormData((p) => ({ ...p, summary: v })); setIsDirty(true); }} />;
-      case 'properties':
-        return <PropertiesFormCard value={formData.properties} onChange={(v) => { setFormData((p) => ({ ...p, properties: v })); setIsDirty(true); }} />;
       case 'behaviour':
         return <BehaviourFormCard value={formData.behaviour} onChange={(v) => { setFormData((p) => ({ ...p, behaviour: v })); setIsDirty(true); }} />;
       case 'variants':
@@ -524,7 +488,6 @@ export function EditComponentDocsPage() {
       const fields: Record<string, unknown> = {};
 
       const summaryChanged = JSON.stringify(formData.summary) !== JSON.stringify(baseFormRef.current.summary);
-      const propertiesChanged = JSON.stringify(formData.properties) !== JSON.stringify(baseFormRef.current.properties);
       const behaviourChanged = formData.behaviour !== baseFormRef.current.behaviour;
       const variantsChanged = JSON.stringify(formData.variants) !== JSON.stringify(baseFormRef.current.variants);
       const contentGuidelinesChanged = JSON.stringify(formData.contentGuidelines) !== JSON.stringify(baseFormRef.current.contentGuidelines);
@@ -532,10 +495,6 @@ export function EditComponentDocsPage() {
 
       if (summaryChanged) {
         fields.summary = normalizeSummaryForSave(formData.summary);
-      }
-      if (propertiesChanged) {
-        const normalizedProperties = normalizeProperties(formData.properties);
-        fields.properties = normalizedProperties.length > 0 ? normalizedProperties : null;
       }
       if (behaviourChanged) {
         const normalizedBehaviour = formData.behaviour.trim();

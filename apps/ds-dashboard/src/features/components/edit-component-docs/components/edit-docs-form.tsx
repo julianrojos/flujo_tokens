@@ -6,7 +6,6 @@
  */
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import type { SpecProperty } from 'ds-types';
 import type { ComponentDocVariant } from '@/types/ai-jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,6 @@ export interface EditDocsAccessibilityValue {
 
 export interface EditDocsFormData {
   summary: EditDocsSummaryValue;
-  properties: SpecProperty[];
   behaviour: string;
   variants: ComponentDocVariant[];
   contentGuidelines: string[];
@@ -95,11 +93,6 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
   );
 }
 
-export interface PropertiesFormCardProps {
-  value: SpecProperty[];
-  onChange: (v: SpecProperty[]) => void;
-}
-
 export interface BehaviourFormCardProps {
   value: string;
   onChange: (v: string) => void;
@@ -123,147 +116,6 @@ export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
           onChange={(e) => onChange(e.target.value)}
           rows={4}
         />
-      </CardContent>
-    </Card>
-  );
-}
-
-function createEmptyProperty(_index: number): SpecProperty {
-  return {
-    name: '',
-    type: 'text',
-    values: [],
-    default: '',
-    required: false,
-    description: '',
-  };
-}
-
-export function PropertiesFormCard({ value: properties, onChange }: PropertiesFormCardProps) {
-  const propsIdBase = useId();
-  const [rowIds, setRowIds] = useState<string[]>(() => properties.map(() => createRowId()));
-
-  useEffect(() => {
-    setRowIds((prev) => {
-      if (prev.length === properties.length) return prev;
-      if (prev.length > properties.length) return prev.slice(0, properties.length);
-      return [...prev, ...Array.from({ length: properties.length - prev.length }, createRowId)];
-    });
-  }, [properties.length]);
-
-  const addProperty = useCallback(() => {
-    onChange([...properties, createEmptyProperty(properties.length + 1)]);
-    setRowIds((prev) => [...prev, createRowId()]);
-  }, [properties, onChange]);
-
-  const updateProperty = useCallback((index: number, nextValue: Partial<SpecProperty>) => {
-    const next = [...properties];
-    next[index] = { ...next[index], ...nextValue };
-    onChange(next);
-  }, [properties, onChange]);
-
-  const removeProperty = useCallback((index: number) => {
-    onChange(properties.filter((_, i) => i !== index));
-    setRowIds((prev) => prev.filter((_, i) => i !== index));
-  }, [properties, onChange]);
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Properties</CardTitle>
-          <Button variant="outline" size="sm" onClick={addProperty}>
-            <Plus className="mr-1 h-4 w-4" /> Add property
-          </Button>
-        </div>
-        <CardDescription>{properties.length} top-level propert{properties.length === 1 ? 'y' : 'ies'}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {properties.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No top-level properties yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {properties.map((property, index) => (
-              <li key={rowIds[index]} className="rounded-md border border-border bg-surface-2 p-3 space-y-2">
-                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr),140px,120px,120px,auto] md:items-end">
-                  <div className="space-y-1">
-                    <label htmlFor={`${propsIdBase}-name-${index}`} className="text-xs font-medium text-muted-foreground">Name</label>
-                    <Input
-                      id={`${propsIdBase}-name-${index}`}
-                      value={property.name}
-                      onChange={(e) => updateProperty(index, { name: e.target.value })}
-                      placeholder="Property name"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor={`${propsIdBase}-type-${index}`} className="text-xs font-medium text-muted-foreground">Type</label>
-                    <select
-                      id={`${propsIdBase}-type-${index}`}
-                      className="h-10 w-full rounded-md border border-border bg-surface-1 px-3 text-sm"
-                      value={property.type}
-                      onChange={(e) => updateProperty(index, { type: e.target.value })}
-                    >
-                      <option value="enum">enum</option>
-                      <option value="text">text</option>
-                      <option value="boolean">boolean</option>
-                      <option value="instance_swap">instance_swap</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor={`${propsIdBase}-default-${index}`} className="text-xs font-medium text-muted-foreground">Default</label>
-                    <Input
-                      id={`${propsIdBase}-default-${index}`}
-                      value={property.default === null || property.default === undefined ? '' : String(property.default)}
-                      onChange={(e) => updateProperty(index, { default: e.target.value })}
-                      placeholder="Default"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(property.required)}
-                      onChange={(e) => updateProperty(index, { required: e.target.checked })}
-                    />
-                    Required
-                  </label>
-                  <button
-                    type="button"
-                    className="rounded p-2 text-muted-foreground hover:text-foreground"
-                    onClick={() => removeProperty(index)}
-                    aria-label={`Remove property ${property.name || index + 1}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <label htmlFor={`${propsIdBase}-values-${index}`} className="text-xs font-medium text-muted-foreground">Values</label>
-                    <Input
-                      id={`${propsIdBase}-values-${index}`}
-                      value={(property.values ?? []).join(', ')}
-                      onChange={(e) => updateProperty(index, {
-                        values: e.target.value
-                          .split(',')
-                          .map((item) => item.trim())
-                          .filter((item) => item.length > 0),
-                      })}
-                      placeholder="Comma-separated values"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor={`${propsIdBase}-description-${index}`} className="text-xs font-medium text-muted-foreground">Description</label>
-                    <Input
-                      id={`${propsIdBase}-description-${index}`}
-                      value={property.description}
-                      onChange={(e) => updateProperty(index, { description: e.target.value })}
-                      placeholder="Description"
-                    />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
       </CardContent>
     </Card>
   );
@@ -718,10 +570,6 @@ export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
       <SummaryFormCard
         value={value.summary}
         onChange={(v) => onChange({ summary: v })}
-      />
-      <PropertiesFormCard
-        value={value.properties}
-        onChange={(v) => onChange({ properties: v })}
       />
       <BehaviourFormCard
         value={value.behaviour}

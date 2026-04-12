@@ -10,7 +10,7 @@ type ValidationContext = {
 
 const COMPONENT_SET_NODE_ID_RE = /^\d+:\d+$/;
 const SNAKE_CASE_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-const PROPERTY_TYPES = new Set(["enum", "text", "boolean", "instance_swap"]);
+const PROPERTY_TYPES = new Set(["enum", "text", "boolean", "instance_swap", "slot"]);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -285,7 +285,7 @@ function validateProperties(
         severity: "error",
         code: "SPEC_PROPERTY_TYPE_INVALID",
         path: `${pathPrefix}.type`,
-        message: "property type must be enum, text, boolean, or instance_swap.",
+        message: "property type must be enum, text, boolean, instance_swap, or slot.",
       });
     }
 

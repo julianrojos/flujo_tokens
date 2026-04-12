@@ -4,7 +4,6 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   BehaviourFormCard,
-  PropertiesFormCard,
   SummaryFormCard,
   VariantsFormCard,
   AccessibilityFormCard,
@@ -60,18 +59,6 @@ describe('EditDocsForm cards', () => {
 
     assert.match(html, /When to use/);
     assert.match(html, /When not to use/);
-  });
-
-  it('renders add property affordance for top-level properties', () => {
-    const html = renderToStaticMarkup(
-      React.createElement(PropertiesFormCard, {
-        value: [],
-        onChange: () => {},
-      }),
-    );
-
-    assert.match(html, /Add property/);
-    assert.match(html, /No top-level properties yet/);
   });
 
   it('renders behaviour field', () => {

@@ -206,6 +206,29 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_variants_component_run
   ON component_figma_variants(component_id, run_id);
 
 -- ============================================================================
+-- component_figma_props: Component properties captured from Figma (Migration 034)
+-- Source of truth for component properties; read-only in UI.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS component_figma_props (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  component_id     INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  prop_name        TEXT NOT NULL,
+  prop_type        TEXT NOT NULL CHECK (prop_type IN ('enum', 'text', 'boolean', 'instance_swap', 'slot')),
+  prop_values_json TEXT,                             -- JSON array of string values (for enum types)
+  prop_default     TEXT,                             -- JSON-encoded default value
+  prop_required    INTEGER NOT NULL DEFAULT 0 CHECK (prop_required IN (0, 1)),
+  prop_description TEXT NOT NULL DEFAULT '',
+  run_id           TEXT,
+  captured_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  schema_version   INTEGER NOT NULL DEFAULT 1,
+  UNIQUE(component_id, prop_name)
+);
+CREATE INDEX IF NOT EXISTS idx_component_figma_props_component_id
+  ON component_figma_props(component_id);
+CREATE INDEX IF NOT EXISTS idx_component_figma_props_component_run
+  ON component_figma_props(component_id, run_id);
+
+-- ============================================================================
 -- component_figma_token_bindings: Raw Figma node/field variable bindings (Migration 020)
 -- Extended with Layer Token Mapping columns (Migration 027)
 -- ============================================================================
@@ -278,11 +301,11 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_layout_component_run
 -- ============================================================================
 -- component_editorial: Human-authored component spec data (Migration 021)
 -- Created on first PATCH /editorial, NOT during sync
+-- properties_json removed in Migration 034 (Figma capture is now source of truth)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS component_editorial (
   component_id            INTEGER PRIMARY KEY REFERENCES components(id) ON DELETE CASCADE,
   summary_json            TEXT CHECK(summary_json IS NULL OR (json_valid(summary_json) AND json_type(summary_json) = 'object')),
-  properties_json         TEXT CHECK(properties_json IS NULL OR (json_valid(properties_json) AND json_type(properties_json) = 'array')),
   behaviour_json          TEXT CHECK(behaviour_json IS NULL OR (json_valid(behaviour_json) AND json_type(behaviour_json) = 'text')),
   accessibility_json      TEXT CHECK(accessibility_json IS NULL OR (json_valid(accessibility_json) AND json_type(accessibility_json) = 'object')),
   content_guidelines_json TEXT CHECK(content_guidelines_json IS NULL OR (json_valid(content_guidelines_json) AND json_type(content_guidelines_json) = 'object')),

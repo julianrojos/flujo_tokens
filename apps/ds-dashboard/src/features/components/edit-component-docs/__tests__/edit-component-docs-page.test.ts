@@ -6,7 +6,6 @@ describe('edit-component-docs-page draft restoration', () => {
   it('preserves an explicitly cleared accessibility guidance draft', () => {
     const fallback = {
       summary: { purpose: '', whenToUse: '', whenNotToUse: '' },
-      properties: [],
       behaviour: '',
       variants: [],
       contentGuidelines: [],

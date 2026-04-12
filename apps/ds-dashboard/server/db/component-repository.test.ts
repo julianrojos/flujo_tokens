@@ -822,4 +822,136 @@ describe('ComponentRepository', () => {
             assert.ok(variableIds.has('var:color-b'));
         });
     });
+
+    describe('captured Figma props (Migration 034)', () => {
+        it('upsert captured props replaces component snapshot without duplicates', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-idempotent-sys', 'Props Idempotent')");
+            repo.upsertFromRegistry('props-idempotent-sys', [
+                {
+                    slug: 'idempotent-btn',
+                    name: 'Idempotent Button',
+                    figma: {
+                        props: [
+                            { name: 'size', type: 'enum', values: ['sm', 'md'], defaultValue: 'md', required: true, description: 'Size' },
+                            { name: 'disabled', type: 'boolean', defaultValue: false, required: false, description: 'Disabled' },
+                        ],
+                        runId: 'run-001',
+                        capturedAtEpoch: 1000,
+                    },
+                },
+            ]);
+
+            // Verify initial props
+            let component = repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.properties?.length, 2);
+
+            // Upsert again with same runId — should replace, not duplicate
+            repo.upsertFromRegistry('props-idempotent-sys', [
+                {
+                    slug: 'idempotent-btn',
+                    name: 'Idempotent Button Updated',
+                    figma: {
+                        props: [
+                            { name: 'size', type: 'enum', values: ['sm', 'md', 'lg'], defaultValue: 'lg', required: true, description: 'Updated size' },
+                            { name: 'icon', type: 'slot', required: false, description: 'Icon slot' },
+                        ],
+                        runId: 'run-001',
+                        capturedAtEpoch: 2000,
+                    },
+                },
+            ]);
+
+            component = repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
+            assert.ok(component);
+            // Should have exactly 2 props (size updated + icon added, disabled removed)
+            assert.strictEqual(component.figma?.properties?.length, 2);
+
+            const sizeProp = component.figma?.properties?.find((p) => p.name === 'size');
+            assert.ok(sizeProp);
+            assert.deepEqual(sizeProp?.values, ['sm', 'md', 'lg']);
+            assert.strictEqual(sizeProp?.defaultValue, 'lg');
+
+            const iconProp = component.figma?.properties?.find((p) => p.name === 'icon');
+            assert.ok(iconProp);
+            assert.strictEqual(iconProp?.type, 'slot');
+
+            // Verify no duplicate rows in DB
+            const propCount = db.prepare(`
+                SELECT COUNT(*) as c FROM component_figma_props
+                WHERE component_id = ?
+            `).get(component.id) as { c: number };
+            assert.strictEqual(propCount.c, 2);
+        });
+
+        it('clears captured props when a recapture provides an explicit empty props list', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-clear-sys', 'Props Clear')");
+            repo.upsertFromRegistry('props-clear-sys', [
+                {
+                    slug: 'clearable-card',
+                    name: 'Clearable Card',
+                    figma: {
+                        props: [
+                            { name: 'size', type: 'enum', values: ['sm', 'md'], defaultValue: 'md', required: true, description: 'Size' },
+                        ],
+                        runId: 'run-001',
+                        capturedAtEpoch: 1000,
+                    },
+                },
+            ]);
+
+            let component = repo.getBySlug('props-clear-sys', 'clearable-card');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.properties?.length, 1);
+
+            repo.upsertFromRegistry('props-clear-sys', [
+                {
+                    slug: 'clearable-card',
+                    name: 'Clearable Card',
+                    figma: {
+                        props: [],
+                        runId: 'run-002',
+                        capturedAtEpoch: 2000,
+                    },
+                },
+            ]);
+
+            component = repo.getBySlug('props-clear-sys', 'clearable-card');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.properties, undefined);
+
+            const propCount = db.prepare(`
+                SELECT COUNT(*) as c FROM component_figma_props
+                WHERE component_id = ?
+            `).get(component.id) as { c: number };
+            assert.strictEqual(propCount.c, 0);
+        });
+
+        it('captures slot and instance_swap as distinct types', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-types-sys', 'Props Types')");
+            repo.upsertFromRegistry('props-types-sys', [
+                {
+                    slug: 'type-test',
+                    name: 'Type Test',
+                    figma: {
+                        props: [
+                            { name: 'content', type: 'slot', required: false, description: 'Content slot' },
+                            { name: 'tooltip', type: 'instance_swap', required: false, description: 'Tooltip component' },
+                        ],
+                        runId: 'run-types',
+                    },
+                },
+            ]);
+
+            const component = repo.getBySlug('props-types-sys', 'type-test');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.properties?.length, 2);
+
+            const contentProp = component.figma?.properties?.find((p) => p.name === 'content');
+            assert.strictEqual(contentProp?.type, 'slot');
+
+            const tooltipProp = component.figma?.properties?.find((p) => p.name === 'tooltip');
+            assert.strictEqual(tooltipProp?.type, 'instance_swap');
+        });
+    });
 });

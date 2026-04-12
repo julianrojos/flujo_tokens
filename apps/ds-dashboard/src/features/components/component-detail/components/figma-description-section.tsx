@@ -11,14 +11,12 @@ interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;
   variantDescriptions: Array<{ canonicalKey: string; description: string | null }>;
   syncedAt: number | null;
-  stale: boolean;
 }
 
 export function FigmaDescriptionSection({
   componentSetDescription,
   variantDescriptions,
   syncedAt,
-  stale,
 }: FigmaDescriptionSectionProps) {
   const componentDescription = String(componentSetDescription ?? "").trim();
   const variantEntries = variantDescriptions
@@ -36,8 +34,6 @@ export function FigmaDescriptionSection({
         </h4>
         {syncedAt == null ? (
           <Badge variant="neutral">Not synced</Badge>
-        ) : stale ? (
-          <Badge variant="warning">Stale</Badge>
         ) : null}
       </div>
 
