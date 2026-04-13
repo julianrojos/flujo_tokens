@@ -205,6 +205,13 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         throw new Error("Server returned an empty system ID");
       }
 
+      // Refresh global system switcher immediately after creation.
+      // Only switch active system when user explicitly requested default.
+      replaceSystems(
+        result.config.systems,
+        state.form.makeDefault ? { activeSystemId: result.system.id } : undefined,
+      );
+
       dispatch({
         type: "START_IMPORT",
         payload: {
@@ -225,7 +232,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, state.form]);
+  }, [generatedSystemId, isFormValid, replaceSystems, state.form]);
 
   const updateImportProgress = useCallback((progress: CaptureFigmaProgress) => {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });
