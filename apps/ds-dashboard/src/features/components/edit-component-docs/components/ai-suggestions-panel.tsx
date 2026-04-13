@@ -37,7 +37,7 @@ export function SummarySuggestionCard({ value, onApply }: SummarySuggestionCardP
           <p className="font-medium text-foreground">Purpose</p>
           <p>{value.purpose || 'No purpose in suggestion.'}</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
           <div>
             <p className="font-medium text-foreground">When to use</p>
             <p>{value.whenToUse || 'No usage guidance in suggestion.'}</p>
@@ -55,6 +55,29 @@ export function SummarySuggestionCard({ value, onApply }: SummarySuggestionCardP
 export interface VariantsSuggestionCardProps {
   value: ComponentDocVariant[];
   onApply: () => void;
+}
+
+export interface BehaviourSuggestionCardProps {
+  value: string;
+  onApply: () => void;
+}
+
+export function BehaviourSuggestionCard({ value, onApply }: BehaviourSuggestionCardProps) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Behaviour</CardTitle>
+          <Button variant="outline" size="sm" onClick={onApply}>
+            Use this
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="text-sm text-muted-foreground">
+        <p>{value || 'No behaviour guidance in suggestion.'}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCardProps) {
@@ -181,6 +204,9 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
         case 'variants':
           onApplySection({ type: 'SET_VARIANTS', payload: value as ComponentDocVariant[] });
           break;
+        case 'behaviour':
+          onApplySection({ type: 'SET_BEHAVIOUR', payload: value as string });
+          break;
         case 'contentGuidelines':
           onApplySection({ type: 'SET_CONTENT_GUIDELINES', payload: value as string[] });
           break;
@@ -201,6 +227,10 @@ export function AiSuggestionsPanel({ suggestion, onApplySection }: AiSuggestions
       <SummarySuggestionCard
         value={SUGGESTION_SECTION_MAP.summary.extract(suggestion) as EditDocsSummaryValue}
         onApply={() => handleApply('summary')}
+      />
+      <BehaviourSuggestionCard
+        value={SUGGESTION_SECTION_MAP.behaviour.extract(suggestion) as string}
+        onApply={() => handleApply('behaviour')}
       />
       <VariantsSuggestionCard
         value={SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[]}

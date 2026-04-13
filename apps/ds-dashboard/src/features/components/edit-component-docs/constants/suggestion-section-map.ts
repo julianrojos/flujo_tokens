@@ -26,6 +26,21 @@ function extractContentGuidelines(suggestion: AiSuggestionPayload): string[] {
   return normalizeStringList(suggestion.editorialPatch?.content_guidelines?.rules);
 }
 
+function extractBehaviour(suggestion: AiSuggestionPayload): string {
+  const behavior = suggestion.editorialPatch?.behavior;
+  const description = String(behavior?.description ?? '').trim();
+  if (description.length > 0) return description;
+
+  const interactionPattern = String(behavior?.interactionPattern ?? '').trim();
+  if (interactionPattern.length > 0) return `Interaction pattern: ${interactionPattern}.`;
+
+  const inferredFrom = String(behavior?.inferredFrom ?? '').trim();
+  if (inferredFrom.length > 0) return inferredFrom;
+
+  const firstNote = normalizeStringList(behavior?.notes)[0];
+  return firstNote ?? '';
+}
+
 function extractAccessibility(suggestion: AiSuggestionPayload): EditDocsAccessibilityValue {
   const accessibility = suggestion.editorialPatch?.accessibility;
   const editorialGuidance = Array.from(new Set([
@@ -42,6 +57,7 @@ function extractAccessibility(suggestion: AiSuggestionPayload): EditDocsAccessib
 
 export type SectionId =
   | 'summary'
+  | 'behaviour'
   | 'variants'
   | 'contentGuidelines'
   | 'accessibility';
@@ -55,6 +71,10 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
   summary: {
     label: 'Summary',
     extract: extractSummary,
+  },
+  behaviour: {
+    label: 'Behaviour',
+    extract: extractBehaviour,
   },
   variants: {
     label: 'Variants',
@@ -72,6 +92,7 @@ export const SUGGESTION_SECTION_MAP: Record<SectionId, SectionDefinition> = {
 
 export const SECTION_ORDER = [
   'summary',
+  'behaviour',
   'variants',
   'contentGuidelines',
   'accessibility',
@@ -79,6 +100,7 @@ export const SECTION_ORDER = [
 
 export type FormDispatchAction =
   | { type: 'SET_SUMMARY'; payload: EditDocsSummaryValue }
+  | { type: 'SET_BEHAVIOUR'; payload: string }
   | { type: 'SET_VARIANTS'; payload: ComponentDocVariant[] }
   | { type: 'SET_CONTENT_GUIDELINES'; payload: string[] }
   | { type: 'SET_ACCESSIBILITY'; payload: EditDocsAccessibilityValue };
@@ -90,6 +112,8 @@ export function applySectionAction(
   switch (action.type) {
     case 'SET_SUMMARY':
       return { ...current, summary: action.payload };
+    case 'SET_BEHAVIOUR':
+      return { ...current, behaviour: action.payload };
     case 'SET_VARIANTS':
       return { ...current, variants: action.payload };
     case 'SET_CONTENT_GUIDELINES':

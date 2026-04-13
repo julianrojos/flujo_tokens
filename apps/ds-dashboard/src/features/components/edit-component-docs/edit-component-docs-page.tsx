@@ -34,6 +34,7 @@ import {
 import {
   AiSuggestionsPanel,
   SummarySuggestionCard,
+  BehaviourSuggestionCard,
   VariantsSuggestionCard,
   ContentGuidelinesSuggestionCard,
   AccessibilitySuggestionCard,
@@ -58,7 +59,7 @@ type DraftFieldKey =
   | 'contentGuidelines'
   | 'accessibility';
 
-type EditDocsSectionId = SectionId | 'behaviour';
+type EditDocsSectionId = SectionId;
 
 const EMPTY_FORM_DATA: EditorialFormData = {
   summary: { purpose: '', whenToUse: '', whenNotToUse: '' },
@@ -406,6 +407,11 @@ export function EditComponentDocsPage() {
     handleApplySection({ type: 'SET_SUMMARY', payload: SUGGESTION_SECTION_MAP.summary.extract(suggestion) as EditDocsSummaryValue });
   }, [suggestion, handleApplySection]);
 
+  const onApplyBehaviour = useCallback(() => {
+    if (!suggestion) return;
+    handleApplySection({ type: 'SET_BEHAVIOUR', payload: SUGGESTION_SECTION_MAP.behaviour.extract(suggestion) as string });
+  }, [suggestion, handleApplySection]);
+
   const onApplyVariants = useCallback(() => {
     if (!suggestion) return;
     handleApplySection({ type: 'SET_VARIANTS', payload: SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[] });
@@ -431,6 +437,8 @@ export function EditComponentDocsPage() {
     switch (sectionId) {
       case 'summary':
         return onApplySummary;
+      case 'behaviour':
+        return onApplyBehaviour;
       case 'variants':
         return onApplyVariants;
       case 'contentGuidelines':
@@ -442,7 +450,7 @@ export function EditComponentDocsPage() {
         return _exhaustive;
       }
     }
-  }, [onApplySummary, onApplyVariants, onApplyContentGuidelines, onApplyAccessibility]);
+  }, [onApplySummary, onApplyBehaviour, onApplyVariants, onApplyContentGuidelines, onApplyAccessibility]);
 
   const renderFormCard = useCallback((sectionId: EditDocsSectionId) => {
     switch (sectionId) {
@@ -468,6 +476,8 @@ export function EditComponentDocsPage() {
     switch (sectionId) {
       case 'summary':
         return <SummarySuggestionCard value={SUGGESTION_SECTION_MAP.summary.extract(suggestion) as EditDocsSummaryValue} onApply={onApplyFn} />;
+      case 'behaviour':
+        return <BehaviourSuggestionCard value={SUGGESTION_SECTION_MAP.behaviour.extract(suggestion) as string} onApply={onApplyFn} />;
       case 'variants':
         return <VariantsSuggestionCard value={SUGGESTION_SECTION_MAP.variants.extract(suggestion) as ComponentDocVariant[]} onApply={onApplyFn} />;
       case 'contentGuidelines':
@@ -568,6 +578,18 @@ export function EditComponentDocsPage() {
           >
             AI suggestions
           </Button>
+          {hasSuggestion && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                clearSuggestion();
+                setShowAiPanel(false);
+              }}
+            >
+              Clear AI suggestions
+            </Button>
+          )}
         </div>
         {isMobile && hasSuggestion && (
           <div className="flex gap-1 rounded-lg border border-border p-0.5">

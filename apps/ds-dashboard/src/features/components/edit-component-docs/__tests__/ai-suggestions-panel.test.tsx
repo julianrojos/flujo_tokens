@@ -4,6 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   SummarySuggestionCard,
+  BehaviourSuggestionCard,
   VariantsSuggestionCard,
   ContentGuidelinesSuggestionCard,
   AccessibilitySuggestionCard,
@@ -44,6 +45,17 @@ describe('AiSuggestionsPanel cards', () => {
     assert.match(html, /Hover/);
   });
 
+  it('renders behaviour suggestion card', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(BehaviourSuggestionCard, {
+        value: 'Activating this component triggers the main action for the current view.',
+        onApply: () => {},
+      }),
+    );
+    assert.match(html, /Behaviour/);
+    assert.match(html, /Activating this component triggers the main action for the current view/);
+  });
+
   it('renders content guidelines suggestion card', () => {
     const html = renderToStaticMarkup(
       React.createElement(ContentGuidelinesSuggestionCard, {
@@ -77,6 +89,11 @@ describe('AiSuggestionsPanel cards', () => {
         React.createElement(SummarySuggestionCard, {
           key: 'summary',
           value: { purpose: 'A button', whenToUse: '', whenNotToUse: '' },
+          onApply: () => {},
+        }),
+        React.createElement(BehaviourSuggestionCard, {
+          key: 'behaviour',
+          value: '',
           onApply: () => {},
         }),
         React.createElement(VariantsSuggestionCard, {
