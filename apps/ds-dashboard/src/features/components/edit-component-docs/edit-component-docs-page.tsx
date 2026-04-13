@@ -271,6 +271,13 @@ function getTouchedFields(formData: EditorialFormData, base: EditorialFormData):
   return touchedFields;
 }
 
+function extractFigmaComponentId(spec: PartialComponentSpec | null | undefined): string | null {
+  if (!spec) return null;
+  const figmaMetadata = (spec as Record<string, unknown>).figma_metadata as Record<string, unknown> | null | undefined;
+  const value = String(figmaMetadata?.component_set_node_id ?? '').trim();
+  return value || null;
+}
+
 export function EditComponentDocsPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -281,7 +288,12 @@ export function EditComponentDocsPage() {
   const activeSystemId = String(getActiveSystemId() || '').trim() || null;
   const editDocsStorageScope = getEditDocsStorageScope(activeSystemId);
 
-  const [figmaComponentId, setFigmaComponentId] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['component-spec', slug],
+    queryFn: () => fetchComponentSpec(slug!),
+    enabled: !!slug,
+  });
+  const figmaComponentId = extractFigmaComponentId(data?.spec);
   const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(
     slug!,
     editDocsStorageScope,
@@ -306,12 +318,6 @@ export function EditComponentDocsPage() {
     if (!suggestion) setShowAiPanel(false);
   }, [suggestion]);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['component-spec', slug],
-    queryFn: () => fetchComponentSpec(slug!),
-    enabled: !!slug,
-  });
-
   useEffect(() => {
     if (!suggestion || !data?.spec) return;
     const specRecord = data.spec as Record<string, unknown>;
@@ -327,9 +333,6 @@ export function EditComponentDocsPage() {
     if (initializedSlugRef.current === slug) return;
 
     const spec = data.spec;
-    const figmaMetadata = (spec as Record<string, unknown>).figma_metadata as Record<string, unknown> | null | undefined;
-    const currentFigmaComponentId = String(figmaMetadata?.component_set_node_id ?? '').trim();
-    setFigmaComponentId(currentFigmaComponentId || null);
 
     let nextFormData = buildFormDataFromSpec(spec);
     expectedUpdatedAtRef.current = (data.updatedAt as number | null) ?? null;
@@ -382,7 +385,6 @@ export function EditComponentDocsPage() {
   useEffect(() => {
     initializedSlugRef.current = null;
     setIsDirty(false);
-    setFigmaComponentId(null);
   }, [slug]);
 
   const handleOpenAiModal = useCallback(() => {
@@ -671,7 +673,7 @@ export function EditComponentDocsPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 border-t border-border pt-4">
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
         <Button onClick={handleSave} disabled={isLoading}>
           Save
         </Button>
