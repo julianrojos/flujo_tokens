@@ -27,9 +27,11 @@ export function AiSuggestionsModal({
   figmaComponentId,
   onSaveSuggestion,
 }: AiSuggestionsModalProps) {
+  const formId = 'ai-suggestions-create-form';
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeJobStatus, setActiveJobStatus] = useState<AiJobStatus | null>(null);
   const [canViewSuggestions, setCanViewSuggestions] = useState(false);
+  const [submitState, setSubmitState] = useState({ disabled: true, pending: false });
 
   const handleJobCreated = useCallback((jobId: string) => {
     setActiveJobId(jobId);
@@ -46,8 +48,17 @@ export function AiSuggestionsModal({
   );
 
   const handleViewSuggestions = useCallback(() => {
+    // Closing the modal reveals the persisted suggestion cards in the parent edit page.
     onClose();
   }, [onClose]);
+
+  const handleSubmitStateChange = useCallback((nextState: { disabled: boolean; pending: boolean }) => {
+    setSubmitState((prev) => (
+      prev.disabled === nextState.disabled && prev.pending === nextState.pending
+        ? prev
+        : nextState
+    ));
+  }, []);
 
   const handleClose = useCallback(() => {
     if (
@@ -68,7 +79,10 @@ export function AiSuggestionsModal({
 
   return (
     <Modal open={open} onClose={handleClose} aria-labelledby="ai-suggestions-modal-title" zIndex={1200}>
-      <ModalContent size="md" className="flex max-h-[72vh] flex-col overflow-hidden">
+      <ModalContent
+        size="lg"
+        className="flex w-[min(96vw,1100px)] max-h-[78vh] max-w-[1100px] flex-col overflow-hidden"
+      >
         <ModalHeader>
           <div>
             <h3 id="ai-suggestions-modal-title" className="text-lg font-semibold">
@@ -79,11 +93,6 @@ export function AiSuggestionsModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {canViewSuggestions && (
-              <Button size="sm" onClick={handleViewSuggestions}>
-                View suggestions
-              </Button>
-            )}
             <Button variant="outline" size="sm" onClick={handleClose}>
               Close
             </Button>
@@ -91,14 +100,16 @@ export function AiSuggestionsModal({
         </ModalHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
             <AiJobCreateForm
+              formId={formId}
+              hideSubmitButton
               lockedComponentId={figmaComponentId}
-              hideReadinessLabels
+              onSubmitStateChange={handleSubmitStateChange}
               onJobCreated={handleJobCreated}
             />
 
-            {activeJobId && (
+            {activeJobId ? (
               <AiJobStatusCard
                 jobId={activeJobId}
                 onStatusChange={setActiveJobStatus}
@@ -106,6 +117,18 @@ export function AiSuggestionsModal({
                 hideHeader
                 hidePreviewButton
               />
+            ) : (
+              <div className="rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                Progress information will appear here after you start generation.
+              </div>
+            )}
+          </div>
+          <div className="mt-6 flex justify-end gap-2 border-t border-border/70 pt-4">
+            <Button type="submit" form={formId} disabled={submitState.disabled}>
+              {submitState.pending ? 'Creating Job...' : 'Generate documentation'}
+            </Button>
+            {canViewSuggestions && (
+              <Button onClick={handleViewSuggestions}>View suggestions</Button>
             )}
           </div>
         </div>

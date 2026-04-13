@@ -3,7 +3,7 @@
  * Form for creating AI documentation generation jobs
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,8 +44,12 @@ interface AiJobCreateFormProps {
     existingDocStatus?: DocStatus;
     /** Whether existing doc status is still loading */
     isDocStatusLoading?: boolean;
-    /** Hide per-check labels in readiness section (useful in compact modals) */
-    hideReadinessLabels?: boolean;
+    /** Optional form id to allow external submit buttons */
+    formId?: string;
+    /** Hide internal submit button to render actions externally */
+    hideSubmitButton?: boolean;
+    /** Emits submit state for external actions */
+    onSubmitStateChange?: (state: { disabled: boolean; pending: boolean }) => void;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] = AI_PROVIDER_ORDER.map((value) => ({
@@ -81,7 +85,9 @@ export function AiJobCreateForm({
     onComponentIdChange,
     existingDocStatus,
     isDocStatusLoading = false,
-    hideReadinessLabels = false,
+    formId,
+    hideSubmitButton = false,
+    onSubmitStateChange,
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
     const [componentId, setComponentId] = useState(lockedComponentId || initialComponentId);
@@ -153,7 +159,7 @@ export function AiJobCreateForm({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!componentId.trim()) {
+        if (!isFormValid || !componentId.trim()) {
             return;
         }
 
@@ -182,9 +188,21 @@ export function AiJobCreateForm({
         if (!preferredOption) return PROVIDER_OPTIONS;
         return [preferredOption, ...PROVIDER_OPTIONS.filter((option) => option.value !== preferred)];
     }, [configuredProviders?.defaultProvider]);
+    const lastSubmitStateRef = useRef<{ disabled: boolean; pending: boolean } | null>(null);
+
+    useEffect(() => {
+        if (!onSubmitStateChange) return;
+        const nextState = { disabled: !isFormValid, pending: isPending };
+        const last = lastSubmitStateRef.current;
+        if (last && last.disabled === nextState.disabled && last.pending === nextState.pending) {
+            return;
+        }
+        lastSubmitStateRef.current = nextState;
+        onSubmitStateChange(nextState);
+    }, [isFormValid, isPending, onSubmitStateChange]);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
             {/* Provider Selection */}
             <div className="space-y-2">
                 <label htmlFor="provider" className="text-sm font-medium">
@@ -305,7 +323,7 @@ export function AiJobCreateForm({
                     ) : providerHealth ? (
                         <div className="mt-2 space-y-2">
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>Figma plugin</span>
+                                <span>Figma plugin</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.figma.status)}>
                                     {providerHealth.checks.figma.status}
                                 </Badge>
@@ -313,7 +331,7 @@ export function AiJobCreateForm({
                             <p className="text-xs text-muted-foreground">{providerHealth.checks.figma.message}</p>
 
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>AI provider</span>
+                                <span>AI provider</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.provider.status)}>
                                     {providerHealth.checks.provider.status}
                                 </Badge>
@@ -321,7 +339,7 @@ export function AiJobCreateForm({
                             <p className="text-xs text-muted-foreground">{providerHealth.checks.provider.message}</p>
 
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>Model</span>
+                                <span>Model</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.model.status)}>
                                     {providerHealth.checks.model.status}
                                 </Badge>
@@ -392,12 +410,13 @@ export function AiJobCreateForm({
                 />
             )}
 
-            {/* Submit Button */}
-            <div className="flex flex-col gap-2">
-                <Button type="submit" disabled={!isFormValid}>
-                    {isPending ? 'Creating Job...' : 'Generate Documentation'}
-                </Button>
-            </div>
+            {!hideSubmitButton && (
+                <div className="flex flex-col gap-2">
+                    <Button type="submit" disabled={!isFormValid}>
+                        {isPending ? 'Creating Job...' : 'Generate Documentation'}
+                    </Button>
+                </div>
+            )}
 
         </form>
     );
