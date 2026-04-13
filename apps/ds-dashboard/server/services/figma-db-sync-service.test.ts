@@ -1031,6 +1031,138 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  it('imports selected components that appear in later paginated pages', async () => {
+    const db = createTestDb();
+    let upsertedCount = 0;
+    const observedOffsets: number[] = [];
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: () => {
+          upsertedCount += 1;
+          return 1;
+        },
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async (
+        _fileKey: string | null,
+        params: { offset?: number; limit?: number },
+      ) => {
+        const offset = Number(params.offset || 0);
+        observedOffsets.push(offset);
+        if (offset === 0) {
+          return {
+            components: [{ nodeId: 'node-page-1', name: 'Button' }],
+            truncated: false,
+            total: 2,
+            hasMore: true,
+            nextOffset: 1,
+          };
+        }
+        return {
+          components: [{ nodeId: 'node-page-2', name: 'Card' }],
+          truncated: false,
+          total: 2,
+          hasMore: false,
+          nextOffset: null,
+        };
+      };
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        selectedComponentNodeIds: ['node-page-2'],
+        createRunId: () => 'run-partial-paginated-selection',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.deepEqual(observedOffsets, [0, 1]);
+      assert.equal(upsertedCount, 1);
+      assert.equal(result.importMode, 'partial');
+      assert.equal(result.selectedCount, 1);
+      assert.equal(result.notSelectedCount, 1);
+      assert.equal(result.components, 1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('does not request an extra page when scanned total is already exhausted', async () => {
+    const db = createTestDb();
+    const observedOffsets: number[] = [];
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async (
+        _fileKey: string | null,
+        params: { offset?: number; limit?: number },
+      ) => {
+        const offset = Number(params.offset || 0);
+        observedOffsets.push(offset);
+        return {
+          components: [{ nodeId: 'node-only', name: 'Button' }],
+          truncated: false,
+          total: 1,
+          hasMore: undefined,
+          nextOffset: null,
+        };
+      };
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-01',
+        figmaFileId: 'file-known-total',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-known-total',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(result.components, 1);
+      assert.deepEqual(observedOffsets, [0]);
+    } finally {
+      db.close();
+    }
+  });
+
   it('returns full importMode when selectedComponentNodeIds is empty', async () => {
     const db = createTestDb();
     try {
@@ -1945,6 +2077,586 @@ describe('figma-db-sync-service', () => {
       assert.ok(Array.isArray(entry.figma.props));
       assert.equal(entry.figma.props.length, 1);
       assert.equal(entry.figma.props[0].values, undefined);
+    });
+  });
+
+  describe('strict proof validation', () => {
+    it('succeeds when all components have main proofs in strict mode', async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {},
+            variables: {},
+          });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        const result = await syncDesignSystemFromPlugin({
+          db,
+          componentRepo: makeComponentRepoStub(),
+          dsId: 'strict-sys',
+          figmaFileId: 'file-strict',
+          includeComponents: true,
+          dryRun: true,
+          requireComponentProofs: true,
+          requireVariantProofsWhenPresent: true,
+          createRunId: () => 'run-strict-success',
+          fetchVariables,
+          searchComponents,
+        });
+
+        assert.ok(result);
+        assert.equal(result.importMode, 'full');
+      } finally {
+        db.close();
+      }
+    });
+
+    it('fails with component_proofs_required_failed when main proof missing', async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {},
+            variables: {},
+          });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        // Simulate a scenario where proof capture would fail (no repoRoot means no proof capture)
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'strict-fail-sys',
+              figmaFileId: 'file-strict-fail',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: true,
+              createRunId: () => 'run-strict-fail',
+              fetchVariables,
+              searchComponents,
+              // No repoRoot means proofs won't be captured, triggering validation failure
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.ok(err.context.missingMainProofSlugs.length > 0);
+            return true;
+          },
+        );
+      } finally {
+        db.close();
+      }
+    });
+
+    it('returns structured proof error when strict main proof capture fails early', async () => {
+      const db = createTestDb();
+      const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-strict-main-capture-fail-'));
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({ collections: {}, variables: {} });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        const fetchComponentImages = async () => {
+          throw new Error('plugin transport unavailable');
+        };
+
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'strict-main-capture-fail-sys',
+              figmaFileId: 'file-strict-main-capture-fail',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: false,
+              captureComponentProofs: true,
+              createRunId: () => 'run-strict-main-capture-fail',
+              fetchVariables,
+              searchComponents,
+              fetchComponentImages: fetchComponentImages as any,
+              repoRoot,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.equal(err.context.proofCaptureStage, 'main_capture');
+            assert.match(String(err.context.captureFailureReason || ''), /plugin transport unavailable/i);
+            return true;
+          },
+        );
+      } finally {
+        fs.rmSync(repoRoot, { recursive: true, force: true });
+        db.close();
+      }
+    });
+
+    it('truncates strict-proof error slug payloads while preserving totals', async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {},
+            variables: {},
+          });
+
+        const searchComponents = async () => ({
+          components: Array.from({ length: 150 }, (_value, index) => ({
+            nodeId: `10:${index + 1}`,
+            name: `Component ${index + 1}`,
+            pageName: 'Components',
+          })),
+          truncated: false,
+          total: 150,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'strict-large-fail-sys',
+              figmaFileId: 'file-strict-large-fail',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: false,
+              createRunId: () => 'run-strict-large-fail',
+              fetchVariables,
+              searchComponents,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.equal(err.context.totalMissingMainProofs, 150);
+            assert.equal(err.context.missingMainProofSlugs.length, 100);
+            return true;
+          },
+        );
+      } finally {
+        db.close();
+      }
+    });
+
+    it('partial import validates only selected components', async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {},
+            variables: {},
+          });
+
+        const searchComponents = async () => ({
+          components: [
+            { nodeId: 'node-selected', name: 'Button', pageName: 'Components' },
+            { nodeId: 'node-skipped', name: 'Card', pageName: 'Components' },
+          ],
+          truncated: false,
+          total: 2,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        // Without repoRoot, proofs won't be captured → strict mode should fail
+        // But the failure should only reference the selected component
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'partial-strict-sys',
+              figmaFileId: 'file-partial-strict',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: true,
+              selectedComponentNodeIds: ['node-selected'],
+              createRunId: () => 'run-partial-strict',
+              fetchVariables,
+              searchComponents,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            // Should only report the selected component, not the skipped one
+            assert.deepEqual(err.context.missingMainProofSlugs, ['button']);
+            assert.equal(err.context.importMode, 'partial');
+            return true;
+          },
+        );
+      } finally {
+        db.close();
+      }
+    });
+
+    it('fails when variants exist but one or more variant screenshots are missing', async () => {
+      const db = createTestDb();
+      const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-strict-missing-variants-'));
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {
+              col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+            },
+            variables: {
+              v1: {
+                id: 'v1',
+                name: 'color/base',
+                variableCollectionId: 'col1',
+                resolvedType: 'COLOR',
+                valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+              },
+            },
+          });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        const fetchComponentSpec = async () => ({
+          success: true as const,
+          variants: [
+            { nodeId: '10:2', name: 'State=Primary' },
+            { nodeId: '10:3', name: 'State=Secondary' },
+          ],
+        });
+
+        const fetchComponentImages = async (
+          _fileKey: string | null,
+          params: { nodeIds: string[]; format?: 'PNG' | 'JPG' | 'SVG'; scale?: number },
+        ) => {
+          // Main screenshot always succeeds (node 10:1).
+          // Variants: only Primary is returned, Secondary is intentionally missing.
+          const images = params.nodeIds
+            .filter((nodeId) => nodeId === '10:1' || nodeId === '10:2')
+            .map((nodeId) => ({
+              nodeId,
+              base64: Buffer.from(`png-${nodeId}`).toString('base64'),
+              format: 'PNG',
+            }));
+          return {
+            success: true,
+            images,
+            count: images.length,
+            errors: Math.max(0, params.nodeIds.length - images.length),
+          };
+        };
+
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'sys-01',
+              figmaFileId: 'file-strict-missing-variants',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: true,
+              captureComponentProofs: true,
+              captureComponentProofVariants: true,
+              createRunId: () => 'run-strict-missing-variants',
+              fetchVariables,
+              searchComponents,
+              fetchComponentSpec,
+              fetchFullComponentSpec: fetchComponentSpec,
+              fetchComponentImages,
+              repoRoot,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.ok(Array.isArray(err.context.missingVariantProofSlugs));
+            assert.equal(err.context.missingVariantProofSlugs.length, 1);
+            assert.equal(err.context.missingVariantProofSlugs[0].slug, 'button');
+            assert.ok(err.context.missingVariantProofSlugs[0].missingVariants.includes('state secondary'));
+            return true;
+          },
+        );
+      } finally {
+        fs.rmSync(repoRoot, { recursive: true, force: true });
+        db.close();
+      }
+    });
+
+    it('truncates per-component missing variant names and preserves totalMissingVariants', async () => {
+      const db = createTestDb();
+      const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-strict-missing-variants-truncated-'));
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {
+              col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+            },
+            variables: {
+              v1: {
+                id: 'v1',
+                name: 'color/base',
+                variableCollectionId: 'col1',
+                resolvedType: 'COLOR',
+                valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+              },
+            },
+          });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        const fetchComponentSpec = async () => ({
+          success: true as const,
+          variants: Array.from({ length: 35 }, (_value, index) => ({
+            nodeId: `10:${index + 2}`,
+            name: `State=Variant${index + 1}`,
+          })),
+        });
+
+        const fetchComponentImages = async (
+          _fileKey: string | null,
+          params: { nodeIds: string[]; format?: 'PNG' | 'JPG' | 'SVG'; scale?: number },
+        ) => {
+          // Only main image available; all variants will be missing.
+          const images = params.nodeIds
+            .filter((nodeId) => nodeId === '10:1')
+            .map((nodeId) => ({
+              nodeId,
+              base64: Buffer.from(`png-${nodeId}`).toString('base64'),
+              format: 'PNG',
+            }));
+          return {
+            success: true,
+            images,
+            count: images.length,
+            errors: Math.max(0, params.nodeIds.length - images.length),
+          };
+        };
+
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'sys-01',
+              figmaFileId: 'file-strict-missing-variants-truncated',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: true,
+              requireVariantProofsWhenPresent: true,
+              captureComponentProofs: true,
+              captureComponentProofVariants: true,
+              createRunId: () => 'run-strict-missing-variants-truncated',
+              fetchVariables,
+              searchComponents,
+              fetchComponentSpec,
+              fetchFullComponentSpec: fetchComponentSpec,
+              fetchComponentImages,
+              repoRoot,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.equal(err.context.missingVariantProofSlugs.length, 1);
+            assert.equal(err.context.missingVariantProofSlugs[0].slug, 'button');
+            assert.equal(err.context.missingVariantProofSlugs[0].missingVariants.length, 20);
+            assert.equal(err.context.missingVariantProofSlugs[0].totalMissingVariants, 35);
+            return true;
+          },
+        );
+      } finally {
+        fs.rmSync(repoRoot, { recursive: true, force: true });
+        db.close();
+      }
+    });
+
+    it('fails early when strict variant expectation fallback exceeds operational lookup limit', async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {},
+            variables: {},
+          });
+
+        const searchComponents = async (
+          _fileKey: string | null,
+          params: { offset?: number; limit?: number },
+        ) => {
+          const offset = Math.max(0, Number(params.offset || 0));
+          const limit = Math.max(1, Number(params.limit || 500));
+          const total = 1005;
+          const end = Math.min(total, offset + limit);
+          return {
+            components: Array.from({ length: Math.max(0, end - offset) }, (_value, index) => ({
+              nodeId: `10:${offset + index + 1}`,
+              name: `Component ${offset + index + 1}`,
+              pageName: 'Components',
+            })),
+            truncated: false,
+            total,
+            hasMore: end < total,
+            nextOffset: end < total ? end : null,
+          };
+        };
+
+        let lookupCalls = 0;
+        const fetchFullComponentSpec = async () => {
+          lookupCalls += 1;
+          return {
+            success: true as const,
+            variants: [],
+          };
+        };
+
+        await assert.rejects(
+          async () => {
+            await syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'sys-01',
+              figmaFileId: 'file-strict-fallback-guardrail',
+              includeComponents: true,
+              dryRun: false,
+              requireComponentProofs: false,
+              requireVariantProofsWhenPresent: true,
+              captureComponentProofs: false,
+              captureComponentProofVariants: false,
+              createRunId: () => 'run-strict-fallback-guardrail',
+              fetchVariables,
+              searchComponents,
+              fetchFullComponentSpec,
+            });
+          },
+          (err: any) => {
+            assert.equal(err.code, 'sync.component_proofs_required_failed');
+            assert.equal(err.context.fallbackSpecLookupLimit, 1000);
+            assert.ok(Number(err.context.fallbackSpecLookups) >= 1000);
+            assert.match(String(err.message || ''), /strict variant screenshot validation stopped/i);
+            return true;
+          },
+        );
+
+        assert.ok(lookupCalls >= 1000);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('succeeds with dryRun false when main and variant proofs are present', async () => {
+      const db = createTestDb();
+      const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-strict-success-'));
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+          buildVariablesPayload({
+            collections: {
+              col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+            },
+            variables: {
+              v1: {
+                id: 'v1',
+                name: 'color/base',
+                variableCollectionId: 'col1',
+                resolvedType: 'COLOR',
+                valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+              },
+            },
+          });
+
+        const searchComponents = async () => ({
+          components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+          truncated: false,
+          total: 1,
+          hasMore: false,
+          nextOffset: null,
+        });
+
+        const fetchComponentSpec = async () => ({
+          success: true as const,
+          variants: [
+            { nodeId: '10:2', name: 'State=Primary' },
+            { nodeId: '10:3', name: 'State=Secondary' },
+          ],
+        });
+
+        // Return images for main component AND variant nodes
+        const fetchComponentImages = async (
+          _fileKey: string | null,
+          params: { nodeIds: string[]; format?: 'PNG' | 'JPG' | 'SVG'; scale?: number },
+        ) => {
+          const images = params.nodeIds.map((nodeId) => ({
+            nodeId,
+            base64: Buffer.from(`png-${nodeId}`).toString('base64'),
+            format: 'PNG',
+          }));
+          return {
+            success: true,
+            images,
+            count: images.length,
+            errors: 0,
+          };
+        };
+
+        const result = await syncDesignSystemFromPlugin({
+          db,
+          componentRepo: makeComponentRepoStub(),
+          dsId: 'sys-01',
+          figmaFileId: 'file-strict-success',
+          includeComponents: true,
+          dryRun: false,
+          requireComponentProofs: true,
+          requireVariantProofsWhenPresent: true,
+          captureComponentProofs: true,
+          captureComponentProofVariants: true,
+          createRunId: () => 'run-strict-success-real',
+          fetchVariables,
+          searchComponents,
+          fetchComponentSpec,
+          fetchFullComponentSpec: fetchComponentSpec,
+          fetchComponentImages,
+          repoRoot,
+        });
+
+        assert.ok(result);
+        assert.equal(result.importMode, 'full');
+      } finally {
+        fs.rmSync(repoRoot, { recursive: true, force: true });
+        db.close();
+      }
     });
   });
 

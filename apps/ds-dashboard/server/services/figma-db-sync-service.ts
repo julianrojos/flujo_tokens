@@ -791,6 +791,9 @@ const MAX_IMAGE_BATCH_SIZE = 100;
 const MAX_IMAGE_FETCH_CONCURRENCY = 16;
 const MAX_CAPTURED_IMAGE_BYTES = 50 * 1024 * 1024; // 50MB
 const MAX_VARIANT_LIMIT_PER_COMPONENT = 50;
+const MAX_PROOF_ERROR_SLUGS = 100;
+const MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR = 20;
+const MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS = 1000;
 
 function normalizeBoundedInt(value: number, fallback: number, min: number, max: number): number {
   const numeric = Number(value);
@@ -1360,14 +1363,24 @@ export interface SyncFromPluginOptions {
   includeComponents?: boolean;
   dryRun?: boolean;
   selectedComponentNodeIds?: string[];
+  /** When true, import fails if any imported component lacks a main screenshot. */
+  requireComponentProofs?: boolean;
+  /** When true, import fails if any component with variants lacks variant screenshots. */
+  requireVariantProofsWhenPresent?: boolean;
   fetchVariables?: (fileKey?: string | null) => Promise<FigmaVariablesResponse>;
   searchComponents?: (fileKey: string | null, params: {
     includeVariants?: boolean;
     compact?: boolean;
     limit?: number;
+    offset?: number;
+    scanSessionId?: string;
   }) => Promise<{
     components: Array<{ nodeId: string; name: string; pageName?: string }>;
     truncated?: boolean;
+    total?: number;
+    totalIsEstimated?: boolean;
+    hasMore?: boolean;
+    nextOffset?: number | null;
   }>;
   fetchComponentImages?: FetchComponentImagesFn;
   fetchComponentSpec?: FetchComponentSpecFn;
@@ -1558,6 +1571,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     repoRoot,
     reindexUsageFromFilesystem = false,
     usageReindexStrict = true,
+    requireComponentProofs = false,
+    requireVariantProofsWhenPresent = false,
   } = options;
   const safeVariantLimitPerComponent = normalizeBoundedInt(
     captureComponentProofVariantLimit,
@@ -1621,23 +1636,90 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let notSelectedCount = 0;
 
   if (includeComponents) {
-    let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
+    const selectedSet = new Set(
+      (options.selectedComponentNodeIds || [])
+        .map((value) => String(value || '').trim())
+        .filter((value) => value.length > 0),
+    );
+    importMode = selectedSet.size > 0 ? 'partial' : 'full';
+
+    const PAGE_LIMIT = 500;
+    const MAX_COMPONENT_SCAN_PAGES = 100;
+    const scanSessionId = `sync-${syncRunId}`;
+    const dedupedByNodeId = new Map<string, { nodeId: string; name: string; pageName?: string }>();
+    let scannedTotal: number | null = null;
+    let offset = 0;
+    let page = 0;
+    let hasMore = true;
+
     try {
-      componentsResult = await searchComponents(figmaFileId, {
-        includeVariants: false,
-        compact: true,
-        limit: 200,
-      });
+      while (hasMore && page < MAX_COMPONENT_SCAN_PAGES) {
+        page += 1;
+        const pageResult = await searchComponents(figmaFileId, {
+          includeVariants: false,
+          compact: true,
+          limit: PAGE_LIMIT,
+          offset,
+          scanSessionId,
+        });
+        const pageComponents = Array.isArray(pageResult.components) ? pageResult.components : [];
+        componentsTruncated = componentsTruncated || pageResult.truncated === true || pageResult.totalIsEstimated === true;
+        if (typeof pageResult.total === 'number' && Number.isFinite(pageResult.total) && pageResult.total >= 0) {
+          scannedTotal = Math.floor(pageResult.total);
+        }
+
+        for (const entry of pageComponents) {
+          const nodeId = String(entry.nodeId || '').trim();
+          if (!nodeId || dedupedByNodeId.has(nodeId)) continue;
+          dedupedByNodeId.set(nodeId, {
+            nodeId,
+            name: String(entry.name || '').trim(),
+            pageName: entry.pageName,
+          });
+        }
+
+        const pageHasMore = pageResult.hasMore === true || (pageResult.hasMore === undefined && pageComponents.length === PAGE_LIMIT);
+        const reachedKnownTotal =
+          scannedTotal !== null && offset + pageComponents.length >= scannedTotal;
+        if (!pageHasMore || pageComponents.length === 0) {
+          hasMore = false;
+          break;
+        }
+        if (reachedKnownTotal) {
+          hasMore = false;
+          break;
+        }
+
+        const nextOffsetRaw = Number(pageResult.nextOffset);
+        const nextOffset = Number.isFinite(nextOffsetRaw)
+          ? Math.max(0, Math.floor(nextOffsetRaw))
+          : offset + pageComponents.length;
+        if (!Number.isFinite(nextOffsetRaw)) {
+          console.warn(
+            `[syncDesignSystemFromPlugin] SEARCH_COMPONENTS returned non-finite nextOffset (${String(pageResult.nextOffset)}); using fallback offset progression.`,
+          );
+        }
+        if (nextOffset <= offset) {
+          hasMore = false;
+          break;
+        }
+        offset = nextOffset;
+      }
+      if (hasMore && page >= MAX_COMPONENT_SCAN_PAGES) {
+        componentsTruncated = true;
+      }
     } catch (error) {
       throw mapPluginBridgeError(error, {
         figmaFileId,
         operation: 'components',
       });
     }
-    componentsTruncated = componentsResult.truncated === true;
+
+    const scannedComponents = Array.from(dedupedByNodeId.values());
+    const effectiveScannedTotal = scannedTotal ?? scannedComponents.length;
     const usedSlugs = new Set<string>();
     const figmaFileUrl = `https://www.figma.com/design/${encodeURIComponent(figmaFileId)}`;
-    componentEntries = (componentsResult.components || []).map((entry) => {
+    componentEntries = scannedComponents.map((entry) => {
       const slug = uniqueSlug(slugifyComponentName(entry.name), usedSlugs);
       return {
         slug,
@@ -1657,14 +1739,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     });
 
     // Filter by selected node IDs for partial import (Migration 034 flow)
-    const selectedIds = options.selectedComponentNodeIds;
-    importMode = selectedIds && selectedIds.length > 0 ? 'partial' : 'full';
     if (importMode === 'partial') {
-      const selectedSet = new Set(
-        (selectedIds || [])
-          .map((value) => String(value || '').trim())
-          .filter((value) => value.length > 0),
-      );
       const beforeCount = componentEntries.length;
       componentEntries = componentEntries.filter((e) => {
         const nodeId = String(e.figma.componentSetNodeId || '').trim();
@@ -1682,7 +1757,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     }
     selectedCount = componentEntries.length;
     notSelectedCount = importMode === 'partial'
-      ? (componentsResult.components || []).length - selectedCount
+      ? Math.max(0, effectiveScannedTotal - selectedCount)
       : 0;
 
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
@@ -1708,6 +1783,25 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           });
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
+          if (requireComponentProofs) {
+            throw {
+              code: 'sync.component_proofs_required_failed',
+              message: `Component screenshot capture failed: ${reason}`,
+              context: {
+                importMode: importMode === 'partial' ? 'partial' : 'full',
+                importedCount: componentEntries.length,
+                proofsEnriched,
+                proofCaptureStage: 'main_capture',
+                captureFailureReason: reason,
+                missingMainProofSlugs: [],
+                totalMissingMainProofs: 0,
+                missingVariantProofSlugs: [],
+                totalMissingVariantProofs: 0,
+                variantExpectationErrors: [],
+                totalVariantExpectationErrors: 0,
+              },
+            };
+          }
           console.warn(
             `[syncDesignSystemFromPlugin] Component proof capture failed (continuing import): ${reason}`,
           );
@@ -1729,6 +1823,25 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           });
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
+          if (requireVariantProofsWhenPresent) {
+            throw {
+              code: 'sync.component_proofs_required_failed',
+              message: `Component variant screenshot capture failed: ${reason}`,
+              context: {
+                importMode: importMode === 'partial' ? 'partial' : 'full',
+                importedCount: componentEntries.length,
+                proofsEnriched,
+                proofCaptureStage: 'variant_capture',
+                captureFailureReason: reason,
+                missingMainProofSlugs: [],
+                totalMissingMainProofs: 0,
+                missingVariantProofSlugs: [],
+                totalMissingVariantProofs: 0,
+                variantExpectationErrors: [],
+                totalVariantExpectationErrors: 0,
+              },
+            };
+          }
           console.warn(
             `[syncDesignSystemFromPlugin] Component variant proof capture failed (continuing import): ${reason}`,
           );
@@ -1750,6 +1863,185 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         console.warn(
           `[syncDesignSystemFromPlugin] Component filesystem enrichment failed: ${reason}`,
         );
+      }
+    }
+
+    // Strict proof validation (S-05, S-06, S-07)
+    if (!dryRun && (requireComponentProofs || requireVariantProofsWhenPresent) && componentEntries.length > 0) {
+      const normalizeVariantName = (value: unknown): string =>
+        String(value || '')
+          .trim()
+          .toLocaleLowerCase()
+          .replace(/^[0-9]+\s+/, '')
+          .replace(/[_=:+-]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const expectedVariantNamesBySlug = new Map<string, string[]>();
+      const variantExpectationErrors: Array<{ slug: string; reason: string }> = [];
+      let variantFallbackSpecLookups = 0;
+      let variantFallbackLookupLimitHit = false;
+      let variantFallbackLookupLimitHitSlug = '';
+
+      if (requireVariantProofsWhenPresent) {
+        await mapWithConcurrency(
+          componentEntries,
+          safeEnrichComponentSpecConcurrency,
+          async (entry) => {
+            const slug = String(entry.slug || '').trim();
+            if (variantFallbackLookupLimitHit) {
+              expectedVariantNamesBySlug.set(slug, []);
+              return;
+            }
+            const structuredVariants = Array.isArray(entry.figma?.variants)
+              ? entry.figma.variants
+              : [];
+            const structuredNames = Array.from(
+              new Set(
+                structuredVariants
+                  .map((variant) => normalizeVariantName(variant?.name))
+                  .filter(Boolean),
+              ),
+            );
+            if (structuredNames.length > 0) {
+              expectedVariantNamesBySlug.set(slug, structuredNames);
+              return;
+            }
+
+            const nodeId = String(entry.figma?.componentSetNodeId || '').trim();
+            if (!nodeId) {
+              expectedVariantNamesBySlug.set(slug, []);
+              return;
+            }
+
+            if (variantFallbackSpecLookups >= MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS) {
+              variantFallbackLookupLimitHit = true;
+              variantFallbackLookupLimitHitSlug = slug;
+              expectedVariantNamesBySlug.set(slug, []);
+              return;
+            }
+
+            try {
+              variantFallbackSpecLookups += 1;
+              const spec = await fetchFullComponentSpec(figmaFileId, {
+                nodeId,
+                depth: 2,
+                compact: true,
+              });
+              const fallbackVariants = Array.isArray(spec?.variants) ? spec.variants : [];
+              const fallbackNames = Array.from(
+                new Set(
+                  fallbackVariants
+                    .map((variant) => normalizeVariantName(variant?.name))
+                    .filter(Boolean),
+                ),
+              );
+              expectedVariantNamesBySlug.set(slug, fallbackNames);
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              variantExpectationErrors.push({ slug, reason });
+              expectedVariantNamesBySlug.set(slug, []);
+            }
+          },
+        );
+        if (variantFallbackLookupLimitHit) {
+          throw {
+            code: 'sync.component_proofs_required_failed',
+            message:
+              `Strict variant screenshot validation stopped after ${MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS} fallback component-spec lookups. ` +
+              'Narrow the component selection or ensure compact component search includes variant names.',
+            context: {
+              importMode: options.selectedComponentNodeIds?.length ? 'partial' : 'full',
+              importedCount: componentEntries.length,
+              proofsEnriched,
+              fallbackSpecLookupLimit: MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS,
+              fallbackSpecLookups: variantFallbackSpecLookups,
+              fallbackSpecLookupLimitHitSlug: variantFallbackLookupLimitHitSlug || null,
+            },
+          };
+        }
+        if (variantFallbackSpecLookups >= 100) {
+          console.warn(
+            `[syncDesignSystemFromPlugin] Strict variant proof validation required ${variantFallbackSpecLookups} fallback GET_COMPONENT_SPEC calls. This can slow imports for large design systems.`,
+          );
+        }
+      }
+
+      const missingMainProofSlugs: string[] = [];
+      const missingVariantProofSlugs: Array<{
+        slug: string;
+        missingVariants: string[];
+        totalMissingVariants: number;
+      }> = [];
+
+      for (const entry of componentEntries) {
+        const slug = String(entry.slug || '').trim();
+        const visualProofs = Array.isArray(entry.visualProofs) ? entry.visualProofs : [];
+
+        const hasMainProof = visualProofs.some((proof) => {
+          const imagePath = String(proof?.imagePath || '').trim();
+          const screenshotUrl = String(proof?.screenshotUrl || '').trim();
+          return imagePath.length > 0 || screenshotUrl.length > 0;
+        });
+        if (requireComponentProofs && !hasMainProof) {
+          missingMainProofSlugs.push(slug);
+        }
+
+        if (requireVariantProofsWhenPresent) {
+          const expectedVariantNames = expectedVariantNamesBySlug.get(slug) || [];
+          if (expectedVariantNames.length > 0) {
+            const capturedVariantNames = new Set<string>();
+            for (const proof of visualProofs) {
+              const variants = Array.isArray(proof?.variants) ? proof.variants : [];
+              for (const variant of variants) {
+                const normalized = normalizeVariantName(variant?.name);
+                const hasVariantImage =
+                  String(variant?.image_path || '').trim().length > 0 ||
+                  String(variant?.screenshot_url || '').trim().length > 0;
+                if (normalized && hasVariantImage) {
+                  capturedVariantNames.add(normalized);
+                }
+              }
+            }
+            const missingVariants = expectedVariantNames.filter(
+              (name) => !capturedVariantNames.has(name),
+            );
+            if (missingVariants.length > 0) {
+              missingVariantProofSlugs.push({
+                slug,
+                missingVariants: missingVariants.slice(0, MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR),
+                totalMissingVariants: missingVariants.length,
+              });
+            }
+          }
+        }
+      }
+
+      if (
+        missingMainProofSlugs.length > 0 ||
+        missingVariantProofSlugs.length > 0 ||
+        variantExpectationErrors.length > 0
+      ) {
+        const hasSelection = options.selectedComponentNodeIds && options.selectedComponentNodeIds.length > 0;
+        const totalMissingMainProofs = missingMainProofSlugs.length;
+        const totalMissingVariantProofs = missingVariantProofSlugs.length;
+        const totalVariantExpectationErrors = variantExpectationErrors.length;
+        const context = {
+          importMode: hasSelection ? 'partial' : 'full',
+          importedCount: componentEntries.length,
+          proofsEnriched,
+          missingMainProofSlugs: missingMainProofSlugs.slice(0, MAX_PROOF_ERROR_SLUGS),
+          totalMissingMainProofs,
+          missingVariantProofSlugs: missingVariantProofSlugs.slice(0, MAX_PROOF_ERROR_SLUGS),
+          totalMissingVariantProofs,
+          variantExpectationErrors: variantExpectationErrors.slice(0, MAX_PROOF_ERROR_SLUGS),
+          totalVariantExpectationErrors,
+        };
+        throw {
+          code: 'sync.component_proofs_required_failed',
+          message: `Required screenshots missing: ${totalMissingMainProofs} component(s) without main proof, ${totalMissingVariantProofs} component(s) with missing variant proofs, ${totalVariantExpectationErrors} component(s) with unknown variant expectations.`,
+          context,
+        };
       }
     }
   }

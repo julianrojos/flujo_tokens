@@ -590,5 +590,112 @@ describe('command-routes', () => {
 
       assert.deepEqual(receivedSelectedIds, ['node-1', 'node-2']);
     });
+
+    it('forwards requireComponentProofs and requireVariantProofsWhenPresent flags', async () => {
+      const enqueued: any[] = [];
+      let receivedOptions: any = {};
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          fileKey: 'figma_file_123',
+          requireComponentProofs: true,
+          requireVariantProofsWhenPresent: true,
+        }),
+        db: {} as any,
+        componentRepo: {} as any,
+        hasPluginSocketForFile: () => true,
+        enqueueQueueJob: (args: any) => {
+          enqueued.push(args);
+          return { id: 'sync_job_strict' };
+        },
+        syncDesignSystemFromPluginFn: async (opts: any) => {
+          receivedOptions = opts;
+          return {
+            tokens: 10,
+            tokenModeValues: 12,
+            aliases: 2,
+            components: 3,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'not_requested' as const,
+            usageReindexReason: 'none' as const,
+            usageReindexWarnings: [],
+            specYamlGenerated: 0,
+            specYamlSkipped: 0,
+            specYamlFailed: 0,
+            specYamlWarnings: [],
+            specsEnriched: 0,
+            proofsEnriched: 0,
+            dryRun: false,
+            importMode: 'full' as const,
+            selectedCount: 3,
+            notSelectedCount: 0,
+          };
+        },
+      });
+
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 202);
+
+      await enqueued[0].execute({
+        emitChunk: () => { },
+      });
+
+      assert.equal(receivedOptions.requireComponentProofs, true);
+      assert.equal(receivedOptions.requireVariantProofsWhenPresent, true);
+    });
+
+    it('defaults to strict proof requirements when flags are omitted', async () => {
+      const enqueued: any[] = [];
+      let receivedOptions: any = {};
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          fileKey: 'figma_file_123',
+        }),
+        db: {} as any,
+        componentRepo: {} as any,
+        hasPluginSocketForFile: () => true,
+        enqueueQueueJob: (args: any) => {
+          enqueued.push(args);
+          return { id: 'sync_job_default_strict' };
+        },
+        syncDesignSystemFromPluginFn: async (opts: any) => {
+          receivedOptions = opts;
+          return {
+            tokens: 10,
+            tokenModeValues: 12,
+            aliases: 2,
+            components: 1,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'not_requested' as const,
+            usageReindexReason: 'none' as const,
+            usageReindexWarnings: [],
+            specYamlGenerated: 0,
+            specYamlSkipped: 0,
+            specYamlFailed: 0,
+            specYamlWarnings: [],
+            specsEnriched: 0,
+            proofsEnriched: 1,
+            dryRun: false,
+            importMode: 'full' as const,
+            selectedCount: 1,
+            notSelectedCount: 0,
+          };
+        },
+      });
+
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 202);
+      await enqueued[0].execute({
+        emitChunk: () => { },
+      });
+
+      assert.equal(receivedOptions.requireComponentProofs, true);
+      assert.equal(receivedOptions.requireVariantProofsWhenPresent, true);
+    });
   });
 });

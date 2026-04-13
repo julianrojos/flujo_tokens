@@ -496,6 +496,9 @@ export async function searchComponentsDirect(
   fileKey: string | null,
   params: SearchComponentsParams
 ): Promise<SearchComponentsResult> {
+  // Keep this as a transparent pass-through to the plugin protocol:
+  // pagination/session fields in params and result (offset/hasMore/nextOffset/scanSessionId)
+  // are intentionally not remapped here.
   return await requestDirectWithFileKeyFallback<SearchComponentsResult>(
     'SEARCH_COMPONENTS',
     params,
