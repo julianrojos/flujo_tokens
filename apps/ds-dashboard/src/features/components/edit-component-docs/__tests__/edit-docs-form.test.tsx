@@ -10,7 +10,7 @@ import {
 } from '../components/edit-docs-form';
 
 describe('EditDocsForm cards', () => {
-  it('renders add property affordance for variants', () => {
+  it('does not render properties header or add property action for variants', () => {
     const html = renderToStaticMarkup(
       React.createElement(VariantsFormCard, {
         value: [
@@ -20,7 +20,8 @@ describe('EditDocsForm cards', () => {
       }),
     );
 
-    assert.match(html, /Add property/);
+    assert.doesNotMatch(html, /Add property/);
+    assert.doesNotMatch(html, />Properties</);
   });
 
   it('uses positional fallback in remove variant aria-label when name is empty', () => {
@@ -59,6 +60,7 @@ describe('EditDocsForm cards', () => {
 
     assert.match(html, /When to use/);
     assert.match(html, /When not to use/);
+    assert.match(html, /class="flex flex-col gap-4"/);
   });
 
   it('renders behaviour field', () => {

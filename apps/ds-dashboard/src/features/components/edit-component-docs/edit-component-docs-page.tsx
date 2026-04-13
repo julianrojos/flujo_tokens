@@ -631,9 +631,16 @@ export function EditComponentDocsPage() {
             const onApplyFn = SECTION_ORDER.includes(sectionId as SectionId)
               ? getOnApplyForSection(sectionId as SectionId)
               : null;
+            const hasSectionSuggestion = hasSuggestion && Boolean(onApplyFn);
+            let sectionClassName = 'max-w-3xl';
+            if (hasSectionSuggestion) {
+              sectionClassName = 'grid grid-cols-2 gap-6 items-start';
+            } else if (hasSuggestion) {
+              sectionClassName = 'w-full max-w-[calc(50%-0.75rem)]';
+            }
 
             return (
-              <div key={sectionId} className={hasSuggestion && onApplyFn ? 'grid grid-cols-2 gap-6 items-start' : 'max-w-3xl'}>
+              <div key={sectionId} className={sectionClassName}>
                 {renderFormCard(sectionId)}
                 {onApplyFn ? renderSuggestionCard(sectionId as SectionId, onApplyFn) : null}
               </div>

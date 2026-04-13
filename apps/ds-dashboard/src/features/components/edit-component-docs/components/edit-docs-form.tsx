@@ -66,8 +66,8 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
             rows={4}
           />
         </div>
-        <div className="space-y-4">
-          <div className="space-y-1">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
             <label htmlFor={whenToUseId} className="text-sm font-medium">When to use</label>
             <textarea
               id={whenToUseId}
@@ -77,7 +77,7 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
               rows={3}
             />
           </div>
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <label htmlFor={whenNotToUseId} className="text-sm font-medium">When not to use</label>
             <textarea
               id={whenNotToUseId}
@@ -157,20 +157,6 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
     onChange(next);
   }, [variants, onChange]);
 
-  const addVariantProperty = useCallback((variantIndex: number) => {
-    const next = [...variants];
-    const props = { ...next[variantIndex].properties };
-    let suffix = 1;
-    let candidate = 'property';
-    while (candidate in props) {
-      suffix += 1;
-      candidate = `property-${suffix}`;
-    }
-    props[candidate] = '';
-    next[variantIndex] = { ...next[variantIndex], properties: props };
-    onChange(next);
-  }, [variants, onChange]);
-
   const renameVariantProperty = useCallback((variantIndex: number, currentKey: string, nextKeyRaw: string) => {
     const nextKey = nextKeyRaw.trim();
     if (!nextKey || nextKey === currentKey) return;
@@ -245,18 +231,6 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                   placeholder="Description"
                 />
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => addVariantProperty(i)}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Add property
-                    </Button>
-                  </div>
                   {Object.entries(v.properties).map(([k, val]) => (
                     <div key={k} className="flex gap-2">
                       <label htmlFor={`${variantsIdBase}-pk-${i}-${k}`} className="sr-only">Property key</label>
@@ -546,7 +520,6 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
 
         <StringListEditor
           title="Accessibility Guidance"
-          description="Labeling and other accessibility guidance for this component"
           value={value.guidance}
           onChange={(items) => onChange({ ...value, guidance: items })}
           addLabel="Add guidance"

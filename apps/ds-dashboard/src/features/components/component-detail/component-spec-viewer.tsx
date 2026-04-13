@@ -80,19 +80,6 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="font-mono text-xs">
-        {prop.default === null || prop.default === undefined ? (
-          <span className="text-muted-foreground">—</span>
-        ) : (
-          String(prop.default)
-        )}
-      </TableCell>
-      <TableCell>
-        <Badge variant={prop.required ? "success" : "neutral"}>
-          {prop.required ? "Yes" : "No"}
-        </Badge>
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">{prop.description}</TableCell>
     </TableRow>
   );
 }
@@ -101,15 +88,12 @@ interface ComponentSpecViewerProps {
   spec: PartialComponentSpec;
 }
 
-type PropertySortField = "name" | "type" | "values" | "default" | "required" | "description";
+type PropertySortField = "name" | "type" | "values";
 
 const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> = [
   { field: "name", label: "Name" },
   { field: "type", label: "Type" },
   { field: "values", label: "Values" },
-  { field: "default", label: "Default" },
-  { field: "required", label: "Required" },
-  { field: "description", label: "Description" },
 ];
 
 export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
@@ -146,10 +130,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
       const valueFor = (prop: SpecProperty) => {
         if (propertySort.field === "name") return prop.name.toLowerCase();
         if (propertySort.field === "type") return prop.type.toLowerCase();
-        if (propertySort.field === "values") return (prop.values || []).join("|").toLowerCase();
-        if (propertySort.field === "default") return String(prop.default ?? "").toLowerCase();
-        if (propertySort.field === "required") return prop.required ? 1 : 0;
-        return String(prop.description ?? "").toLowerCase();
+        return (prop.values || []).join("|").toLowerCase();
       };
       const aValue = valueFor(left);
       const bValue = valueFor(right);
