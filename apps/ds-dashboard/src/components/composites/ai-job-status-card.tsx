@@ -35,6 +35,10 @@ interface AiJobStatusCardProps {
     enablePolling?: boolean;
     /** Optional catalog map to resolve component name by Figma componentId */
     componentNamesById?: Record<string, string>;
+    /** Hide header (title/provider/status badge) for compact embedded contexts */
+    hideHeader?: boolean;
+    /** Hide "Show Preview" action button while preserving preview modal support elsewhere */
+    hidePreviewButton?: boolean;
 }
 
 const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'warning' | 'neutral'; label: string }> = {
@@ -208,6 +212,8 @@ export function AiJobStatusCard({
     externalEvents = [],
     enablePolling = true,
     componentNamesById,
+    hideHeader = false,
+    hidePreviewButton = false,
 }: AiJobStatusCardProps) {
     const { job, isLoading, error } = useAiJobStatus({
         jobId,
@@ -388,21 +394,23 @@ export function AiJobStatusCard({
 
     return (
         <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            {componentDisplayName}
-                        </CardTitle>
-                        <CardDescription>
-                            {job.input.provider} • {job.input.model || 'default model'}
-                        </CardDescription>
+            {!hideHeader && (
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                {componentDisplayName}
+                            </CardTitle>
+                            <CardDescription>
+                                {job.input.provider} • {job.input.model || 'default model'}
+                            </CardDescription>
+                        </div>
+                        <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
                     </div>
-                    <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
-                </div>
-            </CardHeader>
+                </CardHeader>
+            )}
 
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-5">
                 {/* Error display */}
                 {job.status === 'failed' && job.error && (
                     <StatusAlert
@@ -470,7 +478,7 @@ export function AiJobStatusCard({
                 )}
 
                 {/* Preview toggle */}
-                {job.status === 'completed' && job.output?.markdown && (
+                {job.status === 'completed' && job.output?.markdown && !hidePreviewButton && (
                     <div className="space-y-2">
                         <Button
                             variant="outline"

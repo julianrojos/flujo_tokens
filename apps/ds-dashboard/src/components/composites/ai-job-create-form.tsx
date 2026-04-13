@@ -44,6 +44,8 @@ interface AiJobCreateFormProps {
     existingDocStatus?: DocStatus;
     /** Whether existing doc status is still loading */
     isDocStatusLoading?: boolean;
+    /** Hide per-check labels in readiness section (useful in compact modals) */
+    hideReadinessLabels?: boolean;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] = AI_PROVIDER_ORDER.map((value) => ({
@@ -79,6 +81,7 @@ export function AiJobCreateForm({
     onComponentIdChange,
     existingDocStatus,
     isDocStatusLoading = false,
+    hideReadinessLabels = false,
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
     const [componentId, setComponentId] = useState(lockedComponentId || initialComponentId);
@@ -302,7 +305,7 @@ export function AiJobCreateForm({
                     ) : providerHealth ? (
                         <div className="mt-2 space-y-2">
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span>Figma plugin</span>
+                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>Figma plugin</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.figma.status)}>
                                     {providerHealth.checks.figma.status}
                                 </Badge>
@@ -310,7 +313,7 @@ export function AiJobCreateForm({
                             <p className="text-xs text-muted-foreground">{providerHealth.checks.figma.message}</p>
 
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span>AI provider</span>
+                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>AI provider</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.provider.status)}>
                                     {providerHealth.checks.provider.status}
                                 </Badge>
@@ -318,7 +321,7 @@ export function AiJobCreateForm({
                             <p className="text-xs text-muted-foreground">{providerHealth.checks.provider.message}</p>
 
                             <div className="flex items-center justify-between gap-2 text-sm">
-                                <span>Model</span>
+                                <span className={hideReadinessLabels ? 'sr-only' : undefined}>Model</span>
                                 <Badge variant={toneToVariant(providerHealth.checks.model.status)}>
                                     {providerHealth.checks.model.status}
                                 </Badge>
@@ -391,7 +394,7 @@ export function AiJobCreateForm({
 
             {/* Submit Button */}
             <div className="flex flex-col gap-2">
-                <Button type="submit" disabled={!isFormValid} className="w-full">
+                <Button type="submit" disabled={!isFormValid}>
                     {isPending ? 'Creating Job...' : 'Generate Documentation'}
                 </Button>
             </div>
