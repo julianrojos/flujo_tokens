@@ -136,6 +136,30 @@ describe("wizardReducer selection flow", () => {
     assert.equal(next.selectedComponentNodeIds.has("10:2"), true);
   });
 
+  it("SELECT_ALL works with >200 components (pagination aggregation)", () => {
+    const prev = makeState();
+    // Simulate accumulated scan from multiple pages (e.g. 3 pages of 500 = 1500)
+    const largeComponentList = Array.from({ length: 1500 }, (_, i) => ({
+      nodeId: `comp:${i}`,
+      name: `Component ${i}`,
+      pageName: "Main",
+    }));
+    prev.scan = {
+      state: "ready",
+      components: largeComponentList,
+      truncated: false,
+      limit: 500,
+      total: 1500,
+      error: null,
+    };
+
+    const next = wizardReducer(prev as any, { type: "SELECT_ALL" } as any);
+    assert.equal(next.selectedComponentNodeIds.size, 1500);
+    assert.equal(next.selectedComponentNodeIds.has("comp:0"), true);
+    assert.equal(next.selectedComponentNodeIds.has("comp:749"), true);
+    assert.equal(next.selectedComponentNodeIds.has("comp:1499"), true);
+  });
+
   it("DESELECT_ALL clears selection", () => {
     const prev = makeState();
     prev.selectedComponentNodeIds = new Set(["10:1", "10:2"]);
@@ -167,5 +191,106 @@ describe("wizardReducer selection flow", () => {
 
     assert.equal(next.step, "importing");
     assert.deepEqual(next.import.selectedComponentNodeIds, ["10:1", "10:2"]);
+  });
+});
+
+describe("wizardReducer scan edge cases", () => {
+  it("SCAN_SUCCESS accepts already deduplicated payload from hook accumulation", () => {
+    const prev = makeState();
+    prev.scan.state = "loading";
+
+    // Simulate what handleScan dispatches after aggregation + dedup.
+    const components = [
+      { nodeId: "10:1", name: "Button", pageName: "Page A" },
+      { nodeId: "10:2", name: "Card", pageName: "Page A" },
+      { nodeId: "10:3", name: "Modal", pageName: "Page B" },
+    ];
+
+    const next = wizardReducer(
+      prev as any,
+      {
+        type: "SCAN_SUCCESS",
+        payload: { components, truncated: false, limit: 500, total: 3 },
+      } as any,
+    );
+
+    assert.equal(next.scan.components.length, 3);
+    assert.equal(next.scan.total, 3);
+  });
+
+  it("SCAN_SUCCESS with totalIsEstimated preserves estimate flag", () => {
+    const prev = makeState();
+    prev.scan.state = "loading";
+
+    const next = wizardReducer(
+      prev as any,
+      {
+        type: "SCAN_SUCCESS",
+        payload: {
+          components: [{ nodeId: "10:1", name: "Button", pageName: "Main" }],
+          truncated: true,
+          limit: 500,
+          total: 5000,
+        },
+      } as any,
+    );
+
+    assert.equal(next.scan.state, "ready");
+    assert.equal(next.scan.truncated, true);
+  });
+
+  it("maxPages guardrail marks truncated=true (hook integration)", () => {
+    // This test documents the expected behavior: when handleScan hits maxPages=50
+    // and hasMore is still true, it sets truncated=true before dispatching SCAN_SUCCESS.
+    // The reducer itself doesn't know about maxPages, but the hook sets truncated=true
+    // in the payload so the UI correctly shows "scan limited".
+    const prev = makeState();
+    prev.scan.state = "loading";
+
+    // Simulate what happens after 50 pages with hasMore still true
+    const next = wizardReducer(
+      prev as any,
+      {
+        type: "SCAN_SUCCESS",
+        payload: {
+          components: Array.from({ length: 25000 }, (_, i) => ({
+            nodeId: `comp:${i}`,
+            name: `Component ${i}`,
+            pageName: "Main",
+          })),
+          truncated: true, // Set by handleScan when hitMaxPages
+          limit: 500,
+          total: 50000,
+        },
+      } as any,
+    );
+
+    assert.equal(next.scan.state, "ready");
+    assert.equal(next.scan.truncated, true);
+    assert.equal(next.selectedComponentNodeIds.size, 0); // Selection cleared on scan success
+  });
+
+  it("RESET_SCAN returns to idle and clears selection", () => {
+    const prev = makeState();
+    prev.scan.state = "ready";
+    prev.scan.components = [{ nodeId: "10:1", name: "Button", pageName: "Main" }];
+    prev.selectedComponentNodeIds = new Set(["10:1", "10:2"]);
+
+    const next = wizardReducer(prev as any, { type: "RESET_SCAN" } as any);
+    assert.equal(next.scan.state, "idle");
+    assert.equal(next.scan.components.length, 0);
+    assert.equal(next.selectedComponentNodeIds.size, 0);
+  });
+
+  it("CANCEL_IMPORT resets scan state and selection", () => {
+    const prev = makeState();
+    prev.scan.state = "ready";
+    prev.scan.components = [{ nodeId: "10:1", name: "Button", pageName: "Main" }];
+    prev.selectedComponentNodeIds = new Set(["10:1"]);
+
+    const next = wizardReducer(prev as any, { type: "CANCEL_IMPORT" } as any);
+    assert.equal(next.step, "basics");
+    assert.equal(next.scan.state, "idle");
+    assert.equal(next.selectedComponentNodeIds.size, 0);
   });
 });

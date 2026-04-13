@@ -428,7 +428,7 @@ describe('components handlers', () => {
   });
 
   describe('handleSearchComponents (P2)', () => {
-    it('searches components with limit and returns truncated flag', async () => {
+    it('searches components with limit and returns hasMore/nextOffset for pagination', async () => {
       const page1 = {
         id: 'page-1',
         name: 'Page 1',
@@ -455,13 +455,25 @@ describe('components handlers', () => {
       });
 
       const result = await handleSearchComponents({ limit: 2 });
-      const typed = result as { success: boolean; components: unknown[]; count: number; truncated: boolean };
+      const typed = result as {
+        success: boolean;
+        components: unknown[];
+        count: number;
+        truncated: boolean;
+        hasMore: boolean;
+        nextOffset: number | null;
+        total: number;
+      };
 
       expect(typed.success).toBe(true);
       expect(typed.count).toBe(2);
-      expect(typed.truncated).toBe(true);
-      expect(typed.components[0]?.name).toBe('Button');
-      expect(typed.components[1]?.name).toBe('Input');
+      // truncated is now only true when guardrail hits, not pagination
+      expect(typed.truncated).toBe(false);
+      expect(typed.hasMore).toBe(true);
+      expect(typed.nextOffset).toBe(2);
+      expect(typed.total).toBe(3);
+      expect((typed.components[0] as { name: string }).name).toBe('Button');
+      expect((typed.components[1] as { name: string }).name).toBe('Input');
     });
 
     it('filters by nameContains', async () => {
@@ -623,6 +635,363 @@ describe('components handlers', () => {
       const resultWith = await handleSearchComponents({ includeVariants: true });
       const typedWith = resultWith as { success: boolean; components: unknown[]; count: number };
       expect(typedWith.count).toBe(3); // 1 set + 2 variants
+    });
+
+    it('returns page 1 with hasMore=true and nextOffset when total > limit', async () => {
+      const components = Array.from({ length: 8 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result = await handleSearchComponents({ limit: 3, offset: 0 });
+      const typed = result as {
+        success: boolean;
+        components: Array<{ nodeId: string; name: string }>;
+        count: number;
+        total: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+        limit: number;
+      };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(3);
+      expect(typed.components.map((c) => c.name)).toEqual(['Component 0', 'Component 1', 'Component 2']);
+      expect(typed.total).toBe(8);
+      expect(typed.hasMore).toBe(true);
+      expect(typed.nextOffset).toBe(3);
+      expect(typed.limit).toBe(3);
+    });
+
+    it('returns page 2 with non-overlapping components from page 1', async () => {
+      const components = Array.from({ length: 8 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const page1 = await handleSearchComponents({ limit: 3, offset: 0 });
+      const page2 = await handleSearchComponents({ limit: 3, offset: 3 });
+
+      const typed1 = page1 as { success: boolean; components: Array<{ nodeId: string }> };
+      const typed2 = page2 as {
+        success: boolean;
+        components: Array<{ nodeId: string }>;
+        hasMore: boolean;
+        nextOffset: number | null;
+      };
+
+      // Pages should not overlap
+      const ids1 = new Set(typed1.components.map((c) => c.nodeId));
+      const ids2 = new Set(typed2.components.map((c) => c.nodeId));
+      expect([...ids1].filter((id) => ids2.has(id))).toHaveLength(0);
+
+      expect(typed2.components).toHaveLength(3);
+      expect(typed2.hasMore).toBe(true);
+      expect(typed2.nextOffset).toBe(6);
+    });
+
+    it('returns hasMore=false and nextOffset=null on last page', async () => {
+      const components = Array.from({ length: 5 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result = await handleSearchComponents({ limit: 3, offset: 3 });
+      const typed = result as {
+        success: boolean;
+        components: Array<{ nodeId: string }>;
+        count: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(2);
+      expect(typed.hasMore).toBe(false);
+      expect(typed.nextOffset).toBe(null);
+    });
+
+    it('returns empty components and hasMore=false when offset exceeds total', async () => {
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: [
+          { id: 'comp-1', key: 'k1', name: 'Button', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+          { id: 'comp-2', key: 'k2', name: 'Input', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+        ],
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result = await handleSearchComponents({ limit: 10, offset: 100 });
+      const typed = result as {
+        success: boolean;
+        components: Array<{ nodeId: string }>;
+        count: number;
+        hasMore: boolean;
+        nextOffset: number | null;
+      };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(0);
+      expect(typed.total).toBe(2);
+      expect(typed.hasMore).toBe(false);
+      expect(typed.nextOffset).toBe(null);
+    });
+
+    it('normalizes invalid offset and limit without crashing', async () => {
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: [
+          { id: 'comp-1', key: 'k1', name: 'Button', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+          { id: 'comp-2', key: 'k2', name: 'Input', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+          { id: 'comp-3', key: 'k3', name: 'Card', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+        ],
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      // Negative offset → clamped to 0
+      const negOffset = await handleSearchComponents({ offset: -5 });
+      expect((negOffset as { count: number }).count).toBe(3);
+
+      // Zero limit → clamped to 1
+      const zeroLimit = await handleSearchComponents({ limit: 0 });
+      expect((zeroLimit as { count: number }).count).toBe(1);
+
+      // Limit > 1000 → clamped to 1000
+      const overLimit = await handleSearchComponents({ limit: 9999 });
+      expect((overLimit as { limit: number }).limit).toBe(1000);
+
+      // Non-numeric offset/limit → fallback to defaults
+      const invalidNumbers = await handleSearchComponents({ offset: 'abc' as unknown as number, limit: 'abc' as unknown as number });
+      expect((invalidNumbers as { count: number; limit: number }).count).toBe(3);
+      expect((invalidNumbers as { count: number; limit: number }).limit).toBe(50);
+    });
+
+    it('maintains stable order across identical calls', async () => {
+      const components = Array.from({ length: 5 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result1 = await handleSearchComponents({ limit: 10 });
+      const result2 = await handleSearchComponents({ limit: 10 });
+
+      const typed1 = result1 as { components: Array<{ nodeId: string }> };
+      const typed2 = result2 as { components: Array<{ nodeId: string }> };
+
+      expect(typed1.components.map((c) => c.nodeId)).toEqual(typed2.components.map((c) => c.nodeId));
+    });
+
+    it('reuses cached scan snapshot for paginated requests with same filters', async () => {
+      const components = Array.from({ length: 8 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      let loadAllPagesCalls = 0;
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => {
+          loadAllPagesCalls += 1;
+        },
+      });
+
+      await handleSearchComponents({ limit: 3, offset: 0, scanSessionId: 'scan-1' });
+      await handleSearchComponents({ limit: 3, offset: 3, scanSessionId: 'scan-1' });
+
+      expect(loadAllPagesCalls).toBe(1);
+    });
+
+    it('does not reuse cached snapshot across different scan sessions', async () => {
+      const components = Array.from({ length: 2 }, (_, i) => ({
+        id: `comp-${i}`,
+        key: `k${i}`,
+        name: `Component ${i}`,
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: components,
+      };
+
+      let loadAllPagesCalls = 0;
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => {
+          loadAllPagesCalls += 1;
+        },
+      });
+
+      const firstSession = await handleSearchComponents({ limit: 10, scanSessionId: 'scan-a' });
+      expect((firstSession as { total: number }).total).toBe(2);
+
+      page.children.push({
+        id: 'comp-2',
+        key: 'k2',
+        name: 'Component 2',
+        type: 'COMPONENT' as const,
+        description: '',
+        width: 100,
+        height: 40,
+        componentPropertyDefinitions: {},
+        parent: null as unknown,
+      });
+
+      const secondSession = await handleSearchComponents({ limit: 10, scanSessionId: 'scan-b' });
+      expect((secondSession as { total: number }).total).toBe(3);
+      expect(loadAllPagesCalls).toBe(2);
+    });
+
+    it('avoids hasMore=true when total is estimated but current page is not full', async () => {
+      const manyFrames = Array.from({ length: 20_050 }, (_, i) => ({
+        id: `frame-${i}`,
+        name: `Frame ${i}`,
+        type: 'FRAME' as const,
+        children: [],
+      }));
+
+      const page = {
+        id: 'page-1',
+        name: 'Page 1',
+        type: 'PAGE' as const,
+        children: manyFrames,
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result = await handleSearchComponents({ limit: 50, offset: 0, scanSessionId: 'scan-estimated' });
+      const typed = result as {
+        totalIsEstimated: boolean;
+        hasMore: boolean;
+        count: number;
+        nextOffset: number | null;
+      };
+
+      expect(typed.totalIsEstimated).toBe(true);
+      expect(typed.count).toBe(0);
+      expect(typed.hasMore).toBe(false);
+      expect(typed.nextOffset).toBe(null);
     });
   });
 

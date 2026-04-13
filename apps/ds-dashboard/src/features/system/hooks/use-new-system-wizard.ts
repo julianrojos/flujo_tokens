@@ -294,18 +294,70 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     dispatch({ type: "SCAN_START" });
 
     try {
-      const result = await scanFigmaComponents({
-        figmaUrl: state.form.figmaFileUrl.trim(),
-        figmaToken: state.form.figmaAccessToken.trim() || undefined,
-      });
+      const figmaUrl = state.form.figmaFileUrl.trim();
+      const figmaToken = state.form.figmaAccessToken.trim() || undefined;
+      const allComponents = new Map<string, ScannedComponent>();
+      let total = 0;
+      let limit = 500;
+      let truncated = false;
+      let offset = 0;
+      const scanSessionId =
+        typeof globalThis.crypto?.randomUUID === "function"
+          ? globalThis.crypto.randomUUID()
+          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const maxPages = 50;
+      let page = 0;
+      let hitMaxPages = false;
+
+      do {
+        page += 1;
+        const result = await scanFigmaComponents({
+          figmaUrl,
+          figmaToken,
+          limit: 500,
+          offset,
+          scanSessionId,
+        });
+
+        for (const c of result.components) {
+          if (!allComponents.has(c.nodeId)) {
+            allComponents.set(c.nodeId, c);
+          }
+        }
+
+        total = result.total;
+        limit = result.limit;
+        truncated = result.truncated;
+
+        if (result.totalIsEstimated) {
+          truncated = true;
+          break;
+        }
+
+        if (result.hasMore && result.nextOffset !== null) {
+          offset = result.nextOffset;
+        } else {
+          break;
+        }
+
+        if (page >= maxPages) {
+          hitMaxPages = true;
+          break;
+        }
+      } while (page < maxPages);
+
+      // If we hit the max pages guardrail, mark as truncated
+      if (hitMaxPages) {
+        truncated = true;
+      }
 
       dispatch({
         type: "SCAN_SUCCESS",
         payload: {
-          components: result.components || [],
-          truncated: result.truncated || false,
-          limit: result.limit || 0,
-          total: result.total || 0,
+          components: Array.from(allComponents.values()),
+          truncated,
+          limit,
+          total,
         },
       });
     } catch (cause) {

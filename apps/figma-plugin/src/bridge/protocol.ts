@@ -725,8 +725,10 @@ export interface SearchComponentsParams {
   nameContains?: string;
   namePattern?: string;
   includeVariants?: boolean; // default false
-  limit?: number;            // default 50, max 200
+  limit?: number;            // default 50, max 1000
   compact?: boolean;         // default true
+  offset?: number;           // default 0, page start index
+  scanSessionId?: string;    // optional client scan session scope for ephemeral pagination cache
 }
 
 export interface CompactComponentResult {
@@ -748,8 +750,12 @@ export interface SearchComponentsResult {
   total: number;
   /** True when `total` is a lower-bound estimate due to guardrail cutoff. */
   totalIsEstimated: boolean;
-  /** Effective limit applied by the handler (1..200). */
+  /** Effective limit applied by the handler (1..1000). */
   limit: number;
+  /** True when more results exist beyond this page. */
+  hasMore: boolean;
+  /** Offset for the next page, or null when no more pages. */
+  nextOffset: number | null;
 }
 
 // --- GET_COMPONENT_SPEC ---

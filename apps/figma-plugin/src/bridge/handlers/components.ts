@@ -40,6 +40,88 @@ import {
 import { stripDiacritics } from '../utils/strip-diacritics.js';
 
 const PAGE_BATCH_SIZE = 3;
+const SEARCH_COMPONENTS_CACHE_TTL_MS = 30_000;
+
+interface SearchComponentsSnapshot {
+  createdAt: number;
+  cacheKey: string;
+  matches: CompactComponentResult[];
+  total: number;
+  totalIsEstimated: boolean;
+}
+
+let searchComponentsSnapshotCache: SearchComponentsSnapshot | null = null;
+
+function normalizeOffset(value: unknown): number {
+  const raw = Number(value ?? 0);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.floor(raw));
+}
+
+function normalizeLimit(value: unknown): number {
+  const raw = Number(value ?? 50);
+  if (!Number.isFinite(raw)) return 50;
+  return Math.max(1, Math.min(Math.floor(raw), 1000));
+}
+
+function normalizeScanSessionId(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  if (normalized.length === 0) return '';
+  return normalized.slice(0, 128);
+}
+
+function getSearchComponentsCacheKey(
+  params: SearchComponentsParams,
+  scanSessionId: string
+): string {
+  const nameContains = (params.nameContains ?? '').toLowerCase();
+  const namePattern = params.namePattern ?? '';
+  const includeVariants = params.includeVariants === true;
+  const fileKey = figma.fileKey ?? '';
+  const fileName = figma.root?.name ?? '';
+  const pageSignatures = Array.isArray(figma.root?.children)
+    ? figma.root.children.map(page => ({
+      id: page.id,
+      name: page.name,
+      childCount: 'children' in page ? page.children.length : 0,
+    }))
+    : [];
+  return JSON.stringify({
+    scanSessionId,
+    fileKey,
+    fileName,
+    pageSignatures,
+    nameContains,
+    namePattern,
+    includeVariants,
+  });
+}
+
+function getCachedSearchComponentsSnapshot(
+  cacheKey: string
+): SearchComponentsSnapshot | null {
+  if (!searchComponentsSnapshotCache) return null;
+  if (searchComponentsSnapshotCache.cacheKey !== cacheKey) return null;
+  if (Date.now() - searchComponentsSnapshotCache.createdAt > SEARCH_COMPONENTS_CACHE_TTL_MS) {
+    searchComponentsSnapshotCache = null;
+    return null;
+  }
+  return searchComponentsSnapshotCache;
+}
+
+function setCachedSearchComponentsSnapshot(
+  snapshot: SearchComponentsSnapshot
+): void {
+  searchComponentsSnapshotCache = snapshot;
+}
+
+function clearStaleSearchComponentsSnapshot(): void {
+  if (!searchComponentsSnapshotCache) return;
+  if (Date.now() - searchComponentsSnapshotCache.createdAt > SEARCH_COMPONENTS_CACHE_TTL_MS) {
+    searchComponentsSnapshotCache = null;
+  }
+}
 
 // ============================================================================
 // Type Helpers
@@ -783,10 +865,18 @@ export async function handleSearchComponents(
     const nameContains = params.nameContains?.toLowerCase();
     const namePattern = params.namePattern ? new RegExp(params.namePattern, 'i') : null;
     const includeVariants = params.includeVariants ?? false;
-    const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
-
-    const components: CompactComponentResult[] = [];
+    const offset = normalizeOffset(params.offset);
+    const limit = normalizeLimit(params.limit);
+    const scanSessionId = normalizeScanSessionId(params.scanSessionId);
+    const enableCache = scanSessionId.length > 0;
+    const cacheKey = enableCache ? getSearchComponentsCacheKey(params, scanSessionId) : '';
+    if (enableCache) {
+      clearStaleSearchComponentsSnapshot();
+    }
+    const cached = enableCache ? getCachedSearchComponentsSnapshot(cacheKey) : null;
     let totalMatches = 0;
+    let totalIsEstimated = false;
+    let matches: CompactComponentResult[] = [];
 
     // Helper to check name filters
     function passesNameFilter(node: BaseNode): boolean {
@@ -826,91 +916,98 @@ export async function handleSearchComponents(
       };
     }
 
-    // BFS traversal
-    // SC-01: loadAllPagesAsync() loads ALL pages into memory - this is a fixed cost.
-    // The Figma plugin API does not support partial page loads.
-    // Early-exit at limit only stops BFS traversal, NOT the page loading.
-    await figma.loadAllPagesAsync();
-    const queue: Array<{ node: BaseNode; pageName: string }> = figma.root.children.map(page => ({
-      node: page,
-      pageName: page.name,
-    }));
-    const maxVisitedNodes = 20_000;
-    let visitedNodes = 0;
-    let didHitLimit = false;
-    let totalIsEstimated = false;
+    if (cached) {
+      matches = cached.matches;
+      totalMatches = cached.total;
+      totalIsEstimated = cached.totalIsEstimated;
+    } else {
+      // BFS traversal
+      // SC-01: loadAllPagesAsync() loads ALL pages into memory - this is a fixed cost.
+      // The Figma plugin API does not support partial page loads.
+      // We cache this snapshot briefly so paginated requests do not re-traverse each page.
+      await figma.loadAllPagesAsync();
+      const queue: Array<{ node: BaseNode; pageName: string }> = figma.root.children.map(page => ({
+        node: page,
+        pageName: page.name,
+      }));
+      const maxVisitedNodes = 20_000;
+      let visitedNodes = 0;
 
-    while (queue.length > 0) {
-      if (visitedNodes >= maxVisitedNodes) {
-        totalIsEstimated = true;
-        break;
-      }
-      visitedNodes += 1;
-      const { node, pageName } = queue.shift()!;
+      while (queue.length > 0) {
+        if (visitedNodes >= maxVisitedNodes) {
+          totalIsEstimated = true;
+          break;
+        }
+        visitedNodes += 1;
+        const { node, pageName } = queue.shift()!;
 
-      if (node.type === 'COMPONENT_SET') {
-        const componentSet = node as ComponentSetNode;
-        if (passesNameFilter(componentSet)) {
-          totalMatches += 1;
-          if (components.length < limit) {
-            components.push(extractCompact(componentSet, pageName));
-          } else {
-            didHitLimit = true;
-          }
+        if (node.type === 'COMPONENT_SET') {
+          const componentSet = node as ComponentSetNode;
+          if (passesNameFilter(componentSet)) {
+            totalMatches += 1;
+            matches.push(extractCompact(componentSet, pageName));
 
-          // Include variants if requested
-          if (includeVariants) {
-            for (const child of componentSet.children) {
-              if (child.type === 'COMPONENT') {
-                if (passesNameFilter(child)) {
+            // Include variants if requested
+            if (includeVariants) {
+              for (const child of componentSet.children) {
+                if (child.type === 'COMPONENT' && passesNameFilter(child)) {
                   totalMatches += 1;
-                  if (components.length < limit) {
-                    components.push({
-                      key: child.key,
-                      nodeId: child.id,
-                      name: child.name,
-                      type: 'COMPONENT',
-                      pageName,
-                    });
-                  } else {
-                    didHitLimit = true;
-                  }
+                  matches.push({
+                    key: child.key,
+                    nodeId: child.id,
+                    name: child.name,
+                    type: 'COMPONENT',
+                    pageName,
+                  });
                 }
               }
             }
           }
-        }
-      } else if (node.type === 'COMPONENT') {
-        const component = node as ComponentNode;
-        // Only add standalone components (not variants inside component sets)
-        if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
-          if (passesNameFilter(component)) {
+        } else if (node.type === 'COMPONENT') {
+          const component = node as ComponentNode;
+          // Only add standalone components (not variants inside component sets)
+          if ((!component.parent || component.parent.type !== 'COMPONENT_SET') && passesNameFilter(component)) {
             totalMatches += 1;
-            if (components.length < limit) {
-              components.push(extractCompact(component, pageName));
-            } else {
-              didHitLimit = true;
-            }
+            matches.push(extractCompact(component, pageName));
+          }
+        }
+
+        // Add children to queue
+        if ('children' in node) {
+          for (const child of node.children) {
+            queue.push({ node: child, pageName });
           }
         }
       }
 
-      // Add children to queue
-      if ('children' in node) {
-        for (const child of node.children) {
-          queue.push({ node: child, pageName });
-        }
+      if (enableCache) {
+        setCachedSearchComponentsSnapshot({
+          createdAt: Date.now(),
+          cacheKey,
+          matches,
+          total: totalMatches,
+          totalIsEstimated,
+        });
       }
     }
+
+    const components = matches.slice(offset, offset + limit);
+    const knownHasMore = totalMatches > offset + components.length;
+    const hasMore = totalIsEstimated
+      ? (components.length === limit || knownHasMore)
+      : knownHasMore;
+    const nextOffset = hasMore && components.length > 0 ? offset + components.length : null;
 
     return {
       success: true,
       components,
       count: components.length,
-      truncated: didHitLimit || totalMatches > components.length || totalIsEstimated,
+      truncated: totalIsEstimated,
       total: totalMatches,
       totalIsEstimated,
       limit,
+      hasMore,
+      nextOffset,
     };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors

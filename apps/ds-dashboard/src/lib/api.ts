@@ -989,6 +989,12 @@ export interface SyncFigmaTokensResult {
 export interface ScanComponentsArgs {
   figmaUrl: string;
   figmaToken?: string;
+  /** Page size (1..1000, default 500). */
+  limit?: number;
+  /** Page start index (default 0). */
+  offset?: number;
+  /** Optional session id to scope plugin-side pagination cache to a single scan flow. */
+  scanSessionId?: string;
 }
 
 export interface ScanComponentEntry {
@@ -1003,6 +1009,12 @@ export interface ScanComponentsResult {
   limit: number;
   /** Total components matching filters before applying limit. */
   total: number;
+  /** True when total is a lower-bound estimate due to guardrail. */
+  totalIsEstimated: boolean;
+  /** True when more results exist beyond this page. */
+  hasMore: boolean;
+  /** Offset for the next page, or null when no more pages. */
+  nextOffset: number | null;
 }
 
 export interface FigmaMcpPingResult {
@@ -1109,6 +1121,12 @@ interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
   ok?: boolean;
   tools?: string[];
   toolsDiscoveryError?: string;
+  transport?: {
+    mode?: 'direct' | 'ws' | 'none';
+    wsAlive?: boolean;
+    heartbeatAlive?: boolean;
+    livenessSource?: 'ws' | 'legacy' | 'hybrid' | 'none';
+  };
   mcp?: {
     connected?: boolean;
     code?: string;
@@ -1131,6 +1149,24 @@ async function fetchFigmaMcpCapabilities(
   }
 }
 
+interface McpTransportSignals {
+  mode: 'direct' | 'ws' | 'none';
+  wsAlive: boolean;
+  heartbeatAlive: boolean;
+}
+
+function getMcpTransportSignals(payload: FigmaMcpCapabilitiesResponse): McpTransportSignals {
+  return {
+    mode: payload.transport?.mode ?? 'none',
+    wsAlive: payload.transport?.wsAlive === true,
+    heartbeatAlive: payload.transport?.heartbeatAlive === true,
+  };
+}
+
+function isDirectTransportSessionUnavailable(signals: McpTransportSignals): boolean {
+  return signals.mode === 'direct' && !signals.wsAlive && signals.heartbeatAlive;
+}
+
 /**
  * Classify the reason for MCP disconnection based on capabilities payload.
  * Timeout cases are handled in pingFigmaMcp() catch (ApiError 408), so this
@@ -1139,6 +1175,11 @@ async function fetchFigmaMcpCapabilities(
 function classifyPingDisconnectionReason(
   payload: FigmaMcpCapabilitiesResponse,
 ): 'no_plugin_session' | 'reachable_but_no_session' {
+  const signals = getMcpTransportSignals(payload);
+  if (isDirectTransportSessionUnavailable(signals)) {
+    return 'reachable_but_no_session';
+  }
+
   // Use mcp.code for accurate classification (payload.ok is always true for /capabilities)
   const mcpCode = payload.mcp?.code;
 
@@ -1160,7 +1201,13 @@ function toMcpPingResultFromCapabilities(
   payload: FigmaMcpCapabilitiesResponse,
 ): FigmaMcpPingResult {
   const normalized = normalizeMcpCapabilities(payload);
-  const connected = payload.mcp?.connected === true;
+  const signals = getMcpTransportSignals(payload);
+  // In direct mode, a live WebSocket session is required for file-scoped operations
+  // like component scan/spec. Heartbeat-only fallback should not be treated as connected.
+  const connected =
+    signals.mode === 'direct'
+      ? signals.wsAlive
+      : payload.mcp?.connected === true;
   if (connected) {
     return {
       ok: true,
@@ -1178,7 +1225,9 @@ function toMcpPingResultFromCapabilities(
     connected: false,
     code: "mcp.not_connected",
     message:
-      payload.mcp?.message ||
+      (isDirectTransportSessionUnavailable(signals)
+        ? "Plugin heartbeat is active, but transport is not connected yet."
+        : payload.mcp?.message) ||
       (normalized.hasVariablesData
         ? "DS Graph is reachable, but no active plugin session was found."
         : "No DS Graph plugin session is active. Open the Figma plugin and retry."),
@@ -1240,7 +1289,12 @@ export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
 export async function scanFigmaComponents(
   args: ScanComponentsArgs,
 ): Promise<ScanComponentsResult> {
-  const requestedLimit = 200;
+  const rawLimit = Number(args.limit ?? 500);
+  const requestedLimit = Number.isFinite(rawLimit)
+    ? Math.max(1, Math.min(Math.floor(rawLimit), 1000))
+    : 500;
+  const rawOffset = Number(args.offset ?? 0);
+  const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
   const payload = await requestJson<Record<string, unknown>>("/api/figma-mcp/search-components", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1248,6 +1302,8 @@ export async function scanFigmaComponents(
       figmaUrl: args.figmaUrl,
       figmaToken: args.figmaToken,
       limit: requestedLimit,
+      offset,
+      scanSessionId: args.scanSessionId,
       compact: true,
       includeVariants: false,
     }),
@@ -1276,11 +1332,19 @@ export async function scanFigmaComponents(
       .filter((entry) => entry.nodeId.length > 0)
     : [];
 
+  const rawNextOffset = Number(payload.nextOffset);
+  const nextOffset = Number.isFinite(rawNextOffset)
+    ? Math.max(0, Math.floor(rawNextOffset))
+    : null;
+
   return {
     components,
     truncated: payload.truncated === true,
     limit: Number(payload.limit) || requestedLimit,
     total: Number(payload.total) || Number(payload.count) || components.length,
+    totalIsEstimated: payload.totalIsEstimated === true,
+    hasMore: payload.hasMore === true,
+    nextOffset,
   };
 }
 

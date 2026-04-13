@@ -197,4 +197,33 @@ describe("WizardStepBasics", () => {
     assert.match(html, /Button/);
     assert.match(html, /Modal/);
   });
+
+  it("enables Select all when truncated=false even with >200 components", () => {
+    // Simulates aggregated scan from multiple pages (e.g. 3 pages of 500 = 1500)
+    const largeComponentList = Array.from({ length: 1500 }, (_, i) => ({
+      nodeId: `comp:${i}`,
+      name: `Component ${i}`,
+      pageName: "Main",
+    }));
+
+    const html = renderToStaticMarkup(
+      React.createElement(WizardStepBasics, {
+        ...defaultProps,
+        derived: {
+          ...defaultProps.derived,
+          scanState: "ready" as const,
+          scanComponents: largeComponentList,
+          scanTruncated: false,
+          scanTotal: 1500,
+          scanLimit: 500,
+          canSelectAll: true,
+        },
+      }),
+    );
+
+    // Select all should NOT have "disabled — truncated" badge
+    assert.doesNotMatch(html, /disabled.*truncated/);
+    // Import button should NOT be disabled
+    assert.match(html, /Import Design System/);
+  });
 });

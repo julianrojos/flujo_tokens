@@ -49,7 +49,9 @@ interface HandlerBody {
  *   nameContains?: string – Case-insensitive substring filter
  *   namePattern?: string – Regex pattern filter
  *   includeVariants?: boolean – Include variant COMPONENTs (default: false)
- *   limit?: number – Max results (default: 50, max: 200)
+ *   limit?: number – Max results per page (default: 50, max: 1000)
+ *   offset?: number – Page start index (default: 0)
+ *   scanSessionId?: string – Optional session key to scope plugin-side page cache
  *   compact?: boolean – Return compact format (default: true)
  *
  * Response:
@@ -57,10 +59,12 @@ interface HandlerBody {
  *     success: true,
  *     components: [...],
  *     count: number,            // returned items
- *     truncated: boolean,
- *     total: number,            // total matches before limit (or lower-bound when totalIsEstimated=true)
- *     totalIsEstimated: boolean,
- *     limit: number
+ *     total: number,            // total matches before pagination
+ *     hasMore: boolean,         // true when more pages exist
+ *     nextOffset: number | null, // offset for next page
+ *     truncated: boolean,       // true when guardrail cutoff hit
+ *     totalIsEstimated: boolean, // true when total is a lower-bound estimate
+ *     limit: number              // effective page size
  *   }
  */
 async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteDeps): Promise<Response> {
@@ -102,6 +106,8 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
       includeVariants: body.includeVariants as boolean | undefined,
       limit: body.limit as number | undefined,
       compact: body.compact as boolean | undefined,
+      offset: body.offset as number | undefined,
+      scanSessionId: body.scanSessionId as string | undefined,
     });
 
     return c.json({ ok: true, ...result }, 200);

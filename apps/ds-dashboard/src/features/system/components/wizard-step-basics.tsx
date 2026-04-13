@@ -182,13 +182,13 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
           </Button>
           {derived.scanState === "loading" ? (
             <span className="text-xs text-muted-foreground">
-              Still scanning… ({scanElapsedSeconds}s elapsed)
+              Scanning components… ({scanElapsedSeconds}s)
             </span>
           ) : null}
           {derived.scanState === "ready" && (
             <span className="text-xs text-muted-foreground">
               {derived.scanTruncated
-                ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (limit: ${derived.scanLimit})`
+                ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (scan limited at ${derived.scanLimit})`
                 : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? "" : "s"} found`}
             </span>
           )}
@@ -233,7 +233,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                 />
                 Select all
                 {!derived.canSelectAll && (
-                  <Badge variant="outline" className="ml-1 text-[10px]">disabled — truncated</Badge>
+                  <Badge variant="neutral" className="ml-1 text-[10px]">disabled — truncated</Badge>
                 )}
               </label>
               <Input
