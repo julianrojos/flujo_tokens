@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useReducer, useState } from "react";
 
-import { createDesignSystem } from "@/lib/api";
+import { createDesignSystem, scanFigmaComponents } from "@/lib/api";
 import { toApiErrorDisplay, type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import type { CaptureFigmaProgress } from "@/lib/api";
@@ -12,6 +12,24 @@ import {
 } from "../lib/new-system-transforms";
 
 type WizardStep = "basics" | "importing" | "done";
+
+/** Scan state machine: idle → loading → ready|error|empty */
+export type ScanState = "idle" | "loading" | "ready" | "error" | "empty";
+
+export interface ScannedComponent {
+  nodeId: string;
+  name: string;
+  pageName: string;
+}
+
+export interface ScanResult {
+  state: ScanState;
+  components: ScannedComponent[];
+  truncated: boolean;
+  limit: number;
+  total: number;
+  error: string | null;
+}
 
 interface WizardFormState {
   systemName: string;
@@ -34,16 +52,32 @@ interface WizardImportState {
   sourceUrl: string;
   sourceFileKey: string;
   successSummary: ImportSuccessSummary | null;
+  importMode: "full" | "partial";
+  selectedCount: number;
+  notSelectedCount: number;
+  selectedComponentNodeIds: string[];
 }
 
 interface WizardState {
   step: WizardStep;
   form: WizardFormState;
   import: WizardImportState;
+  scan: ScanResult;
+  selectedComponentNodeIds: Set<string>;
 }
 
 type WizardAction =
   | { type: "SET_FORM_FIELD"; field: keyof WizardFormState; value: string | boolean }
+  | { type: "SCAN_START" }
+  | {
+    type: "SCAN_SUCCESS";
+    payload: { components: ScannedComponent[]; truncated: boolean; limit: number; total: number };
+  }
+  | { type: "SCAN_ERROR"; payload: string }
+  | { type: "TOGGLE_COMPONENT"; nodeId: string }
+  | { type: "SELECT_ALL" }
+  | { type: "DESELECT_ALL" }
+  | { type: "RESET_SCAN" }
   | {
     type: "START_IMPORT";
     payload: {
@@ -52,6 +86,10 @@ type WizardAction =
       sourceFileKey: string;
       makeDefault: boolean;
       systemsSnapshot: Array<{ id: string; name: string }>;
+      importMode: "full" | "partial";
+      selectedCount: number;
+      notSelectedCount: number;
+      selectedComponentNodeIds: string[];
     };
   }
   | { type: "IMPORT_PROGRESS"; payload: CaptureFigmaProgress }
@@ -59,6 +97,15 @@ type WizardAction =
   | { type: "IMPORT_ERROR"; payload: { message: string; details: string; pipelinePhase?: string } }
   | { type: "CANCEL_IMPORT" }
   | { type: "RESET" };
+
+const emptyScan: ScanResult = {
+  state: "idle",
+  components: [],
+  truncated: false,
+  limit: 0,
+  total: 0,
+  error: null,
+};
 
 const initialState: WizardState = {
   step: "basics",
@@ -82,13 +129,64 @@ const initialState: WizardState = {
     sourceUrl: "",
     sourceFileKey: "",
     successSummary: null,
+    importMode: "full",
+    selectedCount: 0,
+    notSelectedCount: 0,
+    selectedComponentNodeIds: [],
   },
+  scan: emptyScan,
+  selectedComponentNodeIds: new Set(),
 };
 
-function wizardReducer(state: WizardState, action: WizardAction): WizardState {
+export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
     case "SET_FORM_FIELD":
       return { ...state, form: { ...state.form, [action.field]: action.value } };
+
+    case "SCAN_START":
+      return { ...state, scan: { ...emptyScan, state: "loading" }, selectedComponentNodeIds: new Set() };
+
+    case "SCAN_SUCCESS": {
+      const components = action.payload.components;
+      return {
+        ...state,
+        scan: {
+          state: components.length === 0 ? "empty" : "ready",
+          components,
+          truncated: action.payload.truncated,
+          limit: action.payload.limit,
+          total: action.payload.total,
+          error: null,
+        },
+        selectedComponentNodeIds: new Set(),
+      };
+    }
+
+    case "SCAN_ERROR":
+      return { ...state, scan: { ...emptyScan, state: "error", error: action.payload } };
+
+    case "TOGGLE_COMPONENT": {
+      const next = new Set(state.selectedComponentNodeIds);
+      if (next.has(action.nodeId)) {
+        next.delete(action.nodeId);
+      } else {
+        next.add(action.nodeId);
+      }
+      return { ...state, selectedComponentNodeIds: next };
+    }
+
+    case "SELECT_ALL":
+      return {
+        ...state,
+        selectedComponentNodeIds: new Set(state.scan.components.map((c) => c.nodeId)),
+      };
+
+    case "DESELECT_ALL":
+      return { ...state, selectedComponentNodeIds: new Set() };
+
+    case "RESET_SCAN":
+      return { ...state, scan: emptyScan, selectedComponentNodeIds: new Set() };
+
     case "START_IMPORT":
       if (!action.payload.jobId.trim()) {
         return state;
@@ -103,8 +201,13 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
           systemsSnapshot: action.payload.systemsSnapshot,
           sourceUrl: action.payload.sourceUrl,
           sourceFileKey: action.payload.sourceFileKey,
+          importMode: action.payload.importMode,
+          selectedCount: action.payload.selectedCount,
+          notSelectedCount: action.payload.notSelectedCount,
+          selectedComponentNodeIds: action.payload.selectedComponentNodeIds,
         },
       };
+
     case "IMPORT_PROGRESS":
       return { ...state, import: { ...state.import, progress: action.payload } };
     case "IMPORT_SUCCESS":
@@ -124,9 +227,9 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         },
       };
     case "CANCEL_IMPORT":
-      return { ...state, step: "basics", import: initialState.import };
+      return { ...state, step: "basics", import: initialState.import, scan: emptyScan, selectedComponentNodeIds: new Set() };
     case "RESET":
-      return initialState;
+      return { ...initialState, scan: emptyScan, selectedComponentNodeIds: new Set() };
     default:
       return state;
   }
@@ -136,9 +239,13 @@ interface NewSystemWizardViewModel {
   step: WizardStep;
   form: WizardFormState;
   importState: WizardImportState;
+  scan: ScanResult;
+  selectedComponentNodeIds: Set<string>;
   generatedSystemId: string;
   figmaFileId: string;
   isFormValid: boolean;
+  canSelectAll: boolean;
+  hasSelection: boolean;
   isImporting: boolean;
   importCompleted: boolean;
   saving: boolean;
@@ -146,7 +253,11 @@ interface NewSystemWizardViewModel {
   showImportErrorDetails: boolean;
   isCancellingImport: boolean;
   setFormField: (field: keyof WizardFormState, value: string | boolean) => void;
-  handleSubmitBasics: () => Promise<void>;
+  handleScan: () => Promise<void>;
+  handleImportDesignSystem: () => Promise<void>;
+  toggleComponent: (nodeId: string) => void;
+  selectAll: () => void;
+  deselectAll: () => void;
   updateImportProgress: (progress: CaptureFigmaProgress) => void;
   completeImport: (summary: ImportSuccessSummary) => void;
   failImport: (message: string, details: string, pipelinePhase?: string) => void;
@@ -169,6 +280,8 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     () => state.form.systemName.trim().length > 0 && state.form.figmaFileUrl.trim().length > 0 && figmaFileId.length > 0,
     [state.form.systemName, state.form.figmaFileUrl, figmaFileId],
   );
+  const canSelectAll = state.scan.state === "ready" && !state.scan.truncated && state.scan.components.length > 0;
+  const hasSelection = state.selectedComponentNodeIds.size > 0;
   const isImporting = state.step === "importing";
   const importCompleted = state.step === "done";
 
@@ -176,16 +289,50 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     dispatch({ type: "SET_FORM_FIELD", field, value });
   }, []);
 
-  const handleSubmitBasics = useCallback(async () => {
+  const handleScan = useCallback(async () => {
+    if (!state.form.figmaFileUrl.trim()) return;
+    dispatch({ type: "SCAN_START" });
+
+    try {
+      const result = await scanFigmaComponents({
+        figmaUrl: state.form.figmaFileUrl.trim(),
+        figmaToken: state.form.figmaAccessToken.trim() || undefined,
+      });
+
+      dispatch({
+        type: "SCAN_SUCCESS",
+        payload: {
+          components: result.components || [],
+          truncated: result.truncated || false,
+          limit: result.limit || 0,
+          total: result.total || 0,
+        },
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      dispatch({ type: "SCAN_ERROR", payload: message });
+    }
+  }, [state.form.figmaFileUrl, state.form.figmaAccessToken]);
+
+  const handleImportDesignSystem = useCallback(async () => {
     if (!isFormValid) return;
     setSaving(true);
     setSaveError(null);
 
     try {
+      const capturedSelection = new Set(state.selectedComponentNodeIds);
+      const capturedScan = state.scan;
       const systemId = state.form.systemIdOverride.trim() || generatedSystemId;
       const safeInputDir = `design-systems/${systemId}/input`;
       const documentWideUrl = toDocumentWideFigmaUrl(state.form.figmaFileUrl);
       const sourceFileKey = extractFigmaFileIdFromUrl(state.form.figmaFileUrl);
+
+      const hasSelection = capturedSelection.size > 0;
+      const isSelectionSubset =
+        capturedScan.state === "ready" &&
+        capturedScan.components.length > 0 &&
+        capturedSelection.size < capturedScan.components.length;
+      const isPartial = hasSelection && isSelectionSubset;
 
       const result = await createDesignSystem({
         id: systemId,
@@ -212,6 +359,11 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         state.form.makeDefault ? { activeSystemId: result.system.id } : undefined,
       );
 
+      const importMode = isPartial ? "partial" : "full";
+      const selectedCount = isPartial ? capturedSelection.size : capturedScan.components.length;
+      const notSelectedCount = isPartial ? Math.max(0, capturedScan.components.length - selectedCount) : 0;
+      const selectedComponentNodeIds = isPartial ? Array.from(capturedSelection) : [];
+
       dispatch({
         type: "START_IMPORT",
         payload: {
@@ -220,6 +372,10 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
           systemsSnapshot: result.config.systems,
           sourceUrl: documentWideUrl,
           sourceFileKey,
+          importMode,
+          selectedCount,
+          notSelectedCount,
+          selectedComponentNodeIds,
         },
       });
     } catch (cause) {
@@ -232,7 +388,19 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, replaceSystems, state.form]);
+  }, [generatedSystemId, isFormValid, replaceSystems, state.form, state.scan, state.selectedComponentNodeIds]);
+
+  const toggleComponent = useCallback((nodeId: string) => {
+    dispatch({ type: "TOGGLE_COMPONENT", nodeId });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    dispatch({ type: "SELECT_ALL" });
+  }, []);
+
+  const deselectAll = useCallback(() => {
+    dispatch({ type: "DESELECT_ALL" });
+  }, []);
 
   const updateImportProgress = useCallback((progress: CaptureFigmaProgress) => {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });
@@ -276,9 +444,13 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     step: state.step,
     form: state.form,
     importState: state.import,
+    scan: state.scan,
+    selectedComponentNodeIds: state.selectedComponentNodeIds,
     generatedSystemId,
     figmaFileId,
     isFormValid,
+    canSelectAll,
+    hasSelection,
     isImporting,
     importCompleted,
     saving,
@@ -286,7 +458,11 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
-    handleSubmitBasics,
+    handleScan,
+    handleImportDesignSystem,
+    toggleComponent,
+    selectAll,
+    deselectAll,
     updateImportProgress,
     completeImport,
     failImport,

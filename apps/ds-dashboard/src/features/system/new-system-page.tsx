@@ -66,21 +66,32 @@ export function NewSystemPage() {
   const [importFigmaError, setImportFigmaError] = useState<CaptureFigmaErrorDetail | null>(null);
   const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
   const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
+  const [resultImportMode, setResultImportMode] = useState<"full" | "partial" | null>(null);
+  const [resultImportedCount, setResultImportedCount] = useState<number | null>(null);
+  const [resultNotSelectedCount, setResultNotSelectedCount] = useState<number | null>(null);
   const [isCancellingQueueJob, setIsCancellingQueueJob] = useState(false);
   const {
     step,
     form,
     importState,
+    scan,
+    selectedComponentNodeIds,
     generatedSystemId,
     figmaFileId,
     isFormValid,
+    canSelectAll,
+    hasSelection,
     importCompleted,
     saving,
     saveError,
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
-    handleSubmitBasics,
+    handleScan,
+    handleImportDesignSystem,
+    toggleComponent,
+    selectAll,
+    deselectAll,
     cancelImport,
     resetWizard,
     toggleImportErrorDetails,
@@ -160,6 +171,9 @@ export function NewSystemPage() {
       startedImportKeyRef.current = null;
       activeQueueJobIdRef.current = "";
       setIsCancellingQueueJob(false);
+      setResultImportMode(null);
+      setResultImportedCount(null);
+      setResultNotSelectedCount(null);
     }
   }, [step]);
 
@@ -179,6 +193,9 @@ export function NewSystemPage() {
     setImportFigmaError(null);
     setImportTokensBootstrap(null);
     setImportTokensCompile(null);
+    setResultImportMode(null);
+    setResultImportedCount(null);
+    setResultNotSelectedCount(null);
     void (async () => {
       try {
         const result = await syncFigmaTokens(
@@ -188,6 +205,9 @@ export function NewSystemPage() {
             includeComponents: true,
             dryRun: false,
             figmaToken: form.figmaAccessToken.trim() || undefined,
+            selectedComponentNodeIds: importState.importMode === "partial"
+              ? importState.selectedComponentNodeIds
+              : undefined,
           },
           {
             systemId,
@@ -207,6 +227,15 @@ export function NewSystemPage() {
 
         const importedComponents = Math.max(0, Number(result.components || 0));
         const importedTokens = Math.max(0, Number(result.tokens || 0));
+        const importedNotSelectedCount =
+          typeof result.notSelectedCount === "number"
+            ? Math.max(0, result.notSelectedCount)
+            : importState.importMode === "partial"
+              ? Math.max(0, (importState.selectedCount + importState.notSelectedCount) - importedComponents)
+              : 0;
+        setResultImportMode(result.importMode || null);
+        setResultImportedCount(importedComponents);
+        setResultNotSelectedCount(importedNotSelectedCount);
         if (result.componentsTruncated) {
           console.warn('[NewSystemPage] Component list truncated during sync; reconciliation may be partial.');
         }
@@ -264,6 +293,7 @@ export function NewSystemPage() {
     importState.jobId,
     importState.sourceFileKey,
     importState.sourceUrl,
+    importState.selectedComponentNodeIds,
     step,
     updateImportProgress,
   ]);
@@ -285,10 +315,23 @@ export function NewSystemPage() {
             figmaFileId,
             isFormValid,
             saving,
+            scanState: scan.state,
+            scanComponents: scan.components,
+            scanTruncated: scan.truncated,
+            scanTotal: scan.total,
+            scanLimit: scan.limit,
+            scanError: scan.error,
+            selectedIds: selectedComponentNodeIds,
+            canSelectAll,
+            hasSelection,
           }}
           actions={{
             onFieldChange: setFormField,
-            onSubmit: handleSubmitBasics,
+            onScan: handleScan,
+            onImport: handleImportDesignSystem,
+            onToggleComponent: toggleComponent,
+            onSelectAll: selectAll,
+            onDeselectAll: deselectAll,
           }}
         />
       )}
@@ -311,6 +354,9 @@ export function NewSystemPage() {
             tokensBootstrap={importTokensBootstrap}
             tokensCompile={importTokensCompile}
             successSummary={importState.successSummary}
+            importMode={resultImportMode || importState.importMode}
+            importedCount={resultImportedCount ?? importState.selectedCount}
+            notSelectedCount={resultNotSelectedCount ?? importState.notSelectedCount}
             showTokensLink={canShowTokensLink}
             statusText={importStatusText}
             showDetails={showImportErrorDetails}

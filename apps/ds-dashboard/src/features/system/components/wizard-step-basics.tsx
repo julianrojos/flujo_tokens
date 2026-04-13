@@ -1,12 +1,14 @@
 /**
- * Wizard Step Basics - form for Figma URL, token, system name, options.
+ * Wizard Step Basics - form for Figma URL, token, system name + scan results.
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
+import type { ScanState, ScannedComponent } from "../hooks/use-new-system-wizard";
 
 interface WizardFormValues {
   systemName: string;
@@ -23,11 +25,24 @@ interface WizardBasicsDerived {
   figmaFileId: string;
   isFormValid: boolean;
   saving: boolean;
+  scanState: ScanState;
+  scanComponents: ScannedComponent[];
+  scanTruncated: boolean;
+  scanTotal: number;
+  scanLimit: number;
+  scanError: string | null;
+  selectedIds: Set<string>;
+  canSelectAll: boolean;
+  hasSelection: boolean;
 }
 
 interface WizardBasicsActions {
   onFieldChange: (field: keyof WizardFormValues, value: string | boolean) => void;
-  onSubmit: () => void;
+  onScan: () => void;
+  onImport: () => void;
+  onToggleComponent: (nodeId: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }
 
 interface WizardStepBasicsProps {
@@ -36,8 +51,56 @@ interface WizardStepBasicsProps {
   actions: WizardBasicsActions;
 }
 
+function groupByPageName(components: ScannedComponent[]): Map<string, ScannedComponent[]> {
+  const groups = new Map<string, ScannedComponent[]>();
+  for (const c of components) {
+    const existing = groups.get(c.pageName) || [];
+    existing.push(c);
+    groups.set(c.pageName, existing);
+  }
+  return groups;
+}
+
 export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsProps) {
   const [autoTriggerToken, setAutoTriggerToken] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (derived.scanState !== "loading") {
+      setScanElapsedSeconds(0);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setScanElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [derived.scanState]);
+
+  useEffect(() => {
+    if (derived.scanState === "loading") {
+      setSearchQuery("");
+    }
+  }, [derived.scanState]);
+
+  const filteredComponents = useMemo(() => {
+    if (!searchQuery.trim()) return derived.scanComponents;
+    const q = searchQuery.toLowerCase();
+    return derived.scanComponents.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.pageName.toLowerCase().includes(q),
+    );
+  }, [searchQuery, derived.scanComponents]);
+
+  const grouped = useMemo(() => groupByPageName(filteredComponents), [filteredComponents]);
+
+  const selectAllChecked =
+    derived.scanComponents.length > 0 &&
+    derived.selectedIds.size === derived.scanComponents.length;
+  const someSelected = derived.selectedIds.size > 0;
+
   return (
     <Card>
       <CardHeader>
@@ -112,9 +175,126 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
           </label>
         </div>
 
-        <Button onClick={actions.onSubmit} disabled={!derived.isFormValid || derived.saving}>
-          {derived.saving ? "Creating…" : "Create system"}
+        {/* Scan section */}
+        <div className="flex items-center gap-2">
+          <Button onClick={actions.onScan} disabled={derived.saving || derived.scanState === "loading"}>
+            {derived.scanState === "loading" ? "Scanning…" : "Scan file"}
+          </Button>
+          {derived.scanState === "loading" ? (
+            <span className="text-xs text-muted-foreground">
+              Still scanning… ({scanElapsedSeconds}s elapsed)
+            </span>
+          ) : null}
+          {derived.scanState === "ready" && (
+            <span className="text-xs text-muted-foreground">
+              {derived.scanTruncated
+                ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (limit: ${derived.scanLimit})`
+                : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? "" : "s"} found`}
+            </span>
+          )}
+        </div>
+
+        {/* Scan error */}
+        {derived.scanState === "error" && derived.scanError && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <p>{derived.scanError}</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={actions.onScan}>
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {derived.scanState === "empty" && (
+          <p className="text-sm text-muted-foreground">No components found in this Figma file.</p>
+        )}
+
+        {/* Scan results with selection */}
+        {derived.scanState === "ready" && derived.scanComponents.length > 0 && (
+          <div className="space-y-3">
+            {/* Select all + search */}
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  aria-label="Select all detected components"
+                  checked={selectAllChecked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected && !selectAllChecked;
+                  }}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      actions.onSelectAll();
+                    } else {
+                      actions.onDeselectAll();
+                    }
+                  }}
+                  disabled={!derived.canSelectAll || derived.saving}
+                />
+                Select all
+                {!derived.canSelectAll && (
+                  <Badge variant="outline" className="ml-1 text-[10px]">disabled — truncated</Badge>
+                )}
+              </label>
+              <Input
+                aria-label="Filter detected components"
+                placeholder="Filter by name or page…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-xs text-sm"
+                disabled={derived.saving}
+              />
+            </div>
+
+            {/* Grouped component list */}
+            <div className="max-h-64 overflow-y-auto space-y-3 rounded-md border border-border p-3">
+              {filteredComponents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No matches for current filter.</p>
+              ) : (
+                Array.from(grouped.entries()).map(([pageName, comps]) => (
+                  <div key={pageName} className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">{pageName}</p>
+                    {comps.map((comp) => {
+                      const checked = derived.selectedIds.has(comp.nodeId);
+                      return (
+                        <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select component ${comp.name}`}
+                            checked={checked}
+                            onChange={() => actions.onToggleComponent(comp.nodeId)}
+                            disabled={derived.saving}
+                          />
+                          <span>{comp.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Selection summary */}
+            {derived.hasSelection && (
+              <p className="text-xs text-muted-foreground">
+                {derived.selectedIds.size} of {derived.scanComponents.length} selected
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Import button */}
+        <Button
+          onClick={actions.onImport}
+          disabled={!derived.isFormValid || derived.saving || derived.scanState !== "ready" || !derived.hasSelection}
+        >
+          {derived.saving ? "Creating…" : "Import Design System"}
         </Button>
+        {derived.scanState !== "ready" && (
+          <p className="text-xs text-muted-foreground">
+            Scan first to see available components before importing.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

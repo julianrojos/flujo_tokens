@@ -29,6 +29,9 @@ interface WizardStepImportProps {
   tokensBootstrap?: TokensBootstrapResult | null;
   tokensCompile?: TokensCompileResult | null;
   successSummary?: ImportSuccessSummary | null;
+  importMode?: "full" | "partial";
+  importedCount?: number;
+  notSelectedCount?: number;
   showTokensLink?: boolean;
   statusText?: string;
   showDetails: boolean;
@@ -53,6 +56,9 @@ export function WizardStepImport({
   tokensBootstrap,
   tokensCompile,
   successSummary,
+  importMode,
+  importedCount,
+  notSelectedCount,
   showTokensLink = true,
   statusText,
   showDetails,
@@ -110,7 +116,11 @@ export function WizardStepImport({
       <Card>
         <CardHeader>
           <CardTitle>Import Complete</CardTitle>
-          <CardDescription>Your design system has been created</CardDescription>
+          <CardDescription>
+            {importMode === "partial"
+              ? `Partial import: ${importedCount ?? 0} of ${(importedCount ?? 0) + (notSelectedCount ?? 0)} components imported`
+              : "Your design system has been created"}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {(showComponentsStats || showVariableStats) ? renderImportStats() : null}

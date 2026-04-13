@@ -967,6 +967,7 @@ export interface SyncFigmaTokensArgs {
   tokensSource?: "mcp";
   includeComponents?: boolean;
   dryRun?: boolean;
+  selectedComponentNodeIds?: string[];
 }
 
 export interface SyncFigmaTokensResult {
@@ -980,6 +981,28 @@ export interface SyncFigmaTokensResult {
   usageRestored: number;
   usageDropped: number;
   dryRun: boolean;
+  importMode?: "full" | "partial";
+  selectedCount?: number;
+  notSelectedCount?: number;
+}
+
+export interface ScanComponentsArgs {
+  figmaUrl: string;
+  figmaToken?: string;
+}
+
+export interface ScanComponentEntry {
+  nodeId: string;
+  name: string;
+  pageName: string;
+}
+
+export interface ScanComponentsResult {
+  components: ScanComponentEntry[];
+  truncated: boolean;
+  limit: number;
+  /** Total components matching filters before applying limit. */
+  total: number;
 }
 
 export interface FigmaMcpPingResult {
@@ -1212,6 +1235,53 @@ export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
   return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
     method: "GET",
   });
+}
+
+export async function scanFigmaComponents(
+  args: ScanComponentsArgs,
+): Promise<ScanComponentsResult> {
+  const requestedLimit = 200;
+  const payload = await requestJson<Record<string, unknown>>("/api/figma-mcp/search-components", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+      limit: requestedLimit,
+      compact: true,
+      includeVariants: false,
+    }),
+  });
+
+  const ok = payload.success === true || payload.ok === true;
+  if (!ok) {
+    const code = toNonEmptyString(payload.code);
+    const msg = toNonEmptyString(payload.message) || toNonEmptyString(payload.error) || "Component scan failed";
+    throw new Error(code ? `[${code}] ${msg}` : msg);
+  }
+
+  const components: ScanComponentEntry[] = Array.isArray(payload.components)
+    ? payload.components
+      .filter(
+        (value): value is Record<string, unknown> =>
+          value !== null &&
+          typeof value === "object" &&
+          typeof (value as Record<string, unknown>).nodeId === "string",
+      )
+      .map((entry) => ({
+        nodeId: toNonEmptyString(entry.nodeId),
+        name: toNonEmptyString(entry.name) || "Unnamed",
+        pageName: toNonEmptyString(entry.pageName) || "Unknown",
+      }))
+      .filter((entry) => entry.nodeId.length > 0)
+    : [];
+
+  return {
+    components,
+    truncated: payload.truncated === true,
+    limit: Number(payload.limit) || requestedLimit,
+    total: Number(payload.total) || Number(payload.count) || components.length,
+  };
 }
 
 export async function reconnectFigmaMcp(): Promise<FigmaMcpReconnectResult> {
@@ -1465,6 +1535,7 @@ function toSyncFigmaTokensResult(
     if (!Number.isFinite(parsed) || parsed < 0) return 0;
     return Math.floor(parsed);
   };
+  const importModeRaw = toNonEmptyString(payload.importMode);
   return {
     ok: true,
     jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
@@ -1476,6 +1547,9 @@ function toSyncFigmaTokensResult(
     usageRestored: toNonNegativeInt(payload.usageRestored),
     usageDropped: toNonNegativeInt(payload.usageDropped),
     dryRun: payload.dryRun === true,
+    importMode: importModeRaw === "partial" ? "partial" : "full",
+    selectedCount: toNonNegativeInt(payload.selectedCount),
+    notSelectedCount: toNonNegativeInt(payload.notSelectedCount),
   };
 }
 
