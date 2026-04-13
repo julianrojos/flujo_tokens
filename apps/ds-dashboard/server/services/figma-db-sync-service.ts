@@ -588,16 +588,33 @@ function extractStructuredFigmaData(args: {
   // Extract props from specData.props (Migration 034).
   // Preserve explicit empty array to support "clear all props" updates downstream.
   if (Array.isArray(specData.props)) {
-    result.props = specData.props.map((p) => ({
-      name: String(p.name || '').trim(),
-      type: mapFigmaPropertyType(String(p.type || '')),
-      values: Array.isArray((p as Record<string, unknown>).values)
-        ? (p as Record<string, unknown>).values as string[]
-        : undefined,
-      defaultValue: (p as Record<string, unknown>).defaultValue,
-      required: Boolean((p as Record<string, unknown>).required),
-      description: String((p as Record<string, unknown>).description || '').trim(),
-    }));
+    result.props = specData.props.map((p) => {
+      const name = String(p.name || '').trim();
+      const type = mapFigmaPropertyType(String(p.type || ''));
+      const hasExplicitValuesField = Object.prototype.hasOwnProperty.call((p as Record<string, unknown>), 'values');
+      const rawValues = (p as Record<string, unknown>).values;
+      const explicitValues = Array.isArray(rawValues)
+        ? Array.from(
+            new Set(
+              (rawValues as unknown[])
+                .map((value) => String(value || '').trim())
+                .filter(Boolean),
+            ),
+          )
+        : [];
+      const inferredVariantValues =
+        type === 'enum' && name ? normalizeVariantAxisValues(specData, name) : [];
+      return {
+        name,
+        type,
+        values: hasExplicitValuesField
+          ? (explicitValues.length > 0 ? explicitValues : undefined)
+          : (inferredVariantValues.length > 0 ? inferredVariantValues : undefined),
+        defaultValue: (p as Record<string, unknown>).defaultValue,
+        required: Boolean((p as Record<string, unknown>).required),
+        description: String((p as Record<string, unknown>).description || '').trim(),
+      };
+    });
   }
 
   // Source of truth: variants[].layerTokens (no legacy fallback to flat tokenBindings)

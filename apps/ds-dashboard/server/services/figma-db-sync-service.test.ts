@@ -1519,6 +1519,264 @@ describe('figma-db-sync-service', () => {
         'Should NOT fallback to flat tokenBindings',
       );
     });
+
+    it('derives enum property values from variant axes when props.values is missing', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '400:1', name: 'Variant Values Test' }],
+        truncated: false,
+      });
+
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'variant-values-test', 'Variant Values Test', 'draft', 'component', '400:1')
+      `).run();
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '400:1',
+        name: 'Variant Values Test',
+        type: 'COMPONENT_SET',
+        description: null,
+        variants: [
+          {
+            key: 'Variant=Default',
+            nodeId: '401:1',
+            name: 'Default',
+            variantProperties: { Variant: 'Default' },
+            layerTokens: [],
+          },
+          {
+            key: 'Variant=Accent',
+            nodeId: '401:2',
+            name: 'Accent',
+            variantProperties: { Variant: 'Accent' },
+            layerTokens: [],
+          },
+        ],
+        variantAxes: [{ name: 'Variant', values: ['Default', 'Accent'] }],
+        props: [{ name: 'Variant', type: 'VARIANT', defaultValue: 'Default' }],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_variant_values',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-variant-values',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.props));
+      assert.equal(entry.figma.props.length, 1);
+      assert.deepEqual(entry.figma.props[0].values, ['Default', 'Accent']);
+    });
+
+    it('does not infer enum property values when props.values is explicitly an empty array', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '500:1', name: 'Explicit Empty Values Test' }],
+        truncated: false,
+      });
+
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'explicit-empty-values-test', 'Explicit Empty Values Test', 'draft', 'component', '500:1')
+      `).run();
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '500:1',
+        name: 'Explicit Empty Values Test',
+        type: 'COMPONENT_SET',
+        description: null,
+        variants: [
+          {
+            key: 'Variant=Default',
+            nodeId: '501:1',
+            name: 'Default',
+            variantProperties: { Variant: 'Default' },
+            layerTokens: [],
+          },
+          {
+            key: 'Variant=Accent',
+            nodeId: '501:2',
+            name: 'Accent',
+            variantProperties: { Variant: 'Accent' },
+            layerTokens: [],
+          },
+        ],
+        variantAxes: [{ name: 'Variant', values: ['Default', 'Accent'] }],
+        props: [{ name: 'Variant', type: 'VARIANT', values: [], defaultValue: 'Default' }],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_explicit_empty_values',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-explicit-empty-values',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.props));
+      assert.equal(entry.figma.props.length, 1);
+      assert.equal(entry.figma.props[0].values, undefined);
+    });
+
+    it('does not infer enum property values when props.values is explicitly null', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'mode:1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '600:1', name: 'Explicit Null Values Test' }],
+        truncated: false,
+      });
+
+      db.prepare(`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'explicit-null-values-test', 'Explicit Null Values Test', 'draft', 'component', '600:1')
+      `).run();
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '600:1',
+        name: 'Explicit Null Values Test',
+        type: 'COMPONENT_SET',
+        description: null,
+        variants: [
+          {
+            key: 'Variant=Default',
+            nodeId: '601:1',
+            name: 'Default',
+            variantProperties: { Variant: 'Default' },
+            layerTokens: [],
+          },
+          {
+            key: 'Variant=Accent',
+            nodeId: '601:2',
+            name: 'Accent',
+            variantProperties: { Variant: 'Accent' },
+            layerTokens: [],
+          },
+        ],
+        variantAxes: [{ name: 'Variant', values: ['Default', 'Accent'] }],
+        props: [{ name: 'Variant', type: 'VARIANT', values: null, defaultValue: 'Default' }],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: {
+          deleteAll: () => 0,
+          upsertFromRegistry: (_sysId: string, entries: Array<Record<string, unknown>>) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry('ltm-sync-sys', entries as any);
+          },
+          markMissingComponents: () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_explicit_null_values',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-explicit-null-values',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.props));
+      assert.equal(entry.figma.props.length, 1);
+      assert.equal(entry.figma.props[0].values, undefined);
+    });
   });
 
 });
