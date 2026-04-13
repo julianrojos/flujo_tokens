@@ -514,6 +514,9 @@ describe('command-routes', () => {
           specsEnriched: 0,
           proofsEnriched: 0,
           dryRun: false,
+          importMode: 'full' as const,
+          selectedCount: 3,
+          notSelectedCount: 0,
         }),
       });
 
@@ -532,6 +535,60 @@ describe('command-routes', () => {
           chunk.kind === 'warning' && chunk.text.includes('missing_repo_root')
         )
       );
+    });
+
+    it('passes selectedComponentNodeIds to sync service for partial import', async () => {
+      const enqueued: any[] = [];
+      let receivedSelectedIds: string[] | undefined;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          fileKey: 'figma_file_123',
+          selectedComponentNodeIds: ['node-1', 'node-2', ''],
+        }),
+        db: {} as any,
+        componentRepo: {} as any,
+        hasPluginSocketForFile: () => true,
+        enqueueQueueJob: (args: any) => {
+          enqueued.push(args);
+          return { id: 'sync_job_partial' };
+        },
+        syncDesignSystemFromPluginFn: async (opts: any) => {
+          receivedSelectedIds = opts.selectedComponentNodeIds;
+          return {
+            tokens: 10,
+            tokenModeValues: 12,
+            aliases: 2,
+            components: 2,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'not-requested' as const,
+            usageReindexReason: 'none' as const,
+            usageReindexWarnings: [],
+            specYamlGenerated: 0,
+            specYamlSkipped: 0,
+            specYamlFailed: 0,
+            specYamlWarnings: [],
+            specsEnriched: 0,
+            proofsEnriched: 0,
+            dryRun: false,
+            importMode: 'partial' as const,
+            selectedCount: 2,
+            notSelectedCount: 0,
+          };
+        },
+      });
+
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(enqueued.length, 1);
+
+      await enqueued[0].execute({
+        emitChunk: () => { },
+      });
+
+      assert.deepEqual(receivedSelectedIds, ['node-1', 'node-2']);
     });
   });
 });

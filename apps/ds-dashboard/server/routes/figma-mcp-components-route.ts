@@ -53,7 +53,15 @@ interface HandlerBody {
  *   compact?: boolean – Return compact format (default: true)
  *
  * Response:
- *   { success: true, components: [...], count: number, truncated: boolean }
+ *   {
+ *     success: true,
+ *     components: [...],
+ *     count: number,            // returned items
+ *     truncated: boolean,
+ *     total: number,            // total matches before limit (or lower-bound when totalIsEstimated=true)
+ *     totalIsEstimated: boolean,
+ *     limit: number
+ *   }
  */
 async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteDeps): Promise<Response> {
   const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());

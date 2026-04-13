@@ -741,8 +741,15 @@ export interface CompactComponentResult {
 export interface SearchComponentsResult {
   success: true;
   components: CompactComponentResult[];
+  /** Number of returned items in `components` (after applying `limit`). */
   count: number;
   truncated: boolean;
+  /** Total components matching the filters before applying `limit`. */
+  total: number;
+  /** True when `total` is a lower-bound estimate due to guardrail cutoff. */
+  totalIsEstimated: boolean;
+  /** Effective limit applied by the handler (1..200). */
+  limit: number;
 }
 
 // --- GET_COMPONENT_SPEC ---

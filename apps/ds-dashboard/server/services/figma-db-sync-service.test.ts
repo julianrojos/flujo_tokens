@@ -967,6 +967,175 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  it('filters components by selectedComponentNodeIds in partial mode', async () => {
+    const db = createTestDb();
+    let markMissingCalls = 0;
+    let upsertedCount = 0;
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: () => {
+          upsertedCount += 1;
+          return 1;
+        },
+        markMissingComponents: () => {
+          markMissingCalls += 1;
+          return 0;
+        },
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [
+          { nodeId: 'node-selected', name: 'Button' },
+          { nodeId: 'node-skipped', name: 'Card' },
+        ],
+        truncated: false,
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        selectedComponentNodeIds: ['node-selected'],
+        createRunId: () => 'run-partial-import',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(upsertedCount, 1);
+      assert.equal(result.importMode, 'partial');
+      assert.equal(result.selectedCount, 1);
+      assert.equal(result.notSelectedCount, 1);
+      assert.equal(result.components, 1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns full importMode when selectedComponentNodeIds is empty', async () => {
+    const db = createTestDb();
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button' }],
+        truncated: false,
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        selectedComponentNodeIds: [],
+        createRunId: () => 'run-full-empty-selection',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(result.importMode, 'full');
+      assert.equal(result.selectedCount, 1);
+      assert.equal(result.notSelectedCount, 0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('returns partial mode with zero imported components when selected IDs do not match scan results', async () => {
+    const db = createTestDb();
+    let markMissingCalls = 0;
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: () => 0,
+        markMissingComponents: () => {
+          markMissingCalls += 1;
+          return 0;
+        },
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [
+          { nodeId: 'node-a', name: 'Button' },
+          { nodeId: 'node-b', name: 'Card' },
+        ],
+        truncated: false,
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        selectedComponentNodeIds: ['node-missing'],
+        createRunId: () => 'run-partial-no-match',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(result.importMode, 'partial');
+      assert.equal(result.components, 0);
+      assert.equal(result.selectedCount, 0);
+      assert.equal(result.notSelectedCount, 2);
+      assert.equal(markMissingCalls, 0);
+    } finally {
+      db.close();
+    }
+  });
+
   it('deduplicates token mode values when two collections share the same normalized token path', async () => {
     const db = createTestDb();
     try {

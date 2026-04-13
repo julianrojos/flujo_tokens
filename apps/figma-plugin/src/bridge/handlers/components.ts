@@ -786,8 +786,7 @@ export async function handleSearchComponents(
     const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
 
     const components: CompactComponentResult[] = [];
-    let count = 0;
-    let truncated = false;
+    let totalMatches = 0;
 
     // Helper to check name filters
     function passesNameFilter(node: BaseNode): boolean {
@@ -836,35 +835,47 @@ export async function handleSearchComponents(
       node: page,
       pageName: page.name,
     }));
+    const maxVisitedNodes = 20_000;
+    let visitedNodes = 0;
     let didHitLimit = false;
+    let totalIsEstimated = false;
 
-    while (queue.length > 0 && count < limit) {
+    while (queue.length > 0) {
+      if (visitedNodes >= maxVisitedNodes) {
+        totalIsEstimated = true;
+        break;
+      }
+      visitedNodes += 1;
       const { node, pageName } = queue.shift()!;
 
       if (node.type === 'COMPONENT_SET') {
         const componentSet = node as ComponentSetNode;
         if (passesNameFilter(componentSet)) {
-          components.push(extractCompact(componentSet, pageName));
-          count++;
+          totalMatches += 1;
+          if (components.length < limit) {
+            components.push(extractCompact(componentSet, pageName));
+          } else {
+            didHitLimit = true;
+          }
 
           // Include variants if requested
-          if (includeVariants && count < limit) {
+          if (includeVariants) {
             for (const child of componentSet.children) {
-              if (child.type === 'COMPONENT' && count < limit) {
+              if (child.type === 'COMPONENT') {
                 if (passesNameFilter(child)) {
-                  components.push({
-                    key: child.key,
-                    nodeId: child.id,
-                    name: child.name,
-                    type: 'COMPONENT',
-                    pageName,
-                  });
-                  count++;
+                  totalMatches += 1;
+                  if (components.length < limit) {
+                    components.push({
+                      key: child.key,
+                      nodeId: child.id,
+                      name: child.name,
+                      type: 'COMPONENT',
+                      pageName,
+                    });
+                  } else {
+                    didHitLimit = true;
+                  }
                 }
-              } else if (child.type === 'COMPONENT' && count >= limit) {
-                // Stopped adding variants due to limit - mark as truncated
-                didHitLimit = true;
-                break;
               }
             }
           }
@@ -874,8 +885,12 @@ export async function handleSearchComponents(
         // Only add standalone components (not variants inside component sets)
         if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
           if (passesNameFilter(component)) {
-            components.push(extractCompact(component, pageName));
-            count++;
+            totalMatches += 1;
+            if (components.length < limit) {
+              components.push(extractCompact(component, pageName));
+            } else {
+              didHitLimit = true;
+            }
           }
         }
       }
@@ -888,18 +903,14 @@ export async function handleSearchComponents(
       }
     }
 
-    // Mark as truncated if we hit the limit anywhere (including inside variant loops)
-    if (count >= limit) {
-      didHitLimit = true;
-    }
-
-    truncated = didHitLimit;
-
     return {
       success: true,
       components,
       count: components.length,
-      truncated,
+      truncated: didHitLimit || totalMatches > components.length || totalIsEstimated,
+      total: totalMatches,
+      totalIsEstimated,
+      limit,
     };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors

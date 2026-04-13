@@ -1359,6 +1359,7 @@ export interface SyncFromPluginOptions {
   figmaFileId: string;
   includeComponents?: boolean;
   dryRun?: boolean;
+  selectedComponentNodeIds?: string[];
   fetchVariables?: (fileKey?: string | null) => Promise<FigmaVariablesResponse>;
   searchComponents?: (fileKey: string | null, params: {
     includeVariants?: boolean;
@@ -1399,6 +1400,9 @@ export interface SyncFromPluginResult {
   specsEnriched: number;
   proofsEnriched: number;
   dryRun: boolean;
+  importMode: 'full' | 'partial';
+  selectedCount: number;
+  notSelectedCount: number;
 }
 
 type UsageOccurrenceRow = {
@@ -1612,6 +1616,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let specsEnriched = 0;
   let proofsEnriched = 0;
   const structuredDataWarnings: string[] = [];
+  let importMode: 'full' | 'partial' = 'full';
+  let selectedCount = 0;
+  let notSelectedCount = 0;
 
   if (includeComponents) {
     let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
@@ -1649,11 +1656,38 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       };
     });
 
+    // Filter by selected node IDs for partial import (Migration 034 flow)
+    const selectedIds = options.selectedComponentNodeIds;
+    importMode = selectedIds && selectedIds.length > 0 ? 'partial' : 'full';
+    if (importMode === 'partial') {
+      const selectedSet = new Set(
+        (selectedIds || [])
+          .map((value) => String(value || '').trim())
+          .filter((value) => value.length > 0),
+      );
+      const beforeCount = componentEntries.length;
+      componentEntries = componentEntries.filter((e) => {
+        const nodeId = String(e.figma.componentSetNodeId || '').trim();
+        return nodeId.length > 0 && selectedSet.has(nodeId);
+      });
+      const filteredCount = beforeCount - componentEntries.length;
+      if (filteredCount > 0) {
+        console.log(`[syncDesignSystemFromPlugin] Partial import: ${componentEntries.length}/${beforeCount} components selected`);
+      }
+      if (selectedSet.size > 0 && componentEntries.length === 0) {
+        console.warn(
+          `[syncDesignSystemFromPlugin] Partial import requested ${selectedSet.size} component node id(s), but none matched the scanned component set.`,
+        );
+      }
+    }
+    selectedCount = componentEntries.length;
+    notSelectedCount = importMode === 'partial'
+      ? (componentsResult.components || []).length - selectedCount
+      : 0;
+
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
-      // S-11 (TODO): ensureComponentDocTemplates writes .md skeleton files to disk.
-      // No consumer reads these files anymore (DB-first: component_docs table,
-      // GET /api/components/:slug/docs/markdown). Safe to remove after confirming
-      // no external tooling depends on these files.
+      // Keep writing doc skeletons as a compatibility artifact for local tooling
+      // even though DB-first consumers do not require these files at runtime.
       ensureComponentDocTemplates({
         entries: componentEntries,
         repoRoot,
@@ -1975,12 +2009,15 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
 
       // Only mark missing when the component list is complete.
       // If truncated, marking missing would create false positives for components not fetched yet.
-      if (!componentsTruncated) {
+      // If partial import, skip missing reconciliation entirely — unselected ≠ missing.
+      if (importMode === 'full' && !componentsTruncated) {
         const syncedSlugs = componentEntries.map((e) => e.slug);
         const markedMissing = componentRepo.markMissingComponents(dsId, syncedSlugs);
         if (markedMissing > 0) {
           console.log(`  Marked ${markedMissing} component(s) as missing (removed from Figma).`);
         }
+      } else if (importMode === 'partial') {
+        console.log('  Partial import: missing-component reconciliation skipped.');
       } else {
         console.warn('  Component search results were truncated; missing-component reconciliation skipped.');
       }
@@ -2003,6 +2040,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       specsEnriched,
       proofsEnriched,
       dryRun,
+      importMode,
+      selectedCount,
+      notSelectedCount,
     };
   }
 
@@ -2021,6 +2061,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     specsEnriched,
     proofsEnriched,
     dryRun,
+    importMode,
+    selectedCount,
+    notSelectedCount,
   };
 }
 
