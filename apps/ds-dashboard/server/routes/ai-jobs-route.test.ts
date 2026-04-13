@@ -962,7 +962,7 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.job.not_cancelable');
         });
 
-        it('should return 409 for running job', async () => {
+        it('should cancel a running job', async () => {
             cleanupStore();
             const app = createTestApp();
             const store = getAiJobsStore();
@@ -983,9 +983,10 @@ describe('ai-jobs-route', () => {
                 body: JSON.stringify({}),
             });
 
-            assert.equal(res.status, 409);
+            assert.equal(res.status, 200);
             const json = await res.json();
-            assert.equal(json.code, 'ai.job.not_cancelable');
+            assert.equal(json.ok, true);
+            assert.equal(json.status, 'cancelled');
         });
     });
 

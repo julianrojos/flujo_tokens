@@ -280,6 +280,9 @@ export class AiJobsStore {
         if (!job) {
             return;
         }
+        if (job.status === 'cancelled' || job.status === 'completed' || job.status === 'failed') {
+            return;
+        }
 
         job.pipelineStage = stage;
         job.updatedAt = Date.now();
@@ -317,6 +320,10 @@ export class AiJobsStore {
     ): void {
         const job = this.jobs.get(jobId);
         if (!job) {
+            return;
+        }
+        if (job.status === 'cancelled') {
+            this.pushEvent(job.id, 'job.complete_attempted_after_cancel', {});
             return;
         }
 
@@ -363,6 +370,10 @@ export class AiJobsStore {
         if (!job) {
             return;
         }
+        if (job.status === 'cancelled') {
+            this.pushEvent(job.id, 'job.fail_attempted_after_cancel', { code, error, retryable });
+            return;
+        }
 
         job.status = 'failed';
         job.error = error;
@@ -383,12 +394,14 @@ export class AiJobsStore {
             return;
         }
 
-        // Can only cancel queued jobs
-        if (job.status !== 'queued' && job.status !== 'pending') {
+        // Can only cancel active jobs
+        if (job.status !== 'queued' && job.status !== 'pending' && job.status !== 'running') {
             return;
         }
 
+        const wasRunning = job.status === 'running';
         job.status = 'cancelled';
+        job.pipelineStage = null;
         job.updatedAt = Date.now();
 
         // Remove from queue
@@ -398,6 +411,11 @@ export class AiJobsStore {
             if (index !== -1) {
                 queue.splice(index, 1);
             }
+        }
+
+        // Release concurrency slot for running jobs and schedule next queued job.
+        if (wasRunning) {
+            this.tryDequeueNext(job.input.provider);
         }
 
         this.pushEvent(job.id, 'job.cancelled', {});

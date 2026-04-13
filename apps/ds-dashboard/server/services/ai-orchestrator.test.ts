@@ -616,6 +616,69 @@ describe('ai-orchestrator pipeline', () => {
     assert.equal(store.findById(job2.id)?.status, 'completed');
   });
 
+  it('cancels in-flight job after llm.completed without mapping to ai.llm.api_error or double-dequeue', async () => {
+    const store = new AiJobsStore();
+    const job1 = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+    const job2 = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4098',
+      dryRun: true,
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.equal(dequeued?.id, job1.id);
+
+    const originalPushEvent = store.pushEvent.bind(store);
+    store.pushEvent = ((jobId: string, event: string, data?: unknown) => {
+      originalPushEvent(jobId, event, data);
+      if (jobId === job1.id && event === 'llm.completed') {
+        store.cancel(job1.id);
+      }
+    });
+
+    const adapter = {
+      generate: async () => ({
+        rawText: '{...}',
+        parsedJson: {
+          schemaVersion: 2,
+          componentId: '68:4097',
+          title: 'Button',
+          summary: 'Summary',
+          variants: [],
+          accessibilityNotes: [],
+          states: [],
+          accessibilityFacts: [],
+        },
+        usage: { promptTokens: 10, completionTokens: 10, durationMs: 30 },
+      }),
+    };
+
+    await runGenerateComponentDoc(
+      job1,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+    );
+
+    const cancelled = store.findById(job1.id);
+    assert.equal(cancelled?.status, 'cancelled');
+    assert.equal(cancelled?.errorCode, undefined);
+    assert.equal(cancelled?.events.some((evt) => evt.event === 'job.failed'), false);
+
+    const nextJob = store.findById(job2.id);
+    assert.equal(nextJob?.status, 'running');
+
+    const queue = store.getQueueStatus('anthropic');
+    assert.equal(queue.running, 1);
+    assert.equal(queue.queued, 0);
+  });
+
   it('loads existing editorial once and reuses the same snapshot in the pipeline', async () => {
     const store = new AiJobsStore();
     const job = store.enqueue({

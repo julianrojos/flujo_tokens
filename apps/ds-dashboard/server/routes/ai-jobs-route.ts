@@ -1387,7 +1387,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             return c.json(errorResponse('ai.job.not_found', 'Job not found'), 404);
         }
 
-        if (job.status !== 'queued' && job.status !== 'pending') {
+        if (job.status !== 'queued' && job.status !== 'pending' && job.status !== 'running') {
             return c.json(
                 errorResponse('ai.job.not_cancelable', 'Job cannot be cancelled'),
                 409

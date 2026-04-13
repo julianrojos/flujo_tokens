@@ -537,14 +537,35 @@ describe('ai-jobs-store', () => {
       assert.equal(status.queued, 0, 'Cancelled job should be removed from queue');
     });
 
-    it('should be no-op for running job', () => {
+    it('should cancel running job', () => {
       const job = store.enqueue(makeInput());
       store.tryDequeue('anthropic');
 
       store.cancel(job.id);
 
       const runningJob = store.findById(job.id);
-      assert.equal(runningJob?.status, 'running', 'Running job should not be cancelled');
+      assert.equal(runningJob?.status, 'cancelled', 'Running job should be cancellable');
+      assert.equal(runningJob?.pipelineStage, null, 'Cancelled running job should clear pipeline stage');
+    });
+
+    it('should release running slot and dequeue next queued job when cancelling a running job', () => {
+      const job1 = store.enqueue(makeInput({ idempotencyKey: 'cancel-running-1' }));
+      const job2 = store.enqueue(makeInput({ idempotencyKey: 'cancel-running-2' }));
+
+      const running = store.tryDequeue('anthropic');
+      assert.equal(running?.id, job1.id);
+
+      store.cancel(job1.id);
+
+      const cancelledJob = store.findById(job1.id);
+      assert.equal(cancelledJob?.status, 'cancelled');
+
+      const dequeuedNext = store.findById(job2.id);
+      assert.equal(dequeuedNext?.status, 'running', 'Next queued job should be dequeued after cancellation releases slot');
+
+      const status = store.getQueueStatus('anthropic');
+      assert.equal(status.running, 1, 'Running count should remain at 1 after replacing cancelled running job');
+      assert.equal(status.queued, 0, 'Queue should be drained after auto-dequeue');
     });
 
     it('should be no-op for completed job', () => {
@@ -556,6 +577,22 @@ describe('ai-jobs-store', () => {
 
       const completedJob = store.findById(job.id);
       assert.equal(completedJob?.status, 'completed', 'Completed job should not be cancelled');
+    });
+
+    it('complete/fail should not override cancelled status', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+      store.cancel(job.id);
+
+      store.complete(job.id, makeOutput(), makeUsage());
+      let current = store.findById(job.id);
+      assert.equal(current?.status, 'cancelled');
+      assert.ok(current?.events.some((evt) => evt.event === 'job.complete_attempted_after_cancel'));
+
+      store.fail(job.id, 'late failure', 'ai.test', false);
+      current = store.findById(job.id);
+      assert.equal(current?.status, 'cancelled');
+      assert.ok(current?.events.some((evt) => evt.event === 'job.fail_attempted_after_cancel'));
     });
 
     it('should be no-op for non-existent job', () => {
