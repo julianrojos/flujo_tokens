@@ -968,6 +968,10 @@ export interface SyncFigmaTokensArgs {
   includeComponents?: boolean;
   dryRun?: boolean;
   selectedComponentNodeIds?: string[];
+  /** When true, import fails if any imported component lacks a main screenshot. */
+  requireComponentProofs?: boolean;
+  /** When true, import fails if any component with variants lacks variant screenshots. */
+  requireVariantProofsWhenPresent?: boolean;
 }
 
 export interface SyncFigmaTokensResult {

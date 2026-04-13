@@ -28,6 +28,10 @@ import {
   toNonEmptyString,
   toRecord,
 } from "./lib/new-system-transforms";
+import {
+  extractProofErrorContext,
+  formatProofErrorMessage,
+} from "./lib/new-system-proof-errors";
 
 function toImportErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -208,6 +212,8 @@ export function NewSystemPage() {
             selectedComponentNodeIds: importState.importMode === "partial"
               ? importState.selectedComponentNodeIds
               : undefined,
+            requireComponentProofs: true,
+            requireVariantProofsWhenPresent: true,
           },
           {
             systemId,
@@ -267,12 +273,14 @@ export function NewSystemPage() {
       } catch (error) {
         if (stopped) return;
         activeQueueJobIdRef.current = "";
+        const proofContext = extractProofErrorContext(error);
+        const proofMessage = proofContext ? formatProofErrorMessage(proofContext) : null;
         if (error instanceof ApiError) {
           setImportRequestId(error.requestId || "");
           setImportFigmaError(extractCaptureFigmaErrorDetail(error.payload));
         }
         failImport(
-          formatCaptureFigmaErrorMessage(
+          proofMessage || formatCaptureFigmaErrorMessage(
             error instanceof ApiError ? extractCaptureFigmaErrorDetail(error.payload) : null,
           ) || toImportErrorMessage(error),
           toImportErrorDetails(error),

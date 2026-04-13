@@ -58,6 +58,7 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
   if (code.startsWith("design_system.")) return "Design system error";
   if (code.startsWith("queue.")) return "Background job error";
   if (code.startsWith("file.")) return "File request failed";
+  if (code.startsWith("sync.")) return "Sync error";
   if (status >= 500) return "Server error";
   if (status >= 400) return "Request failed";
   return fallbackTitle;
@@ -93,6 +94,9 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
 
   if (code.startsWith("validation.")) {
     return fallbackAction || "Review inputs and retry.";
+  }
+  if (code.startsWith("sync.")) {
+    return "Re-open the Figma plugin, capture missing screenshots, and retry.";
   }
   if (fallbackAction) return fallbackAction;
   if (retryable) return "Retry the action.";
