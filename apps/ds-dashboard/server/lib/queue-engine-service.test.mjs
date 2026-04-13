@@ -104,3 +104,85 @@ test("queue-engine-service: timeout marks job as error code 124", async () => {
   assert.equal(job.result?.code, 124);
   assert.match(String(job.result?.summary || ""), /timed out/i);
 });
+
+test("queue-engine-service: preserves structured error payload for downstream UX", async () => {
+  const { engine } = createEngine();
+  const job = engine.enqueueQueueJob({
+    label: "structured-error-job",
+    systemId: "core",
+    operationName: "test:structured-error",
+    execute: async () => {
+      throw {
+        code: "sync.component_proofs_required_failed",
+        message: "Required screenshots missing for selected components.",
+        context: {
+          importMode: "partial",
+          importedCount: 2,
+          missingMainProofSlugs: ["button"],
+          missingVariantProofSlugs: [],
+        },
+      };
+    },
+  });
+
+  await waitForFinal(job);
+  assert.equal(job.status, "error");
+  assert.equal(job.result?.ok, false);
+  assert.equal(job.result?.summary, "Required screenshots missing for selected components.");
+  assert.equal(job.result?.payload?.code, "sync.component_proofs_required_failed");
+  assert.deepEqual(job.result?.payload?.context?.missingMainProofSlugs, ["button"]);
+  const endEvent = job.events.find((event) => event.type === "end");
+  assert.equal(endEvent?.payload?.code, "sync.component_proofs_required_failed");
+});
+
+test("queue-engine-service: ignores non-namespaced structured codes", async () => {
+  const { engine } = createEngine();
+  const job = engine.enqueueQueueJob({
+    label: "unscoped-structured-error-job",
+    systemId: "core",
+    operationName: "test:unscoped-structured-error",
+    execute: async () => {
+      throw {
+        code: "component_proofs_required_failed",
+        message: "Unscoped error code should not be promoted.",
+        context: {
+          importedCount: 1,
+        },
+      };
+    },
+  });
+
+  await waitForFinal(job);
+  assert.equal(job.status, "error");
+  assert.equal(job.result?.ok, false);
+  assert.equal(job.result?.summary, "Unscoped error code should not be promoted.");
+  assert.equal(job.result?.payload, undefined);
+  const endEvent = job.events.find((event) => event.type === "end");
+  assert.equal(endEvent?.payload, undefined);
+});
+
+test("queue-engine-service: ignores unsupported namespaced structured codes", async () => {
+  const { engine } = createEngine();
+  const job = engine.enqueueQueueJob({
+    label: "unsupported-namespaced-structured-error-job",
+    systemId: "core",
+    operationName: "test:unsupported-namespaced-structured-error",
+    execute: async () => {
+      throw {
+        code: "sync.other_job_failure",
+        message: "Unsupported namespaced code should not be promoted.",
+        context: {
+          importedCount: 3,
+        },
+      };
+    },
+  });
+
+  await waitForFinal(job);
+  assert.equal(job.status, "error");
+  assert.equal(job.result?.ok, false);
+  assert.equal(job.result?.summary, "Unsupported namespaced code should not be promoted.");
+  assert.equal(job.result?.payload, undefined);
+  const endEvent = job.events.find((event) => event.type === "end");
+  assert.equal(endEvent?.payload, undefined);
+});

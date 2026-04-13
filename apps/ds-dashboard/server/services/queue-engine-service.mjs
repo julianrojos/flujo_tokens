@@ -267,16 +267,45 @@ export function createQueueEngineService(config) {
         },
       });
     } catch (error) {
+      const structuredError =
+        error && typeof error === "object" && !Array.isArray(error)
+          ? error
+          : null;
+      const structuredCode =
+        structuredError && typeof structuredError.code === "string"
+          ? structuredError.code
+          : "";
+      const isSupportedStructuredCode =
+        structuredCode === "sync.component_proofs_required_failed";
+      const structuredContext =
+        structuredError &&
+        structuredError.context &&
+        typeof structuredError.context === "object" &&
+        !Array.isArray(structuredError.context)
+          ? structuredError.context
+          : null;
+      const structuredMessage =
+        structuredError && typeof structuredError.message === "string"
+          ? structuredError.message
+          : "";
       const message = didTimeout
         ? timeoutMessage
-        : error instanceof Error
-          ? error.message
-          : String(error);
+        : structuredMessage ||
+          (error instanceof Error ? error.message : String(error || "Unknown queue error."));
+      const includeStructuredFields = isSupportedStructuredCode && (structuredCode || structuredContext);
+      const errorPayload = includeStructuredFields
+        ? {
+            ...(isSupportedStructuredCode && structuredCode ? { code: structuredCode } : {}),
+            ...(isSupportedStructuredCode && structuredContext ? { context: structuredContext } : {}),
+            ...(structuredMessage ? { message: structuredMessage } : {}),
+          }
+        : undefined;
       job.status = "error";
       job.result = {
         ok: false,
         code: didTimeout ? 124 : 1,
         summary: message || "Unknown queue error.",
+        ...(errorPayload ? { payload: errorPayload } : {}),
       };
       job.finishedAt = nowIso();
       if (!didTimeout) {
@@ -290,6 +319,7 @@ export function createQueueEngineService(config) {
         status: "error",
         code: didTimeout ? 124 : 1,
         summary: message || "Unknown queue error.",
+        ...(errorPayload ? { payload: errorPayload } : {}),
       });
       emitOperationEvent({
         timestamp: job.finishedAt,
