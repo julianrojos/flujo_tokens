@@ -72,6 +72,9 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
     [failedVariantKeys, variantPreviews],
   );
   if (!item || !proof) return null;
+  const hasScreenshot = Boolean(screenshotUrl) && !mainImageFailed;
+  const hasVariantPreviews = visibleVariantPreviews.length > 0;
+  const splitVisualColumns = hasScreenshot && hasVariantPreviews;
 
   return (
     <Card>
@@ -87,62 +90,66 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {screenshotUrl && !mainImageFailed && (
-          <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screenshot</h4>
-            <img
-              src={screenshotUrl}
-              alt={`${item.display_name} screenshot`}
-              className="max-h-64 rounded-lg border border-border object-contain"
-              onError={() => setMainImageFailed(true)}
-            />
-          </div>
-        )}
-        {visibleVariantPreviews.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</h4>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleVariantPreviews.map((variant) => {
-                const matched = variantVisualMap.get(normalizeVariantName(variant.name));
-                if (import.meta.env.DEV && !matched) {
-                  console.debug("[variant_visuals] no match for variant:", variant.name);
-                }
-                return (
-                  <figure key={variant.key} className="space-y-1">
-                    <img
-                      src={variant.previewUrl || undefined}
-                      alt={`${item.display_name} ${variant.name}`}
-                      className="max-h-40 w-full rounded-lg object-contain"
-                      onError={() =>
-                        setFailedVariantKeys((prev) => {
-                          const next = new Set(prev);
-                          next.add(variant.key);
-                          return next;
-                        })
-                      }
-                    />
-                    <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
-                    {matched && Object.keys(matched.properties).length > 0 && (
-                      <div
-                        role="group"
-                        aria-label={`${variant.name} variant properties`}
-                        className="mt-1 flex flex-wrap gap-1"
-                      >
-                        {Object.entries(matched.properties).map(([k, v]) => (
-                          <span
-                            key={k}
-                            aria-label={`${variant.name}: ${k} property set to ${String(v)}`}
-                            className="inline-flex rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+        {(hasScreenshot || hasVariantPreviews) && (
+          <div className={splitVisualColumns ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
+            {hasScreenshot && (
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screenshot</h4>
+                <img
+                  src={screenshotUrl || undefined}
+                  alt={`${item.display_name} screenshot`}
+                  className="max-h-64 rounded-lg border border-border object-contain"
+                  onError={() => setMainImageFailed(true)}
+                />
+              </div>
+            )}
+            {hasVariantPreviews && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</h4>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {visibleVariantPreviews.map((variant) => {
+                    const matched = variantVisualMap.get(normalizeVariantName(variant.name));
+                    if (import.meta.env.DEV && !matched) {
+                      console.debug("[variant_visuals] no match for variant:", variant.name);
+                    }
+                    return (
+                      <figure key={variant.key} className="space-y-1">
+                        <img
+                          src={variant.previewUrl || undefined}
+                          alt={`${item.display_name} ${variant.name}`}
+                          className="max-h-40 w-full rounded-lg object-contain"
+                          onError={() =>
+                            setFailedVariantKeys((prev) => {
+                              const next = new Set(prev);
+                              next.add(variant.key);
+                              return next;
+                            })
+                          }
+                        />
+                        <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
+                        {matched && Object.keys(matched.properties).length > 0 && (
+                          <div
+                            role="group"
+                            aria-label={`${variant.name} variant properties`}
+                            className="mt-1 flex flex-wrap gap-1"
                           >
-                            {k}={v}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </figure>
-                );
-              })}
-            </div>
+                            {Object.entries(matched.properties).map(([k, v]) => (
+                              <span
+                                key={k}
+                                aria-label={`${variant.name}: ${k} property set to ${String(v)}`}
+                                className="inline-flex rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+                              >
+                                {k}={v}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </figure>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {captureSummary && (
@@ -151,7 +158,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
             <pre className="whitespace-pre-wrap text-xs">{captureSummary}</pre>
           </div>
         )}
-        {(!screenshotUrl || mainImageFailed) && visibleVariantPreviews.length === 0 && (
+        {!hasScreenshot && !hasVariantPreviews && (
           <p className="text-sm text-muted-foreground">No visual assets captured yet.</p>
         )}
       </CardContent>
