@@ -51,6 +51,19 @@ If the schema supports `states[]`, populate it as a first-class field.
 
 **Visual state yes; real behavior no** (RULES.md Rule 4). You may document that a visual `hover` or `disabled` variant exists; you may not claim real focus management, keyboard support, async loading, or screen reader behavior.
 
+When documenting states, note which interaction-relevant states are present:
+
+| State | Signal it provides |
+|---|---|
+| `hover` | Component responds to cursor — likely interactive |
+| `pressed` | Responds to pointer press — likely a trigger |
+| `selected` / `checked` | Can be in two logical states — likely toggle or selection |
+| `expanded` | Has a collapsed counterpart — likely disclosure |
+| `focus` | Participates in keyboard flow — confirm with dev |
+| `loading` | Has async behavior — confirm with dev |
+
+Do not interpret these as behavior. Document them as observable cues only. The `editorial-patch-writer` uses them as inference sources for the `behavior` field.
+
 ### 4. Accessibility facts
 
 If the schema supports `accessibilityFacts[]`, limit it to observable facts or clearly marked inferences.

@@ -160,6 +160,12 @@ export interface EditorialPatch {
     content_guidelines?: {
         rules?: string[];
     };
+    behavior?: {
+        interactionPattern?: 'trigger' | 'toggle' | 'selection' | 'disclosure' | 'navigation' | 'input' | 'compound' | 'unknown';
+        description?: string;
+        inferredFrom?: string;
+        notes?: string[];
+    };
     accessibility?: {
         role?: string;
         labeling?: {

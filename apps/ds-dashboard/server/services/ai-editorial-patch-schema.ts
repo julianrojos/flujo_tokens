@@ -7,6 +7,26 @@
  */
 
 export const EDITORIAL_PATCH_SCHEMA_VERSION = 2 as const;
+const EDITORIAL_BEHAVIOR_PATTERNS = [
+  'trigger',
+  'toggle',
+  'selection',
+  'disclosure',
+  'navigation',
+  'input',
+  'compound',
+  'unknown',
+] as const;
+
+export type EditorialBehaviorInteractionPattern =
+  | 'trigger'
+  | 'toggle'
+  | 'selection'
+  | 'disclosure'
+  | 'navigation'
+  | 'input'
+  | 'compound'
+  | 'unknown';
 
 export interface EditorialPatch {
   schemaVersion: typeof EDITORIAL_PATCH_SCHEMA_VERSION;
@@ -17,6 +37,12 @@ export interface EditorialPatch {
   };
   content_guidelines?: {
     rules?: string[];
+  };
+  behavior?: {
+    interactionPattern?: EditorialBehaviorInteractionPattern;
+    description?: string;
+    inferredFrom?: string;
+    notes?: string[];
   };
   accessibility?: {
     role?: string;
@@ -47,6 +73,19 @@ export const EDITORIAL_PATCH_JSON_SCHEMA = {
       type: "object",
       properties: {
         rules: { type: "array", items: { type: "string" } },
+      },
+      additionalProperties: false,
+    },
+    behavior: {
+      type: "object",
+      properties: {
+        interactionPattern: {
+          type: "string",
+          enum: [...EDITORIAL_BEHAVIOR_PATTERNS],
+        },
+        description: { type: "string" },
+        inferredFrom: { type: "string" },
+        notes: { type: "array", items: { type: "string" } },
       },
       additionalProperties: false,
     },
@@ -156,6 +195,15 @@ function validateSection(
     } else if (arrayFields?.includes(key)) {
       const arrErr = validateArray(val, `${section}.${key}`);
       if (arrErr) return arrErr;
+    } else if (section === 'behavior' && key === 'interactionPattern') {
+      const typeErr = validateType(val, "string", `${section}.${key}`);
+      if (typeErr) return typeErr;
+      if (!EDITORIAL_BEHAVIOR_PATTERNS.includes(val as EditorialBehaviorInteractionPattern)) {
+        return {
+          path: `${section}.${key}`,
+          message: `Must be one of ${EDITORIAL_BEHAVIOR_PATTERNS.join('|')}, got ${String(val)}`,
+        };
+      }
     } else {
       const typeErr = validateType(val, "string", `${section}.${key}`);
       if (typeErr) return typeErr;
@@ -200,6 +248,11 @@ export function validateEditorialPatch(
         arrayFields: ["rules"],
       },
       {
+        section: "behavior",
+        allowedKeys: ["interactionPattern", "description", "inferredFrom", "notes"],
+        arrayFields: ["notes"],
+      },
+      {
         section: "accessibility",
         allowedKeys: ["role", "labeling", "notes"],
         arrayFields: ["notes"],
@@ -233,6 +286,7 @@ export function validateEditorialPatch(
     "schemaVersion",
     "summary",
     "content_guidelines",
+    "behavior",
     "accessibility",
     "qa",
   ];

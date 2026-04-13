@@ -72,6 +72,31 @@ You may not state from Figma alone:
 - real async loading
 - correct screen reader announcements
 
+### 4a. Behavior at Conceptual Level (corollary)
+
+The `behavior` field in `EditorialPatch` occupies the legitimate space between "visual state observed" and "implementation confirmed."
+
+It **may** describe:
+
+- the interaction pattern type (`trigger`, `toggle`, `selection`, `disclosure`, `navigation`, `input`, `compound`, `unknown`)
+- the expected user outcome in 1–2 sentences, from the user's perspective
+
+It may infer the pattern from:
+
+- component name
+- states present in the extraction (`selected`, `checked`, `expanded`, `pressed`)
+- the `purpose` field
+
+It **may not** describe without `[To confirm with dev]`:
+
+- keyboard key bindings
+- focus order or focus management after activation
+- screen reader behavior or ARIA live announcements
+- async implementation details
+- multi-step confirmation flows
+
+If none of the inference sources yield a credible pattern, set `interactionPattern: unknown`.
+
 ---
 
 ## 5. Accessibility With Confidence Levels

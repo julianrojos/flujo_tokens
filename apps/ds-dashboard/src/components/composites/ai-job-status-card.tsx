@@ -215,6 +215,7 @@ export function AiJobStatusCard({
     });
     const [showPreview, setShowPreview] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [cancelError, setCancelError] = useState<string | null>(null);
     const resolvedPreviewMarkdown = job?.previewMarkdown ?? job?.output?.markdown;
     const hasCompleteOutputForSuggestions = Boolean(
         job?.output
@@ -237,6 +238,10 @@ export function AiJobStatusCard({
                 || Boolean(job.editorialPatch.summary?.when_to_use?.trim())
                 || Boolean(job.editorialPatch.summary?.when_not_to_use?.trim())
                 || (job.editorialPatch.content_guidelines?.rules?.length ?? 0) > 0
+                || Boolean(job.editorialPatch.behavior?.interactionPattern?.trim())
+                || Boolean(job.editorialPatch.behavior?.description?.trim())
+                || Boolean(job.editorialPatch.behavior?.inferredFrom?.trim())
+                || (job.editorialPatch.behavior?.notes?.length ?? 0) > 0
                 || Boolean(job.editorialPatch.accessibility?.role?.trim())
                 || (job.editorialPatch.accessibility?.labeling?.rules?.length ?? 0) > 0
                 || (job.editorialPatch.accessibility?.notes?.length ?? 0) > 0
@@ -298,10 +303,12 @@ export function AiJobStatusCard({
     const handleCancel = async () => {
         if (!jobId) return;
         setIsCancelling(true);
+        setCancelError(null);
         try {
             await cancelAiJob(jobId);
         } catch (err) {
             console.error('Failed to cancel job:', err);
+            setCancelError(err instanceof Error ? err.message : 'Unable to cancel job.');
         } finally {
             setIsCancelling(false);
         }
@@ -326,6 +333,12 @@ export function AiJobStatusCard({
     useEffect(() => {
         if (!job) return;
         setShowTimeline(job.status !== 'running');
+    }, [job?.status]);
+    useEffect(() => {
+        if (!job) return;
+        if (job.status === 'cancelled' || job.status === 'completed' || job.status === 'failed') {
+            setCancelError(null);
+        }
     }, [job?.status]);
 
     if (isLoading) {
@@ -363,7 +376,7 @@ export function AiJobStatusCard({
     }
 
     const statusConfig = STATUS_CONFIG[job.status];
-    const canCancel = job.status === 'queued' || job.status === 'running';
+    const canCancel = job.status === 'queued' || job.status === 'pending' || job.status === 'running';
     const canApply = job.status === 'completed' && job.output;
     const canRetry = job.status === 'failed' && job.retryable;
     const blockedByValidation = job.canPublish === false;
@@ -400,6 +413,13 @@ export function AiJobStatusCard({
                                 ? `${job.error} This error is retryable.`
                                 : job.error
                         }
+                    />
+                )}
+                {cancelError && (
+                    <StatusAlert
+                        variant="warning"
+                        title="Cancel request failed"
+                        description={cancelError}
                     />
                 )}
 

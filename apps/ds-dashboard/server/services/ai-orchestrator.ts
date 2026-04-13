@@ -67,6 +67,13 @@ const DEFAULT_STAGE_TIMEOUT_MS = 30000;
 const EDITORIAL_GUIDELINES_HEADING = '## Editorial Style Guidelines';
 type PolicyContextOverride = (stage: PolicyCallStage) => Promise<string>;
 
+class JobCancelledSignal extends Error {
+    constructor() {
+        super('Job cancelled');
+        this.name = 'JobCancelledSignal';
+    }
+}
+
 const DEFAULT_USER_PROMPT_TEMPLATE = `Generate component documentation for Figma component ID: {{componentId}}
 
 Component Specification:
@@ -269,17 +276,17 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
    - Scan variant property names for axes like "State", "Interaction", "Status", "Hover", "Focus", "Active", "Disabled", "Selected", "Pressed", "Loading", "Error", "Success", etc.
    - For each distinct state value found in variant properties, create a state entry with:
      - name: the state value (e.g., "Hover", "Focused", "Disabled", "Loading")
-     - description: what visual or behavioral change occurs in this state
+     - description: what observable visual or interaction cue exists in this state
    - Map variant properties that represent states (not structural variants) to the states[] array
    - Do NOT include structural variant axes like "Size", "Layout", "Orientation" as states
    - If no state-like properties are found, use empty array []
    - Do NOT invent states that are not present in the spec
-5. ACCESSIBILITY: Document accessibility considerations:
-   - Keyboard navigation support
-   - Screen reader considerations
-   - Focus states
-   - Any ARIA attributes needed
-   - If evidence is insufficient, include at least one explicit pending note in accessibilityNotes
+5. ACCESSIBILITY: Document evidence-based accessibility output only:
+   - accessibilityNotes: concise notes from observable evidence or clearly marked inferences
+   - accessibilityFacts: factual or inferred statements with source set to one of: spec | inferred | assumed
+   - You may mention visible focus/disabled/loading states when present
+   - Do NOT claim verified keyboard behavior, focus management, or screen reader announcements from Figma alone
+   - Use explicit pending markers such as "[To confirm with dev]" or "TBD" when evidence is insufficient
 
 IMPORTANT:
 - Populate all fields in the schema
@@ -392,6 +399,7 @@ function buildEditorialPatchPrompt(
 The patch should include:
 - summary: purpose, when_to_use, when_not_to_use (if the docs suggest good editorial content)
 - content_guidelines: rules for content that appears in/with this component
+- behavior: conceptual interaction pattern and user-facing outcome (not implementation details)
 - accessibility: role (ARIA), labeling rules, and notes (accessibility observations)
 - qa: quality assurance checklist items specific to this component
 
@@ -401,8 +409,12 @@ Rules:
 - Do NOT repeat what's already in the existing editorial unless improving it
 - Focus on insights from the Figma spec and generated docs
 - Use both accessibilityNotes and accessibilityFacts as source evidence for accessibility output
+- behavior.interactionPattern must be one of: trigger | toggle | selection | disclosure | navigation | input | compound | unknown
+- Infer behavior from component name, extracted states, and purpose summary
+- Do NOT claim key bindings, focus management, screen reader announcements, async internals, or multi-step flows as facts
+- If such behavior must be mentioned, include a note with "[To confirm with dev]" or "TBD"
 - Accessibility minimum editorial rule: always include an "accessibility" object.
-- If evidence is insufficient, include at least one "accessibility.notes" item with "TBD" or "[Por confirmar con dev]".
+- If evidence is insufficient, include at least one "accessibility.notes" item with "TBD" or "[To confirm with dev]".
 
 COMPONENT DOCUMENTATION:${existingContext}
 
@@ -410,6 +422,7 @@ ${stringifyJsonForPrompt({
         title: docOutput.title,
         summary: docOutput.summary,
         variants: docOutput.variants?.slice(0, 5),
+        states: docOutput.states?.slice(0, 10),
         accessibilityNotes: docOutput.accessibilityNotes,
         accessibilityFacts: docOutput.accessibilityFacts,
     }, 8000)}
@@ -540,6 +553,7 @@ Focus on:
 - Unsupported claims not backed by Figma spec
 - Terminology matching the design system's canonical terms
 - Accessibility: claims presented as "verified" when only inferred/assumed
+- Behavior: claims about keyboard/screen-reader/focus internals presented as facts without evidence
 
 COMPONENT DOCUMENTATION:
 ${stringifyJsonForPrompt({
@@ -680,8 +694,15 @@ export async function runGenerateComponentDoc(
     getPolicyContextOverride?: PolicyContextOverride,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
+    const throwIfCancelled = (): void => {
+        const current = store.findById(job.id);
+        if (current?.status === 'cancelled') {
+            throw new JobCancelledSignal();
+        }
+    };
 
     try {
+        throwIfCancelled();
         // Push initial event
         store.pushEvent(job.id, 'pipeline.started', { componentId: job.input.componentId });
 
@@ -709,6 +730,7 @@ export async function runGenerateComponentDoc(
                 retryable: true,
             };
         }
+        throwIfCancelled();
 
         store.pushEvent(job.id, 'figma.spec.fetched', { hasSpec: !!spec.name });
 
@@ -729,6 +751,7 @@ export async function runGenerateComponentDoc(
         if (getExistingEditorialOverride) {
             existingEditorial = await getExistingEditorialOverride();
         }
+        throwIfCancelled();
         const policyContext = getPolicyContextOverride
             ? await getPolicyContextOverride('extraction')
             : await buildPromptPolicyContext(REPO_ROOT, 'extraction');
@@ -790,6 +813,7 @@ export async function runGenerateComponentDoc(
                     promptTokens: result.usage.promptTokens,
                     completionTokens: result.usage.completionTokens,
                 });
+                throwIfCancelled();
 
                 // Step 5: Validate output
                 store.pushEvent(job.id, 'schema.validating', {});
@@ -814,6 +838,9 @@ export async function runGenerateComponentDoc(
                     durationMs: result.usage.durationMs,
                 };
             } catch (error) {
+                if (error instanceof JobCancelledSignal) {
+                    throw error;
+                }
                 // Check if it's a timeout
                 if (error instanceof Error && error.message === 'LLM call timed out') {
                     throw {
@@ -835,6 +862,7 @@ export async function runGenerateComponentDoc(
                 };
             }
         }
+        throwIfCancelled();
 
         // Step 6: Render markdown (BASE factual only — do NOT use composite renderer here).
         // DESIGN NOTE: output.markdown is the source of truth for /apply endpoints.
@@ -863,6 +891,7 @@ export async function runGenerateComponentDoc(
                 store.pushEvent(job.id, 'editorial.patch_failed', { reason: msg });
             }
         }
+        throwIfCancelled();
 
         // Stage 3: Validation report (fail-open)
         store.setPipelineStage(job.id, 'validating');
@@ -890,6 +919,7 @@ export async function runGenerateComponentDoc(
             }
             // If validationReport is undefined (fail-open), canPublish stays true
         }
+        throwIfCancelled();
 
         // Step 7: Complete with all artefacts
         store.complete(job.id, output, usage, editorialPatch, {
@@ -899,6 +929,9 @@ export async function runGenerateComponentDoc(
             pipelineScore: validationReport?.score,
         });
     } catch (error) {
+        if (error instanceof JobCancelledSignal) {
+            return;
+        }
         // Classify error
         const err = error as { code?: string; message?: string; retryable?: boolean };
         const code = err.code || AI_ERROR_CODES.LLM_API_ERROR.code;
@@ -908,7 +941,10 @@ export async function runGenerateComponentDoc(
         store.pushEvent(job.id, 'job.failed', { code, message, retryable });
         store.fail(job.id, message, code, retryable);
     } finally {
-        // Try to dequeue next job
-        store.tryDequeueNext(job.input.provider);
+        // Cancel path already releases/dequeues in store.cancel() for running jobs.
+        const current = store.findById(job.id);
+        if (current?.status !== 'cancelled') {
+            store.tryDequeueNext(job.input.provider);
+        }
     }
 }

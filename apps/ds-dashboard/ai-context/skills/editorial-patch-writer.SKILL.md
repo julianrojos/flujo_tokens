@@ -24,6 +24,7 @@ It may populate:
 - `when_not_to_use`
 - `content_guidelines`
 - `rules[]`
+- `behavior`
 - `accessibility`
 - `qa[]`
 
@@ -138,6 +139,74 @@ Mark with:
 
 - `[To confirm with dev]`
 - `[Outside Figma scope]`
+
+### 6. behavior
+
+`behavior` describes what the component does when a person interacts with it, at the **conceptual pattern level** — not at the implementation level.
+
+#### Structure
+
+```
+behavior:
+  interactionPattern: trigger | toggle | selection | disclosure | navigation | input | compound | unknown
+  description: string          # 1–2 sentences, user perspective
+  inferredFrom?: string        # brief note on inference source
+  notes?: string[]             # [To confirm with dev] items
+```
+
+#### interactionPattern values
+
+| Value | Meaning |
+|---|---|
+| `trigger` | Fires a one-time action (submit, delete, copy) |
+| `toggle` | Alternates between two states (on/off, open/close) |
+| `selection` | Picks one or more items from a set |
+| `disclosure` | Reveals or hides associated content |
+| `navigation` | Moves the user to another context or view |
+| `input` | Captures user-provided data |
+| `compound` | Combines two or more patterns |
+| `unknown` | Cannot be determined from available evidence |
+
+#### Inference sources
+
+Derive `interactionPattern` from:
+
+1. **Component name** — Button → `trigger`; Checkbox → `toggle`; Accordion → `disclosure`; Tab → `selection`
+2. **States present in extraction** — `selected` or `checked` → strong signal for `toggle` or `selection`; `expanded` → strong signal for `disclosure`
+3. **`purpose` field** — if it describes an action outcome, align the pattern with it
+
+#### description
+
+- 1–2 sentences maximum
+- Written from the user's perspective: what they initiate and what outcome they expect
+- Do not describe appearance
+- Do not describe implementation
+
+Correct:
+- `Pressing this component submits the associated form or triggers the primary action of the current view.`
+- `Activating this component reveals or hides a panel of related content without navigating away.`
+
+Incorrect:
+- `On click, it dispatches a Redux action.`
+- `Uses useCallback to debounce the handler.`
+
+#### What behavior CANNOT claim
+
+Without `[To confirm with dev]`:
+
+- Keyboard shortcuts or key bindings (Tab, Enter, Space, Arrow keys)
+- Focus management after activation
+- Screen reader announcements or ARIA live regions
+- Async/loading behavior — unless a `loading` state exists in the extraction
+- Multi-step or confirmation flows — unless visible in Figma
+
+#### Confidence and markers
+
+- Mark `inferredFrom` when the pattern is inferred rather than explicit
+- Use `notes[]` for anything that requires dev confirmation
+- If the pattern cannot be determined: set `interactionPattern: unknown` and a single note in `notes[]`
+
+Do not skip the `behavior` block entirely if there is a reasonable inference available. `unknown` is a valid and honest answer.
 
 ### 7. qa[]
 

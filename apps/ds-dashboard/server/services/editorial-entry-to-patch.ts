@@ -28,6 +28,14 @@ export function entryToEditorialPatch(entry: EditorialEntry | null | undefined):
     };
   }
 
+  if (typeof entry.behaviour === 'string' && entry.behaviour.trim().length > 0) {
+    // EditorialEntry.behaviour is a free-text field. We preserve the text and keep pattern unknown.
+    patch.behavior = {
+      interactionPattern: 'unknown',
+      description: entry.behaviour.trim(),
+    };
+  }
+
   const acc = entry.accessibility as Record<string, unknown> | undefined;
   if (acc && typeof acc === 'object' && !Array.isArray(acc)) {
     const labelingRules = acc.labeling && typeof acc.labeling === 'object'

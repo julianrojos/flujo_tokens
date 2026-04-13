@@ -178,6 +178,27 @@ export function renderComponentDoc(
             }
             lines.push('');
         }
+
+        // Behavior
+        const behavior = editorialPatch.behavior;
+        if (behavior && (behavior.interactionPattern || behavior.description || behavior.inferredFrom || behavior.notes?.length)) {
+            lines.push('## Editorial: Behavior');
+            lines.push('');
+            if (behavior.interactionPattern) {
+                lines.push(`**Interaction pattern:** ${escapeMarkdown(behavior.interactionPattern)}`);
+            }
+            if (behavior.description) {
+                lines.push(`**Description:** ${escapeMarkdown(behavior.description)}`);
+            }
+            if (behavior.inferredFrom) {
+                lines.push(`**Inferred from:** ${escapeMarkdown(behavior.inferredFrom)}`);
+            }
+            if (behavior.notes?.length) {
+                lines.push('**Notes:**');
+                for (const item of behavior.notes) lines.push(`- ${escapeMarkdown(item)}`);
+            }
+            lines.push('');
+        }
     }
 
     return lines.join('\n');
@@ -248,6 +269,24 @@ export function renderEditorialPatchToMarkdown(patch: EditorialPatch | null | un
     if (patch.content_guidelines?.rules?.length) {
         lines.push('## Content Guidelines');
         for (const item of patch.content_guidelines.rules) lines.push(`- ${escapeMarkdown(item)}`);
+        lines.push('');
+    }
+
+    if (patch.behavior?.interactionPattern || patch.behavior?.description || patch.behavior?.inferredFrom || patch.behavior?.notes?.length) {
+        lines.push('## Behavior');
+        if (patch.behavior?.interactionPattern) {
+            lines.push(`**Interaction pattern:** ${escapeMarkdown(patch.behavior.interactionPattern)}`);
+        }
+        if (patch.behavior?.description) {
+            lines.push(`**Description:** ${escapeMarkdown(patch.behavior.description)}`);
+        }
+        if (patch.behavior?.inferredFrom) {
+            lines.push(`**Inferred from:** ${escapeMarkdown(patch.behavior.inferredFrom)}`);
+        }
+        if (patch.behavior?.notes?.length) {
+            lines.push('**Notes:**');
+            for (const item of patch.behavior.notes) lines.push(`- ${escapeMarkdown(item)}`);
+        }
         lines.push('');
     }
 

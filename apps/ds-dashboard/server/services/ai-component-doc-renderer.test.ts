@@ -133,6 +133,12 @@ describe('ai-component-doc-renderer', () => {
                 },
                 qa: ['Verify hover state works', 'Check focus order'],
                 content_guidelines: { rules: ['Use sentence case', 'Keep labels under 3 words'] },
+                behavior: {
+                    interactionPattern: 'trigger',
+                    description: 'Activating this component triggers the primary action for the current view.',
+                    inferredFrom: 'component name and visible pressed state',
+                    notes: ['[To confirm with dev] Keyboard trigger parity.'],
+                },
                 accessibility: { role: 'button', labeling: { rules: ['Must have aria-label if icon-only'] }, notes: [] },
             };
             const result = renderComponentDoc({ output, editorialPatch: patch });
@@ -142,6 +148,8 @@ describe('ai-component-doc-renderer', () => {
             assert.ok(result.includes('**When to use:** When user needs clear CTA'));
             assert.ok(result.includes('## Editorial: QA Checklist'));
             assert.ok(result.includes('## Editorial: Content Guidelines'));
+            assert.ok(result.includes('## Editorial: Behavior'));
+            assert.ok(result.includes('**Interaction pattern:** trigger'));
         });
 
         it('skips empty editorial sections gracefully', () => {
@@ -369,12 +377,14 @@ describe('ai-component-doc-renderer', () => {
                 schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
                 content_guidelines: { rules: ['Rule 1'] },
+                behavior: { interactionPattern: 'disclosure', description: 'Reveals additional content on activation.' },
                 accessibility: { role: 'button', labeling: { rules: ['Label A'] }, notes: ['Note Z'] },
                 qa: ['Check A'],
             };
             const md = renderEditorialPatchToMarkdown(patch);
             assert.ok(md.includes('## Summary'));
             assert.ok(md.includes('## Content Guidelines'));
+            assert.ok(md.includes('## Behavior'));
             assert.ok(md.includes('## Accessibility'));
             assert.ok(md.includes('## QA'));
             assert.ok(md.includes('Check A'));
@@ -402,6 +412,7 @@ describe('ai-component-doc-renderer', () => {
             const entry: EditorialEntry = {
                 componentId: 2,
                 summary: { purpose: 'P', when_to_use: 'W', when_not_to_use: 'N' },
+                behaviour: 'Activating this component reveals a related panel.',
                 contentGuidelines: { rules: ['Rule X'] },
                 accessibility: { role: 'dialog', labeling: { rules: ['L1'] }, notes: ['N1'] },
                 qa: ['QA1'],
@@ -409,6 +420,7 @@ describe('ai-component-doc-renderer', () => {
             };
             const md = renderEditorialEntryToMarkdown(entry);
             assert.ok(md.includes('## Summary'));
+            assert.ok(md.includes('## Behavior'));
             assert.ok(md.includes('## Content Guidelines'));
             assert.ok(md.includes('## Accessibility'));
             assert.ok(md.includes('## QA'));

@@ -20,6 +20,12 @@ describe("validateEditorialPatch", () => {
       schemaVersion: EDITORIAL_PATCH_SCHEMA_VERSION,
       summary: { purpose: "A button", when_to_use: "Actions", when_not_to_use: "Links" },
       content_guidelines: { rules: ["Use title case"] },
+      behavior: {
+        interactionPattern: "trigger",
+        description: "Activating this component starts the primary action in the current context.",
+        inferredFrom: "component name and states",
+        notes: ["[To confirm with dev] Keyboard activation details."],
+      },
       accessibility: { role: "button", labeling: { rules: ["Include name"] }, notes: ["Test with screen readers"] },
       qa: ["Verify focus ring"],
     });
@@ -108,9 +114,20 @@ describe("validateEditorialPatch", () => {
   it("accepts partial sections (only some fields present)", () => {
     const result = validateEditorialPatch(makePatch({
       summary: { purpose: "x" },
+      behavior: { interactionPattern: "unknown" },
       accessibility: { role: "dialog" },
     }));
     assert.strictEqual(result.valid, true);
+  });
+
+  it("rejects behavior.interactionPattern outside allowed enum", () => {
+    const result = validateEditorialPatch(makePatch({
+      behavior: { interactionPattern: "verified" },
+    }));
+    assert.strictEqual(result.valid, false);
+    if (!result.valid) {
+      assert.ok(result.errors.some((e) => e.path === "behavior.interactionPattern"));
+    }
   });
 
   it("rejects unknown properties inside nested accessibility.labeling", () => {

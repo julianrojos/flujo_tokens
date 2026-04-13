@@ -41,6 +41,17 @@ Pay special attention to:
 - theming
 - roles
 
+#### Behavior-specific checks
+
+Emit **blocking** if:
+- `behavior.description` claims keyboard key bindings, focus management, or screen reader behavior without `[To confirm with dev]`
+
+Emit **warning** if:
+- `behavior.interactionPattern` is not `unknown` and `behavior.inferredFrom` is missing
+- `behavior.interactionPattern` contradicts the states in the base extraction (e.g., pattern is `toggle` but no `selected`, `checked`, or boolean state exists)
+- `behavior.description` describes implementation details (dispatches, debounce, async calls) instead of user-facing outcome
+- `behavior` block is entirely absent for an interactive component (i.e., one whose name or states imply user interaction)
+
 ### 3. Terminology Consistency
 
 Compare names across both blocks. If there is a mismatch, emit `terminologyMismatch`. Do not block unless the meaning changes (RULES.md Rule 8).
