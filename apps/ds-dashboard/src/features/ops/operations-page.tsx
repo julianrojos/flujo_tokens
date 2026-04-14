@@ -43,7 +43,7 @@ export function OperationsPage() {
 
   if (!resolvedSystemId) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-5">
         <PageHeader
           title="Operations"
           description="Select a system from Design Systems Admin to view operations."
@@ -59,7 +59,7 @@ export function OperationsPage() {
 
   if (!systemExists) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-5">
         <PageHeader
           title="Operations"
           description="Operations for the selected system."
@@ -74,7 +74,7 @@ export function OperationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 animate-in fade-in duration-500">
+    <div className="mx-auto max-w-5xl space-y-5 animate-in fade-in duration-500">
       <PageHeader
         title="Operations"
         description="Centro de control para regenerar artefactos core y ejecutar diagnósticos puntuales."

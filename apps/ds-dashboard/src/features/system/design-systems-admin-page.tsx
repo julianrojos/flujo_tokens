@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/composites";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
@@ -297,16 +298,17 @@ export function DesignSystemsAdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl py-8">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-serif font-bold tracking-tight">Design Systems Admin</h1>
-        <Link to="/system/new" className={buttonVariants({ size: "sm", variant: "outline" })}>
-          Add New Design System
-        </Link>
-      </div>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Default system appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems.
-      </p>
+    <div className="mx-auto max-w-5xl space-y-5 py-8">
+      <PageHeader
+        title="Design Systems Admin"
+        description="Default system appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems."
+        className="mb-6"
+        actions={(
+          <Link to="/system/new" className={buttonVariants({ size: "sm", variant: "outline" })}>
+            Add New Design System
+          </Link>
+        )}
+      />
 
       {error ? (
         <ApiErrorMessage error={error} className="mb-4" />

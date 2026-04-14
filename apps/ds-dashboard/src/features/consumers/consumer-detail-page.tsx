@@ -298,7 +298,7 @@ export function ConsumerDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader title="Loading..." description="Loading consumer details" />
         <div className="rounded-xl border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">Loading consumer details...</p>
@@ -309,7 +309,7 @@ export function ConsumerDetailPage() {
 
   if (!consumer) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader
           title="Consumer not found"
           description="The requested consumer could not be found"
@@ -326,7 +326,7 @@ export function ConsumerDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title={consumer.consumerName}
         description={consumer.consumerFileKey}

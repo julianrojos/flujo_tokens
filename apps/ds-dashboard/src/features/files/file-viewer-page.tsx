@@ -5,10 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { fetchFile, fetchFileSnippet } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { PageHeader } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 function parseLineParam(raw: string | null) {
   if (!raw) return null;
@@ -92,14 +93,20 @@ export function FileViewerPage() {
   }, [filePath, line, showFull]);
 
   return (
-    <div className="space-y-5 animate-fade-slide-in">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        {filePath ? <Badge variant="neutral">{filePath}</Badge> : null}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="File Viewer"
+        description={filePath || "Open a file path with ?path=..."}
+        actions={(
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            {filePath ? <Badge variant="neutral">{filePath}</Badge> : null}
+          </div>
+        )}
+      />
 
       {!filePath ? (
         <StatusAlert variant="warning" description="Missing path query parameter." />
@@ -110,11 +117,7 @@ export function FileViewerPage() {
       ) : null}
 
       <Card>
-        <CardHeader className="gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <CardTitle>File Viewer</CardTitle>
-            <CardDescription className="font-mono text-xs">{filePath || "—"}</CardDescription>
-          </div>
+        <CardHeader className="gap-3 md:flex-row md:items-end md:justify-end">
           {line ? (
             <div className="flex items-center gap-2">
               <Badge variant="neutral">L{line}</Badge>

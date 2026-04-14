@@ -46,7 +46,7 @@ export function ConsumersPage() {
 
   if (resolvingDsFileKey) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader
           title="Consumer Files"
           description="Cross-file usage tracking for design system tokens"
@@ -60,7 +60,7 @@ export function ConsumersPage() {
 
   if (!dsFileKey) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <PageHeader
           title="Consumer Files"
           description="Cross-file usage tracking for design system tokens"
@@ -80,7 +80,7 @@ export function ConsumersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         title="Consumer Files"
         description="Track cross-file design system token usage"

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { PageHeader } from "@/components/composites";
 import { cn } from "@/lib/utils";
 import {
   buildGraphIndexes,
@@ -230,49 +231,45 @@ export function TokenGraphPage() {
   const cycleNodesCount = graph?.summary?.cycle_nodes ?? 0;
 
   return (
-    <div className="space-y-5 animate-fade-slide-in">
-      <div className="flex items-center gap-3">
-        <Link
-          to={`/tokens/${encodeURIComponent(tokenPath ?? "")}`}
-          className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to token
-        </Link>
-        {graph ? <Badge variant="neutral">{graph.summary.nodes} nodes</Badge> : null}
-        {graph ? <Badge variant="neutral">{graph.summary.edges} edges</Badge> : null}
-        {graph ? (
-          <Badge variant={cyclesCount > 0 ? "warning" : "success"}>
-            {cyclesCount} cycles · {cycleNodesCount} nodes
-          </Badge>
-        ) : null}
-      </div>
-
-      <Card>
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <CardTitle>Dependency Graph</CardTitle>
-            <CardDescription>
-              {resolvedRootLabel ? (
-                <>Root: <span className="font-mono text-foreground">{resolvedRootLabel}</span></>
-              ) : (
-                "No token specified"
-              )}
-            </CardDescription>
-            {refreshNotice ? (
-              <p className="mt-2 text-sm text-status-success">
-                {refreshNotice}
-              </p>
+    <div className="space-y-5">
+      <PageHeader
+        title="Dependency Graph"
+        description={
+          resolvedRootLabel
+            ? `Root: ${resolvedRootLabel}`
+            : "No token specified"
+        }
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={`/tokens/${encodeURIComponent(tokenPath ?? "")}`}
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to token
+            </Link>
+            {graph ? <Badge variant="neutral">{graph.summary.nodes} nodes</Badge> : null}
+            {graph ? <Badge variant="neutral">{graph.summary.edges} edges</Badge> : null}
+            {graph ? (
+              <Badge variant={cyclesCount > 0 ? "warning" : "success"}>
+                {cyclesCount} cycles · {cycleNodesCount} nodes
+              </Badge>
             ) : null}
-          </div>
-
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
             <Button variant="outline" onClick={onRefresh} disabled={syncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               {syncing ? "Refreshing…" : "Refresh Graph"}
             </Button>
           </div>
-        </CardHeader>
+        )}
+      />
+
+      {refreshNotice ? (
+        <p className="text-sm text-status-success">
+          {refreshNotice}
+        </p>
+      ) : null}
+
+      <Card>
         <CardContent className="space-y-4">
           {error ? (
             <ApiErrorMessage error={error} />
