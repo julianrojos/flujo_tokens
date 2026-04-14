@@ -5,11 +5,12 @@
  * Uses the same Card + Table markup pattern as TokenUsageSection.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { Select } from "@/components/ui/select";
 import { Link } from "react-router-dom";
 import type { TokenRegistry } from "@/types/token-registry";
 
@@ -95,27 +96,55 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
   const hasEntries = entries.length > 0;
   const byPath = tokenRegistry?.byPath;
   const bySlashPath = tokenRegistry?.bySlashPath;
+  const [selectedVariant, setSelectedVariant] = useState<string>("__all__");
   const [sort, setSort] = useState<{ field: SortField; dir: SortDirection }>({
     field: "token",
     dir: "asc",
   });
 
-  const sortedEntries = useMemo(() => {
-    const withCollection = entries.map((entry) => ({
+  const { variantOptions, filteredEntries, sortedFilteredEntries } = useMemo(() => {
+    const rows = entries.map((entry) => ({
       entry,
       collection: resolveCollectionFromTokenPath(entry.token_path, byPath, bySlashPath) || "",
     }));
-    withCollection.sort((left, right) => compareBindingRows(left, right, sort));
-    return withCollection;
-  }, [entries, sort, byPath, bySlashPath]);
+    const signatures = Array.from(
+      new Set(rows.map(({ entry }) => String(entry.variant_signature || "").trim())),
+    );
+    signatures.sort((a, b) => {
+      const aIsEmpty = a.length === 0;
+      const bIsEmpty = b.length === 0;
+      if (aIsEmpty && !bIsEmpty) return 1;
+      if (!aIsEmpty && bIsEmpty) return -1;
+      return normalizedSortText(a).localeCompare(normalizedSortText(b));
+    });
+    const filtered = selectedVariant === "__all__"
+      ? rows
+      : rows.filter(({ entry }) => String(entry.variant_signature || "").trim() === selectedVariant);
+    const sorted = [...filtered];
+    sorted.sort((left, right) => compareBindingRows(left, right, sort));
+    return {
+      variantOptions: signatures,
+      filteredEntries: filtered,
+      sortedFilteredEntries: sorted,
+    };
+  }, [entries, byPath, bySlashPath, selectedVariant, sort]);
 
-  const toggleSort = (field: SortField) => {
+  useEffect(() => {
+    setSelectedVariant((current) => {
+      if (current === "__all__") return current;
+      return variantOptions.includes(current) ? current : "__all__";
+    });
+  }, [variantOptions]);
+
+  const hasFilteredEntries = filteredEntries.length > 0;
+
+  const toggleSort = useCallback((field: SortField) => {
     setSort((current) =>
       current.field === field
         ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
         : { field, dir: "asc" },
     );
-  };
+  }, []);
 
   return (
     <Card>
@@ -123,11 +152,36 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
         <CardTitle>Tokens used</CardTitle>
         <CardDescription>
           {hasEntries
-            ? `Token bindings per layer and variant — ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
+            ? (
+                selectedVariant === "__all__"
+                  ? `Token bindings per layer and variant — ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
+                  : `Token bindings per layer and variant — ${filteredEntries.length} of ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
+              )
             : "Token bindings per layer and variant from the latest structured capture."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasEntries ? (
+          <div className="flex items-center gap-2">
+            <label htmlFor="tokens-used-variant-filter" className="text-sm text-muted-foreground">
+              Variant
+            </label>
+            <Select
+              id="tokens-used-variant-filter"
+              value={selectedVariant}
+              onChange={(event) => setSelectedVariant(event.target.value)}
+              className="w-full max-w-sm"
+              aria-label="Filter token bindings by variant"
+            >
+              <option value="__all__">All variants</option>
+              {variantOptions.map((variant) => (
+                <option key={variant || "__no_variant__"} value={variant}>
+                  {variant || "(no variant)"}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
         {hasEntries ? (
           <Table>
             <TableHeader>
@@ -141,56 +195,64 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedEntries.map(({ entry, collection }) => (
-                <TableRow
-                  key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
-                >
-                  <TableCell className="max-w-[200px]">
-                    {entry.token_path ? (
-                      <div className="font-medium">
-                        <Link
-                          to={`/tokens/${encodeURIComponent(entry.token_path)}`}
-                          className="hover:text-primary hover:underline"
-                          aria-label={`Open ${entry.token_path} detail`}
-                        >
-                          {entry.token_path}
-                        </Link>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-xs">{entry.property_path}</code>
-                  </TableCell>
-                  <TableCell>
-                    {entry.token_path ? (
-                      <Badge variant="neutral" className="text-xs">
-                        {collection || "—"}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[200px]">
-                    <span className="block truncate text-sm" title={entry.variant_signature || "(no variant)"}>
-                      {entry.variant_signature || <span className="text-muted-foreground">—</span>}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-[160px]">
-                    <span className="block truncate font-mono text-xs" title={entry.layer_name}>
-                      {entry.layer_name}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {entry.mode_name ? (
-                      <Badge variant="neutral" className="text-xs">{entry.mode_name}</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+              {hasFilteredEntries ? (
+                sortedFilteredEntries.map(({ entry, collection }) => (
+                  <TableRow
+                    key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
+                  >
+                    <TableCell className="max-w-[200px]">
+                      {entry.token_path ? (
+                        <div className="font-medium">
+                          <Link
+                            to={`/tokens/${encodeURIComponent(entry.token_path)}`}
+                            className="hover:text-primary hover:underline"
+                            aria-label={`Open ${entry.token_path} detail`}
+                          >
+                            {entry.token_path}
+                          </Link>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <code className="text-xs">{entry.property_path}</code>
+                    </TableCell>
+                    <TableCell>
+                      {entry.token_path ? (
+                        <Badge variant="neutral" className="text-xs">
+                          {collection || "—"}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <span className="block truncate text-sm" title={entry.variant_signature || "(no variant)"}>
+                        {entry.variant_signature || <span className="text-muted-foreground">—</span>}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[160px]">
+                      <span className="block truncate font-mono text-xs" title={entry.layer_name}>
+                        {entry.layer_name}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {entry.mode_name ? (
+                        <Badge variant="neutral" className="text-xs">{entry.mode_name}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                    No token bindings match the selected variant.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         ) : (

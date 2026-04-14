@@ -2,12 +2,13 @@
  * Component Visual Proof Section
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Camera } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, X } from "lucide-react";
 import type { SpecVariantVisual } from "ds-types";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Modal, ModalContent } from "@/components/ui/overlay";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 
 import { buildAssetUrl } from "../lib/component-detail-transforms";
@@ -25,6 +26,11 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
   const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
   const [mainImageFailed, setMainImageFailed] = useState(false);
   const [failedVariantKeys, setFailedVariantKeys] = useState<Set<string>>(new Set());
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxImageFailed, setLightboxImageFailed] = useState(false);
+  const lightboxContainerRef = useRef<HTMLDivElement | null>(null);
+  const lightboxCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lightboxTriggerRef = useRef<HTMLElement | null>(null);
   const variantPreviews = useMemo(
     () =>
       Array.isArray(proof?.variants)
@@ -67,6 +73,68 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
   useEffect(() => {
     setFailedVariantKeys(new Set());
   }, [variantPreviews]);
+  useEffect(() => {
+    setLightboxImage(null);
+    setLightboxImageFailed(false);
+  }, [item?.slug]);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxImage(null);
+    setLightboxImageFailed(false);
+    const trigger = lightboxTriggerRef.current;
+    if (trigger) {
+      window.requestAnimationFrame(() => trigger.focus());
+    }
+  }, []);
+
+  const openLightbox = useCallback((image: { src: string; alt: string }, trigger: HTMLElement | null) => {
+    lightboxTriggerRef.current = trigger;
+    setLightboxImageFailed(false);
+    setLightboxImage(image);
+  }, []);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const closeButton = lightboxCloseButtonRef.current;
+    if (closeButton) {
+      window.requestAnimationFrame(() => closeButton.focus());
+    }
+  }, [lightboxImage]);
+
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const container = lightboxContainerRef.current;
+      if (!container) return;
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((node) => !node.hasAttribute("disabled") && node.tabIndex !== -1);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (!active || active === first || !container.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+      if (!active || active === last || !container.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [lightboxImage]);
   const visibleVariantPreviews = useMemo(
     () => variantPreviews.filter((variant) => !failedVariantKeys.has(variant.key)),
     [failedVariantKeys, variantPreviews],
@@ -95,12 +163,25 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
             {hasScreenshot && (
               <div>
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screenshot</h4>
-                <img
-                  src={screenshotUrl || undefined}
-                  alt={`${item.display_name} screenshot`}
-                  className="max-h-64 rounded-lg border border-border object-contain"
-                  onError={() => setMainImageFailed(true)}
-                />
+                <button
+                  type="button"
+                  className="block"
+                  onClick={(event) => {
+                    if (!screenshotUrl) return;
+                    openLightbox({
+                      src: screenshotUrl,
+                      alt: `${item.display_name} screenshot`,
+                    }, event.currentTarget);
+                  }}
+                  aria-label={`Open ${item.display_name} screenshot in full size`}
+                >
+                  <img
+                    src={screenshotUrl || undefined}
+                    alt={`${item.display_name} screenshot`}
+                    className="max-h-64 cursor-zoom-in object-contain"
+                    onError={() => setMainImageFailed(true)}
+                  />
+                </button>
               </div>
             )}
             {hasVariantPreviews && (
@@ -114,18 +195,31 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
                     }
                     return (
                       <figure key={variant.key} className="space-y-1">
-                        <img
-                          src={variant.previewUrl || undefined}
-                          alt={`${item.display_name} ${variant.name}`}
-                          className="max-h-40 w-full rounded-lg object-contain"
-                          onError={() =>
-                            setFailedVariantKeys((prev) => {
-                              const next = new Set(prev);
-                              next.add(variant.key);
-                              return next;
-                            })
-                          }
-                        />
+                        <button
+                          type="button"
+                          className="block w-full"
+                          onClick={(event) => {
+                            if (!variant.previewUrl) return;
+                            openLightbox({
+                              src: variant.previewUrl,
+                              alt: `${item.display_name} ${variant.name}`,
+                            }, event.currentTarget);
+                          }}
+                          aria-label={`Open ${variant.name} variant screenshot in full size`}
+                        >
+                          <img
+                            src={variant.previewUrl || undefined}
+                            alt={`${item.display_name} ${variant.name}`}
+                            className="max-h-40 w-full cursor-zoom-in object-contain"
+                            onError={() =>
+                              setFailedVariantKeys((prev) => {
+                                const next = new Set(prev);
+                                next.add(variant.key);
+                                return next;
+                              })
+                            }
+                          />
+                        </button>
                         <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
                         {matched && Object.keys(matched.properties).length > 0 && (
                           <div
@@ -162,6 +256,40 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
           <p className="text-sm text-muted-foreground">No visual assets captured yet.</p>
         )}
       </CardContent>
+      <Modal
+        open={Boolean(lightboxImage)}
+        onClose={closeLightbox}
+        aria-labelledby="visual-proof-lightbox-title"
+        zIndex={1100}
+      >
+        <ModalContent className="relative w-[min(96vw,1400px)] bg-background/95 p-4">
+          <div ref={lightboxContainerRef} tabIndex={-1} className="outline-none">
+          <h3 id="visual-proof-lightbox-title" className="sr-only">Visual proof full size</h3>
+          <Button
+            ref={lightboxCloseButtonRef}
+            variant="ghost"
+            size="sm"
+            onClick={closeLightbox}
+            aria-label="Close image preview"
+            className="absolute right-2 top-2 z-10"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          {lightboxImage && !lightboxImageFailed ? (
+            <img
+              src={lightboxImage.src}
+              alt={lightboxImage.alt}
+              className="mx-auto max-h-[85vh] w-auto max-w-full object-contain"
+              onError={() => setLightboxImageFailed(true)}
+            />
+          ) : lightboxImage ? (
+            <div className="mx-auto flex min-h-[50vh] max-w-xl items-center justify-center rounded-md border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
+              Failed to load full-size image.
+            </div>
+          ) : null}
+          </div>
+        </ModalContent>
+      </Modal>
     </Card>
   );
 }
