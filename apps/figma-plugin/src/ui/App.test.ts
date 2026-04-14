@@ -13,35 +13,26 @@ import App from './App';
 const getCapabilitiesMock = vi.fn();
 const computeConnectionStateMock = vi.fn();
 const sendHeartbeatMock = vi.fn();
+const syncTokensMock = vi.fn();
 const getLastKnownConfiguredPortMock = vi.fn();
 
 const runtimeStartMock = vi.fn();
 const runtimeHandshakeMock = vi.fn();
 const runtimeStopMock = vi.fn();
+const pluginClientMock = {
+  getCapabilities: getCapabilitiesMock,
+  computeConnectionState: computeConnectionStateMock,
+  sendHeartbeat: sendHeartbeatMock,
+  syncTokens: syncTokensMock,
+  getLastKnownConfiguredPort: getLastKnownConfiguredPortMock,
+};
 
 vi.mock('./components/StatusIndicator', () => ({
   StatusIndicator: () => null,
 }));
 
-vi.mock('./components/KitSummary', () => ({
-  KitSummary: () => null,
-}));
-
-vi.mock('./components/SyncButton', () => ({
-  SyncButton: () => null,
-}));
-
-vi.mock('./components/AdvancedSection', () => ({
-  AdvancedSection: () => null,
-}));
-
 vi.mock('../services/mcp-client', () => ({
-  getPluginMcpClient: () => ({
-    getCapabilities: getCapabilitiesMock,
-    computeConnectionState: computeConnectionStateMock,
-    sendHeartbeat: sendHeartbeatMock,
-    getLastKnownConfiguredPort: getLastKnownConfiguredPortMock,
-  }),
+  getPluginMcpClient: () => pluginClientMock,
 }));
 
 vi.mock('../bridge/ws-runtime', () => ({
@@ -70,6 +61,7 @@ describe('App polling and heartbeat behavior', () => {
     getCapabilitiesMock.mockReset();
     computeConnectionStateMock.mockReset();
     sendHeartbeatMock.mockReset();
+    syncTokensMock.mockReset();
     getLastKnownConfiguredPortMock.mockReset();
     runtimeStartMock.mockReset();
     runtimeHandshakeMock.mockReset();
@@ -87,6 +79,7 @@ describe('App polling and heartbeat behavior', () => {
     });
     getLastKnownConfiguredPortMock.mockReturnValue(9223);
     sendHeartbeatMock.mockResolvedValue({ ok: true, alive: true });
+    syncTokensMock.mockResolvedValue({ ok: true });
     runtimeStartMock.mockResolvedValue(undefined);
     runtimeHandshakeMock.mockResolvedValue(undefined);
     runtimeStopMock.mockImplementation(() => {});
@@ -163,5 +156,65 @@ describe('App polling and heartbeat behavior', () => {
       await flushMicrotasks();
     });
     expect(sendHeartbeatMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('syncs tokens once when INIT message is received', async () => {
+    await act(async () => {
+      root.render(React.createElement(App));
+      await flushMicrotasks();
+    });
+
+    expect(syncTokensMock).toHaveBeenCalledTimes(0);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { pluginMessage: { type: 'INIT', docName: 'DS', fileKey: 'file-1' } },
+        }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(syncTokensMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { pluginMessage: { type: 'INIT', docName: 'DS2', fileKey: 'file-2' } },
+        }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(syncTokensMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries sync automatically after initial failure', async () => {
+    syncTokensMock
+      .mockResolvedValueOnce({ ok: false, message: 'temporary failure' })
+      .mockResolvedValueOnce({ ok: true });
+
+    await act(async () => {
+      root.render(React.createElement(App));
+      await flushMicrotasks();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { pluginMessage: { type: 'INIT', docName: 'DS', fileKey: 'file-1' } },
+        }),
+      );
+      await flushMicrotasks();
+    });
+
+    expect(syncTokensMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_500);
+      await flushMicrotasks();
+    });
+
+    expect(syncTokensMock).toHaveBeenCalledTimes(2);
   });
 });

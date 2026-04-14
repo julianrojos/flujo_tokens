@@ -306,49 +306,6 @@ export class McpClientService {
   }
 
   /**
-   * Fetch a design system kit summary (tokens + styles counts).
-   * Uses format=summary to get accurate variable counts — compact may return false zeros.
-   */
-  async getDesignSystemKit(): Promise<DesignSystemKitResponse | McpError> {
-    try {
-      const response = await this.fetchFromDashboard(
-        '/api/figma-mcp/design-system-kit?format=summary&include=tokens,styles',
-        {
-          method: 'GET',
-          headers: this.getHeaders(),
-          signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-        },
-      );
-      return await response.json() as DesignSystemKitResponse | McpError;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'kit.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to fetch design system kit',
-      };
-    }
-  }
-
-  /**
-   * Compute a human-readable summary from a kit response.
-   * Returns null when the kit response is not ok.
-   */
-  computeKitSummary(kit: DesignSystemKitResponse | McpError): KitSummary | null {
-    if (!kit.ok) return null;
-
-    const variableCount = Object.keys(kit.tokens?.variables ?? {}).length;
-    const collectionCount = Object.keys(kit.tokens?.variableCollections ?? {}).length;
-
-    const stylesByType: Record<string, number> = {};
-    for (const style of kit.styles ?? []) {
-      const key = style.styleType || 'OTHER';
-      stylesByType[key] = (stylesByType[key] ?? 0) + 1;
-    }
-
-    return { variableCount, collectionCount, stylesByType, fetchedAt: new Date() };
-  }
-
-  /**
    * Trigger a full token sync via the dashboard's shared MCP client.
    *
    * Route: POST /api/figma-mcp-variables
@@ -415,25 +372,6 @@ export class McpClientService {
     }
   }
 
-}
-
-/** Shape returned by GET /api/figma-mcp/design-system-kit */
-export interface DesignSystemKitResponse {
-  ok: true;
-  tokens?: {
-    variables: Record<string, { id: string; name: string; resolvedType: string }>;
-    variableCollections: Record<string, { id: string; name: string; modes: unknown[] }>;
-  };
-  styles?: Array<{ id: string; name: string; styleType: string }>;
-  elapsedMs: number;
-}
-
-/** Computed summary from DesignSystemKitResponse */
-export interface KitSummary {
-  variableCount: number;
-  collectionCount: number;
-  stylesByType: Record<string, number>;
-  fetchedAt: Date;
 }
 
 /** Shape returned by POST /api/figma-mcp-variables */

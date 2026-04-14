@@ -3,9 +3,6 @@
  *
  * Main layout, designer-first:
  *   StatusIndicator  — large connection semaphore
- *   KitSummary       — token/style counts
- *   SyncButton       — CTA to update variables
- *   AdvancedSection  — collapsible: ConnectionStatus
  *
  * Bridge integration:
  *   - MCP status is fetched from dashboard capabilities
@@ -14,27 +11,21 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatusIndicator } from './components/StatusIndicator';
-import { KitSummary } from './components/KitSummary';
-import { SyncButton } from './components/SyncButton';
-import { AdvancedSection } from './components/AdvancedSection';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
 import { getWSRuntime } from '../bridge/ws-runtime';
 import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../bridge/constants';
 import { PLUGIN_VERSION, PLUGIN_BUILD } from '../version';
-import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
+import { COLOR, FONT, UI_WIDTH } from './styles/tokens';
 
 interface InitMessage { type: 'INIT'; docName: string; fileKey?: string | null }
-interface DocumentChangeMessage { type: 'DOCUMENT_CHANGE' }
-type PluginUiMessage = InitMessage | DocumentChangeMessage;
+type PluginUiMessage = InitMessage;
+const SYNC_RETRY_DELAYS_MS = [1500, 4000] as const;
 
 const App: React.FC = () => {
   const CONNECTING_GRACE_MS = 5_000;
   const [docName, setDocName] = useState('');
   const [fileKey, setFileKey] = useState<string | null>(null);
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
-  const [kitRefreshSignal, setKitReset] = useState(0);
-  const [variablesUpToDate, setVariablesUpToDate] = useState(false);
-  const [variablesUpdatedAtMs, setVariablesUpdatedAtMs] = useState<number | null>(null);
 
   const client = getPluginMcpClient();
   // Guards against concurrent capabilities requests stacking up when MCP
@@ -43,6 +34,11 @@ const App: React.FC = () => {
   const connectingSinceRef = useRef<number | null>(null);
   // Mutex to prevent concurrent heartbeat requests.
   const heartbeatInFlightRef = useRef(false);
+  // Token sync should run once per plugin session after a successful sync.
+  const hasSyncedOnInitRef = useRef(false);
+  const syncOnInitInFlightRef = useRef(false);
+  const syncRetryAttemptRef = useRef(0);
+  const syncRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     // Prevent multiple in-flight capabilities requests from stacking up.
@@ -115,26 +111,70 @@ const App: React.FC = () => {
   }, [fetchStatus]);
 
   // Receive INIT from code.ts with document name
+  const runSyncOnInit = useCallback(() => {
+    if (hasSyncedOnInitRef.current || syncOnInitInFlightRef.current) return;
+    syncOnInitInFlightRef.current = true;
+
+    const scheduleRetry = () => {
+      if (hasSyncedOnInitRef.current) return;
+      const retryIdx = syncRetryAttemptRef.current;
+      if (retryIdx >= SYNC_RETRY_DELAYS_MS.length) return;
+      const delayMs = SYNC_RETRY_DELAYS_MS[retryIdx];
+      syncRetryAttemptRef.current += 1;
+      if (syncRetryTimerRef.current) {
+        clearTimeout(syncRetryTimerRef.current);
+      }
+      syncRetryTimerRef.current = setTimeout(() => {
+        syncRetryTimerRef.current = null;
+        runSyncOnInit();
+      }, delayMs);
+    };
+
+    void client
+      .syncTokens()
+      .then((result) => {
+        if (result.ok) {
+          hasSyncedOnInitRef.current = true;
+          syncRetryAttemptRef.current = 0;
+          if (syncRetryTimerRef.current) {
+            clearTimeout(syncRetryTimerRef.current);
+            syncRetryTimerRef.current = null;
+          }
+          return;
+        }
+        const message = result.message ?? 'Failed to sync variables on plugin open.';
+        parent.postMessage({ pluginMessage: { type: 'ERROR', error: message } }, '*');
+        scheduleRetry();
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        parent.postMessage({ pluginMessage: { type: 'ERROR', error: message } }, '*');
+        scheduleRetry();
+      })
+      .finally(() => {
+        syncOnInitInFlightRef.current = false;
+      });
+  }, [client]);
+
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const msg = event.data?.pluginMessage as PluginUiMessage | undefined;
       if (msg?.type === 'INIT') {
         setDocName(msg.docName);
         setFileKey(msg.fileKey ?? null);
-        // New/renewed plugin session should always require a fresh variables pull.
-        setVariablesUpToDate(false);
-        setVariablesUpdatedAtMs(null);
+        runSyncOnInit();
         return;
-      }
-      if (msg?.type === 'DOCUMENT_CHANGE') {
-        // Any document mutation means exported variables may be stale.
-        setVariablesUpToDate(false);
-        setVariablesUpdatedAtMs(null);
       }
     };
     window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);
+    return () => {
+      window.removeEventListener('message', handler);
+      if (syncRetryTimerRef.current) {
+        clearTimeout(syncRetryTimerRef.current);
+        syncRetryTimerRef.current = null;
+      }
+    };
+  }, [runSyncOnInit]);
 
   // Plugin heartbeat: lets dashboard know this plugin session is alive.
   useEffect(() => {
@@ -198,39 +238,12 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleError = (error: string) => {
-    parent.postMessage({ pluginMessage: { type: 'ERROR', error } }, '*');
-  };
-
   return (
-    <div style={{ width: UI_WIDTH, backgroundColor: COLOR.bg, fontFamily: FONT.family, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: UI_WIDTH, backgroundColor: COLOR.bg, fontFamily: FONT.family, display: 'flex', flexDirection: 'column', textAlign: 'center' }}>
       {/* Large status dot */}
       <StatusIndicator
         connectionState={connectionState}
-        docName={docName}
       />
-
-      <div style={{ height: 1, backgroundColor: COLOR.border, margin: `0 ${SPACE.lg}px` }} />
-
-      {/* Token/style summary */}
-      <div style={{ padding: `${SPACE.md}px 0` }}>
-        <KitSummary refreshSignal={kitRefreshSignal} />
-      </div>
-
-      {/* Sync CTA */}
-      <SyncButton
-        onSyncComplete={() => {
-          setKitReset((n) => n + 1);
-          setVariablesUpToDate(true);
-          setVariablesUpdatedAtMs(Date.now());
-        }}
-        onSyncError={handleError}
-        isUpToDate={variablesUpToDate}
-        upToDateAtMs={variablesUpdatedAtMs}
-      />
-
-      {/* Advanced (collapsible) */}
-      <AdvancedSection />
 
     </div>
   );
