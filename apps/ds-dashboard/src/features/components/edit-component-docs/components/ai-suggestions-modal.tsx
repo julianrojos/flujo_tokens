@@ -125,7 +125,7 @@ export function AiSuggestionsModal({
           </div>
           <div className="mt-6 flex justify-end gap-2 border-t border-border/70 pt-4">
             <Button type="submit" form={formId} disabled={submitState.disabled}>
-              {submitState.pending ? 'Creating Job...' : 'Generate documentation'}
+              {submitState.pending ? 'Creating Job...' : canViewSuggestions ? 'Generate again' : 'Generate documentation'}
             </Button>
             {canViewSuggestions && (
               <Button onClick={handleViewSuggestions}>View suggestions</Button>
