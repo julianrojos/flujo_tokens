@@ -78,7 +78,11 @@ const FORM_SECTION_ORDER: readonly EditDocsSectionId[] = [
 ];
 
 function mergeAccessibilityGuidance(...sources: Array<unknown>): string[] {
-  return Array.from(new Set(sources.flatMap((source) => normalizeStringList(source))));
+  return Array.from(
+    new Set(
+      sources.flatMap((source) => normalizeStringList(Array.isArray(source) ? source : undefined)),
+    ),
+  );
 }
 
 function hasDraftAccessibilityGuidance(
@@ -183,8 +187,8 @@ async function patchEditorial(
 }
 
 function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
-  const summary = spec.summary ?? {};
-  const accessibility = spec.accessibility ?? {};
+  const summary = (spec.summary ?? {}) as Record<string, unknown>;
+  const accessibility = (spec.accessibility ?? {}) as Record<string, unknown>;
 
   return {
     summary: {
@@ -194,12 +198,12 @@ function buildFormDataFromSpec(spec: PartialComponentSpec): EditorialFormData {
     },
     behaviour: String((spec as Record<string, unknown>).behaviour ?? (spec as Record<string, unknown>).behavior ?? '').trim(),
     variants: Array.isArray(spec.variants) ? (spec.variants as ComponentDocVariant[]) : [],
-    contentGuidelines: normalizeStringList(spec.content_guidelines?.rules as unknown[] | undefined),
+    contentGuidelines: normalizeStringList(spec.content_guidelines?.rules),
     accessibility: {
       role: String(accessibility.role ?? '').trim(),
       guidance: mergeAccessibilityGuidance(
-        accessibility.labeling?.rules as unknown[] | undefined,
-        accessibility.notes as unknown[] | undefined,
+        (accessibility.labeling as Record<string, unknown> | undefined)?.rules,
+        accessibility.notes,
       ),
     },
   };
@@ -339,7 +343,7 @@ export function EditComponentDocsPage() {
 
     const draft = restoreDraft();
     if (draft && typeof draft === 'object') {
-      const draftRecord = draft as Record<string, unknown>;
+      const draftRecord = draft as unknown as Record<string, unknown>;
       const touched = new Set<DraftFieldKey>(
         Array.isArray(draftRecord.touchedFields)
           ? draftRecord.touchedFields.filter((field): field is DraftFieldKey =>
@@ -682,7 +686,7 @@ export function EditComponentDocsPage() {
         </Button>
       </div>
 
-      {slug && (
+      {slug && figmaComponentId && (
         <AiSuggestionsModal
           open={aiModalOpen}
           onClose={() => setAiModalOpen(false)}

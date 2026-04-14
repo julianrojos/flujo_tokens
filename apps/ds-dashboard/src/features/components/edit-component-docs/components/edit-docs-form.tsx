@@ -520,6 +520,7 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
 
         <StringListEditor
           title="Accessibility Guidance"
+          description=""
           value={value.guidance}
           onChange={(items) => onChange({ ...value, guidance: items })}
           addLabel="Add guidance"
