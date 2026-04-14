@@ -196,7 +196,7 @@ describe("WizardStepBasics", () => {
     assert.match(html, /Overlays/);
   });
 
-  it("expands page groups by default after scan results are ready", () => {
+  it("keeps page groups collapsed by default after scan results are ready", () => {
     const html = renderToStaticMarkup(
       React.createElement(WizardStepBasics, {
         ...defaultProps,
@@ -212,7 +212,7 @@ describe("WizardStepBasics", () => {
       }),
     );
 
-    assert.match(html, /aria-expanded="true"/);
+    assert.match(html, /aria-expanded="false"/);
   });
 
   it("enables Select all when truncated=false even with >200 components", () => {

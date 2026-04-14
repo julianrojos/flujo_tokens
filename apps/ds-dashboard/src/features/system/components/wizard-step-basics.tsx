@@ -77,7 +77,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
 
   const grouped = useMemo(() => groupByPageName(filteredComponents), [filteredComponents]);
   const groupedPageNames = useMemo(() => Array.from(grouped.keys()), [grouped]);
-  const [openPages, setOpenPages] = useState<Set<string>>(() => new Set(groupedPageNames));
+  const [openPages, setOpenPages] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (derived.scanState !== "loading") {
@@ -109,8 +109,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
       for (const pageName of groupedPageNames) {
         if (prev.has(pageName)) persisted.add(pageName);
       }
-      // Open all groups on first load/new scan, preserve explicit user toggles otherwise.
-      if (prev.size === 0 || persisted.size === 0) return new Set(groupedPageNames);
+      // Keep groups collapsed by default; only preserve explicit user-opened groups.
       return persisted;
     });
   }, [groupedPageNames]);

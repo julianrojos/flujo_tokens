@@ -159,6 +159,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
           limit: action.payload.limit,
           total: action.payload.total,
           error: null,
+          errorNonce: state.scan.errorNonce,
         },
         selectedComponentNodeIds: new Set(),
       };
@@ -512,21 +513,24 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });
   }, []);
 
-  const restoreSystemsSnapshot = useCallback(() => {
+  const restoreSystemsSnapshot = useCallback((options?: { activateImportedSystem?: boolean }) => {
     // Intentionally reads from refs to avoid stale closure and to keep this callback stable.
     // A reactive dependency list here can retrigger import side-effects while the wizard is running.
     const snapshot = latestImportRef.current;
     if (snapshot.systemsSnapshot.length === 0) return;
+    const shouldActivateImportedSystem = options?.activateImportedSystem === true;
+    const activeSystemId =
+      shouldActivateImportedSystem || snapshot.makeDefault
+        ? snapshot.jobId
+        : undefined;
     replaceSystemsRef.current(
       snapshot.systemsSnapshot,
-      snapshot.makeDefault
-        ? { activeSystemId: snapshot.jobId }
-        : undefined,
+      activeSystemId ? { activeSystemId } : undefined,
     );
   }, []);
 
   const completeImport = useCallback((summary: ImportSuccessSummary) => {
-    restoreSystemsSnapshot();
+    restoreSystemsSnapshot({ activateImportedSystem: true });
     dispatch({ type: "IMPORT_SUCCESS", payload: summary });
   }, [restoreSystemsSnapshot]);
 
