@@ -213,7 +213,8 @@ export function NewSystemPage() {
               ? importState.selectedComponentNodeIds
               : undefined,
             requireComponentProofs: true,
-            requireVariantProofsWhenPresent: true,
+            // Variant screenshots are best-effort; only main component proofs are required.
+            requireVariantProofsWhenPresent: false,
           },
           {
             systemId,

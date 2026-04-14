@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { createDesignSystem, scanFigmaComponents } from "@/lib/api";
 import { toApiErrorDisplay, type ApiErrorDisplay } from "@/lib/api-error-ux";
@@ -273,6 +273,16 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
   const [isCancellingImport, setIsCancellingImport] = useState(false);
+  const replaceSystemsRef = useRef(replaceSystems);
+  const latestImportRef = useRef(state.import);
+
+  useEffect(() => {
+    replaceSystemsRef.current = replaceSystems;
+  }, [replaceSystems]);
+
+  useEffect(() => {
+    latestImportRef.current = state.import;
+  }, [state.import]);
 
   const generatedSystemId = useMemo(() => toSystemId(state.form.systemName), [state.form.systemName]);
   const figmaFileId = useMemo(() => extractFigmaFileIdFromUrl(state.form.figmaFileUrl), [state.form.figmaFileUrl]);
@@ -404,12 +414,9 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         throw new Error("Server returned an empty system ID");
       }
 
-      replaceSystems(
-        result.config.systems,
-        state.form.makeDefault
-          ? { activeSystemId: result.system.id }
-          : undefined,
-      );
+      // Refresh systems list immediately after creation without switching active system yet.
+      // Active system switching remains coordinated via import snapshot restoration.
+      replaceSystemsRef.current(result.config.systems);
 
       const importMode = isPartial ? "partial" : "full";
       const selectedCount = isPartial ? capturedSelection.size : capturedScan.components.length;
@@ -440,7 +447,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, replaceSystems, state.form, state.scan, state.selectedComponentNodeIds]);
+  }, [generatedSystemId, isFormValid, state.form, state.scan, state.selectedComponentNodeIds]);
 
   const toggleComponent = useCallback((nodeId: string) => {
     dispatch({ type: "TOGGLE_COMPONENT", nodeId });
@@ -459,14 +466,17 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   }, []);
 
   const restoreSystemsSnapshot = useCallback(() => {
-    if (state.import.systemsSnapshot.length === 0) return;
-    replaceSystems(
-      state.import.systemsSnapshot,
-      state.import.makeDefault
-        ? { activeSystemId: state.import.jobId }
+    // Intentionally reads from refs to avoid stale closure and to keep this callback stable.
+    // A reactive dependency list here can retrigger import side-effects while the wizard is running.
+    const snapshot = latestImportRef.current;
+    if (snapshot.systemsSnapshot.length === 0) return;
+    replaceSystemsRef.current(
+      snapshot.systemsSnapshot,
+      snapshot.makeDefault
+        ? { activeSystemId: snapshot.jobId }
         : undefined,
     );
-  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
+  }, []);
 
   const completeImport = useCallback((summary: ImportSuccessSummary) => {
     restoreSystemsSnapshot();
