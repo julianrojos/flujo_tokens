@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   ApiError,
   cancelQueueJob,
+  refreshTokenGraph,
   syncFigmaTokens,
   syncConsumers,
   type CaptureFigmaErrorDetail,
@@ -312,6 +313,13 @@ export function NewSystemPage() {
             console.warn('[NewSystemPage] Parent usage capture failed:', err);
           });
         }
+
+        if (stopped) return;
+        // Best-effort and non-blocking: trigger graph refresh in background so
+        // successful import completion is not delayed by queued refresh latency.
+        void refreshTokenGraph(undefined, systemId).catch((err) => {
+          console.warn('[NewSystemPage] Token graph refresh failed:', err);
+        });
 
         if (stopped) return;
         completeImport({

@@ -730,8 +730,18 @@ export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
   return runQueuedRefresh("/api/refresh-token-usage-index", options);
 }
 
-export async function refreshTokenGraph(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-graph", options);
+/**
+ * Refresh token graph artifacts.
+ * When `systemId` is provided we scope refresh via `x-ds-system`, which is
+ * supported by the backend refresh route and consistent with other scoped APIs.
+ */
+export async function refreshTokenGraph(options?: QueueWaitOptions, systemId?: string) {
+  const normalizedSystemId = String(systemId || "").trim();
+  return runQueuedRefresh(
+    "/api/refresh-token-graph",
+    options,
+    normalizedSystemId ? { headers: { "x-ds-system": normalizedSystemId } } : undefined,
+  );
 }
 
 export async function refreshTokenHealth(options?: QueueWaitOptions) {
