@@ -38,6 +38,7 @@ function makeState() {
       limit: 0,
       total: 0,
       error: null as string | null,
+      errorNonce: 0,
     },
     selectedComponentNodeIds: new Set<string>(),
   };
@@ -99,6 +100,7 @@ describe("wizardReducer scan flow", () => {
     const next = wizardReducer(prev as any, { type: "SCAN_ERROR", payload: "boom" } as any);
     assert.equal(next.scan.state, "error");
     assert.equal(next.scan.error, "boom");
+    assert.equal(next.scan.errorNonce, 1);
   });
 });
 
@@ -128,6 +130,7 @@ describe("wizardReducer selection flow", () => {
       limit: 200,
       total: 2,
       error: null,
+      errorNonce: 0,
     };
 
     const next = wizardReducer(prev as any, { type: "SELECT_ALL" } as any);
@@ -151,6 +154,7 @@ describe("wizardReducer selection flow", () => {
       limit: 500,
       total: 1500,
       error: null,
+      errorNonce: 0,
     };
 
     const next = wizardReducer(prev as any, { type: "SELECT_ALL" } as any);

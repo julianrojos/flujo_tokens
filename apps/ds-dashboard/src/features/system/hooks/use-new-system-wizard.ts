@@ -29,6 +29,7 @@ export interface ScanResult {
   limit: number;
   total: number;
   error: string | null;
+  errorNonce: number;
 }
 
 interface WizardFormState {
@@ -105,6 +106,7 @@ const emptyScan: ScanResult = {
   limit: 0,
   total: 0,
   error: null,
+  errorNonce: 0,
 };
 
 const initialState: WizardState = {
@@ -163,7 +165,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     }
 
     case "SCAN_ERROR":
-      return { ...state, scan: { ...emptyScan, state: "error", error: action.payload } };
+      return {
+        ...state,
+        scan: {
+          ...emptyScan,
+          state: "error",
+          error: action.payload,
+          errorNonce: state.scan.errorNonce + 1,
+        },
+      };
 
     case "TOGGLE_COMPONENT": {
       const next = new Set(state.selectedComponentNodeIds);
@@ -267,7 +277,7 @@ interface NewSystemWizardViewModel {
 }
 
 export function useNewSystemWizard(): NewSystemWizardViewModel {
-  const { replaceSystems } = useDesignSystem();
+  const { replaceSystems, systems } = useDesignSystem();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
@@ -294,17 +304,50 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const hasSelection = state.selectedComponentNodeIds.size > 0;
   const isImporting = state.step === "importing";
   const importCompleted = state.step === "done";
+  const isSystemNameTaken = useCallback(
+    (name: string) => {
+      const normalized = String(name || "").trim().toLowerCase();
+      if (!normalized) return false;
+      return systems.some((entry) => String(entry.name || "").trim().toLowerCase() === normalized);
+    },
+    [systems],
+  );
 
   const setFormField = useCallback((field: keyof WizardFormState, value: string | boolean) => {
     dispatch({ type: "SET_FORM_FIELD", field, value });
   }, []);
 
   const handleScan = useCallback(async () => {
-    if (!state.form.figmaFileUrl.trim()) return;
+    const validationErrors: string[] = [];
+    const systemName = state.form.systemName.trim();
+    const figmaUrl = state.form.figmaFileUrl.trim();
+    const systemIdFromName = toSystemId(systemName);
+    const fileId = extractFigmaFileIdFromUrl(figmaUrl);
+
+    if (!systemName) {
+      validationErrors.push("System name is required.");
+    } else if (!systemIdFromName) {
+      validationErrors.push("System name is invalid. Use at least one alphanumeric character.");
+    } else {
+      if (isSystemNameTaken(systemName)) {
+        validationErrors.push("System name is already in use. Use a different name.");
+      }
+    }
+
+    if (!figmaUrl) {
+      validationErrors.push("Figma file URL is required.");
+    } else if (!fileId) {
+      validationErrors.push("Figma file URL is invalid. Paste a valid Figma file URL.");
+    }
+
+    if (validationErrors.length > 0) {
+      dispatch({ type: "SCAN_ERROR", payload: validationErrors.join("\n") });
+      return;
+    }
+
     dispatch({ type: "SCAN_START" });
 
     try {
-      const figmaUrl = state.form.figmaFileUrl.trim();
       const figmaToken = state.form.figmaAccessToken.trim() || undefined;
       const allComponents = new Map<string, ScannedComponent>();
       let total = 0;
@@ -374,7 +417,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
       const message = cause instanceof Error ? cause.message : String(cause);
       dispatch({ type: "SCAN_ERROR", payload: message });
     }
-  }, [state.form.figmaFileUrl, state.form.figmaAccessToken]);
+  }, [isSystemNameTaken, state.form.figmaAccessToken, state.form.figmaFileUrl, state.form.systemName]);
 
   const handleImportDesignSystem = useCallback(async () => {
     if (!isFormValid) return;
@@ -382,6 +425,10 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     setSaveError(null);
 
     try {
+      if (isSystemNameTaken(state.form.systemName)) {
+        throw new Error("System name is already in use. Use a different name.");
+      }
+
       const capturedSelection = new Set(state.selectedComponentNodeIds);
       const capturedScan = state.scan;
       const systemId = state.form.systemIdOverride.trim() || generatedSystemId;
@@ -447,7 +494,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, state.form, state.scan, state.selectedComponentNodeIds]);
+  }, [generatedSystemId, isFormValid, isSystemNameTaken, state.form, state.scan, state.selectedComponentNodeIds]);
 
   const toggleComponent = useCallback((nodeId: string) => {
     dispatch({ type: "TOGGLE_COMPONENT", nodeId });

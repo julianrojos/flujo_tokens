@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
-import { Modal, ModalContent } from "@/components/ui/overlay/modal";
+import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
+import { Button } from "@/components/ui/button";
 import {
   ApiError,
   cancelQueueJob,
@@ -63,6 +64,38 @@ function extractPipelinePhase(error: unknown): string {
   return toNonEmptyString(payload?.pipeline_phase);
 }
 
+function summarizeScanError(error: string): { title: string; hint: string } {
+  const lower = error.toLowerCase();
+  if (lower.includes("already in use")) {
+    return {
+      title: "System name already in use",
+      hint: "Choose a different system name and run Scan File again.",
+    };
+  }
+  if (lower.includes("system name")) {
+    return {
+      title: "Invalid system name",
+      hint: "Use a readable name with letters or numbers. Example: 'Sys 05'.",
+    };
+  }
+  if (lower.includes("figma file url")) {
+    return {
+      title: "Invalid Figma file URL",
+      hint: "Paste a full Figma file URL (https://www.figma.com/file/...) and try Scan File again.",
+    };
+  }
+  if (lower.includes("token") || lower.includes("401") || lower.includes("403") || lower.includes("unauthorized")) {
+    return {
+      title: "Invalid Figma access token",
+      hint: "Use a valid personal access token with file access, then retry Scan File.",
+    };
+  }
+  return {
+    title: "Scan file failed",
+    hint: "Review the error details, fix the input values, and retry Scan File.",
+  };
+}
+
 export function NewSystemPage() {
   const startedImportKeyRef = useRef<string | null>(null);
   const activeQueueJobIdRef = useRef("");
@@ -74,6 +107,7 @@ export function NewSystemPage() {
   const [resultImportedCount, setResultImportedCount] = useState<number | null>(null);
   const [resultNotSelectedCount, setResultNotSelectedCount] = useState<number | null>(null);
   const [isCancellingQueueJob, setIsCancellingQueueJob] = useState(false);
+  const [scanErrorModalOpen, setScanErrorModalOpen] = useState(false);
   const {
     step,
     form,
@@ -105,6 +139,7 @@ export function NewSystemPage() {
   } = useNewSystemWizard();
 
   const modalOpen = step === "importing" || step === "done";
+  const scanErrorOpen = step === "basics" && scanErrorModalOpen && scan.state === "error" && !!scan.error;
   const progressTotal = importState.progress?.total ?? 0;
   const progressCompleted = importState.progress?.completed ?? 0;
   const progressRemaining =
@@ -145,6 +180,17 @@ export function NewSystemPage() {
     !bootstrapHasCriticalFailure &&
     (!importTokensCompile || importTokensCompile.compiled === true);
   const effectiveIsCancelling = isCancellingImport || isCancellingQueueJob;
+  const scanErrorMeta = useMemo(
+    () => summarizeScanError(scan.error || ""),
+    [scan.error],
+  );
+  const scanErrorLines = useMemo(
+    () => String(scan.error || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+    [scan.error],
+  );
 
   const cancelActiveQueueJob = useCallback(async () => {
     const queueJobId = activeQueueJobIdRef.current.trim();
@@ -180,6 +226,13 @@ export function NewSystemPage() {
       setResultNotSelectedCount(null);
     }
   }, [step]);
+
+  useEffect(() => {
+    if (step !== "basics") return;
+    if (scan.state !== "error") return;
+    if (!String(scan.error || "").trim()) return;
+    setScanErrorModalOpen(true);
+  }, [scan.error, scan.errorNonce, scan.state, step]);
 
   useEffect(() => {
     if (step !== "importing") return;
@@ -376,6 +429,49 @@ export function NewSystemPage() {
             onReset={resetWizard}
             onToggleDetails={toggleImportErrorDetails}
           />
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        open={scanErrorOpen}
+        onClose={() => {
+          setScanErrorModalOpen(false);
+        }}
+      >
+        <ModalContent size="sm">
+          <ModalHeader>
+            <div>
+              <h3 className="text-base font-semibold">{scanErrorMeta.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{scanErrorMeta.hint}</p>
+            </div>
+          </ModalHeader>
+          <div className="space-y-2 p-5 pt-4 text-sm text-foreground">
+            {scanErrorLines.length > 0 ? (
+              scanErrorLines.map((line, idx) => (
+                <p key={idx}>{line}</p>
+              ))
+            ) : (
+              <p>Unknown scan error.</p>
+            )}
+          </div>
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setScanErrorModalOpen(false);
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setScanErrorModalOpen(false);
+                void handleScan();
+              }}
+            >
+              Retry Scan File
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>
