@@ -4,7 +4,6 @@
  */
 
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
-import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 
 /**
  * Extract hex color from token value if present
@@ -15,16 +14,6 @@ export function resolveColorSwatch(value: string): string | null {
     return raw;
   }
   return null;
-}
-
-/**
- * Extract line number from token usage detail string
- */
-export function extractLineNumber(detail: string): number | null {
-  const match = String(detail || "").match(/\bline:(\d+)\b/i);
-  if (!match) return null;
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 /**
@@ -65,42 +54,6 @@ export function parseDimensionPreview(value: string) {
     unit,
     width: Math.max(6, Math.min(absolutePx, 160)),
   };
-}
-
-/**
- * Compact a file path for display (e.g., ".../src/components/Button.tsx")
- */
-export function compactPathLabel(filePath: string) {
-  const value = String(filePath || "").trim();
-  if (!value) return "—";
-  const parts = value.split("/");
-  if (parts.length <= 3) return value;
-  return `…/${parts.slice(-3).join("/")}`;
-}
-
-/**
- * Build a Figma URL with node-id parameter for a component usage
- */
-export function buildComponentFigmaUrl(fileUrl: string | null, nodeId: string | null): string | null {
-  const base = String(fileUrl || "").trim();
-  if (!base) return null;
-  try {
-    const parsed = new URL(base);
-    const normalizedNodeId = String(nodeId || "").trim().replace(/:/g, "-");
-    if (normalizedNodeId) {
-      parsed.searchParams.set("node-id", normalizedNodeId);
-    }
-    return parsed.toString();
-  } catch {
-    return base;
-  }
-}
-
-/**
- * Build a unique key for a token usage occurrence
- */
-export function buildOccurrenceKey(kind: string, occ: TokenUsageOccurrence, index: number): string {
-  return `${kind}:${occ.owner}:${occ.source}:${occ.detail}:${index}`;
 }
 
 /**

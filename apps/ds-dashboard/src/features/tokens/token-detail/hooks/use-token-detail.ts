@@ -6,11 +6,8 @@ import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTokenDetailData } from "../use-token-detail-data";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
-import type { ComponentRegistryItem } from "@/types/component-registry";
-import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   resolveColorSwatch,
-  extractLineNumber,
   resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
@@ -20,15 +17,10 @@ import {
 export interface ComponentTokenUsage {
   slug: string;
   displayName: string;
-  figmaUrl: string | null;
-  figmaNodeId: string | null;
   mode: "direct" | "via_alias" | "both";
   occurrences: number;
   directOccurrences: number;
   viaAliasOccurrences: number;
-  slots: string[];
-  conditions: string[];
-  aliasChains: string[][];
 }
 
 interface TokenDetailViewModel {
@@ -59,7 +51,6 @@ interface TokenDetailViewModel {
   aliasDescendantChains: Map<string, TokenEntry[]>;
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
-  occurrencesByKind: Map<string, TokenUsageOccurrence[]>;
   healthIssues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }>;
 
   // Handlers
@@ -79,7 +70,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     error,
     registry,
     token,
-    usage,
     tokenHealth,
     components,
   } = useTokenDetailData(decoded);
@@ -105,9 +95,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   const fromCollection = searchParams.get("fromCollection") || "all";
   const fromType = searchParams.get("fromType") || "all";
   const fromSearch = String(searchParams.get("fromSearch") || "").trim().toLowerCase();
-  const usageKindFilter = searchParams.get("uk") || "all";
-  const usageOwnerFilter = searchParams.get("uo") || "all";
-  const usageQuery = String(searchParams.get("uq") || "");
   const componentMode = searchParams.get("cmode") || "all";
   const componentQuery = String(searchParams.get("cq") || "").trim().toLowerCase();
 
@@ -139,15 +126,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     currentTokenIndex >= 0 && currentTokenIndex < scopedTokens.length - 1
       ? scopedTokens[currentTokenIndex + 1]
       : null;
-
-  // Component lookup
-  const componentBySlug = useMemo(() => {
-    const map: Record<string, ComponentRegistryItem> = {};
-    for (const component of components) {
-      map[component.slug] = component;
-    }
-    return map;
-  }, [components]);
 
   // Reverse alias map
   const reverseAliasMap = useMemo(() => {
@@ -187,107 +165,62 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
 
   // Component usages
   const componentUsages = useMemo<ComponentTokenUsage[]>(() => {
-    if (!token || !usage?.usedIn?.length) return [] as ComponentTokenUsage[];
+    if (!token || components.length === 0) return [] as ComponentTokenUsage[];
 
-    const rows = new Map<
-      string,
-      {
-        slug: string;
-        displayName: string;
-        figmaUrl: string | null;
-        figmaNodeId: string | null;
-        occurrences: number;
-        directOccurrences: number;
-        viaAliasOccurrences: number;
-        hasDirect: boolean;
-        hasViaAlias: boolean;
-        slotSet: Set<string>;
-        conditionSet: Set<string>;
-        aliasChainMap: Map<string, string[]>;
-      }
-    >();
+    const aliasTokens = Array.from(aliasDescendantChains.keys()).map((aliasPath) => ({
+      aliasPath,
+      token: registry?.byPath?.[aliasPath] ?? registry?.bySlashPath?.[aliasPath] ?? null,
+    }));
 
-    const ensureRow = (owner: string) => {
-      const trimmed = String(owner || "").trim();
-      if (!trimmed) return null;
-      const component = componentBySlug[trimmed];
-      const existing = rows.get(trimmed);
-      if (existing) return existing;
-      const created = {
-        slug: trimmed,
-        displayName: component?.display_name ?? trimmed,
-        figmaUrl: component?.figma?.file_url ?? null,
-        figmaNodeId: component?.figma?.component_set_node_id ?? null,
-        occurrences: 0,
-        directOccurrences: 0,
-        viaAliasOccurrences: 0,
-        hasDirect: false,
-        hasViaAlias: false,
-        slotSet: new Set<string>(),
-        conditionSet: new Set<string>(),
-        aliasChainMap: new Map<string, string[]>(),
-      };
-      rows.set(trimmed, created);
-      return created;
-    };
-
-    const registerOccurrence = (occ: TokenUsageOccurrence) => {
-      if (occ.kind !== "figma-applied" && occ.kind !== "figma-consumer-applied") return;
-      const row = ensureRow(occ.owner);
-      if (!row) return;
-
-      const countMatch = String(occ.detail || "").match(/\bnodes:(\d+)\b/i);
-      const nodeCount = countMatch ? Number.parseInt(countMatch[1], 10) : 0;
-      row.occurrences += Number.isFinite(nodeCount) && nodeCount > 0 ? nodeCount : 1;
-
-      const modeMatch = String(occ.detail || "").match(/\bmode:(direct|via_alias)(?:\s|$|·)/i);
-      const mode = (modeMatch?.[1] || "direct").toLowerCase() === "via_alias" ? "via_alias" : "direct";
-      if (mode === "direct") {
-        row.hasDirect = true;
-        row.directOccurrences += Number.isFinite(nodeCount) && nodeCount > 0 ? nodeCount : 1;
-        return;
-      }
-      row.hasViaAlias = true;
-      row.viaAliasOccurrences += Number.isFinite(nodeCount) && nodeCount > 0 ? nodeCount : 1;
-
-      const aliasMatch = String(occ.detail || "").match(/\balias:([^\s·]+)/i);
-      const aliasPath = String(aliasMatch?.[1] || "").trim();
-      if (!aliasPath) return;
-      const aliasChain = aliasDescendantChains.get(aliasPath) ?? null;
-      if (!aliasChain || aliasChain.length === 0) return;
-      const signature = aliasChain.map((entry) => entry.path).join(" -> ");
-      if (!row.aliasChainMap.has(signature)) {
-        row.aliasChainMap.set(signature, aliasChain.map((entry) => entry.path));
-      }
-    };
-
-    for (const occ of usage.usedIn ?? []) {
-      registerOccurrence(occ);
+    const aliasPathByRef = new Map<string, string>();
+    for (const entry of aliasTokens) {
+      if (!entry.token) continue;
+      aliasPathByRef.set(entry.token.path, entry.aliasPath);
+      aliasPathByRef.set(entry.token.slashPath, entry.aliasPath);
+      aliasPathByRef.set(entry.token.cssVar, entry.aliasPath);
     }
 
-    return Array.from(rows.values())
-      .map((row): ComponentTokenUsage => {
-        const mode: ComponentTokenUsage["mode"] = row.hasDirect && row.hasViaAlias
+    return components
+      .map((component): ComponentTokenUsage | null => {
+        const bindings = Array.isArray(component.figma?.token_bindings) ? component.figma.token_bindings : [];
+        if (bindings.length === 0) return null;
+
+        let directOccurrences = 0;
+        let viaAliasOccurrences = 0;
+
+        for (const binding of bindings) {
+          const tokenRef = String(binding.token_path || "").trim();
+          if (!tokenRef) continue;
+
+          if (tokenMatchesRef(token, tokenRef)) {
+            directOccurrences += 1;
+            continue;
+          }
+
+          const aliasPath = aliasPathByRef.get(tokenRef) ?? null;
+          if (!aliasPath) continue;
+          viaAliasOccurrences += 1;
+        }
+
+        const occurrences = directOccurrences + viaAliasOccurrences;
+        if (occurrences === 0) return null;
+        const mode: ComponentTokenUsage["mode"] = directOccurrences > 0 && viaAliasOccurrences > 0
           ? "both"
-          : row.hasViaAlias
+          : viaAliasOccurrences > 0
             ? "via_alias"
             : "direct";
         return {
-        slug: row.slug,
-        displayName: row.displayName,
-        figmaUrl: row.figmaUrl,
-        figmaNodeId: row.figmaNodeId,
-        mode,
-        occurrences: row.occurrences,
-        directOccurrences: row.directOccurrences,
-        viaAliasOccurrences: row.viaAliasOccurrences,
-        slots: Array.from(row.slotSet).sort((a, b) => a.localeCompare(b)),
-        conditions: Array.from(row.conditionSet).sort((a, b) => a.localeCompare(b)),
-        aliasChains: Array.from(row.aliasChainMap.values()),
+          slug: component.slug,
+          displayName: component.display_name || component.slug,
+          mode,
+          occurrences,
+          directOccurrences,
+          viaAliasOccurrences,
         };
       })
+      .filter((entry): entry is ComponentTokenUsage => Boolean(entry))
       .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  }, [aliasDescendantChains, componentBySlug, token, usage]);
+  }, [aliasDescendantChains, components, registry, token]);
 
   const filteredComponentUsages = useMemo(() => {
     return componentUsages.filter((entry) => {
@@ -300,9 +233,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       const searchable = [
         entry.displayName,
         entry.slug,
-        ...entry.slots,
-        ...entry.conditions,
-        ...entry.aliasChains.map((chain) => chain.join(" ")),
       ]
         .join(" ")
         .toLowerCase();
@@ -320,32 +250,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       occurrences: componentUsages.reduce((sum, entry) => sum + entry.occurrences, 0),
     };
   }, [componentUsages]);
-
-  // Occurrences by kind
-  const occurrencesByKind = useMemo(() => {
-    if (!usage?.usedIn?.length) return new Map<string, TokenUsageOccurrence[]>();
-    const map = new Map<string, TokenUsageOccurrence[]>();
-    const loweredQuery = usageQuery.trim().toLowerCase();
-    for (const occ of usage.usedIn) {
-      const matchesKind = usageKindFilter === "all" || occ.kind === usageKindFilter;
-      const matchesOwner = usageOwnerFilter === "all" || occ.owner === usageOwnerFilter;
-      const searchValue = `${occ.owner} ${occ.source} ${occ.detail}`.toLowerCase();
-      const matchesQuery = !loweredQuery || searchValue.includes(loweredQuery);
-      if (!matchesKind || !matchesOwner || !matchesQuery) continue;
-      const list = map.get(occ.kind) ?? [];
-      list.push(occ);
-      map.set(occ.kind, list);
-    }
-    const order = ["figma-applied", "figma-consumer-applied", "figma-alias"];
-    const sorted = new Map<string, TokenUsageOccurrence[]>();
-    for (const key of order) {
-      if (map.has(key)) sorted.set(key, map.get(key)!);
-    }
-    for (const [key, value] of map) {
-      if (!sorted.has(key)) sorted.set(key, value);
-    }
-    return sorted;
-  }, [usage, usageKindFilter, usageOwnerFilter, usageQuery]);
 
   // Health issues
   const healthIssues = useMemo(() => {
@@ -462,7 +366,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     aliasDescendantChains,
     filteredComponentUsages,
     componentUsageSummary,
-    occurrencesByKind,
     healthIssues,
 
     // Handlers

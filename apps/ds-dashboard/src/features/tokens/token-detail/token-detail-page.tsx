@@ -30,7 +30,6 @@ export function TokenDetailPage() {
     aliasDescendantChains,
     filteredComponentUsages,
     componentUsageSummary,
-    occurrencesByKind,
     healthIssues,
     scopedTokens,
     currentTokenIndex,
@@ -124,7 +123,6 @@ export function TokenDetailPage() {
       <TokenUsageSection
         filteredComponentUsages={filteredComponentUsages}
         componentUsageSummary={componentUsageSummary}
-        occurrencesByKind={occurrencesByKind}
         filters={{
           componentMode,
           componentQuery,
