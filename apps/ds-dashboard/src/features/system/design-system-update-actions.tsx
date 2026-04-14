@@ -99,53 +99,44 @@ export function DesignSystemUpdateActions({
     <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3">
       <div className="mb-3">
         <h3 className="text-sm font-semibold">Update from Figma</h3>
-        <p className="text-xs text-muted-foreground">
-          Run updates for this system without leaving admin.
-        </p>
       </div>
 
-      <div className="mb-3 rounded-md border border-border bg-card p-3">
-        <h4 className="text-sm font-semibold">Shared Figma settings</h4>
-        <p className="mt-1 text-xs text-muted-foreground">
-          These fields are shared by both update actions below.
-        </p>
-        <div className="mt-3 space-y-2">
-          <div className="min-w-0 space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Figma URL</label>
-            <Input
-              value={sharedFigmaUrl}
-              onChange={(event) => setSharedFigmaUrl(event.target.value)}
-              placeholder="https://www.figma.com/design/…"
-              disabled={disabled || componentsState.isRunning || variablesState.isRunning}
-            />
-          </div>
-          <div className="min-w-0 space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Figma token override
-            </label>
-            <Input
-              type="password"
-              value={sharedToken}
-              onChange={(event) => setSharedToken(event.target.value)}
-              placeholder="Figma token (optional)"
-              autoComplete="off"
-              disabled={disabled || componentsState.isRunning || variablesState.isRunning}
-              onBlur={() => {
-                if (sharedFigmaUrl.trim() && sharedToken.trim()) {
-                  setAutoTriggerToken((n) => n + 1);
-                }
-              }}
-            />
-            <FigmaMcpConnectionTestButton
-              figmaUrl={sharedFigmaUrl}
-              figmaToken={sharedToken}
-              autoTriggerToken={autoTriggerToken}
-              className="w-full"
-              disabled={disabled || componentsState.isRunning || variablesState.isRunning}
-              showDesignContextCompact
-              onDesignContextCompactChange={handleDesignContextChange}
-            />
-          </div>
+      <div className="mt-3 space-y-2">
+        <div className="min-w-0 space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Figma URL</label>
+          <Input
+            value={sharedFigmaUrl}
+            onChange={(event) => setSharedFigmaUrl(event.target.value)}
+            placeholder="https://www.figma.com/design/…"
+            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+          />
+        </div>
+        <div className="min-w-0 space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Figma token override
+          </label>
+          <Input
+            type="password"
+            value={sharedToken}
+            onChange={(event) => setSharedToken(event.target.value)}
+            placeholder="Figma token (optional)"
+            autoComplete="off"
+            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+            onBlur={() => {
+              if (sharedFigmaUrl.trim() && sharedToken.trim()) {
+                setAutoTriggerToken((n) => n + 1);
+              }
+            }}
+          />
+          <FigmaMcpConnectionTestButton
+            figmaUrl={sharedFigmaUrl}
+            figmaToken={sharedToken}
+            autoTriggerToken={autoTriggerToken}
+            className="w-full"
+            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+            showDesignContextCompact
+            onDesignContextCompactChange={handleDesignContextChange}
+          />
         </div>
       </div>
 

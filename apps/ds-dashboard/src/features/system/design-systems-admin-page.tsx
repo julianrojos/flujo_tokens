@@ -26,7 +26,6 @@ import type { DsConsumer } from "@/types/consumers";
 
 type RowDraft = {
   name: string;
-  appName: string;
   compileVariablesOnCapture: boolean;
   makeDefault: boolean;
 };
@@ -35,7 +34,6 @@ function toDraft(system: DesignSystemConfigEntry, defaultSystemId = ""): RowDraf
   const id = String(system.id || "");
   return {
     name: String(system.name || ""),
-    appName: String(system.appName || ""),
     compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
     makeDefault: id === defaultSystemId,
   };
@@ -72,7 +70,6 @@ function hasNonDefaultDraftChanges(
   const base = toDraft(system, defaultSystemId);
   return (
     normalizeDraftText(base.name) !== normalizeDraftText(draft.name) ||
-    normalizeDraftText(base.appName) !== normalizeDraftText(draft.appName) ||
     base.compileVariablesOnCapture !== draft.compileVariablesOnCapture
   );
 }
@@ -213,7 +210,6 @@ export function DesignSystemsAdminPage() {
     try {
       const response = await updateDesignSystem(id, {
         name: draft.name,
-        appName: draft.appName,
         compileVariablesOnCapture: draft.compileVariablesOnCapture,
         makeDefault: draft.makeDefault,
       });
@@ -358,39 +354,6 @@ export function DesignSystemsAdminPage() {
                       disabled={isBusy}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "appName")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      App name
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "appName")}
-                      value={draft.appName}
-                      onChange={(e) => handleFieldChange(id, "appName", e.target.value)}
-                      placeholder="App name"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
-                    <input
-                      type="checkbox"
-                      checked={draft.compileVariablesOnCapture}
-                      onChange={(e) =>
-                        setDrafts((prev) => ({
-                          ...prev,
-                          [id]: {
-                            ...(prev[id] || draft),
-                            compileVariablesOnCapture: e.target.checked,
-                          },
-                        }))
-                      }
-                      className="h-4 w-4"
-                      disabled={isBusy}
-                    />
-                    <span>Compile Figma variables to design tokens on first capture</span>
-                  </label>
                   <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
                     <input
                       type="checkbox"
