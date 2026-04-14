@@ -10,6 +10,7 @@ export interface FilterBarProps {
   onSearch?: (value: string) => void;
   searchPlaceholder?: string;
   count?: number;
+  rightSlot?: React.ReactNode;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export function FilterBar({
   onSearch,
   searchPlaceholder = "Search...",
   count,
+  rightSlot,
   className,
 }: FilterBarProps) {
   return (
@@ -40,11 +42,11 @@ export function FilterBar({
         ) : null}
         {children}
       </div>
-      {count !== undefined ? (
+      {rightSlot ?? (count !== undefined ? (
         <Badge variant="neutral" className="shrink-0">
           {count} item{count !== 1 ? "s" : ""}
         </Badge>
-      ) : null}
+      ) : null)}
     </div>
   );
 }

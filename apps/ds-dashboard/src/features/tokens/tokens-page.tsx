@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   Accessibility,
   FolderTree,
-  RefreshCcw,
 } from "lucide-react";
 
 import {
@@ -22,15 +21,7 @@ import type { TokenUsageEntry } from "@/types/token-usage-index";
 import type { VariableUsageReport } from "@/types/consumers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilterBar, PageHeader } from "@/components/composites";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -49,6 +40,9 @@ import {
   buildTokenUsageTargets,
   variableReportMatchesTokenTargets,
 } from "./token-detail/lib/token-detail-transforms";
+
+const PAGE_SIZE_OPTIONS = [50, 100, 150, 200, 250, 300, 350] as const;
+const PAGE_SIZE_ALL = "all";
 
 function resolveColorSwatch(value: string): string | null {
   const raw = String(value || "").trim();
@@ -137,7 +131,6 @@ type SortField =
   | "path"
   | "collection"
   | "type"
-  | "cssVar"
   | "resolvedValue"
   | "usageCount";
 
@@ -150,19 +143,18 @@ export function TokensPage() {
   const [sort, toggleSort] = useSortState<SortField>({ field: "path", dir: "asc" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
-  const [usageError, setUsageError] = useState<ApiErrorDisplay | null>(null);
-  const [usageSyncing, setUsageSyncing] = useState(false);
   const [treeModalOpen, setTreeModalOpen] = useState(false);
   const [treeData, setTreeData] = useState<TokenCollectionTreeIndex | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<ApiErrorDisplay | null>(null);
+  const [pageSize, setPageSize] = useState<string>("50");
+  const [currentPage, setCurrentPage] = useState(1);
   const contrastChecker = useContrastChecker();
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
-      setUsageError(null);
       try {
         const [configPayload, registryPayload] = await Promise.all([
           fetchDesignSystemsConfig().catch(() => null),
@@ -218,7 +210,6 @@ export function TokensPage() {
       const matchesSearch =
         !lowered ||
         entry.path.toLowerCase().includes(lowered) ||
-        entry.cssVar.toLowerCase().includes(lowered) ||
         entry.resolvedValue.toLowerCase().includes(lowered);
       const matchesCollection =
         collection === "all" || entry.collection === collection;
@@ -231,7 +222,6 @@ export function TokensPage() {
         if (sort.field === "path") return entry.path.toLowerCase();
         if (sort.field === "collection") return entry.collection.toLowerCase();
         if (sort.field === "type") return entry.type.toLowerCase();
-        if (sort.field === "cssVar") return entry.cssVar.toLowerCase();
         if (sort.field === "resolvedValue") return entry.resolvedValue.toLowerCase();
         return usageByPath[entry.path]?.usageCount ?? 0;
       };
@@ -245,14 +235,72 @@ export function TokensPage() {
     return next;
   }, [entries, search, collection, type, sort, usageByPath]);
 
-  const summary = useMemo(() => {
-    const byCollection: Record<string, number> = {};
-    for (const entry of entries) {
-      byCollection[entry.collection] =
-        (byCollection[entry.collection] ?? 0) + 1;
+  const allowShowAll = filtered.length >= 350;
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(50, filtered.length)),
+    [filtered.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filtered.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    filtered.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
+
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
+      setPageSize("50");
+      return;
     }
-    return byCollection;
-  }, [entries]);
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 50;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [allowShowAll, collection, pageSize, pageSizeOptions, search, type]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedEntries = useMemo(() => {
+    if (!shouldPaginate) return filtered;
+    const start = (currentPage - 1) * pageSizeValue;
+    return filtered.slice(start, start + pageSizeValue);
+  }, [currentPage, filtered, pageSizeValue, shouldPaginate]);
+
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : filtered.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(filtered.length, currentPage * pageSizeValue) : filtered.length;
+
+  const metrics = useMemo(() => {
+    const totalTokens = entries.length;
+    let tokensInUse = 0;
+    let totalRefs = 0;
+
+    for (const entry of entries) {
+      const usageCount = Number(usageByPath[entry.path]?.usageCount ?? 0);
+      if (usageCount > 0) tokensInUse += 1;
+      totalRefs += Math.max(0, usageCount);
+    }
+
+    const tokensWithoutUse = Math.max(0, totalTokens - tokensInUse);
+    const usagePercent = totalTokens > 0 ? Math.round((tokensInUse / totalTokens) * 100) : 0;
+    const unusedPercent = totalTokens > 0 ? Math.round((tokensWithoutUse / totalTokens) * 100) : 0;
+
+    return {
+      totalTokens,
+      tokensInUse,
+      tokensWithoutUse,
+      usagePercent,
+      unusedPercent,
+      totalRefs,
+    };
+  }, [entries, usageByPath]);
 
   const semanticColorOptions = useMemo(
     () => buildSemanticColorOptions(entries),
@@ -317,40 +365,6 @@ export function TokensPage() {
     ],
   );
 
-  const refreshUsage = async () => {
-    setUsageSyncing(true);
-    setUsageError(null);
-    try {
-      const config = await fetchDesignSystemsConfig().catch(() => null);
-      const { dsFileKey } = resolveDesignSystemContext(
-        config,
-        String(getActiveSystemId() || "").trim(),
-      );
-      const variableReports = dsFileKey
-        ? await fetchReportByVariable(dsFileKey)
-            .then((res) => res.data ?? [])
-            .catch((cause) => {
-              console.warn("[tokens-page] Failed to fetch variable usage reports during refresh", cause);
-              return [] as VariableUsageReport[];
-            })
-        : [];
-      const mergedUsageByPath = buildMergedUsageByPath({
-        entries,
-        variableReports,
-      });
-      setUsageByPath(mergedUsageByPath);
-    } catch (cause) {
-      setUsageError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Usage sync failed",
-          fallbackMessage: "Unable to refresh DS/consumer usage data.",
-        }),
-      );
-    } finally {
-      setUsageSyncing(false);
-    }
-  };
-
   const loadTokenCollectionTrees = useCallback(
     async (force: boolean) => {
       if (treeLoading) return;
@@ -380,16 +394,12 @@ export function TokensPage() {
   }, [loadTokenCollectionTrees, treeModalOpen]);
 
   return (
-    <div className="space-y-5 animate-fade-slide-in">
+    <div className="space-y-5">
       <PageHeader
         title="Tokens & Custom Properties"
         description="Local inventory of your design tokens, with filters by collection and type."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              {usageSyncing ? "Syncing usage..." : "Sync DS Usage"}
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -404,33 +414,48 @@ export function TokensPage() {
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total tokens</CardDescription>
-            <CardTitle>{entries.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        {Object.entries(summary)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .slice(0, 3)
-          .map(([label, count]) => (
-            <Card key={label}>
-              <CardHeader>
-                <CardDescription>{label}</CardDescription>
-                <CardTitle>{count}</CardTitle>
-              </CardHeader>
-            </Card>
-          ))}
-      </section>
+      <StatsOverview
+        items={[
+          { id: "tokens-total", label: "Total tokens", value: metrics.totalTokens },
+          {
+            id: "tokens-in-use",
+            label: "Tokens en uso",
+            value: `${metrics.tokensInUse} (${metrics.usagePercent}%)`,
+          },
+          {
+            id: "tokens-unused",
+            label: "Tokens sin uso",
+            value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
+          },
+          { id: "tokens-total-uses", label: "Total uses", value: metrics.totalRefs },
+        ]}
+      />
 
-      <Card>
-        <CardContent>
+      <div>
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
-            searchPlaceholder="Buscar por token path, CSS var o valor"
-            count={filtered.length}
+            searchPlaceholder="Buscar por token path o valor"
+            rightSlot={(
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Rows</span>
+                <Select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(event.target.value)}
+                  className="w-[132px]"
+                  aria-label="Rows per page"
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={String(size)}>
+                      {size}
+                    </option>
+                  ))}
+                  {allowShowAll ? (
+                    <option value={PAGE_SIZE_ALL}>All</option>
+                  ) : null}
+                </Select>
+              </div>
+            )}
           >
             <Select
               value={collection}
@@ -473,8 +498,34 @@ export function TokensPage() {
           {error ? (
             <ApiErrorMessage error={error} />
           ) : null}
-          {usageError ? (
-            <ApiErrorMessage error={usageError} tone="warning" className="mt-3" />
+
+          {shouldPaginate ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           ) : null}
 
           <Table>
@@ -496,11 +547,6 @@ export function TokensPage() {
                   onSort={() => toggleSort("type")}
                 />
                 <SortableTableHead
-                  label="CSS Variable"
-                  ariaLabel="Sort by CSS variable"
-                  onSort={() => toggleSort("cssVar")}
-                />
-                <SortableTableHead
                   label="Resolved Value"
                   ariaLabel="Sort by resolved value"
                   onSort={() => toggleSort("resolvedValue")}
@@ -516,7 +562,7 @@ export function TokensPage() {
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={5}
                     className="text-center text-muted-foreground"
                   >
                     No tokens match your filters.
@@ -527,12 +573,12 @@ export function TokensPage() {
               {loading
                 ? Array.from({ length: 8 }).map((_, index) => (
                     <TableRow key={`token-loading-${index}`}>
-                      <TableCell colSpan={6} className="text-muted-foreground">
+                      <TableCell colSpan={5} className="text-muted-foreground">
                         Loading tokens...
                       </TableCell>
                     </TableRow>
                   ))
-                : filtered.map((entry) => {
+                : pagedEntries.map((entry) => {
                     const swatch = resolveColorSwatch(entry.resolvedValue);
                     const usage = usageByPath[entry.path];
                     const usageCount = usage?.usageCount ?? 0;
@@ -575,9 +621,6 @@ export function TokensPage() {
                           <Badge variant="neutral">{entry.collection}</Badge>
                         </TableCell>
                         <TableCell>{entry.type}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {entry.cssVar}
-                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 font-mono text-xs">
                             {swatch ? (
@@ -605,8 +648,36 @@ export function TokensPage() {
                   })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+      </div>
 
       <ContrastCheckerModal
         open={contrastChecker.isOpen}

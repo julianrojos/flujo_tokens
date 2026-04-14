@@ -1,26 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ExternalLink, RefreshCcw } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import {
   fetchComponentRegistry,
   fetchComponentUsageIndex,
-  refreshRegistry,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FilterBar, PageHeader } from "@/components/composites";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -54,7 +45,6 @@ export function ComponentsPage() {
     field: "display_name",
     dir: "asc",
   });
-  const [syncing, setSyncing] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -127,57 +117,22 @@ export function ComponentsPage() {
     return map;
   }, [rows]);
 
-  const handleRefreshFromPipeline = async () => {
-    setSyncing(true);
-    try {
-      await refreshRegistry();
-      await loadData();
-    } catch (cause) {
-      setError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Registry refresh failed",
-          fallbackMessage: "Unable to refresh component registry.",
-        }),
-      );
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   return (
-    <div className="space-y-5 animate-fade-slide-in">
-      <section className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total componentes</CardDescription>
-            <CardTitle>{stats.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Con spec</CardDescription>
-            <CardTitle>{stats.withSpec}</CardTitle>
-          </CardHeader>
-        </Card>
-      </section>
+    <div className="space-y-5">
+      <PageHeader
+        title="Componentes"
+        description="Filtra y ordena con datos locales del registry generado."
+      />
 
-      <Card>
-        <CardContent>
-          <PageHeader
-            title="Componentes"
-            description="Filtra y ordena con datos locales del registry generado."
-            actions={
-              <Button
-                variant="outline"
-                onClick={handleRefreshFromPipeline}
-                disabled={syncing}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                {syncing ? "Refreshing..." : "Refresh Registry"}
-              </Button>
-            }
-          />
+      <StatsOverview
+        gridClassName="md:grid-cols-2"
+        items={[
+          { id: "components-total", label: "Total componentes", value: stats.total },
+          { id: "components-with-spec", label: "Con spec", value: stats.withSpec },
+        ]}
+      />
 
+      <div>
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
@@ -279,8 +234,7 @@ export function ComponentsPage() {
                   ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

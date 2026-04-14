@@ -428,11 +428,32 @@ Location: `apps/ds-dashboard/src/components/composites/`
 
 ---
 
+### StatsOverview
+
+**Path:** `src/components/composites/stats-overview.tsx`
+
+**Props:** `items`, `gridClassName?`, `className?`
+
+```tsx
+<StatsOverview
+  gridClassName="md:grid-cols-2"
+  items={[
+    { id: "total", label: "Total componentes", value: 124 },
+    { id: "with-spec", label: "Con spec", value: 98 },
+  ]}
+/>
+```
+
+**When to use:** Top-of-page KPI blocks with simple label/value cards (tokens/components listing pages).
+**When NOT to use:** Trend/variation metrics (use `MetricCard`), detailed tabular summaries.
+
+---
+
 ### FilterBar
 
 **Path:** `src/components/composites/filter-bar.tsx`
 
-**Props:** `searchValue?`, `onSearch?`, `count?`, `children`
+**Props:** `searchValue?`, `onSearch?`, `count?`, `rightSlot?`, `children`
 
 ```tsx
 <FilterBar searchValue={query} onSearch={setQuery} count={items.length}>
