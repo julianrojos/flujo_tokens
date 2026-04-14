@@ -15,11 +15,6 @@ interface TokenIdentitySectionProps {
   dimensionPreview: { amount: number; unit: string; width: number } | null;
   onCopyField: (field: string, value: string) => void;
   copiedField: string | null;
-  onNavigate: (token: TokenEntry) => void;
-  previousToken: TokenEntry | null;
-  nextToken: TokenEntry | null;
-  currentTokenIndex: number;
-  scopedTokens: TokenEntry[];
 }
 
 export function TokenIdentitySection({
@@ -28,11 +23,6 @@ export function TokenIdentitySection({
   dimensionPreview,
   onCopyField,
   copiedField,
-  onNavigate,
-  previousToken,
-  nextToken,
-  currentTokenIndex,
-  scopedTokens,
 }: TokenIdentitySectionProps) {
   return (
     <Card>
@@ -127,20 +117,6 @@ export function TokenIdentitySection({
             </div>
           </div>
         ) : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => onNavigate(previousToken!)} disabled={!previousToken}>
-            ← Prev
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onNavigate(nextToken!)} disabled={!nextToken}>
-            Next →
-          </Button>
-          {scopedTokens.length > 0 && currentTokenIndex >= 0 ? (
-            <span className="text-xs text-muted-foreground">
-              {currentTokenIndex + 1} / {scopedTokens.length}
-            </span>
-          ) : null}
-        </div>
       </CardContent>
     </Card>
   );

@@ -4,11 +4,10 @@
  */
 
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { PageHeader } from "@/components/composites";
+import { PageHeader, PrevNextNav } from "@/components/composites";
 import { useTokenDetail } from "./hooks/use-token-detail";
 import { TokenIdentitySection } from "./components/token-identity-section";
 import { TokenAliasSection } from "./components/token-alias-section";
@@ -72,23 +71,14 @@ export function TokenDetailPage() {
         description={`${token.collection} · ${token.type}`}
       />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {previousToken && (
-          <Button variant="outline" size="sm" onClick={() => handleNavigate(previousToken)}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Prev
-          </Button>
-        )}
-        {nextToken && (
-          <Button variant="outline" size="sm" onClick={() => handleNavigate(nextToken)}>
-            Next <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        )}
-        {scopedTokens.length > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {currentTokenIndex + 1} / {scopedTokens.length}
-          </span>
-        )}
-      </div>
+      <PrevNextNav
+        hasPrevious={Boolean(previousToken)}
+        hasNext={Boolean(nextToken)}
+        onPrevious={() => handleNavigate(previousToken!)}
+        onNext={() => handleNavigate(nextToken!)}
+        currentIndex={currentTokenIndex}
+        totalItems={scopedTokens.length}
+      />
 
       <TokenIdentitySection
         token={token}
@@ -96,11 +86,6 @@ export function TokenDetailPage() {
         dimensionPreview={dimensionPreview}
         onCopyField={handleCopyValue}
         copiedField={copiedField}
-        onNavigate={handleNavigate}
-        previousToken={previousToken}
-        nextToken={nextToken}
-        currentTokenIndex={currentTokenIndex}
-        scopedTokens={scopedTokens}
       />
 
       <TokenRelationsSection

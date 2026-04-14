@@ -94,7 +94,6 @@ export function ComponentDetailPage() {
         currentIndex={currentIndex}
         totalItems={totalItems}
         onNavigate={handleNavigate}
-        onBack={handleBack}
       />
 
       <ComponentVisualProofSection
