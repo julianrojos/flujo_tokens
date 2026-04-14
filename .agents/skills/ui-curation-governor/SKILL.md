@@ -27,7 +27,7 @@ inputs:
   - name: ui_registry_path
     type: path
     required: false
-    default: "docs/ui/COMPONENT_REGISTRY.md"
+    default: "apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md"
     description: "Canonical UI component registry."
 outputs:
   - name: report
@@ -45,7 +45,7 @@ Activate for **any** task that modifies files in:
 - `apps/ds-dashboard/src/features/**/*.tsx` — feature components
 - `apps/ds-dashboard/src/index.css` — token foundation
 - `apps/ds-dashboard/tailwind.config.ts` — token mapping
-- `docs/ui/COMPONENT_REGISTRY.md` — component catalog
+- `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md` — component catalog
 
 This skill encodes the design identity and architecture rules for the DS Dashboard UI. It is the single source of truth for how the interface should look, feel, and be built.
 
@@ -165,7 +165,7 @@ See `ui-architecture-boundaries.mdc` for detailed import rules.
 | EmptyState | `composites/empty-state` | Icon + message + action for empty views |
 | DataPanel | `composites/data-panel` | Card with header + scrollable content area |
 
-Full reference: `docs/ui/COMPONENT_REGISTRY.md`
+Full reference: `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md`
 
 ---
 

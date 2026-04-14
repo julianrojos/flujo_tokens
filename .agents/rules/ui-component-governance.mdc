@@ -77,7 +77,7 @@ export { Component, componentVariants };
 
 ### New component registration
 
-Every new component in `ui/` or `composites/` **MUST** have an entry in `docs/ui/COMPONENT_REGISTRY.md` before the task is considered complete.
+Every new component in `ui/` or `composites/` **MUST** have an entry in `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md` before the task is considered complete.
 
 Entry must include:
 - Component name and path
