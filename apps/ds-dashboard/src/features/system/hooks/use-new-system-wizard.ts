@@ -404,11 +404,11 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         throw new Error("Server returned an empty system ID");
       }
 
-      // Refresh global system switcher immediately after creation.
-      // Only switch active system when user explicitly requested default.
       replaceSystems(
         result.config.systems,
-        state.form.makeDefault ? { activeSystemId: result.system.id } : undefined,
+        state.form.makeDefault
+          ? { activeSystemId: result.system.id }
+          : undefined,
       );
 
       const importMode = isPartial ? "partial" : "full";
@@ -458,35 +458,36 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });
   }, []);
 
+  const restoreSystemsSnapshot = useCallback(() => {
+    if (state.import.systemsSnapshot.length === 0) return;
+    replaceSystems(
+      state.import.systemsSnapshot,
+      state.import.makeDefault
+        ? { activeSystemId: state.import.jobId }
+        : undefined,
+    );
+  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
+
   const completeImport = useCallback((summary: ImportSuccessSummary) => {
+    restoreSystemsSnapshot();
     dispatch({ type: "IMPORT_SUCCESS", payload: summary });
-  }, []);
+  }, [restoreSystemsSnapshot]);
 
   const failImport = useCallback((message: string, details: string, pipelinePhase?: string) => {
     dispatch({ type: "IMPORT_ERROR", payload: { message, details, pipelinePhase } });
   }, []);
 
   const cancelImport = useCallback(() => {
-    if (state.import.systemsSnapshot.length > 0) {
-      replaceSystems(
-        state.import.systemsSnapshot,
-        state.import.makeDefault ? { activeSystemId: state.import.jobId } : undefined,
-      );
-    }
+    restoreSystemsSnapshot();
     dispatch({ type: "CANCEL_IMPORT" });
-  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
+  }, [restoreSystemsSnapshot]);
 
   const resetWizard = useCallback(() => {
-    if (state.import.systemsSnapshot.length > 0) {
-      replaceSystems(
-        state.import.systemsSnapshot,
-        state.import.makeDefault ? { activeSystemId: state.import.jobId } : undefined,
-      );
-    }
+    restoreSystemsSnapshot();
     dispatch({ type: "RESET" });
     setSaveError(null);
     setShowImportErrorDetails(false);
-  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
+  }, [restoreSystemsSnapshot]);
 
   const toggleImportErrorDetails = useCallback(() => {
     setShowImportErrorDetails((value) => !value);

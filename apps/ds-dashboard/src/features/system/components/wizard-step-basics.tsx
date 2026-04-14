@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,18 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
   const [searchQuery, setSearchQuery] = useState("");
   const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
 
+  const filteredComponents = useMemo(() => {
+    if (!searchQuery.trim()) return derived.scanComponents;
+    const q = searchQuery.toLowerCase();
+    return derived.scanComponents.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.pageName.toLowerCase().includes(q),
+    );
+  }, [searchQuery, derived.scanComponents]);
+
+  const grouped = useMemo(() => groupByPageName(filteredComponents), [filteredComponents]);
+  const groupedPageNames = useMemo(() => Array.from(grouped.keys()), [grouped]);
+  const [openPages, setOpenPages] = useState<Set<string>>(() => new Set(groupedPageNames));
+
   useEffect(() => {
     if (derived.scanState !== "loading") {
       setScanElapsedSeconds(0);
@@ -86,15 +99,33 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
     }
   }, [derived.scanState]);
 
-  const filteredComponents = useMemo(() => {
-    if (!searchQuery.trim()) return derived.scanComponents;
-    const q = searchQuery.toLowerCase();
-    return derived.scanComponents.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.pageName.toLowerCase().includes(q),
-    );
-  }, [searchQuery, derived.scanComponents]);
+  useEffect(() => {
+    if (groupedPageNames.length === 0) {
+      setOpenPages(new Set());
+      return;
+    }
+    setOpenPages((prev) => {
+      const persisted = new Set<string>();
+      for (const pageName of groupedPageNames) {
+        if (prev.has(pageName)) persisted.add(pageName);
+      }
+      // Open all groups on first load/new scan, preserve explicit user toggles otherwise.
+      if (prev.size === 0 || persisted.size === 0) return new Set(groupedPageNames);
+      return persisted;
+    });
+  }, [groupedPageNames]);
 
-  const grouped = useMemo(() => groupByPageName(filteredComponents), [filteredComponents]);
+  const togglePage = (pageName: string) => {
+    setOpenPages((prev) => {
+      const next = new Set(prev);
+      if (next.has(pageName)) {
+        next.delete(pageName);
+      } else {
+        next.add(pageName);
+      }
+      return next;
+    });
+  };
 
   const selectAllChecked =
     derived.scanComponents.length > 0 &&
@@ -253,22 +284,34 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
               ) : (
                 Array.from(grouped.entries()).map(([pageName, comps]) => (
                   <div key={pageName} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">{pageName}</p>
-                    {comps.map((comp) => {
-                      const checked = derived.selectedIds.has(comp.nodeId);
-                      return (
-                        <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select component ${comp.name}`}
-                            checked={checked}
-                            onChange={() => actions.onToggleComponent(comp.nodeId)}
-                            disabled={derived.saving}
-                          />
-                          <span>{comp.name}</span>
-                        </label>
-                      );
-                    })}
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between text-left text-xs font-medium text-muted-foreground"
+                      aria-expanded={openPages.has(pageName)}
+                      onClick={() => togglePage(pageName)}
+                    >
+                      <span>{pageName}</span>
+                      <span className="flex items-center gap-1 text-[10px]">
+                        {openPages.has(pageName) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        {comps.length}
+                      </span>
+                    </button>
+                    {openPages.has(pageName) &&
+                      comps.map((comp) => {
+                        const checked = derived.selectedIds.has(comp.nodeId);
+                        return (
+                          <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select component ${comp.name}`}
+                              checked={checked}
+                              onChange={() => actions.onToggleComponent(comp.nodeId)}
+                              disabled={derived.saving}
+                            />
+                            <span>{comp.name}</span>
+                          </label>
+                        );
+                      })}
                   </div>
                 ))
               )}

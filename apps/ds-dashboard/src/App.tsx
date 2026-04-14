@@ -208,6 +208,12 @@ const navSections: NavSection[] = [
         description: "Manage system configuration",
         icon: Settings2,
       },
+      {
+        to: ROUTE_PATTERNS.consumers,
+        label: "Consumer Files",
+        description: "Cross-file usage tracking",
+        icon: Network,
+      },
     ],
   },
   {
@@ -219,12 +225,6 @@ const navSections: NavSection[] = [
         label: "Explore",
         description: "Registry and properties",
         icon: Layers3,
-      },
-      {
-        to: ROUTE_PATTERNS.consumers,
-        label: "Consumer Files",
-        description: "Cross-file usage tracking",
-        icon: Network,
       },
     ],
   },

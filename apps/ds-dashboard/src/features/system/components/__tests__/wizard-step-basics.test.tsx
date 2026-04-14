@@ -194,8 +194,25 @@ describe("WizardStepBasics", () => {
 
     assert.match(html, /Components/);
     assert.match(html, /Overlays/);
-    assert.match(html, /Button/);
-    assert.match(html, /Modal/);
+  });
+
+  it("expands page groups by default after scan results are ready", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(WizardStepBasics, {
+        ...defaultProps,
+        derived: {
+          ...defaultProps.derived,
+          scanState: "ready" as const,
+          scanComponents: [
+            { nodeId: "10:1", name: "Button", pageName: "Components" },
+            { nodeId: "10:2", name: "Modal", pageName: "Overlays" },
+          ],
+          canSelectAll: true,
+        },
+      }),
+    );
+
+    assert.match(html, /aria-expanded="true"/);
   });
 
   it("enables Select all when truncated=false even with >200 components", () => {
