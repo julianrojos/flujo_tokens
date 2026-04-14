@@ -278,18 +278,23 @@ interface NewSystemWizardViewModel {
 }
 
 export function useNewSystemWizard(): NewSystemWizardViewModel {
-  const { replaceSystems, systems } = useDesignSystem();
+  const { replaceSystems, systems, activeSystem } = useDesignSystem();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
   const [isCancellingImport, setIsCancellingImport] = useState(false);
   const replaceSystemsRef = useRef(replaceSystems);
+  const activeSystemRef = useRef(activeSystem);
   const latestImportRef = useRef(state.import);
 
   useEffect(() => {
     replaceSystemsRef.current = replaceSystems;
   }, [replaceSystems]);
+
+  useEffect(() => {
+    activeSystemRef.current = activeSystem;
+  }, [activeSystem]);
 
   useEffect(() => {
     latestImportRef.current = state.import;
@@ -461,8 +466,15 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
       }
 
       // Refresh systems list immediately after creation without switching active system yet.
-      // Active system switching remains coordinated via import snapshot restoration.
-      replaceSystemsRef.current(result.config.systems);
+      // This avoids remounting while import starts if no active system is currently selected.
+      const currentActiveSystemId = String(activeSystemRef.current || "").trim();
+      const hasCurrentActiveSystem = result.config.systems.some(
+        (entry) => String(entry.id || "").trim() === currentActiveSystemId,
+      );
+      // Passing an explicit empty id intentionally disables provider fallback-to-first.
+      // This keeps the current render tree stable while import starts (prevents remount).
+      const preservedActiveSystemId = hasCurrentActiveSystem ? currentActiveSystemId : "";
+      replaceSystemsRef.current(result.config.systems, { activeSystemId: preservedActiveSystemId });
 
       const importMode = isPartial ? "partial" : "full";
       const selectedCount = isPartial ? capturedSelection.size : capturedScan.components.length;
@@ -516,7 +528,11 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     // A reactive dependency list here can retrigger import side-effects while the wizard is running.
     const snapshot = latestImportRef.current;
     if (snapshot.systemsSnapshot.length === 0) return;
-    const shouldActivateImportedSystem = options?.activateImportedSystem === true;
+    const currentActiveSystemId = String(activeSystemRef.current || "").trim();
+    // If no active system is selected, restore by activating the imported one so
+    // we never leave the app in an empty-active state after import fail/cancel.
+    const shouldActivateImportedSystem =
+      options?.activateImportedSystem === true || currentActiveSystemId.length === 0;
     const activeSystemId =
       shouldActivateImportedSystem || snapshot.makeDefault
         ? snapshot.jobId
