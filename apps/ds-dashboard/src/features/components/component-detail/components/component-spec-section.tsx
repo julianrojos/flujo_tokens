@@ -13,6 +13,7 @@ import { FigmaDescriptionSection } from "./figma-description-section";
 interface ComponentSpecSectionProps {
   spec: PartialComponentSpec | null;
   canOpenDocs: boolean;
+  showDownloadMarkdown?: boolean;
   isDownloadingMarkdown?: boolean;
   downloadError?: string | null;
   downloadWarnings?: string[];
@@ -26,6 +27,7 @@ interface ComponentSpecSectionProps {
 export function ComponentSpecSection({
   spec,
   canOpenDocs,
+  showDownloadMarkdown = false,
   isDownloadingMarkdown = false,
   downloadError = null,
   downloadWarnings = [],
@@ -45,7 +47,7 @@ export function ComponentSpecSection({
               <CardDescription>Component documentation</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {canOpenDocs && (
+              {canOpenDocs && showDownloadMarkdown && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -67,16 +69,18 @@ export function ComponentSpecSection({
               title="Download failed"
               description={downloadError}
             >
-              <div className="pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onDownloadMarkdown}
-                  disabled={isDownloadingMarkdown}
-                >
-                  {isDownloadingMarkdown ? "Retrying..." : "Retry download"}
-                </Button>
-              </div>
+              {canOpenDocs && showDownloadMarkdown ? (
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onDownloadMarkdown}
+                    disabled={isDownloadingMarkdown}
+                  >
+                    {isDownloadingMarkdown ? "Retrying..." : "Retry download"}
+                  </Button>
+                </div>
+              ) : null}
             </StatusAlert>
           ) : null}
           {downloadWarnings.length > 0 ? (

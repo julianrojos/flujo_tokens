@@ -29,6 +29,8 @@ export function ComponentDetailPage() {
     usage,
     allItems,
     spec,
+    hasEditorialSpec,
+    isEditorialSpecStatusUnknown,
     tokenRegistry,
     captureModalOpen,
     captureSummary,
@@ -105,6 +107,7 @@ export function ComponentDetailPage() {
       <ComponentSpecSection
         spec={spec}
         canOpenDocs={canOpenDocs}
+        showDownloadMarkdown={hasEditorialSpec || isEditorialSpecStatusUnknown}
         isDownloadingMarkdown={isDownloadingMarkdown}
         downloadError={downloadError}
         downloadWarnings={downloadWarnings}

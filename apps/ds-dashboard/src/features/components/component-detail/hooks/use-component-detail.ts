@@ -24,6 +24,8 @@ interface ComponentDetailViewModel {
   usage: ComponentUsageEntry | null;
   allItems: ComponentRegistryItem[];
   spec: PartialComponentSpec | null;
+  hasEditorialSpec: boolean;
+  isEditorialSpecStatusUnknown: boolean;
   tokenRegistry: TokenRegistry | null;
   downloadError: string | null;
   downloadWarnings: string[];
@@ -57,6 +59,8 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
   const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
+  const [hasEditorialSpec, setHasEditorialSpec] = useState(false);
+  const [isEditorialSpecStatusUnknown, setIsEditorialSpecStatusUnknown] = useState(false);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
@@ -72,6 +76,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     setDownloadError(null);
     setDownloadWarnings([]);
     setIsDownloadingMarkdown(false);
+    setIsEditorialSpecStatusUnknown(false);
   }, [slug]);
 
   useEffect(() => {
@@ -80,11 +85,13 @@ export function useComponentDetail(): ComponentDetailViewModel {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, specPayload, tokenRegistryPayload] =
+        const [registry, usageIndex, specResult, tokenRegistryPayload] =
           await Promise.all([
             fetchComponentRegistry(),
             fetchComponentUsageIndex().catch(() => EMPTY_COMPONENT_USAGE_INDEX),
-            fetchComponentSpec(slug).catch(() => null),
+            fetchComponentSpec(slug)
+              .then((payload) => ({ ok: true as const, payload }))
+              .catch((cause) => ({ ok: false as const, cause })),
             fetchTokenRegistry().catch(() => null),
           ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
@@ -93,10 +100,18 @@ export function useComponentDetail(): ComponentDetailViewModel {
         setUsage(usageIndex.by_slug[slug] ?? null);
 
         // Spec comes complete from API (DB-first, no merge needed)
-        if (specPayload?.ok) {
-          setSpec(specPayload.spec ?? null);
+        if (specResult.ok && specResult.payload?.ok) {
+          setSpec(specResult.payload.spec ?? null);
+          setHasEditorialSpec(specResult.payload.exists === true);
+          setIsEditorialSpecStatusUnknown(false);
+        } else if (specResult.ok) {
+          setSpec(null);
+          setHasEditorialSpec(false);
+          setIsEditorialSpecStatusUnknown(false);
         } else {
           setSpec(null);
+          // Preserve markdown access when spec availability cannot be verified.
+          setIsEditorialSpecStatusUnknown(true);
         }
 
         setTokenRegistry(tokenRegistryPayload);
@@ -183,6 +198,8 @@ export function useComponentDetail(): ComponentDetailViewModel {
     usage,
     allItems,
     spec,
+    hasEditorialSpec,
+    isEditorialSpecStatusUnknown,
     tokenRegistry,
     downloadError,
     downloadWarnings,
