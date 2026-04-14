@@ -654,7 +654,7 @@ export function EditComponentDocsPage() {
           ) : null}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {FORM_SECTION_ORDER.map((sectionId) => {
             const onApplyFn = SECTION_ORDER.includes(sectionId as SectionId)
               ? getOnApplyForSection(sectionId as SectionId)

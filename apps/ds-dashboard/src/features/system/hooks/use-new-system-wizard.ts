@@ -433,7 +433,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
       const capturedSelection = new Set(state.selectedComponentNodeIds);
       const capturedScan = state.scan;
       const systemId = state.form.systemIdOverride.trim() || generatedSystemId;
-      const safeInputDir = `design-systems/${systemId}/input`;
       const documentWideUrl = toDocumentWideFigmaUrl(state.form.figmaFileUrl);
       const sourceFileKey = extractFigmaFileIdFromUrl(state.form.figmaFileUrl);
 
@@ -450,7 +449,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         appName: state.form.appName.trim() || undefined,
         figmaFileId: sourceFileKey,
         figmaApiToken: state.form.figmaAccessToken.trim() || undefined,
-        inputDir: safeInputDir,
         compileVariablesOnCapture: state.form.compileVariablesOnCapture,
         makeDefault: state.form.makeDefault,
       });

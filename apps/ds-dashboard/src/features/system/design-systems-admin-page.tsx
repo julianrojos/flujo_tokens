@@ -27,12 +27,6 @@ import type { DsConsumer } from "@/types/consumers";
 type RowDraft = {
   name: string;
   appName: string;
-  figmaFileId: string;
-  figmaApiToken: string;
-  inputDir: string;
-  outputDir: string;
-  docsDir: string;
-  collections: string;
   compileVariablesOnCapture: boolean;
   makeDefault: boolean;
 };
@@ -42,22 +36,9 @@ function toDraft(system: DesignSystemConfigEntry, defaultSystemId = ""): RowDraf
   return {
     name: String(system.name || ""),
     appName: String(system.appName || ""),
-    figmaFileId: String(system.figmaFileId || ""),
-    figmaApiToken: String(system.figmaApiToken || ""),
-    inputDir: String(system.inputDir || ""),
-    outputDir: String(system.outputDir || ""),
-    docsDir: String(system.docsDir || ""),
-    collections: Array.isArray(system.collections) ? system.collections.join(", ") : "",
     compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
     makeDefault: id === defaultSystemId,
   };
-}
-
-function parseCollections(raw: string) {
-  return raw
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function buildFieldId(systemId: string, fieldName: string) {
@@ -69,10 +50,6 @@ function buildFieldId(systemId: string, fieldName: string) {
 
 function normalizeDraftText(value: string): string {
   return String(value || "").trim();
-}
-
-function normalizeDraftCollections(value: string): string {
-  return parseCollections(value).join(",");
 }
 
 function hasDraftChanges(
@@ -96,12 +73,6 @@ function hasNonDefaultDraftChanges(
   return (
     normalizeDraftText(base.name) !== normalizeDraftText(draft.name) ||
     normalizeDraftText(base.appName) !== normalizeDraftText(draft.appName) ||
-    normalizeDraftText(base.figmaFileId) !== normalizeDraftText(draft.figmaFileId) ||
-    normalizeDraftText(base.figmaApiToken) !== normalizeDraftText(draft.figmaApiToken) ||
-    normalizeDraftText(base.inputDir) !== normalizeDraftText(draft.inputDir) ||
-    normalizeDraftText(base.outputDir) !== normalizeDraftText(draft.outputDir) ||
-    normalizeDraftText(base.docsDir) !== normalizeDraftText(draft.docsDir) ||
-    normalizeDraftCollections(base.collections) !== normalizeDraftCollections(draft.collections) ||
     base.compileVariablesOnCapture !== draft.compileVariablesOnCapture
   );
 }
@@ -243,12 +214,6 @@ export function DesignSystemsAdminPage() {
       const response = await updateDesignSystem(id, {
         name: draft.name,
         appName: draft.appName,
-        figmaFileId: draft.figmaFileId,
-        figmaApiToken: draft.figmaApiToken,
-        inputDir: draft.inputDir,
-        outputDir: draft.outputDir,
-        docsDir: draft.docsDir,
-        collections: parseCollections(draft.collections),
         compileVariablesOnCapture: draft.compileVariablesOnCapture,
         makeDefault: draft.makeDefault,
       });
@@ -298,11 +263,10 @@ export function DesignSystemsAdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 py-8">
+    <div className="space-y-5">
       <PageHeader
         title="Design Systems Admin"
         description="Default system appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems."
-        className="mb-6"
         actions={(
           <Link to="/system/new" className={buttonVariants({ size: "sm", variant: "outline" })}>
             Add New Design System
@@ -409,96 +373,6 @@ export function DesignSystemsAdminPage() {
                       disabled={isBusy}
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "figmaFileId")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Figma file id
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "figmaFileId")}
-                      value={draft.figmaFileId}
-                      onChange={(e) => handleFieldChange(id, "figmaFileId", e.target.value)}
-                      placeholder="Figma file id"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "figmaApiToken")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Figma token env reference
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "figmaApiToken")}
-                      value={draft.figmaApiToken}
-                      onChange={(e) => handleFieldChange(id, "figmaApiToken", e.target.value)}
-                      placeholder="e.g. FIGMA_TOKEN_MY_SYSTEM"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "inputDir")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Input directory
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "inputDir")}
-                      value={draft.inputDir}
-                      onChange={(e) => handleFieldChange(id, "inputDir", e.target.value)}
-                      placeholder="design-systems/<system-id>/input"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "outputDir")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Output directory
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "outputDir")}
-                      value={draft.outputDir}
-                      onChange={(e) => handleFieldChange(id, "outputDir", e.target.value)}
-                      placeholder="design-systems/<system-id>/output"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "docsDir")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Docs directory
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "docsDir")}
-                      value={draft.docsDir}
-                      onChange={(e) => handleFieldChange(id, "docsDir", e.target.value)}
-                      placeholder="design-systems/<system-id>/docs"
-                      disabled={isBusy}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      htmlFor={buildFieldId(id, "collections")}
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Collections
-                    </label>
-                    <Input
-                      id={buildFieldId(id, "collections")}
-                      value={draft.collections}
-                      onChange={(e) => handleFieldChange(id, "collections", e.target.value)}
-                      placeholder="_Primitives, Semantic, Components..."
-                      disabled={isBusy}
-                    />
-                  </div>
                   <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
                     <input
                       type="checkbox"
@@ -532,7 +406,7 @@ export function DesignSystemsAdminPage() {
                 <DesignSystemUpdateActions
                   {...buildUpdateActionsProps({
                     systemId: id,
-                    figmaFileId: draft.figmaFileId,
+                    figmaFileId: String(system.figmaFileId || ""),
                     disabled: isBusy,
                   })}
                 />

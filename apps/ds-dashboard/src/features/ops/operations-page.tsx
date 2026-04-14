@@ -74,7 +74,7 @@ export function OperationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 animate-in fade-in duration-500">
+    <div className="mx-auto max-w-5xl space-y-5">
       <PageHeader
         title="Operations"
         description="Centro de control para regenerar artefactos core y ejecutar diagnósticos puntuales."

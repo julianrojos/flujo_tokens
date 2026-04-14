@@ -207,9 +207,6 @@ export interface CreateDesignSystemPayload {
   appName?: string;
   figmaFileId?: string;
   figmaApiToken?: string;
-  inputDir?: string;
-  outputDir?: string;
-  docsDir?: string;
   collections?: string[];
   compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
@@ -233,9 +230,6 @@ export interface DesignSystemConfigEntry {
   appName?: string;
   figmaFileId?: string;
   figmaApiToken?: string;
-  inputDir?: string;
-  outputDir?: string;
-  docsDir?: string;
   collections?: string[];
   compileVariablesOnCapture?: boolean;
 }
@@ -259,6 +253,13 @@ export interface MutateDesignSystemResponse {
   deletedConsumerNames?: string[];
 }
 
+export interface UpdateDesignSystemPayload {
+  name?: string;
+  appName?: string;
+  compileVariablesOnCapture?: boolean;
+  makeDefault?: boolean;
+}
+
 export function createDesignSystem(args: CreateDesignSystemPayload) {
   const payload = {
     ...args,
@@ -280,14 +281,8 @@ export function fetchDesignSystemsConfig() {
   return getJson<DesignSystemsConfigResponse>("/api/design-systems");
 }
 
-export function updateDesignSystem(id: string, args: Partial<CreateDesignSystemPayload>) {
-  const payload = {
-    ...args,
-    figmaApiToken:
-      args.figmaApiToken !== undefined
-        ? normalizeEnvRef(args.figmaApiToken) || undefined
-        : undefined,
-  };
+export function updateDesignSystem(id: string, args: UpdateDesignSystemPayload) {
+  const payload = { ...args };
   return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: {
