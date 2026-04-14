@@ -69,8 +69,6 @@ test("system-route-service: update mutation rejects unknown system", () => {
     routeSystemId: "missing",
     body: {},
     ensureRelativeDir: () => "",
-    normalizeFigmaApiTokenRef: () => "",
-    normalizeCollectionList: () => [],
   });
   assert.equal(mutation.error?.status, 404);
   assert.equal(mutation.error?.payload.code, "design_system.not_found");
@@ -82,33 +80,142 @@ test("system-route-service: update mutation enforces non-empty name", () => {
     routeSystemId: "alpha",
     body: { name: "   " },
     ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
-    normalizeFigmaApiTokenRef: (value) => String(value || ""),
-    normalizeCollectionList: (value) => (Array.isArray(value) ? value : []),
   });
   assert.equal(mutation.error?.status, 400);
   assert.equal(mutation.error?.payload.code, "validation.invalid_name");
 });
 
-test("system-route-service: update mutation preserves id and updates directories", () => {
+test("system-route-service: update mutation preserves id and keeps directories immutable", () => {
   const mutation = buildUpdateDesignSystemConfigMutation({
     config: createConfig(),
     routeSystemId: "alpha",
     body: {
       name: "Alpha Two",
-      inputDir: "design-systems/alpha2/input",
       makeDefault: true,
       compileVariablesOnCapture: false,
     },
     ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
-    normalizeFigmaApiTokenRef: (value) => String(value || ""),
-    normalizeCollectionList: (value) => (Array.isArray(value) ? value : []),
   });
   assert.ok(!mutation.error);
   assert.equal(mutation.updated?.id, "alpha");
   assert.equal(mutation.updated?.name, "Alpha Two");
-  assert.equal(mutation.updated?.inputDir, "design-systems/alpha2/input");
+  assert.equal(mutation.updated?.inputDir, "design-systems/alpha/input");
+  assert.equal(mutation.updated?.outputDir, "design-systems/alpha/output");
+  assert.equal(mutation.updated?.docsDir, "design-systems/alpha/docs");
   assert.equal(mutation.updated?.compileVariablesOnCapture, false);
   assert.equal(mutation.nextConfig?.defaultSystem, "alpha");
+});
+
+test("system-route-service: update mutation rejects read-only figma identity and collections fields", () => {
+  const mutation = buildUpdateDesignSystemConfigMutation({
+    config: {
+      defaultSystem: "alpha",
+      systems: [
+        {
+          id: "alpha",
+          name: "Alpha",
+          figmaFileId: "FILE_ORIGINAL",
+          figmaApiToken: "FIGMA_TOKEN_ALPHA",
+          collections: ["primitives"],
+        },
+      ],
+    },
+    routeSystemId: "alpha",
+    body: {
+      name: "Alpha",
+      figmaFileId: "FILE_SHOULD_NOT_APPLY",
+      figmaApiToken: "SHOULD_NOT_APPLY",
+      collections: ["semantic"],
+    },
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+  });
+  assert.equal(mutation.error?.status, 400);
+  assert.equal(mutation.error?.payload.code, "validation.read_only_fields");
+  assert.deepEqual(mutation.error?.payload.context?.fields, [
+    "figmaFileId",
+    "figmaApiToken",
+    "collections",
+  ]);
+});
+
+test("system-route-service: update mutation rejects read-only directory fields when changed", () => {
+  const mutation = buildUpdateDesignSystemConfigMutation({
+    config: createConfig(),
+    routeSystemId: "alpha",
+    body: {
+      name: "Alpha",
+      inputDir: "design-systems/alpha-2/input",
+      outputDir: "design-systems/alpha-2/output",
+      docsDir: "design-systems/alpha-2/docs",
+    },
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+  });
+  assert.equal(mutation.error?.status, 400);
+  assert.equal(mutation.error?.payload.code, "validation.read_only_fields");
+  assert.deepEqual(mutation.error?.payload.context?.fields, [
+    "inputDir",
+    "outputDir",
+    "docsDir",
+  ]);
+});
+
+test("system-route-service: update mutation tolerates mirrored read-only fields when values are identical", () => {
+  const mutation = buildUpdateDesignSystemConfigMutation({
+    config: {
+      defaultSystem: "alpha",
+      systems: [
+        {
+          id: "alpha",
+          name: "Alpha",
+          appName: "Alpha App",
+          figmaFileId: "FILE_ORIGINAL",
+          figmaApiToken: "FIGMA_TOKEN_ALPHA",
+          collections: ["primitives", "semantic"],
+        },
+      ],
+    },
+    routeSystemId: "alpha",
+    body: {
+      name: "Alpha v2",
+      figmaFileId: "FILE_ORIGINAL",
+      figmaApiToken: "FIGMA_TOKEN_ALPHA",
+      collections: ["semantic", "primitives", "primitives"],
+      inputDir: "design-systems/alpha/input",
+      outputDir: "design-systems/alpha/output",
+      docsDir: "design-systems/alpha/docs",
+      compileVariablesOnCapture: false,
+    },
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+  });
+  assert.ok(!mutation.error);
+  assert.equal(mutation.updated?.name, "Alpha v2");
+  assert.equal(mutation.updated?.figmaFileId, "FILE_ORIGINAL");
+  assert.equal(mutation.updated?.figmaApiToken, "FIGMA_TOKEN_ALPHA");
+  assert.deepEqual(mutation.updated?.collections, ["primitives", "semantic"]);
+});
+
+test("system-route-service: update mutation treats read-only collections as case-sensitive", () => {
+  const mutation = buildUpdateDesignSystemConfigMutation({
+    config: {
+      defaultSystem: "alpha",
+      systems: [
+        {
+          id: "alpha",
+          name: "Alpha",
+          collections: ["Primitives"],
+        },
+      ],
+    },
+    routeSystemId: "alpha",
+    body: {
+      name: "Alpha",
+      collections: ["primitives"],
+    },
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+  });
+  assert.equal(mutation.error?.status, 400);
+  assert.equal(mutation.error?.payload.code, "validation.read_only_fields");
+  assert.deepEqual(mutation.error?.payload.context?.fields, ["collections"]);
 });
 
 test("system-route-service: delete mutation rejects missing system", () => {

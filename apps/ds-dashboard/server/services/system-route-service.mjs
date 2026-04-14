@@ -16,6 +16,26 @@ function cloneSystems(config) {
   return Array.isArray(config?.systems) ? [...config.systems] : [];
 }
 
+function normalizeReadonlyCollections(value) {
+  if (!Array.isArray(value)) return [];
+  // Keep case-sensitive values; normalize only order/duplicates for read-only equality checks.
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right, "en", { sensitivity: "variant" }));
+}
+
+function areStringArraysEqual(left, right) {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
 const CANONICAL_SYSTEMS_PREFIX = "design-systems";
 
 /**
@@ -101,8 +121,6 @@ export function buildUpdateDesignSystemConfigMutation({
   routeSystemId,
   body,
   ensureRelativeDir,
-  normalizeFigmaApiTokenRef,
-  normalizeCollectionList,
 }) {
   const nextSystems = cloneSystems(config);
   const targetIndex = nextSystems.findIndex(
@@ -115,6 +133,47 @@ export function buildUpdateDesignSystemConfigMutation({
   }
 
   const current = nextSystems[targetIndex] || {};
+  const defaultDirs = getDefaultSystemDirs(routeSystemId);
+  const readOnlyFieldChanges = [];
+  if (Object.prototype.hasOwnProperty.call(body || {}, "figmaFileId")) {
+    const incoming = String(body.figmaFileId ?? "").trim();
+    const existing = String(current.figmaFileId ?? "").trim();
+    if (incoming !== existing) readOnlyFieldChanges.push("figmaFileId");
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, "figmaApiToken")) {
+    const incoming = String(body.figmaApiToken ?? "").trim();
+    const existing = String(current.figmaApiToken ?? "").trim();
+    if (incoming !== existing) readOnlyFieldChanges.push("figmaApiToken");
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, "collections")) {
+    const incoming = normalizeReadonlyCollections(body.collections);
+    const existing = normalizeReadonlyCollections(current.collections);
+    if (!areStringArraysEqual(incoming, existing)) readOnlyFieldChanges.push("collections");
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, "inputDir")) {
+    const incoming = ensureRelativeDir(body.inputDir, defaultDirs.inputDir);
+    const existing = ensureRelativeDir(current.inputDir, defaultDirs.inputDir);
+    if (incoming !== existing) readOnlyFieldChanges.push("inputDir");
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, "outputDir")) {
+    const incoming = ensureRelativeDir(body.outputDir, defaultDirs.outputDir);
+    const existing = ensureRelativeDir(current.outputDir, defaultDirs.outputDir);
+    if (incoming !== existing) readOnlyFieldChanges.push("outputDir");
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, "docsDir")) {
+    const incoming = ensureRelativeDir(body.docsDir, defaultDirs.docsDir);
+    const existing = ensureRelativeDir(current.docsDir, defaultDirs.docsDir);
+    if (incoming !== existing) readOnlyFieldChanges.push("docsDir");
+  }
+  if (readOnlyFieldChanges.length > 0) {
+    return buildFailure(
+      400,
+      "validation.read_only_fields",
+      "Some fields are read-only and cannot be updated.",
+      { fields: readOnlyFieldChanges },
+    );
+  }
+
   const normalizedName = String(body.name ?? current.name ?? "").trim();
   if (!normalizedName) {
     return buildFailure(400, "validation.invalid_name", "System name cannot be empty.", {
@@ -122,18 +181,19 @@ export function buildUpdateDesignSystemConfigMutation({
     });
   }
 
-  const defaultDirs = getDefaultSystemDirs(routeSystemId);
   const updated = {
     ...current,
     id: routeSystemId,
     name: normalizedName,
     appName: String(body.appName ?? current.appName ?? normalizedName).trim() || normalizedName,
-    figmaFileId: String(body.figmaFileId ?? current.figmaFileId ?? "").trim(),
-    figmaApiToken: normalizeFigmaApiTokenRef(body.figmaApiToken ?? current.figmaApiToken),
-    inputDir: ensureRelativeDir(body.inputDir ?? current.inputDir, defaultDirs.inputDir),
-    outputDir: ensureRelativeDir(body.outputDir ?? current.outputDir, defaultDirs.outputDir),
-    docsDir: ensureRelativeDir(body.docsDir ?? current.docsDir, defaultDirs.docsDir),
-    collections: normalizeCollectionList(body.collections ?? current.collections ?? []),
+    // Immutable via update route: managed by create/bootstrap flows, not admin UI edits.
+    // This includes Figma identity fields and collection scope.
+    figmaFileId: String(current.figmaFileId ?? "").trim(),
+    figmaApiToken: String(current.figmaApiToken ?? "").trim(),
+    inputDir: ensureRelativeDir(current.inputDir, defaultDirs.inputDir),
+    outputDir: ensureRelativeDir(current.outputDir, defaultDirs.outputDir),
+    docsDir: ensureRelativeDir(current.docsDir, defaultDirs.docsDir),
+    collections: Array.isArray(current.collections) ? current.collections.filter(Boolean) : [],
     compileVariablesOnCapture:
       body.compileVariablesOnCapture !== undefined
         ? body.compileVariablesOnCapture === true

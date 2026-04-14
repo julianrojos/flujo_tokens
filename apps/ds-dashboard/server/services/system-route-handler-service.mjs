@@ -125,8 +125,6 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     readJsonBody,
     designSystemRepository,
     ensureRelativeDir,
-    normalizeFigmaApiTokenRef,
-    normalizeCollectionList,
     summarizeDesignSystemsConfig,
   } = deps;
   const routeSystemId = decodeSystemRouteId(c.req.param("id"));
@@ -137,8 +135,6 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     routeSystemId,
     body,
     ensureRelativeDir,
-    normalizeFigmaApiTokenRef,
-    normalizeCollectionList,
   });
   if (mutation.error) {
     return failJson(c, mutation.error.status, mutation.error.payload);
@@ -147,9 +143,6 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
   designSystemRepository.update(routeSystemId, {
     name: updated.name,
     appName: updated.appName,
-    figmaFileId: updated.figmaFileId,
-    figmaApiToken: updated.figmaApiToken,
-    collections: updated.collections,
     compileVariablesOnCapture: updated.compileVariablesOnCapture,
   });
   designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
