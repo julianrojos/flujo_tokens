@@ -560,20 +560,20 @@ function extractStructuredFigmaData(args: {
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
   props?: SyncComponentEntry['figma']['props'];
   unresolvedVariableIds: string[];
-  ignoredLegacyFlatBindings: boolean;
+  usedLegacyFlatBindings: boolean;
 } {
   const { specData, variableIdToTokenPath, variableIdToDefaultModeContext } = args;
-  if (!specData) return { unresolvedVariableIds: [], ignoredLegacyFlatBindings: false };
+  if (!specData) return { unresolvedVariableIds: [], usedLegacyFlatBindings: false };
 
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
     props?: SyncComponentEntry['figma']['props'];
     unresolvedVariableIds: string[];
-    ignoredLegacyFlatBindings: boolean;
+    usedLegacyFlatBindings: boolean;
   } = {
     unresolvedVariableIds: [],
-    ignoredLegacyFlatBindings: false,
+    usedLegacyFlatBindings: false,
   };
 
   // Extract variants from variantAxes + variantProperties
@@ -617,7 +617,9 @@ function extractStructuredFigmaData(args: {
     });
   }
 
-  // Source of truth: variants[].layerTokens (no legacy fallback to flat tokenBindings)
+  // Primary source of truth: variants[].layerTokens.
+  // Legacy flat tokenBindings are intentionally ignored for replacement because
+  // they do not preserve variant context.
   result.tokenBindings = [];
   for (const variant of specData.variants || []) {
     const vNodeId = String(variant.nodeId || '').trim();
@@ -635,8 +637,7 @@ function extractStructuredFigmaData(args: {
     }
   }
   if (result.tokenBindings.length === 0 && (specData.tokenBindings || []).length > 0) {
-    // New contract is variants[].layerTokens only; flat tokenBindings are intentionally ignored.
-    result.ignoredLegacyFlatBindings = true;
+    result.usedLegacyFlatBindings = true;
   }
 
   return result;
@@ -697,9 +698,8 @@ async function enrichComponentEntriesWithStructuredData(options: {
       variableIdToTokenPath,
       variableIdToDefaultModeContext,
     });
-    if (structuredData.ignoredLegacyFlatBindings) {
-      // Guardrail: avoid deleting previously captured bindings when the plugin payload
-      // still uses legacy flat tokenBindings without variants[].layerTokens.
+    if (structuredData.usedLegacyFlatBindings) {
+      // Guardrail: avoid replacing rich per-variant bindings with legacy flat payloads.
       entry.figma.structuredCaptureStatus = 'failed';
       if (warningSink) {
         warningSink.push(
@@ -794,6 +794,14 @@ const MAX_VARIANT_LIMIT_PER_COMPONENT = 50;
 const MAX_PROOF_ERROR_SLUGS = 100;
 const MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR = 20;
 const MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS = 1000;
+
+function createProofRequiredError(message: string, context: Record<string, unknown>) {
+  return {
+    code: 'sync.component_proofs_required_failed',
+    message,
+    context,
+  } as const;
+}
 
 function normalizeBoundedInt(value: number, fallback: number, min: number, max: number): number {
   const numeric = Number(value);
@@ -1784,10 +1792,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           if (requireComponentProofs) {
-            throw {
-              code: 'sync.component_proofs_required_failed',
-              message: `Component screenshot capture failed: ${reason}`,
-              context: {
+            throw createProofRequiredError(
+              `Component screenshot capture failed: ${reason}`,
+              {
                 importMode: importMode === 'partial' ? 'partial' : 'full',
                 importedCount: componentEntries.length,
                 proofsEnriched,
@@ -1800,7 +1807,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
                 variantExpectationErrors: [],
                 totalVariantExpectationErrors: 0,
               },
-            };
+            );
           }
           console.warn(
             `[syncDesignSystemFromPlugin] Component proof capture failed (continuing import): ${reason}`,
@@ -1824,10 +1831,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           if (requireVariantProofsWhenPresent) {
-            throw {
-              code: 'sync.component_proofs_required_failed',
-              message: `Component variant screenshot capture failed: ${reason}`,
-              context: {
+            throw createProofRequiredError(
+              `Component variant screenshot capture failed: ${reason}`,
+              {
                 importMode: importMode === 'partial' ? 'partial' : 'full',
                 importedCount: componentEntries.length,
                 proofsEnriched,
@@ -1840,7 +1846,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
                 variantExpectationErrors: [],
                 totalVariantExpectationErrors: 0,
               },
-            };
+            );
           }
           console.warn(
             `[syncDesignSystemFromPlugin] Component variant proof capture failed (continuing import): ${reason}`,
@@ -1945,12 +1951,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           },
         );
         if (variantFallbackLookupLimitHit) {
-          throw {
-            code: 'sync.component_proofs_required_failed',
-            message:
-              `Strict variant screenshot validation stopped after ${MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS} fallback component-spec lookups. ` +
+          throw createProofRequiredError(
+            `Strict variant screenshot validation stopped after ${MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS} fallback component-spec lookups. ` +
               'Narrow the component selection or ensure compact component search includes variant names.',
-            context: {
+            {
               importMode: options.selectedComponentNodeIds?.length ? 'partial' : 'full',
               importedCount: componentEntries.length,
               proofsEnriched,
@@ -1958,7 +1962,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
               fallbackSpecLookups: variantFallbackSpecLookups,
               fallbackSpecLookupLimitHitSlug: variantFallbackLookupLimitHitSlug || null,
             },
-          };
+          );
         }
         if (variantFallbackSpecLookups >= 100) {
           console.warn(
@@ -2037,11 +2041,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           variantExpectationErrors: variantExpectationErrors.slice(0, MAX_PROOF_ERROR_SLUGS),
           totalVariantExpectationErrors,
         };
-        throw {
-          code: 'sync.component_proofs_required_failed',
-          message: `Required screenshots missing: ${totalMissingMainProofs} component(s) without main proof, ${totalMissingVariantProofs} component(s) with missing variant proofs, ${totalVariantExpectationErrors} component(s) with unknown variant expectations.`,
+        throw createProofRequiredError(
+          `Required screenshots missing: ${totalMissingMainProofs} component(s) without main proof, ${totalMissingVariantProofs} component(s) with missing variant proofs, ${totalVariantExpectationErrors} component(s) with unknown variant expectations.`,
           context,
-        };
+        );
       }
     }
   }

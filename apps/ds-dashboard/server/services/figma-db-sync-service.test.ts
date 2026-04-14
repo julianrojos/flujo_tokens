@@ -1813,7 +1813,7 @@ describe('figma-db-sync-service', () => {
       assert.ok(result);
       assert.equal(receivedEntries.length, 1);
       const entry = receivedEntries[0] as Record<string, any>;
-      // No layerTokens → no tokenBindings extracted (no fallback)
+      // No layerTokens → no tokenBindings extracted (legacy flat bindings are ignored)
       assert.ok(
         entry.figma.tokenBindings === undefined ||
         (Array.isArray(entry.figma.tokenBindings) && entry.figma.tokenBindings.length === 0),
