@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 import { Button, buttonVariants } from '@/components/ui/button';
-import { PageHeader } from '@/components/composites';
+import { PageHeader, SystemTabsNav } from '@/components/composites';
 import { Input } from '@/components/ui/input';
 import { Modal, ModalContent } from '@/components/ui/overlay/modal';
 import { ApiErrorMessage } from '@/components/api-error-message';
@@ -293,6 +293,7 @@ export function DesignSystemsAdminPage() {
           </Link>
         }
       />
+      <SystemTabsNav />
 
       {error ? <ApiErrorMessage error={error} className="mb-4" /> : null}
 

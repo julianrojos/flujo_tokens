@@ -2,7 +2,7 @@
  * Health Dashboard Page - orchestrator only.
  */
 
-import { PageHeader } from "@/components/composites";
+import { PageHeader, SystemTabsNav } from "@/components/composites";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { HealthHistoryBucket, HealthHistoryRange } from "@/types/health-history";
@@ -45,6 +45,7 @@ export function HealthDashboardPage() {
     return (
       <div className="space-y-5">
         <PageHeader title="Loading…" description="Loading system dashboard" />
+        <SystemTabsNav />
         <div className="h-48 animate-pulse rounded-xl bg-muted" />
       </div>
     );
@@ -73,6 +74,7 @@ export function HealthDashboardPage() {
           </div>
         }
       />
+      <SystemTabsNav />
 
       <HealthMetricsOverview
         tokensTotal={tokensTotal}

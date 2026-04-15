@@ -488,6 +488,22 @@ Location: `apps/ds-dashboard/src/components/composites/`
 
 ---
 
+### SystemTabsNav
+
+**Path:** `src/components/composites/system-tabs-nav.tsx`
+
+**Props:** none (derives `systemId` and active tab from URL params/pathname)
+
+```tsx
+<SystemTabsNav />
+```
+
+**When to use:** System area tab navigation (`Overview`, `Admin`, `Operations`) directly under `PageHeader` in system-scoped pages.
+**When NOT to use:** Generic page tabs outside the system domain, multi-tenant navigation, or non-route-driven tab UIs.
+**Required in system tab routes:** Any page mounted under `/system/:systemId/overview`, `/system/:systemId/admin`, or `/system/:systemId/operations` must render `<SystemTabsNav />` right after `<PageHeader />`.
+
+---
+
 ### EmptyState
 
 **Path:** `src/components/composites/empty-state.tsx`

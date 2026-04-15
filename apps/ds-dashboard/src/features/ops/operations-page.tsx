@@ -9,7 +9,7 @@
 
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { PageHeader } from '@/components/composites/page-header';
+import { PageHeader, SystemTabsNav } from '@/components/composites';
 import { Button } from '@/components/ui/button';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { Zap, Loader2 } from 'lucide-react';
@@ -87,6 +87,7 @@ export function OperationsPage() {
           </div>
         }
       />
+      <SystemTabsNav />
 
       <OpsArtifactStatusGrid
         artifacts={artifacts}
