@@ -1,10 +1,6 @@
-import { useCallback, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useMemo, type MouseEvent } from 'react';
 
 import { useSortState } from '@/lib/use-sort-state';
-import type {
-  HealthHistoryBucket,
-  HealthHistoryRange,
-} from '@/types/health-history';
 import { useHealthDashboardData } from '@/features/health/use-health-dashboard-data';
 
 interface DashboardIssue {
@@ -22,9 +18,6 @@ function compareStrings(a: string, b: string, dir: 'asc' | 'desc'): number {
 }
 
 export function useHealthDashboard() {
-  const [historyRange, setHistoryRange] = useState<HealthHistoryRange>('30d');
-  const [historyBucket, setHistoryBucket] =
-    useState<HealthHistoryBucket>('day');
   const [brokenAliasSort, toggleBrokenAliasSort] = useSortState<
     'token' | 'alias' | 'reason'
   >({
@@ -35,22 +28,18 @@ export function useHealthDashboard() {
   const {
     tokenHealth,
     componentsHealth,
-    history,
     loading,
-    historyLoading,
     reloadingAll,
     refreshingTokens,
     refreshingComponents,
     snapshotting,
     tokenError,
     componentsError,
-    historyError,
     reloadAll,
-    reloadHistory,
     refreshTokenReport,
     refreshComponentsReport,
     captureSnapshotAndReload,
-  } = useHealthDashboardData({ historyRange, historyBucket });
+  } = useHealthDashboardData();
 
   const tokensTotal = useMemo(
     () => (tokenHealth ? Math.max(tokenHealth.summary.tokens_total, 1) : 0),
@@ -206,26 +195,18 @@ export function useHealthDashboard() {
   );
 
   return {
-    historyRange,
-    setHistoryRange,
-    historyBucket,
-    setHistoryBucket,
     brokenAliasSort,
     toggleBrokenAliasSort,
     tokenHealth,
     componentsHealth,
-    history,
     loading,
-    historyLoading,
     reloadingAll,
     refreshingTokens,
     refreshingComponents,
     snapshotting,
     tokenError,
     componentsError,
-    historyError,
     reloadAll,
-    reloadHistory,
     refreshTokenReport,
     refreshComponentsReport,
     captureSnapshotAndReload,

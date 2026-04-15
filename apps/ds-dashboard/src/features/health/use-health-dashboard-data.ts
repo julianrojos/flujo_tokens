@@ -7,33 +7,21 @@ import {
 } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import type {
-  HealthHistoryBucket,
-  HealthHistoryRange,
-} from "@/types/health-history";
 import {
   healthQueryKeys,
   useComponentsHealthQuery,
-  useHealthHistoryQuery,
   useTokenHealthQuery,
 } from "./use-health-queries";
 
-export function useHealthDashboardData(args: {
-  historyRange: HealthHistoryRange;
-  historyBucket: HealthHistoryBucket;
-}) {
-  const { historyRange, historyBucket } = args;
+export function useHealthDashboardData() {
   const queryClient = useQueryClient();
 
   const tokenHealthQuery = useTokenHealthQuery();
   const componentsHealthQuery = useComponentsHealthQuery();
-  const historyQuery = useHealthHistoryQuery(historyRange, historyBucket);
 
   const tokenHealth = tokenHealthQuery.data ?? null;
   const componentsHealth = componentsHealthQuery.data ?? null;
-  const history = historyQuery.data ?? null;
   const loading = tokenHealthQuery.isLoading || componentsHealthQuery.isLoading;
-  const historyLoading = historyQuery.isLoading || historyQuery.isFetching;
   const reloadingAll =
     tokenHealthQuery.isFetching || componentsHealthQuery.isFetching;
 
@@ -51,13 +39,6 @@ export function useHealthDashboardData(args: {
       fallbackMessage: "Unable to load components system report.",
     });
   }, [componentsHealthQuery.error]);
-  const queryHistoryError = useMemo(() => {
-    if (!historyQuery.error) return null;
-    return toApiErrorDisplay(historyQuery.error, {
-      fallbackTitle: "System history unavailable",
-      fallbackMessage: "Unable to load system history.",
-    });
-  }, [historyQuery.error]);
 
   const reloadAll = useCallback(async () => {
     await Promise.all([
@@ -65,10 +46,6 @@ export function useHealthDashboardData(args: {
       componentsHealthQuery.refetch(),
     ]);
   }, [componentsHealthQuery, tokenHealthQuery]);
-
-  const reloadHistory = useCallback(async () => {
-    await historyQuery.refetch();
-  }, [historyQuery]);
 
   const refreshTokenMutation = useMutation({
     mutationFn: async () => {
@@ -89,10 +66,7 @@ export function useHealthDashboardData(args: {
       await captureHealthSnapshot();
       await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
       await queryClient.invalidateQueries({ queryKey: healthQueryKeys.components });
-      await queryClient.invalidateQueries({
-        queryKey: healthQueryKeys.history(historyRange, historyBucket),
-      });
-      await Promise.all([reloadAll(), historyQuery.refetch()]);
+      await reloadAll();
     },
   });
 
@@ -124,8 +98,6 @@ export function useHealthDashboardData(args: {
 
   const tokenError = tokenRefreshError ?? queryTokenError;
   const componentsError = componentsRefreshError ?? queryComponentsError;
-  const historyError = snapshotError ?? queryHistoryError;
-
   const refreshTokenReport = useCallback(async () => {
     try {
       await refreshTokenMutation.mutateAsync();
@@ -151,18 +123,14 @@ export function useHealthDashboardData(args: {
   return {
     tokenHealth,
     componentsHealth,
-    history,
     loading,
-    historyLoading,
     reloadingAll,
     refreshingTokens,
     refreshingComponents,
     snapshotting,
     tokenError,
     componentsError,
-    historyError,
     reloadAll,
-    reloadHistory,
     refreshTokenReport,
     refreshComponentsReport,
     captureSnapshotAndReload,
