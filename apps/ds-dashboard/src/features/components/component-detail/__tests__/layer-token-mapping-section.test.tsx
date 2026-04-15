@@ -74,7 +74,6 @@ describe("LayerTokenMappingSection", () => {
     assert.match(html, /Property/);
     assert.match(html, /Collection/);
     assert.match(html, /Variant/);
-    assert.match(html, /Layer/);
     assert.match(html, /Mode/);
   });
 

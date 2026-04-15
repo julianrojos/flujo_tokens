@@ -34,7 +34,7 @@ interface LayerTokenMappingSectionProps {
   tokenRegistry?: TokenRegistry | null;
 }
 
-type SortField = "token" | "property" | "collection" | "variant" | "layer" | "mode";
+type SortField = "token" | "property" | "collection" | "variant" | "mode";
 type SortDirection = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -68,7 +68,6 @@ function sortValue(item: BindingWithCollection, field: SortField): string {
   if (field === "property") return normalizedSortText(item.entry.property_path);
   if (field === "collection") return normalizedSortText(item.collection);
   if (field === "variant") return normalizedSortText(item.entry.variant_signature);
-  if (field === "layer") return normalizedSortText(item.entry.layer_name);
   return normalizedSortText(item.entry.mode_name);
 }
 
@@ -326,7 +325,6 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
                 <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
                 <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
                 <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
-                <SortableTableHead label="Layer" onSort={() => toggleSort("layer")} ariaLabel="Sort by layer" />
                 <SortableTableHead label="Mode" onSort={() => toggleSort("mode")} ariaLabel="Sort by mode" />
               </TableRow>
             </TableHeader>
@@ -368,11 +366,6 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
                         {entry.variant_signature || <span className="text-muted-foreground">—</span>}
                       </span>
                     </TableCell>
-                    <TableCell className="max-w-[160px]">
-                      <span className="block truncate font-mono text-xs" title={entry.layer_name}>
-                        {entry.layer_name}
-                      </span>
-                    </TableCell>
                     <TableCell>
                       {entry.mode_name ? (
                         <Badge variant="neutral" className="text-xs">{entry.mode_name}</Badge>
@@ -384,7 +377,7 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                  <TableCell colSpan={5} className="text-sm text-muted-foreground">
                     No token bindings match the selected variant.
                   </TableCell>
                 </TableRow>
