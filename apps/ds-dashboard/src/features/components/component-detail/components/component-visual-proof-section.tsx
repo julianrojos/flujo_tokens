@@ -178,7 +178,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
                   <img
                     src={screenshotUrl || undefined}
                     alt={`${item.display_name} screenshot`}
-                    className="max-h-64 cursor-zoom-in object-contain"
+                    className="h-auto w-auto max-h-64 max-w-full cursor-zoom-in object-contain"
                     onError={() => setMainImageFailed(true)}
                   />
                 </button>
@@ -210,7 +210,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
                           <img
                             src={variant.previewUrl || undefined}
                             alt={`${item.display_name} ${variant.name}`}
-                            className="max-h-40 w-full cursor-zoom-in object-contain"
+                            className="h-auto w-auto max-h-40 max-w-full cursor-zoom-in object-contain"
                             onError={() =>
                               setFailedVariantKeys((prev) => {
                                 const next = new Set(prev);
@@ -262,7 +262,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
         aria-labelledby="visual-proof-lightbox-title"
         zIndex={1100}
       >
-        <ModalContent className="relative w-[min(96vw,1400px)] bg-background/95 p-4">
+        <ModalContent className="relative w-[min(96vw,1400px)] bg-surface-subtle p-4">
           <div ref={lightboxContainerRef} tabIndex={-1} className="outline-none">
           <h3 id="visual-proof-lightbox-title" className="sr-only">Visual proof full size</h3>
           <Button

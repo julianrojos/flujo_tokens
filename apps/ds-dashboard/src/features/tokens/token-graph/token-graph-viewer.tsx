@@ -163,8 +163,7 @@ export function TokenGraphViewer(props: {
                 y2={toY}
                 stroke="currentColor"
                 className={cn(
-                  "opacity-35",
-                  isCycleEdge ? "text-status-error opacity-70" : "text-muted-foreground",
+                  isCycleEdge ? "text-primary opacity-70" : "text-primary opacity-35",
                 )}
                 strokeWidth={2}
                 markerEnd={`url(#${markerId})`}
@@ -223,13 +222,8 @@ function NodeBox(props: {
   selected: boolean;
   onSelect: () => void;
 }) {
-  const fill = props.node.collection?.toLowerCase() === "primitives"
-    ? "fill-primary/10"
-    : props.node.collection?.toLowerCase() === "semantic"
-      ? "fill-status-success/10"
-      : "fill-status-warning/10";
-
-  const stroke = props.node.isCycleMember ? "stroke-status-error" : props.selected ? "stroke-primary" : "stroke-border";
+  const fill = "fill-primary";
+  const stroke = props.node.isCycleMember ? "stroke-status-error" : "stroke-primary";
 
   return (
     <g
@@ -253,6 +247,8 @@ function NodeBox(props: {
         height={props.height}
         rx={10}
         className={cn("stroke-2", fill, stroke)}
+        fillOpacity={0.1}
+        strokeOpacity={props.selected ? 1 : 0.45}
       />
       <text x={12} y={18} className="fill-foreground text-[12px] font-semibold">
         {truncateLabel(props.node.displayKey, 36)}
@@ -263,4 +259,3 @@ function NodeBox(props: {
     </g>
   );
 }
-
