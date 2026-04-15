@@ -6,7 +6,7 @@ import { fetchTokenGraph, refreshTokenGraph } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { TokenGraphViz } from "@/types/token-graph";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
@@ -243,7 +243,7 @@ export function TokenGraphPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={`/tokens/${encodeURIComponent(tokenPath ?? "")}`}
-              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
             >
               <ArrowLeft className="h-4 w-4" />
               Back to token

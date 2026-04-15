@@ -83,6 +83,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-titles)"],
+        titles: ["var(--font-titles)"],
+        body: ["var(--font-body)"],
         serif: ["var(--font-body)"],
         mono: ["var(--font-mono)"],
       },

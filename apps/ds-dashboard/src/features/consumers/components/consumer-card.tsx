@@ -41,7 +41,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold">
+            <h3 className="truncate text-base font-titles font-semibold">
               <Link
                 to={toConsumerDetail(consumer.id)}
                 className="hover:underline"

@@ -35,7 +35,7 @@ export function TokenAliasSection({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
             Resolution Path
           </h4>
           <div className="flex flex-wrap items-center gap-2">
@@ -60,7 +60,7 @@ export function TokenAliasSection({
 
         {aliasFinal && (
           <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
               Final Value
             </h4>
             <div className="flex items-center gap-2">
@@ -85,7 +85,7 @@ export function TokenAliasSection({
 
         {aliasDescendantChains.size > 0 && (
           <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
               Descendant Aliases ({aliasDescendantChains.size})
             </h4>
             <div className="flex flex-wrap gap-2">

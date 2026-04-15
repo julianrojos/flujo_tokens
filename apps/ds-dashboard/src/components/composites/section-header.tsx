@@ -24,7 +24,7 @@ export function SectionHeader({
       )}
     >
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-serif font-semibold tracking-tight">
+        <h2 className="text-lg font-titles font-semibold tracking-tight">
           {title}
         </h2>
         {badge ? (

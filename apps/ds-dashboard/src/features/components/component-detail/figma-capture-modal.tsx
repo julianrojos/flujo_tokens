@@ -142,7 +142,7 @@ export function FigmaCaptureModal({
           <div>
             <h3
               id="figma-capture-modal-title"
-              className="text-lg font-semibold"
+              className="text-base font-titles font-semibold"
             >
               Update Component from Figma URL
             </h3>

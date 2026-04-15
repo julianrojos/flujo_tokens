@@ -661,7 +661,7 @@ export function FigmaMcpConnectionTestButton({
           <ModalHeader>
             <h2
               id="figma-mcp-reset-confirm-title"
-              className="text-lg font-semibold"
+              className="text-lg font-titles font-semibold tracking-tight"
             >
               Resolve connection
             </h2>

@@ -62,7 +62,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Variants table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold">Variants Used</h4>
+              <h4 className="text-sm font-titles font-semibold">Variants Used</h4>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
@@ -116,7 +116,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Consumers table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold">Consumers</h4>
+              <h4 className="text-sm font-titles font-semibold">Consumers</h4>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">

@@ -65,7 +65,7 @@ export function SimulateChangePanel({
     <Modal open={true} onClose={onClose}>
       <ModalContent size="md">
         <ModalHeader>
-          <h2 className="text-lg font-serif font-semibold">Simulate Change</h2>
+          <h2 className="text-lg font-titles font-semibold tracking-tight">Simulate Change</h2>
           <Button
             size="sm"
             variant="ghost"
@@ -151,7 +151,7 @@ export function SimulateChangePanel({
               )}
 
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Affected Consumers</h3>
+                <h3 className="text-base font-titles font-semibold">Affected Consumers</h3>
                 <div className="space-y-2">
                   {result.affectedConsumers.map((consumer) => (
                     <div

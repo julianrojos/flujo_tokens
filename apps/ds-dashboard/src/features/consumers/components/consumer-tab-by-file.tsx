@@ -514,7 +514,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
         <ModalContent size="md">
           <ModalHeader>
-            <h2 id="consumer-remove-confirm-title" className="text-lg font-semibold">
+            <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
               Remove consumer file
             </h2>
           </ModalHeader>

@@ -29,7 +29,7 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
           <div className="grid gap-6 md:grid-cols-2">
             {/* Uses column */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold">
+              <h4 className="text-sm font-titles font-semibold">
                 Uses ({usage.uses.length})
               </h4>
               {usage.uses.length === 0 ? (
@@ -54,7 +54,7 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
 
             {/* Used by column */}
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold">
+              <h4 className="text-sm font-titles font-semibold">
                 Used by ({usage.used_in.length})
               </h4>
               {usage.used_in.length === 0 ? (

@@ -85,7 +85,7 @@ export function AiSuggestionsModal({
       >
         <ModalHeader>
           <div>
-            <h3 id="ai-suggestions-modal-title" className="text-lg font-semibold">
+            <h3 id="ai-suggestions-modal-title" className="text-base font-titles font-semibold">
               AI Suggestions
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">

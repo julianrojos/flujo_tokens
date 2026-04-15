@@ -36,7 +36,7 @@ export function HealthTokenPriorities({
       </CardHeader>
       <CardContent className="space-y-4">
         <div id="unused-tokens">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
             Unused ({unusedTokens.length})
           </h4>
           <div className="flex flex-wrap gap-2">
@@ -51,7 +51,7 @@ export function HealthTokenPriorities({
           </div>
         </div>
         <div id="wcag-failures">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
             WCAG failures ({wcagFailures.length})
           </h4>
           <div className="space-y-2">
@@ -71,7 +71,7 @@ export function HealthTokenPriorities({
           </div>
         </div>
         <div id="high-coupling-tokens">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">
             High coupling ({highCouplingTokens.length})
           </h4>
           <div className="flex flex-wrap gap-2">

@@ -568,7 +568,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         <ModalContent size="md">
           {confirmModal ? (
             <div className="p-5">
-              <h2 id="figma-scanner-confirm-title" className="mb-2 text-lg font-serif font-semibold">
+              <h2 id="figma-scanner-confirm-title" className="mb-2 text-lg font-titles font-semibold tracking-tight">
                 Overwrite existing component data?
               </h2>
               <p className="mb-3 text-sm text-muted-foreground">

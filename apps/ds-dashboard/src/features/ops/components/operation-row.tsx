@@ -54,7 +54,7 @@ export function OperationRow({
       <div className="flex items-center justify-between px-4 py-3 bg-muted/20">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <h3 className="text-sm font-semibold truncate">{label}</h3>
+            <h3 className="truncate text-base font-titles font-semibold">{label}</h3>
             {status === "success" && (
               <CheckCircle2 className="h-3.5 w-3.5 text-status-success shrink-0" />
             )}

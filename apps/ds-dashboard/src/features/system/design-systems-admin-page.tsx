@@ -304,7 +304,7 @@ export function DesignSystemsAdminPage() {
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">{targetSystem.name}</h2>
+                <h2 className="text-lg font-titles font-semibold tracking-tight">{targetSystem.name}</h2>
                 {targetSystem.id === defaultSystem ? (
                   <span className="rounded bg-status-success-bg/15 px-2 py-0.5 text-[11px] font-medium text-status-success">
                     DEFAULT
@@ -331,7 +331,7 @@ export function DesignSystemsAdminPage() {
                 )}
                 <Link
                   to={toSystemOperations(targetSystem.id)}
-                  className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
                 >
                   Operations
                 </Link>
@@ -416,7 +416,7 @@ export function DesignSystemsAdminPage() {
             />
 
             <div className="mt-4 rounded-md border border-border/70 bg-muted/20 p-3">
-              <h3 className="text-sm font-semibold">Consumer files</h3>
+              <h3 className="text-base font-titles font-semibold">Consumer files</h3>
               {(consumersBySystemId[targetSystem.id] || []).length > 0 ? (
                 <ul className="mt-2 space-y-1">
                   {[...(consumersBySystemId[targetSystem.id] || [])]
@@ -471,7 +471,7 @@ export function DesignSystemsAdminPage() {
         <ModalContent size="md">
           {deleteModalTarget ? (
             <div className="p-5">
-              <h2 className="mb-2 text-lg font-serif font-semibold">
+              <h2 className="mb-2 text-lg font-titles font-semibold tracking-tight">
                 Confirm deletion
               </h2>
 

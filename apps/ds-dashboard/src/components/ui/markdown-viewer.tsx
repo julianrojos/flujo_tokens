@@ -25,7 +25,7 @@ const MarkdownViewer = React.forwardRef<HTMLDivElement, MarkdownViewerProps>(
         ref={ref}
         className={cn(
           markdownViewerVariants(),
-          "prose-headings:font-serif prose-headings:font-semibold",
+          "prose-headings:font-titles prose-headings:font-semibold",
           "prose-h1:text-2xl prose-h1:mb-4",
           "prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3",
           "prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2",

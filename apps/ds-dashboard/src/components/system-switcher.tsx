@@ -45,7 +45,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
 
   return (
     <div className={cn('mt-2 flex flex-col gap-2', collapsed && 'sr-only')}>
-      <h1 className="text-2xl font-semibold tracking-tight">{APP_TITLE}</h1>
+      <h1 className="text-2xl font-titles font-semibold tracking-tight">{APP_TITLE}</h1>
 
       <div className="mt-1">
         <Select

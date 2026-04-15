@@ -72,7 +72,7 @@ export function StatusAlertTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h5
-      className={cn("text-sm font-semibold leading-none", className)}
+      className={cn("text-sm font-titles font-semibold leading-none", className)}
       {...props}
     />
   );

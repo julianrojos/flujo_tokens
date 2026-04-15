@@ -119,7 +119,7 @@ function ValidationSectionList({ title, severity, items }: { title: string; seve
 
     return (
         <div className={`mb-2 border-l-4 ${borderColors[severity]} pl-3`}>
-            <h4 className="text-xs font-medium text-foreground">{title}</h4>
+            <h4 className="text-foreground text-sm font-titles font-semibold">{title}</h4>
             <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
                 {items.slice(0, 5).map((item, i) => (
                     <li key={i}>{item}</li>
@@ -169,7 +169,7 @@ function ValidationReportPanel({
     return (
         <div className="rounded border border-border bg-background p-4">
             <div className="mb-3 flex items-center gap-3">
-                <h3 className="text-sm font-semibold text-foreground">Quality Assessment</h3>
+                <h3 className="text-foreground text-base font-titles font-semibold">Quality Assessment</h3>
                 <Badge variant={severityBadgeVariant[report.severity]}>{severityLabel}</Badge>
                 <span className={`text-lg font-bold ${scoreColor(report.score)}`}>{report.score}/100</span>
                 {!canPublish && <Badge variant="error">Cannot publish</Badge>}
@@ -547,7 +547,7 @@ export function AiJobStatusCard({
                     <ModalContent size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
                         <ModalHeader>
                             <div>
-                                <h3 id="ai-doc-preview-modal-title" className="text-lg font-semibold">
+                                <h3 id="ai-doc-preview-modal-title" className="text-base font-titles font-semibold">
                                     Documentation Preview
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">

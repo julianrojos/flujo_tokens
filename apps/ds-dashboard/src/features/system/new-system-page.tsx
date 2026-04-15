@@ -449,7 +449,7 @@ export function NewSystemPage() {
         <ModalContent size="sm">
           <ModalHeader>
             <div>
-              <h3 className="text-base font-semibold">{scanErrorMeta.title}</h3>
+              <h3 className="text-base font-titles font-semibold">{scanErrorMeta.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{scanErrorMeta.hint}</p>
             </div>
           </ModalHeader>

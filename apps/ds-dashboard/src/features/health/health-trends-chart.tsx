@@ -121,7 +121,7 @@ function NumericLineChart({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">{title}</h4>
+        <h4 className="text-sm font-titles font-semibold">{title}</h4>
         <span className="text-xs text-muted-foreground">{valueLabel}</span>
       </div>
       <div className="overflow-x-auto rounded border border-border/70 bg-background/60">
