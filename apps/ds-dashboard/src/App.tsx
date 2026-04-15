@@ -121,11 +121,7 @@ const ConsumerDetailPage = lazy(() =>
 );
 
 function RouteLoadingFallback() {
-  return (
-    <div className="rounded-xl border border-border/70 bg-card/60 p-4 text-sm text-muted-foreground">
-      Loading view...
-    </div>
-  );
+  return null;
 }
 
 class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
@@ -306,7 +302,7 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen bg-background text-foreground">
-        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1600px]">
+        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px]">
           <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
               <div className="mb-2 flex items-center justify-between">
@@ -348,12 +344,12 @@ export default function App() {
                                       sidebarCollapsed && "justify-center",
                                     )}
                                   >
-                                    <span className="rounded-md bg-muted/50 p-2 text-muted-foreground group-hover:text-foreground">
+                                    <span className="rounded-md bg-white/10 p-2 text-white/80 group-hover:text-white">
                                       <Icon className="h-4 w-4" />
                                     </span>
                                     <div className={cn(sidebarCollapsed && "hidden")}>
-                                      <p className="text-sm font-semibold">{item.label}</p>
-                                      <p className="text-xs text-muted-foreground">
+                                      <p className="text-sm font-semibold text-white">{item.label}</p>
+                                      <p className="text-xs text-white/70">
                                         {item.description}
                                       </p>
                                     </div>
@@ -373,7 +369,7 @@ export default function App() {
           </Sidebar>
 
           <SidebarInset>
-            <main className="w-full p-4 md:p-6 lg:p-8">
+            <main className="w-full bg-white p-4 md:p-6 lg:p-8">
               <header className="mb-5 rounded-xl border border-border/70 bg-card/75 p-4 shadow-panel backdrop-blur-lg lg:hidden">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   Menu

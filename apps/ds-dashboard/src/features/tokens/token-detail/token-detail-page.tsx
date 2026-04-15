@@ -46,10 +46,6 @@ export function TokenDetailPage() {
     return (
       <div className="space-y-5">
         <PageHeader title="Loading…" description="Loading token details" />
-        <div className="space-y-4">
-          <div className="h-48 animate-pulse rounded-xl bg-muted" />
-          <div className="h-48 animate-pulse rounded-xl bg-muted" />
-        </div>
       </div>
     );
   }
