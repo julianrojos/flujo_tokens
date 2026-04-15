@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 export const sidebarProviderVariants = cva("group/sidebar-wrapper flex min-h-screen w-full");
 export const sidebarVariants = cva(
-  "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-card/85 backdrop-blur-lg lg:flex",
+  "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-sidebar text-sidebar-foreground lg:flex",
 );
 export const sidebarInsetVariants = cva("min-w-0 flex-1");
 export const sidebarHeaderVariants = cva("p-5");
@@ -15,7 +15,7 @@ export const sidebarFooterVariants = cva("mt-auto p-3");
 export const sidebarGroupVariants = cva("space-y-1 pb-2");
 export const sidebarGroupContentVariants = cva("space-y-1");
 export const sidebarGroupLabelVariants = cva(
-  "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+  "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/80",
 );
 export const sidebarMenuVariants = cva("space-y-1");
 export const sidebarMenuItemVariants = cva("list-none");
@@ -24,7 +24,7 @@ export const sidebarMenuButtonVariants = cva(
   {
     variants: {
       state: {
-        active: "border-primary/20 bg-primary/10",
+        active: "border-sidebar-active-border bg-sidebar-active",
         idle: "hover:border-border/70 hover:bg-accent/60",
       },
     },
