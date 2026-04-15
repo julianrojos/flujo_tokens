@@ -1,20 +1,22 @@
-import type { ComponentRegistry } from "@/types/component-registry";
-import type { ComponentUsageIndex } from "@/types/component-usage-index";
-import type { TokenRegistry } from "@/types/token-registry";
-import type { TokenCollectionTreeIndex } from "@/types/token-tree";
-import type { TokenUsageIndex } from "@/types/token-usage-index";
-import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } from "@/types/token-graph";
-import type { TokenHealthReport } from "@/types/token-health";
-import type { ComponentsHealthReport } from "@/types/components-health";
+import type { ComponentRegistry } from '@/types/component-registry';
+import type { ComponentUsageIndex } from '@/types/component-usage-index';
+import type { TokenRegistry } from '@/types/token-registry';
+import type { TokenCollectionTreeIndex } from '@/types/token-tree';
+import type { TokenUsageIndex } from '@/types/token-usage-index';
+import type {
+  TokenGraphQueryDirection,
+  TokenGraphQueryResult,
+  TokenGraphViz,
+} from '@/types/token-graph';
+import type { TokenHealthReport } from '@/types/token-health';
+import type { ComponentsHealthReport } from '@/types/components-health';
 import type {
   CaptureHealthSnapshotResult,
   HealthHistoryBucket,
   HealthHistoryRange,
   HealthHistoryReport,
-} from "@/types/health-history";
-import type {
-  ComponentSpecPatchEditorialResponse,
-} from "@/types/spec-editor";
+} from '@/types/health-history';
+import type { ComponentSpecPatchEditorialResponse } from '@/types/spec-editor';
 import type {
   DsConsumer,
   SyncResult,
@@ -24,19 +26,19 @@ import type {
   SimulationResult,
   DsSyncRun,
   SyncRunsResponse,
-} from "@/types/consumers";
-import { API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-errors";
-import { normalizeEnvRef } from "@/lib/env-ref";
-import { resolveDsFileKeyFromConfig } from "@/lib/design-system-keys";
-import { bumpEditDocsStorageEpoch } from "@/lib/edit-docs-storage-namespace";
+} from '@/types/consumers';
+import { API_ERROR_CODES, type ApiErrorCode } from '@/lib/api-errors';
+import { normalizeEnvRef } from '@/lib/env-ref';
+import { resolveDsFileKeyFromConfig } from '@/lib/design-system-keys';
+import { bumpEditDocsStorageEpoch } from '@/lib/edit-docs-storage-namespace';
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
-  return activeSystemId || localStorage.getItem("ds-system-id") || "";
+  return activeSystemId || localStorage.getItem('ds-system-id') || '';
 }
 export function setActiveSystemId(id: string) {
   activeSystemId = id;
-  localStorage.setItem("ds-system-id", id);
+  localStorage.setItem('ds-system-id', id);
 }
 
 /**
@@ -90,7 +92,7 @@ export class ApiError extends Error {
     payload?: unknown;
   }) {
     super(args.userMessage);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.status = args.status;
     this.statusText = args.statusText;
     this.code = args.code;
@@ -102,29 +104,32 @@ export class ApiError extends Error {
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    return null;
   const proto = Object.getPrototypeOf(value);
   if (proto !== Object.prototype && proto !== null) return null;
   return value as Record<string, unknown>;
 }
 
 function toNonEmptyString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 async function buildApiError(response: Response): Promise<ApiError> {
-  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  const contentType = String(
+    response.headers.get('content-type') || '',
+  ).toLowerCase();
   let payload: unknown = null;
-  let bodyText = "";
+  let bodyText = '';
 
-  if (contentType.includes("application/json")) {
+  if (contentType.includes('application/json')) {
     try {
       payload = await response.json();
     } catch {
-      bodyText = await response.text().catch(() => "");
+      bodyText = await response.text().catch(() => '');
     }
   } else {
-    bodyText = await response.text().catch(() => "");
+    bodyText = await response.text().catch(() => '');
     if (bodyText.trim()) {
       try {
         payload = JSON.parse(bodyText);
@@ -139,14 +144,16 @@ async function buildApiError(response: Response): Promise<ApiError> {
   const structuredMessage = toNonEmptyString(structured?.userMessage);
   const topLevelMessage = toNonEmptyString(envelope?.message);
   const textMessage = bodyText.trim();
-  const fallbackMessage = `${response.status} ${response.statusText}`.trim() || "Request failed.";
-  const userMessage = structuredMessage || topLevelMessage || textMessage || fallbackMessage;
+  const fallbackMessage =
+    `${response.status} ${response.statusText}`.trim() || 'Request failed.';
+  const userMessage =
+    structuredMessage || topLevelMessage || textMessage || fallbackMessage;
 
   const structuredCode = toNonEmptyString(structured?.code);
   const code = (structuredCode || `http.${response.status}`) as ApiErrorCode;
 
   const recoverable =
-    typeof structured?.recoverable === "boolean"
+    typeof structured?.recoverable === 'boolean'
       ? structured.recoverable
       : response.status >= 500 || response.status === 429;
 
@@ -156,9 +163,7 @@ async function buildApiError(response: Response): Promise<ApiError> {
     null;
 
   const context =
-    toRecord(structured?.context) ||
-    toRecord(envelope?.context) ||
-    null;
+    toRecord(structured?.context) || toRecord(envelope?.context) || null;
 
   return new ApiError({
     status: response.status,
@@ -180,8 +185,8 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: {
-      Accept: "application/json",
-      ...(systemId ? { "x-ds-system": systemId } : {}),
+      Accept: 'application/json',
+      ...(systemId ? { 'x-ds-system': systemId } : {}),
       ...extraHeaders,
     },
   });
@@ -193,12 +198,15 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
   return getJson<T>(url, init);
 }
 
 export function fetchComponentRegistry() {
-  return getJson<ComponentRegistry>("/api/component-registry");
+  return getJson<ComponentRegistry>('/api/component-registry');
 }
 
 export interface CreateDesignSystemPayload {
@@ -268,34 +276,51 @@ export function createDesignSystem(args: CreateDesignSystemPayload) {
         ? normalizeEnvRef(args.figmaApiToken) || undefined
         : undefined,
   };
-  return getJson<CreateDesignSystemResponse>("/api/design-systems", {
-    method: "POST",
+  return getJson<CreateDesignSystemResponse>('/api/design-systems', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
 }
 
+/**
+ * Fetch all design systems config.
+ * NOTE: There is no single-system endpoint (GET /api/design-systems/:id).
+ * For per-system admin views, callers must filter the returned list by id.
+ * This avoids backend changes in the tabs migration iteration.
+ * Consider adding a dedicated single-system endpoint in a future iteration
+ * if performance or clarity demands it.
+ */
 export function fetchDesignSystemsConfig() {
-  return getJson<DesignSystemsConfigResponse>("/api/design-systems");
+  return getJson<DesignSystemsConfigResponse>('/api/design-systems');
 }
 
-export function updateDesignSystem(id: string, args: UpdateDesignSystemPayload) {
+export function updateDesignSystem(
+  id: string,
+  args: UpdateDesignSystemPayload,
+) {
   const payload = { ...args };
-  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
+  return getJson<MutateDesignSystemResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
 }
 
 export function deleteDesignSystem(id: string) {
-  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  return getJson<MutateDesignSystemResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 export interface DeletePreviewResponse {
@@ -322,30 +347,34 @@ export interface DeletePreviewResponse {
 }
 
 export function fetchDeletePreview(id: string) {
-  return getJson<DeletePreviewResponse>(`/api/design-systems/${encodeURIComponent(id)}/delete-preview`);
+  return getJson<DeletePreviewResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}/delete-preview`,
+  );
 }
 
 export function fetchComponentUsageIndex() {
-  return getJson<ComponentUsageIndex>("/api/component-usage-index");
+  return getJson<ComponentUsageIndex>('/api/component-usage-index');
 }
 
 export function fetchTokenRegistry() {
-  return getJson<TokenRegistry>("/api/token-registry");
+  return getJson<TokenRegistry>('/api/token-registry');
 }
 
 export function fetchTokenCollectionTrees() {
-  return getJson<TokenCollectionTreeIndex>("/api/token-collection-trees");
+  return getJson<TokenCollectionTreeIndex>('/api/token-collection-trees');
 }
 
 export function fetchTokenUsageIndex(systemId?: string) {
-  const normalizedSystemId = String(systemId || "").trim();
-  return getJson<TokenUsageIndex>("/api/token-usage-index", {
-    headers: normalizedSystemId ? { "x-ds-system": normalizedSystemId } : undefined,
+  const normalizedSystemId = String(systemId || '').trim();
+  return getJson<TokenUsageIndex>('/api/token-usage-index', {
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
   });
 }
 
 export function fetchTokenGraph() {
-  return getJson<TokenGraphViz>("/api/token-graph");
+  return getJson<TokenGraphViz>('/api/token-graph');
 }
 
 export function fetchTokenGraphQuery(args: {
@@ -354,19 +383,21 @@ export function fetchTokenGraphQuery(args: {
   depth?: number;
 }) {
   const params = new URLSearchParams({ token: args.tokenPath });
-  if (args.direction) params.set("direction", args.direction);
-  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
-    params.set("depth", String(args.depth));
+  if (args.direction) params.set('direction', args.direction);
+  if (typeof args.depth === 'number' && Number.isFinite(args.depth)) {
+    params.set('depth', String(args.depth));
   }
-  return getJson<TokenGraphQueryResult>(`/api/token-graph-query?${params.toString()}`);
+  return getJson<TokenGraphQueryResult>(
+    `/api/token-graph-query?${params.toString()}`,
+  );
 }
 
 export function fetchTokenHealth() {
-  return getJson<TokenHealthReport>("/api/token-health");
+  return getJson<TokenHealthReport>('/api/token-health');
 }
 
 export function fetchComponentsHealth() {
-  return getJson<ComponentsHealthReport>("/api/components-health");
+  return getJson<ComponentsHealthReport>('/api/components-health');
 }
 
 export function fetchHealthHistory(args?: {
@@ -374,9 +405,9 @@ export function fetchHealthHistory(args?: {
   bucket?: HealthHistoryBucket;
 }) {
   const params = new URLSearchParams();
-  if (args?.range) params.set("range", args.range);
-  if (args?.bucket) params.set("bucket", args.bucket);
-  const suffix = params.size ? `?${params.toString()}` : "";
+  if (args?.range) params.set('range', args.range);
+  if (args?.bucket) params.set('bucket', args.bucket);
+  const suffix = params.size ? `?${params.toString()}` : '';
   return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
 }
 
@@ -409,10 +440,10 @@ export function patchEditorialSpec(args: {
   return getJson<ComponentSpecPayload>(
     `/api/component-spec/${encodeURIComponent(args.slug)}/editorial`,
     {
-      method: "PATCH",
+      method: 'PATCH',
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         expectedUpdatedAt: args.expectedUpdatedAt ?? null,
@@ -425,28 +456,30 @@ export function patchEditorialSpec(args: {
       slug: payload.slug,
       exists: Boolean(payload.exists),
       updatedAt: payload.updatedAt,
-      savedKeys: Array.isArray(payload.savedKeys) ? payload.savedKeys : Object.keys(args.fields),
+      savedKeys: Array.isArray(payload.savedKeys)
+        ? payload.savedKeys
+        : Object.keys(args.fields),
       // DB-first flow no longer depends on markdown regeneration.
       markdownSynced: payload.markdownSynced ?? true,
-      message: payload.message || "Editorial fields saved successfully.",
+      message: payload.message || 'Editorial fields saved successfully.',
     }))
     .catch((error) => {
       const isAbortError =
-        (typeof DOMException !== "undefined" &&
+        (typeof DOMException !== 'undefined' &&
           error instanceof DOMException &&
-          error.name === "AbortError") ||
-        (error instanceof Error && error.name === "AbortError");
+          error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError');
       if (!isAbortError) throw error;
       throw new ApiError({
         status: 408,
-        statusText: "Request Timeout",
-        code: "http.408" as ApiErrorCode,
+        statusText: 'Request Timeout',
+        code: 'http.408' as ApiErrorCode,
         userMessage:
-          "Saving summary timed out. The API may be busy; retry in a few seconds.",
+          'Saving summary timed out. The API may be busy; retry in a few seconds.',
         recoverable: true,
         context: {
           timeoutMs,
-          endpoint: "/api/component-spec/:slug/editorial",
+          endpoint: '/api/component-spec/:slug/editorial',
         },
       });
     })
@@ -457,7 +490,7 @@ export function patchEditorialSpec(args: {
 
 const DEFAULT_QUEUE_POLL_INTERVAL_MS = 900;
 const DEFAULT_QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
-const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = "script.missing_npm_script";
+const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = 'script.missing_npm_script';
 
 type QueuedRefreshAcceptedPayload = {
   ok?: boolean;
@@ -476,18 +509,29 @@ type QueueWaitOptions = {
 function isLowSignalQueueSummary(rawValue: unknown): boolean {
   const value = toNonEmptyString(rawValue).toLowerCase();
   if (!value) return true;
-  if (value === "unknown error." || value === "unknown queue error.") return true;
+  if (value === 'unknown error.' || value === 'unknown queue error.')
+    return true;
   if (/^failed with code \d+$/i.test(value)) return true;
-  if (/^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(value)) return true;
+  if (
+    /^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(
+      value,
+    )
+  )
+    return true;
   return false;
 }
 
-function pickQueueFailureSummary(candidates: unknown[], fallback: string): string {
+function pickQueueFailureSummary(
+  candidates: unknown[],
+  fallback: string,
+): string {
   const normalized = candidates
     .map((candidate) => toNonEmptyString(candidate))
     .filter(Boolean);
   if (normalized.length === 0) return fallback;
-  const highSignal = normalized.find((candidate) => !isLowSignalQueueSummary(candidate));
+  const highSignal = normalized.find(
+    (candidate) => !isLowSignalQueueSummary(candidate),
+  );
   return highSignal || normalized[0] || fallback;
 }
 
@@ -504,31 +548,35 @@ function findQueuePayloadFailureSummary(
   const figmaError = toRecord(resultPayload?.figma_error);
   const figmaErrorMessage = toNonEmptyString(figmaError?.message);
   const figmaErrorStatus =
-    typeof figmaError?.status === "number"
+    typeof figmaError?.status === 'number'
       ? String(figmaError.status)
       : toNonEmptyString(figmaError?.status);
   const figmaErrorEndpoint = toNonEmptyString(figmaError?.endpoint);
   const figmaErrorSummary =
     figmaErrorMessage ||
-    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : "") ||
-    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : "");
-  const pipelinePhase = toNonEmptyString(resultPayload?.pipeline_phase).toLowerCase();
-  const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
+    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : '') ||
+    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : '');
+  const pipelinePhase = toNonEmptyString(
+    resultPayload?.pipeline_phase,
+  ).toLowerCase();
+  const failed = Array.isArray(resultPayload?.failed)
+    ? resultPayload.failed
+    : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(payload.events) ? payload.events : [];
 
-  let lastErrorEventMessage = "";
+  let lastErrorEventMessage = '';
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = toRecord(events[index]);
     if (!event) continue;
     const eventType = toNonEmptyString(event.type).toLowerCase();
-    if (eventType === "error") {
+    if (eventType === 'error') {
       lastErrorEventMessage = toNonEmptyString(event.message);
       if (lastErrorEventMessage) break;
     }
-    if (eventType === "end") {
+    if (eventType === 'end') {
       const endStatus = toNonEmptyString(event.status).toLowerCase();
-      if (endStatus === "error" || endStatus === "cancelled") {
+      if (endStatus === 'error' || endStatus === 'cancelled') {
         lastErrorEventMessage = toNonEmptyString(event.summary);
         if (lastErrorEventMessage) break;
       }
@@ -538,7 +586,7 @@ function findQueuePayloadFailureSummary(
   return pickQueueFailureSummary(
     [
       figmaErrorSummary,
-      pipelinePhase ? `Failed during '${pipelinePhase}' phase.` : "",
+      pipelinePhase ? `Failed during '${pipelinePhase}' phase.` : '',
       resultPayload?.error,
       resultPayload?.message,
       resultPayload?.stderr,
@@ -565,7 +613,7 @@ function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   const statusUrl = toNonEmptyString(payload.statusUrl);
   if (statusUrl) return statusUrl;
   if (jobId) return `/api/jobs/${encodeURIComponent(jobId)}`;
-  return "";
+  return '';
 }
 
 function hasQueuePayloadErrorCode(error: ApiError, code: string): boolean {
@@ -581,21 +629,26 @@ export interface CancelQueueJobResult {
   job?: Record<string, unknown>;
 }
 
-export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobResult> {
+export async function cancelQueueJob(
+  jobId: string,
+): Promise<CancelQueueJobResult> {
   const trimmedJobId = toNonEmptyString(jobId);
   if (!trimmedJobId) {
     throw new ApiError({
       status: 400,
-      statusText: "Bad Request",
-      code: "validation.missing_required_fields" as ApiErrorCode,
-      userMessage: "Job id is required to cancel a queued operation.",
+      statusText: 'Bad Request',
+      code: 'validation.missing_required_fields' as ApiErrorCode,
+      userMessage: 'Job id is required to cancel a queued operation.',
       recoverable: true,
-      context: { field: "jobId" },
+      context: { field: 'jobId' },
     });
   }
-  return requestJson<CancelQueueJobResult>(`/api/jobs/${encodeURIComponent(trimmedJobId)}`, {
-    method: "DELETE",
-  });
+  return requestJson<CancelQueueJobResult>(
+    `/api/jobs/${encodeURIComponent(trimmedJobId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 async function waitForQueuedJob(
@@ -614,7 +667,7 @@ async function waitForQueuedJob(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const separator = statusUrl.includes("?") ? "&" : "?";
+    const separator = statusUrl.includes('?') ? '&' : '?';
     let payload: Record<string, unknown>;
     try {
       payload = await requestJson<Record<string, unknown>>(
@@ -647,13 +700,13 @@ async function waitForQueuedJob(
 
     const job = toRecord(payload.job);
     const status = toNonEmptyString(job?.status).toLowerCase();
-    if (status === "success") return payload;
-    if (status === "error" || status === "cancelled") {
+    if (status === 'success') return payload;
+    if (status === 'error' || status === 'cancelled') {
       const summary = findQueuePayloadFailureSummary(payload, status);
       throw new ApiError({
         status: 409,
-        statusText: "Conflict",
-        code: "queue.job_failed_or_cancelled" as ApiErrorCode,
+        statusText: 'Conflict',
+        code: 'queue.job_failed_or_cancelled' as ApiErrorCode,
         userMessage: summary,
         recoverable: true,
         context: {
@@ -672,9 +725,9 @@ async function waitForQueuedJob(
 
   throw new ApiError({
     status: 408,
-    statusText: "Request Timeout",
-    code: "queue.stream_timeout" as ApiErrorCode,
-    userMessage: "Timeout waiting for queued operation.",
+    statusText: 'Request Timeout',
+    code: 'queue.stream_timeout' as ApiErrorCode,
+    userMessage: 'Timeout waiting for queued operation.',
     recoverable: true,
     context: {
       statusUrl,
@@ -686,11 +739,11 @@ async function waitForQueuedJob(
 async function runQueuedRefresh(
   endpoint: string,
   options: QueueWaitOptions = {},
-  init?: Omit<RequestInit, "method">,
+  init?: Omit<RequestInit, 'method'>,
 ) {
   const accepted = await getJson<QueuedRefreshAcceptedPayload>(endpoint, {
     ...(init || {}),
-    method: "POST",
+    method: 'POST',
   });
 
   const statusUrl = toQueuedStatusUrl(accepted);
@@ -723,11 +776,11 @@ async function runQueuedRefresh(
 }
 
 export async function refreshRegistry(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-registry", options);
+  return runQueuedRefresh('/api/refresh-registry', options);
 }
 
 export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-usage-index", options);
+  return runQueuedRefresh('/api/refresh-token-usage-index', options);
 }
 
 /**
@@ -735,31 +788,36 @@ export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
  * When `systemId` is provided we scope refresh via `x-ds-system`, which is
  * supported by the backend refresh route and consistent with other scoped APIs.
  */
-export async function refreshTokenGraph(options?: QueueWaitOptions, systemId?: string) {
-  const normalizedSystemId = String(systemId || "").trim();
+export async function refreshTokenGraph(
+  options?: QueueWaitOptions,
+  systemId?: string,
+) {
+  const normalizedSystemId = String(systemId || '').trim();
   return runQueuedRefresh(
-    "/api/refresh-token-graph",
+    '/api/refresh-token-graph',
     options,
-    normalizedSystemId ? { headers: { "x-ds-system": normalizedSystemId } } : undefined,
+    normalizedSystemId
+      ? { headers: { 'x-ds-system': normalizedSystemId } }
+      : undefined,
   );
 }
 
 export async function refreshTokenHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-health", options);
+  return runQueuedRefresh('/api/refresh-token-health', options);
 }
 
 export async function refreshComponentsHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-components-health", options);
+  return runQueuedRefresh('/api/refresh-components-health', options);
 }
 
 export async function regenerateComponentMarkdown(
   args: { slug: string; specFile?: string | null },
   options?: QueueWaitOptions,
 ) {
-  const endpoint = "/api/run/ds:component-doc";
+  const endpoint = '/api/run/ds:component-doc';
   const requestInit = {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       component: args.slug,
@@ -783,21 +841,17 @@ export async function regenerateComponentMarkdown(
     if (!argsRequiredError && !missingScriptError) {
       throw error;
     }
-    const pipelineEndpoint = "/api/run/ds:pipeline";
-    return runQueuedRefresh(
-      pipelineEndpoint,
-      options,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          component: args.slug,
-          onlyStep: "markdown",
-          fromStep: "markdown",
-        }),
+    const pipelineEndpoint = '/api/run/ds:pipeline';
+    return runQueuedRefresh(pipelineEndpoint, options, {
+      headers: {
+        'Content-Type': 'application/json',
       },
-    );
+      body: JSON.stringify({
+        component: args.slug,
+        onlyStep: 'markdown',
+        fromStep: 'markdown',
+      }),
+    });
   }
 }
 
@@ -808,8 +862,8 @@ export function restartApiServer() {
     restartCommand?: string;
     message?: string;
     requestId?: string;
-  }>("/api/admin/restart-api", {
-    method: "POST",
+  }>('/api/admin/restart-api', {
+    method: 'POST',
   });
 }
 
@@ -819,10 +873,10 @@ export async function captureHealthSnapshot(args?: {
   // DB-only mode keeps this flag for request compatibility, but does not compute token diff yet.
   skipDiff?: boolean;
 }) {
-  return getJson<CaptureHealthSnapshotResult>("/api/capture-health-snapshot", {
-    method: "POST",
+  return getJson<CaptureHealthSnapshotResult>('/api/capture-health-snapshot', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(args || {}),
   });
@@ -841,14 +895,14 @@ export interface FileSnippetPayload {
   line: number;
   startLine: number;
   endLine: number;
-  matchedBy: "line" | "query";
+  matchedBy: 'line' | 'query';
   snippet: string;
 }
 
 export interface CaptureFigmaScreenshotArgs {
   figmaUrl: string;
   figmaToken?: string;
-  tokensSource?: "auto" | "mcp" | "rest";
+  tokensSource?: 'auto' | 'mcp' | 'rest';
   componentSlug?: string;
   includeVariants?: boolean;
   variantLimit?: number;
@@ -858,8 +912,8 @@ export interface CaptureFigmaScreenshotArgs {
   dryRun?: boolean;
   scale?: number;
   format?: string;
-  mainCaptureMode?: "auto" | "agent" | "rest";
-  componentKind?: "component_set" | "component" | "all";
+  mainCaptureMode?: 'auto' | 'agent' | 'rest';
+  componentKind?: 'component_set' | 'component' | 'all';
   injectDocSpecs?: boolean;
 }
 
@@ -957,7 +1011,7 @@ export interface CaptureFigmaScreenshotResult {
 
 export interface CaptureFigmaProgress {
   jobId?: string;
-  status: "queued" | "running" | "success" | "error" | "cancelled";
+  status: 'queued' | 'running' | 'success' | 'error' | 'cancelled';
   completed: number;
   total: number;
   remaining: number;
@@ -969,7 +1023,7 @@ export interface SyncFigmaTokensArgs {
   url?: string;
   fileKey?: string;
   figmaToken?: string;
-  tokensSource?: "mcp";
+  tokensSource?: 'mcp';
   includeComponents?: boolean;
   dryRun?: boolean;
   selectedComponentNodeIds?: string[];
@@ -990,7 +1044,7 @@ export interface SyncFigmaTokensResult {
   usageRestored: number;
   usageDropped: number;
   dryRun: boolean;
-  importMode?: "full" | "partial";
+  importMode?: 'full' | 'partial';
   selectedCount?: number;
   notSelectedCount?: number;
 }
@@ -1035,7 +1089,7 @@ export interface FigmaMcpPingResult {
   variablesDetected?: number;
   /** True if the plugin connected successfully at any point this session. */
   everConnected?: boolean;
-  /** 
+  /**
    * Diagnostic details for disconnection (additive field for better UX).
    * Preserves backward compatibility - existing consumers ignore this field.
    */
@@ -1097,7 +1151,7 @@ export interface FigmaMcpDesignContextCompactResponse {
   component?: {
     nodeId: string;
     name: string;
-    type: "COMPONENT" | "COMPONENT_SET";
+    type: 'COMPONENT' | 'COMPONENT_SET';
     description: string | null;
     props: Array<{ name: string; type: string }>;
     states: string[];
@@ -1125,7 +1179,6 @@ export interface FigmaMcpDesignContextCompactResponse {
   warnings?: string[];
 }
 
-
 interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
   ok?: boolean;
   tools?: string[];
@@ -1149,10 +1202,13 @@ async function fetchFigmaMcpCapabilities(
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await requestJson<FigmaMcpCapabilitiesResponse>("/api/figma-mcp/capabilities", {
-      method: "GET",
-      signal: controller.signal,
-    });
+    return await requestJson<FigmaMcpCapabilitiesResponse>(
+      '/api/figma-mcp/capabilities',
+      {
+        method: 'GET',
+        signal: controller.signal,
+      },
+    );
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -1164,7 +1220,9 @@ interface McpTransportSignals {
   heartbeatAlive: boolean;
 }
 
-function getMcpTransportSignals(payload: FigmaMcpCapabilitiesResponse): McpTransportSignals {
+function getMcpTransportSignals(
+  payload: FigmaMcpCapabilitiesResponse,
+): McpTransportSignals {
   return {
     mode: payload.transport?.mode ?? 'none',
     wsAlive: payload.transport?.wsAlive === true,
@@ -1172,8 +1230,12 @@ function getMcpTransportSignals(payload: FigmaMcpCapabilitiesResponse): McpTrans
   };
 }
 
-function isDirectTransportSessionUnavailable(signals: McpTransportSignals): boolean {
-  return signals.mode === 'direct' && !signals.wsAlive && signals.heartbeatAlive;
+function isDirectTransportSessionUnavailable(
+  signals: McpTransportSignals,
+): boolean {
+  return (
+    signals.mode === 'direct' && !signals.wsAlive && signals.heartbeatAlive
+  );
 }
 
 /**
@@ -1221,8 +1283,8 @@ function toMcpPingResultFromCapabilities(
     return {
       ok: true,
       connected: true,
-      code: "mcp.connected",
-      message: "DS Graph connection is active.",
+      code: 'mcp.connected',
+      message: 'DS Graph connection is active.',
     };
   }
 
@@ -1232,18 +1294,17 @@ function toMcpPingResultFromCapabilities(
   return {
     ok: false,
     connected: false,
-    code: "mcp.not_connected",
+    code: 'mcp.not_connected',
     message:
       (isDirectTransportSessionUnavailable(signals)
-        ? "Plugin heartbeat is active, but transport is not connected yet."
+        ? 'Plugin heartbeat is active, but transport is not connected yet.'
         : payload.mcp?.message) ||
       (normalized.hasVariablesData
-        ? "DS Graph is reachable, but no active plugin session was found."
-        : "No DS Graph plugin session is active. Open the Figma plugin and retry."),
+        ? 'DS Graph is reachable, but no active plugin session was found.'
+        : 'No DS Graph plugin session is active. Open the Figma plugin and retry.'),
     details: { reason },
   };
 }
-
 
 /**
  * Ping DS Graph to check connectivity.
@@ -1269,29 +1330,29 @@ export async function pingFigmaMcp(
     .then((payload) => toMcpPingResultFromCapabilities(payload))
     .catch((error) => {
       const isAbortError =
-        (typeof DOMException !== "undefined" &&
+        (typeof DOMException !== 'undefined' &&
           error instanceof DOMException &&
-          error.name === "AbortError") ||
-        (error instanceof Error && error.name === "AbortError");
+          error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError');
       if (!isAbortError) throw error;
       throw new ApiError({
         status: 408,
-        statusText: "Request Timeout",
-        code: "http.408" as ApiErrorCode,
+        statusText: 'Request Timeout',
+        code: 'http.408' as ApiErrorCode,
         userMessage:
-          "DS Graph connectivity test timed out. Check that the Figma plugin is open and retry.",
+          'DS Graph connectivity test timed out. Check that the Figma plugin is open and retry.',
         recoverable: true,
         context: {
           timeoutMs,
-          endpoint: "/api/figma-mcp/capabilities",
+          endpoint: '/api/figma-mcp/capabilities',
         },
       });
     });
 }
 
 export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
-  return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
-    method: "GET",
+  return requestJson<FigmaMcpHeartbeatResult>('/api/figma-mcp/heartbeat', {
+    method: 'GET',
   });
 }
 
@@ -1303,42 +1364,50 @@ export async function scanFigmaComponents(
     ? Math.max(1, Math.min(Math.floor(rawLimit), 1000))
     : 500;
   const rawOffset = Number(args.offset ?? 0);
-  const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.floor(rawOffset)) : 0;
-  const payload = await requestJson<Record<string, unknown>>("/api/figma-mcp/search-components", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      figmaUrl: args.figmaUrl,
-      figmaToken: args.figmaToken,
-      limit: requestedLimit,
-      offset,
-      scanSessionId: args.scanSessionId,
-      compact: true,
-      includeVariants: false,
-    }),
-  });
+  const offset = Number.isFinite(rawOffset)
+    ? Math.max(0, Math.floor(rawOffset))
+    : 0;
+  const payload = await requestJson<Record<string, unknown>>(
+    '/api/figma-mcp/search-components',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        figmaUrl: args.figmaUrl,
+        figmaToken: args.figmaToken,
+        limit: requestedLimit,
+        offset,
+        scanSessionId: args.scanSessionId,
+        compact: true,
+        includeVariants: false,
+      }),
+    },
+  );
 
   const ok = payload.success === true || payload.ok === true;
   if (!ok) {
     const code = toNonEmptyString(payload.code);
-    const msg = toNonEmptyString(payload.message) || toNonEmptyString(payload.error) || "Component scan failed";
+    const msg =
+      toNonEmptyString(payload.message) ||
+      toNonEmptyString(payload.error) ||
+      'Component scan failed';
     throw new Error(code ? `[${code}] ${msg}` : msg);
   }
 
   const components: ScanComponentEntry[] = Array.isArray(payload.components)
     ? payload.components
-      .filter(
-        (value): value is Record<string, unknown> =>
-          value !== null &&
-          typeof value === "object" &&
-          typeof (value as Record<string, unknown>).nodeId === "string",
-      )
-      .map((entry) => ({
-        nodeId: toNonEmptyString(entry.nodeId),
-        name: toNonEmptyString(entry.name) || "Unnamed",
-        pageName: toNonEmptyString(entry.pageName) || "Unknown",
-      }))
-      .filter((entry) => entry.nodeId.length > 0)
+        .filter(
+          (value): value is Record<string, unknown> =>
+            value !== null &&
+            typeof value === 'object' &&
+            typeof (value as Record<string, unknown>).nodeId === 'string',
+        )
+        .map((entry) => ({
+          nodeId: toNonEmptyString(entry.nodeId),
+          name: toNonEmptyString(entry.name) || 'Unnamed',
+          pageName: toNonEmptyString(entry.pageName) || 'Unknown',
+        }))
+        .filter((entry) => entry.nodeId.length > 0)
     : [];
 
   const rawNextOffset = Number(payload.nextOffset);
@@ -1358,10 +1427,10 @@ export async function scanFigmaComponents(
 }
 
 export async function reconnectFigmaMcp(): Promise<FigmaMcpReconnectResult> {
-  return requestJson<FigmaMcpReconnectResult>("/api/figma-mcp/reconnect", {
-    method: "POST",
+  return requestJson<FigmaMcpReconnectResult>('/api/figma-mcp/reconnect', {
+    method: 'POST',
     headers: {
-      "x-ds-mcp-reconcile-confirm": "true",
+      'x-ds-mcp-reconcile-confirm': 'true',
     },
   });
 }
@@ -1380,11 +1449,11 @@ export async function getFigmaMcpDesignContextCompact(
   const fileUrl = toNonEmptyString(args?.fileUrl);
   const nodeId = toNonEmptyString(args?.nodeId);
   const modeId = toNonEmptyString(args?.modeId);
-  if (fileUrl) params.set("fileUrl", fileUrl);
-  if (nodeId) params.set("nodeId", nodeId);
-  if (modeId) params.set("modeId", modeId);
+  if (fileUrl) params.set('fileUrl', fileUrl);
+  if (nodeId) params.set('nodeId', nodeId);
+  if (modeId) params.set('modeId', modeId);
 
-  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const query = params.size > 0 ? `?${params.toString()}` : '';
   const timeoutMsRaw = Number(options?.timeoutMs);
   const timeoutMs =
     Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0
@@ -1398,7 +1467,7 @@ export async function getFigmaMcpDesignContextCompact(
     return await requestJson<FigmaMcpDesignContextCompactResponse>(
       `/api/figma-mcp/design-context-compact${query}`,
       {
-        method: "GET",
+        method: 'GET',
         signal: controller.signal,
       },
     );
@@ -1421,7 +1490,9 @@ function toProgressInt(value: unknown): number {
   return Math.floor(parsed);
 }
 
-function parseCaptureProgressSnapshot(raw: unknown): CaptureProgressSnapshot | null {
+function parseCaptureProgressSnapshot(
+  raw: unknown,
+): CaptureProgressSnapshot | null {
   const value = toRecord(raw);
   if (!value) return null;
   return {
@@ -1446,14 +1517,14 @@ function parseCaptureProgressChunks(args: {
 
   for (const rawEvent of events) {
     const event = toRecord(rawEvent);
-    if (!event || toNonEmptyString(event.type) !== "chunk") continue;
-    const text = typeof event.text === "string" ? event.text : "";
+    if (!event || toNonEmptyString(event.type) !== 'chunk') continue;
+    const text = typeof event.text === 'string' ? event.text : '';
     if (!text) continue;
     buffer += text;
     const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() ?? "";
+    buffer = lines.pop() ?? '';
     for (const line of lines) {
-      const marker = "[capture-progress]";
+      const marker = '[capture-progress]';
       const markerIndex = line.indexOf(marker);
       if (markerIndex < 0) continue;
       const jsonPart = line.slice(markerIndex + marker.length).trim();
@@ -1484,10 +1555,10 @@ export function fetchFileSnippet(args: {
   after?: number;
 }) {
   const params = new URLSearchParams({ file: args.file });
-  if (args.line) params.set("line", String(args.line));
-  if (args.q) params.set("q", args.q);
-  if (args.before !== undefined) params.set("before", String(args.before));
-  if (args.after !== undefined) params.set("after", String(args.after));
+  if (args.line) params.set('line', String(args.line));
+  if (args.q) params.set('q', args.q);
+  if (args.before !== undefined) params.set('before', String(args.before));
+  if (args.after !== undefined) params.set('after', String(args.after));
   return getJson<FileSnippetPayload>(`/api/file-snippet?${params.toString()}`);
 }
 
@@ -1498,48 +1569,52 @@ export async function captureFigmaScreenshot(
     onProgress?: (progress: CaptureFigmaProgress) => void;
   },
 ): Promise<CaptureFigmaScreenshotResult> {
-  const accepted = await getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
+  const accepted = await getJson<CaptureFigmaScreenshotResult>(
+    '/api/capture-figma-screenshot',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
     },
-    body: JSON.stringify(args),
-  });
+  );
 
   const statusUrl = toQueuedStatusUrl(accepted);
   if (!statusUrl) return accepted;
 
   const onProgress = options?.onProgress;
-  const jobId = toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
-  let progressBuffer = "";
+  const jobId =
+    toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+  let progressBuffer = '';
   let latestCompleted = 0;
   let latestTotal = 0;
   let latestSlug: string | undefined;
 
   onProgress?.({
     jobId,
-    status: "queued",
+    status: 'queued',
     completed: 0,
     total: 0,
     remaining: 0,
-    message: "Queued",
+    message: 'Queued',
   });
 
   const finalState = await waitForQueuedJob(statusUrl, {
     onPoll: (payload) => {
       const job = toRecord(payload.job);
       const statusRaw = toNonEmptyString(job?.status).toLowerCase();
-      const status: CaptureFigmaProgress["status"] =
-        statusRaw === "running"
-          ? "running"
-          : statusRaw === "success"
-            ? "success"
-            : statusRaw === "error"
-              ? "error"
-              : statusRaw === "cancelled"
-                ? "cancelled"
-                : "queued";
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+                ? 'cancelled'
+                : 'queued';
 
       const events = Array.isArray(payload.events) ? payload.events : [];
       const parsed = parseCaptureProgressChunks({
@@ -1586,7 +1661,7 @@ export async function captureFigmaScreenshot(
         : latestCompleted;
     onProgress?.({
       jobId,
-      status: typed.ok ? "success" : "error",
+      status: typed.ok ? 'success' : 'error',
       completed,
       total,
       remaining: Math.max(0, total - completed),
@@ -1620,7 +1695,7 @@ function toSyncFigmaTokensResult(
     usageRestored: toNonNegativeInt(payload.usageRestored),
     usageDropped: toNonNegativeInt(payload.usageDropped),
     dryRun: payload.dryRun === true,
-    importMode: importModeRaw === "partial" ? "partial" : "full",
+    importMode: importModeRaw === 'partial' ? 'partial' : 'full',
     selectedCount: toNonNegativeInt(payload.selectedCount),
     notSelectedCount: toNonNegativeInt(payload.notSelectedCount),
   };
@@ -1633,14 +1708,17 @@ export async function syncFigmaTokens(
     onProgress?: (progress: CaptureFigmaProgress) => void;
   },
 ): Promise<SyncFigmaTokensResult> {
-  const accepted = await getJson<QueuedRefreshAcceptedPayload>("/api/sync-figma-tokens", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    '/api/sync-figma-tokens',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
     },
-    body: JSON.stringify(args),
-  });
+  );
 
   const statusUrl = toQueuedStatusUrl(accepted);
   if (!statusUrl) {
@@ -1648,31 +1726,32 @@ export async function syncFigmaTokens(
   }
 
   const onProgress = options?.onProgress;
-  const acceptedJobId = toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+  const acceptedJobId =
+    toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
 
   onProgress?.({
     jobId: acceptedJobId,
-    status: "queued",
+    status: 'queued',
     completed: 0,
     total: 0,
     remaining: 0,
-    message: "Queued",
+    message: 'Queued',
   });
 
   const finalState = await waitForQueuedJob(statusUrl, {
     onPoll: (payload) => {
       const job = toRecord(payload.job);
       const statusRaw = toNonEmptyString(job?.status).toLowerCase();
-      const status: CaptureFigmaProgress["status"] =
-        statusRaw === "running"
-          ? "running"
-          : statusRaw === "success"
-            ? "success"
-            : statusRaw === "error"
-              ? "error"
-              : statusRaw === "cancelled"
-                ? "cancelled"
-                : "queued";
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+                ? 'cancelled'
+                : 'queued';
       onProgress?.({
         jobId: toNonEmptyString(job?.id) || acceptedJobId,
         status,
@@ -1686,15 +1765,20 @@ export async function syncFigmaTokens(
   const job = toRecord(finalState.job);
   const result = toRecord(job?.result);
   const payload = toRecord(result?.payload);
-  const typed = toSyncFigmaTokensResult(payload || {}, toNonEmptyString(job?.id) || acceptedJobId);
-  const scopeSystemId = String(options?.systemId || getActiveSystemId() || "").trim();
+  const typed = toSyncFigmaTokensResult(
+    payload || {},
+    toNonEmptyString(job?.id) || acceptedJobId,
+  );
+  const scopeSystemId = String(
+    options?.systemId || getActiveSystemId() || '',
+  ).trim();
   if (scopeSystemId) {
     // Invalidate edit-docs localStorage scope after each successful sync/import for this system.
     bumpEditDocsStorageEpoch(scopeSystemId);
   }
   onProgress?.({
     jobId: typed.jobId,
-    status: "success",
+    status: 'success',
     completed: typed.components,
     total: typed.components,
     remaining: 0,
@@ -1790,34 +1874,45 @@ function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
     consumerId: toNonEmptyString(row.consumerId ?? row.consumer_id),
     syncedAt: toNonEmptyString(row.syncedAt ?? row.synced_at),
     durationMs: Number.isFinite(durationMs) ? durationMs : 0,
-    status: (toNonEmptyString(row.status) as DsSyncRun["status"]) || "error",
-    errorMessage: toNonEmptyString(row.errorMessage ?? row.error_message) || undefined,
-    dsLastModified: toNonEmptyString(row.dsLastModified ?? row.ds_last_modified) || undefined,
+    status: (toNonEmptyString(row.status) as DsSyncRun['status']) || 'error',
+    errorMessage:
+      toNonEmptyString(row.errorMessage ?? row.error_message) || undefined,
+    dsLastModified:
+      toNonEmptyString(row.dsLastModified ?? row.ds_last_modified) || undefined,
     consumerLastModified:
-      toNonEmptyString(row.consumerLastModified ?? row.consumer_last_modified) || undefined,
+      toNonEmptyString(
+        row.consumerLastModified ?? row.consumer_last_modified,
+      ) || undefined,
     componentCount: Number.isFinite(componentCount) ? componentCount : 0,
     variableCount: Number.isFinite(variableCount) ? variableCount : 0,
     warningCount: Number.isFinite(warningCount) ? warningCount : 0,
   };
 }
 
-function normalizeDsConsumerRecord(value: unknown): (DsConsumer & { latestSync?: DsSyncRun }) | null {
+function normalizeDsConsumerRecord(
+  value: unknown,
+): (DsConsumer & { latestSync?: DsSyncRun }) | null {
   const row = toRecord(value);
   if (!row) return null;
   const enabledRaw = row.enabled;
   const enabled =
-    typeof enabledRaw === "boolean"
+    typeof enabledRaw === 'boolean'
       ? enabledRaw
-      : typeof enabledRaw === "number"
+      : typeof enabledRaw === 'number'
         ? enabledRaw !== 0
-        : toNonEmptyString(enabledRaw) === "1" || toNonEmptyString(enabledRaw).toLowerCase() === "true";
+        : toNonEmptyString(enabledRaw) === '1' ||
+          toNonEmptyString(enabledRaw).toLowerCase() === 'true';
 
-  const latestSync = normalizeDsSyncRunRecord(row.latestSync ?? row.latest_sync);
+  const latestSync = normalizeDsSyncRunRecord(
+    row.latestSync ?? row.latest_sync,
+  );
 
   return {
     id: toNonEmptyString(row.id),
     dsFileKey: toNonEmptyString(row.dsFileKey ?? row.ds_file_key),
-    consumerFileKey: toNonEmptyString(row.consumerFileKey ?? row.consumer_file_key),
+    consumerFileKey: toNonEmptyString(
+      row.consumerFileKey ?? row.consumer_file_key,
+    ),
     consumerName: toNonEmptyString(row.consumerName ?? row.consumer_name),
     enabled,
     createdAt: toNonEmptyString(row.createdAt ?? row.created_at),
@@ -1831,26 +1926,29 @@ function warnInvalidConsumerPayload(context: string, value: unknown): void {
 }
 
 export function addConsumer(payload: AddConsumerPayload) {
-  return requestJson<{ ok: boolean; data: unknown }>("/api/figma-mcp/dependencies/consumers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return requestJson<{ ok: boolean; data: unknown }>(
+    '/api/figma-mcp/dependencies/consumers',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  }).then((response) => {
+  ).then((response) => {
     const normalized = normalizeDsConsumerRecord(response.data);
     if (!normalized) {
-      warnInvalidConsumerPayload("addConsumer", response.data);
+      warnInvalidConsumerPayload('addConsumer', response.data);
     }
     return {
       ok: response.ok,
       data: normalized || {
-        id: "",
-        dsFileKey: "",
-        consumerFileKey: "",
-        consumerName: "",
+        id: '',
+        dsFileKey: '',
+        consumerFileKey: '',
+        consumerName: '',
         enabled: true,
-        createdAt: "",
+        createdAt: '',
       },
     } satisfies AddConsumerResponse;
   });
@@ -1865,7 +1963,7 @@ export function listConsumers(dsFileKey: string) {
     const data = rows.flatMap((row) => {
       const normalized = normalizeDsConsumerRecord(row);
       if (!normalized || !normalized.id) {
-        warnInvalidConsumerPayload("listConsumers", row);
+        warnInvalidConsumerPayload('listConsumers', row);
         return [];
       }
       return [normalized];
@@ -1880,62 +1978,68 @@ export function fetchConsumer(consumerId: string) {
   ).then((response) => {
     const normalized = normalizeDsConsumerRecord(response.data);
     if (!normalized) {
-      warnInvalidConsumerPayload("fetchConsumer", response.data);
+      warnInvalidConsumerPayload('fetchConsumer', response.data);
     }
     return {
       ok: response.ok,
       data: normalized || {
         id: consumerId,
-        dsFileKey: "",
-        consumerFileKey: "",
-        consumerName: "",
+        dsFileKey: '',
+        consumerFileKey: '',
+        consumerName: '',
         enabled: true,
-        createdAt: "",
+        createdAt: '',
       },
     } satisfies GetConsumerResponse;
   });
 }
 
 export function removeConsumer(consumerId: string) {
-  return requestJson<RemoveConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
-    method: "DELETE",
-  });
+  return requestJson<RemoveConsumerResponse>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
-export function updateConsumer(consumerId: string, payload: Partial<{ enabled: boolean }>) {
+export function updateConsumer(
+  consumerId: string,
+  payload: Partial<{ enabled: boolean }>,
+) {
   return requestJson<{ ok: boolean; data: unknown }>(
     `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
     {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     },
   ).then((response) => {
     const normalized = normalizeDsConsumerRecord(response.data);
     if (!normalized) {
-      warnInvalidConsumerPayload("updateConsumer", response.data);
+      warnInvalidConsumerPayload('updateConsumer', response.data);
     }
     return {
       ok: response.ok,
       data: normalized || {
         id: consumerId,
-        dsFileKey: "",
-        consumerFileKey: "",
-        consumerName: "",
+        dsFileKey: '',
+        consumerFileKey: '',
+        consumerName: '',
         enabled: payload.enabled ?? true,
-        createdAt: "",
+        createdAt: '',
       },
     } satisfies UpdateConsumerResponse;
   });
 }
 
 export function syncConsumers(payload: SyncConsumersPayload) {
-  return requestJson<SyncResult>("/api/figma-mcp/dependencies/sync", {
-    method: "POST",
+  return requestJson<SyncResult>('/api/figma-mcp/dependencies/sync', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
@@ -1948,30 +2052,42 @@ export function fetchReportByFile(
   },
 ) {
   const params = new URLSearchParams({ dsFileKey });
-  if (options?.staleOnly) params.set("stale", "true");
-  return getJson<ByFileReportResponse>(`/api/figma-mcp/dependencies/report/by-file?${params.toString()}`);
+  if (options?.staleOnly) params.set('stale', 'true');
+  return getJson<ByFileReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-file?${params.toString()}`,
+  );
 }
 
-export function fetchReportByComponent(dsFileKey: string, componentKey?: string) {
+export function fetchReportByComponent(
+  dsFileKey: string,
+  componentKey?: string,
+) {
   const params = new URLSearchParams({ dsFileKey });
-  if (componentKey) params.set("componentKey", componentKey);
-  return getJson<ByComponentReportResponse>(`/api/figma-mcp/dependencies/report/by-component?${params.toString()}`);
+  if (componentKey) params.set('componentKey', componentKey);
+  return getJson<ByComponentReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-component?${params.toString()}`,
+  );
 }
 
 export function fetchReportByVariable(dsFileKey: string, variableKey?: string) {
   const params = new URLSearchParams({ dsFileKey });
-  if (variableKey) params.set("variableKey", variableKey);
-  return getJson<ByVariableReportResponse>(`/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`);
+  if (variableKey) params.set('variableKey', variableKey);
+  return getJson<ByVariableReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`,
+  );
 }
 
 export function simulateVariableChange(payload: SimulateChangePayload) {
-  return requestJson<SimulationResponse>("/api/figma-mcp/dependencies/simulate-change", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return requestJson<SimulationResponse>(
+    '/api/figma-mcp/dependencies/simulate-change',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
 }
 
 export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
@@ -1984,7 +2100,10 @@ export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
       .map((run, index) => {
         const normalized = normalizeDsSyncRunRecord(run);
         if (!normalized) {
-          console.warn("[api:fetchConsumerSyncRuns] Invalid sync run payload shape", run);
+          console.warn(
+            '[api:fetchConsumerSyncRuns] Invalid sync run payload shape',
+            run,
+          );
           return null;
         }
         // Preserve fallback ID for compatibility
@@ -2051,7 +2170,9 @@ export interface McpCapabilitiesPayload {
  * @param payload - Raw capabilities payload from server
  * @returns Normalized support flags with safe defaults
  */
-export function normalizeMcpCapabilities(payload: McpCapabilitiesPayload): NormalizedSupportFlags {
+export function normalizeMcpCapabilities(
+  payload: McpCapabilitiesPayload,
+): NormalizedSupportFlags {
   // supportsV2 is always present in direct-only mode
   return {
     hasFileInfo: payload.supportsV2.hasFileInfo ?? false,
