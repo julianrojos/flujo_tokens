@@ -15,14 +15,16 @@ import {
   Route,
   Routes,
   Navigate,
+  useNavigate,
   useLocation,
 } from 'react-router-dom';
 import {
   Activity,
   Boxes,
   Layers3,
-  type LucideIcon,
   Search,
+  X,
+  type LucideIcon,
   Network,
 } from 'lucide-react';
 
@@ -47,15 +49,15 @@ import {
 import { cn } from '@/lib/utils';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { Button } from '@/components/ui/button';
-import { ROUTE_PATTERNS, toSystemOverview } from '@/lib/routes';
-
-const GlobalCommandPalette = lazy(() =>
-  import('@/features/command-palette/global-command-palette').then(
-    (module) => ({
-      default: module.GlobalCommandPalette,
-    }),
-  ),
-);
+import { Input } from '@/components/ui/input';
+import { Modal, ModalContent } from '@/components/ui/overlay/modal';
+import { fetchComponentRegistry, fetchTokenRegistry } from '@/lib/api';
+import {
+  ROUTE_PATTERNS,
+  toComponentDetail,
+  toSystemOverview,
+  toTokenDetail,
+} from '@/lib/routes';
 
 const NewSystemPage = lazy(() =>
   import('@/features/system/new-system-page').then((module) => ({
@@ -176,33 +178,6 @@ class RouteErrorBoundary extends Component<
   }
 }
 
-class PaletteErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError(): { hasError: boolean } {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    const errorId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
-    console.error(
-      `[PaletteErrorBoundary][${errorId}] Command palette failed to load:`,
-      error,
-      info.componentStack,
-    );
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return null;
-    }
-    return this.props.children;
-  }
-}
-
 type NavItem = {
   to: string;
   label: string;
@@ -213,6 +188,15 @@ type NavSection = {
   id: string;
   label: string;
   items: NavItem[];
+};
+
+type SearchItem = {
+  id: string;
+  label: string;
+  section: string;
+  to: string;
+  icon: 'route' | 'token' | 'component';
+  searchText: string;
 };
 
 const navSections: NavSection[] = [
@@ -270,14 +254,26 @@ function SystemEntryRedirect() {
   if (!systems.length) {
     return <Navigate to={ROUTE_PATTERNS.newSystem} replace />;
   }
-  const activeSystemExists = systems.some((system) => system.id === activeSystem);
+  const activeSystemExists = systems.some(
+    (system) => system.id === activeSystem,
+  );
   const targetId = activeSystemExists ? activeSystem : systems[0].id;
   return <Navigate to={toSystemOverview(targetId)} replace />;
 }
 
 export default function App() {
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [tokenSearchItems, setTokenSearchItems] = useState<SearchItem[]>([]);
+  const [componentSearchItems, setComponentSearchItems] = useState<SearchItem[]>(
+    [],
+  );
+  const [searchIndexLoading, setSearchIndexLoading] = useState(false);
+  const [searchIndexError, setSearchIndexError] = useState<string | null>(null);
+  const [searchIndexWarning, setSearchIndexWarning] = useState<string | null>(null);
+  const indexLoadedForSystemRef = useRef<string | null>(null);
   const componentsPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
@@ -295,7 +291,9 @@ export default function App() {
         },
       ];
     }
-    const activeSystemExists = systems.some((system) => system.id === activeSystem);
+    const activeSystemExists = systems.some(
+      (system) => system.id === activeSystem,
+    );
     const systemId = activeSystemExists ? activeSystem : systems[0].id;
     return [
       {
@@ -352,24 +350,107 @@ export default function App() {
     [systemNavItems],
   );
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
+  const routeSearchItems = useMemo<SearchItem[]>(
+    () =>
+      resolvedNavSections.flatMap((section) =>
+        section.items.map((item) => ({
+          id: `${section.id}:${item.to}`,
+          label: item.label,
+          section: section.label,
+          to: item.to,
+          icon: 'route',
+          searchText: `${item.label} ${section.label}`,
+        })),
+      ),
+    [resolvedNavSections],
+  );
+
+  const loadSearchIndex = useCallback(async () => {
+    const cacheKey = String(activeSystem || '');
+    setSearchIndexLoading(true);
+    setSearchIndexError(null);
+    setSearchIndexWarning(null);
+    const [tokenRegistryResult, componentRegistryResult] = await Promise.allSettled(
+      [fetchTokenRegistry(), fetchComponentRegistry()],
+    );
+
+    if (tokenRegistryResult.status === 'fulfilled') {
+      setTokenSearchItems(
+        (tokenRegistryResult.value.entries ?? []).map((entry) => ({
+          id: `token:${entry.path}`,
+          label: entry.path,
+          section: 'Tokens',
+          to: toTokenDetail(entry.path),
+          icon: 'token',
+          searchText: `${entry.path} ${entry.slashPath} ${entry.cssVar} ${entry.collection} ${entry.type}`,
+        })),
+      );
+    } else {
+      setTokenSearchItems([]);
+    }
+
+    if (componentRegistryResult.status === 'fulfilled') {
+      setComponentSearchItems(
+        (componentRegistryResult.value.components ?? []).map((item) => ({
+          id: `component:${item.slug}`,
+          label: item.display_name,
+          section: 'Components',
+          to: toComponentDetail(item.slug),
+          icon: 'component',
+          searchText: `${item.display_name} ${item.slug}`,
+        })),
+      );
+    } else {
+      setComponentSearchItems([]);
+    }
+
+    if (
+      tokenRegistryResult.status === 'rejected' &&
+      componentRegistryResult.status === 'rejected'
+    ) {
+      indexLoadedForSystemRef.current = null;
+      setSearchIndexError('Search index unavailable. Please retry.');
+    } else {
       if (
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable
+        tokenRegistryResult.status === 'rejected' ||
+        componentRegistryResult.status === 'rejected'
       ) {
-        return;
+        const failedSource =
+          tokenRegistryResult.status === 'rejected' ? 'tokens' : 'components';
+        setSearchIndexWarning(
+          `Partial results: ${failedSource} search data is temporarily unavailable.`,
+        );
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setCommandPaletteOpen((previous) => !previous);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+      indexLoadedForSystemRef.current = cacheKey;
+    }
+
+    setSearchIndexLoading(false);
+  }, [activeSystem]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const cacheKey = String(activeSystem || '');
+    if (
+      indexLoadedForSystemRef.current === cacheKey &&
+      !searchIndexError
+    ) {
+      return;
+    }
+    void loadSearchIndex();
+  }, [searchOpen, activeSystem, loadSearchIndex, searchIndexError]);
+
+  const searchItems = useMemo<SearchItem[]>(
+    () => [...routeSearchItems, ...componentSearchItems, ...tokenSearchItems],
+    [routeSearchItems, componentSearchItems, tokenSearchItems],
+  );
+
+  const filteredSearchItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return routeSearchItems;
+    return searchItems
+      .filter((item) => item.searchText.toLowerCase().includes(query))
+      .slice(0, 120);
+  }, [routeSearchItems, searchItems, searchQuery]);
 
   return (
     <>
@@ -394,11 +475,15 @@ export default function App() {
             >
               {resolvedNavSections.map((section) => (
                 <SidebarGroup key={section.id}>
-                  <SidebarGroupLabel
-                    className={cn(sidebarCollapsed && 'sr-only')}
-                  >
-                    {section.label}
-                  </SidebarGroupLabel>
+                  {section.label === 'System' ||
+                  section.label === 'Tokens' ||
+                  section.label === 'Components' ? null : (
+                    <SidebarGroupLabel
+                      className={cn(sidebarCollapsed && 'sr-only')}
+                    >
+                      {section.label}
+                    </SidebarGroupLabel>
+                  )}
                   <SidebarGroupContent>
                     <SidebarMenu>
                       {section.items.map((item) => {
@@ -427,15 +512,11 @@ export default function App() {
                                     <span className="rounded-md bg-white/10 p-2 text-white/80 group-hover:text-white">
                                       <Icon className="h-4 w-4" />
                                     </span>
-                                    <div
-                                      className={cn(
-                                        sidebarCollapsed && 'hidden',
-                                      )}
-                                    >
+                                    {!sidebarCollapsed ? (
                                       <p className="text-sm font-semibold text-white">
                                         {item.label}
                                       </p>
-                                    </div>
+                                    ) : null}
                                   </div>
                                 </SidebarMenuButton>
                               )}
@@ -459,9 +540,13 @@ export default function App() {
                 <div className="mt-3 space-y-3">
                   {resolvedNavSections.map((section) => (
                     <div key={section.id} className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                        {section.label}
-                      </p>
+                      {section.label === 'System' ||
+                      section.label === 'Tokens' ||
+                      section.label === 'Components' ? null : (
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          {section.label}
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-2">
                         {section.items.map((item) => (
                           <NavLink
@@ -487,7 +572,7 @@ export default function App() {
                   <button
                     type="button"
                     className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                    onClick={() => setCommandPaletteOpen(true)}
+                    onClick={() => setSearchOpen(true)}
                   >
                     <span className="inline-flex items-center gap-2">
                       <Search className="h-4 w-4" />
@@ -504,15 +589,12 @@ export default function App() {
                 <button
                   type="button"
                   className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-card/70 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
-                  onClick={() => setCommandPaletteOpen(true)}
+                  onClick={() => setSearchOpen(true)}
                 >
                   <span className="inline-flex items-center gap-2">
                     <Search className="h-4 w-4" />
                     Search
                   </span>
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
-                    ⌘K
-                  </kbd>
                 </button>
               </div>
 
@@ -588,14 +670,102 @@ export default function App() {
         </SidebarProvider>
       </div>
 
-      <PaletteErrorBoundary>
-        <Suspense fallback={null}>
-          <GlobalCommandPalette
-            open={commandPaletteOpen}
-            onOpenChange={setCommandPaletteOpen}
-          />
-        </Suspense>
-      </PaletteErrorBoundary>
+      <Modal
+        open={searchOpen}
+        onClose={() => {
+          setSearchOpen(false);
+          setSearchQuery('');
+          setSearchIndexError(null);
+          setSearchIndexWarning(null);
+        }}
+      >
+        <ModalContent size="md">
+          <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search sections and pages..."
+              className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
+              autoFocus
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchOpen(false);
+                setSearchQuery('');
+              }}
+              aria-label="Close search"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="max-h-[50vh] overflow-y-auto p-2">
+            {searchIndexLoading ? (
+              <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
+                Building search index...
+              </div>
+            ) : null}
+            {!searchIndexLoading && searchIndexError ? (
+              <div className="mb-2 rounded-md border border-status-error/30 bg-status-error-bg/20 p-3 text-sm text-status-error">
+                <p>{searchIndexError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => void loadSearchIndex()}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {!searchIndexLoading && !searchIndexError && searchIndexWarning ? (
+              <div className="mb-2 rounded-md border border-status-warning/30 bg-status-warning-bg/20 p-3 text-sm text-status-warning">
+                {searchIndexWarning}
+              </div>
+            ) : null}
+            {!searchIndexLoading && filteredSearchItems.length === 0 ? (
+              <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
+                No results found for "{searchQuery}".
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredSearchItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="flex w-full items-start gap-3 rounded-md border border-transparent px-3 py-2 text-left transition hover:border-border/70 hover:bg-accent/50"
+                    onClick={() => {
+                      setSearchOpen(false);
+                      setSearchQuery('');
+                      navigate(item.to);
+                    }}
+                  >
+                    <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5 text-muted-foreground">
+                      {item.icon === 'token' ? (
+                        <Layers3 className="h-3.5 w-3.5" />
+                      ) : item.icon === 'component' ? (
+                        <Boxes className="h-3.5 w-3.5" />
+                      ) : (
+                        <Search className="h-3.5 w-3.5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {item.label}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {item.section}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
