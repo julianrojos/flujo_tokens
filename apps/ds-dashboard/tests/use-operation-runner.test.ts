@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildOperationSystemHeaders,
   resolveOperationSystemId,
-} from "../src/features/ops/hooks/use-operation-runner-logic";
+} from "../src/hooks/use-operation-runner-logic";
 
 describe("use-operation-runner helpers", () => {
   it("prefers explicit override system id", () => {
