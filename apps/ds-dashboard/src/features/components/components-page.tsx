@@ -132,7 +132,7 @@ export function ComponentsPage() {
         ]}
       />
 
-      <div>
+      <div className="rounded-xl border border-border/70 bg-card/85 p-5 pt-0 text-card-foreground backdrop-blur-sm">
           <FilterBar
             searchValue={search}
             onSearch={setSearch}

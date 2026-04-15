@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 
 export const tableVariants = cva("w-full caption-bottom text-sm");
 export const tableHeaderVariants = cva("[&_tr]:border-b");
-export const tableBodyVariants = cva("[&_tr:last-child]:border-0");
+export const tableBodyVariants = cva(
+  "[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-table-row-alt",
+);
 export const tableRowVariants = cva(
-  "border-b border-border/70 transition-colors hover:bg-muted/40",
+  "transition-colors hover:bg-muted/40",
 );
 export const tableHeadVariants = cva(
   "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
