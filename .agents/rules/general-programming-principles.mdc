@@ -228,7 +228,7 @@ Run `npx tsc --noEmit` from `apps/ds-dashboard/` in addition to the checks above
 - [ ] `MUST`: No cross-feature imports — `grep -rn "from.*@/features/" src/components/ --include="*.tsx" | wc -l` returns 0
 - [ ] `MUST`: New `ui/` or `composites/` components have an entry in `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md`
 - [ ] `MUST`: New `ui/` primitives follow CVA + cn() + forwardRef pattern (see `ui-component-governance.mdc`)
-- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use `font-serif` (Bitter)
+- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use the title hierarchy token/class (`font-titles`)
 - [ ] `SHOULD`: Status feedback uses `<StatusAlert>` or `<Badge>` — not inline markup with raw color classes
 
 ## 10) Specialized rules by scope

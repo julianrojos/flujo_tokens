@@ -96,14 +96,14 @@ import { createPortal } from "react-dom";
 
 ## Typography
 
-| Element | Class | Font | Rationale |
-|---------|-------|------|-----------|
-| Page/section headings | `font-serif` | Bitter | Identity — distinguishes the app from generic Tailwind |
-| UI text, labels, body | `font-sans` | Geist | Clean, modern, excellent legibility in dark mode |
-| Token paths, code | `font-mono` | Geist Mono | Technical content needs monospace |
+| Element | Class | Hierarchy Role | Rationale |
+|---------|-------|----------------|-----------|
+| Page/section headings | `font-titles` | Title hierarchy | Strong visual structure for primary and secondary headings |
+| UI text, labels, body | `font-body` | Body hierarchy | Consistent readability for dense interface content |
+| Token paths, code | `font-mono` | Technical/code hierarchy | Monospace rhythm for paths, values, and code-like data |
 
 - **MUST** use semantic heading levels (`<h1>` page, `<h2>` section, `<h3>` subsection).
-- **SHOULD** apply `font-serif` to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
+- **SHOULD** apply title hierarchy to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
 
 ## Dark mode
 
