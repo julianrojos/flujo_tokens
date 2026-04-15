@@ -162,7 +162,7 @@ class RouteErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="rounded-xl border border-destructive/70 bg-destructive/10 p-6">
-          <h3 className="text-lg font-semibold text-destructive">
+          <h3 className="text-destructive text-base font-titles font-semibold">
             Failed to load view
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -182,6 +182,7 @@ type NavItem = {
   to: string;
   label: string;
   icon: LucideIcon;
+  isSystemPrimary?: boolean;
 };
 
 type NavSection = {
@@ -208,6 +209,7 @@ const navSections: NavSection[] = [
         to: '__system_overview__',
         label: 'System',
         icon: Activity,
+        isSystemPrimary: true,
       },
       {
         to: ROUTE_PATTERNS.consumers,
@@ -239,6 +241,10 @@ const navSections: NavSection[] = [
     ],
   },
 ];
+
+function isSystemPrimaryNavItem(section: NavSection, item: NavItem): boolean {
+  return section.id === 'system' && item.isSystemPrimary === true;
+}
 
 const DEFAULT_PREFETCH_RETRY_COOLDOWN_MS = 5_000;
 const PREFETCH_RETRY_COOLDOWN_MS = (() => {
@@ -288,6 +294,7 @@ export default function App() {
           to: ROUTE_PATTERNS.newSystem,
           label: 'System',
           icon: Activity,
+          isSystemPrimary: true,
         },
       ];
     }
@@ -300,6 +307,7 @@ export default function App() {
         to: toSystemOverview(systemId),
         label: 'System',
         icon: Activity,
+        isSystemPrimary: true,
       },
     ];
   }, [activeSystem, systems]);
@@ -452,6 +460,11 @@ export default function App() {
       .slice(0, 120);
   }, [routeSearchItems, searchItems, searchQuery]);
 
+  const isSystemSectionActive = useMemo(
+    () => /^\/system\/[^/]+(?:\/(overview|admin|operations))?(?:\/|$)/.test(location.pathname),
+    [location.pathname],
+  );
+
   return (
     <>
       <div className="min-h-screen bg-background text-foreground">
@@ -488,6 +501,7 @@ export default function App() {
                     <SidebarMenu>
                       {section.items.map((item) => {
                         const Icon = item.icon;
+                        const isPrimarySystemItem = isSystemPrimaryNavItem(section, item);
                         return (
                           <SidebarMenuItem key={item.to}>
                             <NavLink
@@ -498,7 +512,7 @@ export default function App() {
                             >
                               {({ isActive }) => (
                                 <SidebarMenuButton
-                                  isActive={isActive}
+                                  isActive={isActive || (isPrimarySystemItem && isSystemSectionActive)}
                                   title={
                                     sidebarCollapsed ? item.label : undefined
                                   }
@@ -554,14 +568,19 @@ export default function App() {
                             to={item.to}
                             onMouseEnter={() => prefetchRoute(item.to)}
                             onFocus={() => prefetchRoute(item.to)}
-                            className={({ isActive }) =>
+                            className={({ isActive }) => {
+                              const isPrimarySystemItem = isSystemPrimaryNavItem(section, item);
+                              const effectiveActive =
+                                isActive || (isPrimarySystemItem && isSystemSectionActive);
+                              return (
                               cn(
                                 'rounded-md px-3 py-2 text-sm font-semibold transition',
-                                isActive
+                                effectiveActive
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-muted text-foreground',
                               )
-                            }
+                              );
+                            }}
                           >
                             {item.label}
                           </NavLink>
