@@ -79,8 +79,8 @@ All UI components consume CSS custom properties defined in `apps/ds-dashboard/sr
 
 | Token          | Value      | Usage    |
 | -------------- | ---------- | -------- |
-| `--font-sans`  | Geist      | UI text  |
-| `--font-serif` | Bitter     | Headings |
+| `--font-titles` | Geist      | Headings |
+| `--font-body`  | Geist      | UI text  |
 | `--font-mono`  | Geist Mono | Code     |
 
 ---
@@ -103,7 +103,26 @@ Location: `apps/ds-dashboard/src/components/ui/`
 ```
 
 **When to use:** Interactive actions, form submissions, triggers.
-**When NOT to use:** Navigation links (use `<Link>`), toggles (use `<Switch>` or `<Checkbox>`).
+**When NOT to use:** Text links (use plain `<Link>`), toggles (use `<Switch>` or `<Checkbox>`).
+
+#### Button-like Links (Navigation CTA Pattern)
+
+Use this pattern only when a navigation link must look like a button.
+
+```tsx
+import { Link } from 'react-router-dom';
+import { buttonVariants } from '@/components/ui/button';
+
+<Link to="/target" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+  Open target
+</Link>
+```
+
+Rules:
+
+- Use `Link` semantics for navigation (no `button` wrapping links).
+- Reuse `buttonVariants(...)` instead of manual utility classes.
+- Keep plain text links as regular `Link` (do not force button styling globally).
 
 ---
 
