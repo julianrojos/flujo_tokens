@@ -35,7 +35,7 @@ function buildHealthIssueItems(
       {
         count: summary.unused_tokens_total,
         title: `${summary.unused_tokens_total} unused tokens`,
-        keywords: ["unused", "tokens", "health"],
+        keywords: ["unused", "tokens", "system", "health"],
       },
       {
         count: summary.high_coupling_tokens_total,
@@ -62,11 +62,11 @@ function buildHealthIssueItems(
     for (const issue of tokenIssues) {
       if (issue.count <= 0) continue;
       items.push({
-        id: `health:token:${issue.title}`,
+        id: `system:token:${issue.title}`,
         kind: "health-issue",
         title: issue.title,
-        subtitle: "Token Health",
-        href: ROUTE_PATTERNS.health,
+        subtitle: "Token System",
+        href: ROUTE_PATTERNS.system,
         keywords: issue.keywords,
       });
     }
@@ -84,11 +84,11 @@ function buildHealthIssueItems(
     for (const issue of componentIssues) {
       if (issue.count <= 0) continue;
       items.push({
-        id: `health:component:${issue.title}`,
+        id: `system:component:${issue.title}`,
         kind: "health-issue",
         title: issue.title,
-        subtitle: "Components Health",
-        href: ROUTE_PATTERNS.health,
+        subtitle: "Components System",
+        href: ROUTE_PATTERNS.system,
         keywords: issue.keywords,
       });
     }

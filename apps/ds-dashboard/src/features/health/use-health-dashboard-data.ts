@@ -40,22 +40,22 @@ export function useHealthDashboardData(args: {
   const queryTokenError = useMemo(() => {
     if (!tokenHealthQuery.error) return null;
     return toApiErrorDisplay(tokenHealthQuery.error, {
-      fallbackTitle: "Token health unavailable",
-      fallbackMessage: "Unable to load token health report.",
+      fallbackTitle: "Token system unavailable",
+      fallbackMessage: "Unable to load token system report.",
     });
   }, [tokenHealthQuery.error]);
   const queryComponentsError = useMemo(() => {
     if (!componentsHealthQuery.error) return null;
     return toApiErrorDisplay(componentsHealthQuery.error, {
-      fallbackTitle: "Components health unavailable",
-      fallbackMessage: "Unable to load components health report.",
+      fallbackTitle: "Components system unavailable",
+      fallbackMessage: "Unable to load components system report.",
     });
   }, [componentsHealthQuery.error]);
   const queryHistoryError = useMemo(() => {
     if (!historyQuery.error) return null;
     return toApiErrorDisplay(historyQuery.error, {
-      fallbackTitle: "Health history unavailable",
-      fallbackMessage: "Unable to load health history.",
+      fallbackTitle: "System history unavailable",
+      fallbackMessage: "Unable to load system history.",
     });
   }, [historyQuery.error]);
 
@@ -103,22 +103,22 @@ export function useHealthDashboardData(args: {
   const tokenRefreshError = useMemo(() => {
     if (!refreshTokenMutation.error) return null;
     return toApiErrorDisplay(refreshTokenMutation.error, {
-      fallbackTitle: "Token health refresh failed",
-      fallbackMessage: "Unable to refresh token health report.",
+      fallbackTitle: "Token system refresh failed",
+      fallbackMessage: "Unable to refresh token system report.",
     });
   }, [refreshTokenMutation.error]);
   const componentsRefreshError = useMemo(() => {
     if (!refreshComponentsMutation.error) return null;
     return toApiErrorDisplay(refreshComponentsMutation.error, {
-      fallbackTitle: "Components health refresh failed",
-      fallbackMessage: "Unable to refresh components health report.",
+      fallbackTitle: "Components system refresh failed",
+      fallbackMessage: "Unable to refresh components system report.",
     });
   }, [refreshComponentsMutation.error]);
   const snapshotError = useMemo(() => {
     if (!snapshotMutation.error) return null;
     return toApiErrorDisplay(snapshotMutation.error, {
       fallbackTitle: "Snapshot capture failed",
-      fallbackMessage: "Unable to capture a health snapshot.",
+      fallbackMessage: "Unable to capture a system snapshot.",
     });
   }, [snapshotMutation.error]);
 

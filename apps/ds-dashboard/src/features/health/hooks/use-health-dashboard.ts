@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type MouseEvent } from "react";
 
 import { useSortState } from "@/lib/use-sort-state";
+import { ROUTE_PATTERNS } from "@/lib/routes";
 import type { HealthHistoryBucket, HealthHistoryRange } from "@/types/health-history";
 import { useHealthDashboardData } from "@/features/health/use-health-dashboard-data";
 
@@ -87,7 +88,7 @@ export function useHealthDashboard() {
         description: `${tokenHealth.summary.broken_aliases_total} tokens have broken alias references`,
         count: tokenHealth.summary.broken_aliases_total,
         severity: "critical",
-        to: "/health#broken-aliases",
+        to: `${ROUTE_PATTERNS.system}#broken-aliases`,
       });
     }
     if (tokenHealth.summary.wcag_failures_total > 0) {
@@ -97,7 +98,7 @@ export function useHealthDashboard() {
         description: `${tokenHealth.summary.wcag_failures_total} color contrast failures`,
         count: tokenHealth.summary.wcag_failures_total,
         severity: "critical",
-        to: "/health#wcag-failures",
+        to: `${ROUTE_PATTERNS.system}#wcag-failures`,
       });
     }
     if (tokenHealth.summary.unused_tokens_total > 0) {
@@ -107,7 +108,7 @@ export function useHealthDashboard() {
         description: `${tokenHealth.summary.unused_tokens_total} tokens are not referenced`,
         count: tokenHealth.summary.unused_tokens_total,
         severity: "warning",
-        to: "/health#unused-tokens",
+        to: `${ROUTE_PATTERNS.system}#unused-tokens`,
       });
     }
     if (componentsHealth.summary.without_spec > 0) {
@@ -117,7 +118,7 @@ export function useHealthDashboard() {
         description: `${componentsHealth.summary.without_spec} components have no spec`,
         count: componentsHealth.summary.without_spec,
         severity: "warning",
-        to: "/health#at-risk-components",
+        to: `${ROUTE_PATTERNS.system}#at-risk-components`,
       });
     }
     return issues;

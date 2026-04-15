@@ -26,7 +26,7 @@ export function HealthMetricsOverview({
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <MetricCard
-        label="Overall Health"
+        label="Overall System"
         value={overallScore}
         change="/100"
         icon={scoreIcon}
@@ -34,13 +34,13 @@ export function HealthMetricsOverview({
       <MetricCard
         label="Tokens"
         value={tokensTotal}
-        change={`${tokenScore}/100 health`}
+        change={`${tokenScore}/100 system`}
         icon={<CheckCircle2 className="h-4 w-4" />}
       />
       <MetricCard
         label="Components"
         value={componentsTotal}
-        change={`${componentsScore}/100 health`}
+        change={`${componentsScore}/100 system`}
         icon={<CheckCircle2 className="h-4 w-4" />}
       />
     </div>

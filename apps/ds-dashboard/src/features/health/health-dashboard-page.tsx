@@ -44,7 +44,7 @@ export function HealthDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading health dashboard" />
+        <PageHeader title="Loading…" description="Loading system dashboard" />
         <div className="h-48 animate-pulse rounded-xl bg-muted" />
       </div>
     );
@@ -53,8 +53,8 @@ export function HealthDashboardPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Health Dashboard"
-        description="Token and component health overview"
+        title="System Dashboard"
+        description="Token and component system overview"
         actions={
           <div className="flex items-center gap-2">
             <Select value={historyRange} onChange={(e) => setHistoryRange(e.target.value as HealthHistoryRange)}>

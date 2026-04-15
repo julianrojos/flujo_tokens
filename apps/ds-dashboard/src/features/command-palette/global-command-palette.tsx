@@ -89,7 +89,7 @@ function scoreMatch(query: string, strings: string[]) {
 function kindLabel(kind: GlobalSearchItem["kind"]) {
   if (kind === "token") return "Tokens";
   if (kind === "component") return "Components";
-  return "Health";
+  return "System";
 }
 
 function kindIcon(kind: GlobalSearchItem["kind"]) {
@@ -127,11 +127,11 @@ export function GlobalCommandPalette({
   const actions = useMemo<ActionItem[]>(
     () => [
       {
-        id: "go:health",
-        title: "Open Health Dashboard",
-        subtitle: `Go to ${ROUTE_PATTERNS.health}`,
-        keywords: ["open", "health", "dashboard"],
-        run: () => navigate(ROUTE_PATTERNS.health),
+        id: "go:system",
+        title: "Open System Dashboard",
+        subtitle: `Go to ${ROUTE_PATTERNS.system}`,
+        keywords: ["open", "system", "dashboard"],
+        run: () => navigate(ROUTE_PATTERNS.system),
       },
       {
         id: "go:tokens",
@@ -179,9 +179,9 @@ export function GlobalCommandPalette({
       },
       {
         id: "refresh:token-health",
-        title: "Refresh Token Health",
+        title: "Refresh Token System",
         subtitle: "Run ds:token-health",
-        keywords: ["refresh", "token", "health"],
+        keywords: ["refresh", "token", "system", "health"],
         run: async () => {
           await refreshTokenHealth();
           await reloadIndex();
@@ -189,9 +189,9 @@ export function GlobalCommandPalette({
       },
       {
         id: "refresh:components-health",
-        title: "Refresh Components Health",
+        title: "Refresh Components System",
         subtitle: "Run ds:registry:report",
-        keywords: ["refresh", "components", "health"],
+        keywords: ["refresh", "components", "system", "health"],
         run: async () => {
           await refreshComponentsHealth();
           await reloadIndex();
@@ -333,7 +333,7 @@ export function GlobalCommandPalette({
             placeholder={
               loading
                 ? "Loading search index..."
-                : "Search tokens, components, health issues, actions..."
+                : "Search tokens, components, system issues, actions..."
             }
             className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
             autoFocus

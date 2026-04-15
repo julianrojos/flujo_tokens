@@ -53,8 +53,8 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string;
     ];
   }
 
-  if (pathname === ROUTE_PATTERNS.health) {
-    return [{ label: "Health" }];
+  if (pathname === ROUTE_PATTERNS.system) {
+    return [{ label: "System" }];
   }
 
   if (pathname === ROUTE_PATTERNS.tokens) {

@@ -24,7 +24,7 @@ export function HealthActiveIssues({ issues, onIssueClick }: HealthActiveIssuesP
   if (issues.length === 0) {
     return (
       <StatusAlert variant="success" title="No active issues">
-        All health checks are passing.
+        All system checks are passing.
       </StatusAlert>
     );
   }

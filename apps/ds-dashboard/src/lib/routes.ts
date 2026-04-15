@@ -1,6 +1,6 @@
 export const ROUTE_PATTERNS = {
   root: "/",
-  health: "/health",
+  system: "/system",
   systemNew: "/system/new",
   systemAdmin: "/system/admin",
   systemOperations: "/system/:systemId/operations",

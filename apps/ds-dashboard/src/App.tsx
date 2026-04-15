@@ -20,7 +20,7 @@ import {
   Network,
 } from "lucide-react";
 
-import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
+import { HealthDashboardPage as SystemDashboardPage } from "@/features/health/health-dashboard-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { SystemSwitcher } from "@/components/system-switcher";
 import {
@@ -192,7 +192,7 @@ const navSections: NavSection[] = [
     label: "System",
     items: [
       {
-        to: ROUTE_PATTERNS.health,
+        to: ROUTE_PATTERNS.system,
         label: "System",
         icon: Activity,
       },
@@ -428,10 +428,10 @@ export default function App() {
               <RouteErrorBoundary key={`${location.pathname}${location.search}${location.hash}`}>
                 <Suspense fallback={<RouteLoadingFallback />}>
                   <Routes>
-                    <Route path={ROUTE_PATTERNS.root} element={<Navigate to={ROUTE_PATTERNS.health} replace />} />
+                    <Route path={ROUTE_PATTERNS.root} element={<Navigate to={ROUTE_PATTERNS.system} replace />} />
                     <Route path={ROUTE_PATTERNS.systemNew} element={<NewSystemPage />} />
                     <Route path={ROUTE_PATTERNS.systemAdmin} element={<DesignSystemsAdminPage />} />
-                    <Route path={ROUTE_PATTERNS.health} element={<HealthDashboardPage />} />
+                    <Route path={ROUTE_PATTERNS.system} element={<SystemDashboardPage />} />
                     <Route path={ROUTE_PATTERNS.systemOperations} element={<OperationsPage />} />
                     <Route path={ROUTE_PATTERNS.components} element={<ComponentsPage />} />
                     <Route path={ROUTE_PATTERNS.componentDetail} element={<ComponentDetailPage />} />
