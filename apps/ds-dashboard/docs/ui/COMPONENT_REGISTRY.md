@@ -438,8 +438,8 @@ Location: `apps/ds-dashboard/src/components/composites/`
 <StatsOverview
   gridClassName="md:grid-cols-2"
   items={[
-    { id: "total", label: "Total componentes", value: 124 },
-    { id: "with-spec", label: "Con spec", value: 98 },
+    { id: 'total', label: 'Total componentes', value: 124 },
+    { id: 'with-spec', label: 'Con spec', value: 98 },
   ]}
 />
 ```
@@ -642,100 +642,93 @@ Location: `apps/ds-dashboard/src/features/`
 
 ### Tokens Feature
 
-| Component              | Path                                                       | Description            |
-| ---------------------- | ---------------------------------------------------------- | ---------------------- |
-| `TokensPage`           | `src/features/tokens/tokens-page.tsx`                      | Main tokens list view  |
-| `ContrastCheckerModal` | `src/features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker  |
-| `ColorPreview`         | `src/features/tokens/accessibility/color-preview.tsx`          | Color contrast preview |
+| Component              | Path                                                           | Description                 |
+| ---------------------- | -------------------------------------------------------------- | --------------------------- |
+| `TokensPage`           | `src/features/tokens/tokens-page.tsx`                          | Main tokens list view       |
+| `ContrastCheckerModal` | `src/features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker       |
+| `ColorPreview`         | `src/features/tokens/accessibility/color-preview.tsx`          | Color contrast preview      |
 | `TokenTreeModal`       | `src/features/tokens/token-tree/token-tree-modal.tsx`          | Token dependency tree modal |
-| `TokenGraphPage`       | `src/features/tokens/token-graph/token-graph-page.tsx`         | Token graph explorer |
-| `TokenDetailPage`      | `src/features/tokens/token-detail/token-detail-page.tsx`       | Token detail orchestrator |
+| `TokenGraphPage`       | `src/features/tokens/token-graph/token-graph-page.tsx`         | Token graph explorer        |
+| `TokenDetailPage`      | `src/features/tokens/token-detail/token-detail-page.tsx`       | Token detail orchestrator   |
 
 #### Token Detail Sections
 
-| Component              | Path                                                           | Description |
-| ---------------------- | -------------------------------------------------------------- | ----------- |
-| `TokenIdentitySection` | `src/features/tokens/token-detail/components/token-identity-section.tsx` | Identity/value overview |
-| `TokenRelationsSection`| `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias/graph relation summary |
-| `TokenAliasSection`    | `src/features/tokens/token-detail/components/token-alias-section.tsx`    | Alias chains and descendants |
-| `TokenUsageSection`    | `src/features/tokens/token-detail/components/token-usage-section.tsx`    | Usage table across components |
-| `TokenHealthSection`   | `src/features/tokens/token-detail/components/token-health-section.tsx`   | Health issues and diagnostics |
+| Component               | Path                                                                      | Description                   |
+| ----------------------- | ------------------------------------------------------------------------- | ----------------------------- |
+| `TokenIdentitySection`  | `src/features/tokens/token-detail/components/token-identity-section.tsx`  | Identity/value overview       |
+| `TokenRelationsSection` | `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias/graph relation summary  |
+| `TokenAliasSection`     | `src/features/tokens/token-detail/components/token-alias-section.tsx`     | Alias chains and descendants  |
+| `TokenUsageSection`     | `src/features/tokens/token-detail/components/token-usage-section.tsx`     | Usage table across components |
+| `TokenHealthSection`    | `src/features/tokens/token-detail/components/token-health-section.tsx`    | Health issues and diagnostics |
 
 ### Components Feature
 
-| Component           | Path                                                           | Description              |
-| ------------------- | -------------------------------------------------------------- | ------------------------ |
-| `ComponentsPage`    | `src/features/components/components-page.tsx`                  | Components registry view |
-| `ComponentDetailPage` | `src/features/components/component-detail/component-detail-page.tsx` | Component detail view |
-| `FigmaCaptureModal` | `src/features/components/component-detail/figma-capture-modal.tsx` | Figma screenshot capture |
-| `EditComponentDocsPage` | `src/features/components/edit-component-docs/edit-component-docs-page.tsx` | Editorial docs page |
+| Component               | Path                                                                       | Description              |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------ |
+| `ComponentsPage`        | `src/features/components/components-page.tsx`                              | Components registry view |
+| `ComponentDetailPage`   | `src/features/components/component-detail/component-detail-page.tsx`       | Component detail view    |
+| `FigmaCaptureModal`     | `src/features/components/component-detail/figma-capture-modal.tsx`         | Figma screenshot capture |
+| `EditComponentDocsPage` | `src/features/components/edit-component-docs/edit-component-docs-page.tsx` | Editorial docs page      |
 
 #### Component Detail Sections
 
-| Component                 | Path                                                                 | Description |
-| ------------------------- | -------------------------------------------------------------------- | ----------- |
-| `ComponentNavBar`         | `src/features/components/component-detail/components/component-nav-bar.tsx` | Prev/next detail navigation |
-| `ComponentVisualProofSection` | `src/features/components/component-detail/components/component-visual-proof-section.tsx` | Screenshot + variant proofs |
-| `ComponentSpecSection`    | `src/features/components/component-detail/components/component-spec-section.tsx` | Spec/documentation actions |
-| `LayerTokenMappingSection`| `src/features/components/component-detail/components/layer-token-mapping-section.tsx` | Layer-to-token mapping table |
-| `ComponentGraphSection`   | `src/features/components/component-detail/components/component-graph-section.tsx` | Uses/used-by relationships |
-| `ComponentAdoptionSection`| `src/features/components/component-detail/components/component-adoption-section.tsx` | Adoption metrics by consumers |
-| `FigmaDescriptionSection` | `src/features/components/component-detail/components/figma-description-section.tsx` | Figma descriptions and sync freshness |
+| Component                     | Path                                                                                     | Description                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------- |
+| `ComponentNavBar`             | `src/features/components/component-detail/components/component-nav-bar.tsx`              | Prev/next detail navigation           |
+| `ComponentVisualProofSection` | `src/features/components/component-detail/components/component-visual-proof-section.tsx` | Screenshot + variant proofs           |
+| `ComponentSpecSection`        | `src/features/components/component-detail/components/component-spec-section.tsx`         | Spec/documentation actions            |
+| `LayerTokenMappingSection`    | `src/features/components/component-detail/components/layer-token-mapping-section.tsx`    | Layer-to-token mapping table          |
+| `ComponentGraphSection`       | `src/features/components/component-detail/components/component-graph-section.tsx`        | Uses/used-by relationships            |
+| `ComponentAdoptionSection`    | `src/features/components/component-detail/components/component-adoption-section.tsx`     | Adoption metrics by consumers         |
+| `FigmaDescriptionSection`     | `src/features/components/component-detail/components/figma-description-section.tsx`      | Figma descriptions and sync freshness |
 
 #### Edit Component Docs Sections
 
-| Component            | Path                                                                            | Description |
-| -------------------- | ------------------------------------------------------------------------------- | ----------- |
-| `AiSuggestionsModal` | `src/features/components/edit-component-docs/components/ai-suggestions-modal.tsx` | AI suggestions modal |
+| Component            | Path                                                                              | Description                 |
+| -------------------- | --------------------------------------------------------------------------------- | --------------------------- |
+| `AiSuggestionsModal` | `src/features/components/edit-component-docs/components/ai-suggestions-modal.tsx` | AI suggestions modal        |
 | `AiSuggestionsPanel` | `src/features/components/edit-component-docs/components/ai-suggestions-panel.tsx` | Inline AI suggestions panel |
-| `EditDocsForm`       | `src/features/components/edit-component-docs/components/edit-docs-form.tsx`       | Structured editorial form |
+| `EditDocsForm`       | `src/features/components/edit-component-docs/components/edit-docs-form.tsx`       | Structured editorial form   |
 
 ### Health Feature
 
-| Component          | Path                                     | Description      |
-| ------------------ | ---------------------------------------- | ---------------- |
-| `HealthDashboardPage` | `src/features/health/health-dashboard-page.tsx` | Health dashboard |
-| `HealthActiveIssues`  | `src/features/health/components/health-active-issues.tsx` | Active issues list |
-| `HealthMetricsOverview` | `src/features/health/components/health-metrics-overview.tsx` | KPI overview cards |
-| `HealthBrokenAliases` | `src/features/health/components/health-broken-aliases.tsx` | Broken alias table |
-| `HealthSpecProgress` | `src/features/health/components/health-spec-progress.tsx` | Spec completeness progress |
-| `HealthTokenPriorities` | `src/features/health/components/health-token-priorities.tsx` | Token priority ranking |
-| `HealthTrendsChart` | `src/features/health/health-trends-chart.tsx` | Trends visualization |
+| Component               | Path                                                         | Description                |
+| ----------------------- | ------------------------------------------------------------ | -------------------------- |
+| `HealthDashboardPage`   | `src/features/health/health-dashboard-page.tsx`              | Health dashboard           |
+| `HealthActiveIssues`    | `src/features/health/components/health-active-issues.tsx`    | Active issues list         |
+| `HealthBrokenAliases`   | `src/features/health/components/health-broken-aliases.tsx`   | Broken alias table         |
+| `HealthSpecProgress`    | `src/features/health/components/health-spec-progress.tsx`    | Spec completeness progress |
+| `HealthTokenPriorities` | `src/features/health/components/health-token-priorities.tsx` | Token priority ranking     |
+| `HealthTrendsChart`     | `src/features/health/health-trends-chart.tsx`                | Trends visualization       |
 
 ### System Feature
 
-| Component           | Path                                                   | Description |
-| ------------------- | ------------------------------------------------------ | ----------- |
-| `WizardStepBasics`  | `src/features/system/components/wizard-step-basics.tsx` | New-system wizard basics step |
-| `WizardStepImport`  | `src/features/system/components/wizard-step-import.tsx` | New-system wizard import step |
-| `NewSystemPage`     | `src/features/system/new-system-page.tsx`              | New design-system orchestrator page |
-| `DesignSystemsAdminPage` | `src/features/system/design-systems-admin-page.tsx` | Design systems admin page |
+| Component                | Path                                                    | Description                         |
+| ------------------------ | ------------------------------------------------------- | ----------------------------------- |
+| `WizardStepBasics`       | `src/features/system/components/wizard-step-basics.tsx` | New-system wizard basics step       |
+| `WizardStepImport`       | `src/features/system/components/wizard-step-import.tsx` | New-system wizard import step       |
+| `NewSystemPage`          | `src/features/system/new-system-page.tsx`               | New design-system orchestrator page |
+| `DesignSystemsAdminPage` | `src/features/system/design-systems-admin-page.tsx`     | Design systems admin page           |
 
 ### Files Feature
 
-| Component        | Path                                      | Description |
-| ---------------- | ----------------------------------------- | ----------- |
+| Component        | Path                                      | Description                    |
+| ---------------- | ----------------------------------------- | ------------------------------ |
 | `FileViewerPage` | `src/features/files/file-viewer-page.tsx` | Local file browser/viewer page |
 
 ### Ops Feature
 
-| Component        | Path                                     | Description |
-| ---------------- | ---------------------------------------- | ----------- |
-| `OperationsPage` | `src/features/ops/operations-page.tsx`  | Operational tooling dashboard |
-
-### Command Palette
-
-| Component              | Path                                                  | Description           |
-| ---------------------- | ----------------------------------------------------- | --------------------- |
-| `GlobalCommandPalette` | `src/features/command-palette/global-command-palette.tsx` | Global search/actions |
+| Component        | Path                                   | Description                   |
+| ---------------- | -------------------------------------- | ----------------------------- |
+| `OperationsPage` | `src/features/ops/operations-page.tsx` | Operational tooling dashboard |
 
 ### Consumers Feature
 
-| Component     | Path                                             | Description                                                  |
-| ------------- | ------------------------------------------------ | ------------------------------------------------------------ |
-| `ConsumersPage` | `src/features/consumers/consumers-page.tsx`     | Consumers overview page |
-| `ConsumerDetailPage` | `src/features/consumers/consumer-detail-page.tsx` | Consumer detail page |
-| `AdoptionBar` | `src/features/consumers/components/adoption-bar.tsx` | DS vs Non-DS segmented progress bar with semantic percentage |
+| Component            | Path                                                 | Description                                                  |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| `ConsumersPage`      | `src/features/consumers/consumers-page.tsx`          | Consumers overview page                                      |
+| `ConsumerDetailPage` | `src/features/consumers/consumer-detail-page.tsx`    | Consumer detail page                                         |
+| `AdoptionBar`        | `src/features/consumers/components/adoption-bar.tsx` | DS vs Non-DS segmented progress bar with semantic percentage |
 
 ---
 
@@ -757,9 +750,9 @@ None as of v1.
 
 ## Version History
 
-| Version | Date       | Changes          |
-| ------- | ---------- | ---------------- |
-| 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `token-graph`, `edit-component-docs`) |
+| Version | Date       | Changes                                                                                                                                                       |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `token-graph`, `edit-component-docs`)             |
 | 1.2     | 2026-04-14 | Added missing `ui/composites` entries (`ImpactLevelBadge`, `AiJobCreateForm`, `AiJobStatusCard`) and expanded Tier 2 coverage for decomposed feature sections |
-| 1.1     | 2026-04-14 | Consolidated content from `docs/ui/COMPONENT_REGISTRY.md`, normalized paths to `src/...`, and refreshed Tier 2 routes |
-| 1.0     | 2026-03-20 | Initial registry |
+| 1.1     | 2026-04-14 | Consolidated content from `docs/ui/COMPONENT_REGISTRY.md`, normalized paths to `src/...`, and refreshed Tier 2 routes                                         |
+| 1.0     | 2026-03-20 | Initial registry                                                                                                                                              |
