@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { FilterBar } from "@/components/composites";
 import { Link } from "react-router-dom";
 import type { TokenRegistry } from "@/types/token-registry";
 
@@ -34,6 +36,8 @@ interface LayerTokenMappingSectionProps {
 
 type SortField = "token" | "property" | "collection" | "variant" | "layer" | "mode";
 type SortDirection = "asc" | "desc";
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 type BindingWithCollection = {
   entry: LayerTokenMappingEntry;
@@ -96,13 +100,17 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
   const hasEntries = entries.length > 0;
   const byPath = tokenRegistry?.byPath;
   const bySlashPath = tokenRegistry?.bySlashPath;
+  const [search, setSearch] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<string>("__all__");
+  const [selectedCollection, setSelectedCollection] = useState<string>("__all__");
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDirection }>({
     field: "token",
     dir: "asc",
   });
 
-  const { variantOptions, filteredEntries, sortedFilteredEntries } = useMemo(() => {
+  const { variantOptions, collectionOptions, filteredEntries, sortedFilteredEntries } = useMemo(() => {
     const rows = entries.map((entry) => ({
       entry,
       collection: resolveCollectionFromTokenPath(entry.token_path, byPath, bySlashPath) || "",
@@ -117,17 +125,42 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
       if (!aIsEmpty && bIsEmpty) return -1;
       return normalizedSortText(a).localeCompare(normalizedSortText(b));
     });
-    const filtered = selectedVariant === "__all__"
-      ? rows
-      : rows.filter(({ entry }) => String(entry.variant_signature || "").trim() === selectedVariant);
+    const collections = Array.from(
+      new Set(
+        rows
+          .map(({ collection }) => String(collection || "").trim())
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => normalizedSortText(a).localeCompare(normalizedSortText(b)));
+    const loweredSearch = search.trim().toLowerCase();
+    const filtered = rows.filter(({ entry, collection }) => {
+      const variant = String(entry.variant_signature || "").trim();
+      const tokenPath = String(entry.token_path || "").trim();
+      const layer = String(entry.layer_name || "").trim();
+      const property = String(entry.property_path || "").trim();
+      const mode = String(entry.mode_name || "").trim();
+      const matchesVariant =
+        selectedVariant === "__all__" || variant === selectedVariant;
+      const matchesCollection =
+        selectedCollection === "__all__" || collection === selectedCollection;
+      const matchesSearch =
+        !loweredSearch ||
+        tokenPath.toLowerCase().includes(loweredSearch) ||
+        layer.toLowerCase().includes(loweredSearch) ||
+        property.toLowerCase().includes(loweredSearch) ||
+        mode.toLowerCase().includes(loweredSearch) ||
+        variant.toLowerCase().includes(loweredSearch);
+      return matchesVariant && matchesCollection && matchesSearch;
+    });
     const sorted = [...filtered];
     sorted.sort((left, right) => compareBindingRows(left, right, sort));
     return {
       variantOptions: signatures,
+      collectionOptions: collections,
       filteredEntries: filtered,
       sortedFilteredEntries: sorted,
     };
-  }, [entries, byPath, bySlashPath, selectedVariant, sort]);
+  }, [entries, byPath, bySlashPath, search, selectedVariant, selectedCollection, sort]);
 
   useEffect(() => {
     setSelectedVariant((current) => {
@@ -135,6 +168,50 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
       return variantOptions.includes(current) ? current : "__all__";
     });
   }, [variantOptions]);
+  useEffect(() => {
+    setSelectedCollection((current) => {
+      if (current === "__all__") return current;
+      return collectionOptions.includes(current) ? current : "__all__";
+    });
+  }, [collectionOptions]);
+
+  const allowShowAll = filteredEntries.length >= 175;
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filteredEntries.length)),
+    [filteredEntries.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filteredEntries.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    filteredEntries.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filteredEntries.length / pageSizeValue)) : 1;
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
+      setPageSize("25");
+      return;
+    }
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [allowShowAll, pageSize, pageSizeOptions, search, selectedCollection, selectedVariant]);
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+  const pagedEntries = useMemo(() => {
+    if (!shouldPaginate) return sortedFilteredEntries;
+    const start = (currentPage - 1) * pageSizeValue;
+    return sortedFilteredEntries.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedFilteredEntries]);
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : filteredEntries.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(filteredEntries.length, currentPage * pageSizeValue) : filteredEntries.length;
 
   const hasFilteredEntries = filteredEntries.length > 0;
 
@@ -162,27 +239,86 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
       </CardHeader>
       <CardContent className="space-y-4">
         {hasEntries ? (
-          <div className="flex items-center gap-2">
-            <label htmlFor="tokens-used-variant-filter" className="text-sm text-muted-foreground">
-              Variant
-            </label>
+          <FilterBar
+            searchValue={search}
+            onSearch={setSearch}
+            searchPlaceholder="Filter by token, layer, property, mode, or variant"
+            rightSlot={(
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Rows</span>
+                <Select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(event.target.value)}
+                  className="w-[132px]"
+                  aria-label="Rows per page"
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={String(size)}>
+                      {size}
+                    </option>
+                  ))}
+                  {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                </Select>
+              </div>
+            )}
+          >
+            <Select
+              value={selectedCollection}
+              onChange={(event) => setSelectedCollection(event.target.value)}
+              aria-label="Filter token bindings by collection"
+            >
+              <option value="__all__">Collection: All</option>
+              {collectionOptions.map((collection) => (
+                <option key={collection} value={collection}>
+                  {collection}
+                </option>
+              ))}
+            </Select>
             <Select
               id="tokens-used-variant-filter"
               value={selectedVariant}
               onChange={(event) => setSelectedVariant(event.target.value)}
-              className="w-full max-w-sm"
               aria-label="Filter token bindings by variant"
             >
-              <option value="__all__">All variants</option>
+              <option value="__all__">Variant: All</option>
               {variantOptions.map((variant) => (
                 <option key={variant || "__no_variant__"} value={variant}>
                   {variant || "(no variant)"}
                 </option>
               ))}
             </Select>
-          </div>
+          </FilterBar>
         ) : null}
         {hasEntries ? (
+          <>
+          {shouldPaginate ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filteredEntries.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <Table>
             <TableHeader>
               <TableRow>
@@ -196,7 +332,7 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
             </TableHeader>
             <TableBody>
               {hasFilteredEntries ? (
-                sortedFilteredEntries.map(({ entry, collection }) => (
+                pagedEntries.map(({ entry, collection }) => (
                   <TableRow
                     key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
                   >
@@ -255,6 +391,35 @@ export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenM
               )}
             </TableBody>
           </Table>
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filteredEntries.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          </>
         ) : (
           <div className="text-sm text-muted-foreground">
             No layer-token bindings available yet. Reimport this component from Figma to capture where variables are

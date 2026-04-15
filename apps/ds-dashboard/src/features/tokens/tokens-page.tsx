@@ -41,7 +41,7 @@ import {
   variableReportMatchesTokenTargets,
 } from "./token-detail/lib/token-detail-transforms";
 
-const PAGE_SIZE_OPTIONS = [50, 100, 150, 200, 250, 300, 350] as const;
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
 
 function resolveColorSwatch(value: string): string | null {
@@ -147,7 +147,7 @@ export function TokensPage() {
   const [treeData, setTreeData] = useState<TokenCollectionTreeIndex | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<ApiErrorDisplay | null>(null);
-  const [pageSize, setPageSize] = useState<string>("50");
+  const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
   const contrastChecker = useContrastChecker();
 
@@ -235,9 +235,9 @@ export function TokensPage() {
     return next;
   }, [entries, search, collection, type, sort, usageByPath]);
 
-  const allowShowAll = filtered.length >= 350;
+  const allowShowAll = filtered.length >= 175;
   const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(50, filtered.length)),
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filtered.length)),
     [filtered.length],
   );
   const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filtered.length : Number(pageSize);
@@ -250,13 +250,13 @@ export function TokensPage() {
 
   useEffect(() => {
     if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
-      setPageSize("50");
+      setPageSize("25");
       return;
     }
     if (pageSize !== PAGE_SIZE_ALL) {
       const numericValue = Number(pageSize);
       if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 50;
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
         setPageSize(String(fallback));
         return;
       }
@@ -500,7 +500,7 @@ export function TokensPage() {
           ) : null}
 
           {shouldPaginate ? (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
                 Showing {pageStart}-{pageEnd} of {filtered.length}
               </p>
@@ -650,7 +650,7 @@ export function TokensPage() {
           </Table>
 
           {shouldPaginate ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
                 Showing {pageStart}-{pageEnd} of {filtered.length}
               </p>
