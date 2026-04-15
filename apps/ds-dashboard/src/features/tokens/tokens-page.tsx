@@ -500,7 +500,7 @@ export function TokensPage() {
           ) : null}
 
           {shouldPaginate ? (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
                 Showing {pageStart}-{pageEnd} of {filtered.length}
               </p>

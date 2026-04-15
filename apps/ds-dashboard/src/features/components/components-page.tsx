@@ -11,6 +11,7 @@ import { useSortState } from "@/lib/use-sort-state";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Select } from "@/components/ui/select";
@@ -28,6 +29,9 @@ type SortField =
   | "spec_exists"
   | "usage_count";
 
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
+
 function specBadgeVariant(exists: boolean) {
   return exists ? ("success" as const) : ("neutral" as const);
 }
@@ -41,6 +45,8 @@ export function ComponentsPage() {
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
   const [specFilter, setSpecFilter] = useState("all");
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
   const [sort, toggleSort] = useSortState<SortField>({
     field: "display_name",
     dir: "asc",
@@ -109,6 +115,48 @@ export function ComponentsPage() {
     return { total, withSpec };
   }, [rows]);
 
+  const allowShowAll = filtered.length >= 175;
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filtered.length)),
+    [filtered.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filtered.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    filtered.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
+
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
+      setPageSize("25");
+      return;
+    }
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [allowShowAll, pageSize, pageSizeOptions, search, specFilter]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedComponents = useMemo(() => {
+    if (!shouldPaginate) return filtered;
+    const start = (currentPage - 1) * pageSizeValue;
+    return filtered.slice(start, start + pageSizeValue);
+  }, [currentPage, filtered, pageSizeValue, shouldPaginate]);
+
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : filtered.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(filtered.length, currentPage * pageSizeValue) : filtered.length;
+
   const displayNameBySlug = useMemo(() => {
     const map: Record<string, string> = {};
     for (const row of rows) {
@@ -138,6 +186,26 @@ export function ComponentsPage() {
             onSearch={setSearch}
             searchPlaceholder="Buscar por nombre o slug"
             count={filtered.length}
+            rightSlot={(
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Rows</span>
+                <Select
+                  value={pageSize}
+                  onChange={(event) => setPageSize(event.target.value)}
+                  className="w-[132px]"
+                  aria-label="Rows per page"
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={String(size)}>
+                      {size}
+                    </option>
+                  ))}
+                  {allowShowAll ? (
+                    <option value={PAGE_SIZE_ALL}>All</option>
+                  ) : null}
+                </Select>
+              </div>
+            )}
           >
             <Select
               value={specFilter}
@@ -151,6 +219,35 @@ export function ComponentsPage() {
 
           {error ? (
             <ApiErrorMessage error={error} />
+          ) : null}
+
+          {shouldPaginate ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
           ) : null}
 
           <Table>
@@ -181,7 +278,7 @@ export function ComponentsPage() {
                       </TableCell>
                     </TableRow>
                   ))
-                : filtered.map((item) => (
+                : pagedComponents.map((item) => (
                     <TableRow key={item.slug}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -234,6 +331,35 @@ export function ComponentsPage() {
                   ))}
             </TableBody>
           </Table>
+
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {filtered.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
       </div>
     </div>
   );
