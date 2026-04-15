@@ -179,7 +179,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
               id="system-name"
               value={form.systemName}
               onChange={(e) => actions.onFieldChange("systemName", e.target.value)}
-              placeholder="e.g., Acme Design System"
+              placeholder="e.g., My Design System"
               className="mt-1"
             />
             <p className="mt-1 text-xs text-muted-foreground">Generated ID: {derived.generatedSystemId || "—"}</p>

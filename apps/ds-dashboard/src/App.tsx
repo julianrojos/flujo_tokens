@@ -177,7 +177,6 @@ class PaletteErrorBoundary extends Component<{ children: ReactNode }, { hasError
 type NavItem = {
   to: string;
   label: string;
-  description: string;
   icon: LucideIcon;
 };
 
@@ -194,20 +193,17 @@ const navSections: NavSection[] = [
     items: [
       {
         to: ROUTE_PATTERNS.health,
-        label: "Health",
-        description: "Operational status",
+        label: "System",
         icon: Activity,
       },
       {
         to: ROUTE_PATTERNS.systemAdmin,
         label: "Design Systems Admin",
-        description: "Manage system configuration",
         icon: Settings2,
       },
       {
         to: ROUTE_PATTERNS.consumers,
         label: "Consumer Files",
-        description: "Cross-file usage tracking",
         icon: Network,
       },
     ],
@@ -218,8 +214,7 @@ const navSections: NavSection[] = [
     items: [
       {
         to: ROUTE_PATTERNS.tokens,
-        label: "Explore",
-        description: "Registry and properties",
+        label: "Tokens",
         icon: Layers3,
       },
     ],
@@ -230,8 +225,7 @@ const navSections: NavSection[] = [
     items: [
       {
         to: ROUTE_PATTERNS.components,
-        label: "Explore",
-        description: "Status and docs pipeline",
+        label: "Components",
         icon: Boxes,
       },
     ],
@@ -349,9 +343,6 @@ export default function App() {
                                     </span>
                                     <div className={cn(sidebarCollapsed && "hidden")}>
                                       <p className="text-sm font-semibold text-white">{item.label}</p>
-                                      <p className="text-xs text-white/70">
-                                        {item.description}
-                                      </p>
                                     </div>
                                   </div>
                                 </SidebarMenuButton>
@@ -421,7 +412,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                  className="hidden shrink-0 items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/70 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
+                  className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-card/70 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
                   onClick={() => setCommandPaletteOpen(true)}
                 >
                   <span className="inline-flex items-center gap-2">
