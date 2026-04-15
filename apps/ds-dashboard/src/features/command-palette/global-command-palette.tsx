@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   Boxes,
@@ -8,7 +8,7 @@ import {
   RefreshCcw,
   Search,
   X,
-} from "lucide-react";
+} from 'lucide-react';
 
 import {
   refreshComponentsHealth,
@@ -16,17 +16,15 @@ import {
   refreshTokenGraph,
   refreshTokenHealth,
   refreshTokenUsageIndex,
-} from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Modal,
-  ModalContent,
-} from "@/components/ui/overlay";
-import { ApiErrorMessage } from "@/components/api-error-message";
-import { ROUTE_PATTERNS } from "@/lib/routes";
-import { useGlobalSearch, type GlobalSearchItem } from "./use-global-search";
+} from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal, ModalContent } from '@/components/ui/overlay';
+import { ApiErrorMessage } from '@/components/api-error-message';
+import { ROUTE_PATTERNS, toSystemOverview } from '@/lib/routes';
+import { useDesignSystem } from '@/lib/design-system-context';
+import { useGlobalSearch, type GlobalSearchItem } from './use-global-search';
 
 interface GlobalCommandPaletteProps {
   open: boolean;
@@ -42,11 +40,13 @@ type ActionItem = {
 };
 
 type DisplayItem =
-  | { type: "action"; key: string; action: ActionItem }
-  | { type: "search"; key: string; item: GlobalSearchItem };
+  | { type: 'action'; key: string; action: ActionItem }
+  | { type: 'search'; key: string; item: GlobalSearchItem };
 
 function normalize(value: string) {
-  return String(value || "").toLowerCase().trim();
+  return String(value || '')
+    .toLowerCase()
+    .trim();
 }
 
 function isSubsequence(needle: string, haystack: string) {
@@ -86,23 +86,23 @@ function scoreMatch(query: string, strings: string[]) {
   return score;
 }
 
-function kindLabel(kind: GlobalSearchItem["kind"]) {
-  if (kind === "token") return "Tokens";
-  if (kind === "component") return "Components";
-  return "System";
+function kindLabel(kind: GlobalSearchItem['kind']) {
+  if (kind === 'token') return 'Tokens';
+  if (kind === 'component') return 'Components';
+  return 'System';
 }
 
-function kindIcon(kind: GlobalSearchItem["kind"]) {
-  if (kind === "token") return <Layers3 className="h-4 w-4" />;
-  if (kind === "component") return <Boxes className="h-4 w-4" />;
+function kindIcon(kind: GlobalSearchItem['kind']) {
+  if (kind === 'token') return <Layers3 className="h-4 w-4" />;
+  if (kind === 'component') return <Boxes className="h-4 w-4" />;
   return <AlertTriangle className="h-4 w-4" />;
 }
 
 function groupByKind(items: GlobalSearchItem[]) {
   return {
-    token: items.filter((item) => item.kind === "token"),
-    component: items.filter((item) => item.kind === "component"),
-    "health-issue": items.filter((item) => item.kind === "health-issue"),
+    token: items.filter((item) => item.kind === 'token'),
+    component: items.filter((item) => item.kind === 'component'),
+    'health-issue': items.filter((item) => item.kind === 'health-issue'),
   };
 }
 
@@ -112,14 +112,15 @@ export function GlobalCommandPalette({
 }: GlobalCommandPaletteProps) {
   const navigate = useNavigate();
   const { items, loading, error, reloadIndex } = useGlobalSearch();
-  const [query, setQuery] = useState("");
+  const { activeSystem, systems } = useDesignSystem();
+  const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setQuery("");
+    setQuery('');
     setSelectedIndex(0);
     setStatusMessage(null);
   }, [open]);
@@ -127,78 +128,83 @@ export function GlobalCommandPalette({
   const actions = useMemo<ActionItem[]>(
     () => [
       {
-        id: "go:system",
-        title: "Open System Dashboard",
-        subtitle: `Go to ${ROUTE_PATTERNS.system}`,
-        keywords: ["open", "system", "dashboard"],
-        run: () => navigate(ROUTE_PATTERNS.system),
+        id: 'go:system',
+        title: 'Open System Dashboard',
+        subtitle: activeSystem
+          ? `Go to ${toSystemOverview(activeSystem)}`
+          : 'Open the active system dashboard',
+        keywords: ['open', 'system', 'dashboard'],
+        run: () =>
+          activeSystem
+            ? navigate(toSystemOverview(activeSystem))
+            : navigate(ROUTE_PATTERNS.newSystem),
       },
       {
-        id: "go:tokens",
-        title: "Open Tokens",
+        id: 'go:tokens',
+        title: 'Open Tokens',
         subtitle: `Go to ${ROUTE_PATTERNS.tokens}`,
-        keywords: ["open", "tokens", "properties"],
+        keywords: ['open', 'tokens', 'properties'],
         run: () => navigate(ROUTE_PATTERNS.tokens),
       },
       {
-        id: "go:components",
-        title: "Open Components",
+        id: 'go:components',
+        title: 'Open Components',
         subtitle: `Go to ${ROUTE_PATTERNS.components}`,
-        keywords: ["open", "components"],
+        keywords: ['open', 'components'],
         run: () => navigate(ROUTE_PATTERNS.components),
       },
       {
-        id: "refresh:registry",
-        title: "Refresh Registry",
-        subtitle: "Run ds:registry:refresh",
-        keywords: ["refresh", "registry", "pipeline"],
+        id: 'refresh:registry',
+        title: 'Refresh Registry',
+        subtitle: 'Run ds:registry:refresh',
+        keywords: ['refresh', 'registry', 'pipeline'],
         run: async () => {
           await refreshRegistry();
           await reloadIndex();
         },
       },
       {
-        id: "refresh:usage",
-        title: "Refresh Token Usage Index",
-        subtitle: "Run ds:token-usage-index",
-        keywords: ["refresh", "usage", "tokens"],
+        id: 'refresh:usage',
+        title: 'Refresh Token Usage Index',
+        subtitle: 'Run ds:token-usage-index',
+        keywords: ['refresh', 'usage', 'tokens'],
         run: async () => {
           await refreshTokenUsageIndex();
           await reloadIndex();
         },
       },
       {
-        id: "refresh:graph",
-        title: "Refresh Token Graph",
-        subtitle: "Run ds:token-graph",
-        keywords: ["refresh", "graph", "tokens"],
+        id: 'refresh:graph',
+        title: 'Refresh Token Graph',
+        subtitle: 'Run ds:token-graph',
+        keywords: ['refresh', 'graph', 'tokens'],
         run: async () => {
           await refreshTokenGraph();
           await reloadIndex();
         },
       },
       {
-        id: "refresh:token-health",
-        title: "Refresh Token System",
-        subtitle: "Run ds:token-health",
-        keywords: ["refresh", "token", "system", "health"],
+        id: 'refresh:token-health',
+        title: 'Refresh Token System',
+        subtitle: 'Run ds:token-health',
+        keywords: ['refresh', 'token', 'system', 'health'],
         run: async () => {
           await refreshTokenHealth();
           await reloadIndex();
         },
       },
       {
-        id: "refresh:components-health",
-        title: "Refresh Components System",
-        subtitle: "Run ds:registry:report",
-        keywords: ["refresh", "components", "system", "health"],
+        id: 'refresh:components-health',
+        title: 'Refresh Components System',
+        subtitle: 'Run ds:registry:report',
+        keywords: ['refresh', 'components', 'system', 'health'],
         run: async () => {
           await refreshComponentsHealth();
           await reloadIndex();
         },
       },
     ],
-    [navigate, reloadIndex],
+    [navigate, reloadIndex, activeSystem],
   );
 
   const filteredActions = useMemo(() => {
@@ -208,7 +214,7 @@ export function GlobalCommandPalette({
         action,
         score: scoreMatch(query, [
           action.title,
-          action.subtitle || "",
+          action.subtitle || '',
           ...action.keywords,
         ]),
       }))
@@ -224,7 +230,7 @@ export function GlobalCommandPalette({
         item,
         score: scoreMatch(query, [
           item.title,
-          item.subtitle || "",
+          item.subtitle || '',
           ...item.keywords,
         ]),
       }))
@@ -241,10 +247,10 @@ export function GlobalCommandPalette({
   const displayItems = useMemo<DisplayItem[]>(() => {
     const list: DisplayItem[] = [];
     for (const action of filteredActions) {
-      list.push({ type: "action", key: `action:${action.id}`, action });
+      list.push({ type: 'action', key: `action:${action.id}`, action });
     }
     for (const item of filteredSearchItems) {
-      list.push({ type: "search", key: item.id, item });
+      list.push({ type: 'search', key: item.id, item });
     }
     return list;
   }, [filteredActions, filteredSearchItems]);
@@ -261,7 +267,7 @@ export function GlobalCommandPalette({
     const row = document.querySelector<HTMLElement>(
       `[data-command-index="${selectedIndex}"]`,
     );
-    row?.scrollIntoView({ block: "nearest" });
+    row?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex, displayItems, open]);
 
   const close = () => onOpenChange(false);
@@ -271,7 +277,7 @@ export function GlobalCommandPalette({
     setRunningActionId(action.id);
     try {
       await action.run();
-      setStatusMessage("Action executed.");
+      setStatusMessage('Action executed.');
       close();
     } catch (cause) {
       setStatusMessage(cause instanceof Error ? cause.message : String(cause));
@@ -288,36 +294,36 @@ export function GlobalCommandPalette({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === 'Escape') {
         event.preventDefault();
         close();
         return;
       }
-      if (event.key === "ArrowDown") {
+      if (event.key === 'ArrowDown') {
         event.preventDefault();
         setSelectedIndex((prev) =>
           Math.min(prev + 1, Math.max(displayItems.length - 1, 0)),
         );
         return;
       }
-      if (event.key === "ArrowUp") {
+      if (event.key === 'ArrowUp') {
         event.preventDefault();
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
         return;
       }
-      if (event.key === "Enter") {
+      if (event.key === 'Enter') {
         event.preventDefault();
         const selected = displayItems[selectedIndex];
         if (!selected) return;
-        if (selected.type === "action") {
+        if (selected.type === 'action') {
           void runAction(selected.action);
           return;
         }
         openItem(selected.item);
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [displayItems, open, selectedIndex]);
 
   let itemIndex = -1;
@@ -332,13 +338,18 @@ export function GlobalCommandPalette({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
               loading
-                ? "Loading search index..."
-                : "Search tokens, components, system issues, actions..."
+                ? 'Loading search index...'
+                : 'Search tokens, components, system issues, actions...'
             }
             className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
             autoFocus
           />
-          <Button variant="ghost" size="sm" onClick={close} aria-label="Close command palette">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={close}
+            aria-label="Close command palette"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -350,9 +361,7 @@ export function GlobalCommandPalette({
             </div>
           ) : null}
 
-          {!loading && error ? (
-            <ApiErrorMessage error={error} />
-          ) : null}
+          {!loading && error ? <ApiErrorMessage error={error} /> : null}
 
           {!loading ? (
             <>
@@ -370,11 +379,11 @@ export function GlobalCommandPalette({
                       type="button"
                       data-command-index={index}
                       className={[
-                        "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
+                        'flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition',
                         selected
-                          ? "border-primary/50 bg-primary/10"
-                          : "border-transparent hover:border-border/70 hover:bg-accent/50",
-                      ].join(" ")}
+                          ? 'border-primary/50 bg-primary/10'
+                          : 'border-transparent hover:border-border/70 hover:bg-accent/50',
+                      ].join(' ')}
                       onMouseEnter={() => setSelectedIndex(index)}
                       onClick={() => {
                         void runAction(action);
@@ -404,54 +413,58 @@ export function GlobalCommandPalette({
 
               {query.trim() ? (
                 <>
-                  {(["token", "component", "health-issue"] as const).map((kind) => {
-                    const list = grouped[kind];
-                    if (!list.length) return null;
-                    return (
-                      <div key={kind} className="mt-4">
-                        <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                          {kindLabel(kind)} ({list.length})
-                        </div>
-                        <div className="space-y-1">
-                          {list.map((item) => {
-                            itemIndex += 1;
-                            const index = itemIndex;
-                            const selected = selectedIndex === index;
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                data-command-index={index}
-                                className={[
-                                  "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
-                                  selected
-                                    ? "border-primary/50 bg-primary/10"
-                                    : "border-transparent hover:border-border/70 hover:bg-accent/50",
-                                ].join(" ")}
-                                onMouseEnter={() => setSelectedIndex(index)}
-                                onClick={() => openItem(item)}
-                              >
-                                <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5 text-muted-foreground">
-                                  {kindIcon(item.kind)}
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-medium">
-                                    {item.title}
+                  {(['token', 'component', 'health-issue'] as const).map(
+                    (kind) => {
+                      const list = grouped[kind];
+                      if (!list.length) return null;
+                      return (
+                        <div key={kind} className="mt-4">
+                          <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                            {kindLabel(kind)} ({list.length})
+                          </div>
+                          <div className="space-y-1">
+                            {list.map((item) => {
+                              itemIndex += 1;
+                              const index = itemIndex;
+                              const selected = selectedIndex === index;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  data-command-index={index}
+                                  className={[
+                                    'flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition',
+                                    selected
+                                      ? 'border-primary/50 bg-primary/10'
+                                      : 'border-transparent hover:border-border/70 hover:bg-accent/50',
+                                  ].join(' ')}
+                                  onMouseEnter={() => setSelectedIndex(index)}
+                                  onClick={() => openItem(item)}
+                                >
+                                  <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5 text-muted-foreground">
+                                    {kindIcon(item.kind)}
                                   </span>
-                                  {item.subtitle ? (
-                                    <span className="block truncate text-xs text-muted-foreground">
-                                      {item.subtitle}
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium">
+                                      {item.title}
                                     </span>
-                                  ) : null}
-                                </span>
-                                <Badge variant="neutral">{kindLabel(item.kind)}</Badge>
-                              </button>
-                            );
-                          })}
+                                    {item.subtitle ? (
+                                      <span className="block truncate text-xs text-muted-foreground">
+                                        {item.subtitle}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <Badge variant="neutral">
+                                    {kindLabel(item.kind)}
+                                  </Badge>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    },
+                  )}
                 </>
               ) : null}
 
@@ -475,17 +488,17 @@ export function GlobalCommandPalette({
         <div className="flex items-center justify-between border-t border-border/70 px-4 py-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5">↑</kbd>{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5">↓</kbd>{" "}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">↑</kbd>{' '}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">↓</kbd>{' '}
               navigate
             </span>
             <span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd>{" "}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd>{' '}
               open
             </span>
           </div>
           <div>
-            <kbd className="rounded border bg-muted px-1.5 py-0.5">Esc</kbd>{" "}
+            <kbd className="rounded border bg-muted px-1.5 py-0.5">Esc</kbd>{' '}
             close
           </div>
         </div>

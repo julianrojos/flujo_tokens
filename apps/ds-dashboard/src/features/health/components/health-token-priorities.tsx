@@ -70,7 +70,7 @@ export function HealthTokenPriorities({
             )}
           </div>
         </div>
-        <div>
+        <div id="high-coupling-tokens">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             High coupling ({highCouplingTokens.length})
           </h4>

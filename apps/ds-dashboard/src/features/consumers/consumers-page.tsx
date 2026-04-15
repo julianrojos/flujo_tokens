@@ -1,24 +1,29 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { PageHeader } from "@/components/composites/page-header";
-import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
-import { Button } from "@/components/ui/button";
-import { Network } from "lucide-react";
-import { ConsumerTabByFile } from "./components/consumer-tab-by-file";
-import { ConsumerTabByComponent } from "./components/consumer-tab-by-component";
-import { ConsumerTabByVariable } from "./components/consumer-tab-by-variable";
-import { AddConsumerModal } from "./components/add-consumer-modal";
-import { useDsFileKey } from "@/hooks/use-ds-file-key";
+import { PageHeader } from '@/components/composites/page-header';
+import {
+  EmptyState,
+  EmptyStateAction,
+} from '@/components/composites/empty-state';
+import { Button } from '@/components/ui/button';
+import { Network } from 'lucide-react';
+import { ConsumerTabByFile } from './components/consumer-tab-by-file';
+import { ConsumerTabByComponent } from './components/consumer-tab-by-component';
+import { ConsumerTabByVariable } from './components/consumer-tab-by-variable';
+import { AddConsumerModal } from './components/add-consumer-modal';
+import { useDsFileKey } from '@/hooks/use-ds-file-key';
+import { useDesignSystem } from '@/lib/design-system-context';
+import { toSystemAdmin } from '@/lib/routes';
 
-type TabKey = "by-file" | "by-component" | "by-variable";
-const TAB_KEYS: TabKey[] = ["by-file", "by-component", "by-variable"];
+type TabKey = 'by-file' | 'by-component' | 'by-variable';
+const TAB_KEYS: TabKey[] = ['by-file', 'by-component', 'by-variable'];
 
 function resolveActiveTab(value: string | null): TabKey {
   if (value && TAB_KEYS.includes(value as TabKey)) {
     return value as TabKey;
   }
-  return "by-file";
+  return 'by-file';
 }
 
 export function ConsumersPage() {
@@ -27,21 +32,22 @@ export function ConsumersPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
+  const { activeSystem } = useDesignSystem();
 
-  const activeTab = resolveActiveTab(searchParams.get("tab"));
+  const activeTab = resolveActiveTab(searchParams.get('tab'));
 
   const setActiveTab = (tab: TabKey) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set("tab", tab);
+      next.set('tab', tab);
       return next;
     });
   };
 
   const tabs: Array<{ key: TabKey; label: string }> = [
-    { key: "by-file", label: "By File" },
-    { key: "by-component", label: "By Component" },
-    { key: "by-variable", label: "By Variable" },
+    { key: 'by-file', label: 'By File' },
+    { key: 'by-component', label: 'By Component' },
+    { key: 'by-variable', label: 'By Variable' },
   ];
 
   if (resolvingDsFileKey) {
@@ -52,7 +58,9 @@ export function ConsumersPage() {
           description="Cross-file usage tracking for design system tokens"
         />
         <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Loading consumer context...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading consumer context...
+          </p>
         </div>
       </div>
     );
@@ -70,7 +78,11 @@ export function ConsumersPage() {
           title="No Figma File ID configured"
           description="Set the Figma File ID in Design Systems Admin to enable consumer file tracking."
           action={
-            <EmptyStateAction onClick={() => navigate("/system/admin")}>
+            <EmptyStateAction
+              onClick={() =>
+                navigate(activeSystem ? toSystemAdmin(activeSystem) : '/new')
+              }
+            >
               Go to Admin
             </EmptyStateAction>
           }
@@ -91,7 +103,7 @@ export function ConsumersPage() {
           {tabs.map((tab) => (
             <Button
               key={tab.key}
-              variant={activeTab === tab.key ? "default" : "outline"}
+              variant={activeTab === tab.key ? 'default' : 'outline'}
               size="sm"
               onClick={() => setActiveTab(tab.key)}
             >
@@ -99,20 +111,28 @@ export function ConsumersPage() {
             </Button>
           ))}
         </div>
-        <Button variant="outline" size="sm" onClick={() => setAddModalOpen(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAddModalOpen(true)}
+        >
           Add Consumer File
         </Button>
       </div>
 
-      {activeTab === "by-file" && (
+      {activeTab === 'by-file' && (
         <ConsumerTabByFile
           dsFileKey={dsFileKey}
           reloadToken={reloadToken}
           onAddConsumer={() => setAddModalOpen(true)}
         />
       )}
-      {activeTab === "by-component" && <ConsumerTabByComponent dsFileKey={dsFileKey} />}
-      {activeTab === "by-variable" && <ConsumerTabByVariable dsFileKey={dsFileKey} />}
+      {activeTab === 'by-component' && (
+        <ConsumerTabByComponent dsFileKey={dsFileKey} />
+      )}
+      {activeTab === 'by-variable' && (
+        <ConsumerTabByVariable dsFileKey={dsFileKey} />
+      )}
 
       <AddConsumerModal
         open={addModalOpen}
