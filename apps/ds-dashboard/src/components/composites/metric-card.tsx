@@ -54,7 +54,7 @@ export function MetricCard({
             ) : null}
           </div>
           {icon ? (
-            <div className="rounded-lg border border-border/70 bg-surface-2 p-2 text-muted-foreground">
+            <div className="rounded border border-border/70 bg-surface-2 p-2 text-muted-foreground">
               {icon}
             </div>
           ) : null}

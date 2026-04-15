@@ -60,7 +60,7 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
           <label htmlFor={purposeId} className="text-sm font-medium">Purpose</label>
           <textarea
             id={purposeId}
-            className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+            className="min-h-[100px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
             value={value.purpose}
             onChange={(e) => onChange({ ...value, purpose: e.target.value })}
             rows={4}
@@ -71,7 +71,7 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
             <label htmlFor={whenToUseId} className="text-sm font-medium">When to use</label>
             <textarea
               id={whenToUseId}
-              className="min-h-[90px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+              className="min-h-[90px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
               value={value.whenToUse}
               onChange={(e) => onChange({ ...value, whenToUse: e.target.value })}
               rows={3}
@@ -81,7 +81,7 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
             <label htmlFor={whenNotToUseId} className="text-sm font-medium">When not to use</label>
             <textarea
               id={whenNotToUseId}
-              className="min-h-[90px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+              className="min-h-[90px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
               value={value.whenNotToUse}
               onChange={(e) => onChange({ ...value, whenNotToUse: e.target.value })}
               rows={3}
@@ -111,7 +111,7 @@ export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
         <label htmlFor={behaviourId} className="text-sm font-medium">Behaviour</label>
         <textarea
           id={behaviourId}
-          className="min-h-[100px] w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm"
+          className="min-h-[100px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={4}
@@ -208,7 +208,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                   <label htmlFor={`${variantsIdBase}-name-${i}`} className="sr-only">Variant name</label>
                   <input
                     id={`${variantsIdBase}-name-${i}`}
-                    className="flex-1 rounded-md border border-border bg-surface-1 px-2 py-1 text-sm font-medium"
+                    className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-sm font-medium"
                     value={v.name}
                     onChange={(e) => updateVariant(i, 'name', e.target.value)}
                     placeholder="Variant name"
@@ -225,7 +225,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                 <label htmlFor={`${variantsIdBase}-desc-${i}`} className="sr-only">Description</label>
                 <input
                   id={`${variantsIdBase}-desc-${i}`}
-                  className="mb-2 w-full rounded-md border border-border bg-surface-1 px-2 py-1 text-sm"
+                  className="mb-2 w-full rounded border border-border bg-surface-1 px-2 py-1 text-sm"
                   value={v.description}
                   onChange={(e) => updateVariant(i, 'description', e.target.value)}
                   placeholder="Description"
@@ -344,7 +344,7 @@ function StringListEditor({
               <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
               <textarea
                 id={`${idBase}-${i}`}
-                className="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+                className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm"
                 value={item}
                 onChange={(e) => updateItem(i, e.target.value)}
                 rows={2}
@@ -399,7 +399,7 @@ function StringListCard({
                 <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
                 <textarea
                   id={`${idBase}-${i}`}
-                  className="flex-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-sm"
+                  className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm"
                   value={item}
                   onChange={(e) => updateItem(i, e.target.value)}
                   rows={2}
@@ -480,7 +480,7 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
           <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
           <select
             id="accessibility-role"
-            className="h-10 w-full rounded-md border border-border bg-surface-1 px-3 text-sm"
+            className="h-10 w-full rounded border border-border bg-surface-1 px-3 text-sm"
             value={value.role}
             onChange={(e) => onChange({ ...value, role: e.target.value })}
           >

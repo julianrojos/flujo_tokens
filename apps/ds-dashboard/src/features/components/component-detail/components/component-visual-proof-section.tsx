@@ -247,7 +247,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
           </div>
         )}
         {captureSummary && (
-          <div className="rounded-lg border border-border bg-muted p-3 text-sm">
+          <div className="rounded border border-border bg-muted p-3 text-sm">
             <h4 className="mb-1 font-semibold">Last capture</h4>
             <pre className="whitespace-pre-wrap text-xs">{captureSummary}</pre>
           </div>

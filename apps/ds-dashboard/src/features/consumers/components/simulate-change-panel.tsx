@@ -130,11 +130,11 @@ export function SimulateChangePanel({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+                <div className="rounded border border-border bg-muted/50 p-3 text-center">
                   <p className="text-2xl font-bold">{result.totalNodes}</p>
                   <p className="text-xs text-muted-foreground">total nodes</p>
                 </div>
-                <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+                <div className="rounded border border-border bg-muted/50 p-3 text-center">
                   <p className="text-2xl font-bold">{result.totalConsumers}</p>
                   <p className="text-xs text-muted-foreground">consumers</p>
                 </div>
@@ -156,7 +156,7 @@ export function SimulateChangePanel({
                   {result.affectedConsumers.map((consumer) => (
                     <div
                       key={consumer.consumerId}
-                      className="rounded-lg border border-border bg-card p-3"
+                      className="rounded border border-border bg-card p-3"
                     >
                       <div className="flex items-center justify-between">
                         <div className="min-w-0 flex-1">

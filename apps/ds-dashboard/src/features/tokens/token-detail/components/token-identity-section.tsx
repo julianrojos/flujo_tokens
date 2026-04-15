@@ -29,7 +29,7 @@ export function TokenIdentitySection({
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="mt-1 flex h-12 min-w-12 items-center justify-center rounded-lg border border-border bg-muted/20 px-2">
+            <div className="mt-1 flex h-12 min-w-12 items-center justify-center rounded border border-border bg-muted/20 px-2">
               {swatch ? (
                 <span
                   className="h-8 w-8 rounded-md border border-border shadow-sm"

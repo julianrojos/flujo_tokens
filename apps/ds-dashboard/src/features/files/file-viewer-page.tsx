@@ -135,12 +135,12 @@ export function FileViewerPage() {
               <div className="text-xs text-muted-foreground">
                 Lines {snippet.startLine}–{snippet.endLine} (matched by {snippet.matchedBy})
               </div>
-              <pre className="max-h-[60vh] overflow-auto rounded-lg border border-border bg-muted/40 p-4 text-xs">
+              <pre className="max-h-[60vh] overflow-auto rounded border border-border bg-muted/40 p-4 text-xs">
                 <code className="font-mono">{snippet.snippet}</code>
               </pre>
             </div>
           ) : content ? (
-            <pre className="max-h-[60vh] overflow-auto rounded-lg border border-border bg-muted/40 p-4 text-xs">
+            <pre className="max-h-[60vh] overflow-auto rounded border border-border bg-muted/40 p-4 text-xs">
               <code className="font-mono">{content}</code>
             </pre>
           ) : (

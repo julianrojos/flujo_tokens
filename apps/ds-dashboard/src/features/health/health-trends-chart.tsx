@@ -124,7 +124,7 @@ function NumericLineChart({
         <h4 className="text-sm font-semibold">{title}</h4>
         <span className="text-xs text-muted-foreground">{valueLabel}</span>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border/70 bg-background/60">
+      <div className="overflow-x-auto rounded border border-border/70 bg-background/60">
         <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full min-w-[720px]">
           {yTicks.map((tick) => {
             const y = 10 + ((height - 32) * (1 - tick / safeMax));
@@ -278,7 +278,7 @@ export function HealthTrendsChart({
 
             {latest && oldest ? (
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+                <div className="rounded border border-border/70 bg-background/60 p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Coverage delta
                   </div>
@@ -287,13 +287,13 @@ export function HealthTrendsChart({
                     {deltaCoverage}%
                   </div>
                 </div>
-                <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+                <div className="rounded border border-border/70 bg-background/60 p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Latest unresolved
                   </div>
                   <div className="mt-1 text-lg font-semibold">{latest.unresolved}</div>
                 </div>
-                <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+                <div className="rounded border border-border/70 bg-background/60 p-3">
                   <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Latest captured
                   </div>

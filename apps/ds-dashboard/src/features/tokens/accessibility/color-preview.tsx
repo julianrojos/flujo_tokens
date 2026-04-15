@@ -28,7 +28,7 @@ export function ColorPreview({
   elementType,
 }: ColorPreviewProps) {
   return (
-    <div className="rounded-lg border border-border/70 p-4">
+    <div className="rounded border border-border/70 p-4">
       <p className="text-sm font-semibold">Preview</p>
       <div
         className="mt-2 flex min-h-[72px] items-center justify-center rounded-md border border-border/60 p-4"

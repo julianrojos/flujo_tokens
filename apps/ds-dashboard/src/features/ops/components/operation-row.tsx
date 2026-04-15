@@ -49,7 +49,7 @@ export function OperationRow({
       : undefined;
 
   return (
-    <div className="flex flex-col rounded-lg border border-border/70 bg-card shadow-sm overflow-hidden">
+    <div className="flex flex-col rounded border border-border/70 bg-card shadow-sm overflow-hidden">
       {/* Header row */}
       <div className="flex items-center justify-between px-4 py-3 bg-muted/20">
         <div className="flex-1 min-w-0">

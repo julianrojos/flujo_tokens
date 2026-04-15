@@ -185,7 +185,7 @@ export function AppBreadcrumb({ className }: { className?: string }) {
   if (crumbs.length === 0) return null;
 
   return (
-    <div className={cn("rounded-lg bg-card/70 px-3 py-2 pl-0", className)}>
+    <div className={cn("rounded bg-card/70 px-3 py-2 pl-0", className)}>
       <nav aria-label="Breadcrumb">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs">
           {crumbs.map((crumb, index) => {

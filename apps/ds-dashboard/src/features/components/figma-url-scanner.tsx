@@ -459,7 +459,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         {showAdvanced && (
           <div
             id={advancedOptionsId}
-            className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-sm"
+            className="rounded border border-border bg-muted/30 p-3 space-y-3 text-sm"
           >
             <div className="flex items-center gap-2">
               <span className="w-36 text-xs text-muted-foreground">Figma token (optional)</span>

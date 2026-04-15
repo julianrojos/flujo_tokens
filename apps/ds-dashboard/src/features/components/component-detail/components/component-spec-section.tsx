@@ -104,7 +104,7 @@ export function ComponentSpecSection({
         {spec ? (
           <ComponentSpecViewer spec={spec} />
         ) : (
-          <div className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             No specification yet. Click "Add spec" to create one.
           </div>
         )}

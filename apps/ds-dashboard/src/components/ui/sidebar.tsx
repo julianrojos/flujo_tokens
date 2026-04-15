@@ -20,7 +20,7 @@ export const sidebarGroupLabelVariants = cva(
 export const sidebarMenuVariants = cva("space-y-1");
 export const sidebarMenuItemVariants = cva("list-none");
 export const sidebarMenuButtonVariants = cva(
-  "group w-full rounded-xl border border-transparent px-3 py-3 text-left transition",
+  "group w-full rounded border border-transparent px-3 py-3 text-left transition",
   {
     variants: {
       state: {

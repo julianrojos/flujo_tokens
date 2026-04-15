@@ -84,7 +84,7 @@ export function WizardStepImport({
     (showComponentsStats || showVariableStats) && hasRealProgressData;
 
   const renderImportStats = () => (
-    <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm">
+    <div className="rounded border border-border/70 bg-muted/30 p-3 text-sm">
       <p className="font-medium">Import summary</p>
       <div className="mt-1 flex flex-wrap gap-4 text-xs text-muted-foreground">
         {showComponentsStats ? (
@@ -234,7 +234,7 @@ export function WizardStepImport({
               </Button>
             </div>
             {showDetails && errorDetails && (
-              <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted p-3 text-xs">
+              <pre className="max-h-64 overflow-auto rounded border border-border bg-muted p-3 text-xs">
                 {errorDetails}
               </pre>
             )}

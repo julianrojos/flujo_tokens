@@ -598,7 +598,7 @@ export function EditComponentDocsPage() {
           )}
         </div>
         {isMobile && hasSuggestion && (
-          <div className="flex gap-1 rounded-lg border border-border p-0.5">
+          <div className="flex gap-1 rounded border border-border p-0.5">
             <Button
               variant={!showAiPanel ? 'outline' : 'ghost'}
               size="sm"

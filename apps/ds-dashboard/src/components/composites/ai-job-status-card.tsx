@@ -147,14 +147,14 @@ function ValidationReportPanel({
         if (jobStatus !== 'completed' || pipelineStage) return null;
         if (showFailOpenNotice) {
             return (
-                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="rounded border border-border bg-muted/30 p-4">
                     <p className="text-sm text-muted-foreground">Validation not available (fail-open).</p>
                 </div>
             );
         }
         if (canPublish !== false) return null;
         return (
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <div className="rounded border border-border bg-muted/30 p-4">
                 <p className="text-sm text-muted-foreground">Validation report not available.</p>
             </div>
         );
@@ -167,7 +167,7 @@ function ValidationReportPanel({
             : 'Info';
 
     return (
-        <div className="rounded-lg border border-border bg-background p-4">
+        <div className="rounded border border-border bg-background p-4">
             <div className="mb-3 flex items-center gap-3">
                 <h3 className="text-sm font-semibold text-foreground">Quality Assessment</h3>
                 <Badge variant={severityBadgeVariant[report.severity]}>{severityLabel}</Badge>

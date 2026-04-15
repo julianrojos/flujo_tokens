@@ -355,12 +355,12 @@ export function ConsumerDetailPage() {
           <div className="mt-4 space-y-4">
             {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
             <div className="grid grid-cols-4 gap-4">
-              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+              <div className="rounded border border-border bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
                 <p className="text-xs text-muted-foreground">DS components</p>
               </div>
               <div
-                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
+                className="rounded border border-border bg-muted/50 p-3 text-center"
                 title="Includes local and other-library components not matched to the tracked DS during the last sync"
               >
                 <p className="text-2xl font-bold">
@@ -372,12 +372,12 @@ export function ConsumerDetailPage() {
                   the last sync.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+              <div className="rounded border border-border bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">{consumer.latestSync.variableCount}</p>
                 <p className="text-xs text-muted-foreground">DS variables</p>
               </div>
               <div
-                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
+                className="rounded border border-border bg-muted/50 p-3 text-center"
                 title="Includes local and other-library variable bindings not matched to the tracked DS during the last sync"
               >
                 <p className="text-2xl font-bold">

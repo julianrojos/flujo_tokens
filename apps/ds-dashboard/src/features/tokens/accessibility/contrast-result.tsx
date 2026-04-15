@@ -27,7 +27,7 @@ export function ContrastResult({ result }: ContrastResultProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border/70 p-4">
+    <div className="rounded border border-border/70 p-4">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-sm font-semibold">WCAG 2.2 Contrast</p>
         <Badge variant="neutral">{result.ratio.toFixed(2)} : 1</Badge>

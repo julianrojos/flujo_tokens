@@ -310,19 +310,19 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     <div className="space-y-4">
       {/* KPI Bar */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
+        <div className="rounded border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.total}</p>
           <p className="text-xs text-muted-foreground">Total files</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
+        <div className="rounded border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.syncedToday}</p>
           <p className="text-xs text-muted-foreground">Synced today</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
+        <div className="rounded border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.withWarnings}</p>
           <p className="text-xs text-muted-foreground">With warnings</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
+        <div className="rounded border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.neverSynced}</p>
           <p className="text-xs text-muted-foreground">Never synced</p>
         </div>
@@ -336,7 +336,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             placeholder="Search by name or file key..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-w-0 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
+            className="w-full min-w-0 rounded border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
           />
           <div className="flex flex-shrink-0 gap-1">
             {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (

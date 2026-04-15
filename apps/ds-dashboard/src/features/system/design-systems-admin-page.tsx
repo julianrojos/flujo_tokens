@@ -438,7 +438,7 @@ export function DesignSystemsAdminPage() {
                   </p>
 
                   {deletePreview && deletePreview.totalConsumerCount > 0 ? (
-                    <div className="mb-3 rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="mb-3 rounded border border-border bg-muted/30 p-3">
                       <p className="mb-2 text-sm font-medium text-foreground">
                         This will delete {deletePreview.totalConsumerCount} consumer file(s):
                       </p>

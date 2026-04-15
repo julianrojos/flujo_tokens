@@ -96,7 +96,7 @@ export function DesignSystemUpdateActions({
     (!hasBlockingVariablesContextIssue || allowVariablesWithContextIssues);
 
   return (
-    <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+    <div className="mt-4 rounded border border-border/70 bg-muted/20 p-3">
       <div className="mb-3">
         <h3 className="text-sm font-semibold">Update from Figma</h3>
       </div>
