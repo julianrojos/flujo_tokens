@@ -21,7 +21,6 @@ import {
   Activity,
   Boxes,
   Layers3,
-  Settings2,
   type LucideIcon,
   Search,
   Network,
@@ -48,7 +47,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { Button } from '@/components/ui/button';
-import { ROUTE_PATTERNS, toSystemOverview, toSystemAdmin } from '@/lib/routes';
+import { ROUTE_PATTERNS, toSystemOverview } from '@/lib/routes';
 
 const GlobalCommandPalette = lazy(() =>
   import('@/features/command-palette/global-command-palette').then(
@@ -227,11 +226,6 @@ const navSections: NavSection[] = [
         icon: Activity,
       },
       {
-        to: '__system_admin__',
-        label: 'Design Systems Admin',
-        icon: Settings2,
-      },
-      {
         to: ROUTE_PATTERNS.consumers,
         label: 'Consumer Files',
         icon: Network,
@@ -276,7 +270,8 @@ function SystemEntryRedirect() {
   if (!systems.length) {
     return <Navigate to={ROUTE_PATTERNS.newSystem} replace />;
   }
-  const targetId = activeSystem || systems[0].id;
+  const activeSystemExists = systems.some((system) => system.id === activeSystem);
+  const targetId = activeSystemExists ? activeSystem : systems[0].id;
   return <Navigate to={toSystemOverview(targetId)} replace />;
 }
 
@@ -298,24 +293,15 @@ export default function App() {
           label: 'System',
           icon: Activity,
         },
-        {
-          to: ROUTE_PATTERNS.newSystem,
-          label: 'Design Systems Admin',
-          icon: Settings2,
-        },
       ];
     }
-    const systemId = activeSystem || systems[0].id;
+    const activeSystemExists = systems.some((system) => system.id === activeSystem);
+    const systemId = activeSystemExists ? activeSystem : systems[0].id;
     return [
       {
         to: toSystemOverview(systemId),
         label: 'System',
         icon: Activity,
-      },
-      {
-        to: toSystemAdmin(systemId),
-        label: 'Design Systems Admin',
-        icon: Settings2,
       },
     ];
   }, [activeSystem, systems]);
@@ -355,12 +341,6 @@ export default function App() {
                 return {
                   ...item,
                   to: systemNavItems[0]?.to || '',
-                };
-              }
-              if (item.to === '__system_admin__') {
-                return {
-                  ...item,
-                  to: systemNavItems[1]?.to || '',
                 };
               }
               return item;
