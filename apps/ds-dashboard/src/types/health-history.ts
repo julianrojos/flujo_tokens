@@ -1,14 +1,12 @@
-export type HealthHistoryRange = "7d" | "30d" | "90d";
+export type HealthHistoryRange = '7d' | '30d' | '90d';
 
-export type HealthHistoryBucket = "day" | "week";
+export type HealthHistoryBucket = 'day' | 'week';
 
 export interface HealthHistorySnapshotMetrics {
   breaking_changes: number | null;
   wcag_failures_total: number;
-  coverage_avg: number;
   unresolved_total: number;
   unused_tokens_total: number;
-  without_spec_total: number;
 }
 
 export interface HealthHistorySnapshot {
@@ -16,7 +14,6 @@ export interface HealthHistorySnapshot {
   metrics: HealthHistorySnapshotMetrics;
   fingerprints: {
     token_health: string;
-    components_health: string;
     token_usage: string;
     token_diff: string;
     signature_sha256: string;

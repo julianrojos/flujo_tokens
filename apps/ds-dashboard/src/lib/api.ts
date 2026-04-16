@@ -9,7 +9,6 @@ import type {
   TokenGraphViz,
 } from '@/types/token-graph';
 import type { TokenHealthReport } from '@/types/token-health';
-import type { ComponentsHealthReport } from '@/types/components-health';
 import type {
   CaptureHealthSnapshotResult,
   HealthHistoryBucket,
@@ -394,10 +393,6 @@ export function fetchTokenGraphQuery(args: {
 
 export function fetchTokenHealth() {
   return getJson<TokenHealthReport>('/api/token-health');
-}
-
-export function fetchComponentsHealth() {
-  return getJson<ComponentsHealthReport>('/api/components-health');
 }
 
 export function fetchHealthHistory(args?: {
@@ -804,10 +799,6 @@ export async function refreshTokenGraph(
 
 export async function refreshTokenHealth(options?: QueueWaitOptions) {
   return runQueuedRefresh('/api/refresh-token-health', options);
-}
-
-export async function refreshComponentsHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh('/api/refresh-components-health', options);
 }
 
 export async function regenerateComponentMarkdown(

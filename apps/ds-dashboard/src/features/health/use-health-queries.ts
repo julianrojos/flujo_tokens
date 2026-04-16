@@ -1,37 +1,23 @@
-import {
-  fetchComponentsHealth,
-  fetchHealthHistory,
-  fetchTokenHealth,
-} from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
-import { QUERY_DEFAULTS } from "@/lib/query-client";
-import type { ComponentsHealthReport } from "@/types/components-health";
+import { fetchHealthHistory, fetchTokenHealth } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { QUERY_DEFAULTS } from '@/lib/query-client';
 import type {
   HealthHistoryBucket,
   HealthHistoryRange,
   HealthHistoryReport,
-} from "@/types/health-history";
-import type { TokenHealthReport } from "@/types/token-health";
+} from '@/types/health-history';
+import type { TokenHealthReport } from '@/types/token-health';
 
 export const healthQueryKeys = {
-  token: ["health", "token"] as const,
-  components: ["health", "components"] as const,
+  token: ['health', 'token'] as const,
   history: (range: HealthHistoryRange, bucket: HealthHistoryBucket) =>
-    ["health", "history", range, bucket] as const,
+    ['health', 'history', range, bucket] as const,
 };
 
 export function useTokenHealthQuery() {
   return useQuery<TokenHealthReport>({
     queryKey: healthQueryKeys.token,
     queryFn: () => fetchTokenHealth(),
-    ...QUERY_DEFAULTS,
-  });
-}
-
-export function useComponentsHealthQuery() {
-  return useQuery<ComponentsHealthReport>({
-    queryKey: healthQueryKeys.components,
-    queryFn: () => fetchComponentsHealth(),
     ...QUERY_DEFAULTS,
   });
 }

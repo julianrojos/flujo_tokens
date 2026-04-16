@@ -27,30 +27,19 @@ export function useHealthDashboard() {
 
   const {
     tokenHealth,
-    componentsHealth,
     loading,
     reloadingAll,
     refreshingTokens,
-    refreshingComponents,
     snapshotting,
     tokenError,
-    componentsError,
     reloadAll,
     refreshTokenReport,
-    refreshComponentsReport,
     captureSnapshotAndReload,
   } = useHealthDashboardData();
 
   const tokensTotal = useMemo(
     () => (tokenHealth ? Math.max(tokenHealth.summary.tokens_total, 1) : 0),
     [tokenHealth],
-  );
-  const componentsTotal = useMemo(
-    () =>
-      componentsHealth
-        ? Math.max(componentsHealth.summary.total_components, 1)
-        : 0,
-    [componentsHealth],
   );
   const tokenScore = useMemo(
     () =>
@@ -94,21 +83,10 @@ export function useHealthDashboard() {
         : 0,
     [tokenHealth],
   );
-  const componentsScore = componentsHealth
-    ? Math.round(
-        (componentsHealth.summary.with_spec /
-          Math.max(1, componentsHealth.summary.total_components)) *
-          60 +
-          (componentsHealth.summary.average_coverage_percent / 100) * 40,
-      )
-    : 0;
-  const overallScore = useMemo(
-    () => Math.round(tokenScore * 0.55 + componentsScore * 0.45),
-    [tokenScore, componentsScore],
-  );
+  const overallScore = useMemo(() => Math.round(tokenScore), [tokenScore]);
 
   const activeIssues = useMemo<DashboardIssue[]>(() => {
-    if (!tokenHealth || !componentsHealth) return [];
+    if (!tokenHealth) return [];
     const issues: DashboardIssue[] = [];
     if (tokenHealth.summary.broken_aliases_total > 0) {
       issues.push({
@@ -140,18 +118,8 @@ export function useHealthDashboard() {
         to: `#unused-tokens`,
       });
     }
-    if (componentsHealth.summary.without_spec > 0) {
-      issues.push({
-        id: 'missing-specs',
-        label: 'Missing specs',
-        description: `${componentsHealth.summary.without_spec} components have no spec`,
-        count: componentsHealth.summary.without_spec,
-        severity: 'warning',
-        to: `#at-risk-components`,
-      });
-    }
     return issues;
-  }, [tokenHealth, componentsHealth]);
+  }, [tokenHealth]);
 
   const brokenAliases = useMemo(() => {
     const items = tokenHealth?.broken_aliases.items ?? [];
@@ -198,22 +166,16 @@ export function useHealthDashboard() {
     brokenAliasSort,
     toggleBrokenAliasSort,
     tokenHealth,
-    componentsHealth,
     loading,
     reloadingAll,
     refreshingTokens,
-    refreshingComponents,
     snapshotting,
     tokenError,
-    componentsError,
     reloadAll,
     refreshTokenReport,
-    refreshComponentsReport,
     captureSnapshotAndReload,
     tokensTotal,
-    componentsTotal,
     tokenScore,
-    componentsScore,
     overallScore,
     activeIssues,
     brokenAliases,

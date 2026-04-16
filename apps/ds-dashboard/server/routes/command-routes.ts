@@ -19,7 +19,11 @@ import {
 } from '../services/command-route-handler-service.ts';
 
 export interface CommandRoutesDeps {
-  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
+  failJson: (
+    c: Context,
+    statusCode: number,
+    args: Record<string, unknown>,
+  ) => Response;
   createApiRequestId: () => string;
   readJsonBody: (c: Context) => Promise<Record<string, unknown>>;
   getSystemContext: (systemHeader: string) => {
@@ -28,7 +32,10 @@ export interface CommandRoutesDeps {
     figmaFileId?: string;
     captureFromFigmaUrlScriptPath: string;
   };
-  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
+  queueJobAcceptedPayload: (job: { id: string }) => {
+    ok: boolean;
+    jobId: string;
+  };
   enqueueQueueJob: (args: unknown) => { id: string };
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
@@ -56,39 +63,73 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function assertJobWithId(value: unknown, source: string): { id: string } {
-  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0) {
-    throw new TypeError(`CommandRoutesDeps.${source} must return an object with a non-empty string id.`);
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    value.id.length === 0
+  ) {
+    throw new TypeError(
+      `CommandRoutesDeps.${source} must return an object with a non-empty string id.`,
+    );
   }
   return { id: value.id };
 }
 
-function assertQueueJobAcceptedPayload(value: unknown, source: string): { ok: boolean; jobId: string } {
-  if (!isRecord(value) || typeof value.ok !== 'boolean' || typeof value.jobId !== 'string' || value.jobId.length === 0) {
-    throw new TypeError(`CommandRoutesDeps.${source} must return { ok: boolean; jobId: string }.`);
+function assertQueueJobAcceptedPayload(
+  value: unknown,
+  source: string,
+): { ok: boolean; jobId: string } {
+  if (
+    !isRecord(value) ||
+    typeof value.ok !== 'boolean' ||
+    typeof value.jobId !== 'string' ||
+    value.jobId.length === 0
+  ) {
+    throw new TypeError(
+      `CommandRoutesDeps.${source} must return { ok: boolean; jobId: string }.`,
+    );
   }
   return { ok: value.ok, jobId: value.jobId };
 }
 
-async function assertQueuedSpawnResult(value: Promise<unknown>, source: string): Promise<{ ok: boolean }> {
+async function assertQueuedSpawnResult(
+  value: Promise<unknown>,
+  source: string,
+): Promise<{ ok: boolean }> {
   const resolved = await value;
   if (!isRecord(resolved) || typeof resolved.ok !== 'boolean') {
-    throw new TypeError(`CommandRoutesDeps.${source} must resolve to an object with boolean ok.`);
+    throw new TypeError(
+      `CommandRoutesDeps.${source} must resolve to an object with boolean ok.`,
+    );
   }
   return { ok: resolved.ok };
 }
 
-function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandlerDeps {
+function toCommandRouteHandlerDeps(
+  deps: CommandRoutesDeps,
+): CommandRouteHandlerDeps {
   return {
     failJson: deps.failJson,
     createApiRequestId: deps.createApiRequestId,
     readJsonBody: deps.readJsonBody,
     getSystemContext: deps.getSystemContext,
-    queueJobAcceptedPayload: (job) => assertQueueJobAcceptedPayload(deps.queueJobAcceptedPayload(job), 'queueJobAcceptedPayload'),
-    enqueueQueueJob: (args) => assertJobWithId(deps.enqueueQueueJob(args), 'enqueueQueueJob'),
+    queueJobAcceptedPayload: (job) =>
+      assertQueueJobAcceptedPayload(
+        deps.queueJobAcceptedPayload(job),
+        'queueJobAcceptedPayload',
+      ),
+    enqueueQueueJob: (args) =>
+      assertJobWithId(deps.enqueueQueueJob(args), 'enqueueQueueJob'),
     sha256Text: deps.sha256Text,
-    runQueuedSpawnCommand: (options) => assertQueuedSpawnResult(deps.runQueuedSpawnCommand(options), 'runQueuedSpawnCommand'),
-    queueNpmScript: (args) => assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
-    queueNodeJsonCommand: (args) => assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
+    runQueuedSpawnCommand: (options) =>
+      assertQueuedSpawnResult(
+        deps.runQueuedSpawnCommand(options),
+        'runQueuedSpawnCommand',
+      ),
+    queueNpmScript: (args) =>
+      assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
+    queueNodeJsonCommand: (args) =>
+      assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
     componentRepo: deps.componentRepo,
     tokenRepo: deps.tokenRepo,
     healthRepo: deps.healthRepo,
@@ -123,18 +164,38 @@ function toHandleRestartApiDeps(deps: CommandRoutesDeps): HandleRestartApiDeps {
 /**
  * Register command routes on the Hono app.
  */
-export function registerCommandRoutes(app: { post: (path: string, handler: (c: Context) => unknown) => void }, deps: CommandRoutesDeps): void {
+export function registerCommandRoutes(
+  app: { post: (path: string, handler: (c: Context) => unknown) => void },
+  deps: CommandRoutesDeps,
+): void {
   const commandDeps = toCommandRouteHandlerDeps(deps);
   const restartDeps = toHandleRestartApiDeps(deps);
 
-  app.post('/api/run/:script', (c: Context) => handleRunScriptRoute(c, commandDeps));
-  app.post('/api/admin/restart-api', (c: Context) => handleRestartApiRoute(c, restartDeps));
-  app.post('/api/refresh-registry', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:refresh', commandDeps));
-  app.post('/api/refresh-token-usage-index', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps));
-  app.post('/api/refresh-token-graph', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-graph', commandDeps));
-  app.post('/api/refresh-token-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps));
-  app.post('/api/refresh-components-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:report', commandDeps));
-  app.post('/api/capture-health-snapshot', (c: Context) => handleCaptureHealthSnapshotRoute(c, commandDeps));
-  app.post('/api/sync-figma-tokens', (c: Context) => handleSyncFigmaTokensRoute(c, commandDeps));
-  app.post('/api/capture-figma-screenshot', (c: Context) => handleCaptureFigmaScreenshotRoute(c, commandDeps));
+  app.post('/api/run/:script', (c: Context) =>
+    handleRunScriptRoute(c, commandDeps),
+  );
+  app.post('/api/admin/restart-api', (c: Context) =>
+    handleRestartApiRoute(c, restartDeps),
+  );
+  app.post('/api/refresh-registry', (c: Context) =>
+    enqueueRefreshScriptJob(c, 'ds:registry:refresh', commandDeps),
+  );
+  app.post('/api/refresh-token-usage-index', (c: Context) =>
+    enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps),
+  );
+  app.post('/api/refresh-token-graph', (c: Context) =>
+    enqueueRefreshScriptJob(c, 'ds:token-graph', commandDeps),
+  );
+  app.post('/api/refresh-token-health', (c: Context) =>
+    enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps),
+  );
+  app.post('/api/capture-health-snapshot', (c: Context) =>
+    handleCaptureHealthSnapshotRoute(c, commandDeps),
+  );
+  app.post('/api/sync-figma-tokens', (c: Context) =>
+    handleSyncFigmaTokensRoute(c, commandDeps),
+  );
+  app.post('/api/capture-figma-screenshot', (c: Context) =>
+    handleCaptureFigmaScreenshotRoute(c, commandDeps),
+  );
 }

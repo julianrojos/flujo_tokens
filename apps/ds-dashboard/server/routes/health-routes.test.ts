@@ -48,45 +48,6 @@ describe('health-routes', () => {
     assert.equal(payload.bootstrapped, true);
   });
 
-  it('/api/components-health returns stored snapshot when present', async () => {
-    const app = createApp({
-      healthRepo: {
-        getSnapshot: (_dsId: string, kind: string) =>
-          kind === 'components'
-            ? {
-                snapshotJson: {
-                  schema_version: 2,
-                  summary: {
-                    total_components: 2,
-                    with_spec: 1,
-                    without_spec: 1,
-                  },
-                  filters: {
-                    without_spec: {
-                      items: ['button'],
-                      total: 1,
-                      truncated: false,
-                    },
-                  },
-                },
-              }
-            : null,
-      },
-    });
-    const res = await app.request('/api/components-health');
-    assert.equal(res.status, 200);
-    const payload = (await res.json()) as any;
-    assert.equal(payload.schema_version, 2);
-    assert.equal(payload.summary.total_components, 2);
-    assert.equal(payload.summary.with_spec, 1);
-    assert.equal(payload.summary.without_spec, 1);
-    assert.deepEqual(payload.filters.without_spec, {
-      items: ['button'],
-      total: 1,
-      truncated: false,
-    });
-  });
-
   it('/api/health-history returns DB-backed snapshots', async () => {
     const app = createApp({
       healthRepo: {
