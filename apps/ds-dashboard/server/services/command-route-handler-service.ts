@@ -19,12 +19,14 @@ import {
   buildRunScriptQueueConfig,
   parseScriptNameFromRoute,
 } from '../lib/command-route-enqueue-service.ts';
-import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
+import {
+  resolveFileKeyForSystem,
+  syncDesignSystemFromPlugin,
+} from './figma-db-sync-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 import {
   captureHealthSnapshotDbOnly,
-  refreshComponentsHealthSnapshotDbOnly,
   refreshRegistryDbOnly,
   refreshTokenGraphDbOnly,
   refreshTokenHealthSnapshotDbOnly,
@@ -35,7 +37,11 @@ import {
 // Alias resolution helpers
 // ---------------------------------------------------------------------------
 
-const COMPONENT_ALIASES = ['component', 'componentName', 'componentSlug'] as const;
+const COMPONENT_ALIASES = [
+  'component',
+  'componentName',
+  'componentSlug',
+] as const;
 const SPEC_FILE_ALIASES = ['specFile', 'spec_file', 'spec-file'] as const;
 
 /**
@@ -57,30 +63,38 @@ function pickFirstNonEmpty(...values: unknown[]): string | undefined {
  */
 function normalizeComponentDocArgs(
   body: Record<string, unknown>,
-  queryFn: (key: string) => string | undefined
+  queryFn: (key: string) => string | undefined,
 ): { component: string | undefined; specFile: string | undefined } {
   const component = pickFirstNonEmpty(
     ...COMPONENT_ALIASES.map((k) => body[k]),
-    ...COMPONENT_ALIASES.map((k) => queryFn(k))
+    ...COMPONENT_ALIASES.map((k) => queryFn(k)),
   );
   const specFile = pickFirstNonEmpty(
     ...SPEC_FILE_ALIASES.map((k) => body[k]),
-    ...SPEC_FILE_ALIASES.map((k) => queryFn(k))
+    ...SPEC_FILE_ALIASES.map((k) => queryFn(k)),
   );
   return { component, specFile };
 }
 
 function failBuildCommandConfig(
   c: Context,
-  deps: { failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response },
+  deps: {
+    failJson: (
+      c: Context,
+      statusCode: number,
+      args: Record<string, unknown>,
+    ) => Response;
+  },
   requestId: string,
-  error: unknown
+  error: unknown,
 ): Response {
   const { failJson } = deps;
   const message = error instanceof Error ? error.message : String(error);
   const isTokensSourceError = isInvalidTokensSourceError(error);
   return failJson(c, isTokensSourceError ? 400 : 500, {
-    code: isTokensSourceError ? 'validation.invalid_tokens_source' : 'internal.command_build_failed',
+    code: isTokensSourceError
+      ? 'validation.invalid_tokens_source'
+      : 'internal.command_build_failed',
     userMessage: message,
     recoverable: isTokensSourceError,
     context: { field: isTokensSourceError ? 'tokensSource' : undefined },
@@ -89,7 +103,11 @@ function failBuildCommandConfig(
 }
 
 export interface CommandRouteHandlerDeps {
-  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
+  failJson: (
+    c: Context,
+    statusCode: number,
+    args: Record<string, unknown>,
+  ) => Response;
   createApiRequestId: () => string;
   getSystemContext: (systemHeader: string) => {
     repoRoot: string;
@@ -98,7 +116,10 @@ export interface CommandRouteHandlerDeps {
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };
-  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
+  queueJobAcceptedPayload: (job: { id: string }) => {
+    ok: boolean;
+    jobId: string;
+  };
   processEnv?: Record<string, string | undefined>;
   spawnProcessFn?: RestartSpawnFn;
   setTimeoutFn?: RestartSetTimeoutFn;
@@ -137,7 +158,7 @@ export function enqueueRefreshScriptJob(
     | 'tokenRepo'
     | 'healthRepo'
     | 'db'
-  >
+  >,
 ): Response {
   const {
     failJson,
@@ -179,8 +200,11 @@ export function enqueueRefreshScriptJob(
           mode: 'db-only',
         }),
       ),
-      execute: async ({ emitChunk }: { emitChunk: (kind: string, text: string) => void }) =>
-        args.execute({ emitChunk }),
+      execute: async ({
+        emitChunk,
+      }: {
+        emitChunk: (kind: string, text: string) => void;
+      }) => args.execute({ emitChunk }),
     });
 
   const hasDep = (dep: RefreshDepKey): boolean => {
@@ -190,17 +214,22 @@ export function enqueueRefreshScriptJob(
     return Boolean(healthRepo);
   };
 
-  const refreshDbOnlyConfigByScript: Partial<Record<string, {
-    deps: RefreshDepKey[];
-    build: (emitChunk: (kind: string, text: string) => void) => {
-      ok: boolean;
-      code?: number;
-      summary: string;
-      payload?: unknown;
-    };
-    label: string;
-    operationName: string;
-  }>> = {
+  const refreshDbOnlyConfigByScript: Partial<
+    Record<
+      string,
+      {
+        deps: RefreshDepKey[];
+        build: (emitChunk: (kind: string, text: string) => void) => {
+          ok: boolean;
+          code?: number;
+          summary: string;
+          payload?: unknown;
+        };
+        label: string;
+        operationName: string;
+      }
+    >
+  > = {
     'ds:registry:refresh': {
       deps: ['componentRepo'],
       label: 'refresh registry (db-only)',
@@ -251,19 +280,6 @@ export function enqueueRefreshScriptJob(
           sha256Text,
         }),
     },
-    'ds:registry:report': {
-      deps: ['componentRepo', 'healthRepo'],
-      label: 'refresh components health (db-only)',
-      operationName: 'refresh:components-health',
-      build: (emitChunk) =>
-        refreshComponentsHealthSnapshotDbOnly({
-          systemId: sysCtx.systemId,
-          emitChunk,
-          componentRepo: componentRepo as NonNullable<typeof componentRepo>,
-          healthRepo: healthRepo as NonNullable<typeof healthRepo>,
-          sha256Text,
-        }),
-    },
   };
 
   const dbOnlyConfig = refreshDbOnlyConfigByScript[normalizedScript];
@@ -285,12 +301,18 @@ export function enqueueRefreshScriptJob(
     return c.json(queueJobAcceptedPayload(job), 202);
   }
 
-  const job = queueNpmScript(buildRefreshScriptQueueArgs({ sysCtx, requestId, script }));
+  const job = queueNpmScript(
+    buildRefreshScriptQueueArgs({ sysCtx, requestId, script }),
+  );
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
 export interface HandleRestartApiDeps {
-  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
+  failJson: (
+    c: Context,
+    statusCode: number,
+    args: Record<string, unknown>,
+  ) => Response;
   createApiRequestId: () => string;
   processEnv?: Record<string, string | undefined>;
   spawnProcessFn?: RestartSpawnFn;
@@ -300,13 +322,18 @@ export interface HandleRestartApiDeps {
   exitDelayMs?: number;
 }
 
-export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): Response {
+export function handleRestartApiRoute(
+  c: Context,
+  deps: HandleRestartApiDeps,
+): Response {
   const { failJson, createApiRequestId } = deps;
   const requestId = createApiRequestId();
   const env = deps.processEnv ?? process.env;
   const isSupervised = String(env.DS_DASHBOARD_SUPERVISED ?? '') === '1';
-  const isProduction = String(env.NODE_ENV ?? '').toLowerCase() === 'production';
-  const selfRestartDisabled = String(env.DS_DASHBOARD_DISABLE_SELF_RESTART ?? '') === '1';
+  const isProduction =
+    String(env.NODE_ENV ?? '').toLowerCase() === 'production';
+  const selfRestartDisabled =
+    String(env.DS_DASHBOARD_DISABLE_SELF_RESTART ?? '') === '1';
 
   if (isSupervised) {
     return failJson(c, 409, {
@@ -332,11 +359,12 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
 
   const spawnFn: RestartSpawnFn =
     deps.spawnProcessFn ??
-    ((command, args, options) => spawn(command, [...args], (options ?? {}) as SpawnOptions));
+    ((command, args, options) =>
+      spawn(command, [...args], (options ?? {}) as SpawnOptions));
   const setTimeoutFn: RestartSetTimeoutFn =
-    deps.setTimeoutFn ??
-    ((callback, delayMs) => setTimeout(callback, delayMs));
-  const exitProcessFn = deps.exitProcessFn ?? ((code?: number) => process.exit(code));
+    deps.setTimeoutFn ?? ((callback, delayMs) => setTimeout(callback, delayMs));
+  const exitProcessFn =
+    deps.exitProcessFn ?? ((code?: number) => process.exit(code));
   const cwd = deps.processCwd ?? process.cwd();
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
@@ -375,7 +403,11 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
   }, exitDelayMs);
 
   // Prevent timer from keeping process alive if other cleanup is needed
-  if (typeof exitTimer === 'object' && exitTimer !== null && typeof exitTimer.unref === 'function') {
+  if (
+    typeof exitTimer === 'object' &&
+    exitTimer !== null &&
+    typeof exitTimer.unref === 'function'
+  ) {
     exitTimer.unref();
   }
 
@@ -387,7 +419,7 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
       message: 'API restart requested.',
       requestId,
     },
-    202
+    202,
   );
 }
 
@@ -402,21 +434,26 @@ interface RestartSpawnOptions {
 type RestartSpawnFn = (
   command: string,
   args: readonly string[],
-  options?: RestartSpawnOptions
+  options?: RestartSpawnOptions,
 ) => {
   unref?: () => void;
 };
 
-type RestartSetTimeoutHandle = {
-  unref?: () => void;
-} | number;
+type RestartSetTimeoutHandle =
+  | {
+    unref?: () => void;
+  }
+  | number;
 
 type RestartSetTimeoutFn = (
   callback: (...args: unknown[]) => void,
-  delayMs?: number
+  delayMs?: number,
 ) => RestartSetTimeoutHandle;
 
-export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
+export async function handleRunScriptRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -429,13 +466,18 @@ export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandler
   } = deps;
 
   const requestId = createApiRequestId();
-  const parsedScript = parseScriptNameFromRoute(c.req.param('script'), requestId);
+  const parsedScript = parseScriptNameFromRoute(
+    c.req.param('script'),
+    requestId,
+  );
   if (!parsedScript.ok) {
     return failJson(c, parsedScript.statusCode, parsedScript.errorArgs);
   }
 
   const body = await readJsonBody(c);
-  const { component, specFile } = normalizeComponentDocArgs(body, (key) => c.req.query(key));
+  const { component, specFile } = normalizeComponentDocArgs(body, (key) =>
+    c.req.query(key),
+  );
   const mergedBody = {
     ...body,
     component,
@@ -471,7 +513,13 @@ export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandler
 
   const job = enqueueQueueJob({
     ...runConfig.queueArgs,
-    execute: async ({ emitChunk, setProcess }: { emitChunk: unknown; setProcess: unknown }) =>
+    execute: async ({
+      emitChunk,
+      setProcess,
+    }: {
+      emitChunk: unknown;
+      setProcess: unknown;
+    }) =>
       await runQueuedSpawnCommand({
         ...runConfig.runCommand,
         emitChunk,
@@ -482,7 +530,10 @@ export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandler
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleCaptureHealthSnapshotRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
+export async function handleCaptureHealthSnapshotRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -517,7 +568,8 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
   if (!tokenRepo || !healthRepo || !db) {
     return failJson(c, 500, {
       code: 'internal.health_snapshot_dependencies_missing',
-      userMessage: 'Cannot capture health snapshot: DB repositories are not initialized.',
+      userMessage:
+        'Cannot capture health snapshot: DB repositories are not initialized.',
       recoverable: false,
       requestId,
     });
@@ -538,7 +590,11 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
         allowDuplicateDay: parsed.allowDuplicateDay,
       }),
     ),
-    execute: async ({ emitChunk }: { emitChunk: (kind: string, text: string) => void }) =>
+    execute: async ({
+      emitChunk,
+    }: {
+      emitChunk: (kind: string, text: string) => void;
+    }) =>
       captureHealthSnapshotDbOnly({
         systemId: sysCtx.systemId,
         beforeRef: parsed.beforeRef,
@@ -555,7 +611,10 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
+export async function handleSyncFigmaTokensRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
   const {
     createApiRequestId,
     getSystemContext,
@@ -574,7 +633,9 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
-  const tokensSource = String(body.tokensSource ?? body.tokens_source ?? body['tokens-source'] ?? 'mcp')
+  const tokensSource = String(
+    body.tokensSource ?? body.tokens_source ?? body['tokens-source'] ?? 'mcp',
+  )
     .trim()
     .toLowerCase();
   if (tokensSource && tokensSource !== 'mcp') {
@@ -600,7 +661,8 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   if (!figmaFileId) {
     return failJson(c, 400, {
       code: 'validation.figma_file_key_missing',
-      userMessage: 'Missing Figma file key. Configure figmaFileId on the system or pass url/fileKey.',
+      userMessage:
+        'Missing Figma file key. Configure figmaFileId on the system or pass url/fileKey.',
       recoverable: true,
       requestId,
     });
@@ -617,10 +679,15 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         // The socket can still disconnect before sync starts; service-level error mapping
         // provides the user-facing message in that case.
         if (manager.getPreferredSocketId(figmaFileId)) return true;
-        return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
+        return (
+          manager.getConnectionCount() === 1 &&
+          manager.getActiveFileKeys().length === 0
+        );
       })();
   if (!canUsePluginSocket) {
-    console.warn(`[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`);
+    console.warn(
+      `[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`,
+    );
     return failJson(c, 409, {
       code: 'sync.no_plugin_socket_for_file',
       userMessage:
@@ -635,12 +702,18 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   }
 
   const dryRun = toBooleanString(body.dryRun, false) === 'true';
-  const includeComponents = toBooleanString(body.includeComponents, true) === 'true';
+  const includeComponents =
+    toBooleanString(body.includeComponents, true) === 'true';
   const selectedComponentNodeIds = Array.isArray(body.selectedComponentNodeIds)
-    ? body.selectedComponentNodeIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    ? body.selectedComponentNodeIds.filter(
+      (id: unknown): id is string =>
+        typeof id === 'string' && id.trim().length > 0,
+    )
     : undefined;
-  const requireComponentProofs = toBooleanString(body.requireComponentProofs, true) === 'true';
-  const requireVariantProofsWhenPresent = toBooleanString(body.requireVariantProofsWhenPresent, true) === 'true';
+  const requireComponentProofs =
+    toBooleanString(body.requireComponentProofs, true) === 'true';
+  const requireVariantProofsWhenPresent =
+    toBooleanString(body.requireVariantProofsWhenPresent, true) === 'true';
 
   const job = enqueueQueueJob({
     label: 'sync figma (plugin→db)',
@@ -659,7 +732,11 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         requireVariantProofsWhenPresent,
       }),
     ),
-    execute: async ({ emitChunk }: { emitChunk: (kind: string, message: string) => void }) => {
+    execute: async ({
+      emitChunk,
+    }: {
+      emitChunk: (kind: string, message: string) => void;
+    }) => {
       emitChunk('system', `Syncing "${sysCtx.systemId}" from plugin...`);
       const result = await syncDesignSystemFromPluginFn({
         db,
@@ -678,20 +755,35 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         usageReindexStrict: true,
       });
       if (result.componentsTruncated) {
-        emitChunk('warning', 'Component list was truncated by the plugin search limit; missing-component reconciliation may be partial.');
+        emitChunk(
+          'warning',
+          'Component list was truncated by the plugin search limit; missing-component reconciliation may be partial.',
+        );
       }
       if (result.usageReindexed > 0) {
-        emitChunk('result', `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`);
+        emitChunk(
+          'result',
+          `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
+        );
       }
       if (result.usageReindexWarnings.length > 0) {
         for (const warning of result.usageReindexWarnings) {
           emitChunk('warning', warning);
         }
       }
-      if (result.usageReindexStatus === 'failed' && result.usageReindexReason !== 'none') {
-        emitChunk('warning', `Token usage reindex status: failed (${result.usageReindexReason}).`);
+      if (
+        result.usageReindexStatus === 'failed' &&
+        result.usageReindexReason !== 'none'
+      ) {
+        emitChunk(
+          'warning',
+          `Token usage reindex status: failed (${result.usageReindexReason}).`,
+        );
       }
-      emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
+      emitChunk(
+        'result',
+        `Imported ${result.tokens} tokens and ${result.components} components.`,
+      );
       return {
         ok: true,
         code: 0,
@@ -703,7 +795,10 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
+export async function handleCaptureFigmaScreenshotRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -745,7 +840,11 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
     });
   }
 
-  const queueArgs = buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed });
+  const queueArgs = buildCaptureFigmaScreenshotQueueArgs({
+    sysCtx,
+    requestId,
+    parsed,
+  });
   const job = queueNodeJsonCommand({
     ...queueArgs,
     onSuccess: async ({
@@ -762,7 +861,10 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
         repoRoot: sysCtx.repoRoot,
       });
       if (persisted.upserted > 0) {
-        emitChunk('result', `Persisted ${persisted.upserted} captured component proof(s) to DB.`);
+        emitChunk(
+          'result',
+          `Persisted ${persisted.upserted} captured component proof(s) to DB.`,
+        );
       }
       if (persisted.skipped > 0) {
         emitChunk(

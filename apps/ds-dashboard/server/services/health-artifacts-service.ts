@@ -10,10 +10,6 @@ export interface EmptyTokenHealthReportArgs {
   reason?: string;
 }
 
-export interface EmptyComponentsHealthReportArgs {
-  systemId: string;
-}
-
 export interface TokenHealthReport {
   ok: boolean;
   bootstrapped: boolean;
@@ -55,26 +51,6 @@ export interface TokenHealthReport {
   hint: string;
 }
 
-export interface ComponentsHealthReport {
-  ok: boolean;
-  bootstrapped: boolean;
-  schema_version: number;
-  source: {
-    registry_path: string;
-  };
-  summary: {
-    total_components: number;
-    with_spec: number;
-    without_spec: number;
-    average_coverage_percent: number;
-  };
-  filters: {
-    without_spec: { items: unknown[]; total: number; truncated: boolean };
-  };
-  components: unknown[];
-  fingerprint_sha256: string;
-}
-
 export interface HealthHistoryPayload {
   schema_version?: number;
   snapshots?: Array<{
@@ -97,14 +73,11 @@ export interface NormalizedHealthHistoryPayload {
     metrics: {
       breaking_changes: number | null;
       wcag_failures_total: number;
-      coverage_avg: number;
       unresolved_total: number;
       unused_tokens_total: number;
-      without_spec_total: number;
     };
     fingerprints: {
       token_health: string;
-      components_health: string;
       token_usage: string;
       token_diff: string;
       signature_sha256: string;
@@ -123,8 +96,12 @@ export interface NormalizedHealthHistoryPayload {
 /**
  * Build empty token health report for bootstrap state.
  */
-export function buildEmptyTokenHealthReport(args: EmptyTokenHealthReportArgs): TokenHealthReport {
-  const warnings = args.reason ? [{ id: 'bootstrap-missing', message: String(args.reason) }] : [];
+export function buildEmptyTokenHealthReport(
+  args: EmptyTokenHealthReportArgs,
+): TokenHealthReport {
+  const warnings = args.reason
+    ? [{ id: 'bootstrap-missing', message: String(args.reason) }]
+    : [];
   return {
     ok: false,
     bootstrapped: true,
@@ -168,35 +145,12 @@ export function buildEmptyTokenHealthReport(args: EmptyTokenHealthReportArgs): T
 }
 
 /**
- * Build empty components health report for bootstrap state.
- */
-export function buildEmptyComponentsHealthReport(args: EmptyComponentsHealthReportArgs): ComponentsHealthReport {
-  return {
-    ok: false,
-    bootstrapped: true,
-    schema_version: 2,
-    source: {
-      registry_path: `db://components/${args.systemId}`,
-    },
-    summary: {
-      total_components: 0,
-      with_spec: 0,
-      without_spec: 0,
-      average_coverage_percent: 0,
-    },
-    filters: {
-      without_spec: { items: [], total: 0, truncated: false },
-    },
-    components: [],
-    fingerprint_sha256: '',
-  };
-}
-
-/**
  * Normalize health history range parameter.
  */
 export function normalizeHealthHistoryRange(raw: unknown): string {
-  const value = String(raw || '').trim().toLowerCase();
+  const value = String(raw || '')
+    .trim()
+    .toLowerCase();
   if (value === '7d' || value === '90d') return value;
   return '30d';
 }
@@ -210,8 +164,11 @@ function rangeDays(range: string): number {
 /**
  * Normalize health history payload.
  */
-export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHistoryPayload {
-  const base = raw && typeof raw === 'object' ? (raw as HealthHistoryPayload) : {};
+export function normalizeHealthHistoryPayload(
+  raw: unknown,
+): NormalizedHealthHistoryPayload {
+  const base =
+    raw && typeof raw === 'object' ? (raw as HealthHistoryPayload) : {};
   const rawSnapshots = Array.isArray(base.snapshots) ? base.snapshots : [];
   const snapshots: NormalizedHealthHistoryPayload['snapshots'] = [];
 
@@ -220,9 +177,12 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
     const capturedAt = String(item.captured_at || '').trim();
     if (!capturedAt) continue;
 
-    const metrics = item.metrics && typeof item.metrics === 'object' ? item.metrics : {};
+    const metrics =
+      item.metrics && typeof item.metrics === 'object' ? item.metrics : {};
     const fingerprints =
-      item.fingerprints && typeof item.fingerprints === 'object' ? item.fingerprints : {};
+      item.fingerprints && typeof item.fingerprints === 'object'
+        ? item.fingerprints
+        : {};
     const meta = item.meta && typeof item.meta === 'object' ? item.meta : {};
 
     snapshots.push({
@@ -235,14 +195,11 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
               ? Number(metrics.breaking_changes)
               : null,
         wcag_failures_total: Number(metrics.wcag_failures_total || 0),
-        coverage_avg: Number(metrics.coverage_avg || 0),
         unresolved_total: Number(metrics.unresolved_total || 0),
         unused_tokens_total: Number(metrics.unused_tokens_total || 0),
-        without_spec_total: Number(metrics.without_spec_total || 0),
       },
       fingerprints: {
         token_health: String(fingerprints.token_health || ''),
-        components_health: String(fingerprints.components_health || ''),
         token_usage: String(fingerprints.token_usage || ''),
         token_diff: String(fingerprints.token_diff || ''),
         signature_sha256: String(fingerprints.signature_sha256 || ''),
@@ -257,7 +214,9 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
     });
   }
 
-  snapshots.sort((left, right) => left.captured_at.localeCompare(right.captured_at));
+  snapshots.sort((left, right) =>
+    left.captured_at.localeCompare(right.captured_at),
+  );
   return {
     ok: true,
     schema_version: Number(base.schema_version || 1),
@@ -266,7 +225,9 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
     snapshots,
     summary: {
       snapshots_total: snapshots.length,
-      latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
+      latest_at: snapshots.length
+        ? snapshots[snapshots.length - 1].captured_at
+        : null,
     },
   };
 }
@@ -276,7 +237,7 @@ export function normalizeHealthHistoryPayload(raw: unknown): NormalizedHealthHis
  */
 export function filterSnapshotsByRange(
   snapshots: Array<{ captured_at: string }>,
-  range: string
+  range: string,
 ): Array<{ captured_at: string }> {
   const days = rangeDays(range);
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;

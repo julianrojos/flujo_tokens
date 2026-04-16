@@ -7,7 +7,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildEmptyComponentsHealthReport,
   buildEmptyTokenHealthReport,
   filterSnapshotsByRange,
   normalizeHealthHistoryPayload,
@@ -18,10 +17,7 @@ describe('health-artifacts-service', () => {
   describe('buildEmptyTokenHealthReport()', () => {
     it('keeps bootstrap shape', () => {
       const report = buildEmptyTokenHealthReport({
-        tokenRegistryPath: '/repo/docs/_generated/token-registry.json',
-        tokenUsageIndexPath: '/repo/docs/_generated/token-usage-index.json',
-        tokenGraphVizPath: '/repo/docs/_generated/token-graph-viz.json',
-        wcagPairsPath: '/repo/docs/_generated/wcag-pairs.json',
+        systemId: 'test-system',
         reason: 'not found',
       });
 
@@ -29,19 +25,6 @@ describe('health-artifacts-service', () => {
       assert.equal(report.bootstrapped, true);
       assert.equal(report.summary.tokens_total, 0);
       assert.equal(report.warnings.length, 1);
-    });
-  });
-
-  describe('buildEmptyComponentsHealthReport()', () => {
-    it('keeps bootstrap shape', () => {
-      const report = buildEmptyComponentsHealthReport({
-        componentRegistryPath: '/repo/docs/_generated/component-registry.json',
-      });
-
-      assert.equal(report.ok, false);
-      assert.equal(report.bootstrapped, true);
-      assert.equal(report.summary.total_components, 0);
-      assert.deepEqual(report.filters.without_spec.items, []);
     });
   });
 
@@ -86,7 +69,7 @@ describe('health-artifacts-service', () => {
 
       const filtered = filterSnapshotsByRange(
         [{ captured_at: old }, { captured_at: recent }],
-        '30d'
+        '30d',
       );
 
       assert.equal(filtered.length, 1);

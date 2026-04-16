@@ -55,7 +55,9 @@ function asString(value: unknown): string {
 }
 
 function uniqueSorted(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b, 'en', { sensitivity: 'base' }),
+  );
 }
 
 function buildTokenRegistryFromDb(args: {
@@ -68,10 +70,10 @@ function buildTokenRegistryFromDb(args: {
   const aliasRows = db
     .prepare(
       `
-      SELECT from_path, to_path, modes
-      FROM figma_aliases
-      WHERE ds_id = ?
-    `,
+       SELECT from_path, to_path, modes
+       FROM figma_aliases
+       WHERE ds_id = ?
+     `,
     )
     .all(systemId) as AliasRow[];
 
@@ -85,7 +87,7 @@ function buildTokenRegistryFromDb(args: {
     aliasesBySource.set(fromPath, next);
   }
 
-  const registry = {
+  const registry = Object.assign({}, tokenRegistry, {
     entries: tokenRegistry.entries.map((entry) => ({
       id: entry.path,
       path: entry.path,
@@ -95,7 +97,7 @@ function buildTokenRegistryFromDb(args: {
       cssVar: entry.cssVar,
       aliases: aliasesBySource.get(entry.path) || [],
     })),
-  };
+  });
 
   return {
     registry,
@@ -144,7 +146,9 @@ function buildUsageRowsFromDb(args: {
       tokenId: tokenPath,
       kind: 'figma-alias',
       source: 'figma-variables',
-      owner: nodeId ? `figma-node:${nodeId}` : `db://component/${row.component_id}`,
+      owner: nodeId
+        ? `figma-node:${nodeId}`
+        : `db://component/${row.component_id}`,
       detail: `${field}:${mode}`,
     });
   }
@@ -239,7 +243,10 @@ export function refreshRegistryDbOnly(args: {
     })),
   );
 
-  emitChunk('result', `Registry normalized in DB (${upserted} row(s) reconciled).`);
+  emitChunk(
+    'result',
+    `Registry normalized in DB (${upserted} row(s) reconciled).`,
+  );
 
   return {
     ok: true,
@@ -278,7 +285,9 @@ export function refreshUsageIndexDbOnly(args: {
   });
 
   if (registry.entries.length === 0) {
-    throw new Error(`Cannot rebuild usage index for "${systemId}": token registry is empty in DB.`);
+    throw new Error(
+      `Cannot rebuild usage index for "${systemId}": token registry is empty in DB.`,
+    );
   }
 
   const usageBuild = buildUsageRowsFromDb({
@@ -293,17 +302,29 @@ export function refreshUsageIndexDbOnly(args: {
   }
 
   db.transaction(() => {
-    db.prepare('DELETE FROM token_usage_occurrences WHERE ds_id = ?').run(systemId);
+    db.prepare('DELETE FROM token_usage_occurrences WHERE ds_id = ?').run(
+      systemId,
+    );
     const insertStmt = db.prepare(`
       INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
     for (const row of usageBuild.rows) {
-      insertStmt.run(systemId, row.tokenId, row.kind, row.source, row.owner, row.detail);
+      insertStmt.run(
+        systemId,
+        row.tokenId,
+        row.kind,
+        row.source,
+        row.owner,
+        row.detail,
+      );
     }
   })();
 
-  emitChunk('result', `Usage index rebuilt in DB with ${usageBuild.rows.length} occurrence(s).`);
+  emitChunk(
+    'result',
+    `Usage index rebuilt in DB with ${usageBuild.rows.length} occurrence(s).`,
+  );
 
   return {
     ok: true,
@@ -322,7 +343,9 @@ function toCyclePayload(args: {
 }) {
   const { cycles, tokenPathById } = args;
   return cycles.map((cycle) => {
-    const nodeIds = uniqueSorted(cycle.map((id) => asString(id)).filter(Boolean));
+    const nodeIds = uniqueSorted(
+      cycle.map((id) => asString(id)).filter(Boolean),
+    );
     return {
       kind: nodeIds.length <= 1 ? 'self_loop' : 'strongly_connected_component',
       size: nodeIds.length,
@@ -352,14 +375,20 @@ export function refreshTokenGraphDbOnly(args: {
   });
 
   if (registry.entries.length === 0) {
-    throw new Error(`Cannot rebuild token graph for "${systemId}": token registry is empty in DB.`);
+    throw new Error(
+      `Cannot rebuild token graph for "${systemId}": token registry is empty in DB.`,
+    );
   }
 
   const graph = buildTokenGraph(registry);
   const unresolvedAliases = findUnresolvedAliases(registry, graph);
   const collisions = findIdentityCollisions(registry);
-  const tokenPathById = new Map(registry.entries.map((entry) => [entry.id, entry.path]));
-  const tokenByPath = new Map(tokenRegistry.entries.map((entry) => [entry.path, entry]));
+  const tokenPathById = new Map(
+    registry.entries.map((entry) => [entry.id, entry.path]),
+  );
+  const tokenByPath = new Map(
+    tokenRegistry.entries.map((entry) => [entry.path, entry]),
+  );
   const cyclePayload = toCyclePayload({
     cycles: graph.cycles,
     tokenPathById,
@@ -370,10 +399,13 @@ export function refreshTokenGraphDbOnly(args: {
 
   const nodes = graph.nodes.map((node) => {
     const base = tokenByPath.get(node.id);
-    const collection = asString(base?.collection || node.path.split('.')[0] || '');
-    const displayKey = collection && node.path.startsWith(`${collection}.`)
-      ? node.path.slice(collection.length + 1).replace(/\./g, '/')
-      : node.path.replace(/\./g, '/');
+    const collection = asString(
+      base?.collection || node.path.split('.')[0] || '',
+    );
+    const displayKey =
+      collection && node.path.startsWith(`${collection}.`)
+        ? node.path.slice(collection.length + 1).replace(/\./g, '/')
+        : node.path.replace(/\./g, '/');
     return {
       id: node.id,
       path: node.path,
@@ -433,7 +465,10 @@ export function refreshTokenGraphDbOnly(args: {
   `,
   ).run(systemId, JSON.stringify(payload));
 
-  emitChunk('result', `Token graph rebuilt in DB (${payload.summary.nodes} nodes, ${payload.summary.edges} edges).`);
+  emitChunk(
+    'result',
+    `Token graph rebuilt in DB (${payload.summary.nodes} nodes, ${payload.summary.edges} edges).`,
+  );
 
   return {
     ok: true,
@@ -463,14 +498,38 @@ function readWcagPairsFromDb(db: Database.Database): unknown[] {
 }
 
 function collectHighCouplingRows(args: {
-  registryEntries: Array<{ path: string; slashPath: string; cssVar: string; type: string; collection: string; resolvedValue: string }>;
-  usageEntries: Array<{ path: string; usageCount: number; usedIn: Array<{ kind: string; owner: string }> }>;
-  graphNodes: Array<{ id: string; inDegree: number; outDegree: number; isCycleMember?: boolean }>;
+  registryEntries: Array<{
+    path: string;
+    slashPath: string;
+    cssVar: string;
+    type: string;
+    collection: string;
+    resolvedValue: string;
+  }>;
+  usageEntries: Array<{
+    path: string;
+    usageCount: number;
+    usedIn: Array<{ kind: string; owner: string }>;
+  }>;
+  graphNodes: Array<{
+    id: string;
+    inDegree: number;
+    outDegree: number;
+    isCycleMember?: boolean;
+  }>;
   highUsageTokens: Array<{ tokenId: string; usageCount: number }>;
   highIndegreeTokens: Array<{ tokenId: string; inDegree: number }>;
 }) {
-  const { registryEntries, usageEntries, graphNodes, highUsageTokens, highIndegreeTokens } = args;
-  const registryByPath = new Map(registryEntries.map((entry) => [entry.path, entry]));
+  const {
+    registryEntries,
+    usageEntries,
+    graphNodes,
+    highUsageTokens,
+    highIndegreeTokens,
+  } = args;
+  const registryByPath = new Map(
+    registryEntries.map((entry) => [entry.path, entry]),
+  );
   const usageByPath = new Map(usageEntries.map((entry) => [entry.path, entry]));
   const graphNodeById = new Map(graphNodes.map((entry) => [entry.id, entry]));
 
@@ -484,8 +543,10 @@ function collectHighCouplingRows(args: {
     const usage = usageByPath.get(id);
     const node = graphNodeById.get(id);
     const reasons: string[] = [];
-    if (highUsageTokens.some((item) => item.tokenId === id)) reasons.push('high-usage');
-    if (highIndegreeTokens.some((item) => item.tokenId === id)) reasons.push('high-indegree');
+    if (highUsageTokens.some((item) => item.tokenId === id))
+      reasons.push('high-usage');
+    if (highIndegreeTokens.some((item) => item.tokenId === id))
+      reasons.push('high-indegree');
 
     const usedByComponents = uniqueSorted(
       (usage?.usedIn || [])
@@ -532,7 +593,9 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
     db,
   });
   if (registry.entries.length === 0) {
-    throw new Error(`Cannot refresh token health for "${systemId}": token registry is empty in DB.`);
+    throw new Error(
+      `Cannot refresh token health for "${systemId}": token registry is empty in DB.`,
+    );
   }
 
   const usageIndex = tokenRepo.getTokenUsageIndex(systemId);
@@ -556,12 +619,35 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
     },
   );
 
-  const usageEntries = Array.isArray((usageIndex as { entries?: unknown[] }).entries)
-    ? ((usageIndex as { entries: Array<{ path: string; slashPath: string; cssVar: string; type: string; collection: string; usageCount: number; usedIn: Array<{ kind: string; owner: string }> }> }).entries)
+  const usageEntries = Array.isArray(
+    (usageIndex as { entries?: unknown[] }).entries,
+  )
+    ? (
+        usageIndex as {
+          entries: Array<{
+            path: string;
+            slashPath: string;
+            cssVar: string;
+            type: string;
+            collection: string;
+            usageCount: number;
+            usedIn: Array<{ kind: string; owner: string }>;
+          }>;
+        }
+      ).entries
     : [];
 
   const graphNodes = Array.isArray((graph as { nodes?: unknown[] }).nodes)
-    ? ((graph as { nodes: Array<{ id: string; inDegree: number; outDegree: number; isCycleMember?: boolean }> }).nodes)
+    ? (
+        graph as {
+          nodes: Array<{
+            id: string;
+            inDegree: number;
+            outDegree: number;
+            isCycleMember?: boolean;
+          }>;
+        }
+      ).nodes
     : [];
 
   const unusedTokens = usageEntries
@@ -573,7 +659,8 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
       type: entry.type,
       collection: entry.collection,
       resolvedValue: asString(
-        registry.entries.find((token) => token.path === entry.path)?.$value || '',
+        registry.entries.find((token) => token.path === entry.path)?.$value ||
+          '',
       ),
       usageCount: 0,
     }));
@@ -586,7 +673,8 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
       type: entry.type,
       collection: entry.collection,
       resolvedValue: asString(
-        registry.entries.find((token) => token.path === entry.path)?.$value || '',
+        registry.entries.find((token) => token.path === entry.path)?.$value ||
+          '',
       ),
     })),
     usageEntries,
@@ -598,7 +686,9 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
   const brokenAliases = report.issues
     .filter((issue) => issue.code === 'BROKEN_ALIAS')
     .map((issue) => {
-      const aliasMatch = String(issue.message || '').match(/alias:\s*([^\s]+)$/i);
+      const aliasMatch = String(issue.message || '').match(
+        /alias:\s*([^\s]+)$/i,
+      );
       const aliasTarget = asString(aliasMatch?.[1] || '');
       return {
         token: asString(issue.tokenPath || issue.tokenId || ''),
@@ -621,18 +711,37 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
 
   const wcagFailures = Array.isArray(report.wcagFailures)
     ? report.wcagFailures.map((failure) => ({
-      foreground: asString((failure as Record<string, unknown>).fgToken || ''),
-      background: asString((failure as Record<string, unknown>).bgToken || ''),
-      level: asString((failure as Record<string, unknown>).requiredLevel || 'AA') === 'AAA' ? 'AAA' : 'AA',
-      textSize: 'normal' as const,
-      contrastRatio: asNumber((failure as Record<string, unknown>).contrastRatio, 0),
-      requiredRatio: asString((failure as Record<string, unknown>).requiredLevel || 'AA') === 'AAA' ? 7 : 4.5,
-      foregroundHex: '',
-      backgroundHex: '',
-    }))
+        foreground: asString(
+          (failure as Record<string, unknown>).fgToken || '',
+        ),
+        background: asString(
+          (failure as Record<string, unknown>).bgToken || '',
+        ),
+        level:
+          asString(
+            (failure as Record<string, unknown>).requiredLevel || 'AA',
+          ) === 'AAA'
+            ? 'AAA'
+            : 'AA',
+        textSize: 'normal' as const,
+        contrastRatio: asNumber(
+          (failure as Record<string, unknown>).contrastRatio,
+          0,
+        ),
+        requiredRatio:
+          asString(
+            (failure as Record<string, unknown>).requiredLevel || 'AA',
+          ) === 'AAA'
+            ? 7
+            : 4.5,
+        foregroundHex: '',
+        backgroundHex: '',
+      }))
     : [];
 
-  const cycleNodeCount = Array.isArray((graph as { cycle_node_ids?: unknown[] }).cycle_node_ids)
+  const cycleNodeCount = Array.isArray(
+    (graph as { cycle_node_ids?: unknown[] }).cycle_node_ids,
+  )
     ? (graph as { cycle_node_ids: unknown[] }).cycle_node_ids.length
     : 0;
 
@@ -651,8 +760,16 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
       high_indegree_threshold: DEFAULT_HIGH_INDEGREE_THRESHOLD,
     },
     summary: {
-      tokens_total: asInt((usageIndex as { summary?: { tokens_total?: unknown } }).summary?.tokens_total, registry.entries.length),
-      tokens_with_usage: asInt((usageIndex as { summary?: { tokens_with_usage?: unknown } }).summary?.tokens_with_usage, 0),
+      tokens_total: asInt(
+        (usageIndex as { summary?: { tokens_total?: unknown } }).summary
+          ?.tokens_total,
+        registry.entries.length,
+      ),
+      tokens_with_usage: asInt(
+        (usageIndex as { summary?: { tokens_with_usage?: unknown } }).summary
+          ?.tokens_with_usage,
+        0,
+      ),
       unused_tokens_total: unusedTokens.length,
       high_coupling_tokens_total: highCouplingTokens.length,
       broken_aliases_total: brokenAliases.length,
@@ -695,8 +812,15 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
       truncated: false,
     },
     upstream_fingerprints: {
-      token_usage_index: sha256Text(JSON.stringify((usageIndex as { summary?: unknown }).summary || {})),
-      token_graph_viz: asString((graph as { fingerprint?: unknown }).fingerprint || sha256Text(JSON.stringify((graph as { summary?: unknown }).summary || {}))),
+      token_usage_index: sha256Text(
+        JSON.stringify((usageIndex as { summary?: unknown }).summary || {}),
+      ),
+      token_graph_viz: asString(
+        (graph as { fingerprint?: unknown }).fingerprint ||
+          sha256Text(
+            JSON.stringify((graph as { summary?: unknown }).summary || {}),
+          ),
+      ),
     },
   };
 
@@ -707,86 +831,16 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
 
   healthRepo.upsertSnapshot(systemId, 'tokens', snapshot);
 
-  emitChunk('result', `Token health snapshot stored in DB (${snapshot.summary.tokens_total} tokens).`);
+  emitChunk(
+    'result',
+    `Token health snapshot stored in DB (${snapshot.summary.tokens_total} tokens).`,
+  );
 
   return {
     ok: true,
     code: 0,
     summary: 'Token health snapshot refreshed in DB-only mode.',
     payload: snapshot,
-  };
-}
-
-/**
- * Rebuilds component health report from component repository data in DB.
- * The resulting snapshot is stored in `health_snapshots` (kind=components).
- */
-export function refreshComponentsHealthSnapshotDbOnly(args: {
-  systemId: string;
-  emitChunk: EmitChunk;
-  componentRepo: ComponentRepository;
-  healthRepo: HealthRepository;
-  sha256Text: (value: string) => string;
-}) {
-  const { systemId, emitChunk, componentRepo, healthRepo, sha256Text } = args;
-
-  const rows = componentRepo.getAll(systemId);
-
-  const components = rows.map((row) => {
-    const spec = row.specs?.[0];
-    const specExists = Boolean(row.editorialExists);
-
-    return {
-      slug: row.slug,
-      display_name: row.name || row.slug,
-      coverage: asNumber(spec?.coverage, 0),
-      with_spec: specExists,
-      paths: {
-        spec: `db://component_editorial/${row.id}`,
-      },
-    };
-  });
-
-  const summary = {
-    total_components: components.length,
-    with_spec: components.filter((entry) => entry.with_spec).length,
-    without_spec: components.filter((entry) => !entry.with_spec).length,
-    average_coverage_percent:
-      components.length > 0
-        ? Number((components.reduce((acc, entry) => acc + asNumber(entry.coverage, 0), 0) / components.length).toFixed(2))
-        : 0,
-  };
-
-  const reportBase = {
-    schema_version: 2,
-    source: {
-      registry_path: `db://components/${systemId}`,
-    },
-    summary,
-    filters: {
-      without_spec: {
-        items: components.filter((entry) => !entry.with_spec).map((entry) => entry.slug),
-        total: components.filter((entry) => !entry.with_spec).length,
-        truncated: false,
-      },
-    },
-    components,
-  };
-
-  const report = {
-    ...reportBase,
-    fingerprint_sha256: sha256Text(JSON.stringify(reportBase)),
-  };
-
-  healthRepo.upsertSnapshot(systemId, 'components', report);
-
-  emitChunk('result', `Components health snapshot stored in DB (${summary.total_components} component(s)).`);
-
-  return {
-    ok: true,
-    code: 0,
-    summary: 'Components health snapshot refreshed in DB-only mode.',
-    payload: report,
   };
 }
 
@@ -819,14 +873,13 @@ export function captureHealthSnapshotDbOnly(args: {
     sha256Text,
   } = args;
 
-  const tokenSnapshot = healthRepo.getSnapshot(systemId, 'tokens')?.snapshotJson as Record<string, unknown> | null;
-  const componentsSnapshot = healthRepo.getSnapshot(systemId, 'components')?.snapshotJson as Record<string, unknown> | null;
+  const tokenSnapshot = healthRepo.getSnapshot(systemId, 'tokens')
+    ?.snapshotJson as Record<string, unknown> | null;
 
   if (!tokenSnapshot) {
-    throw new Error(`Cannot capture health snapshot for "${systemId}": token health snapshot is missing in DB.`);
-  }
-  if (!componentsSnapshot) {
-    throw new Error(`Cannot capture health snapshot for "${systemId}": components health snapshot is missing in DB.`);
+    throw new Error(
+      `Cannot capture health snapshot for "${systemId}": token health snapshot is missing in DB.`,
+    );
   }
 
   const usageIndex = tokenRepo.getTokenUsageIndex(systemId);
@@ -842,15 +895,23 @@ export function captureHealthSnapshotDbOnly(args: {
     captured_at: nowIso,
     metrics: {
       breaking_changes: breakingChanges,
-      wcag_failures_total: asInt((tokenSnapshot.summary as Record<string, unknown> | undefined)?.wcag_failures_total, 0),
-      coverage_avg: asNumber((componentsSnapshot.summary as Record<string, unknown> | undefined)?.average_coverage_percent, 0),
-      unresolved_total: asInt((usageIndex.summary as { unresolved_total?: unknown }).unresolved_total, 0),
-      unused_tokens_total: asInt((tokenSnapshot.summary as Record<string, unknown> | undefined)?.unused_tokens_total, 0),
-      without_spec_total: asInt((componentsSnapshot.summary as Record<string, unknown> | undefined)?.without_spec, 0),
+      wcag_failures_total: asInt(
+        (tokenSnapshot.summary as Record<string, unknown> | undefined)
+          ?.wcag_failures_total,
+        0,
+      ),
+      unresolved_total: asInt(
+        (usageIndex.summary as { unresolved_total?: unknown }).unresolved_total,
+        0,
+      ),
+      unused_tokens_total: asInt(
+        (tokenSnapshot.summary as Record<string, unknown> | undefined)
+          ?.unused_tokens_total,
+        0,
+      ),
     },
     fingerprints: {
       token_health: asString(tokenSnapshot.fingerprint_sha256),
-      components_health: asString(componentsSnapshot.fingerprint_sha256),
       token_usage: sha256Text(JSON.stringify(usageIndex.summary || {})),
       token_diff: tokenDiffFingerprint,
       signature_sha256: '',
@@ -866,7 +927,6 @@ export function captureHealthSnapshotDbOnly(args: {
       metrics: snapshot.metrics,
       fingerprints: {
         token_health: snapshot.fingerprints.token_health,
-        components_health: snapshot.fingerprints.components_health,
         token_usage: snapshot.fingerprints.token_usage,
         token_diff: snapshot.fingerprints.token_diff,
       },
@@ -882,7 +942,8 @@ export function captureHealthSnapshotDbOnly(args: {
     ? String(latest.captured_at || '').slice(0, 10) === nowIso.slice(0, 10)
     : false;
   const sameSignature = latest
-    ? asString(latest.fingerprints?.signature_sha256) === snapshot.fingerprints.signature_sha256
+    ? asString(latest.fingerprints?.signature_sha256) ===
+      snapshot.fingerprints.signature_sha256
     : false;
 
   const shouldAppend = allowDuplicateDay || !(sameDay && sameSignature);
@@ -891,24 +952,39 @@ export function captureHealthSnapshotDbOnly(args: {
     healthRepo.appendHistory(systemId, 'tokens', snapshot);
   }
 
-  const effectiveRetentionDays = Math.max(1, asInt(retentionDays, DEFAULT_HEALTH_RETENTION_DAYS));
-  const cutoffEpoch = Math.floor(Date.now() / 1000) - effectiveRetentionDays * 24 * 60 * 60;
+  const effectiveRetentionDays = Math.max(
+    1,
+    asInt(retentionDays, DEFAULT_HEALTH_RETENTION_DAYS),
+  );
+  const cutoffEpoch =
+    Math.floor(Date.now() / 1000) - effectiveRetentionDays * 24 * 60 * 60;
   const pruneResult = db
-    .prepare('DELETE FROM health_history WHERE ds_id = ? AND kind = ? AND recorded_at < ?')
+    .prepare(
+      'DELETE FROM health_history WHERE ds_id = ? AND kind = ? AND recorded_at < ?',
+    )
     .run(systemId, 'tokens', cutoffEpoch);
 
   const historyCountRow = db
-    .prepare('SELECT COUNT(*) AS count FROM health_history WHERE ds_id = ? AND kind = ?')
+    .prepare(
+      'SELECT COUNT(*) AS count FROM health_history WHERE ds_id = ? AND kind = ?',
+    )
     .get(systemId, 'tokens') as { count?: number } | undefined;
   const snapshotsTotal = asInt(historyCountRow?.count, 0);
 
-  emitChunk('result', shouldAppend ? 'Health snapshot appended to DB history.' : 'Health snapshot deduplicated (same day/signature).');
+  emitChunk(
+    'result',
+    shouldAppend
+      ? 'Health snapshot appended to DB history.'
+      : 'Health snapshot deduplicated (same day/signature).',
+  );
   emitChunk('warning', diffWarning);
 
   return {
     ok: true,
     code: 0,
-    summary: shouldAppend ? 'Health snapshot captured in DB-only mode.' : 'Health snapshot deduplicated in DB-only mode.',
+    summary: shouldAppend
+      ? 'Health snapshot captured in DB-only mode.'
+      : 'Health snapshot deduplicated in DB-only mode.',
     payload: {
       ok: true,
       dry_run: false,
