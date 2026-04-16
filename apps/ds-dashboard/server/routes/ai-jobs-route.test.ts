@@ -1345,6 +1345,7 @@ describe('ai-jobs-route', () => {
             const prevGoogle = process.env.GOOGLE_API_KEY;
             const prevOllamaUrl = process.env.OLLAMA_BASE_URL;
             const prevOllamaModel = process.env.AI_OLLAMA_MODEL;
+            const prevOpenCode = process.env.OPENCODE_API_KEY;
 
             process.env.ANTHROPIC_API_KEY = 'anthropic-key';
             process.env.OPENAI_API_KEY = 'openai-key';
@@ -1352,6 +1353,7 @@ describe('ai-jobs-route', () => {
             delete process.env.GOOGLE_API_KEY;
             process.env.OLLAMA_BASE_URL = 'http://localhost:11434';
             process.env.AI_OLLAMA_MODEL = 'llama3.2';
+            process.env.OPENCODE_API_KEY = 'opencode-key';
 
             try {
                 const res = await app.request('/api/ai/providers/configured', {
@@ -1371,6 +1373,7 @@ describe('ai-jobs-route', () => {
                 if (prevGoogle === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = prevGoogle;
                 if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
                 if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
+                if (prevOpenCode === undefined) delete process.env.OPENCODE_API_KEY; else process.env.OPENCODE_API_KEY = prevOpenCode;
             }
         });
     });
