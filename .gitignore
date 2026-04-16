@@ -50,5 +50,4 @@ tooling/.tmp/
 apps/ds-dashboard/token-test-*
 apps/ds-dashboard/usage-test-*
 apps/ds-dashboard/test-temp-*
-.kilo/kilo.json
-.kilo/package-lock.json
+.kilo/
