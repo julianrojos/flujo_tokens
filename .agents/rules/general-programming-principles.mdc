@@ -71,6 +71,13 @@ alwaysApply: true
 - `SHOULD`: Prefer shipping a focused, correct change over a large change that touches many concerns.
 - `NICE_TO_HAVE`: Propose follow-up tasks for improvements that would benefit from their own review cycle.
 
+### 4.5 Formatting and mechanical style
+- `MUST`: Treat Prettier as the mechanical formatting source of truth for files it covers.
+- `SHOULD`: Keep formatting changes out of functional commits unless they are needed to normalize files you are already touching.
+- `SHOULD`: Avoid broad reformat-only diffs; prefer formatting only the edited scope or a dedicated cleanup commit.
+- `SHOULD`: If Prettier and local style conventions appear to conflict, prefer the repo config in `.prettierrc` / `.prettierignore` over ad hoc file-by-file formatting.
+- `NICE_TO_HAVE`: When introducing new file types or generated artifacts, add them to `.prettierignore` if formatting them creates churn without value.
+
 ## 5) TypeScript general guidelines (style and architecture)
 
 ### 5.1 Core principles
