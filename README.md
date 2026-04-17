@@ -43,9 +43,9 @@ npm run ci:preflight
 
 Then run the needed root test/typecheck scripts (for example `npm run typecheck:plugin`, `npm run test:tooling`, `npm run test:plugin:bridge`).
 
-### SQLite Bootstrap (Design System Context)
+### PostgreSQL Bootstrap (Design System Context)
 
-Component tooling resolves system context from SQLite (`apps/ds-dashboard/server/db/ds-dashboard.db` by default, override with `DS_DASHBOARD_DB_PATH`).
+Component tooling resolves system context from the PostgreSQL database referenced by `DATABASE_URL`.
 
 Bootstrap checklist:
 
@@ -58,7 +58,7 @@ Bootstrap checklist:
 npm run ds:doctor -- --system <id>
 ```
 
-If you get `Cannot load design systems from SQLite` or `No systems configured`, complete steps 2-3 first.
+If you get `Cannot load design systems from DB` or `No systems configured`, complete steps 2-3 first.
 Note: `--system` is strict; empty values and invalid IDs are rejected (allowed chars: letters, numbers, `.`, `_`, `-`).
 
 ### Token Compilation Scripts
@@ -365,7 +365,7 @@ Migration notes (legacy cleanup):
 
 System context (DB-backed):
 
-- Component/docs runners resolve default paths from the active design system in SQLite.
+- Component/docs runners resolve default paths from the active design system in PostgreSQL.
 - Canonical docs/spec roots are `design-systems/<id>/docs/components` and `design-systems/<id>/docs/_spec/components`.
 - Use `--system <id>` to target a specific system explicitly.
 - If `--system` is omitted, the default configured system is used.
@@ -375,11 +375,11 @@ System context (DB-backed):
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `design-systems/<id>/docs/_spec/components/` (prefills token mappings from `design-systems/<id>/docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `design-systems/<id>/docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `design-systems/<id>/docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard SQLite DB and refreshes `design-systems/<id>/docs/components/overview.md`, then regenerates `design-systems/<id>/docs/_generated/token-usage-index.json`.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `design-systems/<id>/docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `design-systems/<id>/docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard PostgreSQL database and refreshes `design-systems/<id>/docs/components/overview.md`, then regenerates `design-systems/<id>/docs/_generated/token-usage-index.json`.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
-- **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard SQLite DB and refreshes overview.
+- **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard PostgreSQL database and refreshes overview.
 - **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `design-systems/<id>/docs/components/overview.md` together (rollback on overview write failure).
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
@@ -400,7 +400,7 @@ System context (DB-backed):
 - `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
 - `design-systems/<id>/docs/_spec/`: component specs and visual theme contract
 - `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
-- `apps/ds-dashboard/server/db/ds-dashboard.db`: operational storage for component registry state (override with `DS_DASHBOARD_DB_PATH`)
+- `DATABASE_URL`: operational storage for component registry state
 - `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `design-systems/<id>/docs/_generated/components-index.md`: generated component index projection for human scanning
 - `design-systems/<id>/docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
@@ -410,7 +410,7 @@ System context (DB-backed):
 The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
 
 - `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`, plus `Used In` from `docs/_generated/token-usage-index.json`)
-- `Componentes` (component pipeline state from the dashboard SQLite DB via the local API)
+- `Componentes` (component pipeline state from the dashboard PostgreSQL database via the local API)
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
 
@@ -505,7 +505,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - optional spec `related_components` is validated:
     - values must be `snake_case` slugs, unique, and must not self-reference
     - in `ready` specs, every entry must resolve to an existing component spec YAML
-  - component index state must be refreshed coherently (dashboard SQLite DB + `design-systems/<id>/docs/components/overview.md`)
+  - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
@@ -750,7 +750,7 @@ npm run ds:registry:report
 
 Useful flags:
 
-- `--registry <path>` (default: `apps/ds-dashboard/server/db/ds-dashboard.db`)
+- `--registry <database-url>` (default from active system context)
 - `--system <id>` (recommended in multi-system repos)
 - `--spec-root <path>` (default from active system context)
 - `--docs-root <path>` (default from active system context)
