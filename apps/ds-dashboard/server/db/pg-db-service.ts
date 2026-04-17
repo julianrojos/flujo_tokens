@@ -44,6 +44,7 @@ const MIGRATION_CHECKSUMS: Record<number, string> = {
   34: '45336ba8bfb6439825107ece3209005825499a4fe4c7d604fda18092e3f66ef7',
   35: '6e65e452d4bf34bc2e708f2569fe32cb258caf83a56d5a1118067e7a06143fe5',
   36: '49c04e8145935ace126e46f21dd92f8a38234718718443b452de71769e1f43b3',
+  37: 'd9036f1fd4757f34d3c7b3c57150ff7637299f93eed10994cad3b5f51aefa44b',
 };
 
 import * as crypto from 'node:crypto';
