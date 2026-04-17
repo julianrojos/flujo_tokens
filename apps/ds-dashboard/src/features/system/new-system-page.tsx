@@ -14,8 +14,6 @@ import {
   syncFigmaTokens,
   syncConsumers,
   type CaptureFigmaErrorDetail,
-  type TokensBootstrapResult,
-  type TokensCompileResult,
 } from "@/lib/api";
 import { useNewSystemWizard } from "./hooks/use-new-system-wizard";
 import { WizardStepBasics } from "./components/wizard-step-basics";
@@ -26,7 +24,6 @@ import {
 } from "./new-system-import-errors";
 import {
   getImportErrorHint,
-  isCriticalTokensBootstrapFailure,
   toNonEmptyString,
   toRecord,
 } from "./lib/new-system-transforms";
@@ -102,8 +99,6 @@ export function NewSystemPage() {
   const activeQueueJobIdRef = useRef("");
   const [importRequestId, setImportRequestId] = useState("");
   const [importFigmaError, setImportFigmaError] = useState<CaptureFigmaErrorDetail | null>(null);
-  const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
-  const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
   const [resultImportMode, setResultImportMode] = useState<"full" | "partial" | null>(null);
   const [resultImportedCount, setResultImportedCount] = useState<number | null>(null);
   const [resultNotSelectedCount, setResultNotSelectedCount] = useState<number | null>(null);
@@ -174,12 +169,10 @@ export function NewSystemPage() {
   const importErrorHint = importState.error
     ? getImportErrorHint(importState.error, importFigmaError, importState.pipelinePhase)
     : null;
-  const bootstrapHasCriticalFailure = isCriticalTokensBootstrapFailure(importTokensBootstrap);
   const canShowTokensLink =
     importCompleted &&
     !importState.error &&
-    !bootstrapHasCriticalFailure &&
-    (!importTokensCompile || importTokensCompile.compiled === true);
+    (importState.successSummary?.tokensCompiled !== false);
   const effectiveIsCancelling = isCancellingImport || isCancellingQueueJob;
   const scanErrorMeta = useMemo(
     () => summarizeScanError(scan.error || ""),
@@ -249,8 +242,6 @@ export function NewSystemPage() {
     activeQueueJobIdRef.current = "";
     setImportRequestId("");
     setImportFigmaError(null);
-    setImportTokensBootstrap(null);
-    setImportTokensCompile(null);
     setResultImportMode(null);
     setResultImportedCount(null);
     setResultNotSelectedCount(null);
@@ -283,11 +274,13 @@ export function NewSystemPage() {
         );
         if (stopped) return;
         activeQueueJobIdRef.current = "";
-        setImportTokensBootstrap(null);
-        setImportTokensCompile(null);
 
         const importedComponents = Math.max(0, Number(result.components || 0));
         const importedTokens = Math.max(0, Number(result.tokens || 0));
+        const detectedComponents = Math.max(
+          0,
+          Number(importState.selectedCount || 0) + Number(importState.notSelectedCount || 0),
+        );
         const importedNotSelectedCount =
           typeof result.notSelectedCount === "number"
             ? Math.max(0, result.notSelectedCount)
@@ -324,11 +317,12 @@ export function NewSystemPage() {
         if (stopped) return;
         completeImport({
           elementsImported: importedComponents,
-          elementsTotal: importedComponents,
+          elementsTotal: detectedComponents > 0 ? detectedComponents : importedComponents,
+          elementsTotalIsLowerBound: scan.truncated === true,
           collectionsImported: null,
           collectionsTotal: null,
           variablesImported: importedTokens,
-          variablesTotal: importedTokens,
+          variablesTotal: null,
           tokensCompiled: null,
           compileReason: null,
         });
@@ -364,6 +358,7 @@ export function NewSystemPage() {
     importState.sourceFileKey,
     importState.sourceUrl,
     importState.selectedComponentNodeIds,
+    scan.truncated,
     step,
     updateImportProgress,
   ]);
@@ -421,8 +416,6 @@ export function NewSystemPage() {
             requestId={importRequestId}
             figmaError={importFigmaError}
             errorHint={importErrorHint}
-            tokensBootstrap={importTokensBootstrap}
-            tokensCompile={importTokensCompile}
             successSummary={importState.successSummary}
             importMode={resultImportMode || importState.importMode}
             importedCount={resultImportedCount ?? importState.selectedCount}

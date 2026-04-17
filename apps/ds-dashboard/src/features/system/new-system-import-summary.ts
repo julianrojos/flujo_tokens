@@ -3,6 +3,7 @@ import type { CaptureFigmaScreenshotResult } from "@/lib/api";
 export interface ImportSuccessSummary {
   elementsImported: number;
   elementsTotal: number;
+  elementsTotalIsLowerBound?: boolean;
   collectionsImported: number | null;
   collectionsTotal: number | null;
   variablesImported: number | null;
@@ -65,14 +66,18 @@ export function formatImportSuccessNotice(summary: ImportSuccessSummary): {
   variablesLine: string;
   customPropertiesLine: string;
 } {
-  const collectionsLine =
-    summary.collectionsImported === null || summary.collectionsTotal === null
-      ? "Collections: n/a (token bootstrap not attempted)."
-      : `Collections: ${summary.collectionsImported} downloaded out of ${summary.collectionsTotal} detected.`;
-  const variablesLine =
-    summary.variablesImported === null || summary.variablesTotal === null
-      ? "Variables: n/a (token bootstrap not attempted)."
-      : `Variables: ${summary.variablesImported} downloaded out of ${summary.variablesTotal} detected.`;
+  const collectionsLine = formatImportedLine(
+    "Collections",
+    summary.collectionsImported,
+    summary.collectionsTotal,
+    "token bootstrap not attempted",
+  );
+  const variablesLine = formatImportedLine(
+    "Variables",
+    summary.variablesImported,
+    summary.variablesTotal,
+    "token bootstrap not attempted",
+  );
 
   const customPropertiesLine = formatCustomPropertiesLine(
     summary.tokensCompiled,
@@ -80,11 +85,33 @@ export function formatImportSuccessNotice(summary: ImportSuccessSummary): {
   );
 
   return {
-    elementsLine: `Components: ${summary.elementsImported} imported out of ${summary.elementsTotal} detected.`,
+    elementsLine: formatComponentsLine(summary),
     collectionsLine,
     variablesLine,
     customPropertiesLine,
   };
+}
+
+function formatImportedLine(
+  label: string,
+  imported: number | null,
+  total: number | null,
+  fallbackReason: string,
+): string {
+  if (imported === null && total === null) {
+    return `${label}: n/a (${fallbackReason}).`;
+  }
+  if (total === null) {
+    return `${label}: ${imported ?? 0} imported.`;
+  }
+  return `${label}: ${imported ?? 0} downloaded out of ${total} detected.`;
+}
+
+export function formatComponentsLine(summary: Pick<ImportSuccessSummary, "elementsImported" | "elementsTotal" | "elementsTotalIsLowerBound">): string {
+  const detectedLabel = summary.elementsTotalIsLowerBound
+    ? `at least ${summary.elementsTotal}`
+    : `${summary.elementsTotal}`;
+  return `Components: ${summary.elementsImported} imported out of ${detectedLabel} detected.`;
 }
 
 function formatCustomPropertiesLine(

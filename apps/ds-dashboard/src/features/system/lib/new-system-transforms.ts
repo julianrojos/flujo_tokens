@@ -305,21 +305,6 @@ export function getTokensBootstrapErrorHint(errorMessage: string): string | null
 }
 
 /**
- * Check if tokens bootstrap failure is critical (not skippable)
- */
-export function isCriticalTokensBootstrapFailure(result: { reason?: string } | null): boolean {
-  if (!result) return false;
-  if ("error" in result && result.error) return true;
-  const normalized = normalizeReason(result.reason || "");
-  return (
-    normalized === "fetch-failed" ||
-    normalized === "system-missing" ||
-    normalized === "system-input-dir-missing" ||
-    normalized === "figma-file-key-missing"
-  );
-}
-
-/**
  * Map tokens compile reason to human-readable message
  */
 export function mapTokensCompileReason(reason: string): string {

@@ -9,8 +9,6 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import type {
   CaptureFigmaErrorDetail,
   CaptureFigmaProgress,
-  TokensBootstrapResult,
-  TokensCompileResult,
 } from "@/lib/api";
 import type { ImportSuccessSummary } from "../new-system-import-summary";
 import { ImportSuccessNotice } from "../import-success-notice";
@@ -26,8 +24,6 @@ interface WizardStepImportProps {
   requestId?: string;
   figmaError?: CaptureFigmaErrorDetail | null;
   errorHint?: string | null;
-  tokensBootstrap?: TokensBootstrapResult | null;
-  tokensCompile?: TokensCompileResult | null;
   successSummary?: ImportSuccessSummary | null;
   importMode?: "full" | "partial";
   importedCount?: number;
@@ -53,8 +49,6 @@ export function WizardStepImport({
   requestId,
   figmaError,
   errorHint,
-  tokensBootstrap,
-  tokensCompile,
   successSummary,
   importMode,
   importedCount,
@@ -69,12 +63,16 @@ export function WizardStepImport({
   onReset,
   onToggleDetails,
 }: WizardStepImportProps) {
-  const bootstrapReason = String(tokensBootstrap?.reason || "").trim() || "No bootstrap reason was provided.";
-  const compileReason = String(tokensCompile?.reason || "").trim() || "No compilation reason was provided.";
   const componentsTotal = successSummary?.elementsTotal ?? progress?.total ?? null;
+  const componentsTotalLabel =
+    componentsTotal !== null
+      ? successSummary?.elementsTotalIsLowerBound
+        ? `>= ${componentsTotal}`
+        : `${componentsTotal}`
+      : "—";
   const componentsImported = successSummary?.elementsImported ?? progress?.completed ?? null;
-  const figmaVariablesTotal = successSummary?.variablesTotal ?? tokensBootstrap?.tokens_total ?? null;
-  const importedVariables = successSummary?.variablesImported ?? tokensBootstrap?.tokens_written ?? null;
+  const figmaVariablesTotal = successSummary?.variablesTotal ?? null;
+  const importedVariables = successSummary?.variablesImported ?? null;
   const showComponentsStats = componentsTotal !== null || componentsImported !== null;
   const showVariableStats = figmaVariablesTotal !== null || importedVariables !== null;
   const hasRealProgressData =
@@ -93,7 +91,7 @@ export function WizardStepImport({
               Components imported: <strong className="text-foreground">{componentsImported ?? "—"}</strong>
             </span>
             <span>
-              Components total: <strong className="text-foreground">{componentsTotal ?? "—"}</strong>
+              Components total: <strong className="text-foreground">{componentsTotalLabel}</strong>
             </span>
           </>
         ) : null}
@@ -125,20 +123,6 @@ export function WizardStepImport({
         <CardContent className="space-y-4">
           {(showComponentsStats || showVariableStats) ? renderImportStats() : null}
           {successSummary ? <ImportSuccessNotice summary={successSummary} /> : null}
-          {tokensBootstrap ? (
-            <StatusAlert
-              variant={tokensBootstrap.error ? "warning" : "info"}
-              title={tokensBootstrap.error ? "Token bootstrap finished with warnings" : "Token bootstrap status"}
-              description={tokensBootstrap.error || bootstrapReason}
-            />
-          ) : null}
-          {tokensCompile ? (
-            <StatusAlert
-              variant={tokensCompile.compiled ? "success" : "warning"}
-              title={tokensCompile.compiled ? "Token compilation completed" : "Token compilation did not complete cleanly"}
-              description={tokensCompile.stderr || compileReason}
-            />
-          ) : null}
           <div className="flex flex-wrap gap-2">
             {showTokensLink ? (
               <Link to="/tokens" className={cn(buttonVariants({ variant: "default" }))}>
@@ -241,20 +225,6 @@ export function WizardStepImport({
           </>
         ) : (
           <div className="space-y-2">
-            {tokensBootstrap ? (
-              <StatusAlert
-                variant={tokensBootstrap.error ? "warning" : "info"}
-                title={tokensBootstrap.error ? "Token bootstrap warning" : "Token bootstrap status"}
-                description={tokensBootstrap.error || bootstrapReason}
-              />
-            ) : null}
-            {tokensCompile ? (
-              <StatusAlert
-                variant={tokensCompile.compiled ? "success" : "warning"}
-                title={tokensCompile.compiled ? "Token compilation completed" : "Token compilation status"}
-                description={tokensCompile.stderr || compileReason}
-              />
-            ) : null}
             <Button variant="outline" onClick={onCancel} disabled={isCancelling}>
               {isCancelling ? "Cancelling…" : "Cancel import"}
             </Button>
