@@ -16,7 +16,10 @@ import {
   fetchFigmaImages,
   fetchFigmaNodes,
 } from './figma-api.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import {
+  resolveSystemContextSafe,
+  PROJECT_ROOT,
+} from '../utils/system-context.js';
 import {
   bootstrapInputJsonFromFigmaVariables,
   ensureCollectionsConfigured,
@@ -58,7 +61,12 @@ import { injectSpecZones } from './spec-to-markdown-injector.js';
 import { buildCaptureTargets } from './capture-target-builder.js';
 import { createCaptureReport } from './capture-report.js';
 import { executeCaptureBatchAndRefresh } from './capture-batch-execution.js';
-import type { FigmaDescriptor, CaptureContext, SourceCandidate, CaptureTargetKind } from './capture-target-builder.js';
+import type {
+  FigmaDescriptor,
+  CaptureContext,
+  SourceCandidate,
+  CaptureTargetKind,
+} from './capture-target-builder.js';
 import type { PipelineContext } from './pipeline-context.js';
 import type { ParsedFigmaFileUrl } from './figma-component-map.js';
 import type { ExtractedComponentSpec } from '../types/spec.js';
@@ -73,7 +81,10 @@ type CapturePipelinePhase =
   | 'capture_batch'
   | 'dry_run';
 
-function throwWithPipelinePhase(error: unknown, phase: CapturePipelinePhase): never {
+function throwWithPipelinePhase(
+  error: unknown,
+  phase: CapturePipelinePhase,
+): never {
   if (error instanceof Error) {
     const enriched = error as Error & { pipeline_phase?: string };
     if (!enriched.pipeline_phase) {
@@ -190,25 +201,26 @@ export async function runCaptureFromFigmaUrl(
   const figmaUrl = String(args.url || '').trim();
   let phase: CapturePipelinePhase = 'validate_input';
   if (!figmaUrl) {
-    throwWithPipelinePhase(new Error('Missing Figma URL. Provide --url <figma-url>.'), phase);
-  }
-
-  const figmaTokenRaw = String(args['figma-token'] || process.env.FIGMA_TOKEN || '').trim();
-  if (!figmaTokenRaw) {
     throwWithPipelinePhase(
-      new Error('Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.'),
+      new Error('Missing Figma URL. Provide --url <figma-url>.'),
       phase,
     );
   }
 
-  const context: PipelineContext = createPipelineContextFn(args);
-  const {
-    repoRoot,
-    figmaToken,
-    system: ctx,
-    paths,
-    flags,
-  } = context;
+  const figmaTokenRaw = String(
+    args['figma-token'] || process.env.FIGMA_TOKEN || '',
+  ).trim();
+  if (!figmaTokenRaw) {
+    throwWithPipelinePhase(
+      new Error(
+        'Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.',
+      ),
+      phase,
+    );
+  }
+
+  const context: PipelineContext = await createPipelineContextFn(args);
+  const { repoRoot, figmaToken, system: ctx, paths, flags } = context;
 
   const {
     docsRootDir,
@@ -282,7 +294,9 @@ export async function runCaptureFromFigmaUrl(
 
   phase = 'resolve_context';
   let componentMap: Awaited<ReturnType<typeof resolveContext>>['componentMap'];
-  let singleNodeCandidate: Awaited<ReturnType<typeof resolveContext>>['singleNodeCandidate'];
+  let singleNodeCandidate: Awaited<
+    ReturnType<typeof resolveContext>
+  >['singleNodeCandidate'];
   try {
     const resolved = await resolveContext();
     componentMap = resolved.componentMap;
@@ -298,7 +312,7 @@ export async function runCaptureFromFigmaUrl(
   try {
     ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
     services = createCaptureServices({ context });
-    const componentRows = services.readComponentRegistry();
+    const componentRows = await services.readComponentRegistry();
     slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
     const specContents = services.readSpecContents();
     slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
@@ -306,14 +320,18 @@ export async function runCaptureFromFigmaUrl(
     throwWithPipelinePhase(error, phase);
   }
 
-  const allComponents = Array.isArray(componentMap?.components) ? componentMap.components : [];
+  const allComponents = Array.isArray(componentMap?.components)
+    ? componentMap.components
+    : [];
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
-  
+
   // Build source candidates from components
   let sourceCandidates: SourceCandidate[];
   if (hasNodeIdFromUrl) {
     // Single node mode
-    sourceCandidates = [singleNodeCandidate].filter(Boolean) as SourceCandidate[];
+    sourceCandidates = [singleNodeCandidate].filter(
+      Boolean,
+    ) as SourceCandidate[];
   } else if (componentKind && componentKind !== 'all') {
     // Filter by requested component kind
     sourceCandidates = allComponents
@@ -321,24 +339,33 @@ export async function runCaptureFromFigmaUrl(
         const kind = classifyTargetKindFn(component.type);
         return isKindAllowedFn(kind, componentKind);
       })
-      .map((component): SourceCandidate => ({
+      .map(
+        (component): SourceCandidate => ({
+          node_id: component.id,
+          name: component.name,
+          kind: component.type,
+          type: component.type,
+        }),
+      );
+  } else {
+    // All components mode
+    sourceCandidates = allComponents.map(
+      (component): SourceCandidate => ({
         node_id: component.id,
         name: component.name,
         kind: component.type,
         type: component.type,
-      }));
-  } else {
-    // All components mode
-    sourceCandidates = allComponents.map((component): SourceCandidate => ({
-      node_id: component.id,
-      name: component.name,
-      kind: component.type,
-      type: component.type,
-    }));
+      }),
+    );
   }
   const applySlugOverride = Boolean(componentSlugOverride && hasNodeIdFromUrl);
 
-  const captureScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-capture-visual-proof.mjs');
+  const captureScriptPath = path.join(
+    projectRoot,
+    'tooling',
+    'scripts',
+    'ds-capture-visual-proof.mjs',
+  );
 
   let targets: CaptureTarget[];
   let skipped: unknown[];
@@ -359,14 +386,50 @@ export async function runCaptureFromFigmaUrl(
       repoRoot: projectRoot,
       ensureFilePayload,
       fetchFigmaNodes: fetchFigmaNodesFn,
-      fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: { fileKey: string; nodeIds: string[]; token: string; format?: string; scale?: number }) => Promise<{ images?: Record<string, string> }>,
-      extractComponentSpec: extractComponentSpecFn as unknown as (node: unknown) => import('./capture-target-builder.js').ExtractedComponentSpec,
-      resolveSpecExhibitNodeIds: resolveSpecExhibitNodeIdsFn as unknown as (options: { figmaFilePayload: unknown; targetNodeId: string }) => { specsNodeId?: string; anatomyNodeId?: string; propertiesNodeId?: string; layoutNodeId?: string } | null,
-      buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (descriptor: FigmaDescriptor | Record<string, unknown>, nodeId: string) => string,
-      classifyTargetKind: classifyTargetKindFn as unknown as (kind?: string | null) => CaptureTargetKind,
-      renderEnrichedMarkdownSeed: renderEnrichedMarkdownSeedFn as unknown as (options: { slug: string; displayName: string; nodeUrl: string; nodeId: string; spec?: unknown }) => string,
-      injectSpecZones: injectSpecZonesFn as unknown as (markdown: string, spec: unknown, slug: string) => string,
-      writeTextAtomic: writeTextAtomicFn as unknown as (filePath: string, content: string) => Promise<void>,
+      fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: {
+        fileKey: string;
+        nodeIds: string[];
+        token: string;
+        format?: string;
+        scale?: number;
+      }) => Promise<{ images?: Record<string, string> }>,
+      extractComponentSpec: extractComponentSpecFn as unknown as (
+        node: unknown,
+      ) => import('./capture-target-builder.js').ExtractedComponentSpec,
+      resolveSpecExhibitNodeIds:
+        resolveSpecExhibitNodeIdsFn as unknown as (options: {
+          figmaFilePayload: unknown;
+          targetNodeId: string;
+        }) => {
+          specsNodeId?: string;
+          anatomyNodeId?: string;
+          propertiesNodeId?: string;
+          layoutNodeId?: string;
+        } | null,
+      buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (
+        descriptor: FigmaDescriptor | Record<string, unknown>,
+        nodeId: string,
+      ) => string,
+      classifyTargetKind: classifyTargetKindFn as unknown as (
+        kind?: string | null,
+      ) => CaptureTargetKind,
+      renderEnrichedMarkdownSeed:
+        renderEnrichedMarkdownSeedFn as unknown as (options: {
+          slug: string;
+          displayName: string;
+          nodeUrl: string;
+          nodeId: string;
+          spec?: unknown;
+        }) => string,
+      injectSpecZones: injectSpecZonesFn as unknown as (
+        markdown: string,
+        spec: unknown,
+        slug: string,
+      ) => string,
+      writeTextAtomic: writeTextAtomicFn as unknown as (
+        filePath: string,
+        content: string,
+      ) => Promise<void>,
       stderrWrite: stderrWriteFn,
       markdownExistsFn: services.markdownExists,
       specExistsFn: services.specExists,
@@ -381,7 +444,8 @@ export async function runCaptureFromFigmaUrl(
   const report = createCaptureReportFn({
     dryRun,
     descriptor: {
-      sourceUrl: descriptorWithSource.sourceUrl || descriptorWithSource.figmaUrl || '',
+      sourceUrl:
+        descriptorWithSource.sourceUrl || descriptorWithSource.figmaUrl || '',
       fileKey: descriptorWithSource.fileKey,
       nodeIdFromUrl: descriptor.rootNodeId || undefined,
     },

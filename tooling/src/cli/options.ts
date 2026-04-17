@@ -82,11 +82,28 @@ function resolveSystemOverride(argv: string[]): string | null | undefined {
 function getSystemPaths(rootDir: string, systemId?: string) {
     const repository = createDesignSystemRepository({ repoRoot: rootDir });
     const systems = repository.getAll();
+    if (!Array.isArray(systems)) {
+        const sid = String(systemId || '').trim();
+        const resolvedSid = sid || 'sys-01';
+        const baseDir = path.join('design-systems', resolvedSid);
+        const outputDir = path.join(baseDir, 'output');
+        const docsDir = path.join(baseDir, 'docs');
+        return {
+            inputDir: path.resolve(rootDir, baseDir, 'input'),
+            outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
+            outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
+            outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
+            registryOutput: path.resolve(rootDir, docsDir, '_generated/token-registry.json'),
+        };
+    }
     const configuredDefault = repository.getDefaultSystemId();
+    if (configuredDefault && typeof configuredDefault !== 'string') {
+        throw new Error('Default system id is not available in synchronous mode.');
+    }
     const sid = String(systemId || configuredDefault || systems[0]?.id || '').trim();
     if (!sid) {
         repository.dispose();
-        throw new Error('No active design system. Configure one in the SQLite database or pass --system <id>.');
+        throw new Error('No active design system. Configure one in PostgreSQL or pass --system <id>.');
     }
     const sys = repository.getById(sid);
     if (!sys) {

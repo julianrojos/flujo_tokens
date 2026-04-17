@@ -13,7 +13,7 @@ export interface PipelinePaths {
   componentDocsDir: string;
   proofDir: string;
   proofImageDir: string;
-  registryDbPath: string;
+  databaseUrl: string;
   tokenRegistryPath: string;
   resolvedSpecRoot: string;
   templatePath: string;
@@ -76,7 +76,7 @@ export function resolvePipelinePaths(
     componentDocsDir,
     proofDir,
     proofImageDir,
-    registryDbPath: path.resolve(systemContext.paths.registry),
+    databaseUrl: systemContext.paths.databaseUrl,
     tokenRegistryPath: path.resolve(
       args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, '_generated', 'token-registry.json')
     ),

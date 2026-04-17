@@ -161,7 +161,7 @@ export interface DoctorConfig {
   specRoot: string;
   /** Path to token registry JSON */
   registryPath: string;
-  /** Path to component registry JSON */
+  /** PostgreSQL connection URL for component registry checks */
   componentRegistryPath: string;
   /** Path to rules manifest YAML */
   manifestPath: string;

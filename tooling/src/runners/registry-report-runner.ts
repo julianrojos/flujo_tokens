@@ -3,7 +3,7 @@
 /**
  * Registry Report Runner (DB-only)
  *
- * Builds read-only component status projections from SQLite-backed component state.
+ * Builds read-only component status projections from PostgreSQL-backed component state.
  */
 
 import * as fs from 'node:fs';
@@ -13,7 +13,10 @@ import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import {
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 const REPORT_SCHEMA_VERSION = 1;
@@ -25,11 +28,13 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--out-md',
-      description: 'Markdown index output path (defaults to active system docs/_generated/components-index.md).',
+      description:
+        'Markdown index output path (defaults to active system docs/_generated/components-index.md).',
     },
     {
       name: '--out-json',
-      description: 'JSON health projection output path (defaults to active system docs/_generated/components-health.json).',
+      description:
+        'JSON health projection output path (defaults to active system docs/_generated/components-health.json).',
     },
     {
       name: '--format',
@@ -72,7 +77,9 @@ function parseBooleanOption(
   optionName: string,
   fallback: boolean = false,
 ): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  const normalized = String(rawValue ?? fallback)
+    .trim()
+    .toLowerCase();
   if (normalized === 'true') return true;
   if (normalized === 'false') return false;
   throw new Error(
@@ -95,9 +102,15 @@ function parseIntegerOption(
   return Math.max(minValue, Math.floor(parsed));
 }
 
-function writeTextIfChanged(filePath: string, content: string, dryRun: boolean): boolean {
+function writeTextIfChanged(
+  filePath: string,
+  content: string,
+  dryRun: boolean,
+): boolean {
   const resolved = path.resolve(filePath);
-  const current = fs.existsSync(resolved) ? fs.readFileSync(resolved, 'utf8') : null;
+  const current = fs.existsSync(resolved)
+    ? fs.readFileSync(resolved, 'utf8')
+    : null;
   if (current === content) return false;
   if (!dryRun) {
     fs.mkdirSync(path.dirname(resolved), { recursive: true });
@@ -106,7 +119,10 @@ function writeTextIfChanged(filePath: string, content: string, dryRun: boolean):
   return true;
 }
 
-function hasExistingMarkdown(markdownPath: string | undefined, docsDir?: string): boolean {
+function hasExistingMarkdown(
+  markdownPath: string | undefined,
+  docsDir?: string,
+): boolean {
   const normalized = String(markdownPath || '').trim();
   if (!normalized) return false;
   if (path.isAbsolute(normalized)) {
@@ -136,7 +152,7 @@ interface ComponentSummary {
 interface RegistryReport {
   schemaVersion: number;
   generatedAt: string;
-  registryDbPath: string;
+  databaseUrl: string;
   totalComponents: number;
   byStatus: Record<string, number>;
   byStage: Record<string, number>;
@@ -151,7 +167,7 @@ interface RegistryReport {
 
 function buildReport(
   components: ComponentSummary[],
-  dbPath: string,
+  databaseUrl: string,
   maxFilterItems: number,
 ): RegistryReport {
   const byStatus: Record<string, number> = {};
@@ -160,7 +176,10 @@ function buildReport(
   for (const component of components) {
     byStatus[component.status] = (byStatus[component.status] || 0) + 1;
     const stage =
-      component.inFigma && component.hasSpec && component.hasDoc && component.hasVisualProof
+      component.inFigma &&
+      component.hasSpec &&
+      component.hasDoc &&
+      component.hasVisualProof
         ? 'visual-proof'
         : component.inFigma && component.hasSpec && component.hasDoc
           ? 'markdown'
@@ -173,20 +192,31 @@ function buildReport(
   return {
     schemaVersion: REPORT_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
-    registryDbPath: dbPath,
+    databaseUrl: databaseUrl,
     totalComponents: components.length,
     byStatus,
     byStage,
     quickFilters: {
-      needsReview: components.filter((c) => c.needsReview).slice(0, maxFilterItems).map((c) => c.slug),
-      draft: components.filter((c) => c.status === 'draft').slice(0, maxFilterItems).map((c) => c.slug),
-      ready: components.filter((c) => c.status === 'ready').slice(0, maxFilterItems).map((c) => c.slug),
+      needsReview: components
+        .filter((c) => c.needsReview)
+        .slice(0, maxFilterItems)
+        .map((c) => c.slug),
+      draft: components
+        .filter((c) => c.status === 'draft')
+        .slice(0, maxFilterItems)
+        .map((c) => c.slug),
+      ready: components
+        .filter((c) => c.status === 'ready')
+        .slice(0, maxFilterItems)
+        .map((c) => c.slug),
       inFigmaOnly: components
         .filter((c) => c.inFigma && !c.hasSpec && !c.hasDoc)
         .slice(0, maxFilterItems)
         .map((c) => c.slug),
     },
-    components: components.sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' })),
+    components: components.sort((a, b) =>
+      a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }),
+    ),
   };
 }
 
@@ -207,8 +237,12 @@ function generateMarkdown(report: RegistryReport): string {
   }
 
   lines.push('\n## All Components\n');
-  lines.push('| Slug | Status | In Figma | Has Spec | Has Doc | Visual Proof |');
-  lines.push('|------|--------|----------|----------|---------|--------------|');
+  lines.push(
+    '| Slug | Status | In Figma | Has Spec | Has Doc | Visual Proof |',
+  );
+  lines.push(
+    '|------|--------|----------|----------|---------|--------------|',
+  );
   for (const component of report.components) {
     lines.push(
       `| ${component.slug} | ${component.status} | ${component.inFigma ? 'yes' : 'no'} | ${component.hasSpec ? 'yes' : 'no'} | ${component.hasDoc ? 'yes' : 'no'} | ${component.hasVisualProof ? 'yes' : 'no'} |`,
@@ -227,15 +261,28 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
   }
 
   const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
-  const dbPath = path.resolve(ctx.paths.registry);
-  const defaultOutMd = path.join(ctx.docsDir, '_generated', 'components-index.md');
-  const defaultOutJson = path.join(ctx.docsDir, '_generated', 'components-health.json');
+  const databaseUrl = resolveDashboardDbUrl(process.env);
+  const defaultOutMd = path.join(
+    ctx.docsDir,
+    '_generated',
+    'components-index.md',
+  );
+  const defaultOutJson = path.join(
+    ctx.docsDir,
+    '_generated',
+    'components-health.json',
+  );
   const outMdArg = getStringArg(parsed, 'out-md');
   const outJsonArg = getStringArg(parsed, 'out-json');
   const outMd = path.resolve(String(outMdArg || defaultOutMd));
   const outJson = path.resolve(String(outJsonArg || defaultOutJson));
   const format = String(getStringArg(parsed, 'format') || 'json');
-  const maxFilterItems = parseIntegerOption(String(parsed['max-filter-items']), '--max-filter-items', 20, 1);
+  const maxFilterItems = parseIntegerOption(
+    String(parsed['max-filter-items']),
+    '--max-filter-items',
+    20,
+    1,
+  );
   const skipMd = parseBooleanOption(parsed['no-md'], '--no-md', false);
   const skipJson = parseBooleanOption(parsed['no-json'], '--no-json', false);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
@@ -243,15 +290,15 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
   if (!outMdArg || !outJsonArg) {
     logger.info(
       `Using system-scoped defaults for registry report outputs (system=${ctx.id}). ` +
-      `Set --out-md/--out-json to override explicitly.`,
+        `Set --out-md/--out-json to override explicitly.`,
     );
   }
 
-  const db = bootstrapDatabase({ dbPath });
+  const db = await bootstrapDatabase(databaseUrl);
   let report: RegistryReport;
   try {
     const repo = new ComponentRepository(db);
-    const rows = repo.getAll(ctx.id);
+    const rows = await repo.getAll(ctx.id);
     const components: ComponentSummary[] = rows.map((row) => {
       const spec = row.specs?.[0];
       const proof = row.visualProofs?.[0];
@@ -266,9 +313,9 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
         needsReview: spec?.docStatus === 'needs-review',
       };
     });
-    report = buildReport(components, dbPath, maxFilterItems);
+    report = buildReport(components, databaseUrl, maxFilterItems);
   } finally {
-    db.close();
+    await db.end();
   }
 
   if (format === 'json') {

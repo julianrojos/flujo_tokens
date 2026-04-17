@@ -6,8 +6,12 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
-import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import {
+  loadDesignSystemsConfigAsync,
+  PROJECT_ROOT,
+  resolveSystemContextSafe,
+} from '../utils/system-context.js';
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 /**
@@ -64,7 +68,11 @@ export interface PipelinePlanOptions {
 
 const PIPELINE_STEPS: Array<{ id: string; role: string; desc: string }> = [
   { id: 'spec', role: 'metadata', desc: 'Generate/Update Spec YAML' },
-  { id: 'markdown', role: 'documentation', desc: 'Generate component Markdown' },
+  {
+    id: 'markdown',
+    role: 'documentation',
+    desc: 'Generate component Markdown',
+  },
 ];
 
 const STEP_ALIASES: Record<string, string> = Object.freeze({
@@ -72,7 +80,10 @@ const STEP_ALIASES: Record<string, string> = Object.freeze({
   markdown: 'markdown',
 });
 
-function hasExistingMarkdown(markdownPath: string | undefined, docsDir?: string): boolean {
+function hasExistingMarkdown(
+  markdownPath: string | undefined,
+  docsDir?: string,
+): boolean {
   const normalized = String(markdownPath || '').trim();
   if (!normalized) return false;
   if (path.isAbsolute(normalized)) {
@@ -92,7 +103,9 @@ function hasExistingMarkdown(markdownPath: string | undefined, docsDir?: string)
  * Normalize step argument to canonical step ID.
  */
 function normalizeStepArg(rawStep: string): string {
-  const normalized = String(rawStep || '').trim().toLowerCase();
+  const normalized = String(rawStep || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return '';
   return STEP_ALIASES[normalized] || '';
 }
@@ -101,9 +114,15 @@ function normalizeStepArg(rawStep: string): string {
  * Create pipeline execution plan.
  * Note: This is a synchronous function (uses fs.readFileSync internally).
  */
-export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
-  const rawFromStep = String(options['from-step'] || '').trim().toLowerCase();
-  const rawOnlyStep = String(options['only-step'] || '').trim().toLowerCase();
+export async function createPlan(
+  options: PipelinePlanOptions = {},
+): Promise<PipelinePlan> {
+  const rawFromStep = String(options['from-step'] || '')
+    .trim()
+    .toLowerCase();
+  const rawOnlyStep = String(options['only-step'] || '')
+    .trim()
+    .toLowerCase();
   const fromStep = normalizeStepArg(rawFromStep);
   const onlyStep = normalizeStepArg(rawOnlyStep);
 
@@ -111,13 +130,13 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   if (rawFromStep && !fromStep) {
     throw new Error(
       `Invalid --from-step value: "${options['from-step']}". ` +
-      'Must be one of: spec, markdown.'
+        'Must be one of: spec, markdown.',
     );
   }
   if (rawOnlyStep && !onlyStep) {
     throw new Error(
       `Invalid --only-step value: "${options['only-step']}". ` +
-      'Must be one of: spec, markdown.'
+        'Must be one of: spec, markdown.',
     );
   }
 
@@ -131,22 +150,26 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
     summary: {},
   };
 
+  await loadDesignSystemsConfigAsync();
+
   const ctx = options.dsContext || resolveSystemContextSafe({});
-  const dbPath = path.resolve(ctx.paths.registry);
+  const databaseUrl = ctx.paths.databaseUrl;
   const systemId = ctx.id;
   let allComponents: RegistryEntry[] = [];
 
   try {
-    const db = bootstrapDatabase({ dbPath });
+    const db = await bootstrapDatabase(databaseUrl);
     try {
       const repo = new ComponentRepository(db);
-      const rows = repo.getAll(systemId);
+      const rows = await repo.getAll(systemId);
       allComponents = rows.map((row) => {
         const spec = row.specs?.[0];
         const proof = row.visualProofs?.[0];
         const hasSpec = Boolean(spec?.markdownPath);
         const hasDoc = hasExistingMarkdown(spec?.markdownPath, ctx.docsDir);
-        const hasVisualProof = Boolean(proof?.imagePath || proof?.screenshotUrl);
+        const hasVisualProof = Boolean(
+          proof?.imagePath || proof?.screenshotUrl,
+        );
         return {
           slug: row.slug,
           spec: { exists: hasSpec },
@@ -156,13 +179,13 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
         };
       });
     } finally {
-      db.close();
+      await db.end();
     }
   } catch (err) {
     if (options.allowMissingRegistry) {
       plan.summary = {
         warning:
-          `Component registry unavailable in DB at ${dbPath}. ` +
+          `Component registry unavailable in DB (${databaseUrl}). ` +
           'Returning empty plan (dry-run/status-only fallback).',
       };
       return plan;
@@ -170,7 +193,7 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
 
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `[Plan] Fatal: Cannot read component registry from DB at ${dbPath}: ${reason}`
+      `[Plan] Fatal: Cannot read component registry from DB (${databaseUrl}): ${reason}`,
     );
   }
 
@@ -215,7 +238,10 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
 
       switch (stepObj.id) {
         case 'spec':
-          stepPlan.preconditions = ['token-registry exists', 'figma.component_set_node_id set'];
+          stepPlan.preconditions = [
+            'token-registry exists',
+            'figma.component_set_node_id set',
+          ];
           if (!inFigma) {
             // Cannot regenerate spec without a Figma source
             stepPlan.needed = false;
@@ -223,14 +249,18 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
             stepPlan.reason = 'Missing figma.component_set_node_id';
           } else if (!hasSpec || needsReview) {
             stepPlan.needed = true;
-            stepPlan.reason = needsReview ? 'Spec drifted (needs-review)' : 'Spec missing';
+            stepPlan.reason = needsReview
+              ? 'Spec drifted (needs-review)'
+              : 'Spec missing';
           }
           break;
         case 'markdown':
           stepPlan.preconditions = ['spec exists'];
           if (!hasDoc || needsReview) {
             stepPlan.needed = true;
-            stepPlan.reason = needsReview ? 'Markdown drifted (needs-review)' : 'Markdown missing';
+            stepPlan.reason = needsReview
+              ? 'Markdown drifted (needs-review)'
+              : 'Markdown missing';
           }
           break;
       }
@@ -263,10 +293,18 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
     // block markdown unless the user explicitly skipped spec via --from-step.
     const specStep = steps.find((s) => s.id === 'spec');
     const mdStep = steps.find((s) => s.id === 'markdown');
-    if (specStep && mdStep && !hasSpec && !specStep.needed && !specStep.blocked && mdStep.needed) {
+    if (
+      specStep &&
+      mdStep &&
+      !hasSpec &&
+      !specStep.needed &&
+      !specStep.blocked &&
+      mdStep.needed
+    ) {
       const fromStepSkip =
         fromStep &&
-        PIPELINE_STEPS.findIndex((s) => s.id === 'spec') < PIPELINE_STEPS.findIndex((s) => s.id === fromStep);
+        PIPELINE_STEPS.findIndex((s) => s.id === 'spec') <
+          PIPELINE_STEPS.findIndex((s) => s.id === fromStep);
       const onlyStepSkip = onlyStep && onlyStep !== 'spec' && hasSpec;
       if (!fromStepSkip && !onlyStepSkip) {
         mdStep.blocked = true;

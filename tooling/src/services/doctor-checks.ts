@@ -37,7 +37,7 @@ export interface DoctorContext {
   docsRoot: string;
   specRoot: string;
   registryPath: string;
-  componentRegistryPath: string;
+  componentRegistryDatabaseUrl: string;
   visualProofDir: string;
   manifestPath: string;
   rawComponentName: string;
@@ -61,16 +61,17 @@ export function resolveDoctorContext(
   parsed: Record<string, unknown>,
   systemCtx: {
     id: string;
-    paths: { docs: string; specs: string; tokenRegistry: string; registry: string; generated: string };
+    paths: { docs: string; specs: string; tokenRegistry: string; databaseUrl: string; generated: string };
   },
   projectRoot: string,
 ): DoctorContext {
   const docsRoot = path.resolve(String(parsed['docs-root'] ?? systemCtx.paths.docs));
   const specRoot = path.resolve(String(parsed['spec-root'] ?? systemCtx.paths.specs));
   const registryPath = path.resolve(String(parsed.registry ?? systemCtx.paths.tokenRegistry));
-  const componentRegistryPath = path.resolve(
-    String(parsed['component-registry'] ?? systemCtx.paths.registry),
-  );
+  const rawComponentRegistry = String(parsed['component-registry'] ?? systemCtx.paths.databaseUrl);
+  const componentRegistryDatabaseUrl = rawComponentRegistry.includes('://')
+    ? rawComponentRegistry
+    : path.resolve(rawComponentRegistry);
   const visualProofDir = path.resolve(
     String(parsed['proof-dir'] ?? path.join(systemCtx.paths.generated, 'visual-proofs')),
   );
@@ -86,7 +87,7 @@ export function resolveDoctorContext(
     docsRoot,
     specRoot,
     registryPath,
-    componentRegistryPath,
+    componentRegistryDatabaseUrl,
     visualProofDir,
     manifestPath,
     rawComponentName,
@@ -268,9 +269,9 @@ export function checkSystemPathAlignment(
       createCheck({
         id: 'SYSTEM_PATH_ALIGNMENT',
         status: 'fail',
-        message: 'Failed to load design systems from SQLite.',
+        message: 'Failed to load design systems from PostgreSQL.',
         details: {
-          source: 'sqlite://design_systems',
+          source: 'postgresql://design_systems',
           error: error instanceof Error ? error.message : String(error),
         },
       }),
@@ -286,7 +287,7 @@ export function checkSystemPathAlignment(
         id: 'SYSTEM_PATH_ALIGNMENT',
         status: 'warn',
         message: 'No design systems configured; path alignment check skipped.',
-        details: { source: 'sqlite://design_systems', systems: 0 },
+        details: { source: 'postgresql://design_systems', systems: 0 },
       }),
     );
     return checks;
@@ -314,7 +315,7 @@ export function checkSystemPathAlignment(
             status: 'fail',
             message: `Configured ${field} for system "${id}" contains path traversal pattern.`,
             details: {
-              source: 'sqlite://design_systems',
+              source: 'postgresql://design_systems',
               systemId: id,
               field,
               relDir,
@@ -339,7 +340,7 @@ export function checkSystemPathAlignment(
         status: 'fail',
         message: 'Some configured system directories do not exist.',
         details: {
-          source: 'sqlite://design_systems',
+          source: 'postgresql://design_systems',
           missingCount: missing.length,
           missing,
         },
@@ -354,7 +355,7 @@ export function checkSystemPathAlignment(
       status: 'pass',
       message: 'All configured system directories exist and use canonical layout.',
       details: {
-        source: 'sqlite://design_systems',
+        source: 'postgresql://design_systems',
         systems: systems.length,
       },
     }),
@@ -478,12 +479,12 @@ export function checkTokenRegistry(ctx: DoctorContext): DoctorCheck[] {
 /**
  * Check COMPONENT_REGISTRY
  */
-export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
+export async function checkComponentRegistry(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
 
   try {
-    const componentRegistryCheck = compareComponentRegistryToSources({
-      dbPath: ctx.componentRegistryPath,
+    const componentRegistryCheck = await compareComponentRegistryToSources({
+      databaseUrl: ctx.componentRegistryDatabaseUrl,
       systemId: ctx.systemId,
       specsDir: ctx.specRoot,
       docsDir: ctx.docsRoot,
@@ -497,7 +498,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
           status: 'pass',
           message: 'Component registry is present and synchronized.',
           details: {
-            componentRegistryPath: ctx.componentRegistryPath,
+            componentRegistryDatabaseUrl: ctx.componentRegistryDatabaseUrl,
             fingerprint: componentRegistryCheck.expected.fingerprint_sha256,
             components: componentRegistryCheck.expected.summary.total_components,
           },
@@ -512,7 +513,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
             ? 'Component registry is out of sync with docs/spec/proof artifacts.'
             : 'Component registry is missing.',
           details: {
-            componentRegistryPath: ctx.componentRegistryPath,
+            componentRegistryDatabaseUrl: ctx.componentRegistryDatabaseUrl,
             exists: componentRegistryCheck.exists,
             hint: 'Run `npm run ds:registry:refresh`.',
           },
@@ -526,7 +527,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
         status: 'fail',
         message: 'Component registry check failed.',
         details: {
-          componentRegistryPath: ctx.componentRegistryPath,
+          componentRegistryDatabaseUrl: ctx.componentRegistryDatabaseUrl,
           error: error instanceof Error ? error.message : String(error),
           hint: 'Run `npm run ds:registry:refresh` to regenerate DB state.',
         },

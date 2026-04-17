@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import {
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 import {
   compareComponentRegistryToSources,
@@ -21,13 +25,18 @@ function writeFile(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
+function uniqueSystemId(prefix: string): string {
+  return `${prefix}-${randomUUID().slice(0, 8)}`;
+}
+
 describe('component-registry-sync', () => {
-  it('compares registry against sources without render-dir inputs', () => {
+  it('compares registry against sources without render-dir inputs', async () => {
+    const systemId = uniqueSystemId('sys-reg-sync-1');
     const root = makeTempDir('registry-sync-');
     const specsDir = path.join(root, 'specs');
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
-    const dbPath = path.join(root, 'registry.db');
+    const databaseUrl = path.join(root, 'registry.db');
 
     writeFile(
       path.join(specsDir, 'alert.yml'),
@@ -55,11 +64,15 @@ describe('component-registry-sync', () => {
       ].join('\n'),
     );
 
-    const db = bootstrapDatabase({ dbPath });
+    const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
     try {
-      db.exec("INSERT INTO design_systems (id, name) VALUES ('sys-01', 'System 01')");
+      await db`
+        INSERT INTO design_systems (id, name)
+        VALUES (${systemId}, 'System 01')
+        ON CONFLICT (id) DO NOTHING
+      `;
       const repo = new ComponentRepository(db);
-      repo.upsertFromRegistry('sys-01', [
+      await repo.upsertFromRegistry(systemId, [
         {
           slug: 'alert',
           name: 'Alert',
@@ -82,12 +95,12 @@ describe('component-registry-sync', () => {
         },
       ]);
     } finally {
-      db.close();
+      await db.end();
     }
 
-    const same = compareComponentRegistryToSources({
-      dbPath,
-      systemId: 'sys-01',
+    const same = await compareComponentRegistryToSources({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -97,9 +110,9 @@ describe('component-registry-sync', () => {
 
     fs.unlinkSync(path.join(docsDir, 'alert.md'));
 
-    const diff = compareComponentRegistryToSources({
-      dbPath,
-      systemId: 'sys-01',
+    const diff = await compareComponentRegistryToSources({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -108,12 +121,13 @@ describe('component-registry-sync', () => {
     assert.equal(diff.matches, false);
   });
 
-  it('syncDocumentationState converges after markdown deletion (clears stale specs)', () => {
+  it('syncDocumentationState converges after markdown deletion (clears stale specs)', async () => {
+    const systemId = uniqueSystemId('sys-reg-sync-2');
     const root = makeTempDir('registry-sync-converge-');
     const specsDir = path.join(root, 'specs');
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
-    const dbPath = path.join(root, 'registry.db');
+    const databaseUrl = path.join(root, 'registry.db');
     const overviewPath = path.join(docsDir, 'overview.md');
 
     writeFile(path.join(specsDir, 'alert.yml'), 'name: alert\nstatus: draft\n');
@@ -123,25 +137,29 @@ describe('component-registry-sync', () => {
     );
     writeFile(overviewPath, '# Components\n\n## Component list\n\n');
 
-    const db = bootstrapDatabase({ dbPath });
+    const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
     try {
-      db.exec("INSERT INTO design_systems (id, name) VALUES ('sys-01', 'System 01')");
+      await db`
+        INSERT INTO design_systems (id, name)
+        VALUES (${systemId}, 'System 01')
+        ON CONFLICT (id) DO NOTHING
+      `;
     } finally {
-      db.close();
+      await db.end();
     }
 
-    syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
       overviewPath,
     });
 
-    const first = compareComponentRegistryToSources({
-      dbPath,
-      systemId: 'sys-01',
+    const first = await compareComponentRegistryToSources({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -150,18 +168,18 @@ describe('component-registry-sync', () => {
 
     fs.unlinkSync(path.join(docsDir, 'alert.md'));
 
-    syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
       overviewPath,
     });
 
-    const second = compareComponentRegistryToSources({
-      dbPath,
-      systemId: 'sys-01',
+    const second = await compareComponentRegistryToSources({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -169,12 +187,13 @@ describe('component-registry-sync', () => {
     assert.equal(second.matches, true);
   });
 
-  it('ignores historical missing components when evaluating registry drift in dry-run', () => {
+  it('ignores historical missing components when evaluating registry drift in dry-run', async () => {
+    const systemId = uniqueSystemId('sys-reg-sync-3');
     const root = makeTempDir('registry-sync-missing-history-');
     const specsDir = path.join(root, 'specs');
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
-    const dbPath = path.join(root, 'registry.db');
+    const databaseUrl = path.join(root, 'registry.db');
     const overviewPath = path.join(docsDir, 'overview.md');
 
     writeFile(path.join(specsDir, 'alert.yml'), 'name: alert\nstatus: draft\n');
@@ -184,11 +203,15 @@ describe('component-registry-sync', () => {
     );
     writeFile(overviewPath, '# Components\n');
 
-    const db = bootstrapDatabase({ dbPath });
+    const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
     try {
-      db.exec("INSERT INTO design_systems (id, name) VALUES ('sys-01', 'System 01')");
+      await db`
+        INSERT INTO design_systems (id, name)
+        VALUES (${systemId}, 'System 01')
+        ON CONFLICT (id) DO NOTHING
+      `;
       const repo = new ComponentRepository(db);
-      repo.upsertFromRegistry('sys-01', [
+      await repo.upsertFromRegistry(systemId, [
         {
           slug: 'alert',
           name: 'Alert',
@@ -205,12 +228,12 @@ describe('component-registry-sync', () => {
         },
       ]);
     } finally {
-      db.close();
+      await db.end();
     }
 
-    const beforeMissing = syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    const beforeMissing = await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -218,19 +241,19 @@ describe('component-registry-sync', () => {
       dryRun: true,
     });
 
-    const dbWithMissing = bootstrapDatabase({ dbPath });
+    const dbWithMissing = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
     try {
-      dbWithMissing.prepare(`
+      await dbWithMissing`
         INSERT INTO components (ds_id, slug, name, status, doc_type)
-        VALUES (?, ?, ?, ?, ?)
-      `).run('sys-01', 'legacy-missing', 'Legacy Missing', 'missing', 'component');
+        VALUES (${systemId}, 'legacy-missing', 'Legacy Missing', 'missing', 'component')
+      `;
     } finally {
-      dbWithMissing.close();
+      await dbWithMissing.end();
     }
 
-    const afterMissing = syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    const afterMissing = await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -241,19 +264,20 @@ describe('component-registry-sync', () => {
     assert.equal(afterMissing.registry.changed, beforeMissing.registry.changed);
   });
 
-  it('marks overview list state as not-imported when design system has not been imported yet', () => {
+  it('marks overview list state as not-imported when design system has not been imported yet', async () => {
+    const systemId = uniqueSystemId('sys-reg-sync-4');
     const root = makeTempDir('registry-sync-not-imported-');
     const specsDir = path.join(root, 'specs');
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
-    const dbPath = path.join(root, 'registry.db');
+    const databaseUrl = path.join(root, 'registry.db');
     const overviewPath = path.join(docsDir, 'overview.md');
 
     writeFile(overviewPath, '# Components\n\n## Component list\n\n');
 
-    const result = syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    const result = await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,
@@ -264,29 +288,31 @@ describe('component-registry-sync', () => {
     assert.equal(result.overview.listState, 'not-imported');
   });
 
-  it('marks overview list state as empty when design system is imported but has no components', () => {
+  it('marks overview list state as empty when design system is imported but has no components', async () => {
+    const systemId = uniqueSystemId('sys-reg-sync-5');
     const root = makeTempDir('registry-sync-empty-imported-');
     const specsDir = path.join(root, 'specs');
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
-    const dbPath = path.join(root, 'registry.db');
+    const databaseUrl = path.join(root, 'registry.db');
     const overviewPath = path.join(docsDir, 'overview.md');
 
     writeFile(overviewPath, '# Components\n\n## Component list\n\n');
 
-    const db = bootstrapDatabase({ dbPath });
+    const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
     try {
-      db.prepare(`
+      await db`
         INSERT INTO design_systems (id, name, figma_file_id)
-        VALUES (?, ?, ?)
-      `).run('sys-01', 'System 01', 'FIGMA_FILE_123');
+        VALUES (${systemId}, 'System 01', 'FIGMA_FILE_123')
+        ON CONFLICT (id) DO UPDATE SET figma_file_id = EXCLUDED.figma_file_id
+      `;
     } finally {
-      db.close();
+      await db.end();
     }
 
-    const result = syncDocumentationState({
-      dbPath,
-      systemId: 'sys-01',
+    const result = await syncDocumentationState({
+      databaseUrl,
+      systemId,
       specsDir,
       docsDir,
       proofsDir,

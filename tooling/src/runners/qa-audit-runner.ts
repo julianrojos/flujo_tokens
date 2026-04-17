@@ -1,6 +1,6 @@
 /**
  * QA Audit Runner
- * 
+ *
  * CLI runner for design system QA audit.
  * Runs comprehensive audits on coverage, freshness, completeness, and integrity.
  */
@@ -16,7 +16,10 @@ import { logger } from '../utils/logger.js';
 import { runQaAudit } from '../services/qa-audit.js';
 import { formatAuditReport } from '../services/qa-audit-formatter.js';
 import type { QaAuditOptions } from '../types/qa-audit.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import {
+  loadDesignSystemsConfigAsync,
+  resolveSystemContextSafe,
+} from '../utils/system-context.js';
 
 /**
  * Check if script is run directly (not imported).
@@ -55,7 +58,9 @@ function parseArgs(args: string[]): QaAuditOptions {
           if (Number.isInteger(value) && value > 0) {
             options.staleThresholdDays = value;
           } else {
-            logger.error(`--stale-threshold requires a positive integer, got: ${args[i + 1]}`);
+            logger.error(
+              `--stale-threshold requires a positive integer, got: ${args[i + 1]}`,
+            );
             process.exit(1);
           }
           i++;
@@ -122,12 +127,15 @@ Exit Codes:
 export async function runQaAuditRunner(args: string[] = []): Promise<void> {
   const options = parseArgs(args);
 
+  await loadDesignSystemsConfigAsync();
+
   try {
     const systemCtx = resolveSystemContextSafe();
     options.specsDir = options.specsDir || systemCtx.paths.specs;
     options.componentsDir = options.componentsDir || systemCtx.paths.docs;
     options.generatedDir = options.generatedDir || systemCtx.paths.generated;
-    options.tokenRegistryPath = options.tokenRegistryPath || systemCtx.paths.tokenRegistry;
+    options.tokenRegistryPath =
+      options.tokenRegistryPath || systemCtx.paths.tokenRegistry;
 
     const result = runQaAudit(options);
 
@@ -146,7 +154,7 @@ export async function runQaAuditRunner(args: string[] = []): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     const shouldShowContextGuidance =
       message.includes('No systems configured') ||
-      message.includes('Cannot load design systems from SQLite');
+      message.includes('Cannot load design systems from PostgreSQL');
     const contextGuidance = shouldShowContextGuidance
       ? '\nResolve by configuring a design system and retrying: `npm run ds:doctor -- --system <id>`.'
       : '';

@@ -16,9 +16,8 @@ export interface RunSpecWithGuardsOptions {
     outputPath: string;
     resolvedSpecRoot: string;
     docsPath: string;
-    registryDbPath: string;
     allowedWritePaths: string[];
-    run: (opts: { existingSpec: any }) => any;
+    run: (opts: { existingSpec: any }) => Promise<any> | any;
     label?: string;
     // Dependency injection for testing/flexibility
     captureFileSnapshotFn?: typeof captureFileSnapshot;
@@ -30,12 +29,11 @@ export interface RunSpecWithGuardsOptions {
 /**
  * Runs a spec generation task with safety guards.
  */
-export function runSpecWithGuards(options: RunSpecWithGuardsOptions): any {
+export async function runSpecWithGuards(options: RunSpecWithGuardsOptions): Promise<any> {
     const {
         outputPath,
         resolvedSpecRoot,
         docsPath,
-        registryDbPath,
         allowedWritePaths,
         run,
         label = 'ds-spec-from-figma',
@@ -51,12 +49,11 @@ export function runSpecWithGuards(options: RunSpecWithGuardsOptions): any {
 
     const scopeSnapshot = captureScopedWriteSnapshotFn({
         directories: [resolvedSpecRoot, docsPath],
-        files: [registryDbPath],
         extensions: ['.yml', '.md', '.json'],
     });
 
     try {
-        const result = run({ existingSpec });
+        const result = await run({ existingSpec });
         assertScopedWritePolicyFn({
             snapshot: scopeSnapshot,
             allowedPaths: allowedWritePaths,

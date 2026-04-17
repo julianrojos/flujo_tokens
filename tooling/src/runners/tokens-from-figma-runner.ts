@@ -10,6 +10,7 @@
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import {
   loadDesignSystemsConfig,
+  loadDesignSystemsConfigAsync,
   PROJECT_ROOT,
   type DesignSystemConfig,
 } from '../utils/system-context.js';
@@ -37,12 +38,13 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--system <id>',
-      description: 'Design system identifier (from SQLite design_systems).',
+      description: 'Design system identifier (from PostgreSQL design_systems).',
       required: true,
     },
     {
       name: '--url',
-      description: 'Full Figma file URL (https://www.figma.com/design/<fileKey>/...).',
+      description:
+        'Full Figma file URL (https://www.figma.com/design/<fileKey>/...).',
     },
     {
       name: '--file-key',
@@ -50,7 +52,8 @@ const CLI_CONFIG = {
     },
     {
       name: '--figma-token',
-      description: 'Figma personal access token (fallback: FIGMA_TOKEN env var).',
+      description:
+        'Figma personal access token (fallback: FIGMA_TOKEN env var).',
     },
     {
       name: '--source',
@@ -85,7 +88,9 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanArg(rawValue: unknown, fallback: boolean): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  const normalized = String(rawValue ?? fallback)
+    .trim()
+    .toLowerCase();
   if (normalized === 'true') return true;
   if (normalized === 'false') return false;
   throw new Error(`Expected true or false, got: ${rawValue}`);
@@ -131,25 +136,38 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   }
 
   // ── Resolve system ───────────────────────────────────────────────────────
-  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(parsed, 'system');
+  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(
+    parsed,
+    'system',
+  );
   if (!hasExplicitSystem) {
     console.error('[ds:tokens-from-figma] --system is required.');
     printUsage(CLI_CONFIG);
     process.exit(1);
   }
-  const systemCtx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  await loadDesignSystemsConfigAsync();
+  const systemCtx = resolveRunnerSystemContextOrExit({
+    parsedArgs: parsed,
+    logger,
+  });
   const systemId = systemCtx.id;
 
   let system: DesignSystemConfig;
   try {
     const config = loadDesignSystemsConfig();
-    const resolved = config.systems.find((entry) => String(entry.id || '').trim() === systemId);
+    const resolved = config.systems.find(
+      (entry) => String(entry.id || '').trim() === systemId,
+    );
     if (!resolved) {
-      throw new Error(`System "${systemId}" not found in SQLite design_systems table`);
+      throw new Error(
+        `System "${systemId}" not found in PostgreSQL design_systems table`,
+      );
     }
     system = resolved;
   } catch (err) {
-    logger.error(`Cannot resolve system "${systemId}": ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(
+      `Cannot resolve system "${systemId}": ${err instanceof Error ? err.message : String(err)}`,
+    );
     process.exit(1);
   }
 
@@ -170,7 +188,9 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const figmaTokenArg = String(parsed['figma-token'] || '').trim();
   const figmaTokenSystem = String(system.figmaApiToken || '').trim();
   const figmaTokenEnv = String(process.env.FIGMA_TOKEN || '').trim();
-  const figmaToken = resolveEnvRef(figmaTokenArg || figmaTokenSystem || figmaTokenEnv);
+  const figmaToken = resolveEnvRef(
+    figmaTokenArg || figmaTokenSystem || figmaTokenEnv,
+  );
 
   // ── Resolve source mode ──────────────────────────────────────────────────
   const source = parseFigmaVariableSource(parsed.source, {
@@ -192,9 +212,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const dryRun = parseBooleanArg(parsed.dryRun, false);
 
   if (merge && !force) {
-    console.error(
-      '[ds:tokens-from-figma] --merge true requires --force true.',
-    );
+    console.error('[ds:tokens-from-figma] --merge true requires --force true.');
     process.exit(1);
   }
 
@@ -214,14 +232,19 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 
     if (syncResult.reason) {
       if (isFatalSyncReason(syncResult.reason)) {
-        logger.error(`Sync failed: ${syncResult.reason}${syncResult.error ? ` - ${syncResult.error}` : ''}`);
+        logger.error(
+          `Sync failed: ${syncResult.reason}${syncResult.error ? ` - ${syncResult.error}` : ''}`,
+        );
         process.exit(1);
       }
       // Non-fatal reasons (like 'input-json-exists') are just informational
     }
 
     if (dryRun) {
-      console.log('[dry-run] Sync preview:', JSON.stringify(syncResult, null, 2));
+      console.log(
+        '[dry-run] Sync preview:',
+        JSON.stringify(syncResult, null, 2),
+      );
       return;
     }
 
@@ -230,22 +253,26 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
       await runTokensCompile({ repoRoot: PROJECT_ROOT, system });
     }
 
-    console.log(JSON.stringify(
-      {
-        ok: true,
-        dryRun,
-        system: systemId,
-        fileKey,
-        tokensImported: syncResult.tokens_written || 0,
-        sourceRequested: source,
-        sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
-        compiled: compile,
-      },
-      null,
-      2,
-    ));
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          dryRun,
+          system: systemId,
+          fileKey,
+          tokensImported: syncResult.tokens_written || 0,
+          sourceRequested: source,
+          sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
+          compiled: compile,
+        },
+        null,
+        2,
+      ),
+    );
   } catch (error) {
-    logger.error(`Tokens from Figma failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Tokens from Figma failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   }
 }
@@ -253,7 +280,9 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokensFromFigma(process.argv.slice(2)).catch((error) => {
-    logger.error(`Tokens from Figma runner failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Tokens from Figma runner failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   });
 }

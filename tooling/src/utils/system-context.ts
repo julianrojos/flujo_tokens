@@ -1,11 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDesignSystemRepository } from "../../scripts/lib/system-repository.mjs";
+import { resolveDashboardDbUrl } from "../../../apps/ds-dashboard/server/db/pg-db-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 const systemRepository = createDesignSystemRepository({ repoRoot: PROJECT_ROOT });
 let repositoryDisposed = false;
+let cachedDesignSystemsConfig: DesignSystemsFile | null = null;
 
 function disposeSystemRepository(): void {
   if (repositoryDisposed) return;
@@ -53,10 +55,8 @@ export interface DesignSystemsFile {
 
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
 
-function resolveDashboardDbPath(projectRoot: string): string {
-  const envPath = String(process.env.DS_DASHBOARD_DB_PATH || '').trim();
-  if (envPath) return path.resolve(envPath);
-  return path.resolve(projectRoot, "apps", "ds-dashboard", "server", "db", "ds-dashboard.db");
+function resolveDashboardDatabaseUrl(): string {
+  return resolveDashboardDbUrl(process.env);
 }
 
 export interface ScriptSystemContext {
@@ -69,7 +69,7 @@ export interface ScriptSystemContext {
     generated: string;
     specs: string;
     docs: string;
-    registry: string;
+    databaseUrl: string;
     tokenRegistry: string;
     figmaAliasGraph: string;
   };
@@ -90,7 +90,7 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       generated: path.resolve(docsDir, "_generated"),
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
-      registry: resolveDashboardDbPath(PROJECT_ROOT),
+      databaseUrl: resolveDashboardDatabaseUrl(),
       tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
       figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },
@@ -134,20 +134,36 @@ function toDesignSystemConfig(system: {
 }
 
 /**
- * Load design systems configuration from SQLite (single source of truth).
+ * Load design systems configuration from DB (single source of truth).
  */
-export function loadDesignSystemsConfig(): DesignSystemsFile {
+export async function loadDesignSystemsConfigAsync(): Promise<DesignSystemsFile> {
   try {
-    const systems = systemRepository.getAll().map(toDesignSystemConfig);
-    const defaultSystem =
-      systemRepository.getDefaultSystemId() ||
-      (systems.length > 0 ? systems[0].id : undefined);
-    return { systems, defaultSystem };
+    const rawSystems = await systemRepository.getAll();
+    const systems = rawSystems.map(toDesignSystemConfig);
+    const defaultRaw = await systemRepository.getDefaultSystemId();
+    const defaultSystem = defaultRaw || (systems.length > 0 ? systems[0].id : undefined);
+    const config = { systems, defaultSystem };
+    cachedDesignSystemsConfig = config;
+    return config;
   } catch (err) {
     throw new Error(
-      `Cannot load design systems from SQLite: ${err instanceof Error ? err.message : String(err)}`
+      `Cannot load design systems from DB: ${err instanceof Error ? err.message : String(err)}`
     );
   }
+}
+
+/**
+ * Sync compatibility accessor.
+ * Requires an async preload call before using the sync API.
+ */
+export function loadDesignSystemsConfig(): DesignSystemsFile {
+  if (cachedDesignSystemsConfig) {
+    return cachedDesignSystemsConfig;
+  }
+  throw new Error(
+    'Design systems config is not preloaded. Call loadDesignSystemsConfigAsync() first ' +
+      'or switch to resolveSystemContextSafeAsync().'
+  );
 }
 
 /**
@@ -155,8 +171,10 @@ export function loadDesignSystemsConfig(): DesignSystemsFile {
  * Returns the active system context based on defaultSystem or explicit system ID.
  * Throws when no design systems are configured.
  */
-export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSystemContext {
-  const config = loadDesignSystemsConfig();
+function resolveSystemContextFromConfig(
+  config: DesignSystemsFile,
+  opts?: { system?: string },
+): ScriptSystemContext {
   const systems = Array.isArray(config.systems) ? config.systems : [];
   if (systems.length === 0) {
     throw new Error("No systems configured. Create one first.");
@@ -174,6 +192,24 @@ export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSyst
   }
 
   return systemContext(systems[0]);
+}
+
+/**
+ * Resolve system context from DB asynchronously.
+ */
+export async function resolveSystemContextSafeAsync(
+  opts?: { system?: string },
+): Promise<ScriptSystemContext> {
+  const config = await loadDesignSystemsConfigAsync();
+  return resolveSystemContextFromConfig(config, opts);
+}
+
+/**
+ * Sync compatibility accessor.
+ * Requires an async preload call before using the sync API.
+ */
+export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSystemContext {
+  return resolveSystemContextFromConfig(loadDesignSystemsConfig(), opts);
 }
 
 /**

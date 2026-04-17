@@ -8,11 +8,18 @@
  */
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import {
+  loadDesignSystemsConfigAsync,
+  resolveSystemContextSafe,
+  PROJECT_ROOT,
+} from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContext } from '../utils/runner-system-context.js';
 import { buildDoctorReport } from '../services/doctor.js';
-import type { DoctorCheck, ManifestDocument } from '../services/doctor-types.js';
+import type {
+  DoctorCheck,
+  ManifestDocument,
+} from '../services/doctor-types.js';
 import {
   resolveDoctorContext,
   checkPaths,
@@ -33,10 +40,16 @@ const CLI_CONFIG = {
     { name: '--docs-root', description: 'Root directory for component docs' },
     { name: '--spec-root', description: 'Root directory for component specs' },
     { name: '--registry', description: 'Path to token registry JSON' },
-    { name: '--component-registry', description: 'Path to component registry SQLite DB' },
+    {
+      name: '--component-registry',
+      description: 'PostgreSQL connection URL for component registry checks',
+    },
     { name: '--proof-dir', description: 'Directory for visual proof files' },
     { name: '--manifest', description: 'Path to rules manifest YAML' },
-    { name: '--component-name', description: 'Check specific component by name' },
+    {
+      name: '--component-name',
+      description: 'Check specific component by name',
+    },
     { name: '--skip-validate', description: 'Skip validate:docs check' },
     { name: '--system <id>', description: 'Target design system context' },
     { name: '--help', description: 'Show help' },
@@ -48,18 +61,24 @@ export interface DoctorHelpResult {
   reason: 'help';
 }
 
-export type DoctorRunnerResult = ReturnType<typeof buildDoctorReport> | DoctorHelpResult;
+export type DoctorRunnerResult =
+  | ReturnType<typeof buildDoctorReport>
+  | DoctorHelpResult;
 
 /**
  * Main runner function - returns report for testability
  */
-export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult> {
+export async function runDoctor(
+  args: string[] = [],
+): Promise<DoctorRunnerResult> {
   const parsed = parseArgs(args);
 
   if (parsed.help) {
     printUsage(CLI_CONFIG);
     return { ok: true, reason: 'help' };
   }
+
+  await loadDesignSystemsConfigAsync();
 
   let systemCtx: ReturnType<typeof resolveSystemContextSafe>;
   try {
@@ -68,9 +87,9 @@ export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
       `Design system context is required.\n` +
-      `Reason: ${reason}\n` +
-      `Next step: run \`npm run ds:doctor -- --system <id>\` with a valid system id.\n` +
-      `If this is a fresh environment, create/import a design system first and retry.`,
+        `Reason: ${reason}\n` +
+        `Next step: run \`npm run ds:doctor -- --system <id>\` with a valid system id.\n` +
+        `If this is a fresh environment, create/import a design system first and retry.`,
     );
   }
   const ctx = resolveDoctorContext(parsed, systemCtx, PROJECT_ROOT);
@@ -86,7 +105,7 @@ export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult
 
   checks.push(
     ...checkTokenRegistry(ctx),
-    ...checkComponentRegistry(ctx),
+    ...(await checkComponentRegistry(ctx)),
     ...checkAgents(),
     ...checkSkillVersioning(ctx, manifest ?? null),
     ...checkComponentByName(ctx),
@@ -110,7 +129,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exitCode = report.ok ? 0 : 1;
     })
     .catch((error) => {
-      logger.error(`Doctor runner failed: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `Doctor runner failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       process.exit(1);
     });
 }

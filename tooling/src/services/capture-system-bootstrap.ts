@@ -66,40 +66,40 @@ export function getSystemRepository(repoRoot: string): ReturnType<typeof createD
 /**
  * Ensure collections are configured for system.
  */
-export function ensureCollectionsConfigured(params: {
+export async function ensureCollectionsConfigured(params: {
   repoRoot: string;
   systemId?: string;
-}): void {
+}): Promise<void> {
   const { repoRoot, systemId } = params;
 
   if (!systemId) return;
 
   const repository = getSystemRepository(repoRoot);
-  const target = repository.getById(systemId);
+  const target = await repository.getById(systemId);
   if (!target) return;
   if (Array.isArray(target.collections) && target.collections.length > 0) return;
 
-  const systemContext = repository.resolveSystemContext(systemId);
+  const systemContext = await repository.resolveSystemContext(systemId);
   const inferred = inferCollectionsFromInputDir(repoRoot, systemContext.paths.input);
   if (inferred.length === 0) return;
 
-  repository.update(systemId, { collections: inferred });
+  await repository.update(systemId, { collections: inferred });
 }
 
 /**
  * Get system configuration by ID.
  */
-export function getSystemConfig(params: {
+export async function getSystemConfig(params: {
   repoRoot: string;
   systemId?: string;
-}): Record<string, unknown> | null {
+}): Promise<Record<string, unknown> | null> {
   const { repoRoot, systemId } = params;
 
   if (!systemId) return null;
 
   try {
     // Use resolveSystemContext instead of non-existent getSystem
-    const system = getSystemRepository(repoRoot).resolveSystemContext(systemId);
+    const system = await getSystemRepository(repoRoot).resolveSystemContext(systemId);
     return system as Record<string, unknown> || null;
   } catch {
     return null;

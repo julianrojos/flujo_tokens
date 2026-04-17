@@ -30,7 +30,7 @@ describe('spec-run-context', () => {
             templatePath: '/tmp/specs/_template.yml',
             tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
             overviewPath: '/tmp/docs/overview.md',
-            registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
+            databaseUrl: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
           },
           flags: {
             force: true,
@@ -46,7 +46,7 @@ describe('spec-run-context', () => {
       assert.equal(result.nodeId, '123:456');
       assert.equal(result.outputPath, '/tmp/specs/alert.yml');
       assert.equal(result.registryPath, '/tmp/docs/_generated/token-registry.json');
-      assert.equal(result.allowedWritePaths.length, 3);
+      assert.equal(result.allowedWritePaths.length, 2);
     });
 
     it('throws when no source is provided', () => {
@@ -68,7 +68,7 @@ describe('spec-run-context', () => {
               templatePath: '/tmp/specs/_template.yml',
               tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
               overviewPath: '/tmp/docs/overview.md',
-              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
+              databaseUrl: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             },
             flags: {
               force: false,

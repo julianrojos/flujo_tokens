@@ -16,7 +16,7 @@ const MOCK_CONTEXT = {
     generated: "/repo/design-systems/sys-01/docs/_generated",
     specs: "/repo/design-systems/sys-01/docs/_spec/components",
     docs: "/repo/design-systems/sys-01/docs/components",
-    registry: "/repo/apps/ds-dashboard/server/db/ds-dashboard.db",
+    databaseUrl: "/repo/apps/ds-dashboard/server/db/ds-dashboard.db",
     tokenRegistry: "/repo/design-systems/sys-01/docs/_generated/token-registry.json",
     figmaAliasGraph: "/repo/design-systems/sys-01/docs/_generated/figma-alias-graph.json",
   },

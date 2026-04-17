@@ -1,9 +1,11 @@
-import { runAgentPrompt } from "./agent-runner.mjs";
+import { tsImport } from "tsx/esm/api";
 import { componentNameToSnakeCase } from "./component-name.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./doc-templates.mjs";
 import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./prompts.mjs";
 import { SPEC_TOP_LEVEL_ORDER } from "./spec-normalizer.mjs";
+const agentRunnerSource = await tsImport("../../src/services/agent-runner.ts", import.meta.url);
+const { runAgentPrompt } = agentRunnerSource;
 
 export function buildSpecPrompt({
   figmaUrl,

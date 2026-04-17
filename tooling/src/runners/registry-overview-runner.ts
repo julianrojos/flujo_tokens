@@ -112,8 +112,8 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
   });
 
   try {
-    const report = syncDocumentationState({
-      dbPath: path.resolve(String(ctx.paths.registry)),
+    const report = await syncDocumentationState({
+      databaseUrl: ctx.paths.databaseUrl,
       overviewPath: resolvedOverviewPath,
       specsDir: resolvedSpecsDir,
       docsDir: resolvedDocsDir,

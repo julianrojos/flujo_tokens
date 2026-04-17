@@ -168,12 +168,12 @@ export async function runDocGenerationPipeline(
     }
   }
 
-  syncDocumentationState({
+  await syncDocumentationState({
     docsDir: ctx.componentDocsDir,
     overviewPath: ctx.overviewPath,
     specsDir: ctx.specComponentsDir,
     proofsDir: ctx.visualProofDir,
-    dbPath: ctx.registryDbPath,
+    databaseUrl: ctx.databaseUrl,
     systemId: ctx.systemId,
   });
   runOrThrow(process.execPath, [

@@ -37,11 +37,11 @@ function toCliPath(filePath) {
 function buildTraceabilityRegenerationCommand({
   markdownPath,
   specPath,
-  registryPath,
+  databaseUrl,
 }) {
   const specArg = JSON.stringify(toCliPath(specPath));
   const outputArg = JSON.stringify(toCliPath(markdownPath));
-  const registryArg = JSON.stringify(toCliPath(registryPath));
+  const registryArg = JSON.stringify(toCliPath(databaseUrl));
   return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
 }
 
@@ -296,7 +296,7 @@ export function validateGeneratedTraceability(
   const regenerateCommand = buildTraceabilityRegenerationCommand({
     markdownPath: filePath,
     specPath: spec.specPath,
-    registryPath,
+    databaseUrl: registryPath,
   });
 
   const pipeline = isPlainObject(frontmatter.pipeline)

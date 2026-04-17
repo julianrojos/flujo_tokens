@@ -13,9 +13,7 @@ import * as path from 'node:path';
 // Import from existing TypeScript utilities
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { isTbdMarker } from '../utils/tbd.js';
-import {
-  parseMarkdownFrontmatter,
-} from '../utils/parse-frontmatter.js';
+import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 
 // Import shared types (single source of truth for validator types)
@@ -35,7 +33,10 @@ import {
   validateOverviewFrontmatter,
   validateWorkflowOrFoundationFrontmatter,
 } from './frontmatter.js';
-import { validateOverviewLinks, validateSpecMarkdownPairing } from './linking.js';
+import {
+  validateOverviewLinks,
+  validateSpecMarkdownPairing,
+} from './linking.js';
 import { validateSpecYamlFiles } from './yaml.js';
 import {
   buildRegistryIndexes,
@@ -55,7 +56,11 @@ import {
   collectMarkdownFiles,
   collectSpecFiles,
 } from './runtime-utils.js';
-import { loadRuleManifest, annotateFindingsWithManifest, createBaseReport } from './governance.js';
+import {
+  loadRuleManifest,
+  annotateFindingsWithManifest,
+  createBaseReport,
+} from './governance.js';
 
 // Import Figma traceability validators (single source of truth)
 import {
@@ -71,8 +76,14 @@ import {
 // ============================================================================
 
 const PROJECT_ROOT = process.cwd();
-const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, '.agents', 'rules', '_manifest.yml');
-const TOKEN_LIKE_CODE_SPAN_RE = /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
+const RULE_MANIFEST_PATH = path.join(
+  PROJECT_ROOT,
+  '.agents',
+  'rules',
+  '_manifest.yml',
+);
+const TOKEN_LIKE_CODE_SPAN_RE =
+  /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
 
 type IndexedRegistryShape = {
   entries: unknown[];
@@ -102,14 +113,25 @@ function resolveDocsValidatorDefaults() {
   }
 }
 
-function isIndexedRegistryShape(parsed: unknown): parsed is IndexedRegistryShape {
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+function isIndexedRegistryShape(
+  parsed: unknown,
+): parsed is IndexedRegistryShape {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    return false;
   const candidate = parsed as Record<string, unknown>;
   if (!Array.isArray(candidate.entries)) return false;
-  if (!candidate.entries.every((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))) {
+  if (
+    !candidate.entries.every(
+      (entry) => entry && typeof entry === 'object' && !Array.isArray(entry),
+    )
+  ) {
     return false;
   }
-  if (!candidate.byPath || typeof candidate.byPath !== 'object' || Array.isArray(candidate.byPath)) {
+  if (
+    !candidate.byPath ||
+    typeof candidate.byPath !== 'object' ||
+    Array.isArray(candidate.byPath)
+  ) {
     return false;
   }
   if (candidate.bySlashPath !== undefined) {
@@ -134,7 +156,9 @@ function isIndexedRegistryShape(parsed: unknown): parsed is IndexedRegistryShape
  * @param options - Validation options
  * @returns Validation report with errors, warnings, and summary
  */
-export function validateDocs(options: DocsValidatorOptions = {}): DocsValidationReport {
+export function validateDocs(
+  options: DocsValidatorOptions = {},
+): DocsValidationReport {
   const defaults = resolveDocsValidatorDefaults();
   const explicitDocsRoot = String(options.docsRoot || '').trim();
   const explicitSpecRoot = String(options.specRoot || '').trim();
@@ -142,9 +166,12 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
   const explicitFilePath = String(options.filePath || '').trim();
   const explicitSpecFilePath = String(options.specFilePath || '').trim();
   const checkPairing = options.checkPairing !== false;
-  const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
+  const checkOverview = explicitFilePath
+    ? false
+    : options.checkOverview !== false;
   const checkSpecs =
-    options.checkSpecs !== false && (!explicitFilePath || Boolean(explicitSpecFilePath));
+    options.checkSpecs !== false &&
+    (!explicitFilePath || Boolean(explicitSpecFilePath));
   const needsSpecRoot = checkPairing || checkSpecs;
   const hasRequiredExplicitPaths =
     Boolean(explicitDocsRoot) &&
@@ -161,8 +188,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     report.errors.push({
       code: 'DOC01',
       file: 'design-system-context',
-      message:
-        `Design system context is required when docs/spec/registry paths are not provided. ${defaults.contextError}`,
+      message: `Design system context is required when docs/spec/registry paths are not provided. ${defaults.contextError}`,
       suggested:
         missing.length > 0
           ? `Pass --system <id> or provide ${missing.join(', ')} explicitly. ` +
@@ -175,13 +201,21 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
   }
   const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
   const specRoot = path.resolve(options.specRoot || defaults.specRoot);
-  const resolvedSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
-  const registryPath = path.resolve(options.registryPath || defaults.registryPath);
-  const resolvedFilePath = options.filePath ? path.resolve(options.filePath) : null;
+  const resolvedSpecFilePath = options.specFilePath
+    ? path.resolve(options.specFilePath)
+    : null;
+  const registryPath = path.resolve(
+    options.registryPath || defaults.registryPath,
+  );
+  const resolvedFilePath = options.filePath
+    ? path.resolve(options.filePath)
+    : null;
   const allowExtraH2 = options.allowExtraH2 === true;
 
   const report = createBaseReport({ manifestPath: RULE_MANIFEST_PATH });
-  const manifestInfo = loadRuleManifest(options.manifestPath || RULE_MANIFEST_PATH);
+  const manifestInfo = loadRuleManifest(
+    options.manifestPath || RULE_MANIFEST_PATH,
+  );
   report.governance.manifestPath = manifestInfo.path;
   report.governance.manifestLoaded = manifestInfo.loaded;
   if (manifestInfo.error) {
@@ -199,7 +233,9 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
 
     // Indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
     if (!isIndexedRegistryShape(parsed)) {
-      throw new Error('Invalid format: expected { entries, byPath, bySlashPath }. Regenerate it with: npm run generate:registry');
+      throw new Error(
+        'Invalid format: expected { entries, byPath, bySlashPath }. Regenerate it with: npm run generate:registry',
+      );
     }
 
     registry = { ...parsed.byPath, ...(parsed.bySlashPath ?? {}) };
@@ -236,7 +272,9 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
   let componentFilesWithTokenLikeSpans = 0;
 
   const specResolution: { specFilePath?: string } =
-    resolvedFilePath && resolvedSpecFilePath ? { specFilePath: resolvedSpecFilePath } : {};
+    resolvedFilePath && resolvedSpecFilePath
+      ? { specFilePath: resolvedSpecFilePath }
+      : {};
 
   // Process each markdown file
   for (const filePath of markdownFiles) {
@@ -273,7 +311,9 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
       continue;
     }
 
-    const docType = String(frontmatter.doc_type || '').trim().toLowerCase();
+    const docType = String(frontmatter.doc_type || '')
+      .trim()
+      .toLowerCase();
     const treatAsComponent = docType === 'component' || !docType;
 
     if (treatAsComponent) {
@@ -296,7 +336,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         lineStarts,
         lineFromOffset,
         contentOffset,
-        { allowExtraH2 }
+        { allowExtraH2 },
       );
 
       // Validate variable IDs
@@ -309,7 +349,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         report,
         lineStarts,
         lineFromOffset,
-        contentOffset
+        contentOffset,
       );
 
       // Validate internal links
@@ -323,7 +363,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         report,
         lineStarts,
         lineFromOffset,
-        contentOffset
+        contentOffset,
       );
 
       // Validate token fallbacks
@@ -334,7 +374,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         report,
         lineStarts,
         lineFromOffset,
-        contentOffset
+        contentOffset,
       );
 
       // Validate gaps section contract
@@ -346,7 +386,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         report,
         lineStarts,
         lineFromOffset,
-        specResolution
+        specResolution,
       );
 
       // Validate visual proof section
@@ -356,7 +396,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         frontmatter,
         report,
         lineStarts,
-        lineFromOffset
+        lineFromOffset,
       );
 
       // Validate traceability node ID
@@ -365,7 +405,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         frontmatter,
         specRoot,
         report,
-        specResolution
+        specResolution,
       );
 
       // Validate generated traceability
@@ -375,7 +415,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         specRoot,
         registryPath,
         report,
-        specResolution
+        specResolution,
       );
 
       // Validate ready lifecycle consistency
@@ -387,7 +427,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         report,
         lineStarts,
         lineFromOffset,
-        specResolution
+        specResolution,
       );
     } else {
       // Validate workflow/foundation frontmatter

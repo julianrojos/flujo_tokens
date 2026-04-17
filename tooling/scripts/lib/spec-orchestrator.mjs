@@ -14,10 +14,12 @@ import {
 } from "./spec-write-adapter.mjs";
 import { assertEvidenceGatedScalarChanges } from "./evidence-gated-mutations.mjs";
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from "./scoped-write-guard.mjs";
-import { syncDocumentationIndices } from "./component-registry/index.mjs";
+import { tsImport } from "tsx/esm/api";
 import { writeSpecWithSnapshotGuard } from "./spec-writer.mjs";
 
 import { createPipelineContext } from "./pipeline-context.mjs";
+const componentRegistrySource = await tsImport("../../src/services/component-registry-index.ts", import.meta.url);
+const { syncDocumentationState: syncDocumentationIndices } = componentRegistrySource;
 
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "name",
@@ -65,7 +67,7 @@ export function runSpecFromFigma(args, deps = {}) {
     nodeId,
     outputPath,
     overviewPath,
-    registryDbPath,
+    databaseUrl,
     allowedWritePaths,
   } = runCtx;
 
@@ -73,7 +75,7 @@ export function runSpecFromFigma(args, deps = {}) {
     outputPath,
     resolvedSpecRoot,
     docsPath: context.system.paths.docs,
-    registryDbPath,
+    databaseUrl,
     allowedWritePaths,
     captureScopedWriteSnapshotFn,
     assertScopedWritePolicyFn,
@@ -143,7 +145,7 @@ export function runSpecFromFigma(args, deps = {}) {
         resolvedSpecRoot,
         docsRootDir,
         overviewPath,
-        registryDbPath,
+        databaseUrl,
         systemId: context.system.id,
         syncDocumentationIndicesFn,
       });

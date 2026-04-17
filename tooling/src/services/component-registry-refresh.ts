@@ -1,7 +1,7 @@
 /**
  * Component Registry Refresh (DB-native)
  *
- * Syncs component metadata into SQLite and updates overview.md.
+ * Syncs component metadata into PostgreSQL and updates overview.md.
  * No JSON registry artifact is used as storage.
  */
 
@@ -9,7 +9,10 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 import type { ComponentRegistryEntry as DbComponentRegistryEntry } from '../../../apps/ds-dashboard/server/db/component-repository.js';
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import {
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { requireNonEmptyPathOption } from '../utils/path-guards.js';
@@ -17,9 +20,7 @@ import { buildComponentRegistry } from './component-registry-build.js';
 import { syncComponentOverview } from './component-registry-overview-sync.js';
 import { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';
 import { persistRegistryEntriesToDb } from './capture-db-persistence.js';
-import {
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-} from './component-registry-constants.js';
+import { DEFAULT_COMPONENT_REGISTRY_PATH } from './component-registry-constants.js';
 import type {
   ComponentOverviewListState,
   ComponentRegistryEntry,
@@ -52,7 +53,9 @@ function normalizeComponentStatus(
   return 'draft';
 }
 
-function toDbEntries(entries: ComponentRegistryEntry[]): DbComponentRegistryEntry[] {
+function toDbEntries(
+  entries: ComponentRegistryEntry[],
+): DbComponentRegistryEntry[] {
   return entries.map((entry) => {
     const next: DbComponentRegistryEntry = {
       slug: entry.slug,
@@ -69,7 +72,9 @@ function toDbEntries(entries: ComponentRegistryEntry[]): DbComponentRegistryEntr
       next.specs = [
         {
           markdownPath: entry.paths.doc,
-          docStatus: entry.doc.exists ? normalizeDocStatus(entry.doc.status) : 'draft',
+          docStatus: entry.doc.exists
+            ? normalizeDocStatus(entry.doc.status)
+            : 'draft',
           coverage: entry.doc.exists ? 100 : 0,
         },
       ];
@@ -98,19 +103,19 @@ type ComparableRegistryEntry = {
 /**
  * Normalize spec metadata into a stable comparable representation.
  */
-function toComparableSpec(
-  spec: {
-    markdownPath?: unknown;
-    docStatus?: unknown;
-    coverage?: unknown;
-  },
-): ComparableRegistryEntry['specs'][number] {
+function toComparableSpec(spec: {
+  markdownPath?: unknown;
+  docStatus?: unknown;
+  coverage?: unknown;
+}): ComparableRegistryEntry['specs'][number] {
   return {
     markdownPath: String(spec.markdownPath || '').trim(),
     docStatus: (spec.docStatus === 'ready' || spec.docStatus === 'needs-review'
       ? spec.docStatus
       : 'draft') as 'draft' | 'ready' | 'needs-review',
-    coverage: Number.isFinite(Number(spec.coverage)) ? Number(spec.coverage) : 0,
+    coverage: Number.isFinite(Number(spec.coverage))
+      ? Number(spec.coverage)
+      : 0,
   };
 }
 
@@ -139,13 +144,19 @@ function toComparableEntry(input: {
     figmaComponentSetNodeId: String(input.figmaComponentSetNodeId || '').trim(),
     specs: Array.isArray(input.specs)
       ? input.specs
-        .map((spec) => toComparableSpec(spec))
-        .sort((a, b) => a.markdownPath.localeCompare(b.markdownPath, 'en', { sensitivity: 'base' }))
+          .map((spec) => toComparableSpec(spec))
+          .sort((a, b) =>
+            a.markdownPath.localeCompare(b.markdownPath, 'en', {
+              sensitivity: 'base',
+            }),
+          )
       : [],
   };
 }
 
-function toComparableTargetEntries(entries: DbComponentRegistryEntry[]): ComparableRegistryEntry[] {
+function toComparableTargetEntries(
+  entries: DbComponentRegistryEntry[],
+): ComparableRegistryEntry[] {
   return entries
     .map((entry) =>
       toComparableEntry({
@@ -158,16 +169,19 @@ function toComparableTargetEntries(entries: DbComponentRegistryEntry[]): Compara
         specs: entry.specs,
       }),
     )
-    .sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }));
+    .sort((a, b) =>
+      a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }),
+    );
 }
 
-function toComparableCurrentEntries(dbPath: string, systemId: string): ComparableRegistryEntry[] {
-  if (!fs.existsSync(dbPath)) return [];
-  const db = bootstrapDatabase({ dbPath });
+async function toComparableCurrentEntries(
+  databaseUrl: string,
+  systemId: string,
+): Promise<ComparableRegistryEntry[]> {
+  const db = await bootstrapDatabase(databaseUrl);
   try {
     const repo = new ComponentRepository(db);
-    return repo
-      .getAll(systemId)
+    return (await repo.getAll(systemId))
       .filter((entry) => entry.status !== 'missing')
       .map((entry) =>
         toComparableEntry({
@@ -180,71 +194,77 @@ function toComparableCurrentEntries(dbPath: string, systemId: string): Comparabl
           specs: entry.specs,
         }),
       )
-      .sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }));
+      .sort((a, b) =>
+        a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }),
+      );
   } finally {
-    db.close();
+    await db.end();
   }
 }
 
-function hasRegistryDrift(options: {
-  dbPath: string;
+async function hasRegistryDrift(options: {
+  databaseUrl: string;
   systemId: string;
   nextEntries: DbComponentRegistryEntry[];
-}): boolean {
-  const { dbPath, systemId, nextEntries } = options;
-  const current = toComparableCurrentEntries(dbPath, systemId);
+}): Promise<boolean> {
+  const { databaseUrl, systemId, nextEntries } = options;
+  const current = await toComparableCurrentEntries(databaseUrl, systemId);
   const next = toComparableTargetEntries(nextEntries);
   return JSON.stringify(current) !== JSON.stringify(next);
 }
 
-function isDesignSystemImported(options: {
-  dbPath: string;
+async function isDesignSystemImported(options: {
+  databaseUrl: string;
   systemId: string;
-}): boolean {
-  const { dbPath, systemId } = options;
-  if (!fs.existsSync(dbPath)) return false;
-  const db = bootstrapDatabase({ dbPath });
+}): Promise<boolean> {
+  const { databaseUrl, systemId } = options;
+  const db = await bootstrapDatabase(databaseUrl);
   try {
-    const row = db
-      .prepare('SELECT figma_file_id FROM design_systems WHERE id = ?')
-      .get(systemId) as { figma_file_id?: string | null } | undefined;
+    const [row] =
+      await db`SELECT figma_file_id FROM design_systems WHERE id = ${systemId}`;
     return String(row?.figma_file_id || '').trim().length > 0;
   } finally {
-    db.close();
+    await db.end();
   }
 }
 
-function resolveOverviewListState(options: {
-  dbPath: string;
+async function resolveOverviewListState(options: {
+  databaseUrl: string;
   systemId: string;
   componentCount: number;
-}): ComponentOverviewListState {
-  const { dbPath, systemId, componentCount } = options;
+}): Promise<ComponentOverviewListState> {
+  const { databaseUrl, systemId, componentCount } = options;
   if (componentCount > 0) return 'ready';
-  return isDesignSystemImported({ dbPath, systemId }) ? 'empty' : 'not-imported';
+  return (await isDesignSystemImported({ databaseUrl, systemId }))
+    ? 'empty'
+    : 'not-imported';
 }
 
-function persistRegistryToDb(options: {
+function resolveDatabaseUrl(input?: string): string {
+  const candidate = String(input || '').trim();
+  if (candidate && candidate.includes('://')) {
+    return candidate;
+  }
+  return resolveDashboardDbUrl(process.env);
+}
+
+async function persistRegistryToDb(options: {
   projectRoot: string;
   systemId: string;
   entries: ComponentRegistryEntry[];
   dryRun: boolean;
-  dbPath?: string;
-}): { upserted: number; changed: boolean; written: boolean; dbPath: string } {
+  databaseUrl?: string;
+}): Promise<{
+  upserted: number;
+  changed: boolean;
+  written: boolean;
+  databaseUrl: string;
+}> {
   const { projectRoot, systemId, entries, dryRun } = options;
   const dbEntries = toDbEntries(entries);
-  const dbPath = String(options.dbPath || '').trim()
-    ? path.resolve(String(options.dbPath))
-    : path.join(
-      path.resolve(projectRoot),
-      'apps',
-      'ds-dashboard',
-      'server',
-      'db',
-      'ds-dashboard.db',
-    );
-  const changed = hasRegistryDrift({
-    dbPath,
+  const databaseUrl = resolveDatabaseUrl(options.databaseUrl);
+  const changed = await hasRegistryDrift({
+    databaseUrl,
     systemId,
     nextEntries: dbEntries,
   });
@@ -253,7 +273,7 @@ function persistRegistryToDb(options: {
       upserted: dbEntries.length,
       changed,
       written: false,
-      dbPath,
+      databaseUrl,
     };
   }
 
@@ -262,21 +282,21 @@ function persistRegistryToDb(options: {
       upserted: 0,
       changed: false,
       written: false,
-      dbPath,
+      databaseUrl,
     };
   }
 
-  const result = persistRegistryEntriesToDb({
+  const result = await persistRegistryEntriesToDb({
     projectRoot,
     systemId,
     entries: dbEntries,
-    dbPath,
+    databaseUrl,
   });
   return {
     upserted: result.upserted,
     changed,
     written: changed,
-    dbPath,
+    databaseUrl,
   };
 }
 
@@ -290,9 +310,9 @@ function summarizeError(error: unknown): string {
  * `skipOverview` is useful for DB-only maintenance flows (e.g. `/ops`) where
  * we want registry persistence without generating human-readable overview files.
  */
-export function syncDocumentationState(
+export async function syncDocumentationState(
   options: {
-    dbPath?: string;
+    databaseUrl?: string;
     overviewPath?: string;
     specsDir?: string;
     docsDir?: string;
@@ -302,9 +322,9 @@ export function syncDocumentationState(
     systemId?: string;
     projectRoot?: string;
   } = {},
-): SyncIndicesResult {
+): Promise<SyncIndicesResult> {
   const {
-    dbPath = DEFAULT_COMPONENT_REGISTRY_PATH,
+    databaseUrl = DEFAULT_COMPONENT_REGISTRY_PATH,
     overviewPath,
     specsDir,
     docsDir,
@@ -314,17 +334,26 @@ export function syncDocumentationState(
     systemId,
     projectRoot = PROJECT_ROOT,
   } = options;
-  const resolvedOverviewPath = path.resolve(requireNonEmptyPathOption(overviewPath, 'overviewPath'));
-  const resolvedSpecsDir = path.resolve(requireNonEmptyPathOption(specsDir, 'specsDir'));
-  const resolvedDocsDir = path.resolve(requireNonEmptyPathOption(docsDir, 'docsDir'));
+  const resolvedOverviewPath = path.resolve(
+    requireNonEmptyPathOption(overviewPath, 'overviewPath'),
+  );
+  const resolvedSpecsDir = path.resolve(
+    requireNonEmptyPathOption(specsDir, 'specsDir'),
+  );
+  const resolvedDocsDir = path.resolve(
+    requireNonEmptyPathOption(docsDir, 'docsDir'),
+  );
   const resolvedProofsDir = path.resolve(
-    String(proofsDir || path.join(path.dirname(resolvedDocsDir), '_generated', 'visual-proofs')),
+    String(
+      proofsDir ||
+        path.join(path.dirname(resolvedDocsDir), '_generated', 'visual-proofs'),
+    ),
   );
 
   const resolvedSystemId =
     String(systemId || '').trim() ||
     inferSystemId([resolvedDocsDir, resolvedSpecsDir, resolvedProofsDir]);
-  const resolvedDbPath = path.resolve(String(dbPath));
+  const resolvedDatabaseUrl = resolveDatabaseUrl(databaseUrl);
 
   const overviewSnapshot = captureFileSnapshot(resolvedOverviewPath);
   try {
@@ -334,36 +363,36 @@ export function syncDocumentationState(
       proofsDir: resolvedProofsDir,
       includeVisualProofFiles: false,
     });
-    const overviewListState = resolveOverviewListState({
-      dbPath: resolvedDbPath,
+    const overviewListState = await resolveOverviewListState({
+      databaseUrl: resolvedDatabaseUrl,
       systemId: resolvedSystemId,
       componentCount: registry.components.length,
     });
 
     const overview = skipOverview
       ? {
-        ok: true,
-        dryRun,
-        changed: false,
-        written: false,
-        overviewPath: resolvedOverviewPath,
-        registryDbPath: resolvedDbPath,
-        componentCount: registry.components.length,
-        listState: overviewListState,
-      }
+          ok: true,
+          dryRun,
+          changed: false,
+          written: false,
+          overviewPath: resolvedOverviewPath,
+          databaseUrl: resolvedDatabaseUrl,
+          componentCount: registry.components.length,
+          listState: overviewListState,
+        }
       : syncComponentOverview({
-        overviewPath: resolvedOverviewPath,
-        dryRun,
-        registry,
-        listState: overviewListState,
-      });
+          overviewPath: resolvedOverviewPath,
+          dryRun,
+          registry,
+          listState: overviewListState,
+        });
 
-    const dbSync = persistRegistryToDb({
+    const dbSync = await persistRegistryToDb({
       projectRoot,
       systemId: resolvedSystemId,
       entries: registry.components,
       dryRun,
-      dbPath: resolvedDbPath,
+      databaseUrl: resolvedDatabaseUrl,
     });
 
     const registryResult = {
@@ -371,7 +400,7 @@ export function syncDocumentationState(
       dryRun,
       changed: dbSync.changed,
       written: dbSync.written,
-      registryDbPath: dbSync.dbPath,
+      databaseUrl: dbSync.databaseUrl,
       schemaVersion: registry.schema_version,
       summary: registry.summary,
       fingerprint: registry.fingerprint_sha256,
@@ -392,8 +421,8 @@ export function syncDocumentationState(
     }
     throw new Error(
       'Documentation index refresh failed.\n' +
-      `Rollback applied: ${dryRun ? 'no (dry-run)' : 'yes'}.\n` +
-      `Reason: ${summarizeError(error)}`,
+        `Rollback applied: ${dryRun ? 'no (dry-run)' : 'yes'}.\n` +
+        `Reason: ${summarizeError(error)}`,
     );
   }
 }

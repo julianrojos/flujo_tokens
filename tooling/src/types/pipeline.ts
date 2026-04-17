@@ -13,7 +13,7 @@ export interface PipelinePaths {
     componentDocsDir: string;
     proofDir: string;
     proofImageDir: string;
-    registryDbPath: string;
+    databaseUrl: string;
     tokenRegistryPath: string;
     resolvedSpecRoot: string;
     templatePath: string;
@@ -65,6 +65,6 @@ export interface SpecRunContext {
     nodeId: string;
     outputPath: string;
     overviewPath: string;
-    registryDbPath: string;
+    databaseUrl: string;
     allowedWritePaths: string[];
 }

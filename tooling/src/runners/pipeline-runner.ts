@@ -90,7 +90,7 @@ async function runPreflight(options: InternalPipelineOptions): Promise<boolean> 
   );
 
   const registryExists = Boolean(
-    options.systemCtx && fs.existsSync(options.systemCtx.paths.registry),
+    options.systemCtx && options.systemCtx.paths.databaseUrl,
   );
 
   if (!options['status-only'] || !registryExists) {
@@ -167,7 +167,7 @@ async function runPreflight(options: InternalPipelineOptions): Promise<boolean> 
 export interface PipelineReport {
   ok: boolean;
   reason?: string;
-  plan?: ReturnType<typeof createPlan>;
+  plan?: Awaited<ReturnType<typeof createPlan>>;
   executionState?: PipelineExecutionState;
   options?: PipelineOptions;
   meta?: { hasFailures: boolean; failedComponents: string[] };
@@ -220,7 +220,7 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
     console.log('\n\x1b[35m=== PHASE 1: PLANNING ===\x1b[0m');
   }
 
-  const plan = createPlan({
+  const plan = await createPlan({
     'from-step': options['from-step'],
     'only-step': options['only-step'],
     component: options.component,
@@ -324,7 +324,7 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
  * Print pipeline report
  */
 function printReport(
-  plan: ReturnType<typeof createPlan>,
+  plan: Awaited<ReturnType<typeof createPlan>>,
   executionState: PipelineExecutionState,
   options: InternalPipelineOptions,
   meta: { hasFailures: boolean; failedComponents: string[] },

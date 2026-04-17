@@ -9,17 +9,28 @@ import type { PipelineContext } from '../types/pipeline.js';
 import type { FigmaFileResponse, FigmaNodesResponse } from '../types/figma.js';
 
 export interface MockDeps {
-  createPipelineContextFn: () => PipelineContext;
+  createPipelineContextFn: () => Promise<PipelineContext>;
   fetchFigmaFileFn: () => Promise<FigmaFileResponse>;
   fetchFigmaNodesFn: () => Promise<FigmaNodesResponse>;
   fetchFigmaImagesFn: () => Promise<{ images: Record<string, string> }>;
-  bootstrapInputJsonFromFigmaVariablesFn: () => Promise<{ attempted: boolean; created: boolean; reason: string }>;
-  runTokensCompileIfNeededFn: () => { attempted: boolean; compiled: boolean; reason: string };
+  bootstrapInputJsonFromFigmaVariablesFn: () => Promise<{
+    attempted: boolean;
+    created: boolean;
+    reason: string;
+  }>;
+  runTokensCompileIfNeededFn: () => {
+    attempted: boolean;
+    compiled: boolean;
+    reason: string;
+  };
   runJsonCommandFn: () => { data: { ok: boolean } };
   extractComponentSpecFn: () => null;
   resolveSpecExhibitNodeIdsFn: () => null;
   renderEnrichedMarkdownSeedFn: () => null;
-  injectExtractedSpecSectionsIntoMarkdownFn: () => { changed: boolean; content: string };
+  injectExtractedSpecSectionsIntoMarkdownFn: () => {
+    changed: boolean;
+    content: string;
+  };
   buildMarkdownSeedFn: () => null;
   writeTextAtomicFn: () => void;
   stderrWriteFn: () => void;
@@ -32,11 +43,14 @@ export interface MockDeps {
  * @param overrides - Partial mock dependencies to override defaults
  * @returns Complete mock dependencies object
  */
-export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): MockDeps {
+export function createCaptureContextMock(
+  overrides: Partial<MockDeps> = {},
+): MockDeps {
   const defaultDeps: MockDeps = {
-    createPipelineContextFn: () => ({
+    createPipelineContextFn: async () => ({
       repoRoot: '/mock/repo',
-      figmaUrl: 'https://www.figma.com/design/example-file/Components?node-id=100-200',
+      figmaUrl:
+        'https://www.figma.com/design/example-file/Components?node-id=100-200',
       figmaToken: 'mock-token',
       system: {
         id: 'system',
@@ -48,7 +62,7 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
           docs: '/mock/repo/docs',
           generated: '/mock/repo/docs/_generated',
           specs: '/mock/repo/design-systems/sys-01/docs/_spec/components',
-          registry: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
+          databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
           tokenRegistry: '/mock/repo/docs/_generated/token-registry.json',
           figmaAliasGraph: '/mock/repo/docs/_generated/figma-alias-graph.json',
         },
@@ -59,11 +73,13 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
         componentDocsDir: '/mock/repo/design-systems/sys-01/docs/components',
         proofDir: '/mock/repo/docs/_generated/visual-proofs',
         proofImageDir: '/mock/repo/docs/_generated/visual-proofs/images',
-        resolvedSpecRoot: '/mock/repo/design-systems/sys-01/docs/_spec/components',
-        templatePath: '/mock/repo/tooling/templates/component-spec/_template.yml',
+        resolvedSpecRoot:
+          '/mock/repo/design-systems/sys-01/docs/_spec/components',
+        templatePath:
+          '/mock/repo/tooling/templates/component-spec/_template.yml',
         tokenRegistryPath: '/mock/repo/docs/_generated/token-registry.json',
         overviewPath: '/mock/repo/docs/overview.md',
-        registryDbPath: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
+        databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
       },
       flags: {
         componentSlugOverride: '',
@@ -97,7 +113,9 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
         id: '0:0',
         name: 'Canvas',
         type: 'CANVAS',
-        children: [{ id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' }],
+        children: [
+          { id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' },
+        ],
       },
       components: {},
       componentSets: {},
@@ -108,7 +126,15 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
       lastModified: '2024-01-01T00:00:00Z',
       thumbnailUrl: 'https://figma.com/thumb.png',
       nodes: {
-        '100:200': { document: { id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' }, components: {}, schemaVersion: 1 },
+        '100:200': {
+          document: {
+            id: '100:200',
+            name: 'ExampleNode',
+            type: 'COMPONENT_SET',
+          },
+          components: {},
+          schemaVersion: 1,
+        },
       },
     }),
     fetchFigmaImagesFn: async () => ({
@@ -132,10 +158,13 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
     extractComponentSpecFn: () => null,
     resolveSpecExhibitNodeIdsFn: () => null,
     renderEnrichedMarkdownSeedFn: () => null,
-    injectExtractedSpecSectionsIntoMarkdownFn: () => ({ changed: true, content: 'mocked' }),
+    injectExtractedSpecSectionsIntoMarkdownFn: () => ({
+      changed: true,
+      content: 'mocked',
+    }),
     buildMarkdownSeedFn: () => null,
-    writeTextAtomicFn: () => { },
-    stderrWriteFn: () => { },
+    writeTextAtomicFn: () => {},
+    stderrWriteFn: () => {},
   };
 
   return { ...defaultDeps, ...overrides };

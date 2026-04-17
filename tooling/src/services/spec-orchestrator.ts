@@ -51,15 +51,17 @@ export interface SpecOrchestratorDeps {
     runSpecGenerationPromptFn?: typeof runSpecGenerationPrompt;
     runSpecRepairPromptFn?: typeof runSpecRepairPrompt;
     validateGeneratedSpecFn?: typeof validateGeneratedSpec;
-    syncDocumentationIndicesFn?: typeof syncDocumentationState;
+    syncDocumentationIndicesFn?: (
+        opts: Parameters<typeof syncDocumentationState>[0],
+    ) => ReturnType<typeof syncDocumentationState>;
     runSpecWithGuardsFn?: typeof runSpecWithGuards;
     createPipelineContextFn?: typeof createPipelineContext;
     writeSpecWithSnapshotGuardFn?: typeof writeSpecWithSnapshotGuard;
 }
 
-function withSpecStage<T>(stage: string, run: () => T): T {
+async function withSpecStage<T>(stage: string, run: () => Promise<T> | T): Promise<T> {
     try {
-        return run();
+        return await run();
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new Error(`[spec-orchestrator:${stage}] ${message}`);
@@ -86,9 +88,9 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
         writeSpecWithSnapshotGuardFn = writeSpecWithSnapshotGuard,
     } = deps;
 
-    const context = withSpecStage('create-pipeline-context', () => createPipelineContextFn(args));
+    const context = await withSpecStage('create-pipeline-context', () => createPipelineContextFn(args));
 
-    const runCtx = withSpecStage('create-run-context', () => createSpecRunContext({ context, args }));
+    const runCtx = await withSpecStage('create-run-context', () => createSpecRunContext({ context, args }));
     const {
         figmaUrl,
         componentName,
@@ -103,25 +105,24 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
         nodeId,
         outputPath,
         overviewPath,
-        registryDbPath,
+        databaseUrl,
         allowedWritePaths,
     } = runCtx;
 
-    return withSpecStage('run-with-guards', () => runSpecWithGuardsFn({
+    return await withSpecStage('run-with-guards', () => runSpecWithGuardsFn({
         outputPath,
         resolvedSpecRoot,
         docsPath: context.system.paths.docs,
-        registryDbPath,
         allowedWritePaths,
-        run: ({ existingSpec }) => {
-            withSpecStage('ensure-template', () => ensureSpecTemplateExistsFn(templatePath));
+        run: async ({ existingSpec }) => {
+            await withSpecStage('ensure-template', () => ensureSpecTemplateExistsFn(templatePath));
 
-            const registryIndex = withSpecStage(
+            const registryIndex = await withSpecStage(
                 'load-token-registry',
                 () => loadRegistryOrThrowFn(registryPath),
             );
 
-            const prompt = withSpecStage('build-prompt', () =>
+            const prompt = await withSpecStage('build-prompt', () =>
                 buildSpecPromptWithRegistry({
                     figmaUrl,
                     nodeId,
@@ -135,9 +136,9 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
                 }),
             );
 
-            withSpecStage('ensure-output-dir', () => ensureSpecOutputDirectoryFn(outputPath));
+            await withSpecStage('ensure-output-dir', () => ensureSpecOutputDirectoryFn(outputPath));
 
-            const { normalizedSpec, prefilledCount, validationReport } = withSpecStage(
+            const { normalizedSpec, prefilledCount, validationReport } = await withSpecStage(
                 'generate-and-validate-spec',
                 () =>
                     runSpecGenerationFlow({
@@ -151,8 +152,8 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
                         runSpecGenerationPromptFn,
                         runSpecRepairPromptFn,
                         validateGeneratedSpecFn,
-                        materializeGeneratedSpec: () =>
-                            withSpecStage('materialize-spec', () => {
+                        materializeGeneratedSpec: () => {
+                            try {
                                 const result = materializeSpecFn({
                                     outputPath,
                                     templatePath,
@@ -165,18 +166,20 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
                                     evidenceGate: assertEvidenceGatedScalarChangesFn,
                                     evidenceBackedPrefixes: [...SPEC_EVIDENCE_BACKED_PREFIXES],
                                 });
-                                withSpecStage('write-spec-snapshot-guard', () =>
-                                    writeSpecWithSnapshotGuardFn({
-                                        outputPath,
-                                        normalizedSpec: result.normalizedSpec,
-                                    }),
-                                );
+                                writeSpecWithSnapshotGuardFn({
+                                    outputPath,
+                                    normalizedSpec: result.normalizedSpec,
+                                });
                                 return result;
-                            }),
+                            } catch (error) {
+                                const message = error instanceof Error ? error.message : String(error);
+                                throw new Error(`[spec-orchestrator:materialize-spec] ${message}`);
+                            }
+                        },
                     }),
             );
 
-            return withSpecStage('finalize-result', () =>
+            return await withSpecStage('finalize-result', () =>
                 finalizeSpecResult({
                     outputPath,
                     normalizedSpec,
@@ -187,7 +190,7 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
                     resolvedSpecRoot,
                     docsRootDir,
                     overviewPath,
-                    registryDbPath,
+                    databaseUrl,
                     systemId: context.system.id,
                     syncDocumentationIndicesFn,
                 }),

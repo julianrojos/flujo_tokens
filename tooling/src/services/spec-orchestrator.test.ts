@@ -66,7 +66,7 @@ describe('spec-orchestrator', () => {
               templatePath: '/tmp/_template.yml',
               tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
               overviewPath: '/tmp/docs/overview.md',
-              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
+              databaseUrl: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             },
             flags: {
               componentSlugOverride: '',
@@ -130,7 +130,7 @@ describe('spec-orchestrator', () => {
             changed: [],
             written: [],
             registry: {
-              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
+              databaseUrl: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
               fingerprint: 'abc',
             },
             overview: {

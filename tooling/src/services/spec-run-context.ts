@@ -55,8 +55,8 @@ export function createSpecRunContext(options: CreateSpecRunContextOptions): Spec
     assertOutputPath(outputPath);
 
     const overviewPath = context.paths.overviewPath;
-    const registryDbPath = context.paths.registryDbPath;
-    const allowedWritePaths = [outputPath, overviewPath, registryDbPath];
+    const databaseUrl = context.paths.databaseUrl;
+    const allowedWritePaths = [outputPath, overviewPath];
 
     return {
         figmaUrl,
@@ -74,7 +74,7 @@ export function createSpecRunContext(options: CreateSpecRunContextOptions): Spec
         nodeId,
         outputPath,
         overviewPath,
-        registryDbPath,
+        databaseUrl,
         allowedWritePaths,
     };
 }

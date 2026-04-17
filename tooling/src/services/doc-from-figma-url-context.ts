@@ -103,7 +103,7 @@ export interface DocGenerationContext {
   outputSlug: string;
   specComponentsDir: string;
   overviewPath: string;
-  registryDbPath: string;
+  databaseUrl: string;
   tokenUsageIndexPath: string;
   tokenRegistryPath: string;
   tokenUsageScriptPath: string;
@@ -167,7 +167,7 @@ export async function resolveDocContext(
   figmaMapOutPath: string,
   docsRootDir: string,
   componentDocsDir: string,
-  registryDbPath: string,
+  databaseUrl: string,
   systemId: string,
   tempArtifacts: TempArtifactManager,
   deps: ResolveDocContextDeps = {},
@@ -345,7 +345,7 @@ export async function resolveDocContext(
     outputSlug,
     specComponentsDir,
     overviewPath,
-    registryDbPath: path.resolve(registryDbPath),
+    databaseUrl,
     tokenUsageIndexPath,
     tokenRegistryPath,
     tokenUsageScriptPath,

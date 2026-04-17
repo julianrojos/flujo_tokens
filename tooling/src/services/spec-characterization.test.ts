@@ -66,7 +66,7 @@ describe('spec-characterization', () => {
         changed: ['/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db'],
         written: ['/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db'],
         registry: {
-          registryDbPath: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
+          databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
           fingerprint: 'abcd',
         },
         overview: {

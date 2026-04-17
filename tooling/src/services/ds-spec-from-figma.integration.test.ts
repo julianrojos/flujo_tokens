@@ -47,7 +47,7 @@ describe('ds-spec-from-figma integration', () => {
     const outputPath = path.join(specsDir, 'alert.yml');
     const templatePath = path.join(specsDir, '_template.yml');
     const registryPath = path.join(generatedDir, 'token-registry.json');
-    const registryDbPath = path.join(tmpDir, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db');
+    const databaseUrl = path.join(tmpDir, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db');
 
     // Setup template
     fs.writeFileSync(
@@ -94,7 +94,7 @@ describe('ds-spec-from-figma integration', () => {
               docs: docsComponentsDir,
               generated: generatedDir,
               specs: specsDir,
-              registry: registryDbPath,
+              registry: databaseUrl,
               tokenRegistry: registryPath,
             },
           },
@@ -108,7 +108,7 @@ describe('ds-spec-from-figma integration', () => {
             templatePath: templatePath,
             tokenRegistryPath: registryPath,
             overviewPath: path.join(docsComponentsDir, 'overview.md'),
-            registryDbPath: registryDbPath,
+            databaseUrl: databaseUrl,
           },
           flags: {
             componentSlugOverride: '',
@@ -187,7 +187,7 @@ describe('ds-spec-from-figma integration', () => {
           changed: [],
           written: [],
           registry: {
-            registryDbPath: registryDbPath,
+            databaseUrl: databaseUrl,
             fingerprint: 'test-fingerprint',
           },
           overview: {
@@ -213,7 +213,7 @@ describe('ds-spec-from-figma integration', () => {
       documentationIndices: {
         changed: [],
         written: [],
-        registryDbPath: registryDbPath,
+        databaseUrl: databaseUrl,
         registryFingerprint: 'test-fingerprint',
         overviewPath: path.join(docsComponentsDir, 'overview.md'),
       },

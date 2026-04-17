@@ -38,10 +38,10 @@ export function toCliPath(filePath: string): string {
 export function buildTraceabilityRegenerationCommand(paths: {
   markdownPath: string;
   specPath: string;
-  registryPath: string;
+  databaseUrl: string;
 }): string {
   const specArg = JSON.stringify(toCliPath(paths.specPath));
   const outputArg = JSON.stringify(toCliPath(paths.markdownPath));
-  const registryArg = JSON.stringify(toCliPath(paths.registryPath));
+  const registryArg = JSON.stringify(toCliPath(paths.databaseUrl));
   return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
 }

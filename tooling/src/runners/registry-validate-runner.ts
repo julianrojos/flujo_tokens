@@ -20,11 +20,13 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--spec-root',
-      description: 'Component spec directory (resolves from system context if not provided).',
+      description:
+        'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--docs-root',
-      description: 'Component docs directory (resolves from system context if not provided).',
+      description:
+        'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--proof-dir',
@@ -52,7 +54,9 @@ function parseBooleanOption(
   optionName: string,
   fallback: boolean = false,
 ): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  const normalized = String(rawValue ?? fallback)
+    .trim()
+    .toLowerCase();
   if (normalized === 'true') return true;
   if (normalized === 'false') return false;
   throw new Error(
@@ -72,19 +76,28 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
   const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   try {
-    const comparison = compareComponentRegistryToSources({
-      dbPath: ctx.paths.registry,
+    const comparison = await compareComponentRegistryToSources({
+      databaseUrl: ctx.paths.databaseUrl,
       systemId: ctx.id,
-      specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
-      docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
-      proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
+      specsDir: path.resolve(
+        String(getStringArg(parsed, 'spec-root') || ctx.paths.specs),
+      ),
+      docsDir: path.resolve(
+        String(getStringArg(parsed, 'docs-root') || ctx.paths.docs),
+      ),
+      proofsDir: path.resolve(
+        String(
+          getStringArg(parsed, 'proof-dir') ||
+            path.join(ctx.paths.generated, 'visual-proofs'),
+        ),
+      ),
     });
 
     const report = {
       ok: comparison.exists && comparison.matches,
       exists: comparison.exists,
       strict,
-      registryDbPath: path.resolve(String(ctx.paths.registry)),
+      databaseUrl: ctx.paths.databaseUrl,
       expectedFingerprint: comparison.expected.fingerprint_sha256,
       currentFingerprint: comparison.current?.fingerprint_sha256 || null,
       summary: comparison.expected.summary,

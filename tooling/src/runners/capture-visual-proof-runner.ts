@@ -34,7 +34,10 @@ import { prepareCaptureContext } from '../services/capture-visual-proof-preparat
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
 import { logger } from '../utils/logger.js';
-import { PROJECT_ROOT } from '../utils/system-context.js';
+import {
+  PROJECT_ROOT,
+  loadDesignSystemsConfigAsync,
+} from '../utils/system-context.js';
 
 const USAGE = {
   command:
@@ -137,7 +140,7 @@ const USAGE = {
     {
       name: '--skip-db-persistence <true|false>',
       description:
-        'Skip SQLite persistence for this single capture report (used by batch orchestrators).',
+        'Skip PostgreSQL persistence for this single capture report (used by batch orchestrators).',
       defaultValue: 'false',
     },
     {
@@ -162,6 +165,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
   }
 
   // 1. Prepare context
+  await loadDesignSystemsConfigAsync();
   const ctx = prepareCaptureContext(args);
 
   // 2. Capture main image

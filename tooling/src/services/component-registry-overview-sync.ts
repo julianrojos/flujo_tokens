@@ -137,7 +137,7 @@ export function syncComponentOverview(
     changed,
     written: changed && !dryRun,
     overviewPath: resolvedOverviewPath,
-    registryDbPath: 'db://component-registry',
+    databaseUrl: 'db://component-registry',
     componentCount: componentListLines.length,
     listState: resolvedListState,
   };

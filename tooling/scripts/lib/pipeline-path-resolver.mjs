@@ -40,7 +40,7 @@ export function resolvePipelinePaths(args, systemContext) {
     componentDocsDir,
     proofDir,
     proofImageDir,
-    registryDbPath: path.resolve(systemContext.paths.registry),
+    databaseUrl: systemContext.paths.databaseUrl,
     tokenRegistryPath: path.resolve(args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, "_generated", "token-registry.json")),
     resolvedSpecRoot,
     templatePath: path.resolve(args.template || defaultTemplatePath),

@@ -187,7 +187,7 @@ export interface BuildRegistryOptions {
  */
 export interface ReadRegistryOptions {
   allowMissing?: boolean;
-  dbPath?: string;
+  databaseUrl?: string;
   systemId?: string;
   specsDir?: string;
   docsDir?: string;
@@ -229,7 +229,7 @@ export interface SyncRegistryResult {
   dryRun: boolean;
   changed: boolean;
   written: boolean;
-  registryDbPath: string;
+  databaseUrl: string;
   schemaVersion: number;
   summary: ComponentRegistrySummary;
   fingerprint: string;
@@ -246,7 +246,7 @@ export interface SyncOverviewResult {
   changed: boolean;
   written: boolean;
   overviewPath: string;
-  registryDbPath: string;
+  databaseUrl: string;
   componentCount: number;
   listState: ComponentOverviewListState;
 }

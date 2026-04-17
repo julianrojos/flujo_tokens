@@ -85,7 +85,7 @@ export async function orchestrateTokenSync(
   };
 
   if (!dryRun) {
-    let systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId });
+    let systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
     
     tokenBootstrap = await bootstrapInputJsonFromFigmaVariablesFn({
       repoRoot: projectRoot,
@@ -98,7 +98,7 @@ export async function orchestrateTokenSync(
     
     ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId });
     
-    systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId });
+    systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
     
     tokenCompile = runTokensCompileIfNeededFn({
       repoRoot: projectRoot,

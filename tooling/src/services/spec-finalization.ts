@@ -13,7 +13,7 @@ interface SyncIndicesLikeResult {
     changed: boolean | string[];
     written: boolean | string[];
     registry: {
-        registryDbPath: string;
+        databaseUrl: string;
         fingerprint: string;
         changed?: boolean;
         written?: boolean;
@@ -35,15 +35,15 @@ export interface FinalizeSpecOptions {
     resolvedSpecRoot: string;
     docsRootDir: string;
     overviewPath: string;
-    registryDbPath: string;
+    databaseUrl: string;
     systemId: string;
-    syncDocumentationIndicesFn: (opts: any) => SyncIndicesLikeResult;
+    syncDocumentationIndicesFn: (opts: any) => SyncIndicesLikeResult | Promise<SyncIndicesLikeResult>;
 }
 
 /**
  * Finalizes the spec generation process by syncing indices and building the result.
  */
-export function finalizeSpecResult(options: FinalizeSpecOptions): SpecGenerationResult {
+export async function finalizeSpecResult(options: FinalizeSpecOptions): Promise<SpecGenerationResult> {
     const {
         outputPath,
         normalizedSpec,
@@ -54,17 +54,17 @@ export function finalizeSpecResult(options: FinalizeSpecOptions): SpecGeneration
         resolvedSpecRoot,
         docsRootDir,
         overviewPath,
-        registryDbPath,
+        databaseUrl,
         systemId,
         syncDocumentationIndicesFn,
     } = options;
 
-    const syncResult = syncDocumentationIndicesFn({
+    const syncResult = await syncDocumentationIndicesFn({
         specsDir: resolvedSpecRoot,
         docsDir: path.join(docsRootDir, 'components'),
         overviewPath,
         proofsDir: path.join(docsRootDir, '_generated', 'visual-proofs'),
-        dbPath: registryDbPath,
+        databaseUrl: databaseUrl,
         systemId,
     });
 
@@ -73,7 +73,7 @@ export function finalizeSpecResult(options: FinalizeSpecOptions): SpecGeneration
         ? syncResult.written.map((value) => String(value || '').trim()).filter(Boolean)
         : (() => {
             const paths: string[] = [];
-            if (syncResult.registry.written) paths.push(syncResult.registry.registryDbPath);
+            if (syncResult.registry.written) paths.push(syncResult.registry.databaseUrl);
             if (syncResult.overview.written) paths.push(syncResult.overview.overviewPath);
             // Removed third branch: don't assume both paths were written if written is true
             return paths;
@@ -84,12 +84,12 @@ export function finalizeSpecResult(options: FinalizeSpecOptions): SpecGeneration
         ? syncResult.changed
         : (() => {
             const paths: string[] = [];
-            if (syncResult.registry.changed) paths.push(syncResult.registry.registryDbPath);
+            if (syncResult.registry.changed) paths.push(syncResult.registry.databaseUrl);
             if (syncResult.overview.changed) paths.push(syncResult.overview.overviewPath);
             // Fallback: if top-level changed is true but individual flags missing/undefined,
             // assume both paths changed to preserve backward compatibility
             if (paths.length === 0 && syncResult.changed === true) {
-                paths.push(syncResult.registry.registryDbPath, syncResult.overview.overviewPath);
+                paths.push(syncResult.registry.databaseUrl, syncResult.overview.overviewPath);
             }
             return paths;
         })();
@@ -98,7 +98,7 @@ export function finalizeSpecResult(options: FinalizeSpecOptions): SpecGeneration
         changed,
         written,
         registry: {
-            registryDbPath: syncResult.registry.registryDbPath,
+            databaseUrl: syncResult.registry.databaseUrl,
             fingerprint: syncResult.registry.fingerprint,
         },
         overview: {

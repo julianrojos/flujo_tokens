@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,6 +12,10 @@ import {
   runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import type { SyncFigmaTokensToInputOptions } from './figma-token-sync.js';
+
+function uniqueSystemId(prefix: string): string {
+  return `${prefix}-${randomUUID().slice(0, 8)}`;
+}
 
 describe('capture-system-bootstrap', () => {
   it('bootstraps input JSON even when empty token-registry seed exists', async () => {
@@ -143,50 +148,52 @@ describe('capture-system-bootstrap', () => {
     });
   });
 
-  it('does not inject fallback collections when input directory has no JSON files', () => {
+  it('does not inject fallback collections when input directory has no JSON files', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-empty-'));
     try {
-      fs.mkdirSync(path.join(repoRoot, 'design-systems', 'demo', 'input'), { recursive: true });
+      const systemId = uniqueSystemId('demo-empty');
+      fs.mkdirSync(path.join(repoRoot, 'design-systems', systemId, 'input'), { recursive: true });
       const repository = getSystemRepository(repoRoot);
-      repository.create({
-        id: 'demo',
+      await repository.create({
+        id: systemId,
         name: 'Demo',
         collections: [],
       });
-      repository.setDefaultSystemId('demo');
+      await repository.setDefaultSystemId(systemId);
 
-      ensureCollectionsConfigured({
+      await ensureCollectionsConfigured({
         repoRoot,
-        systemId: 'demo',
+        systemId,
       });
 
-      const system = repository.getById('demo');
+      const system = await repository.getById(systemId);
       assert.deepEqual(system?.collections ?? [], []);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
   });
 
-  it('infers collections from input JSON filenames when available', () => {
+  it('infers collections from input JSON filenames when available', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-infer-'));
     try {
-      fs.mkdirSync(path.join(repoRoot, 'design-systems', 'demo', 'input'), { recursive: true });
-      fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'primitives.json'), '{}', 'utf8');
-      fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'theme-semantic.json'), '{}', 'utf8');
+      const systemId = uniqueSystemId('demo-infer');
+      fs.mkdirSync(path.join(repoRoot, 'design-systems', systemId, 'input'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'design-systems', systemId, 'input', 'primitives.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(repoRoot, 'design-systems', systemId, 'input', 'theme-semantic.json'), '{}', 'utf8');
       const repository = getSystemRepository(repoRoot);
-      repository.create({
-        id: 'demo',
+      await repository.create({
+        id: systemId,
         name: 'Demo',
         collections: [],
       });
-      repository.setDefaultSystemId('demo');
+      await repository.setDefaultSystemId(systemId);
 
-      ensureCollectionsConfigured({
+      await ensureCollectionsConfigured({
         repoRoot,
-        systemId: 'demo',
+        systemId,
       });
 
-      const system = repository.getById('demo');
+      const system = await repository.getById(systemId);
       const collections = [...(system?.collections ?? [])].sort((a, b) =>
         a.localeCompare(b),
       );

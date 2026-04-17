@@ -277,8 +277,8 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
 
   // Sync documentation indices
   if (!dryRun) {
-    syncDocumentationState({
-      dbPath: ctx.paths.registry,
+    await syncDocumentationState({
+      databaseUrl: ctx.paths.databaseUrl,
       overviewPath: path.join(ctx.paths.docs, 'overview.md'),
       specsDir: ctx.paths.specs,
       docsDir: ctx.paths.docs,

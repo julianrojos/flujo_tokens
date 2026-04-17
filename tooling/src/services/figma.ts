@@ -15,13 +15,27 @@ import { extractSectionBody } from './markdown-sections.js';
 import { TRACEABILITY_CONTRACT_VERSION } from './docs-config.js';
 import { deriveFigmaFrontmatterTraceability } from './figma-traceability.js';
 import { sha256FileCached } from '../utils/file-hash.js';
-import { escapeRegex, getH2SectionRange, findDiscrepancyStatuses, extractVisualProof } from './markdown-doc-parser.js';
-import { toCliPath, buildTraceabilityRegenerationCommand } from './traceability-command.js';
+import {
+  escapeRegex,
+  getH2SectionRange,
+  findDiscrepancyStatuses,
+  extractVisualProof,
+} from './markdown-doc-parser.js';
+import {
+  toCliPath,
+  buildTraceabilityRegenerationCommand,
+} from './traceability-command.js';
 import type { FigmaNode } from '../types/figma.js';
-import { readComponentSpecByDocPath, type ComponentSpec, type SpecResolution } from './spec-loader.js';
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
-import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
-import { PROJECT_ROOT, loadDesignSystemsConfig, resolveSystemContextSafe } from '../utils/system-context.js';
+import {
+  readComponentSpecByDocPath,
+  type ComponentSpec,
+  type SpecResolution,
+} from './spec-loader.js';
+import {
+  PROJECT_ROOT,
+  loadDesignSystemsConfig,
+  resolveSystemContextSafe,
+} from '../utils/system-context.js';
 import {
   extractGapsFromSpec,
   buildGapsChecklistLines,
@@ -44,7 +58,10 @@ import type { DocsValidationReport } from './docs-validator-types.js';
 // ============================================================================
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
-const dbSpecSnapshotBySystemAndSlugCache = new Map<string, Map<string, DbSpecSnapshot>>();
+const dbSpecSnapshotBySystemAndSlugCache = new Map<
+  string,
+  Map<string, DbSpecSnapshot>
+>();
 const systemIdBySpecRootCache = new Map<string, string | null>();
 const dbSnapshotLoadErrorBySystem = new Map<string, string>();
 
@@ -61,29 +78,11 @@ function loadDbSpecSnapshotBySlug(systemId: string): void {
   if (dbSpecSnapshotBySystemAndSlugCache.has(systemId)) return;
   try {
     const ctx = resolveSystemContextSafe({ system: systemId });
-    const db = bootstrapDatabase({ dbPath: ctx.paths.registry });
-    try {
-      const repo = new ComponentRepository(db);
-      const rows = repo.getAll(ctx.id);
-      const bySlug = new Map<string, DbSpecSnapshot>();
-      for (const row of rows) {
-        const slug = String(row.slug || '').trim();
-        if (!slug) continue;
-        const componentSetNodeIdRaw = String(row.figmaComponentSetNodeId || '').trim();
-        bySlug.set(slug, {
-          existsInDb: true,
-          slug,
-          componentSetNodeIdRaw,
-          componentSetNodeId: normalizeNodeId(componentSetNodeIdRaw),
-          componentStatus: String(row.status || '').trim().toLowerCase(),
-          editorialExists: Boolean(row.editorialExists),
-        });
-      }
-      dbSpecSnapshotBySystemAndSlugCache.set(systemId, bySlug);
-      dbSnapshotLoadErrorBySystem.delete(systemId);
-    } finally {
-      db.close();
-    }
+    void ctx;
+    throw new Error(
+      'Synchronous validator path cannot read DB snapshot in PostgreSQL mode. ' +
+        'Use explicit spec files for traceability checks or migrate this validator path to async.',
+    );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     dbSnapshotLoadErrorBySystem.set(systemId, reason);
@@ -96,7 +95,7 @@ type DbSnapshotLookupResult = {
 };
 
 function resolveSystemIdFromSpecRoot(specRoot?: string): string | null {
-  const normalizedRoot = String(specRoot || "").trim();
+  const normalizedRoot = String(specRoot || '').trim();
   if (!normalizedRoot) return null;
   const absoluteSpecRoot = path.resolve(normalizedRoot);
   if (systemIdBySpecRootCache.has(absoluteSpecRoot)) {
@@ -105,7 +104,12 @@ function resolveSystemIdFromSpecRoot(specRoot?: string): string | null {
   try {
     const config = loadDesignSystemsConfig();
     for (const system of config.systems || []) {
-      const candidateSpecRoot = path.resolve(PROJECT_ROOT, system.docsDir, "_spec", "components");
+      const candidateSpecRoot = path.resolve(
+        PROJECT_ROOT,
+        system.docsDir,
+        '_spec',
+        'components',
+      );
       if (candidateSpecRoot === absoluteSpecRoot) {
         systemIdBySpecRootCache.set(absoluteSpecRoot, system.id);
         return system.id;
@@ -118,9 +122,12 @@ function resolveSystemIdFromSpecRoot(specRoot?: string): string | null {
   return null;
 }
 
-function getDbSpecSnapshotByDocPath(componentDocPath: string, specRoot?: string): DbSnapshotLookupResult {
-  const explicitSpecRoot = String(specRoot || "").trim();
-  let systemId = resolveSystemIdFromSpecRoot(specRoot) || "";
+function getDbSpecSnapshotByDocPath(
+  componentDocPath: string,
+  specRoot?: string,
+): DbSnapshotLookupResult {
+  const explicitSpecRoot = String(specRoot || '').trim();
+  let systemId = resolveSystemIdFromSpecRoot(specRoot) || '';
   if (explicitSpecRoot && !systemId) {
     return {
       snapshot: null,
@@ -130,12 +137,16 @@ function getDbSpecSnapshotByDocPath(componentDocPath: string, specRoot?: string)
   try {
     if (!systemId) {
       const ctx = resolveSystemContextSafe();
-      systemId = String(ctx.id || "").trim();
+      systemId = String(ctx.id || '').trim();
     }
   } catch {
-    return { snapshot: null, dbUnavailableReason: "Unable to resolve system context." };
+    return {
+      snapshot: null,
+      dbUnavailableReason: 'Unable to resolve system context.',
+    };
   }
-  if (!systemId) return { snapshot: null, dbUnavailableReason: "System context is empty." };
+  if (!systemId)
+    return { snapshot: null, dbUnavailableReason: 'System context is empty.' };
   loadDbSpecSnapshotBySlug(systemId);
   const dbUnavailableReason = dbSnapshotLoadErrorBySystem.get(systemId);
   if (dbUnavailableReason) {
@@ -144,7 +155,10 @@ function getDbSpecSnapshotByDocPath(componentDocPath: string, specRoot?: string)
   const slug = path.basename(componentDocPath, path.extname(componentDocPath));
   const normalized = String(slug || '').trim();
   if (!normalized) return { snapshot: null };
-  return { snapshot: dbSpecSnapshotBySystemAndSlugCache.get(systemId)?.get(normalized) || null };
+  return {
+    snapshot:
+      dbSpecSnapshotBySystemAndSlugCache.get(systemId)?.get(normalized) || null,
+  };
 }
 
 // ============================================================================
@@ -159,9 +173,11 @@ export function validateMarkdownTraceabilityNodeId(
   frontmatter: Record<string, unknown>,
   specRoot: string,
   report: DocsValidationReport,
-  specResolution: SpecResolution = {}
+  specResolution: SpecResolution = {},
 ): void {
-  const figma = isPlainObject(frontmatter.figma) ? (frontmatter.figma as Record<string, unknown>) : {};
+  const figma = isPlainObject(frontmatter.figma)
+    ? (frontmatter.figma as Record<string, unknown>)
+    : {};
   const markdownNodeIdRaw = String(figma.component_set_node_id || '').trim();
   if (!markdownNodeIdRaw) return;
 
@@ -169,7 +185,8 @@ export function validateMarkdownTraceabilityNodeId(
     report.errors.push({
       code: 'TRACE01',
       file: filePath,
-      message: 'Frontmatter figma.component_set_node_id must not be `TBD` when declared.',
+      message:
+        'Frontmatter figma.component_set_node_id must not be `TBD` when declared.',
     });
     return;
   }
@@ -179,7 +196,8 @@ export function validateMarkdownTraceabilityNodeId(
     report.errors.push({
       code: 'TRACE01',
       file: filePath,
-      message: 'Frontmatter figma.component_set_node_id must use Figma node-id format `123:456`.',
+      message:
+        'Frontmatter figma.component_set_node_id must use Figma node-id format `123:456`.',
     });
     return;
   }
@@ -192,8 +210,7 @@ export function validateMarkdownTraceabilityNodeId(
       report.errors.push({
         code: 'TRACE01',
         file: filePath,
-        message:
-          `Traceability check requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
+        message: `Traceability check requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
       });
       return;
     }
@@ -207,7 +224,10 @@ export function validateMarkdownTraceabilityNodeId(
       return;
     }
 
-    if (!dbSpec.componentSetNodeIdRaw || isTbdMarker(dbSpec.componentSetNodeIdRaw)) {
+    if (
+      !dbSpec.componentSetNodeIdRaw ||
+      isTbdMarker(dbSpec.componentSetNodeIdRaw)
+    ) {
       report.errors.push({
         code: 'TRACE01',
         file: filePath,
@@ -271,7 +291,7 @@ export function validateGeneratedTraceability(
   specRoot: string,
   registryPath: string,
   report: DocsValidationReport,
-  specResolution: SpecResolution = {}
+  specResolution: SpecResolution = {},
 ): void {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
@@ -296,7 +316,7 @@ export function validateGeneratedTraceability(
   const regenerateCommand = buildTraceabilityRegenerationCommand({
     markdownPath: filePath,
     specPath: spec.specPath,
-    registryPath,
+    databaseUrl: registryPath,
   });
 
   const pipeline = isPlainObject(frontmatter.pipeline)
@@ -336,7 +356,9 @@ export function validateGeneratedTraceability(
   };
 
   for (const [field, expectedValue] of Object.entries(expected)) {
-    const actualValue = String((dsDoc as Record<string, unknown>)[field] || '').trim();
+    const actualValue = String(
+      (dsDoc as Record<string, unknown>)[field] || '',
+    ).trim();
     if (!actualValue) {
       report.errors.push({
         code: 'TRACE02',
@@ -371,7 +393,9 @@ export function validateGeneratedTraceability(
     }
   }
 
-  const figma = isPlainObject(frontmatter.figma) ? (frontmatter.figma as Record<string, unknown>) : {};
+  const figma = isPlainObject(frontmatter.figma)
+    ? (frontmatter.figma as Record<string, unknown>)
+    : {};
   const expectedFigma = deriveFigmaFrontmatterTraceability(spec.parsed);
 
   const componentHash = String(figma.component_hash || '').trim();
@@ -402,7 +426,7 @@ export function validateGapsSectionContract(
   report: DocsValidationReport,
   lineStarts: number[],
   lineFromOffsetFn: (starts: number[], offset: number) => number,
-  specResolution: SpecResolution = {}
+  specResolution: SpecResolution = {},
 ): void {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   const section = extractGapsSection(rawMarkdown);
@@ -432,7 +456,9 @@ export function validateGapsSectionContract(
   const gaps = extractGapsFromSpec({ spec: spec.parsed, registry });
   const expectedLines = buildGapsChecklistLines(gaps);
   const hasReadyStatusWithGaps = spec.status === 'ready' && gaps.length > 0;
-  const readyStatusWithGapsNote = hasReadyStatusWithGaps ? GAP_CHECK_MESSAGES.GAP02_note : '';
+  const readyStatusWithGapsNote = hasReadyStatusWithGaps
+    ? GAP_CHECK_MESSAGES.GAP02_note
+    : '';
 
   if (hasReadyStatusWithGaps) {
     report.errors.push({
@@ -474,7 +500,7 @@ export function validateGapsSectionContract(
   }
 
   const invalidLine = rawSectionLines.find(
-    (line) => !GAPS_VALIDATION.checkboxFormatRegex.test(line)
+    (line) => !GAPS_VALIDATION.checkboxFormatRegex.test(line),
   );
   if (invalidLine) {
     report.errors.push({
@@ -490,7 +516,8 @@ export function validateGapsSectionContract(
   const actualLines = rawSectionLines;
   const sameLength = actualLines.length === expectedLines.length;
   const sameOrder =
-    sameLength && actualLines.every((line, index) => line === expectedLines[index]);
+    sameLength &&
+    actualLines.every((line, index) => line === expectedLines[index]);
   if (sameOrder) return;
 
   report.errors.push({
@@ -512,13 +539,16 @@ export function validateVisualProofSection(
   frontmatter: Record<string, unknown>,
   report: DocsValidationReport,
   lineStarts: number[],
-  lineFromOffsetFn: (starts: number[], offset: number) => number
+  lineFromOffsetFn: (starts: number[], offset: number) => number,
 ): void {
-  const docStatus = String(frontmatter.doc_status || '').trim().toLowerCase();
+  const docStatus = String(frontmatter.doc_status || '')
+    .trim()
+    .toLowerCase();
   if (docStatus !== 'ready') return;
 
   const visualProof = extractVisualProof(rawMarkdown);
-  const fallbackOffset = visualProof.headingOffset >= 0 ? visualProof.headingOffset : 0;
+  const fallbackOffset =
+    visualProof.headingOffset >= 0 ? visualProof.headingOffset : 0;
 
   if (!visualProof.hasOverview || !visualProof.hasSection) {
     report.errors.push({
@@ -541,10 +571,13 @@ export function validateVisualProofSection(
     });
   }
 
-  const hasHttpScreenshotLink = /\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/i.test(visualProof.body);
-  const hasLocalProofImage = /!\[[^\]]*\]\((?:\.\.?\/|docs\/)[^)]+visual-proofs\/images\/[^)\s]+\)/i.test(
-    visualProof.body
+  const hasHttpScreenshotLink = /\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/i.test(
+    visualProof.body,
   );
+  const hasLocalProofImage =
+    /!\[[^\]]*\]\((?:\.\.?\/|docs\/)[^)]+visual-proofs\/images\/[^)\s]+\)/i.test(
+      visualProof.body,
+    );
 
   if (!hasHttpScreenshotLink && !hasLocalProofImage) {
     report.errors.push({
@@ -568,13 +601,19 @@ export function validateReadyLifecycleConsistency(
   report: DocsValidationReport,
   lineStarts: number[],
   lineFromOffsetFn: (starts: number[], offset: number) => number,
-  specResolution: SpecResolution = {}
+  specResolution: SpecResolution = {},
 ): void {
-  const docStatus = String(frontmatter.doc_status || '').trim().toLowerCase();
-  const figma = isPlainObject(frontmatter.figma) ? (frontmatter.figma as Record<string, unknown>) : {};
+  const docStatus = String(frontmatter.doc_status || '')
+    .trim()
+    .toLowerCase();
+  const figma = isPlainObject(frontmatter.figma)
+    ? (frontmatter.figma as Record<string, unknown>)
+    : {};
   const lastVerified = String(figma.last_verified || '').trim();
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
-  const specStatus = String(spec.status || '').trim().toLowerCase();
+  const specStatus = String(spec.status || '')
+    .trim()
+    .toLowerCase();
 
   if (docStatus === 'ready') {
     if (!spec.exists) {
@@ -584,8 +623,7 @@ export function validateReadyLifecycleConsistency(
         report.errors.push({
           code: 'READY01',
           file: filePath,
-          message:
-            `Lifecycle validation requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
+          message: `Lifecycle validation requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
         });
         return;
       }
@@ -600,8 +638,7 @@ export function validateReadyLifecycleConsistency(
         report.errors.push({
           code: 'READY01',
           file: filePath,
-          message:
-            `Component markdown is \`ready\` but DB component status is \`${dbSpec.componentStatus || 'missing'}\`.`,
+          message: `Component markdown is \`ready\` but DB component status is \`${dbSpec.componentStatus || 'missing'}\`.`,
         });
       }
     }
@@ -609,7 +646,8 @@ export function validateReadyLifecycleConsistency(
       report.errors.push({
         code: 'READY01',
         file: filePath,
-        message: 'Component markdown is `ready` but linked spec could not be parsed.',
+        message:
+          'Component markdown is `ready` but linked spec could not be parsed.',
         suggested: path.relative(process.cwd(), spec.specPath),
       });
       return;
@@ -626,24 +664,30 @@ export function validateReadyLifecycleConsistency(
       report.errors.push({
         code: 'READY01',
         file: filePath,
-        message: 'Component markdown is `ready` but figma.last_verified is missing or `TBD`.',
+        message:
+          'Component markdown is `ready` but figma.last_verified is missing or `TBD`.',
       });
     }
     if (/\bTBD\b/i.test(rawMarkdown)) {
       report.errors.push({
         code: 'READY01',
         file: filePath,
-        message: 'Component markdown is `ready` but still contains `TBD` markers.',
+        message:
+          'Component markdown is `ready` but still contains `TBD` markers.',
       });
     }
     const discrepancyStatuses = findDiscrepancyStatuses(rawMarkdown);
-    if (discrepancyStatuses.some((status) => status === 'open' || status === 'accepted')) {
+    if (
+      discrepancyStatuses.some(
+        (status) => status === 'open' || status === 'accepted',
+      )
+    ) {
       report.errors.push({
         code: 'READY01',
         file: filePath,
         line: lineFromOffsetFn(
           lineStarts,
-          rawMarkdown.indexOf('## Design–Token Discrepancies')
+          rawMarkdown.indexOf('## Design–Token Discrepancies'),
         ),
         message:
           'Component markdown is `ready` but has unresolved Design–Token Discrepancies (`open` or `accepted`).',
@@ -651,7 +695,12 @@ export function validateReadyLifecycleConsistency(
     }
   }
 
-  if (spec.exists && !spec.parseError && specStatus === 'ready' && docStatus !== 'ready') {
+  if (
+    spec.exists &&
+    !spec.parseError &&
+    specStatus === 'ready' &&
+    docStatus !== 'ready'
+  ) {
     report.errors.push({
       code: 'READY01',
       file: filePath,

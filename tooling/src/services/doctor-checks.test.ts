@@ -22,7 +22,7 @@ describe('doctor-checks', () => {
         docs: '/fallback/docs',
         specs: '/fallback/specs',
         tokenRegistry: '/fallback/token-registry.json',
-        registry: '/fallback/ds-dashboard.db',
+        databaseUrl: '/fallback/ds-dashboard.db',
         generated: '/fallback/generated',
       },
     };
@@ -44,7 +44,7 @@ describe('doctor-checks', () => {
         docs: '/system/design-systems/sys-01/docs/components',
         specs: '/system/design-systems/sys-01/docs/_spec/components',
         tokenRegistry: '/system/docs/_generated/token-registry.json',
-        registry: '/system/apps/ds-dashboard/server/db/ds-dashboard.db',
+        databaseUrl: '/system/apps/ds-dashboard/server/db/ds-dashboard.db',
         generated: '/system/docs/_generated',
       },
     };

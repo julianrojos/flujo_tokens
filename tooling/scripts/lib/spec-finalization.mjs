@@ -13,7 +13,7 @@ export function finalizeSpecResult({
   resolvedSpecRoot,
   docsRootDir,
   overviewPath,
-  registryDbPath,
+  databaseUrl,
   systemId,
   syncDocumentationIndicesFn,
 }) {
@@ -22,7 +22,7 @@ export function finalizeSpecResult({
     docsDir: path.join(docsRootDir, "components"),
     overviewPath,
     proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
-    dbPath: registryDbPath,
+    databaseUrl,
     systemId,
   });
 
