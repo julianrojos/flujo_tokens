@@ -9,24 +9,14 @@ import {
 } from '@/components/composites';
 import { useHealthDashboard } from './hooks/use-health-dashboard';
 import { HealthActiveIssues } from './components/health-active-issues';
-import { HealthTokenPriorities } from './components/health-token-priorities';
-import { HealthBrokenAliases } from './components/health-broken-aliases';
 
 export function HealthDashboardPage() {
   const {
-    toggleBrokenAliasSort,
-    tokenHealth,
     loading,
-    refreshingTokens,
-    refreshTokenReport,
     tokensTotal,
     tokenScore,
     overallScore,
     activeIssues,
-    brokenAliases,
-    topUnusedTokens,
-    topHighCouplingTokens,
-    topWcagFailures,
     handleIssueViewClick,
   } = useHealthDashboard();
 
@@ -67,23 +57,6 @@ export function HealthDashboardPage() {
         issues={activeIssues}
         onIssueClick={handleIssueViewClick}
       />
-
-      {tokenHealth && (
-        <HealthTokenPriorities
-          unusedTokens={topUnusedTokens}
-          highCouplingTokens={topHighCouplingTokens}
-          wcagFailures={topWcagFailures}
-          onRefreshTokens={refreshTokenReport}
-          refreshing={refreshingTokens}
-        />
-      )}
-
-      {tokenHealth && (
-        <HealthBrokenAliases
-          aliases={brokenAliases}
-          onSort={toggleBrokenAliasSort}
-        />
-      )}
     </div>
   );
 }

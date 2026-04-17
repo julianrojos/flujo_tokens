@@ -1,6 +1,5 @@
 import { useCallback, useMemo, type MouseEvent } from 'react';
 
-import { useSortState } from '@/lib/use-sort-state';
 import { useHealthDashboardData } from '@/features/health/use-health-dashboard-data';
 
 interface DashboardIssue {
@@ -12,28 +11,14 @@ interface DashboardIssue {
   to: string;
 }
 
-function compareStrings(a: string, b: string, dir: 'asc' | 'desc'): number {
-  const result = a.localeCompare(b);
-  return dir === 'asc' ? result : -result;
-}
-
 export function useHealthDashboard() {
-  const [brokenAliasSort, toggleBrokenAliasSort] = useSortState<
-    'token' | 'alias' | 'reason'
-  >({
-    field: 'token',
-    dir: 'asc',
-  });
-
   const {
     tokenHealth,
     loading,
     reloadingAll,
-    refreshingTokens,
     snapshotting,
     tokenError,
     reloadAll,
-    refreshTokenReport,
     captureSnapshotAndReload,
   } = useHealthDashboardData();
 
@@ -62,12 +47,6 @@ export function useHealthDashboard() {
                 ) -
                 Math.min(
                   20,
-                  (tokenHealth.summary.broken_aliases_total /
-                    Math.max(1, tokenHealth.summary.tokens_total)) *
-                    160,
-                ) -
-                Math.min(
-                  20,
                   (tokenHealth.summary.broken_css_var_refs_total /
                     Math.max(1, tokenHealth.summary.tokens_total)) *
                     120,
@@ -88,16 +67,6 @@ export function useHealthDashboard() {
   const activeIssues = useMemo<DashboardIssue[]>(() => {
     if (!tokenHealth) return [];
     const issues: DashboardIssue[] = [];
-    if (tokenHealth.summary.broken_aliases_total > 0) {
-      issues.push({
-        id: 'broken-aliases',
-        label: 'Broken aliases',
-        description: `${tokenHealth.summary.broken_aliases_total} tokens have broken alias references`,
-        count: tokenHealth.summary.broken_aliases_total,
-        severity: 'critical',
-        to: `#broken-aliases`,
-      });
-    }
     if (tokenHealth.summary.wcag_failures_total > 0) {
       issues.push({
         id: 'wcag-failures',
@@ -105,7 +74,7 @@ export function useHealthDashboard() {
         description: `${tokenHealth.summary.wcag_failures_total} color contrast failures`,
         count: tokenHealth.summary.wcag_failures_total,
         severity: 'critical',
-        to: `#wcag-failures`,
+        to: '/tokens',
       });
     }
     if (tokenHealth.summary.unused_tokens_total > 0) {
@@ -115,43 +84,14 @@ export function useHealthDashboard() {
         description: `${tokenHealth.summary.unused_tokens_total} tokens are not referenced`,
         count: tokenHealth.summary.unused_tokens_total,
         severity: 'warning',
-        to: `#unused-tokens`,
+        to: '/tokens',
       });
     }
     return issues;
   }, [tokenHealth]);
-
-  const brokenAliases = useMemo(() => {
-    const items = tokenHealth?.broken_aliases.items ?? [];
-    return items.slice().sort((a, b) => {
-      if (brokenAliasSort.field === 'token') {
-        return compareStrings(a.token, b.token, brokenAliasSort.dir);
-      }
-      if (brokenAliasSort.field === 'alias') {
-        return compareStrings(
-          a.aliasCssVar,
-          b.aliasCssVar,
-          brokenAliasSort.dir,
-        );
-      }
-      return compareStrings(a.reason, b.reason, brokenAliasSort.dir);
-    });
-  }, [tokenHealth, brokenAliasSort.field, brokenAliasSort.dir]);
-
-  const topUnusedTokens = useMemo(
-    () => tokenHealth?.unused_tokens.items.slice(0, 10) ?? [],
-    [tokenHealth],
-  );
-  const topHighCouplingTokens = useMemo(
-    () => tokenHealth?.high_coupling_tokens.items.slice(0, 10) ?? [],
-    [tokenHealth],
-  );
-  const topWcagFailures = useMemo(
-    () => tokenHealth?.wcag_failures.items.slice(0, 10) ?? [],
-    [tokenHealth],
-  );
   const handleIssueViewClick = useCallback(
     (event: MouseEvent<HTMLAnchorElement>, to: string) => {
+      if (!to.startsWith('#')) return;
       event.preventDefault();
       const hash = to.split('#')[1];
       if (!hash) return;
@@ -163,25 +103,17 @@ export function useHealthDashboard() {
   );
 
   return {
-    brokenAliasSort,
-    toggleBrokenAliasSort,
     tokenHealth,
     loading,
     reloadingAll,
-    refreshingTokens,
     snapshotting,
     tokenError,
     reloadAll,
-    refreshTokenReport,
     captureSnapshotAndReload,
     tokensTotal,
     tokenScore,
     overallScore,
     activeIssues,
-    brokenAliases,
-    topUnusedTokens,
-    topHighCouplingTokens,
-    topWcagFailures,
     handleIssueViewClick,
   };
 }

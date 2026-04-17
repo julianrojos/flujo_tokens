@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { captureHealthSnapshot, refreshTokenHealth } from '@/lib/api';
+import { captureHealthSnapshot } from '@/lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toApiErrorDisplay } from '@/lib/api-error-ux';
 import { healthQueryKeys, useTokenHealthQuery } from './use-health-queries';
@@ -26,13 +26,6 @@ export function useHealthDashboardData() {
     await tokenHealthQuery.refetch();
   }, [tokenHealthQuery]);
 
-  const refreshTokenMutation = useMutation({
-    mutationFn: async () => {
-      await refreshTokenHealth();
-      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
-      await tokenHealthQuery.refetch();
-    },
-  });
   const snapshotMutation = useMutation({
     mutationFn: async () => {
       await captureHealthSnapshot();
@@ -41,37 +34,14 @@ export function useHealthDashboardData() {
     },
   });
 
-  const refreshingTokens = refreshTokenMutation.isPending;
   const snapshotting = snapshotMutation.isPending;
 
-  const tokenRefreshError = useMemo(() => {
-    if (!refreshTokenMutation.error) return null;
-    return toApiErrorDisplay(refreshTokenMutation.error, {
-      fallbackTitle: 'Token system refresh failed',
-      fallbackMessage: 'Unable to refresh token system report.',
-    });
-  }, [refreshTokenMutation.error]);
-  const snapshotError = useMemo(() => {
-    if (!snapshotMutation.error) return null;
-    return toApiErrorDisplay(snapshotMutation.error, {
-      fallbackTitle: 'Snapshot capture failed',
-      fallbackMessage: 'Unable to capture a system snapshot.',
-    });
-  }, [snapshotMutation.error]);
-
-  const tokenError = tokenRefreshError ?? queryTokenError;
-  const refreshTokenReport = useCallback(async () => {
-    try {
-      await refreshTokenMutation.mutateAsync();
-    } catch {
-      // Error is already exposed via tokenRefreshError.
-    }
-  }, [refreshTokenMutation]);
+  const tokenError = queryTokenError;
   const captureSnapshotAndReload = useCallback(async () => {
     try {
       await snapshotMutation.mutateAsync();
     } catch {
-      // Error is already exposed via snapshotError.
+      // Error is already exposed via the mutation state.
     }
   }, [snapshotMutation]);
 
@@ -79,11 +49,9 @@ export function useHealthDashboardData() {
     tokenHealth,
     loading,
     reloadingAll,
-    refreshingTokens,
     snapshotting,
     tokenError,
     reloadAll,
-    refreshTokenReport,
     captureSnapshotAndReload,
   };
 }
