@@ -38,3 +38,7 @@ Set it in `apps/ds-dashboard/.env` or export it before starting `dev:api`:
 ```bash
 DATABASE_URL=postgres://ds:local@localhost:5432/ds_dashboard
 ```
+
+If `DATABASE_URL` is missing, the dashboard dev supervisor falls back to the
+local database URL above. In production, missing database configuration is a
+startup error.

@@ -78,6 +78,34 @@ export interface ServerApp {
   disposeDesignSystemRepository: () => Promise<void>;
 }
 
+function formatDatabaseInitError(error: unknown): string {
+  if (error instanceof AggregateError && Array.isArray(error.errors)) {
+    const messages = error.errors
+      .map((entry) => {
+        if (entry instanceof Error) {
+          const code = typeof (entry as { code?: unknown }).code === 'string'
+            ? String((entry as { code?: unknown }).code)
+            : '';
+          const base = String(entry.message || entry.name || '').trim();
+          return code ? `${code}: ${base}` : base;
+        }
+        return String(entry || '').trim();
+      })
+      .filter(Boolean);
+    if (messages.length > 0) {
+      return messages.join(' | ');
+    }
+  }
+
+  if (error instanceof Error) {
+    const base = String(error.message || '').trim();
+    if (base) return base;
+    return String(error.name || 'Unknown error');
+  }
+
+  return String(error || 'Unknown error');
+}
+
 function defaultRepoRoot(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -145,7 +173,7 @@ export async function createServerApp(
   } catch (error) {
     console.error(
       '[Server] Failed to initialize PostgreSQL database:',
-      error instanceof Error ? error.message : String(error),
+      formatDatabaseInitError(error),
     );
 
     // Stop in-memory cleanup timer if store was initialized before failure.

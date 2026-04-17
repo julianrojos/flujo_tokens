@@ -172,16 +172,42 @@ describe('pg-db-service', () => {
       process.env = { ...originalEnv };
     });
 
-    it('throws when DATABASE_URL is not set', () => {
+    it('falls back to the local dashboard database when DATABASE_URL is not set', () => {
       delete process.env.DATABASE_URL;
+      delete process.env.TEST_DATABASE_URL;
+      delete process.env.NODE_ENV;
+
+      const result = resolveDashboardDbUrl();
+
+      assert.strictEqual(
+        result,
+        'postgres://ds:local@localhost:5432/ds_dashboard',
+      );
+    });
+
+    it('throws in production when DATABASE_URL is not set', () => {
+      delete process.env.DATABASE_URL;
+      delete process.env.TEST_DATABASE_URL;
+      process.env.NODE_ENV = 'production';
+
       assert.throws(() => {
         resolveDashboardDbUrl();
-      }, /DATABASE_URL environment variable is required/);
+      }, /DATABASE_URL environment variable is required in production/);
     });
 
     it('returns DATABASE_URL when set', () => {
       process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
       const result = resolveDashboardDbUrl();
+      assert.strictEqual(result, 'postgres://test:test@localhost:5432/test');
+    });
+
+    it('prefers TEST_DATABASE_URL over DATABASE_URL in test environments', () => {
+      process.env.NODE_ENV = 'test';
+      process.env.DATABASE_URL = 'postgres://prod:test@localhost:5432/prod';
+      process.env.TEST_DATABASE_URL = 'postgres://test:test@localhost:5432/test';
+
+      const result = resolveDashboardDbUrl();
+
       assert.strictEqual(result, 'postgres://test:test@localhost:5432/test');
     });
   });
@@ -218,12 +244,13 @@ describe('pg-db-service', () => {
     it('validates checksum by default', async () => {
       const sql = openDatabase('postgres://ds:local@localhost:5432/ds_dashboard');
       try {
-        const fakeMigration: MigrationEntry = { version: 9998, sql: 'SELECT 2;' };
+        await sql`DELETE FROM schema_migrations WHERE version = 3`;
+        const fakeMigration: MigrationEntry = { version: 3, sql: 'SELECT 2;' };
         await assert.rejects(async () => {
           await runMigrations(sql, [fakeMigration], { skipChecksumValidation: false });
         }, /checksum mismatch/);
       } finally {
-        await sql`DELETE FROM schema_migrations WHERE version = 9998`;
+        await sql`DELETE FROM schema_migrations WHERE version = 3`;
         await sql.end();
       }
     });

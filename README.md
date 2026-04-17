@@ -46,6 +46,7 @@ Then run the needed root test/typecheck scripts (for example `npm run typecheck:
 ### PostgreSQL Bootstrap (Design System Context)
 
 Component tooling resolves system context from the PostgreSQL database referenced by `DATABASE_URL`.
+When `DATABASE_URL` is missing, the dashboard dev supervisor uses the local default database URL for development and tests. In production, the dashboard expects `DATABASE_URL` to be set explicitly.
 
 Bootstrap checklist:
 

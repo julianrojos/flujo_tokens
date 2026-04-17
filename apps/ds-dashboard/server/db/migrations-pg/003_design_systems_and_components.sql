@@ -1,6 +1,6 @@
 -- Migration 003: Consolidated design systems and components schema
 -- Version: 003
--- Key difference from legacy SQLite schema: NO staging tables - using ON CONFLICT DO UPDATE instead
+-- Key difference from legacy SQLite schema: consolidates migrations 003-034 plus 036, with NO staging tables and ON CONFLICT DO UPDATE instead
 
 -- design_systems: Multi-tenant design system configurations
 CREATE TABLE design_systems (

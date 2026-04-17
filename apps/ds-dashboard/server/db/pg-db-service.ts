@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATION_CHECKSUMS: Record<number, string> = {
   1: '5bf101c991868049fa13e17a073e4be8e856c881290f0b71ca18e3cc151446df',
   2: '2e2f05f14692f7df7c0a6a1a2d323f6a08d0fb4ef3110cdb57e40528392a15fa',
-  3: '7e385be0d958921449a6b96fc58f6fd77472818e7c233ccc4abd3309aa75a643',
+  3: 'c659eda1a06ff9fa60d8b4b695eb33fd1407188eff361e502404b547ea09a413',
   4: '6e7ab75f6021d5002056b742420e46d6863059b2ce812e78974e150ec5ba674f',
   5: 'a9859ecb4fecf8bb9dd4e167f4f1d5455633184dbe2005e93ecefa7f7ded25b0',
   6: '4867385d379dc3390b0d37a8333d7b12bd3f5fbfa73bceddc9f556b141fd4a13',
@@ -236,8 +236,13 @@ export async function closeDatabase(sql: Sql): Promise<void> {
 /**
  * Resolve database URL from environment
  *
- * @returns DATABASE_URL from process.env
- * @throws If DATABASE_URL is not set
+ * Priority:
+ * 1. `TEST_DATABASE_URL` when present.
+ * 2. `DATABASE_URL` when present.
+ * 3. Local fallback database URL used by the dashboard/dev supervisor.
+ *
+ * In production, missing database configuration is treated as an error so we
+ * do not silently connect to the local fallback database.
  */
 export function resolveDashboardDbUrl(
   env: NodeJS.ProcessEnv = process.env,
@@ -255,15 +260,13 @@ export function resolveDashboardDbUrl(
   if (preferTestUrl) {
     return defaultLocalTestDbUrl;
   }
-  if (!dbUrl) {
+  if (String(env.NODE_ENV || '').trim() === 'production') {
     throw new Error(
-      'DATABASE_URL environment variable is required. ' +
-        'In tests, TEST_DATABASE_URL is also accepted. ' +
-        'Add it to your .env file or set it in the environment. ' +
-        'Example: postgres://ds:local@localhost:5432/ds_dashboard',
+      'DATABASE_URL environment variable is required in production. ' +
+        'Set DATABASE_URL or TEST_DATABASE_URL before starting the dashboard.',
     );
   }
-  return dbUrl;
+  return defaultLocalTestDbUrl;
 }
 
 async function ensureEmbeddingDimensions(sql: Sql): Promise<void> {

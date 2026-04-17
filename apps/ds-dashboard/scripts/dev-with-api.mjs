@@ -13,6 +13,24 @@ function parsePort(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 && parsed <= 65_535 ? parsed : fallback;
 }
 
+function parseDatabaseUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+      return null;
+    }
+    return {
+      url: raw,
+      host: parsed.hostname || "127.0.0.1",
+      port: parsePort(parsed.port, 5432),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function resolveApiRuntimeConfig(env = process.env) {
   const explicitUrl = String(env.DS_DASHBOARD_API_URL || "").trim();
   if (explicitUrl) {
@@ -57,6 +75,58 @@ function resolveDashboardDatabaseUrl(env = process.env) {
   if (dbUrl) return dbUrl;
 
   return DEFAULT_DATABASE_URL;
+}
+
+function isDatabasePortReachable(host, port, timeoutMs = 1_500) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    const finish = (result) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () =>
+      finish({
+        ok: true,
+        code: null,
+        message: null,
+      }),
+    );
+    socket.once("timeout", () =>
+      finish({
+        ok: false,
+        code: "TIMEOUT",
+        message: `Connection timeout after ${timeoutMs}ms`,
+      }),
+    );
+    socket.once("error", (error) =>
+      finish({
+        ok: false,
+        code: error?.code || "UNKNOWN",
+        message: error instanceof Error ? error.message : String(error || ""),
+      }),
+    );
+  });
+}
+
+async function preflightDatabaseUrl(databaseUrl) {
+  const parsed = parseDatabaseUrl(databaseUrl);
+  if (!parsed) {
+    return {
+      ok: true,
+      code: null,
+      message: null,
+      host: null,
+      port: null,
+    };
+  }
+  const probe = await isDatabasePortReachable(parsed.host, parsed.port);
+  return {
+    ...probe,
+    host: parsed.host,
+    port: parsed.port,
+  };
 }
 
 export function isPortAvailable(port, host) {
@@ -266,6 +336,19 @@ async function main() {
       console.log(
         `[dev-with-api] DATABASE_URL was not set; using local default ${databaseUrl}.`,
       );
+    }
+    const databaseProbe = await preflightDatabaseUrl(databaseUrl);
+    if (!databaseProbe.ok) {
+      if (databaseProbe.code === "EPERM") {
+        console.error(
+          `[dev-with-api] PostgreSQL connection blocked by local permissions (EPERM) at ${databaseProbe.host}:${databaseProbe.port}. Allow local network/socket access for this terminal session or run the command in a regular system terminal.`,
+        );
+        process.exit(1);
+      }
+      console.error(
+        `[dev-with-api] PostgreSQL is not reachable at ${databaseUrl} (${databaseProbe.code || "UNKNOWN"}). Start it with npm run db:up, or set DATABASE_URL to a reachable database before running npm run dashboard:dev.`,
+      );
+      process.exit(1);
     }
     const portStatus = await classifyApiPort(runtimeConfig);
     const restartExistingApi = shouldRestartExistingApi(process.env);
