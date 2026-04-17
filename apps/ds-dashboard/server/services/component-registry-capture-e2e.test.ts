@@ -6,12 +6,23 @@ import test from 'node:test';
 
 import { Hono } from 'hono';
 
-import { bootstrapDatabase } from '../db/db-service.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 import { ComponentRepository } from '../db/component-repository.js';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 import { handleComponentRegistryRoute } from './registry-route-handler-service.mjs';
 
-test('e2e: capture payload upserts DB and /api/component-registry exposes spec-centric payload', async () => {
+test('e2e: capture payload upserts DB and /api/component-registry exposes spec-centric payload', async (t) => {
+  if (
+    !String(
+      process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
+    ).trim()
+  ) {
+    t.skip(
+      'PostgreSQL not available. Set DATABASE_URL or TEST_DATABASE_URL to run this test.',
+    );
+    return;
+  }
+
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-'));
   const systemId = 'sys-e2e';
   const docPathRel = `design-systems/${systemId}/docs/components/button.md`;
@@ -26,40 +37,33 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
   fs.writeFileSync(docPathAbs, '# Button\n', 'utf8');
   fs.writeFileSync(imagePathAbs, 'png-bytes', 'utf8');
 
-  const dbPath = path.join(
-    tmpRoot,
-    'apps',
-    'ds-dashboard',
-    'server',
-    'db',
-    'ds-dashboard.db',
-  );
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = bootstrapDatabase({ dbPath });
+  const { sql, cleanup } = await createTestDatabase({
+    designSystems: [{ id: systemId, name: 'E2E System' }],
+  });
 
   try {
-    db.prepare(
-      `INSERT INTO design_systems (id, name, collections) VALUES (?, ?, ?)`,
-    ).run(systemId, 'E2E System', '[]');
+    const componentRepo = new ComponentRepository(sql);
 
-    const componentRepo = new ComponentRepository(db);
-
-    componentRepo.upsertFromRegistry(systemId, [
+    await componentRepo.upsertFromRegistry(systemId, [
       {
         slug: 'button',
         name: 'Button',
         status: 'ready',
         docType: 'component',
-        figma: { fileUrl: 'https://figma.com/file/ABC123', componentSetNodeId: '1:2' },
+        figma: {
+          fileUrl: 'https://figma.com/file/ABC123',
+          componentSetNodeId: '1:2',
+        },
       },
     ]);
 
-    // Editorial row -> spec.exists = true
-    db.prepare(`
+    const [componentRow] = await sql`
+      SELECT id FROM components WHERE ds_id = ${systemId} AND slug = 'button'
+    `;
+    await sql`
       INSERT INTO component_editorial (component_id, summary_json, updated_at)
-      SELECT id, '{"purpose": "A button component"}', strftime('%s', 'now')
-      FROM components WHERE ds_id = ? AND slug = ?
-    `).run(systemId, 'button');
+      VALUES (${componentRow.id}, ${{ purpose: 'A button component' }}, ${Date.now()})
+    `;
 
     const persisted = persistCapturePayloadToComponentRepo({
       payload: {
@@ -97,7 +101,8 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
     const app = new Hono();
     app.get('/api/component-registry', (c) =>
       handleComponentRegistryRoute(c, {
-        failJson: (ctx: any, status: number, payload: unknown) => ctx.json(payload, status),
+        failJson: (ctx: any, status: number, payload: unknown) =>
+          ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
         componentRepo,
       } as any),
@@ -112,11 +117,17 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
       : null;
 
     assert.ok(button);
-    // Spec-centric contract
     assert.equal(button.spec.exists, true, 'spec.exists should be true');
     assert.ok(button.figma.file_url, 'figma.file_url should be set');
-    assert.equal(button.visual_proof.screenshot_url, 'https://cdn.example.com/button.png');
-    assert.ok(String(button.visual_proof.image_path || '').endsWith('/visual-proofs/images/button.png'));
+    assert.equal(
+      button.visual_proof.screenshot_url,
+      'https://cdn.example.com/button.png',
+    );
+    assert.ok(
+      String(button.visual_proof.image_path || '').endsWith(
+        '/visual-proofs/images/button.png',
+      ),
+    );
     assert.equal(button.visual_proof.variants_count, 1);
     assert.ok(Array.isArray(button.visual_proof.variants));
     assert.equal(button.visual_proof.variants.length, 1);
@@ -124,17 +135,29 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
       button.visual_proof.variants[0].screenshot_url,
       'https://cdn.example.com/button-primary.png',
     );
-    // Summary is spec-only (no with_visual_proof, no by_pipeline_stage)
     assert.equal(payload.summary.total_components, 1);
     assert.equal(payload.summary.with_spec, 1);
   } finally {
-    try { db.close(); } catch { /* ignore */ }
+    await cleanup();
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
 
-test('e2e: component-registry returns spec.exists=false when no editorial row', async () => {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-no-spec-'));
+test('e2e: component-registry returns spec.exists=false when no editorial row', async (t) => {
+  if (
+    !String(
+      process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
+    ).trim()
+  ) {
+    t.skip(
+      'PostgreSQL not available. Set DATABASE_URL or TEST_DATABASE_URL to run this test.',
+    );
+    return;
+  }
+
+  const tmpRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'ds-dashboard-e2e-no-spec-'),
+  );
   const systemId = 'sys-e2e-no-spec';
   const docPathRel = `design-systems/${systemId}/docs/components/chip.md`;
   const docPathAbs = path.join(tmpRoot, docPathRel);
@@ -142,24 +165,23 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
   fs.mkdirSync(path.dirname(docPathAbs), { recursive: true });
   fs.writeFileSync(docPathAbs, '# Chip\n', 'utf8');
 
-  const dbPath = path.join(tmpRoot, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db');
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = bootstrapDatabase({ dbPath });
+  const { sql, cleanup } = await createTestDatabase({
+    designSystems: [{ id: systemId, name: 'E2E No Spec System' }],
+  });
 
   try {
-    db.prepare(
-      `INSERT INTO design_systems (id, name, collections) VALUES (?, ?, ?)`,
-    ).run(systemId, 'E2E No Spec System', '[]');
+    const componentRepo = new ComponentRepository(sql);
 
-    const componentRepo = new ComponentRepository(db);
-
-    componentRepo.upsertFromRegistry(systemId, [
+    await componentRepo.upsertFromRegistry(systemId, [
       {
         slug: 'chip',
         name: 'Chip',
         status: 'draft',
         docType: 'component',
-        figma: { fileUrl: 'https://figma.com/file/MISSING1', componentSetNodeId: '7:7' },
+        figma: {
+          fileUrl: 'https://figma.com/file/MISSING1',
+          componentSetNodeId: '7:7',
+        },
       },
     ]);
 
@@ -171,7 +193,10 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
             slug: 'chip',
             node_id: '7:7',
             markdown_path: docPathAbs,
-            local_image_path: path.join(tmpRoot, `design-systems/${systemId}/docs/_generated/visual-proofs/images/chip.png`),
+            local_image_path: path.join(
+              tmpRoot,
+              `design-systems/${systemId}/docs/_generated/visual-proofs/images/chip.png`,
+            ),
             variants_count: 0,
             captured_at: '2026-03-31T11:00:00.000Z',
           },
@@ -186,7 +211,8 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
     const app = new Hono();
     app.get('/api/component-registry', (c) =>
       handleComponentRegistryRoute(c, {
-        failJson: (ctx: any, status: number, payload: unknown) => ctx.json(payload, status),
+        failJson: (ctx: any, status: number, payload: unknown) =>
+          ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
         componentRepo,
       } as any),
@@ -200,32 +226,49 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
       ? payload.components.find((entry: any) => entry.slug === 'chip')
       : null;
     assert.ok(chip);
-    assert.equal(chip.spec.exists, false, 'spec.exists should be false (no editorial row)');
-    assert.ok(String(chip.visual_proof.image_path || '').endsWith('/visual-proofs/images/chip.png'));
+    assert.equal(
+      chip.spec.exists,
+      false,
+      'spec.exists should be false (no editorial row)',
+    );
+    assert.ok(
+      String(chip.visual_proof.image_path || '').endsWith(
+        '/visual-proofs/images/chip.png',
+      ),
+    );
     assert.equal(chip.visual_proof.variants_count, 0);
     assert.equal(payload.summary.with_spec, 0);
   } finally {
-    try { db.close(); } catch { /* ignore */ }
+    await cleanup();
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
 
-test('e2e: /api/component-registry exposes structured Figma data (pageName, layout, variants, tokenBindings)', async () => {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-structured-'));
+test('e2e: /api/component-registry exposes structured Figma data (pageName, layout, variants, tokenBindings)', async (t) => {
+  if (
+    !String(
+      process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
+    ).trim()
+  ) {
+    t.skip(
+      'PostgreSQL not available. Set DATABASE_URL or TEST_DATABASE_URL to run this test.',
+    );
+    return;
+  }
+
+  const tmpRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'ds-dashboard-e2e-structured-'),
+  );
   const systemId = 'sys-e2e-structured';
 
-  const dbPath = path.join(tmpRoot, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db');
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = bootstrapDatabase({ dbPath });
+  const { sql, cleanup } = await createTestDatabase({
+    designSystems: [{ id: systemId, name: 'E2E Structured System' }],
+  });
 
   try {
-    db.prepare(
-      `INSERT INTO design_systems (id, name, collections) VALUES (?, ?, ?)`,
-    ).run(systemId, 'E2E Structured System', '[]');
+    const componentRepo = new ComponentRepository(sql);
 
-    const componentRepo = new ComponentRepository(db);
-
-    componentRepo.upsertFromRegistry(systemId, [
+    await componentRepo.upsertFromRegistry(systemId, [
       {
         slug: 'button',
         name: 'Button',
@@ -235,7 +278,11 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
           componentSetNodeId: '1:1',
           pageName: 'Components',
           variants: [
-            { name: 'default', properties: { state: 'default' }, nodeId: '1:2' },
+            {
+              name: 'default',
+              properties: { state: 'default' },
+              nodeId: '1:2',
+            },
             { name: 'hover', properties: { state: 'hover' }, nodeId: '1:3' },
           ],
           tokenBindings: [
@@ -269,7 +316,8 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
     const app = new Hono();
     app.get('/api/component-registry', (c) =>
       handleComponentRegistryRoute(c, {
-        failJson: (ctx: any, status: number, payload: unknown) => ctx.json(payload, status),
+        failJson: (ctx: any, status: number, payload: unknown) =>
+          ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
         componentRepo,
       } as any),
@@ -285,7 +333,11 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
 
     assert.ok(button, 'button component should exist in registry');
     assert.ok(button.figma, 'figma object should be present');
-    assert.equal(button.figma.page_name, 'Components', 'page_name should be exposed');
+    assert.equal(
+      button.figma.page_name,
+      'Components',
+      'page_name should be exposed',
+    );
     assert.deepEqual(button.visual_proof, {
       screenshot_url: null,
       image_path: null,
@@ -300,13 +352,23 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
       variants: [],
     });
 
-    assert.ok(Array.isArray(button.figma.variants), 'variants should be an array');
+    assert.ok(
+      Array.isArray(button.figma.variants),
+      'variants should be an array',
+    );
     assert.equal(button.figma.variants.length, 2, 'should have 2 variants');
     assert.equal(button.figma.variants[0].name, 'default');
     assert.deepEqual(button.figma.variants[0].properties, { state: 'default' });
 
-    assert.ok(Array.isArray(button.figma.token_bindings), 'token_bindings should be an array');
-    assert.equal(button.figma.token_bindings.length, 1, 'should have 1 token binding');
+    assert.ok(
+      Array.isArray(button.figma.token_bindings),
+      'token_bindings should be an array',
+    );
+    assert.equal(
+      button.figma.token_bindings.length,
+      1,
+      'should have 1 token binding',
+    );
     assert.equal(button.figma.token_bindings[0].variable_id, 'var-123');
     assert.equal(button.figma.token_bindings[0].token_path, 'blue.500');
 
@@ -314,9 +376,14 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
     assert.equal(button.figma.layout.length, 1, 'should have 1 layout row');
     assert.equal(button.figma.layout[0].direction, 'Horizontal');
     assert.equal(button.figma.layout[0].item_spacing, 8);
-    assert.deepEqual(button.figma.layout[0].padding, { top: 4, right: 12, bottom: 4, left: 12 });
+    assert.deepEqual(button.figma.layout[0].padding, {
+      top: 4,
+      right: 12,
+      bottom: 4,
+      left: 12,
+    });
   } finally {
-    try { db.close(); } catch { /* ignore */ }
+    await cleanup();
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });

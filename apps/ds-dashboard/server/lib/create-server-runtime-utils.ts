@@ -12,7 +12,9 @@ export interface Env {
 }
 
 export interface DesignSystemRepository {
-  resolveDashboardSystemContext: (systemHeader: string) => { systemId: string; [key: string]: unknown };
+  resolveDashboardSystemContext: (
+    systemHeader: string,
+  ) => Promise<{ systemId: string; [key: string]: unknown }>;
 }
 
 /**
@@ -37,10 +39,15 @@ export function createSha256TextHasher(): (value: string) => string {
  * Create a system context resolver function.
  */
 export function createSystemContextResolver(
-  designSystemRepository: DesignSystemRepository
-): (systemHeader: string) => { systemId: string; header: string } {
-  return function getSystemContext(systemHeader: string): { systemId: string; header: string } {
-    const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
+  designSystemRepository: DesignSystemRepository,
+): (
+  systemHeader: string,
+) => Promise<{ systemId: string; header: string }> {
+  return async function getSystemContext(
+    systemHeader: string,
+  ): Promise<{ systemId: string; header: string }> {
+    const context =
+      await designSystemRepository.resolveDashboardSystemContext(systemHeader);
     return {
       header: systemHeader,
       ...context,

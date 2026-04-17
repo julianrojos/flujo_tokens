@@ -372,9 +372,9 @@ function buildFigmaFileUrl(source: CapturePayloadObject | null): string {
   return String(source.figma_url || '').trim();
 }
 
-export function persistCapturePayloadToComponentRepo(
+export async function persistCapturePayloadToComponentRepo(
   options: PersistCapturePayloadOptions,
-): PersistCapturePayloadResult {
+): Promise<PersistCapturePayloadResult> {
   const {
     payload,
     componentRepo,
@@ -399,10 +399,12 @@ export function persistCapturePayloadToComponentRepo(
   const source = asRecord(payloadObj.source);
   const figmaFileUrl = buildFigmaFileUrl(source);
   const capturedRows = asArray(payloadObj.captured).map((entry) => asRecord(entry)).filter(Boolean) as CaptureRowPayload[];
+  const existingRows =
+    typeof componentRepo.getAll === 'function'
+      ? await componentRepo.getAll(systemId)
+      : [];
   const existingBySlug = new Map(
-    (typeof componentRepo.getAll === 'function' ? componentRepo.getAll(systemId) : []).map(
-      (entry) => [entry.slug, entry],
-    ),
+    existingRows.map((entry) => [entry.slug, entry]),
   );
 
   let attempted = 0;
@@ -501,13 +503,16 @@ export function persistCapturePayloadToComponentRepo(
     return { attempted, upserted: 0, skipped };
   }
 
-  const upserted = componentRepo.upsertFromRegistry(systemId, Array.from(entriesBySlug.values()));
+  const upserted = await componentRepo.upsertFromRegistry(
+    systemId,
+    Array.from(entriesBySlug.values()),
+  );
   return { attempted, upserted, skipped };
 }
 
-export function persistRegistryEntriesToComponentRepo(
+export async function persistRegistryEntriesToComponentRepo(
   options: PersistRegistryEntriesOptions,
-): PersistRegistryEntriesResult {
+): Promise<PersistRegistryEntriesResult> {
   const { entries, componentRepo, systemId } = options;
   if (!Array.isArray(entries)) {
     throw new Error(
@@ -515,8 +520,8 @@ export function persistRegistryEntriesToComponentRepo(
     );
   }
   const normalized = entries;
-  const upserted = componentRepo.upsertFromRegistry(systemId, normalized);
-  componentRepo.markMissingComponents(
+  const upserted = await componentRepo.upsertFromRegistry(systemId, normalized);
+  await componentRepo.markMissingComponents(
     systemId,
     normalized.map((entry) => entry.slug),
   );

@@ -4,27 +4,27 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import { PendingOperationsRepository } from '../db/pending-operations-repository.js';
 import { reconcileDeleteDesignSystemOps } from './pending-operations-service.js';
-import { bootstrapDatabase } from '../db/db-service.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
 
 interface TestContext {
-  db: Database.Database;
+  sql: Sql;
+  cleanup: () => Promise<void>;
   pendingOpsRepo: PendingOperationsRepository;
   config: { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string };
   designSystemRepository: {
-    getConfig(): { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string };
-    delete(id: string): boolean;
-    setDefaultSystemId(id: string | null): void;
+    getConfig(): Promise<{ systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string }>;
+    delete(id: string): Promise<boolean>;
+    setDefaultSystemId(id: string | null): Promise<void>;
   };
 }
 
-function createTestContext(): TestContext {
-  const db = bootstrapDatabase({ dbPath: ':memory:' });
+async function createTestContext(): Promise<TestContext> {
+  const { sql, cleanup } = await createTestDatabase();
   const config = {
     systems: [
       { id: 'test-ds', name: 'Test DS', figmaFileId: 'figma123' },
@@ -33,45 +33,46 @@ function createTestContext(): TestContext {
   };
 
   return {
-    db,
-    pendingOpsRepo: new PendingOperationsRepository(db),
+    sql,
+    cleanup,
+    pendingOpsRepo: new PendingOperationsRepository(sql),
     config,
     designSystemRepository: {
-      getConfig: () => ({ ...config }),
-      delete: (id) => {
+      getConfig: async () => ({ ...config, systems: [...config.systems] }),
+      delete: async (id) => {
         const before = config.systems.length;
         config.systems = config.systems.filter((system) => system.id !== id);
         return config.systems.length < before;
       },
-      setDefaultSystemId: (id) => {
+      setDefaultSystemId: async (id) => {
         config.defaultSystem = id ?? '';
       },
     },
   };
 }
 
-test('reconcileDeleteDesignSystemOps: Y+N (consumers gone, config intact) → complete', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: Y+N (consumers gone, config intact) → complete', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup: Add consumer then delete it (simulating crash after cascade)
-    const depRepo = new DependencyRepository(ctx.db);
-    depRepo.addConsumer({
+    const depRepo = new DependencyRepository(ctx.sql);
+    await depRepo.addConsumer({
       ds_file_key: 'figma123',
       consumer_file_key: 'consumer-1',
       consumer_name: 'Consumer One',
     });
-    depRepo.removeAllByDsFileKey('figma123');
+    await depRepo.removeAllByDsFileKey('figma123');
 
     // Insert pending op
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -84,31 +85,31 @@ test('reconcileDeleteDesignSystemOps: Y+N (consumers gone, config intact) → co
     // Config should no longer have the DS
     assert.equal(ctx.config.systems.length, 0);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: Y+Y (nothing done) → abandon', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: Y+Y (nothing done) → abandon', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup: Add consumer (simulating crash pre-FS)
-    const depRepo = new DependencyRepository(ctx.db);
-    depRepo.addConsumer({
+    const depRepo = new DependencyRepository(ctx.sql);
+    await depRepo.addConsumer({
       ds_file_key: 'figma123',
       consumer_file_key: 'consumer-1',
       consumer_name: 'Consumer One',
     });
 
     // Insert pending op
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -121,33 +122,33 @@ test('reconcileDeleteDesignSystemOps: Y+Y (nothing done) → abandon', () => {
     // Config should still have the DS
     assert.equal(ctx.config.systems.length, 1);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: N+Y (config clean, consumers remain) → complete', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: N+Y (config clean, consumers remain) → complete', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup: Remove DS from config but add consumer (simulating crash between config save and cascade)
     ctx.config.systems = [];
 
-    const depRepo = new DependencyRepository(ctx.db);
-    depRepo.addConsumer({
+    const depRepo = new DependencyRepository(ctx.sql);
+    await depRepo.addConsumer({
       ds_file_key: 'figma123',
       consumer_file_key: 'consumer-1',
       consumer_name: 'Consumer One',
     });
 
     // Insert pending op
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -157,29 +158,29 @@ test('reconcileDeleteDesignSystemOps: N+Y (config clean, consumers remain) → c
     assert.equal(result.completed.length, 1);
 
     // Consumers should be deleted
-    const remaining = depRepo.listConsumers('figma123');
+    const remaining = await depRepo.listConsumers('figma123');
     assert.equal(remaining.length, 0);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: N+N (already complete) → complete', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: N+N (already complete) → complete', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup: Remove DS from config and no consumers
     ctx.config.systems = [];
 
     // Insert pending op
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -188,14 +189,14 @@ test('reconcileDeleteDesignSystemOps: N+N (already complete) → complete', () =
     assert.equal(result.abandoned.length, 0);
     assert.equal(result.completed.length, 1);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provided', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provided', async () => {
+  const ctx = await createTestContext();
   try {
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
@@ -203,15 +204,15 @@ test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provide
 
     let removeCalled = false;
     const injectedDependencyRepo = {
-      listConsumers: (_dsFileKey: string) => [],
-      removeAllByDsFileKey: (_dsFileKey: string) => {
+      listConsumers: async (_dsFileKey: string) => [],
+      removeAllByDsFileKey: async (_dsFileKey: string) => {
         removeCalled = true;
         return { deletedConsumerCount: 0, deletedConsumerIds: [] };
       },
     };
 
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
       dependencyRepo: injectedDependencyRepo,
@@ -222,22 +223,22 @@ test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provide
     assert.equal(result.abandoned.length, 0);
     assert.equal(removeCalled, false);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: malformed payload → abandon', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: malformed payload → abandon', async () => {
+  const ctx = await createTestContext();
   try {
-    // Insert pending op with invalid JSON
-    ctx.db.prepare(`
+    // Insert pending op with invalid JSON payload (direct SQL)
+    await ctx.sql`
       INSERT INTO pending_operations (id, type, payload, status)
-      VALUES (?, ?, ?, 'in_progress')
-    `).run('op-bad', 'delete_design_system', 'not-valid-json');
+      VALUES ('op-bad', 'delete_design_system', 'not-valid-json', 'in_progress')
+    `;
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -246,23 +247,23 @@ test('reconcileDeleteDesignSystemOps: malformed payload → abandon', () => {
     assert.equal(result.abandoned.length, 1);
     assert.equal(result.completed.length, 0);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: empty figmaFileId → abandon', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: empty figmaFileId → abandon', async () => {
+  const ctx = await createTestContext();
   try {
     // Insert pending op with empty figmaFileId
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-empty',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: '' },
     });
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -270,41 +271,41 @@ test('reconcileDeleteDesignSystemOps: empty figmaFileId → abandon', () => {
     assert.equal(result.abandoned.length, 1);
     assert.equal(result.completed.length, 0);
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: error in repository delete → push to errors, continue', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: error in repository delete → push to errors, continue', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup: consumers deleted (Y+N case)
-    const depRepo = new DependencyRepository(ctx.db);
-    depRepo.addConsumer({
+    const depRepo = new DependencyRepository(ctx.sql);
+    await depRepo.addConsumer({
       ds_file_key: 'figma123',
       consumer_file_key: 'consumer-1',
       consumer_name: 'Consumer One',
     });
-    depRepo.removeAllByDsFileKey('figma123');
+    await depRepo.removeAllByDsFileKey('figma123');
 
     // Insert pending op
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
     // Mock delete to throw
-    const erroringRepo: TestContext['designSystemRepository'] = {
-      getConfig: () => ctx.config,
-      delete: () => {
+    const erroringRepo: typeof ctx.designSystemRepository = {
+      getConfig: ctx.designSystemRepository.getConfig,
+      delete: async () => {
         throw new Error('delete failed');
       },
-      setDefaultSystemId: () => {},
+      setDefaultSystemId: async () => {},
     };
 
     // Reconcile
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: erroringRepo,
     });
@@ -313,24 +314,24 @@ test('reconcileDeleteDesignSystemOps: error in repository delete → push to err
     assert.equal(result.errors[0].id, 'op-1');
     assert.ok(result.errors[0].error.includes('delete failed'));
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });
 
-test('reconcileDeleteDesignSystemOps: error in cascade delete → push to errors and keep op in_progress', () => {
-  const ctx = createTestContext();
+test('reconcileDeleteDesignSystemOps: error in cascade delete → push to errors and keep op in_progress', async () => {
+  const ctx = await createTestContext();
   try {
     // Setup N+Y state: config already clean, but consumers still present in DB.
     ctx.config.systems = [];
 
-    const depRepo = new DependencyRepository(ctx.db);
-    const consumer = depRepo.addConsumer({
+    const depRepo = new DependencyRepository(ctx.sql);
+    const consumer = await depRepo.addConsumer({
       ds_file_key: 'figma123',
       consumer_file_key: 'consumer-1',
       consumer_name: 'Consumer One',
     });
 
-    depRepo.saveSyncRun({
+    await depRepo.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 100,
       status: 'ok',
@@ -339,39 +340,51 @@ test('reconcileDeleteDesignSystemOps: error in cascade delete → push to errors
       warnings: [],
     });
 
-    ctx.pendingOpsRepo.insert({
+    await ctx.pendingOpsRepo.insert({
       id: 'op-1',
       type: 'delete_design_system',
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
-    ctx.db.exec(`
+    // Create a PG trigger to force an error on ds_sync_runs DELETE
+    await ctx.sql.unsafe(`
+      CREATE OR REPLACE FUNCTION force_reconcile_cascade_error()
+      RETURNS TRIGGER LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'forced reconcile cascade failure';
+      END;
+      $$;
       CREATE TRIGGER ds_sync_runs_force_abort
       BEFORE DELETE ON ds_sync_runs
-      BEGIN
-        SELECT RAISE(ABORT, 'forced reconcile cascade failure');
-      END;
+      FOR EACH ROW EXECUTE FUNCTION force_reconcile_cascade_error();
     `);
 
-    const result = reconcileDeleteDesignSystemOps({
-      db: ctx.db,
-      pendingOpsRepo: ctx.pendingOpsRepo,
-      designSystemRepository: ctx.designSystemRepository,
-    });
+    try {
+      const result = await reconcileDeleteDesignSystemOps({
+        sql: ctx.sql,
+        pendingOpsRepo: ctx.pendingOpsRepo,
+        designSystemRepository: ctx.designSystemRepository,
+      });
 
-    assert.equal(result.completed.length, 0);
-    assert.equal(result.abandoned.length, 0);
-    assert.equal(result.errors.length, 1);
-    assert.equal(result.errors[0].id, 'op-1');
-    assert.ok(result.errors[0].error.includes('forced reconcile cascade failure'));
+      assert.equal(result.completed.length, 0);
+      assert.equal(result.abandoned.length, 0);
+      assert.equal(result.errors.length, 1);
+      assert.equal(result.errors[0].id, 'op-1');
+      assert.ok(result.errors[0].error.includes('forced reconcile cascade failure'));
 
-    const remainingOps = ctx.pendingOpsRepo.listIncomplete('delete_design_system');
-    assert.equal(remainingOps.length, 1);
-    assert.equal(remainingOps[0].id, 'op-1');
+      const remainingOps = await ctx.pendingOpsRepo.listIncomplete('delete_design_system');
+      assert.equal(remainingOps.length, 1);
+      assert.equal(remainingOps[0].id, 'op-1');
 
-    const remainingConsumers = depRepo.listConsumers('figma123');
-    assert.equal(remainingConsumers.length, 1);
+      const remainingConsumers = await depRepo.listConsumers('figma123');
+      assert.equal(remainingConsumers.length, 1);
+    } finally {
+      await ctx.sql.unsafe(`
+        DROP TRIGGER IF EXISTS ds_sync_runs_force_abort ON ds_sync_runs;
+        DROP FUNCTION IF EXISTS force_reconcile_cascade_error();
+      `);
+    }
   } finally {
-    ctx.db.close();
+    await ctx.cleanup();
   }
 });

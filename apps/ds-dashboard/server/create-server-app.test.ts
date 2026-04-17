@@ -9,11 +9,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
 
-test("create-server-app: boots health routes and supports idempotent dispose", async () => {
+test("create-server-app: boots health routes and supports idempotent dispose", async (t) => {
+  if (!String(process.env.DATABASE_URL || "").trim()) {
+    t.skip("PostgreSQL not available. Set DATABASE_URL to run this test.");
+    return;
+  }
   const previousInternalUrl = process.env.DS_DASHBOARD_INTERNAL_URL;
   const previousInternalToken = process.env.DS_DASHBOARD_INTERNAL_TOKEN;
   try {
-    const { app, port, host, disposeDesignSystemRepository } = createServerApp({
+    const { app, port, host, disposeDesignSystemRepository } = await createServerApp({
       env: {
         ...process.env,
         DS_DASHBOARD_API_PORT: "9991",
@@ -48,8 +52,8 @@ test("create-server-app: boots health routes and supports idempotent dispose", a
     assert.equal(apiHealthPayload.status, "ok");
     assert.equal(typeof apiHealthPayload.queue, "object");
 
-    assert.doesNotThrow(() => disposeDesignSystemRepository());
-    assert.doesNotThrow(() => disposeDesignSystemRepository());
+    await assert.doesNotReject(async () => disposeDesignSystemRepository());
+    await assert.doesNotReject(async () => disposeDesignSystemRepository());
   } finally {
     if (previousInternalUrl === undefined) {
       delete process.env.DS_DASHBOARD_INTERNAL_URL;
@@ -64,11 +68,15 @@ test("create-server-app: boots health routes and supports idempotent dispose", a
   }
 });
 
-test("create-server-app: brackets IPv6 host in DS_DASHBOARD_INTERNAL_URL", () => {
+test("create-server-app: brackets IPv6 host in DS_DASHBOARD_INTERNAL_URL", async (t) => {
+  if (!String(process.env.DATABASE_URL || "").trim()) {
+    t.skip("PostgreSQL not available. Set DATABASE_URL to run this test.");
+    return;
+  }
   const previousInternalUrl = process.env.DS_DASHBOARD_INTERNAL_URL;
   const previousInternalToken = process.env.DS_DASHBOARD_INTERNAL_TOKEN;
   try {
-    const { host, disposeDesignSystemRepository } = createServerApp({
+    const { host, disposeDesignSystemRepository } = await createServerApp({
       env: {
         ...process.env,
         DS_DASHBOARD_API_PORT: "9992",
@@ -81,7 +89,7 @@ test("create-server-app: brackets IPv6 host in DS_DASHBOARD_INTERNAL_URL", () =>
     assert.equal(host, "::1");
     assert.equal(process.env.DS_DASHBOARD_INTERNAL_URL, "http://[::1]:9992");
 
-    assert.doesNotThrow(() => disposeDesignSystemRepository());
+    await assert.doesNotReject(async () => disposeDesignSystemRepository());
   } finally {
     if (previousInternalUrl === undefined) {
       delete process.env.DS_DASHBOARD_INTERNAL_URL;

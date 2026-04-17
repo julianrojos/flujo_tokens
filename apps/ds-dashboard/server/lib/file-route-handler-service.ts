@@ -22,9 +22,9 @@ import {
 
 export interface FileRouteHandlerDeps {
   failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => any;
-  getSystemContext: (systemHeader: string) => {
-    repoRoot: string;
-  };
+  getSystemContext: (
+    systemHeader: string,
+  ) => { repoRoot: string } | Promise<{ repoRoot: string }>;
   resolveRepoFilePath: (repoRoot: string, requested: string) => string | null;
   readTextFileLimited: (filePath: string, maxBytes: number) => Promise<{ content: string; truncated: boolean }>;
   findLineForQuery: (content: string, query: string) => number | null;
@@ -38,9 +38,9 @@ export interface FileRouteHandlerDeps {
   MAX_FILE_BYTES: number;
 }
 
-function resolvePath(c: Context, deps: FileRouteHandlerDeps, { requested, code, userMessage }: { requested: string; code: string; userMessage: string }) {
+async function resolvePath(c: Context, deps: FileRouteHandlerDeps, { requested, code, userMessage }: { requested: string; code: string; userMessage: string }) {
   const { getSystemContext, resolveRepoFilePath } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') || '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') || '');
   return resolveRequestedRepoPath({
     repoRoot: sysCtx.repoRoot,
     requested,
@@ -56,7 +56,7 @@ function resolvePath(c: Context, deps: FileRouteHandlerDeps, { requested, code, 
 export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): Promise<any> {
   const { failJson, readTextFileLimited, MAX_FILE_BYTES } = deps;
   const requested = c.req.query('path') ?? c.req.query('file') ?? '';
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
@@ -96,7 +96,7 @@ export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): P
 export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerDeps): Promise<any> {
   const { failJson, readTextFileLimited, MAX_FILE_BYTES, findLineForQuery, buildSnippet } = deps;
   const requested = c.req.query('file') ?? '';
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
@@ -157,7 +157,7 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
 export async function handleAssetRoute(c: Context, deps: FileRouteHandlerDeps): Promise<any> {
   const { failJson, guessContentType } = deps;
   const requested = c.req.query('path') ?? '';
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: 'asset.invalid_path',
     userMessage: 'Invalid asset path.',

@@ -4,143 +4,119 @@
  * DB-backed repository for health_snapshots and health_history.
  */
 
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
-/**
- * Health snapshot entry
- */
 export interface HealthSnapshotEntry {
-    id: number;
-    dsId: string;
-    kind: 'tokens' | 'components';
-    snapshotJson: Record<string, unknown>;
-    recordedAt: number;
+  id: number;
+  dsId: string;
+  kind: 'tokens' | 'components';
+  snapshotJson: Record<string, unknown>;
+  recordedAt: Date;
 }
 
-/**
- * Health history entry
- */
 export interface HealthHistoryEntry {
-    id: number;
-    dsId: string;
-    kind: 'tokens' | 'components';
-    entryJson: Record<string, unknown>;
-    recordedAt: number;
+  id: number;
+  dsId: string;
+  kind: 'tokens' | 'components';
+  entryJson: Record<string, unknown>;
+  recordedAt: Date;
 }
 
-/**
- * Health Repository for SQLite-backed storage
- */
 export class HealthRepository {
-    private db: Database.Database;
+  private sql: Sql;
 
-    constructor(db: Database.Database) {
-        this.db = db;
-    }
+  constructor(sql: Sql) {
+    this.sql = sql;
+  }
 
-    /**
-     * Get health snapshot for a design system and kind
-     */
-    getSnapshot(dsId: string, kind: 'tokens' | 'components'): HealthSnapshotEntry | null {
-        const stmt = this.db.prepare(`
+  async getSnapshot(
+    dsId: string,
+    kind: 'tokens' | 'components',
+  ): Promise<HealthSnapshotEntry | null> {
+    const rows = (await this.sql`
             SELECT id, ds_id, kind, snapshot_json, recorded_at
             FROM health_snapshots
-            WHERE ds_id = ? AND kind = ?
-        `);
-        const row = stmt.get(dsId, kind) as {
-            id: number;
-            ds_id: string;
-            kind: string;
-            snapshot_json: string;
-            recorded_at: number;
-        } | undefined;
+            WHERE ds_id = ${dsId} AND kind = ${kind}
+        `) as Array<{
+      id: number;
+      ds_id: string;
+      kind: string;
+      snapshot_json: Record<string, unknown>;
+      recorded_at: Date;
+    }>;
 
-        if (!row) return null;
+    if (rows.length === 0) return null;
 
-        return {
-            id: row.id,
-            dsId: row.ds_id,
-            kind: row.kind as 'tokens' | 'components',
-            snapshotJson: JSON.parse(row.snapshot_json),
-            recordedAt: row.recorded_at,
-        };
-    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      dsId: row.ds_id,
+      kind: row.kind as 'tokens' | 'components',
+      snapshotJson: row.snapshot_json,
+      recordedAt: row.recorded_at,
+    };
+  }
 
-    /**
-     * Upsert health snapshot (replace on conflict)
-     */
-    upsertSnapshot(dsId: string, kind: 'tokens' | 'components', snapshotJson: Record<string, unknown>): number {
-        const now = Math.floor(Date.now() / 1000);
-        const stmt = this.db.prepare(`
+  async upsertSnapshot(
+    dsId: string,
+    kind: 'tokens' | 'components',
+    snapshotJson: Record<string, unknown>,
+  ): Promise<number> {
+    const now = new Date();
+    const result = await this.sql`
             INSERT INTO health_snapshots (ds_id, kind, snapshot_json, recorded_at)
-            VALUES (?, ?, ?, ?)
+            VALUES (${dsId}, ${kind}, ${snapshotJson}, ${now})
             ON CONFLICT(ds_id, kind) DO UPDATE SET
-                snapshot_json = excluded.snapshot_json,
-                recorded_at = excluded.recorded_at
-        `);
-
-        const result = stmt.run(dsId, kind, JSON.stringify(snapshotJson), now);
-        return result.changes;
-    }
-
-    /**
-     * Get health history for a design system
-     */
-    getHistory(dsId: string, kind?: 'tokens' | 'components', limit = 50): HealthHistoryEntry[] {
-        let sql = `
-            SELECT id, ds_id, kind, entry_json, recorded_at
-            FROM health_history
-            WHERE ds_id = ?
+                snapshot_json = EXCLUDED.snapshot_json,
+                recorded_at = EXCLUDED.recorded_at
         `;
-        const params: (string | number)[] = [dsId];
+    return result.count ?? 0;
+  }
 
-        if (kind) {
-            sql += ' AND kind = ?';
-            params.push(kind);
-        }
+  async getHistory(
+    dsId: string,
+    kind?: 'tokens' | 'components',
+    limit = 50,
+  ): Promise<HealthHistoryEntry[]> {
+    const rows = (await this.sql`
+      SELECT id, ds_id, kind, entry_json, recorded_at
+      FROM health_history
+      WHERE ds_id = ${dsId}
+      ${kind ? this.sql`AND kind = ${kind}` : this.sql``}
+      ORDER BY recorded_at DESC
+      LIMIT ${limit}
+    `) as Array<{
+      id: number;
+      ds_id: string;
+      kind: string;
+      entry_json: Record<string, unknown>;
+      recorded_at: Date;
+    }>;
 
-        sql += ' ORDER BY recorded_at DESC LIMIT ?';
-        params.push(limit);
+    return rows.map((row) => ({
+      id: row.id,
+      dsId: row.ds_id,
+      kind: row.kind as 'tokens' | 'components',
+      entryJson: row.entry_json,
+      recordedAt: row.recorded_at,
+    }));
+  }
 
-        const stmt = this.db.prepare(sql);
-        const rows = stmt.all(...params) as Array<{
-            id: number;
-            ds_id: string;
-            kind: string;
-            entry_json: string;
-            recorded_at: number;
-        }>;
-
-        return rows.map((row) => ({
-            id: row.id,
-            dsId: row.ds_id,
-            kind: row.kind as 'tokens' | 'components',
-            entryJson: JSON.parse(row.entry_json),
-            recordedAt: row.recorded_at,
-        }));
-    }
-
-    /**
-     * Append entry to health history
-     */
-    appendHistory(dsId: string, kind: 'tokens' | 'components', entryJson: Record<string, unknown>): number {
-        const now = Math.floor(Date.now() / 1000);
-        const stmt = this.db.prepare(`
+  async appendHistory(
+    dsId: string,
+    kind: 'tokens' | 'components',
+    entryJson: Record<string, unknown>,
+  ): Promise<number> {
+    const now = new Date();
+    const result = await this.sql`
             INSERT INTO health_history (ds_id, kind, entry_json, recorded_at)
-            VALUES (?, ?, ?, ?)
-        `);
+            VALUES (${dsId}, ${kind}, ${entryJson}, ${now})
+        `;
+    return result.count ?? 0;
+  }
 
-        const result = stmt.run(dsId, kind, JSON.stringify(entryJson), now);
-        return result.changes;
-    }
-
-    /**
-     * Delete all health data for a design system
-     */
-    deleteAll(dsId: string): void {
-        const snapshotStmt = this.db.prepare('DELETE FROM health_snapshots WHERE ds_id = ?');
-        const historyStmt = this.db.prepare('DELETE FROM health_history WHERE ds_id = ?');
-        snapshotStmt.run(dsId);
-        historyStmt.run(dsId);
-    }
+  async deleteAll(dsId: string): Promise<void> {
+    await this.sql`DELETE FROM health_snapshots WHERE ds_id = ${dsId}`;
+    await this.sql`DELETE FROM health_history WHERE ds_id = ${dsId}`;
+  }
 }

@@ -10,7 +10,7 @@ import { createServerRuntimeServices } from './create-server-runtime-services.js
 
 describe('create-server-runtime-services', () => {
   describe('createServerRuntimeServices()', () => {
-    it('wires factories and returns runtime contract', () => {
+    it('wires factories and returns runtime contract', async () => {
       const calls: Record<string, unknown> = {
         queueEngine: null,
         commandExecution: null,
@@ -48,7 +48,7 @@ describe('create-server-runtime-services', () => {
       const runtime = createServerRuntimeServices({
         repoRoot: '/repo',
         env: { NODE_ENV: 'development' },
-        designSystemRepository: { resolveDashboardSystemContext: () => ({ systemId: 'core', header: 'core' }) },
+        designSystemRepository: { resolveDashboardSystemContext: () => Promise.resolve({ systemId: 'core', header: 'core' }) },
         maxOutputBytes: 1000,
         maxSnippetLines: 15,
         jobQueueConcurrency: 1,
@@ -87,7 +87,10 @@ describe('create-server-runtime-services', () => {
       assert.equal(runtime.queueNodeJsonCommand, queueJobFactoryService.queueNodeJsonCommand);
       assert.equal(runtime.isDevRuntime(), true);
       assert.equal(runtime.sha256Text('anything'), 'hash');
-      assert.deepEqual(runtime.getSystemContext('core'), { systemId: 'core', header: 'core' });
+      assert.deepEqual(await runtime.getSystemContext('core'), {
+        systemId: 'core',
+        header: 'core',
+      });
     });
   });
 });

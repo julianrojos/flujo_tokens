@@ -70,7 +70,7 @@ interface SystemContextLike {
 
 interface AiJobsRouteDeps {
   internalToken?: string;
-  getSystemContext: (systemHeader: string) => unknown;
+  getSystemContext: (systemHeader: string) => unknown | Promise<unknown>;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
 const PROVIDER_ORDER: readonly AiProviderName[] = [
@@ -224,20 +224,20 @@ function extractFigmaDescriptionsFromSpec(spec: Record<string, unknown>): {
  * Resolves the documentation context used by AI job endpoints.
  * Requires a system-scoped docs directory from system context.
  */
-function resolveDocsContext(
+async function resolveDocsContext(
   deps: AiJobsRouteDeps,
   options: {
     requestSystemHeader?: string;
     preferredSystemId?: string;
   },
-): ResolveDocsContextResult {
+): Promise<ResolveDocsContextResult> {
   const preferredSystemId = normalizeHeaderValue(options.preferredSystemId);
   const requestSystemHeader = normalizeHeaderValue(options.requestSystemHeader);
   const targetSystemHeader = preferredSystemId || requestSystemHeader || '';
 
   let contextValue: unknown;
   try {
-    contextValue = deps.getSystemContext(targetSystemHeader);
+    contextValue = await deps.getSystemContext(targetSystemHeader);
   } catch (error) {
     console.warn('[ai-jobs-route] Failed to resolve system context', {
       targetSystemHeader,
@@ -1029,7 +1029,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     }
     const fileKey =
       'fileKey' in resolved ? (resolved.fileKey ?? undefined) : undefined;
-    const docsContext = resolveDocsContext(deps, {
+    const docsContext = await resolveDocsContext(deps, {
       requestSystemHeader: c.req.header('x-ds-system'),
     });
     if (!docsContext.ok) {
@@ -1162,7 +1162,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
     }
 
-    const docsContext = resolveDocsContext(deps, {
+    const docsContext = await resolveDocsContext(deps, {
       requestSystemHeader: c.req.header('x-ds-system'),
     });
     if (!docsContext.ok) {
@@ -1231,12 +1231,12 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         let figmaDescriptions = null;
         if (deps.componentRepo && job.input?.componentId) {
           try {
-            const component = deps.componentRepo.getComponentByFigmaNodeId(
+            const component = await deps.componentRepo.getComponentByFigmaNodeId(
               job.input.componentId,
               job.input.systemId,
             );
             if (component) {
-              const dbDesc = deps.componentRepo.getFigmaDescriptions(
+              const dbDesc = await deps.componentRepo.getFigmaDescriptions(
                 component.id,
               );
               figmaDescriptions = resolveDescriptionsForRender(dbDesc);
@@ -1504,7 +1504,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     const systemId = job.input.systemId ?? requestSystemHeader ?? undefined;
     let component: { id: number; slug: string } | null = null;
     try {
-      component = deps.componentRepo.getComponentByFigmaNodeId(
+      component = await deps.componentRepo.getComponentByFigmaNodeId(
         job.input.componentId,
         systemId,
       );
@@ -1557,7 +1557,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     }
 
     // Upsert into component_docs (one active doc per component)
-    deps.componentRepo.saveComponentDoc(component.id, {
+    await deps.componentRepo.saveComponentDoc(component.id, {
       outputJson,
       editorialJson,
       jobId: job.id,
@@ -1620,12 +1620,12 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     try {
       const systemId =
         job.input.systemId ?? c.req.header('x-ds-system') ?? undefined;
-      component = deps.componentRepo.getComponentByFigmaNodeId(
+      component = await deps.componentRepo.getComponentByFigmaNodeId(
         job.input.componentId,
         systemId,
       );
       existingEditorial = component
-        ? deps.componentRepo.getEditorial(component.id)
+        ? await deps.componentRepo.getEditorial(component.id)
         : null;
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);

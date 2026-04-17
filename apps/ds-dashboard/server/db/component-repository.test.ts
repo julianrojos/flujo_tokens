@@ -4,40 +4,34 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import { ComponentRepository } from './component-repository.js';
-import { createInMemoryDbFromSchema } from './test-db-helpers.ts';
-
-/**
- * Create in-memory test database with required schema
- */
-function createTestDb(): Database.Database {
-    return createInMemoryDbFromSchema({
-        designSystems: [{ id: 'test-sys', name: 'Test System' }],
-    });
-}
+import { createTestDatabase } from './test-db-helpers.js';
 
 describe('ComponentRepository', () => {
-    let db: Database.Database;
+    let sql: Sql;
+    let cleanup: () => Promise<void>;
     let repo: ComponentRepository;
     let originalConsoleWarn: typeof console.warn;
 
-    before(() => {
+    before(async () => {
         originalConsoleWarn = console.warn;
         console.warn = () => { };
-        db = createTestDb();
-        repo = new ComponentRepository(db);
+        ({ sql, cleanup } = await createTestDatabase({
+            designSystems: [{ id: 'test-sys', name: 'Test System' }],
+        }));
+        repo = new ComponentRepository(sql);
     });
 
-    after(() => {
-        if (db) db.close();
+    after(async () => {
+        await cleanup();
         console.warn = originalConsoleWarn;
     });
 
     describe('upsertFromRegistry', () => {
-        it('inserts new components from registry', () => {
-            const count = repo.upsertFromRegistry('test-sys', [
+        it('inserts new components from registry', async () => {
+            const count = await repo.upsertFromRegistry('test-sys', [
                 {
                     slug: 'button',
                     name: 'Button',
@@ -68,7 +62,7 @@ describe('ComponentRepository', () => {
 
             assert.strictEqual(count, 1);
 
-            const components = repo.getAll('test-sys');
+            const components = await repo.getAll('test-sys');
             assert.strictEqual(components.length, 1);
             const button = components[0];
             assert.strictEqual(button.slug, 'button');
@@ -88,9 +82,8 @@ describe('ComponentRepository', () => {
             assert.strictEqual(button.visualProofs[0].variants?.length, 2);
         });
 
-        it('is idempotent - updating existing components', () => {
-            // Upsert same component with updated data
-            repo.upsertFromRegistry('test-sys', [
+        it('is idempotent - updating existing components', async () => {
+            await repo.upsertFromRegistry('test-sys', [
                 {
                     slug: 'button',
                     name: 'Button Updated',
@@ -105,7 +98,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const components = repo.getAll('test-sys');
+            const components = await repo.getAll('test-sys');
             assert.strictEqual(components.length, 1);
             const button = components[0];
             assert.strictEqual(button.name, 'Button Updated');
@@ -113,34 +106,34 @@ describe('ComponentRepository', () => {
             assert.strictEqual(button.specs[0].coverage, 90);
         });
 
-        it('handles multiple components', () => {
-            repo.upsertFromRegistry('test-sys', [
+        it('handles multiple components', async () => {
+            await repo.upsertFromRegistry('test-sys', [
                 { slug: 'card', name: 'Card', status: 'ready' },
                 { slug: 'input', name: 'Input', status: 'draft' },
             ]);
 
-            const components = repo.getAll('test-sys');
+            const components = await repo.getAll('test-sys');
             assert.strictEqual(components.length, 3); // button + card + input
         });
     });
 
     describe('getBySlug', () => {
-        it('gets component by slug', () => {
-            const component = repo.getBySlug('test-sys', 'button');
+        it('gets component by slug', async () => {
+            const component = await repo.getBySlug('test-sys', 'button');
             assert.ok(component);
             assert.strictEqual(component.slug, 'button');
             assert.strictEqual(component.name, 'Button Updated');
         });
 
-        it('returns null for non-existent slug', () => {
-            const component = repo.getBySlug('test-sys', 'non-existent');
+        it('returns null for non-existent slug', async () => {
+            const component = await repo.getBySlug('test-sys', 'non-existent');
             assert.strictEqual(component, null);
         });
     });
 
     describe('getAll', () => {
-        it('returns all components for a design system', () => {
-            const components = repo.getAll('test-sys');
+        it('returns all components for a design system', async () => {
+            const components = await repo.getAll('test-sys');
             assert.ok(components.length >= 3);
             const slugs = components.map((c) => c.slug);
             assert.ok(slugs.includes('button'));
@@ -148,34 +141,26 @@ describe('ComponentRepository', () => {
             assert.ok(slugs.includes('input'));
         });
 
-        it('returns empty array for design system with no components', () => {
-            const components = repo.getAll('non-existent-sys');
+        it('returns empty array for design system with no components', async () => {
+            const components = await repo.getAll('non-existent-sys');
             assert.deepStrictEqual(components, []);
         });
 
-        it('handles malformed variants_json gracefully', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('malformed-json-sys', 'Malformed Json Test')");
-            db.prepare(`
-                INSERT INTO components (ds_id, slug, name, status, doc_type)
-                VALUES (?, ?, ?, ?, ?)
-            `).run('malformed-json-sys', 'badge', 'Badge', 'draft', 'component');
-            const componentRow = db
-                .prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?')
-                .get('malformed-json-sys', 'badge') as { id: number };
-            db.prepare(`
-                INSERT INTO component_visual_proofs (component_id, image_path, variants_json)
-                VALUES (?, ?, ?)
-            `).run(componentRow.id, 'images/badge.png', '{not valid json');
+        it('handles malformed variants_json gracefully', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('malformed-json-sys', 'Malformed Json Test')`;
+            await sql`INSERT INTO components (ds_id, slug, name, status, doc_type) VALUES ('malformed-json-sys', 'badge', 'Badge', 'draft', 'component')`;
+            const [componentRow] = await sql`SELECT id FROM components WHERE ds_id = 'malformed-json-sys' AND slug = 'badge'`;
+            await sql`INSERT INTO component_visual_proofs (component_id, image_path, variants_json) VALUES (${componentRow.id}, 'images/badge.png', ${JSON.stringify('not an array')})`;
 
-            const components = repo.getAll('malformed-json-sys');
+            const components = await repo.getAll('malformed-json-sys');
             assert.strictEqual(components.length, 1);
             assert.ok(Array.isArray(components[0].visualProofs));
             assert.strictEqual(components[0].visualProofs?.[0]?.variants, undefined);
         });
 
-        it('parses structured Figma data from structured child tables', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('structured-sys', 'Structured Data Test')");
-            repo.upsertFromRegistry('structured-sys', [
+        it('parses structured Figma data from structured child tables', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('structured-sys', 'Structured Data Test')`;
+            await repo.upsertFromRegistry('structured-sys', [
                 {
                     slug: 'button',
                     name: 'Button',
@@ -213,7 +198,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('structured-sys', 'button');
+            const component = await repo.getBySlug('structured-sys', 'button');
             assert.ok(component);
             assert.strictEqual(component.figma?.pageName, 'Components');
             assert.strictEqual(component.figma?.variants?.length, 2);
@@ -233,21 +218,21 @@ describe('ComponentRepository', () => {
             assert.strictEqual(component.figma?.layout?.[0]?.itemSpacing, 8);
         });
 
-        it('handles missing structured Figma data gracefully', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('no-structured-sys', 'No Structured Data Test')");
-            repo.upsertFromRegistry('no-structured-sys', [
+        it('handles missing structured Figma data gracefully', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('no-structured-sys', 'No Structured Data Test')`;
+            await repo.upsertFromRegistry('no-structured-sys', [
                 { slug: 'card', name: 'Card' },
             ]);
 
-            const component = repo.getBySlug('no-structured-sys', 'card');
+            const component = await repo.getBySlug('no-structured-sys', 'card');
             assert.ok(component);
             assert.strictEqual(component.figma, undefined);
         });
 
-        it('preserves existing structured child rows when capture status is failed', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('preserve-structured-sys', 'Preserve Structured Data Test')");
+        it('preserves existing structured child rows when capture status is failed', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('preserve-structured-sys', 'Preserve Structured Data Test')`;
 
-            repo.upsertFromRegistry('preserve-structured-sys', [
+            await repo.upsertFromRegistry('preserve-structured-sys', [
                 {
                     slug: 'button',
                     name: 'Button',
@@ -277,24 +262,18 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('preserve-structured-sys', 'button');
+            const component = await repo.getBySlug('preserve-structured-sys', 'button');
             assert.ok(component);
             const componentId = component.id;
 
-            const variantsBefore = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
-            ).get(componentId) as { count: number };
-            const bindingsBefore = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
-            ).get(componentId) as { count: number };
-            const layoutBefore = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_layout_rows WHERE component_id = ?',
-            ).get(componentId) as { count: number };
+            const [variantsBefore] = await sql`SELECT COUNT(*)::int as count FROM component_figma_variants WHERE component_id = ${componentId}`;
+            const [bindingsBefore] = await sql`SELECT COUNT(*)::int as count FROM component_figma_token_bindings WHERE component_id = ${componentId}`;
+            const [layoutBefore] = await sql`SELECT COUNT(*)::int as count FROM component_figma_layout_rows WHERE component_id = ${componentId}`;
             assert.strictEqual(variantsBefore.count, 1);
             assert.strictEqual(bindingsBefore.count, 1);
             assert.strictEqual(layoutBefore.count, 1);
 
-            repo.upsertFromRegistry('preserve-structured-sys', [
+            await repo.upsertFromRegistry('preserve-structured-sys', [
                 {
                     slug: 'button',
                     name: 'Button',
@@ -305,15 +284,9 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const variantsAfter = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
-            ).get(componentId) as { count: number };
-            const bindingsAfter = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
-            ).get(componentId) as { count: number };
-            const layoutAfter = db.prepare(
-                'SELECT COUNT(*) AS count FROM component_figma_layout_rows WHERE component_id = ?',
-            ).get(componentId) as { count: number };
+            const [variantsAfter] = await sql`SELECT COUNT(*)::int as count FROM component_figma_variants WHERE component_id = ${componentId}`;
+            const [bindingsAfter] = await sql`SELECT COUNT(*)::int as count FROM component_figma_token_bindings WHERE component_id = ${componentId}`;
+            const [layoutAfter] = await sql`SELECT COUNT(*)::int as count FROM component_figma_layout_rows WHERE component_id = ${componentId}`;
             assert.strictEqual(variantsAfter.count, 1);
             assert.strictEqual(bindingsAfter.count, 1);
             assert.strictEqual(layoutAfter.count, 1);
@@ -321,24 +294,22 @@ describe('ComponentRepository', () => {
     });
 
     describe('deleteAll', () => {
-        it('deletes all components for a design system', () => {
-            // Create a separate system for this test
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('delete-test-sys', 'Delete Test')");
-            repo.upsertFromRegistry('delete-test-sys', [
+        it('deletes all components for a design system', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('delete-test-sys', 'Delete Test')`;
+            await repo.upsertFromRegistry('delete-test-sys', [
                 { slug: 'temp', name: 'Temp' },
             ]);
 
-            const count = repo.deleteAll('delete-test-sys');
+            const count = await repo.deleteAll('delete-test-sys');
             assert.strictEqual(count, 1);
 
-            const components = repo.getAll('delete-test-sys');
+            const components = await repo.getAll('delete-test-sys');
             assert.deepStrictEqual(components, []);
         });
 
-        it('deletes component specs and visual proofs via CASCADE', () => {
-            // Create a separate system for this test
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('cascade-sys', 'Cascade Test')");
-            repo.upsertFromRegistry('cascade-sys', [
+        it('deletes component specs and visual proofs via CASCADE', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('cascade-sys', 'Cascade Test')`;
+            await repo.upsertFromRegistry('cascade-sys', [
                 {
                     slug: 'cascade-test',
                     name: 'Cascade Test',
@@ -347,70 +318,59 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('cascade-sys', 'cascade-test');
+            const component = await repo.getBySlug('cascade-sys', 'cascade-test');
             assert.ok(component);
             const componentId = component.id;
 
-            // Verify specs and proofs exist
-            const specsBefore = db.prepare('SELECT COUNT(*) as count FROM component_specs WHERE component_id = ?').get(componentId) as { count: number };
-            const proofsBefore = db.prepare('SELECT COUNT(*) as count FROM component_visual_proofs WHERE component_id = ?').get(componentId) as { count: number };
+            const [specsBefore] = await sql`SELECT COUNT(*)::int as count FROM component_specs WHERE component_id = ${componentId}`;
+            const [proofsBefore] = await sql`SELECT COUNT(*)::int as count FROM component_visual_proofs WHERE component_id = ${componentId}`;
             assert.strictEqual(specsBefore.count, 1);
             assert.strictEqual(proofsBefore.count, 1);
 
-            // Delete all components (which deletes the component, triggering CASCADE)
-            repo.deleteAll('cascade-sys');
+            await repo.deleteAll('cascade-sys');
 
-            // Verify specs and proofs were deleted
-            const specsAfter = db.prepare('SELECT COUNT(*) as count FROM component_specs WHERE component_id = ?').get(componentId) as { count: number };
-            const proofsAfter = db.prepare('SELECT COUNT(*) as count FROM component_visual_proofs WHERE component_id = ?').get(componentId) as { count: number };
+            const [specsAfter] = await sql`SELECT COUNT(*)::int as count FROM component_specs WHERE component_id = ${componentId}`;
+            const [proofsAfter] = await sql`SELECT COUNT(*)::int as count FROM component_visual_proofs WHERE component_id = ${componentId}`;
             assert.strictEqual(specsAfter.count, 0);
             assert.strictEqual(proofsAfter.count, 0);
         });
     });
 
     describe('markMissingComponents', () => {
-        it('marks all non-missing components when existingSlugs is empty', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('missing-all-sys', 'Missing All Test')");
-            repo.upsertFromRegistry('missing-all-sys', [
+        it('marks all non-missing components when existingSlugs is empty', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('missing-all-sys', 'Missing All Test')`;
+            await repo.upsertFromRegistry('missing-all-sys', [
                 { slug: 'button', name: 'Button', status: 'ready' },
                 { slug: 'card', name: 'Card', status: 'draft' },
             ]);
 
-            const changed = repo.markMissingComponents('missing-all-sys', []);
+            const changed = await repo.markMissingComponents('missing-all-sys', []);
             assert.strictEqual(changed, 2);
 
-            const rows = db.prepare(`
-                SELECT slug, status
-                FROM components
-                WHERE ds_id = ?
-                ORDER BY slug
-            `).all('missing-all-sys') as Array<{ slug: string; status: string }>;
-            assert.deepStrictEqual(rows, [
-                { slug: 'button', status: 'missing' },
-                { slug: 'card', status: 'missing' },
-            ]);
+            const rows = await sql`SELECT slug, status FROM components WHERE ds_id = 'missing-all-sys' ORDER BY slug`;
+            assert.deepStrictEqual(
+                rows.map((r) => ({ slug: r.slug, status: r.status })),
+                [
+                    { slug: 'button', status: 'missing' },
+                    { slug: 'card', status: 'missing' },
+                ]
+            );
         });
 
-        it('marks only missing slugs when existingSlugs exceeds batch size', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('missing-batch-sys', 'Missing Batch Test')");
+        it('marks only missing slugs when existingSlugs exceeds batch size', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('missing-batch-sys', 'Missing Batch Test')`;
             const componentEntries = Array.from({ length: 620 }, (_, index) => ({
                 slug: `component-${String(index + 1).padStart(3, '0')}`,
                 name: `Component ${index + 1}`,
                 status: 'ready',
             }));
-            repo.upsertFromRegistry('missing-batch-sys', componentEntries);
+            await repo.upsertFromRegistry('missing-batch-sys', componentEntries);
 
-            const keepSlugs = componentEntries
-                .slice(0, 10)
-                .map((entry) => entry.slug);
-            const changed = repo.markMissingComponents('missing-batch-sys', keepSlugs);
+            const keepSlugs = componentEntries.slice(0, 10).map((entry) => entry.slug);
+            const changed = await repo.markMissingComponents('missing-batch-sys', keepSlugs);
             assert.strictEqual(changed, 610);
 
-            const keptCount = db.prepare(`
-                SELECT COUNT(*) as count
-                FROM components
-                WHERE ds_id = ? AND status != 'missing'
-            `).get('missing-batch-sys') as { count: number };
+            const [keptCount] = await sql`SELECT COUNT(*)::int as count FROM components WHERE ds_id = 'missing-batch-sys' AND status != 'missing'`;
             assert.strictEqual(keptCount.count, 10);
         });
     });
@@ -418,35 +378,77 @@ describe('ComponentRepository', () => {
     describe('editorial contracts', () => {
         let testComponentId: number;
 
-        before(() => {
-            // Create a test component to reference
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('editorial-test-sys', 'Editorial Test')");
-            const result = db.prepare(`
+        before(async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('editorial-test-sys', 'Editorial Test')`;
+            const [result] = await sql`
                 INSERT INTO components (ds_id, slug, name, status, doc_type)
                 VALUES ('editorial-test-sys', 'test-comp', 'Test Component', 'draft', 'component')
-            `).run();
-            testComponentId = result.lastInsertRowid as number;
+                RETURNING id
+            `;
+            testComponentId = Number(result.id);
         });
 
-        it('getEditorial returns null when no row exists', () => {
-            const editorial = repo.getEditorial(testComponentId);
+        it('getEditorial returns null when no row exists', async () => {
+            const editorial = await repo.getEditorial(testComponentId);
             assert.strictEqual(editorial, null, 'getEditorial should return null when no row exists');
         });
 
-        it('creates editorial row with expectedUpdatedAt = null', () => {
+        it('creates editorial row with expectedUpdatedAt = null', async () => {
             const editorialFields = {
                 summary: { purpose: 'Test component' },
             };
-            const editorial = repo.upsertEditorial(testComponentId, editorialFields, null);
+            const editorial = await repo.upsertEditorial(testComponentId, editorialFields, null);
 
             assert.strictEqual(editorial.componentId, testComponentId);
             assert.deepStrictEqual(editorial.summary, editorialFields.summary);
         });
 
-        it('optimistic locking: incorrect expectedUpdatedAt throws statusCode 409', () => {
+        it('round-trips JSONB editorial fields through the database', async () => {
+            const editorialFields = {
+                summary: {
+                    purpose: 'Round-trip component',
+                    status: 'stable',
+                },
+                accessibility: {
+                    ariaRole: 'button',
+                    keyboardSupport: true,
+                },
+                accessibilityNotes: ['Use with caution', 'Ensure labels are visible'],
+                qa: [{ name: 'keyboard', passed: true }],
+                variants: [
+                    {
+                        name: 'Default',
+                        properties: { state: 'default' },
+                    },
+                ],
+            };
+
+            const existing = await repo.getEditorial(testComponentId);
+            await repo.upsertEditorial(
+                testComponentId,
+                editorialFields,
+                existing?.updatedAt ?? null,
+            );
+
+            const reloaded = await repo.getEditorial(testComponentId);
+            assert.ok(reloaded);
+            assert.deepStrictEqual(reloaded?.summary, editorialFields.summary);
+            assert.deepStrictEqual(
+                reloaded?.accessibility,
+                editorialFields.accessibility,
+            );
+            assert.deepStrictEqual(
+                reloaded?.accessibilityNotes,
+                editorialFields.accessibilityNotes,
+            );
+            assert.deepStrictEqual(reloaded?.qa, editorialFields.qa);
+            assert.deepStrictEqual(reloaded?.variants, editorialFields.variants);
+        });
+
+        it('optimistic locking: incorrect expectedUpdatedAt throws statusCode 409', async () => {
             const wrongUpdatedAt = 999999;
 
-            assert.throws(
+            await assert.rejects(
                 () => repo.upsertEditorial(testComponentId, { summary: { updated: 'data' } }, wrongUpdatedAt),
                 (err: any) => {
                     assert.strictEqual(err.statusCode, 409, 'Error should have statusCode 409');
@@ -456,10 +458,10 @@ describe('ComponentRepository', () => {
             );
         });
 
-        it('requires expectedUpdatedAt for updates and throws statusCode 400 when omitted', () => {
-            const existing = repo.getEditorial(testComponentId);
+        it('requires expectedUpdatedAt for updates and throws statusCode 400 when omitted', async () => {
+            const existing = await repo.getEditorial(testComponentId);
             assert.ok(existing, 'Editorial row should exist before testing update precondition');
-            assert.throws(
+            await assert.rejects(
                 () =>
                     repo.upsertEditorial(
                         testComponentId,
@@ -474,25 +476,25 @@ describe('ComponentRepository', () => {
             );
         });
 
-        it('rejects non-finite numeric values in editorial payload', () => {
-            assert.throws(
+        it('rejects non-finite numeric values in editorial payload', async () => {
+            const existing = await repo.getEditorial(testComponentId);
+            await assert.rejects(
                 () =>
                     repo.upsertEditorial(
                         testComponentId,
                         { summary: { score: Number.NaN } as unknown as Record<string, unknown> },
-                        repo.getEditorial(testComponentId)?.updatedAt ?? null,
+                        existing?.updatedAt ?? null,
                     ),
                 /NaN\/Infinity are not allowed/,
             );
         });
-
     });
 
     describe('component lookup helpers', () => {
         let testComponentId: number;
 
-        before(() => {
-            repo.upsertFromRegistry('test-sys', [{
+        before(async () => {
+            await repo.upsertFromRegistry('test-sys', [{
                 slug: 'test-comp-sug',
                 name: 'Test Component Suggestions',
                 status: 'draft',
@@ -501,38 +503,38 @@ describe('ComponentRepository', () => {
                 specs: [],
                 visualProofs: [],
             }]);
-            const row = repo.db.prepare("SELECT id FROM components WHERE slug = 'test-comp-sug'").get() as { id: number } | undefined;
-            testComponentId = row!.id;
+            const [row] = await sql`SELECT id FROM components WHERE slug = 'test-comp-sug'`;
+            testComponentId = Number(row.id);
         });
 
-        it('resolves component by figma node id with design-system scope', () => {
-            const found = repo.getComponentByFigmaNodeId('68:4097', 'test-sys');
+        it('resolves component by figma node id with design-system scope', async () => {
+            const found = await repo.getComponentByFigmaNodeId('68:4097', 'test-sys');
             assert.ok(found);
             assert.strictEqual(found?.id, testComponentId);
             assert.strictEqual(found?.slug, 'test-comp-sug');
         });
 
-        it('returns null when figma node id is unknown', () => {
-            const found = repo.getComponentByFigmaNodeId('missing-node', 'test-sys');
+        it('returns null when figma node id is unknown', async () => {
+            const found = await repo.getComponentByFigmaNodeId('missing-node', 'test-sys');
             assert.strictEqual(found, null);
         });
 
-        it('getComponentIdBySlug respects design system scope', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('sys-02', 'Second System')");
-            repo.upsertFromRegistry('sys-02', [
+        it('getComponentIdBySlug respects design system scope', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('sys-02', 'Second System') ON CONFLICT DO NOTHING`;
+            await repo.upsertFromRegistry('sys-02', [
                 { slug: 'test-comp-sug', name: 'Shadow Copy', status: 'draft', docType: 'component' },
             ]);
 
-            const scoped = repo.getComponentIdBySlug('test-comp-sug', 'test-sys');
-            const other = repo.getComponentIdBySlug('test-comp-sug', 'sys-02');
+            const scoped = await repo.getComponentIdBySlug('test-comp-sug', 'test-sys');
+            const other = await repo.getComponentIdBySlug('test-comp-sug', 'sys-02');
             assert.strictEqual(scoped, testComponentId);
             assert.ok(other && other !== testComponentId);
         });
     });
 
     describe('doc staleness timestamps', () => {
-        it('returns millisecond timestamps consistently', () => {
-            repo.upsertFromRegistry('test-sys', [{
+        it('returns millisecond timestamps consistently', async () => {
+            await repo.upsertFromRegistry('test-sys', [{
                 slug: 'staleness-comp',
                 name: 'Staleness Component',
                 status: 'draft',
@@ -541,14 +543,14 @@ describe('ComponentRepository', () => {
                 specs: [],
                 visualProofs: [],
             }]);
-            const row = repo.db.prepare("SELECT id FROM components WHERE slug = 'staleness-comp'").get() as { id: number };
-            const componentId = row.id;
+            const [row] = await sql`SELECT id FROM components WHERE slug = 'staleness-comp'`;
+            const componentId = Number(row.id);
 
-            repo.upsertEditorial(componentId, {
+            await repo.upsertEditorial(componentId, {
                 summary: { purpose: 'x', when_to_use: '', when_not_to_use: '' },
             });
 
-            const staleness = repo.getComponentDocStaleness(componentId);
+            const staleness = await repo.getComponentDocStaleness(componentId);
             assert.ok(
                 staleness.editorialUpdatedAt === null || staleness.editorialUpdatedAt > 1_000_000_000_000,
                 'editorialUpdatedAt must be in milliseconds',
@@ -559,22 +561,22 @@ describe('ComponentRepository', () => {
             );
         });
 
-        it('lists staleness in batch scoped by design system', () => {
-            db.exec("INSERT OR IGNORE INTO design_systems (id, name) VALUES ('sys-batch', 'Batch System')");
-            repo.upsertFromRegistry('sys-batch', [
+        it('lists staleness in batch scoped by design system', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('sys-batch', 'Batch System') ON CONFLICT DO NOTHING`;
+            await repo.upsertFromRegistry('sys-batch', [
                 { slug: 'batch-a', name: 'Batch A', status: 'draft', docType: 'component', figma: { componentSetNodeId: '68:5100' } },
             ]);
 
-            const scopedRows = repo.listComponentDocStaleness('sys-batch');
+            const scopedRows = await repo.listComponentDocStaleness('sys-batch');
             assert.ok(scopedRows.some((item) => item.slug === 'batch-a'));
             assert.ok(scopedRows.every((item) => item.id > 0));
         });
     });
 
     describe('Layer Token Mapping (Migration 027)', () => {
-        it('persists token bindings with new Layer Token Mapping fields', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-sys', 'Layer Token Mapping Test')");
-            repo.upsertFromRegistry('ltm-sys', [
+        it('persists token bindings with new Layer Token Mapping fields', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('ltm-sys', 'Layer Token Mapping Test')`;
+            await repo.upsertFromRegistry('ltm-sys', [
                 {
                     slug: 'button',
                     name: 'Button',
@@ -615,7 +617,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('ltm-sys', 'button');
+            const component = await repo.getBySlug('ltm-sys', 'button');
             assert.ok(component);
             assert.strictEqual(component.figma?.tokenBindings?.length, 2);
 
@@ -635,11 +637,10 @@ describe('ComponentRepository', () => {
             assert.strictEqual(unresolved.tokenPath, undefined);
         });
 
-        it('replaces all bindings on reimport (delete + insert)', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-replace-sys', 'LTM Replace Test')");
+        it('replaces all bindings on reimport (delete + insert)', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('ltm-replace-sys', 'LTM Replace Test')`;
 
-            // First import
-            repo.upsertFromRegistry('ltm-replace-sys', [
+            await repo.upsertFromRegistry('ltm-replace-sys', [
                 {
                     slug: 'card',
                     name: 'Card',
@@ -662,11 +663,10 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const comp1 = repo.getBySlug('ltm-replace-sys', 'card');
+            const comp1 = await repo.getBySlug('ltm-replace-sys', 'card');
             assert.strictEqual(comp1.figma?.tokenBindings?.length, 1);
 
-            // Reimport with different bindings (old ones should be gone)
-            repo.upsertFromRegistry('ltm-replace-sys', [
+            await repo.upsertFromRegistry('ltm-replace-sys', [
                 {
                     slug: 'card',
                     name: 'Card',
@@ -689,15 +689,15 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const comp2 = repo.getBySlug('ltm-replace-sys', 'card');
+            const comp2 = await repo.getBySlug('ltm-replace-sys', 'card');
             assert.strictEqual(comp2.figma?.tokenBindings?.length, 1);
             assert.strictEqual(comp2.figma?.tokenBindings?.[0]?.nodeId, '20:2');
             assert.strictEqual(comp2.figma?.tokenBindings?.[0]?.field, 'strokes');
         });
 
-        it('clears previous bindings when reimport contains zero token bindings', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-clear-sys', 'LTM Clear Test')");
-            repo.upsertFromRegistry('ltm-clear-sys', [
+        it('clears previous bindings when reimport contains zero token bindings', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('ltm-clear-sys', 'LTM Clear Test')`;
+            await repo.upsertFromRegistry('ltm-clear-sys', [
                 {
                     slug: 'alert',
                     name: 'Alert',
@@ -718,10 +718,10 @@ describe('ComponentRepository', () => {
                     },
                 },
             ]);
-            const firstImport = repo.getBySlug('ltm-clear-sys', 'alert');
+            const firstImport = await repo.getBySlug('ltm-clear-sys', 'alert');
             assert.strictEqual(firstImport.figma?.tokenBindings?.length, 1);
 
-            repo.upsertFromRegistry('ltm-clear-sys', [
+            await repo.upsertFromRegistry('ltm-clear-sys', [
                 {
                     slug: 'alert',
                     name: 'Alert',
@@ -732,25 +732,21 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const secondImport = repo.getBySlug('ltm-clear-sys', 'alert');
+            const secondImport = await repo.getBySlug('ltm-clear-sys', 'alert');
             assert.strictEqual(secondImport.figma?.tokenBindings?.length ?? 0, 0);
-            const remainingRows = db.prepare(`
-                SELECT COUNT(*) as c
-                FROM component_figma_token_bindings
-                WHERE component_id = ?
-            `).get(secondImport.id) as { c: number };
+            const [remainingRows] = await sql`SELECT COUNT(*)::int as c FROM component_figma_token_bindings WHERE component_id = ${secondImport.id}`;
             assert.strictEqual(remainingRows.c, 0);
         });
 
-        it('saveTokenBindingsForComponent supports new fields', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-standalone-sys', 'LTM Standalone Test')");
-            repo.upsertFromRegistry('ltm-standalone-sys', [
+        it('saveTokenBindingsForComponent supports new fields', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('ltm-standalone-sys', 'LTM Standalone Test')`;
+            await repo.upsertFromRegistry('ltm-standalone-sys', [
                 { slug: 'badge', name: 'Badge' },
             ]);
-            const comp = repo.getBySlug('ltm-standalone-sys', 'badge');
+            const comp = await repo.getBySlug('ltm-standalone-sys', 'badge');
             assert.ok(comp);
 
-            repo.saveTokenBindingsForComponent(comp.id, [
+            await repo.saveTokenBindingsForComponent(comp.id, [
                 {
                     nodeId: '30:1',
                     nodeName: 'Badge',
@@ -766,7 +762,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const reloaded = repo.getBySlug('ltm-standalone-sys', 'badge');
+            const reloaded = await repo.getBySlug('ltm-standalone-sys', 'badge');
             assert.strictEqual(reloaded.figma?.tokenBindings?.length, 1);
             const binding = reloaded.figma?.tokenBindings?.[0];
             assert.strictEqual(binding?.variantNodeId, '30:0');
@@ -774,9 +770,9 @@ describe('ComponentRepository', () => {
             assert.strictEqual(binding?.status, 'resolved');
         });
 
-        it('keeps multiple variable bindings for same layer/property/mode', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('ltm-multi-var-sys', 'LTM Multi Variable Test')");
-            repo.upsertFromRegistry('ltm-multi-var-sys', [
+        it('keeps multiple variable bindings for same layer/property/mode', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('ltm-multi-var-sys', 'LTM Multi Variable Test')`;
+            await repo.upsertFromRegistry('ltm-multi-var-sys', [
                 {
                     slug: 'chip',
                     name: 'Chip',
@@ -814,7 +810,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('ltm-multi-var-sys', 'chip');
+            const component = await repo.getBySlug('ltm-multi-var-sys', 'chip');
             assert.ok(component);
             assert.strictEqual(component.figma?.tokenBindings?.length, 2);
             const variableIds = new Set((component.figma?.tokenBindings || []).map((item) => item.variableId));
@@ -824,9 +820,9 @@ describe('ComponentRepository', () => {
     });
 
     describe('captured Figma props (Migration 034)', () => {
-        it('upsert captured props replaces component snapshot without duplicates', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-idempotent-sys', 'Props Idempotent')");
-            repo.upsertFromRegistry('props-idempotent-sys', [
+        it('upsert captured props replaces component snapshot without duplicates', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('props-idempotent-sys', 'Props Idempotent')`;
+            await repo.upsertFromRegistry('props-idempotent-sys', [
                 {
                     slug: 'idempotent-btn',
                     name: 'Idempotent Button',
@@ -841,13 +837,11 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            // Verify initial props
-            let component = repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
+            let component = await repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
             assert.ok(component);
             assert.strictEqual(component.figma?.properties?.length, 2);
 
-            // Upsert again with same runId — should replace, not duplicate
-            repo.upsertFromRegistry('props-idempotent-sys', [
+            await repo.upsertFromRegistry('props-idempotent-sys', [
                 {
                     slug: 'idempotent-btn',
                     name: 'Idempotent Button Updated',
@@ -862,9 +856,8 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            component = repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
+            component = await repo.getBySlug('props-idempotent-sys', 'idempotent-btn');
             assert.ok(component);
-            // Should have exactly 2 props (size updated + icon added, disabled removed)
             assert.strictEqual(component.figma?.properties?.length, 2);
 
             const sizeProp = component.figma?.properties?.find((p) => p.name === 'size');
@@ -876,17 +869,13 @@ describe('ComponentRepository', () => {
             assert.ok(iconProp);
             assert.strictEqual(iconProp?.type, 'slot');
 
-            // Verify no duplicate rows in DB
-            const propCount = db.prepare(`
-                SELECT COUNT(*) as c FROM component_figma_props
-                WHERE component_id = ?
-            `).get(component.id) as { c: number };
+            const [propCount] = await sql`SELECT COUNT(*)::int as c FROM component_figma_props WHERE component_id = ${component.id}`;
             assert.strictEqual(propCount.c, 2);
         });
 
-        it('clears captured props when a recapture provides an explicit empty props list', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-clear-sys', 'Props Clear')");
-            repo.upsertFromRegistry('props-clear-sys', [
+        it('clears captured props when a recapture provides an explicit empty props list', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('props-clear-sys', 'Props Clear')`;
+            await repo.upsertFromRegistry('props-clear-sys', [
                 {
                     slug: 'clearable-card',
                     name: 'Clearable Card',
@@ -900,11 +889,11 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            let component = repo.getBySlug('props-clear-sys', 'clearable-card');
+            let component = await repo.getBySlug('props-clear-sys', 'clearable-card');
             assert.ok(component);
             assert.strictEqual(component.figma?.properties?.length, 1);
 
-            repo.upsertFromRegistry('props-clear-sys', [
+            await repo.upsertFromRegistry('props-clear-sys', [
                 {
                     slug: 'clearable-card',
                     name: 'Clearable Card',
@@ -916,20 +905,17 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            component = repo.getBySlug('props-clear-sys', 'clearable-card');
+            component = await repo.getBySlug('props-clear-sys', 'clearable-card');
             assert.ok(component);
             assert.strictEqual(component.figma?.properties, undefined);
 
-            const propCount = db.prepare(`
-                SELECT COUNT(*) as c FROM component_figma_props
-                WHERE component_id = ?
-            `).get(component.id) as { c: number };
+            const [propCount] = await sql`SELECT COUNT(*)::int as c FROM component_figma_props WHERE component_id = ${component.id}`;
             assert.strictEqual(propCount.c, 0);
         });
 
-        it('captures slot and instance_swap as distinct types', () => {
-            db.exec("INSERT INTO design_systems (id, name) VALUES ('props-types-sys', 'Props Types')");
-            repo.upsertFromRegistry('props-types-sys', [
+        it('captures slot and instance_swap as distinct types', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('props-types-sys', 'Props Types')`;
+            await repo.upsertFromRegistry('props-types-sys', [
                 {
                     slug: 'type-test',
                     name: 'Type Test',
@@ -943,7 +929,7 @@ describe('ComponentRepository', () => {
                 },
             ]);
 
-            const component = repo.getBySlug('props-types-sys', 'type-test');
+            const component = await repo.getBySlug('props-types-sys', 'type-test');
             assert.ok(component);
             assert.strictEqual(component.figma?.properties?.length, 2);
 

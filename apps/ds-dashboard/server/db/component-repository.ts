@@ -5,7 +5,7 @@
  * and structured Figma evidence tables.
  */
 
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 import type { PropertyType } from 'ds-types';
 
 import { normalizeVisualProofVariants } from '../lib/visual-proof-normalizer.js';
@@ -29,7 +29,6 @@ export interface FigmaTokenBindingEntry {
   runId?: string;
   capturedAtEpoch?: number;
   schemaVersion?: number;
-  // Layer Token Mapping fields (Migration 027)
   variantNodeId?: string;
   variantSignature?: string;
   propertyPath?: string;
@@ -54,9 +53,6 @@ export interface FigmaLayoutRowEntry {
   schemaVersion?: number;
 }
 
-/**
- * Captured Figma property for a component (Migration 034)
- */
 export interface CapturedPropertyEntry {
   name: string;
   type: PropertyType;
@@ -66,9 +62,6 @@ export interface CapturedPropertyEntry {
   description: string;
 }
 
-/**
- * Structured Figma data for a component
- */
 export interface StructuredFigmaData {
   pageName?: string;
   variants?: FigmaVariantEntry[];
@@ -77,9 +70,6 @@ export interface StructuredFigmaData {
   properties?: CapturedPropertyEntry[];
 }
 
-/**
- * Component entry for public API
- */
 export interface ComponentEntry {
   id: number;
   dsId: string;
@@ -95,9 +85,6 @@ export interface ComponentEntry {
   editorialExists: boolean;
 }
 
-/**
- * Component spec entry
- */
 export interface ComponentSpecEntry {
   id: number;
   componentId: number;
@@ -106,9 +93,6 @@ export interface ComponentSpecEntry {
   coverage: number;
 }
 
-/**
- * Component visual proof entry
- */
 export interface ComponentVisualProofEntry {
   id: number;
   componentId: number;
@@ -138,9 +122,6 @@ export interface ComponentVisualProofEntry {
   }>;
 }
 
-/**
- * Component registry entry for bulk upsert
- */
 export interface ComponentRegistryEntry {
   slug: string;
   name: string;
@@ -197,7 +178,6 @@ export interface ComponentRegistryEntry {
       variableId: string;
       tokenPath?: string;
       mode?: string;
-      // Layer Token Mapping fields (Migration 027)
       variantNodeId?: string;
       variantSignature?: string;
       propertyPath?: string;
@@ -228,10 +208,6 @@ export interface ComponentRegistryEntry {
   };
 }
 
-/**
- * Editorial data (human-authored component spec fields)
- * Note: properties removed in Migration 034 — now sourced from component_figma_props
- */
 export interface EditorialEntry {
   componentId: number;
   summary?: Record<string, unknown> | null;
@@ -241,7 +217,7 @@ export interface EditorialEntry {
   qa?: Array<unknown> | null;
   accessibilityNotes?: string[] | null;
   variants?: EditorialVariantEntry[] | null;
-  updatedAt: number;
+  updatedAt: Date;
 }
 
 export interface EditorialVariantEntry {
@@ -251,10 +227,6 @@ export interface EditorialVariantEntry {
   properties: Record<string, string>;
 }
 
-/**
- * Allowed keys for editorial upsert (validation allowlist)
- * Note: 'properties' removed in Migration 034 — Figma capture is now source of truth
- */
 export const EDITORIAL_ALLOWED_KEYS = [
   'summary',
   'behaviour',
@@ -264,62 +236,77 @@ export const EDITORIAL_ALLOWED_KEYS = [
   'variants',
 ] as const;
 
-/**
- * Basic component info for doc assembly (S-01).
- */
 export interface ComponentBasicInfo {
   name: string;
   displayName: string | null;
   figmaComponentSetNodeId: string | null;
 }
 
-/**
- * Component Repository for SQLite-backed storage
- */
 export class ComponentRepository {
-  private db: Database.Database;
+  private sql: Sql;
   private static readonly IN_BATCH_SIZE = 500;
+
   private static toJsonColumnValue(value: unknown): string | null {
     if (value === undefined || value === null) return null;
     try {
       return JSON.stringify(value, (_key, currentValue) => {
-        if (typeof currentValue === 'number' && !Number.isFinite(currentValue)) {
-          throw new Error('Invalid numeric value in editorial payload: NaN/Infinity are not allowed');
+        if (
+          typeof currentValue === 'number' &&
+          !Number.isFinite(currentValue)
+        ) {
+          throw new Error(
+            'Invalid numeric value in editorial payload: NaN/Infinity are not allowed',
+          );
         }
         return currentValue;
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`[component-repository] Failed to serialize editorial JSON value: ${reason}`);
+      throw new Error(
+        `[component-repository] Failed to serialize editorial JSON value: ${reason}`,
+      );
     }
   }
+
   private static parseJsonColumnValue<T>(
-    value: string | null,
+    value: unknown,
     context: string,
   ): T | null {
-    if (!value) return null;
+    if (value == null) return null;
+    if (typeof value === 'object') {
+      return value as T;
+    }
     try {
-      return JSON.parse(value) as T;
+      return JSON.parse(String(value)) as T;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      console.warn(`[component-repository] Invalid JSON in ${context}: ${reason}`);
+      console.warn(
+        `[component-repository] Invalid JSON in ${context}: ${reason}`,
+      );
       return null;
     }
   }
+
   private static readonly MAX_VARIANT_PROPERTIES_JSON_BYTES = 64 * 1024;
 
-  constructor(db: Database.Database) {
-    this.db = db;
+  constructor(sql: Sql) {
+    this.sql = sql;
   }
 
   private static parseVariantsJson(
-    variantsJson: string | null,
+    variantsJson: unknown,
     rowId: number,
     componentId: number,
   ): ComponentVisualProofEntry['variants'] {
-    if (!variantsJson) return undefined;
+    if (variantsJson == null) return undefined;
+    if (Array.isArray(variantsJson)) {
+      return normalizeVisualProofVariants(variantsJson);
+    }
+    if (typeof variantsJson === 'object') {
+      return undefined;
+    }
     try {
-      const parsed = JSON.parse(variantsJson);
+      const parsed = JSON.parse(String(variantsJson));
       if (!Array.isArray(parsed)) return undefined;
       return normalizeVisualProofVariants(parsed);
     } catch (error) {
@@ -332,13 +319,33 @@ export class ComponentRepository {
   }
 
   private static parsePropertiesJson(
-    propertiesJson: string,
+    propertiesJson: unknown,
     componentId: number,
     variantName: string,
   ): Record<string, string> {
+    if (propertiesJson == null) {
+      return {};
+    }
+
+    if (typeof propertiesJson === 'object') {
+      if (Array.isArray(propertiesJson)) {
+        return {};
+      }
+      const out: Record<string, string> = {};
+      for (const [key, value] of Object.entries(
+        propertiesJson as Record<string, unknown>,
+      )) {
+        const k = String(key || '').trim();
+        if (!k) continue;
+        out[k] = String(value ?? '');
+      }
+      return out;
+    }
+
     try {
-      const parsed = JSON.parse(propertiesJson);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const parsed = JSON.parse(String(propertiesJson));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        return {};
       const out: Record<string, string> = {};
       for (const [key, value] of Object.entries(parsed)) {
         const k = String(key || '').trim();
@@ -355,15 +362,18 @@ export class ComponentRepository {
     }
   }
 
-  private static toCapturedAtEpoch(capturedAt: string | undefined, fallback: number | undefined): number | null {
+  private static toCapturedAtEpoch(
+    capturedAt: string | undefined,
+    fallback: number | undefined,
+  ): Date | null {
     if (Number.isFinite(Number(fallback))) {
-      return Number(fallback);
+      return new Date(Number(fallback) * 1000);
     }
     const normalized = String(capturedAt || '').trim();
     if (!normalized) return null;
     const epochMs = new Date(normalized).getTime();
     if (!Number.isFinite(epochMs)) return null;
-    return Math.floor(epochMs / 1000);
+    return new Date(epochMs);
   }
 
   private static toIntOrDefault(value: unknown, fallback: number): number {
@@ -372,12 +382,21 @@ export class ComponentRepository {
     return Math.floor(numeric);
   }
 
-  private static shouldReplaceStructuredFigmaData(entry: ComponentRegistryEntry['figma']): boolean {
+  private static shouldReplaceStructuredFigmaData(
+    entry: ComponentRegistryEntry['figma'],
+  ): boolean {
     if (!entry) return false;
-    const status = String(entry.structuredCaptureStatus || '').trim().toLowerCase();
+    const status = String(entry.structuredCaptureStatus || '')
+      .trim()
+      .toLowerCase();
     if (status === 'failed') return false;
     if (status === 'ok') return true;
-    return entry.variants !== undefined || entry.tokenBindings !== undefined || entry.layout !== undefined || entry.props !== undefined;
+    return (
+      entry.variants !== undefined ||
+      entry.tokenBindings !== undefined ||
+      entry.layout !== undefined ||
+      entry.props !== undefined
+    );
   }
 
   private static buildFigmaData(
@@ -391,31 +410,36 @@ export class ComponentRepository {
     };
   }
 
-  private loadStructuredFigmaByComponentIds(componentIds: number[]): Map<number, StructuredFigmaData> {
+  private async loadStructuredFigmaByComponentIds(
+    componentIds: number[],
+  ): Promise<Map<number, StructuredFigmaData>> {
     const out = new Map<number, StructuredFigmaData>();
     if (componentIds.length === 0) return out;
 
-    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
-      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
-      const placeholders = batch.map(() => '?').join(', ');
-      if (!placeholders) continue;
+    for (
+      let i = 0;
+      i < componentIds.length;
+      i += ComponentRepository.IN_BATCH_SIZE
+    ) {
+      const batch = componentIds.slice(
+        i,
+        i + ComponentRepository.IN_BATCH_SIZE,
+      );
 
-      const variantRows = this.db
-        .prepare(`
-          SELECT component_id, variant_name, node_id, properties_json, run_id, captured_at, schema_version
-          FROM component_figma_variants
-          WHERE component_id IN (${placeholders})
-          ORDER BY id ASC
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          variant_name: string;
-          node_id: string;
-          properties_json: string;
-          run_id: string | null;
-          captured_at: number;
-          schema_version: number;
-        }>;
+      const variantRows = (await this.sql`
+        SELECT component_id, variant_name, node_id, properties_json, run_id, captured_at, schema_version
+        FROM component_figma_variants
+        WHERE component_id = ANY(${batch})
+        ORDER BY id ASC
+      `) as Array<{
+        component_id: number;
+        variant_name: string;
+        node_id: string;
+        properties_json: Record<string, unknown>;
+        run_id: string | null;
+        captured_at: Date;
+        schema_version: number;
+      }>;
 
       for (const row of variantRows) {
         const current = out.get(row.component_id) || {};
@@ -423,46 +447,46 @@ export class ComponentRepository {
         variants.push({
           name: String(row.variant_name || '').trim() || 'Variant',
           properties: ComponentRepository.parsePropertiesJson(
-            String(row.properties_json || '{}'),
+            row.properties_json,
             row.component_id,
             String(row.variant_name || ''),
           ),
           nodeId: String(row.node_id || '').trim() || undefined,
           runId: String(row.run_id || '').trim() || undefined,
-          capturedAtEpoch: Number.isFinite(Number(row.captured_at)) ? Number(row.captured_at) : undefined,
-          schemaVersion: Number.isFinite(Number(row.schema_version)) ? Number(row.schema_version) : undefined,
+          capturedAtEpoch: row.captured_at?.getTime(),
+          schemaVersion: Number.isFinite(Number(row.schema_version))
+            ? Number(row.schema_version)
+            : undefined,
         });
         current.variants = variants;
         out.set(row.component_id, current);
       }
 
-      const bindingRows = this.db
-        .prepare(`
-          SELECT component_id, node_id, node_name, field, variable_id, token_path, mode,
-                 run_id, captured_at, schema_version,
-                 variant_node_id, variant_signature, property_path, status, mode_id, mode_name
-          FROM component_figma_token_bindings
-          WHERE component_id IN (${placeholders})
-          ORDER BY id ASC
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          node_id: string;
-          node_name: string;
-          field: string;
-          variable_id: string;
-          token_path: string | null;
-          mode: string;
-          run_id: string | null;
-          captured_at: number;
-          schema_version: number;
-          variant_node_id: string | null;
-          variant_signature: string | null;
-          property_path: string | null;
-          status: string | null;
-          mode_id: string | null;
-          mode_name: string | null;
-        }>;
+      const bindingRows = (await this.sql`
+        SELECT component_id, node_id, node_name, field, variable_id, token_path, mode,
+               run_id, captured_at, schema_version,
+               variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+        FROM component_figma_token_bindings
+        WHERE component_id = ANY(${batch})
+        ORDER BY id ASC
+      `) as Array<{
+        component_id: number;
+        node_id: string;
+        node_name: string;
+        field: string;
+        variable_id: string;
+        token_path: string | null;
+        mode: string;
+        run_id: string | null;
+        captured_at: Date;
+        schema_version: number;
+        variant_node_id: string | null;
+        variant_signature: string | null;
+        property_path: string | null;
+        status: string | null;
+        mode_id: string | null;
+        mode_name: string | null;
+      }>;
 
       for (const row of bindingRows) {
         const current = out.get(row.component_id) || {};
@@ -475,11 +499,13 @@ export class ComponentRepository {
           tokenPath: String(row.token_path || '').trim() || undefined,
           mode: String(row.mode || '').trim() || undefined,
           runId: String(row.run_id || '').trim() || undefined,
-          capturedAtEpoch: Number.isFinite(Number(row.captured_at)) ? Number(row.captured_at) : undefined,
-          schemaVersion: Number.isFinite(Number(row.schema_version)) ? Number(row.schema_version) : undefined,
-          // Layer Token Mapping fields (Migration 027)
+          capturedAtEpoch: row.captured_at?.getTime(),
+          schemaVersion: Number.isFinite(Number(row.schema_version))
+            ? Number(row.schema_version)
+            : undefined,
           variantNodeId: String(row.variant_node_id || '').trim() || undefined,
-          variantSignature: String(row.variant_signature || '').trim() || undefined,
+          variantSignature:
+            String(row.variant_signature || '').trim() || undefined,
           propertyPath: String(row.property_path || '').trim() || undefined,
           status: (row.status as 'resolved' | 'unresolved' | null) || undefined,
           modeId: String(row.mode_id || '').trim() || undefined,
@@ -489,33 +515,31 @@ export class ComponentRepository {
         out.set(row.component_id, current);
       }
 
-      const layoutRows = this.db
-        .prepare(`
-          SELECT component_id, node_id, node_name, depth, direction, h_sizing, v_sizing, alignment_h, alignment_v,
-                 item_spacing, padding_top, padding_right, padding_bottom, padding_left, run_id, captured_at, schema_version
-          FROM component_figma_layout_rows
-          WHERE component_id IN (${placeholders})
-          ORDER BY depth ASC, id ASC
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          node_id: string;
-          node_name: string;
-          depth: number;
-          direction: string | null;
-          h_sizing: string | null;
-          v_sizing: string | null;
-          alignment_h: string | null;
-          alignment_v: string | null;
-          item_spacing: number | null;
-          padding_top: number | null;
-          padding_right: number | null;
-          padding_bottom: number | null;
-          padding_left: number | null;
-          run_id: string | null;
-          captured_at: number;
-          schema_version: number;
-        }>;
+      const layoutRows = (await this.sql`
+        SELECT component_id, node_id, node_name, depth, direction, h_sizing, v_sizing, alignment_h, alignment_v,
+               item_spacing, padding_top, padding_right, padding_bottom, padding_left, run_id, captured_at, schema_version
+        FROM component_figma_layout_rows
+        WHERE component_id = ANY(${batch})
+        ORDER BY depth ASC, id ASC
+      `) as Array<{
+        component_id: number;
+        node_id: string;
+        node_name: string;
+        depth: number;
+        direction: string | null;
+        h_sizing: string | null;
+        v_sizing: string | null;
+        alignment_h: string | null;
+        alignment_v: string | null;
+        item_spacing: number | null;
+        padding_top: number | null;
+        padding_right: number | null;
+        padding_bottom: number | null;
+        padding_left: number | null;
+        run_id: string | null;
+        captured_at: Date;
+        schema_version: number;
+      }>;
 
       for (const row of layoutRows) {
         const current = out.get(row.component_id) || {};
@@ -523,7 +547,9 @@ export class ComponentRepository {
 
         const directionRaw = String(row.direction || '').trim();
         const direction =
-          directionRaw === 'Horizontal' || directionRaw === 'Vertical' || directionRaw === '—'
+          directionRaw === 'Horizontal' ||
+          directionRaw === 'Vertical' ||
+          directionRaw === '—'
             ? (directionRaw as 'Horizontal' | 'Vertical' | '—')
             : undefined;
 
@@ -542,57 +568,64 @@ export class ComponentRepository {
           vSizing: String(row.v_sizing || '').trim() || undefined,
           alignmentH: String(row.alignment_h || '').trim() || undefined,
           alignmentV: String(row.alignment_v || '').trim() || undefined,
-          itemSpacing: Number.isFinite(Number(row.item_spacing)) ? Number(row.item_spacing) : undefined,
+          itemSpacing: Number.isFinite(Number(row.item_spacing))
+            ? Number(row.item_spacing)
+            : undefined,
           padding: hasPadding
             ? {
-              top: Number(row.padding_top ?? 0),
-              right: Number(row.padding_right ?? 0),
-              bottom: Number(row.padding_bottom ?? 0),
-              left: Number(row.padding_left ?? 0),
-            }
+                top: Number(row.padding_top ?? 0),
+                right: Number(row.padding_right ?? 0),
+                bottom: Number(row.padding_bottom ?? 0),
+                left: Number(row.padding_left ?? 0),
+              }
             : undefined,
           runId: String(row.run_id || '').trim() || undefined,
-          capturedAtEpoch: Number.isFinite(Number(row.captured_at)) ? Number(row.captured_at) : undefined,
-          schemaVersion: Number.isFinite(Number(row.schema_version)) ? Number(row.schema_version) : undefined,
+          capturedAtEpoch: row.captured_at?.getTime(),
+          schemaVersion: Number.isFinite(Number(row.schema_version))
+            ? Number(row.schema_version)
+            : undefined,
         });
 
         current.layout = layout;
         out.set(row.component_id, current);
       }
 
-      // Load captured properties from component_figma_props (Migration 034)
-      const propsRows = this.db
-        .prepare(`
-          SELECT component_id, prop_name, prop_type, prop_values_json, prop_default, prop_required, prop_description
-          FROM component_figma_props
-          WHERE component_id IN (${placeholders})
-          ORDER BY id ASC
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          prop_name: string;
-          prop_type: string;
-          prop_values_json: string | null;
-          prop_default: string | null;
-          prop_required: number;
-          prop_description: string;
-        }>;
+      const propsRows = (await this.sql`
+        SELECT component_id, prop_name, prop_type, prop_values_json, prop_default, prop_required, prop_description
+        FROM component_figma_props
+        WHERE component_id = ANY(${batch})
+        ORDER BY id ASC
+      `) as Array<{
+        component_id: number;
+        prop_name: string;
+        prop_type: string;
+        prop_values_json: unknown | null;
+        prop_default: unknown | null;
+        prop_required: boolean;
+        prop_description: string;
+      }>;
 
       for (const row of propsRows) {
         const current = out.get(row.component_id) || {};
         const properties = current.properties || [];
         const values = row.prop_values_json
-          ? (ComponentRepository.parseJsonColumnValue<string[]>(row.prop_values_json, 'component_figma_props.prop_values_json') ?? undefined)
+          ? (ComponentRepository.parseJsonColumnValue<string[]>(
+              row.prop_values_json,
+              'component_figma_props.prop_values_json',
+            ) ?? undefined)
           : undefined;
         const defaultValue = row.prop_default
-          ? ComponentRepository.parseJsonColumnValue<unknown>(row.prop_default, 'component_figma_props.prop_default')
+          ? ComponentRepository.parseJsonColumnValue<unknown>(
+              row.prop_default,
+              'component_figma_props.prop_default',
+            )
           : undefined;
         properties.push({
           name: String(row.prop_name || '').trim(),
           type: row.prop_type as CapturedPropertyEntry['type'],
           values,
           defaultValue,
-          required: row.prop_required === 1,
+          required: row.prop_required,
           description: String(row.prop_description || '').trim(),
         });
         current.properties = properties;
@@ -603,228 +636,292 @@ export class ComponentRepository {
     return out;
   }
 
-  /**
-   * Get editorial data for a component (human-authored fields)
-   */
-  getEditorial(componentId: number): EditorialEntry | null {
-    const row = this.db
-      .prepare(`
-        SELECT component_id, summary_json, behaviour_json, accessibility_json,
-               content_guidelines_json, qa_json,
-               accessibility_notes_json, variants_json, updated_at
-        FROM component_editorial
-        WHERE component_id = ?
-      `)
-      .get(componentId) as Array<{
-        component_id: number;
-        summary_json: string | null;
-        behaviour_json: string | null;
-        accessibility_json: string | null;
-        content_guidelines_json: string | null;
-        qa_json: string | null;
-        accessibility_notes_json: string | null;
-        variants_json: string | null;
-        updated_at: number;
-      }>[0];
+  async getEditorial(componentId: number): Promise<EditorialEntry | null> {
+    const rows = (await this.sql`
+      SELECT component_id, summary_json, behaviour_json, accessibility_json,
+             content_guidelines_json, qa_json,
+             accessibility_notes_json, variants_json, updated_at
+      FROM component_editorial
+      WHERE component_id = ${componentId}
+    `) as Array<{
+      component_id: number;
+      summary_json: unknown;
+      behaviour_json: unknown;
+      accessibility_json: unknown;
+      content_guidelines_json: unknown;
+      qa_json: unknown;
+      accessibility_notes_json: unknown;
+      variants_json: unknown;
+      updated_at: Date;
+    }>;
 
-    if (!row) return null;
+    if (rows.length === 0) return null;
 
+    const row = rows[0];
     return {
       componentId: row.component_id,
-      summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, 'component_editorial.summary_json'),
-      behaviour: ComponentRepository.parseJsonColumnValue<string>(row.behaviour_json, 'component_editorial.behaviour_json'),
-      accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, 'component_editorial.accessibility_json'),
-      contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, 'component_editorial.content_guidelines_json'),
-      qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
-      accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(row.accessibility_notes_json, 'component_editorial.accessibility_notes_json'),
-      variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, 'component_editorial.variants_json'),
+      summary: ComponentRepository.parseJsonColumnValue<
+        Record<string, unknown>
+      >(row.summary_json, 'component_editorial.summary_json'),
+      behaviour: ComponentRepository.parseJsonColumnValue<string>(
+        row.behaviour_json,
+        'component_editorial.behaviour_json',
+      ),
+      accessibility: ComponentRepository.parseJsonColumnValue<
+        Record<string, unknown>
+      >(row.accessibility_json, 'component_editorial.accessibility_json'),
+      contentGuidelines: ComponentRepository.parseJsonColumnValue<
+        Record<string, unknown>
+      >(
+        row.content_guidelines_json,
+        'component_editorial.content_guidelines_json',
+      ),
+      qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(
+        row.qa_json,
+        'component_editorial.qa_json',
+      ),
+      accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(
+        row.accessibility_notes_json,
+        'component_editorial.accessibility_notes_json',
+      ),
+      variants: ComponentRepository.parseJsonColumnValue<
+        EditorialVariantEntry[]
+      >(row.variants_json, 'component_editorial.variants_json'),
       updatedAt: row.updated_at,
     };
   }
 
-  /**
-   * Batch editorial lookup by component ids.
-   */
-  getEditorialByComponentIds(componentIds: number[]): Map<number, EditorialEntry> {
+  async getEditorialByComponentIds(
+    componentIds: number[],
+  ): Promise<Map<number, EditorialEntry>> {
     const out = new Map<number, EditorialEntry>();
     if (!Array.isArray(componentIds) || componentIds.length === 0) return out;
 
-    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
-      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
-      const placeholders = batch.map(() => "?").join(", ");
-      const rows = this.db
-        .prepare(`
-          SELECT component_id, summary_json, behaviour_json, accessibility_json,
-                 content_guidelines_json, qa_json,
-                 variants_json, updated_at
-          FROM component_editorial
-          WHERE component_id IN (${placeholders})
-        `)
-        .all(...batch) as Array<{
-          component_id: number;
-          summary_json: string | null;
-          behaviour_json: string | null;
-          accessibility_json: string | null;
-          content_guidelines_json: string | null;
-          qa_json: string | null;
-          variants_json: string | null;
-          updated_at: number;
-        }>;
+    const rows = (await this.sql`
+      SELECT component_id, summary_json, behaviour_json, accessibility_json,
+             content_guidelines_json, qa_json,
+             variants_json, updated_at
+      FROM component_editorial
+      WHERE component_id = ANY(${componentIds})
+    `) as Array<{
+      component_id: number;
+      summary_json: unknown;
+      behaviour_json: unknown;
+      accessibility_json: unknown;
+      content_guidelines_json: unknown;
+      qa_json: unknown;
+      variants_json: unknown;
+      updated_at: Date;
+    }>;
 
-      for (const row of rows) {
-        out.set(row.component_id, {
-          componentId: row.component_id,
-          summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, "component_editorial.summary_json"),
-          behaviour: ComponentRepository.parseJsonColumnValue<string>(row.behaviour_json, "component_editorial.behaviour_json"),
-          accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, "component_editorial.accessibility_json"),
-          contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, "component_editorial.content_guidelines_json"),
-          qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, "component_editorial.qa_json"),
-          variants: ComponentRepository.parseJsonColumnValue<EditorialVariantEntry[]>(row.variants_json, "component_editorial.variants_json"),
-          updatedAt: row.updated_at,
-        });
-      }
+    for (const row of rows) {
+      out.set(row.component_id, {
+        componentId: row.component_id,
+        summary: ComponentRepository.parseJsonColumnValue<
+          Record<string, unknown>
+        >(row.summary_json, 'component_editorial.summary_json'),
+        behaviour: ComponentRepository.parseJsonColumnValue<string>(
+          row.behaviour_json,
+          'component_editorial.behaviour_json',
+        ),
+        accessibility: ComponentRepository.parseJsonColumnValue<
+          Record<string, unknown>
+        >(row.accessibility_json, 'component_editorial.accessibility_json'),
+        contentGuidelines: ComponentRepository.parseJsonColumnValue<
+          Record<string, unknown>
+        >(
+          row.content_guidelines_json,
+          'component_editorial.content_guidelines_json',
+        ),
+        qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(
+          row.qa_json,
+          'component_editorial.qa_json',
+        ),
+        variants: ComponentRepository.parseJsonColumnValue<
+          EditorialVariantEntry[]
+        >(row.variants_json, 'component_editorial.variants_json'),
+        updatedAt: row.updated_at,
+      });
     }
 
     return out;
   }
 
-  /**
-   * Upsert editorial data with optimistic locking via updated_at
-   * If expectedUpdatedAt is null/undefined and no row exists → INSERT
-   * If expectedUpdatedAt matches existing row → UPDATE
-   * expectedUpdatedAt is required for UPDATE calls from all consumers.
-   * If expectedUpdatedAt doesn't match → throw { statusCode: 409 }
-   */
-  upsertEditorial(
+  async upsertEditorial(
     componentId: number,
     fields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>>,
-    expectedUpdatedAt?: number | null,
-  ): EditorialEntry {
-    const expectedLockValue = expectedUpdatedAt ?? null;
-    const tx = this.db.transaction(() => {
-      const existing = this.getEditorial(componentId);
+    expectedUpdatedAt?: Date | number | null,
+  ): Promise<EditorialEntry> {
+    const existing = await this.getEditorial(componentId);
+    const now = new Date();
 
-      if (!existing) {
-        // INSERT: only allowed if expectedUpdatedAt is null/undefined (first create)
-        if (expectedLockValue !== null) {
-          throw { statusCode: 409, message: 'Optimistic lock failed: row does not exist but expectedUpdatedAt was provided' };
-        }
-
-        const now = Math.floor(Date.now() / 1000);
-        const insertResult = this.db.prepare(`
-          INSERT OR IGNORE INTO component_editorial (
-            component_id, summary_json, behaviour_json, accessibility_json,
-            content_guidelines_json, qa_json,
-            accessibility_notes_json, variants_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          componentId,
-          ComponentRepository.toJsonColumnValue(fields.summary),
-          ComponentRepository.toJsonColumnValue(fields.behaviour),
-          ComponentRepository.toJsonColumnValue(fields.accessibility),
-          ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
-          ComponentRepository.toJsonColumnValue(fields.qa),
-          ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
-          ComponentRepository.toJsonColumnValue(fields.variants),
-          now,
-        );
-
-        if ((insertResult.changes ?? 0) === 0) {
-          throw { statusCode: 409, message: 'Optimistic lock failed: concurrent editorial creation detected' };
-        }
-
-        return { componentId, ...fields, updatedAt: now };
+    if (!existing) {
+      if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null) {
+        throw {
+          statusCode: 409,
+          message:
+            'Optimistic lock failed: row does not exist but expectedUpdatedAt was provided',
+        };
       }
 
-      // UPDATE: check optimistic lock
-      if (expectedLockValue === null) {
-        throw { statusCode: 400, message: 'expectedUpdatedAt is required for updates' };
-      }
-      if (expectedLockValue !== existing.updatedAt) {
-        throw { statusCode: 409, message: `Optimistic lock failed: expected ${expectedLockValue} but found ${existing.updatedAt}` };
-      }
+      await this.sql`
+        INSERT INTO component_editorial (
+          component_id, summary_json, behaviour_json, accessibility_json,
+          content_guidelines_json, qa_json,
+          accessibility_notes_json, variants_json, updated_at
+        ) VALUES (
+          ${componentId},
+          ${ComponentRepository.toJsonColumnValue(fields.summary)},
+          ${ComponentRepository.toJsonColumnValue(fields.behaviour)},
+          ${ComponentRepository.toJsonColumnValue(fields.accessibility)},
+          ${ComponentRepository.toJsonColumnValue(fields.contentGuidelines)},
+          ${ComponentRepository.toJsonColumnValue(fields.qa)},
+          ${ComponentRepository.toJsonColumnValue(fields.accessibilityNotes)},
+          ${ComponentRepository.toJsonColumnValue(fields.variants)},
+          ${now}
+        )
+      `;
 
-      const now = Math.floor(Date.now() / 1000);
-      this.db.prepare(`
-        UPDATE component_editorial SET
-          summary_json = CASE WHEN ? = 1 THEN ? ELSE summary_json END,
-          behaviour_json = CASE WHEN ? = 1 THEN ? ELSE behaviour_json END,
-          accessibility_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_json END,
-          content_guidelines_json = CASE WHEN ? = 1 THEN ? ELSE content_guidelines_json END,
-          qa_json = CASE WHEN ? = 1 THEN ? ELSE qa_json END,
-          accessibility_notes_json = CASE WHEN ? = 1 THEN ? ELSE accessibility_notes_json END,
-          variants_json = CASE WHEN ? = 1 THEN ? ELSE variants_json END,
-          updated_at = ?
-        WHERE component_id = ?
-      `).run(
-        fields.summary !== undefined ? 1 : 0,
-        fields.summary !== undefined ? ComponentRepository.toJsonColumnValue(fields.summary) : null,
-        fields.behaviour !== undefined ? 1 : 0,
-        fields.behaviour !== undefined ? ComponentRepository.toJsonColumnValue(fields.behaviour) : null,
-        fields.accessibility !== undefined ? 1 : 0,
-        fields.accessibility !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibility) : null,
-        fields.contentGuidelines !== undefined ? 1 : 0,
-        fields.contentGuidelines !== undefined ? ComponentRepository.toJsonColumnValue(fields.contentGuidelines) : null,
-        fields.qa !== undefined ? 1 : 0,
-        fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
-        fields.accessibilityNotes !== undefined ? 1 : 0,
-        fields.accessibilityNotes !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibilityNotes) : null,
-        fields.variants !== undefined ? 1 : 0,
-        fields.variants !== undefined ? ComponentRepository.toJsonColumnValue(fields.variants) : null,
-        now,
-        componentId,
+      return { componentId, ...fields, updatedAt: now };
+    }
+
+    if (expectedUpdatedAt === undefined || expectedUpdatedAt === null) {
+      throw {
+        statusCode: 400,
+        message: 'expectedUpdatedAt is required for updates',
+      };
+    }
+
+    const expectedUpdatedAtMs =
+      expectedUpdatedAt instanceof Date
+        ? expectedUpdatedAt.getTime()
+        : Number(expectedUpdatedAt);
+
+    if (
+      !Number.isFinite(expectedUpdatedAtMs) ||
+      expectedUpdatedAtMs !== existing.updatedAt.getTime()
+    ) {
+      throw {
+        statusCode: 409,
+        message: `Optimistic lock failed: expected ${expectedUpdatedAt} but found ${existing.updatedAt}`,
+      };
+    }
+
+    const updates: string[] = [];
+    const values: Array<string | number | Date | null> = [];
+
+    if (fields.summary !== undefined) {
+      updates.push(
+        `summary_json = CASE WHEN summary_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE summary_json END`,
       );
+      values.push(ComponentRepository.toJsonColumnValue(fields.summary));
+    }
+    if (fields.behaviour !== undefined) {
+      updates.push(
+        `behaviour_json = CASE WHEN behaviour_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE behaviour_json END`,
+      );
+      values.push(ComponentRepository.toJsonColumnValue(fields.behaviour));
+    }
+    if (fields.accessibility !== undefined) {
+      updates.push(
+        `accessibility_json = CASE WHEN accessibility_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE accessibility_json END`,
+      );
+      values.push(ComponentRepository.toJsonColumnValue(fields.accessibility));
+    }
+    if (fields.contentGuidelines !== undefined) {
+      updates.push(
+        `content_guidelines_json = CASE WHEN content_guidelines_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE content_guidelines_json END`,
+      );
+      values.push(
+        ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
+      );
+    }
+    if (fields.qa !== undefined) {
+      updates.push(
+        `qa_json = CASE WHEN qa_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE qa_json END`,
+      );
+      values.push(ComponentRepository.toJsonColumnValue(fields.qa));
+    }
+    if (fields.accessibilityNotes !== undefined) {
+      updates.push(
+        `accessibility_notes_json = CASE WHEN accessibility_notes_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE accessibility_notes_json END`,
+      );
+      values.push(
+        ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
+      );
+    }
+    if (fields.variants !== undefined) {
+      updates.push(
+        `variants_json = CASE WHEN variants_json IS DISTINCT FROM $${values.length + 1} THEN $${values.length + 1} ELSE variants_json END`,
+      );
+      values.push(ComponentRepository.toJsonColumnValue(fields.variants));
+    }
 
-      return { ...existing, ...fields, updatedAt: now };
-    });
+    updates.push(`updated_at = $${values.length + 1}`);
+    values.push(now);
+    values.push(componentId);
 
-    return tx();
+    // NOTE: The updates array is built from EDITORIAL_ALLOWED_KEYS (line 230), which contains
+    // only hardcoded column names controlled internally by the codebase. Values are passed as
+    // parameterized values to sql.unsafe() — no user-provided field names are concatenated.
+    const setSql = updates.join(', ');
+    await this.sql.unsafe(
+      `UPDATE component_editorial SET ${setSql} WHERE component_id = $${values.length}`,
+      values,
+    );
+
+    return { ...existing, ...fields, updatedAt: now };
   }
 
-  /**
-   * Get all components for a design system
-   */
-  getAll(dsId: string): ComponentEntry[] {
-    const rows = this.db
-      .prepare(`
-        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
-               (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id) AS has_editorial
-        FROM components c
-        WHERE c.ds_id = ?
-        ORDER BY c.name
-      `)
-      .all(dsId) as Array<{
-        id: number;
-        ds_id: string;
-        slug: string;
-        name: string;
-        status: string;
-        doc_type: string;
-        figma_file_url: string | null;
-        figma_component_set_node_id: string | null;
-        figma_page_name: string | null;
-        has_editorial: number | null;
-      }>;
+  async getAll(dsId: string): Promise<ComponentEntry[]> {
+    const rows = (await this.sql`
+      SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
+             (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id LIMIT 1) AS has_editorial
+      FROM components c
+      WHERE c.ds_id = ${dsId}
+      ORDER BY c.name
+    `) as Array<{
+      id: number;
+      ds_id: string;
+      slug: string;
+      name: string;
+      status: string;
+      doc_type: string;
+      figma_file_url: string | null;
+      figma_component_set_node_id: string | null;
+      figma_page_name: string | null;
+      has_editoral: unknown;
+    }>;
 
     if (rows.length === 0) {
       return [];
     }
 
     const componentIds = rows.map((row) => row.id);
-    const specRows: Array<{
+    const specRows = (await this.sql`
+      SELECT id, component_id, markdown_path, doc_status, coverage
+      FROM component_specs
+      WHERE component_id = ANY(${componentIds})
+    `) as Array<{
       id: number;
       component_id: number;
       markdown_path: string;
       doc_status: string;
       coverage: number;
-    }> = [];
-    const proofRows: Array<{
+    }>;
+
+    const proofRows = (await this.sql`
+      SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
+      FROM component_visual_proofs
+      WHERE component_id = ANY(${componentIds})
+      ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
+    `) as Array<{
       id: number;
       component_id: number;
       image_path: string;
       screenshot_url: string | null;
       caption: string | null;
-      captured_at: string | null;
+      captured_at: Date | null;
       captured_at_epoch: number | null;
       node_id: string | null;
       image_sha256: string | null;
@@ -833,57 +930,8 @@ export class ComponentRepository {
       image_width: number | null;
       image_height: number | null;
       variants_count: number | null;
-      variants_json: string | null;
-    }> = [];
-
-    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
-      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
-      const placeholders = batch.map(() => '?').join(', ');
-      if (!placeholders) continue;
-
-      specRows.push(
-        ...this.db
-          .prepare(`
-            SELECT id, component_id, markdown_path, doc_status, coverage
-            FROM component_specs
-            WHERE component_id IN (${placeholders})
-          `)
-          .all(...batch) as Array<{
-            id: number;
-            component_id: number;
-            markdown_path: string;
-            doc_status: string;
-            coverage: number;
-          }>,
-      );
-
-      proofRows.push(
-        ...this.db
-          .prepare(`
-            SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
-            FROM component_visual_proofs
-            WHERE component_id IN (${placeholders})
-            ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
-          `)
-          .all(...batch) as Array<{
-            id: number;
-            component_id: number;
-            image_path: string;
-            screenshot_url: string | null;
-            caption: string | null;
-            captured_at: string | null;
-            captured_at_epoch: number | null;
-            node_id: string | null;
-            image_sha256: string | null;
-            image_bytes: number | null;
-            image_content_type: string | null;
-            image_width: number | null;
-            image_height: number | null;
-            variants_count: number | null;
-            variants_json: string | null;
-          }>,
-      );
-    }
+      variants_json: unknown | null;
+    }>;
 
     const specsByComponentId = new Map<number, ComponentSpecEntry[]>();
     for (const row of specRows) {
@@ -907,7 +955,7 @@ export class ComponentRepository {
         imagePath: row.image_path,
         screenshotUrl: row.screenshot_url ?? undefined,
         caption: row.caption ?? undefined,
-        capturedAt: row.captured_at ?? undefined,
+        capturedAt: row.captured_at?.toISOString() ?? undefined,
         capturedAtEpoch: row.captured_at_epoch ?? undefined,
         nodeId: row.node_id ?? undefined,
         imageSha256: row.image_sha256 ?? undefined,
@@ -916,12 +964,17 @@ export class ComponentRepository {
         imageWidth: row.image_width ?? undefined,
         imageHeight: row.image_height ?? undefined,
         variantsCount: row.variants_count ?? undefined,
-        variants: ComponentRepository.parseVariantsJson(row.variants_json, row.id, row.component_id),
+        variants: ComponentRepository.parseVariantsJson(
+          row.variants_json,
+          row.id,
+          row.component_id,
+        ),
       });
       proofsByComponentId.set(row.component_id, prev);
     }
 
-    const structuredByComponentId = this.loadStructuredFigmaByComponentIds(componentIds);
+    const structuredByComponentId =
+      await this.loadStructuredFigmaByComponentIds(componentIds);
 
     return rows.map((row) => ({
       id: row.id,
@@ -938,39 +991,35 @@ export class ComponentRepository {
       ),
       specs: specsByComponentId.get(row.id) || [],
       visualProofs: proofsByComponentId.get(row.id) || [],
-      editorialExists: Boolean(row.has_editorial),
+      editorialExists: Boolean(row.has_editoral),
     }));
   }
 
-  /**
-   * Get component by slug
-   */
-  getBySlug(dsId: string, slug: string): ComponentEntry | null {
-    const row = this.db
-      .prepare(`
-        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
-               (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id) AS has_editorial
-        FROM components c
-        WHERE c.ds_id = ? AND c.slug = ?
-      `)
-      .get(dsId, slug) as
-      | {
-        id: number;
-        ds_id: string;
-        slug: string;
-        name: string;
-        status: string;
-        doc_type: string;
-        figma_file_url: string | null;
-        figma_component_set_node_id: string | null;
-        figma_page_name: string | null;
-        has_editorial: number | null;
-      }
-      | undefined;
+  async getBySlug(dsId: string, slug: string): Promise<ComponentEntry | null> {
+    const rows = (await this.sql`
+      SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
+             (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id LIMIT 1) AS has_editorial
+      FROM components c
+      WHERE c.ds_id = ${dsId} AND c.slug = ${slug}
+    `) as Array<{
+      id: number;
+      ds_id: string;
+      slug: string;
+      name: string;
+      status: string;
+      doc_type: string;
+      figma_file_url: string | null;
+      figma_component_set_node_id: string | null;
+      figma_page_name: string | null;
+      has_editoral: unknown;
+    }>;
 
-    if (!row) return null;
+    if (rows.length === 0) return null;
 
-    const structured = this.loadStructuredFigmaByComponentIds([row.id]).get(row.id);
+    const row = rows[0];
+    const structured = (
+      await this.loadStructuredFigmaByComponentIds([row.id])
+    ).get(row.id);
 
     return {
       id: row.id,
@@ -981,30 +1030,28 @@ export class ComponentRepository {
       docType: row.doc_type as ComponentEntry['docType'],
       figmaFileUrl: row.figma_file_url ?? undefined,
       figmaComponentSetNodeId: row.figma_component_set_node_id ?? undefined,
-      figma: ComponentRepository.buildFigmaData(row.figma_page_name, structured),
-      specs: this.getSpecs(row.id),
-      visualProofs: this.getVisualProofs(row.id),
-      editorialExists: Boolean(row.has_editorial),
+      figma: ComponentRepository.buildFigmaData(
+        row.figma_page_name,
+        structured,
+      ),
+      specs: await this.getSpecs(row.id),
+      visualProofs: await this.getVisualProofs(row.id),
+      editorialExists: Boolean(row.has_editoral),
     };
   }
 
-  /**
-   * Get specs for a component
-   */
-  private getSpecs(componentId: number): ComponentSpecEntry[] {
-    const rows = this.db
-      .prepare(`
-        SELECT id, component_id, markdown_path, doc_status, coverage
-        FROM component_specs
-        WHERE component_id = ?
-      `)
-      .all(componentId) as Array<{
-        id: number;
-        component_id: number;
-        markdown_path: string;
-        doc_status: string;
-        coverage: number;
-      }>;
+  private async getSpecs(componentId: number): Promise<ComponentSpecEntry[]> {
+    const rows = (await this.sql`
+      SELECT id, component_id, markdown_path, doc_status, coverage
+      FROM component_specs
+      WHERE component_id = ${componentId}
+    `) as Array<{
+      id: number;
+      component_id: number;
+      markdown_path: string;
+      doc_status: string;
+      coverage: number;
+    }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -1015,34 +1062,31 @@ export class ComponentRepository {
     }));
   }
 
-  /**
-   * Get visual proofs for a component
-   */
-  private getVisualProofs(componentId: number): ComponentVisualProofEntry[] {
-    const rows = this.db
-      .prepare(`
-        SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
-        FROM component_visual_proofs
-        WHERE component_id = ?
-        ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
-      `)
-      .all(componentId) as Array<{
-        id: number;
-        component_id: number;
-        image_path: string;
-        screenshot_url: string | null;
-        caption: string | null;
-        captured_at: string | null;
-        captured_at_epoch: number | null;
-        node_id: string | null;
-        image_sha256: string | null;
-        image_bytes: number | null;
-        image_content_type: string | null;
-        image_width: number | null;
-        image_height: number | null;
-        variants_count: number | null;
-        variants_json: string | null;
-      }>;
+  private async getVisualProofs(
+    componentId: number,
+  ): Promise<ComponentVisualProofEntry[]> {
+    const rows = (await this.sql`
+      SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
+      FROM component_visual_proofs
+      WHERE component_id = ${componentId}
+      ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
+    `) as Array<{
+      id: number;
+      component_id: number;
+      image_path: string;
+      screenshot_url: string | null;
+      caption: string | null;
+      captured_at: Date | null;
+      captured_at_epoch: number | null;
+      node_id: string | null;
+      image_sha256: string | null;
+      image_bytes: number | null;
+      image_content_type: string | null;
+      image_width: number | null;
+      image_height: number | null;
+      variants_count: number | null;
+      variants_json: unknown | null;
+    }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -1050,7 +1094,7 @@ export class ComponentRepository {
       imagePath: row.image_path,
       screenshotUrl: row.screenshot_url ?? undefined,
       caption: row.caption ?? undefined,
-      capturedAt: row.captured_at ?? undefined,
+      capturedAt: row.captured_at?.toISOString() ?? undefined,
       capturedAtEpoch: row.captured_at_epoch ?? undefined,
       nodeId: row.node_id ?? undefined,
       imageSha256: row.image_sha256 ?? undefined,
@@ -1059,336 +1103,269 @@ export class ComponentRepository {
       imageWidth: row.image_width ?? undefined,
       imageHeight: row.image_height ?? undefined,
       variantsCount: row.variants_count ?? undefined,
-      variants: ComponentRepository.parseVariantsJson(row.variants_json, row.id, row.component_id),
+      variants: ComponentRepository.parseVariantsJson(
+        row.variants_json,
+        row.id,
+        row.component_id,
+      ),
     }));
   }
 
-  /**
-   * Upsert components from registry (bulk operation)
-   */
-  upsertFromRegistry(dsId: string, entries: ComponentRegistryEntry[]): number {
-    const tx = this.db.transaction(() => {
-      let upsertedCount = 0;
+  async upsertFromRegistry(
+    dsId: string,
+    entries: ComponentRegistryEntry[],
+  ): Promise<number> {
+    let upsertedCount = 0;
 
-      for (const entry of entries) {
-        const now = Math.floor(Date.now() / 1000);
+    for (const entry of entries) {
+      const now = new Date();
 
-        this.db
-          .prepare(`
-            INSERT INTO components (ds_id, slug, name, status, doc_type, figma_file_url, figma_component_set_node_id, figma_page_name, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(ds_id, slug) DO UPDATE SET
-              name = excluded.name,
-              status = excluded.status,
-              doc_type = excluded.doc_type,
-              figma_file_url = excluded.figma_file_url,
-              figma_component_set_node_id = excluded.figma_component_set_node_id,
-              figma_page_name = excluded.figma_page_name,
-              updated_at = excluded.updated_at
-          `)
-          .run(
-            dsId,
-            entry.slug,
-            entry.name,
-            entry.status ?? 'draft',
-            entry.docType ?? 'component',
-            entry.figma?.fileUrl ?? null,
-            entry.figma?.componentSetNodeId ?? null,
-            entry.figma?.pageName ?? null,
-            now,
-            now,
-          );
+      await this.sql`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_file_url, figma_component_set_node_id, figma_page_name, created_at, updated_at)
+        VALUES (${dsId}, ${entry.slug}, ${entry.name}, ${entry.status ?? 'draft'}, ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null}, ${entry.figma?.componentSetNodeId ?? null}, ${entry.figma?.pageName ?? null}, ${now}, ${now})
+        ON CONFLICT(ds_id, slug) DO UPDATE SET
+          name = EXCLUDED.name,
+          status = EXCLUDED.status,
+          doc_type = EXCLUDED.doc_type,
+          figma_file_url = EXCLUDED.figma_file_url,
+          figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
+          figma_page_name = EXCLUDED.figma_page_name,
+          updated_at = EXCLUDED.updated_at
+      `;
 
-        const row = this.db
-          .prepare('SELECT id FROM components WHERE ds_id=? AND slug=?')
-          .get(dsId, entry.slug) as { id: number };
-        const componentId = row.id;
-        upsertedCount += 1;
+      const compRows = (await this.sql`
+        SELECT id FROM components WHERE ds_id = ${dsId} AND slug = ${entry.slug}
+      `) as Array<{ id: number }>;
 
-        if (Array.isArray(entry.specs)) {
-          this.db.prepare('DELETE FROM component_specs WHERE component_id = ?').run(componentId);
+      if (compRows.length === 0) continue;
 
-          if (entry.specs.length > 0) {
-            const specStmt = this.db.prepare(`
+      const componentId = compRows[0].id;
+      upsertedCount += 1;
+
+      if (Array.isArray(entry.specs)) {
+        await this
+          .sql`DELETE FROM component_specs WHERE component_id = ${componentId}`;
+
+        if (entry.specs.length > 0) {
+          for (const spec of entry.specs) {
+            await this.sql`
               INSERT INTO component_specs (component_id, markdown_path, doc_status, coverage, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?)
+              VALUES (${componentId}, ${spec.markdownPath}, ${spec.docStatus ?? 'draft'}, ${spec.coverage ?? 0}, ${now}, ${now})
               ON CONFLICT(component_id, markdown_path) DO UPDATE SET
-                doc_status = excluded.doc_status,
-                coverage = excluded.coverage,
-                updated_at = excluded.updated_at
-            `);
-
-            for (const spec of entry.specs) {
-              specStmt.run(
-                componentId,
-                spec.markdownPath,
-                spec.docStatus ?? 'draft',
-                spec.coverage ?? 0,
-                now,
-                now,
-              );
-            }
+                doc_status = EXCLUDED.doc_status,
+                coverage = EXCLUDED.coverage,
+                updated_at = EXCLUDED.updated_at
+            `;
           }
         }
+      }
 
-        if (entry.visualProofs && entry.visualProofs.length > 0) {
-          const proofStmt = this.db.prepare(`
+      if (entry.visualProofs && entry.visualProofs.length > 0) {
+        for (const proof of entry.visualProofs) {
+          const capturedAt = proof.capturedAt
+            ? new Date(proof.capturedAt)
+            : null;
+          const capturedAtEpoch =
+            proof.capturedAtEpoch ??
+            (capturedAt ? Math.floor(capturedAt.getTime() / 1000) : null);
+
+          await this.sql`
             INSERT INTO component_visual_proofs (component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (${componentId}, ${proof.imagePath}, ${proof.screenshotUrl ?? null}, ${proof.caption ?? null}, ${capturedAt}, ${capturedAtEpoch}, ${proof.nodeId ?? null}, ${proof.imageSha256 ?? null}, ${proof.imageBytes ?? null}, ${proof.imageContentType ?? null}, ${proof.imageWidth ?? null}, ${proof.imageHeight ?? null}, ${proof.variantsCount ?? null}, ${Array.isArray(proof.variants) ? JSON.stringify(proof.variants) : null}, ${now})
             ON CONFLICT(component_id, image_path) DO UPDATE SET
-              screenshot_url = excluded.screenshot_url,
-              caption = excluded.caption,
-              captured_at = excluded.captured_at,
-              captured_at_epoch = excluded.captured_at_epoch,
-              node_id = excluded.node_id,
-              image_sha256 = excluded.image_sha256,
-              image_bytes = excluded.image_bytes,
-              image_content_type = excluded.image_content_type,
-              image_width = excluded.image_width,
-              image_height = excluded.image_height,
-              variants_count = excluded.variants_count,
-              variants_json = excluded.variants_json
-          `);
+              screenshot_url = EXCLUDED.screenshot_url,
+              caption = EXCLUDED.caption,
+              captured_at = EXCLUDED.captured_at,
+              captured_at_epoch = EXCLUDED.captured_at_epoch,
+              node_id = EXCLUDED.node_id,
+              image_sha256 = EXCLUDED.image_sha256,
+              image_bytes = EXCLUDED.image_bytes,
+              image_content_type = EXCLUDED.image_content_type,
+              image_width = EXCLUDED.image_width,
+              image_height = EXCLUDED.image_height,
+              variants_count = EXCLUDED.variants_count,
+              variants_json = EXCLUDED.variants_json
+          `;
+        }
+      }
 
-          for (const proof of entry.visualProofs) {
-            const capturedAt = proof.capturedAt ?? null;
-            const capturedAtEpoch = ComponentRepository.toCapturedAtEpoch(
-              proof.capturedAt,
-              proof.capturedAtEpoch,
-            );
-            proofStmt.run(
-              componentId,
-              proof.imagePath,
-              proof.screenshotUrl ?? null,
-              proof.caption ?? null,
-              capturedAt,
-              capturedAtEpoch,
-              proof.nodeId ?? null,
-              proof.imageSha256 ?? null,
-              proof.imageBytes ?? null,
-              proof.imageContentType ?? null,
-              proof.imageWidth ?? null,
-              proof.imageHeight ?? null,
-              proof.variantsCount ?? null,
-              Array.isArray(proof.variants) ? JSON.stringify(proof.variants) : null,
-              now,
-            );
+      if (entry.figma) {
+        const figmaRunId = String(entry.figma.runId || '').trim() || null;
+        const figmaCapturedAt = Number.isFinite(
+          Number(entry.figma.capturedAtEpoch),
+        )
+          ? new Date(Number(entry.figma.capturedAtEpoch) * 1000)
+          : now;
+        const figmaSchemaVersion = Number.isFinite(
+          Number(entry.figma.schemaVersion),
+        )
+          ? Number(entry.figma.schemaVersion)
+          : 1;
+        const shouldReplaceStructuredData =
+          ComponentRepository.shouldReplaceStructuredFigmaData(entry.figma);
+
+        if (shouldReplaceStructuredData) {
+          await this
+            .sql`DELETE FROM component_figma_variants WHERE component_id = ${componentId}`;
+          await this
+            .sql`DELETE FROM component_figma_token_bindings WHERE component_id = ${componentId}`;
+          await this
+            .sql`DELETE FROM component_figma_layout_rows WHERE component_id = ${componentId}`;
+        }
+
+        if (
+          shouldReplaceStructuredData &&
+          Array.isArray(entry.figma.variants) &&
+          entry.figma.variants.length > 0
+        ) {
+          for (const variant of entry.figma.variants) {
+            const variantName = String(variant.name || '').trim() || 'Variant';
+            const propertiesJson = JSON.stringify(variant.properties || {});
+            if (
+              Buffer.byteLength(propertiesJson, 'utf8') >
+              ComponentRepository.MAX_VARIANT_PROPERTIES_JSON_BYTES
+            ) {
+              console.warn(
+                `[component-repository] Skipping oversized variant properties for component_id=${componentId} variant="${variantName}"`,
+              );
+              continue;
+            }
+            await this.sql`
+              INSERT INTO component_figma_variants (component_id, variant_name, node_id, properties_json, run_id, captured_at, schema_version)
+              VALUES (${componentId}, ${variantName}, ${String(variant.nodeId || '').trim()}, ${propertiesJson}, ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion})
+            `;
           }
         }
 
-        if (entry.figma) {
-          const figmaRunId = String(entry.figma.runId || '').trim() || null;
-          const figmaCapturedAt = Number.isFinite(Number(entry.figma.capturedAtEpoch))
-            ? Number(entry.figma.capturedAtEpoch)
-            : now;
-          const figmaSchemaVersion = Number.isFinite(Number(entry.figma.schemaVersion))
-            ? Number(entry.figma.schemaVersion)
-            : 1;
-          const shouldReplaceStructuredData = ComponentRepository.shouldReplaceStructuredFigmaData(entry.figma);
+        if (
+          shouldReplaceStructuredData &&
+          Array.isArray(entry.figma.tokenBindings) &&
+          entry.figma.tokenBindings.length > 0
+        ) {
+          const seenBindings = new Set<string>();
+          for (const binding of entry.figma.tokenBindings) {
+            const nodeId = String(binding.nodeId || '').trim();
+            const nodeName = String(binding.nodeName || '').trim();
+            const field = String(binding.field || '').trim();
+            const variableId = String(binding.variableId || '').trim();
+            const mode = String(binding.mode || '').trim();
+            if (!nodeId || !nodeName || !field || !variableId) continue;
 
-          if (shouldReplaceStructuredData) {
-            this.db.prepare('DELETE FROM component_figma_variants WHERE component_id = ?').run(componentId);
-            this.db.prepare('DELETE FROM component_figma_token_bindings WHERE component_id = ?').run(componentId);
-            this.db.prepare('DELETE FROM component_figma_layout_rows WHERE component_id = ?').run(componentId);
-          }
+            const variantNodeId = String(binding.variantNodeId || '').trim();
+            const propertyPath = String(binding.propertyPath || field)
+              .trim()
+              .toLowerCase();
+            const modeId = String(binding.modeId || '').trim();
+            const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
+            if (seenBindings.has(dedupeKey)) continue;
+            seenBindings.add(dedupeKey);
 
-          if (shouldReplaceStructuredData && Array.isArray(entry.figma.variants) && entry.figma.variants.length > 0) {
-            const variantStmt = this.db.prepare(`
-              INSERT INTO component_figma_variants (component_id, variant_name, node_id, properties_json, run_id, captured_at, schema_version)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-            `);
-            for (const variant of entry.figma.variants) {
-              const variantName = String(variant.name || '').trim() || 'Variant';
-              const propertiesJson = JSON.stringify(variant.properties || {});
-              if (
-                Buffer.byteLength(propertiesJson, 'utf8') >
-                ComponentRepository.MAX_VARIANT_PROPERTIES_JSON_BYTES
-              ) {
-                console.warn(
-                  `[component-repository] Skipping oversized variant properties for component_id=${componentId} variant="${variantName}"`,
-                );
-                continue;
-              }
-              variantStmt.run(
-                componentId,
-                variantName,
-                String(variant.nodeId || '').trim(),
-                propertiesJson,
-                figmaRunId,
-                figmaCapturedAt,
-                figmaSchemaVersion,
-              );
-            }
-          }
+            const status = binding.status
+              ? binding.status === 'unresolved'
+                ? 'unresolved'
+                : 'resolved'
+              : String(binding.tokenPath || '').trim()
+                ? 'resolved'
+                : 'unresolved';
+            const variantSignature = String(
+              binding.variantSignature || '',
+            ).trim();
+            const modeName = String(binding.modeName || mode).trim();
 
-          if (
-            shouldReplaceStructuredData &&
-            Array.isArray(entry.figma.tokenBindings) &&
-            entry.figma.tokenBindings.length > 0
-          ) {
-            const bindingStmt = this.db.prepare(`
+            await this.sql`
               INSERT INTO component_figma_token_bindings (
                 component_id, node_id, node_name, field, variable_id, token_path, mode,
                 run_id, captured_at, schema_version,
                 variant_node_id, variant_signature, property_path, status, mode_id, mode_name
               )
               VALUES (
-                @component_id, @node_id, @node_name, @field, @variable_id, @token_path, @mode,
-                @run_id, @captured_at, @schema_version,
-                @variant_node_id, @variant_signature, @property_path, @status, @mode_id, @mode_name
+                ${componentId}, ${nodeId}, ${nodeName}, ${field}, ${variableId}, ${String(binding.tokenPath || '').trim() || null}, ${mode},
+                ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion},
+                ${variantNodeId}, ${variantSignature}, ${propertyPath}, ${status}, ${modeId}, ${modeName}
               )
-            `);
-            const seenBindings = new Set<string>();
-            for (const binding of entry.figma.tokenBindings) {
-              const nodeId = String(binding.nodeId || '').trim();
-              const nodeName = String(binding.nodeName || '').trim();
-              const field = String(binding.field || '').trim();
-              const variableId = String(binding.variableId || '').trim();
-              const mode = String(binding.mode || '').trim();
-              if (!nodeId || !nodeName || !field || !variableId) continue;
-
-              // Dedupe key aligned with unique index
-              // (component_id, variant_node_id, node_id, property_path, mode_id, variable_id)
-              const variantNodeId = String(binding.variantNodeId || '').trim();
-              const propertyPath = String(binding.propertyPath || field).trim().toLowerCase();
-              const modeId = String(binding.modeId || '').trim();
-              const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
-              if (seenBindings.has(dedupeKey)) continue;
-              seenBindings.add(dedupeKey);
-
-              const status = binding.status
-                ? (binding.status === 'unresolved' ? 'unresolved' : 'resolved')
-                : (String(binding.tokenPath || '').trim() ? 'resolved' : 'unresolved');
-              const variantSignature = String(binding.variantSignature || '').trim();
-              const modeName = String(binding.modeName || mode).trim();
-
-              bindingStmt.run({
-                component_id: componentId,
-                node_id: nodeId,
-                node_name: nodeName,
-                field,
-                variable_id: variableId,
-                token_path: String(binding.tokenPath || '').trim() || null,
-                mode,
-                run_id: figmaRunId,
-                captured_at: figmaCapturedAt,
-                schema_version: figmaSchemaVersion,
-                variant_node_id: variantNodeId,
-                variant_signature: variantSignature,
-                property_path: propertyPath,
-                status,
-                mode_id: modeId,
-                mode_name: modeName,
-              });
-            }
+            `;
           }
+        }
 
-          if (shouldReplaceStructuredData && Array.isArray(entry.figma.layout) && entry.figma.layout.length > 0) {
-            const layoutStmt = this.db.prepare(`
+        if (
+          shouldReplaceStructuredData &&
+          Array.isArray(entry.figma.layout) &&
+          entry.figma.layout.length > 0
+        ) {
+          for (const rowItem of entry.figma.layout) {
+            const nodeId = String(rowItem.nodeId || '').trim();
+            const nodeName = String(rowItem.nodeName || '').trim();
+            if (!nodeId || !nodeName) continue;
+            await this.sql`
               INSERT INTO component_figma_layout_rows (
                 component_id, node_id, node_name, depth,
                 direction, h_sizing, v_sizing, alignment_h, alignment_v,
                 item_spacing, padding_top, padding_right, padding_bottom, padding_left,
                 run_id, captured_at, schema_version
               )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-            for (const rowItem of entry.figma.layout) {
-              const nodeId = String(rowItem.nodeId || '').trim();
-              const nodeName = String(rowItem.nodeName || '').trim();
-              if (!nodeId || !nodeName) continue;
-              layoutStmt.run(
-                componentId,
-                nodeId,
-                nodeName,
-                Math.max(0, ComponentRepository.toIntOrDefault(rowItem.depth, 0)),
-                String(rowItem.direction || '').trim() || null,
-                String(rowItem.hSizing || '').trim() || null,
-                String(rowItem.vSizing || '').trim() || null,
-                String(rowItem.alignmentH || '').trim() || null,
-                String(rowItem.alignmentV || '').trim() || null,
-                Number.isFinite(Number(rowItem.itemSpacing)) ? Number(rowItem.itemSpacing) : null,
-                rowItem.padding ? Number(rowItem.padding.top) : null,
-                rowItem.padding ? Number(rowItem.padding.right) : null,
-                rowItem.padding ? Number(rowItem.padding.bottom) : null,
-                rowItem.padding ? Number(rowItem.padding.left) : null,
-                figmaRunId,
-                figmaCapturedAt,
-                figmaSchemaVersion,
-              );
-            }
+              VALUES (
+                ${componentId}, ${nodeId}, ${nodeName}, ${Math.max(0, ComponentRepository.toIntOrDefault(rowItem.depth, 0))},
+                ${String(rowItem.direction || '').trim() || null}, ${String(rowItem.hSizing || '').trim() || null}, ${String(rowItem.vSizing || '').trim() || null}, ${String(rowItem.alignmentH || '').trim() || null}, ${String(rowItem.alignmentV || '').trim() || null},
+                ${Number.isFinite(Number(rowItem.itemSpacing)) ? Number(rowItem.itemSpacing) : null}, ${rowItem.padding ? Number(rowItem.padding.top) : null}, ${rowItem.padding ? Number(rowItem.padding.right) : null}, ${rowItem.padding ? Number(rowItem.padding.bottom) : null}, ${rowItem.padding ? Number(rowItem.padding.left) : null},
+                ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion}
+              )
+            `;
           }
+        }
 
-          // Upsert captured properties (Migration 034).
-          // Snapshot semantics: if props are provided (including []), replace all props for the component.
-          if (shouldReplaceStructuredData && Array.isArray(entry.figma.props)) {
-            this.db.prepare('DELETE FROM component_figma_props WHERE component_id = ?').run(componentId);
-            if (entry.figma.props.length > 0) {
-              const propStmt = this.db.prepare(`
+        if (shouldReplaceStructuredData && Array.isArray(entry.figma.props)) {
+          await this
+            .sql`DELETE FROM component_figma_props WHERE component_id = ${componentId}`;
+          if (entry.figma.props.length > 0) {
+            for (const prop of entry.figma.props) {
+              const propName = String(prop.name || '').trim();
+              if (!propName) continue;
+              await this.sql`
                 INSERT INTO component_figma_props (
                   component_id, prop_name, prop_type, prop_values_json, prop_default,
                   prop_required, prop_description, run_id, captured_at, schema_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `);
-              for (const prop of entry.figma.props) {
-                const propName = String(prop.name || '').trim();
-                if (!propName) continue;
-                propStmt.run(
-                  componentId,
-                  propName,
-                  prop.type || 'text',
-                  Array.isArray(prop.values) ? JSON.stringify(prop.values) : null,
-                  prop.defaultValue !== undefined ? JSON.stringify(prop.defaultValue) : null,
-                  prop.required ? 1 : 0,
-                  String(prop.description || '').trim(),
-                  figmaRunId,
-                  figmaCapturedAt,
-                  figmaSchemaVersion,
-                );
-              }
+                VALUES (
+                  ${componentId}, ${propName}, ${prop.type || 'text'},
+                  ${Array.isArray(prop.values) ? JSON.stringify(prop.values) : null},
+                  ${prop.defaultValue !== undefined ? JSON.stringify(prop.defaultValue) : null},
+                  ${prop.required ?? false}, ${String(prop.description || '').trim()},
+                  ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion}
+                )
+              `;
             }
           }
         }
       }
+    }
 
-      return upsertedCount;
-    });
-
-    return tx();
+    return upsertedCount;
   }
 
-  /**
-   * Delete all components for a design system
-   */
-  deleteAll(dsId: string): number {
-    const result = this.db.prepare('DELETE FROM components WHERE ds_id = ?').run(dsId);
-    return result.changes;
+  async deleteAll(dsId: string): Promise<number> {
+    const result = await this.sql`DELETE FROM components WHERE ds_id = ${dsId}`;
+    return result.count ?? 0;
   }
 
-  /**
-   * Mark components as missing if they exist in DB but not in provided slugs
-   */
-  markMissingComponents(dsId: string, existingSlugs: string[]): number {
+  async markMissingComponents(
+    dsId: string,
+    existingSlugs: string[],
+  ): Promise<number> {
     if (existingSlugs.length === 0) {
-      const result = this.db
-        .prepare(`
-          UPDATE components
-          SET status = 'missing', updated_at = strftime('%s', 'now')
-          WHERE ds_id = ? AND status != 'missing'
-        `)
-        .run(dsId);
-      return result.changes;
+      const result = await this.sql`
+        UPDATE components
+        SET status = 'missing', updated_at = now()
+        WHERE ds_id = ${dsId} AND status != 'missing'
+      `;
+      return result.count ?? 0;
     }
 
     const existingSlugSet = new Set(existingSlugs);
-    const activeRows = this.db
-      .prepare(`
-        SELECT slug
-        FROM components
-        WHERE ds_id = ? AND status != 'missing'
-      `)
-      .all(dsId) as Array<{ slug: string }>;
+    const activeRows = (await this.sql`
+      SELECT slug
+      FROM components
+      WHERE ds_id = ${dsId} AND status != 'missing'
+    `) as Array<{ slug: string }>;
 
     const missingSlugs = activeRows
       .map((row) => row.slug)
@@ -1398,86 +1375,93 @@ export class ComponentRepository {
     }
 
     let changed = 0;
-    for (let i = 0; i < missingSlugs.length; i += ComponentRepository.IN_BATCH_SIZE) {
-      const batch = missingSlugs.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
-      const placeholders = batch.map(() => '?').join(', ');
-      const result = this.db
-        .prepare(`
-          UPDATE components
-          SET status = 'missing', updated_at = strftime('%s', 'now')
-          WHERE ds_id = ? AND slug IN (${placeholders}) AND status != 'missing'
-        `)
-        .run(dsId, ...batch);
-      changed += result.changes;
+    for (
+      let i = 0;
+      i < missingSlugs.length;
+      i += ComponentRepository.IN_BATCH_SIZE
+    ) {
+      const batch = missingSlugs.slice(
+        i,
+        i + ComponentRepository.IN_BATCH_SIZE,
+      );
+      const result = await this.sql`
+        UPDATE components
+        SET status = 'missing', updated_at = now()
+        WHERE ds_id = ${dsId}
+          AND slug = ANY(${batch})
+          AND status != 'missing'
+      `;
+      changed += result.count ?? 0;
     }
     return changed;
   }
 
-  /**
-   * Resolve component ID from slug (scoped to active system).
-   */
-  getComponentIdBySlug(slug: string, dsId?: string): number | null {
-    const row = dsId
-      ? this.db.prepare(`
-      SELECT id FROM components WHERE ds_id = ? AND slug = ? LIMIT 1
-    `).get(dsId, slug) as { id: number } | undefined
-      : this.db.prepare(`
-      SELECT id FROM components WHERE slug = ? ORDER BY updated_at DESC LIMIT 1
-    `).get(slug) as { id: number } | undefined;
-    return row?.id ?? null;
-  }
-
-  /**
-   * S-01: Fetch basic component info for doc assembly.
-   * Note: display_name column does not exist in schema yet — returns null always.
-   */
-  getComponentBasicInfo(componentId: number): ComponentBasicInfo | null {
-    const row = this.db.prepare(`
-      SELECT name, figma_component_set_node_id FROM components WHERE id = ?
-    `).get(componentId) as { name: string; figma_component_set_node_id: string | null } | undefined;
-    if (!row) return null;
-    return { name: row.name, displayName: null, figmaComponentSetNodeId: row.figma_component_set_node_id ?? null };
-  }
-
-  /**
-   * Resolve component by Figma component set node id.
-   * If dsId is provided, resolution is scoped to that design system.
-   */
-  getComponentByFigmaNodeId(
-    figmaComponentSetNodeId: string,
+  async getComponentIdBySlug(
+    slug: string,
     dsId?: string,
-  ): { id: number; slug: string } | null {
+  ): Promise<number | null> {
     if (dsId) {
-      const row = this.db.prepare(`
-        SELECT id, slug
-        FROM components
-        WHERE ds_id = ? AND figma_component_set_node_id = ? AND status != 'missing'
-        LIMIT 1
-      `).get(dsId, figmaComponentSetNodeId) as { id: number; slug: string } | undefined;
-      return row ?? null;
+      const rows = (await this.sql`
+        SELECT id FROM components WHERE ds_id = ${dsId} AND slug = ${slug} LIMIT 1
+      `) as Array<{ id: number | string }>;
+      return rows.length > 0 ? Number(rows[0].id) : null;
     }
 
-    const row = this.db.prepare(`
-      SELECT id, slug
-      FROM components
-      WHERE figma_component_set_node_id = ? AND status != 'missing'
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `).get(figmaComponentSetNodeId) as { id: number; slug: string } | undefined;
-    return row ?? null;
+    const rows = (await this.sql`
+      SELECT id FROM components WHERE slug = ${slug} ORDER BY updated_at DESC LIMIT 1
+    `) as Array<{ id: number | string }>;
+    return rows.length > 0 ? Number(rows[0].id) : null;
   }
 
-  /**
-   * Compute DB-based staleness for a component.
-   * Compares component_editorial.updated_at vs latest component_figma_variants.captured_at.
-   * Returns 'fresh', 'stale', or 'missing'.
-   */
-  getComponentDocStaleness(componentId: number): {
+  async getComponentBasicInfo(
+    componentId: number,
+  ): Promise<ComponentBasicInfo | null> {
+    const rows = (await this.sql`
+      SELECT name, figma_component_set_node_id FROM components WHERE id = ${componentId}
+    `) as Array<{ name: string; figma_component_set_node_id: string | null }>;
+
+    if (rows.length === 0) return null;
+    return {
+      name: rows[0].name,
+      displayName: null,
+      figmaComponentSetNodeId: rows[0].figma_component_set_node_id ?? null,
+    };
+  }
+
+  async getComponentByFigmaNodeId(
+    figmaComponentSetNodeId: string,
+    dsId?: string,
+  ): Promise<{ id: number; slug: string } | null> {
+    if (dsId) {
+      const rows = (await this.sql`
+        SELECT id, slug
+        FROM components
+        WHERE ds_id = ${dsId} AND figma_component_set_node_id = ${figmaComponentSetNodeId} AND status != 'missing'
+        LIMIT 1
+      `) as Array<{ id: number | string; slug: string }>;
+      return rows.length > 0
+        ? { id: Number(rows[0].id), slug: rows[0].slug }
+        : null;
+    }
+
+    const rows = (await this.sql`
+      SELECT id, slug
+      FROM components
+      WHERE figma_component_set_node_id = ${figmaComponentSetNodeId} AND status != 'missing'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `) as Array<{ id: number | string; slug: string }>;
+    return rows.length > 0
+      ? { id: Number(rows[0].id), slug: rows[0].slug }
+      : null;
+  }
+
+  async getComponentDocStaleness(componentId: number): Promise<{
     status: 'fresh' | 'stale' | 'missing';
-    editorialUpdatedAt: number | null;
-    capturedAt: number | null;
-  } {
-    const stmt = this.db.prepare(`
+    editorialUpdatedAt: Date | null;
+    capturedAt: Date | null;
+  }> {
+    const rows = (await this.sql`
       SELECT
         e.updated_at AS editorial_updated_at,
         v.latest_captured_at AS captured_at
@@ -1488,181 +1472,152 @@ export class ComponentRepository {
         FROM component_figma_variants
         GROUP BY component_id
       ) v ON v.component_id = c.id
-      WHERE c.id = ?
-    `);
-    const row = stmt.get(componentId) as {
-      editorial_updated_at: number | null;
-      captured_at: number | null;
-    } | undefined;
+      WHERE c.id = ${componentId}
+    `) as Array<{
+      editorial_updated_at: Date | null;
+      captured_at: Date | null;
+    }>;
 
-    if (!row) {
+    if (rows.length === 0) {
       return { status: 'missing', editorialUpdatedAt: null, capturedAt: null };
     }
 
+    const row = rows[0];
     const editorialUpdatedAt = row.editorial_updated_at ?? null;
     const capturedAt = row.captured_at ?? null;
-    const editorialUpdatedAtMs = editorialUpdatedAt ? editorialUpdatedAt * 1000 : null;
-    const capturedAtMs = capturedAt ? capturedAt * 1000 : null;
 
     if (!capturedAt) {
       return {
         status: editorialUpdatedAt ? 'fresh' : 'missing',
-        editorialUpdatedAt: editorialUpdatedAtMs,
+        editorialUpdatedAt,
         capturedAt: null,
       };
     }
 
     if (!editorialUpdatedAt) {
-      return { status: 'missing', editorialUpdatedAt: null, capturedAt: capturedAtMs };
+      return { status: 'missing', editorialUpdatedAt: null, capturedAt };
     }
 
-    // Both are in seconds (strftime('%s', 'now'))
     return {
       status: editorialUpdatedAt >= capturedAt ? 'fresh' : 'stale',
-      editorialUpdatedAt: editorialUpdatedAtMs,
-      capturedAt: capturedAtMs,
+      editorialUpdatedAt,
+      capturedAt,
     };
   }
 
-  /**
-   * Compute DB-based staleness for all components in a single query.
-   * Optionally scoped to a design system id.
-   */
-  listComponentDocStaleness(dsId?: string): Array<{
-    id: number;
-    slug: string;
-    status: 'fresh' | 'stale' | 'missing';
-    editorialUpdatedAt: number | null;
-    capturedAt: number | null;
-  }> {
-    const rows = (dsId
-      ? this.db.prepare(`
-      SELECT
-        c.id,
-        c.slug,
-        e.updated_at AS editorial_updated_at,
-        v.latest_captured_at AS captured_at
-      FROM components c
-      LEFT JOIN component_editorial e ON e.component_id = c.id
-      LEFT JOIN (
-        SELECT component_id, MAX(captured_at) AS latest_captured_at
-        FROM component_figma_variants
-        GROUP BY component_id
-      ) v ON v.component_id = c.id
-      WHERE c.status != 'missing' AND c.ds_id = ?
-    `).all(dsId)
-      : this.db.prepare(`
-      SELECT
-        c.id,
-        c.slug,
-        e.updated_at AS editorial_updated_at,
-        v.latest_captured_at AS captured_at
-      FROM components c
-      LEFT JOIN component_editorial e ON e.component_id = c.id
-      LEFT JOIN (
-        SELECT component_id, MAX(captured_at) AS latest_captured_at
-        FROM component_figma_variants
-        GROUP BY component_id
-      ) v ON v.component_id = c.id
-      WHERE c.status != 'missing'
-    `).all()) as Array<{
-        id: number;
-        slug: string;
-        editorial_updated_at: number | null;
-        captured_at: number | null;
-      }>;
+  async listComponentDocStaleness(dsId?: string): Promise<
+    Array<{
+      id: number;
+      slug: string;
+      status: 'fresh' | 'stale' | 'missing';
+      editorialUpdatedAt: Date | null;
+      capturedAt: Date | null;
+    }>
+  > {
+    const rows = dsId
+      ? await this.sql`
+        SELECT
+          c.id,
+          c.slug,
+          e.updated_at AS editorial_updated_at,
+          v.latest_captured_at AS captured_at
+        FROM components c
+        LEFT JOIN component_editorial e ON e.component_id = c.id
+        LEFT JOIN (
+          SELECT component_id, MAX(captured_at) AS latest_captured_at
+          FROM component_figma_variants
+          GROUP BY component_id
+        ) v ON v.component_id = c.id
+        WHERE c.status != 'missing' AND c.ds_id = ${dsId}
+      `
+      : await this.sql`
+        SELECT
+          c.id,
+          c.slug,
+          e.updated_at AS editorial_updated_at,
+          v.latest_captured_at AS captured_at
+        FROM components c
+        LEFT JOIN component_editorial e ON e.component_id = c.id
+        LEFT JOIN (
+          SELECT component_id, MAX(captured_at) AS latest_captured_at
+          FROM component_figma_variants
+          GROUP BY component_id
+        ) v ON v.component_id = c.id
+        WHERE c.status != 'missing'
+      `;
 
     return rows.map((row) => {
-      const editorialUpdatedAtMs = row.editorial_updated_at
-        ? row.editorial_updated_at * 1000
-        : null;
-      const capturedAtMs = row.captured_at ? row.captured_at * 1000 : null;
-
       let status: 'fresh' | 'stale' | 'missing';
       if (!row.captured_at) {
         status = row.editorial_updated_at ? 'fresh' : 'missing';
       } else if (!row.editorial_updated_at) {
         status = 'missing';
       } else {
-        status = row.editorial_updated_at >= row.captured_at ? 'fresh' : 'stale';
+        status =
+          row.editorial_updated_at >= row.captured_at ? 'fresh' : 'stale';
       }
 
       return {
         id: row.id,
         slug: row.slug,
         status,
-        editorialUpdatedAt: editorialUpdatedAtMs,
-        capturedAt: capturedAtMs,
+        editorialUpdatedAt: row.editorial_updated_at,
+        capturedAt: row.captured_at,
       };
     });
   }
 
-  /**
-   * Get the Figma component set node ID for a component.
-   * Used by routes that need to call Figma bridge for a known component.
-   */
-  getFigmaComponentSetNodeId(componentId: number): string | null {
-    const row = this.db.prepare(`
-      SELECT figma_component_set_node_id FROM components WHERE id = ?
-    `).get(componentId) as { figma_component_set_node_id: string | null } | undefined;
-    return row?.figma_component_set_node_id ?? null;
+  async getFigmaComponentSetNodeId(
+    componentId: number,
+  ): Promise<string | null> {
+    const rows = (await this.sql`
+      SELECT figma_component_set_node_id FROM components WHERE id = ${componentId}
+    `) as Array<{ figma_component_set_node_id: string | null }>;
+    return rows.length > 0
+      ? (rows[0].figma_component_set_node_id ?? null)
+      : null;
   }
 
-  /**
-   * Get the stored Figma file URL for a component.
-   */
-  getFigmaFileUrl(componentId: number): string | null {
-    const row = this.db.prepare(`
-      SELECT figma_file_url FROM components WHERE id = ?
-    `).get(componentId) as { figma_file_url: string | null } | undefined;
-    return row?.figma_file_url ?? null;
+  async getFigmaFileUrl(componentId: number): Promise<string | null> {
+    const rows = (await this.sql`
+      SELECT figma_file_url FROM components WHERE id = ${componentId}
+    `) as Array<{ figma_file_url: string | null }>;
+    return rows.length > 0 ? (rows[0].figma_file_url ?? null) : null;
   }
 
-  /**
-   * S-11: Compute doc status from component_docs table (independent of editorial metadata).
-   *
-   * Logic:
-   * - If a row exists in component_docs → check applied_at vs figma_descriptions_synced_at
-   *   - applied_at >= synced_at → 'fresh'
-   *   - applied_at < synced_at  → 'stale'
-   * - No row in component_docs → 'missing'
-   */
-  listDocStatusFromComponentDocs(dsId?: string): Array<{
-    id: number;
-    slug: string;
-    status: 'fresh' | 'stale' | 'missing';
-    appliedAt: number | null;
-  }> {
-    const rows = (dsId
-      ? this.db.prepare(`
-      SELECT
-        c.id,
-        c.slug,
-        cd.applied_at AS applied_at,
-        c.figma_descriptions_synced_at AS synced_at
-      FROM components c
-      LEFT JOIN component_docs cd ON cd.component_id = c.id
-      WHERE c.status != 'missing' AND c.ds_id = ?
-      ORDER BY c.slug ASC
-    `).all(dsId)
-      : this.db.prepare(`
-      SELECT
-        c.id,
-        c.slug,
-        cd.applied_at AS applied_at,
-        c.figma_descriptions_synced_at AS synced_at
-      FROM components c
-      LEFT JOIN component_docs cd ON cd.component_id = c.id
-      WHERE c.status != 'missing'
-      ORDER BY c.slug ASC
-    `).all()) as Array<{
-        id: number;
-        slug: string;
-        applied_at: number | null;
-        synced_at: number | null;
-      }>;
+  async listDocStatusFromComponentDocs(dsId?: string): Promise<
+    Array<{
+      id: number;
+      slug: string;
+      status: 'fresh' | 'stale' | 'missing';
+      appliedAt: Date | null;
+    }>
+  > {
+    const rows = dsId
+      ? await this.sql`
+        SELECT
+          c.id,
+          c.slug,
+          cd.applied_at AS applied_at,
+          c.figma_descriptions_synced_at AS synced_at
+        FROM components c
+        LEFT JOIN component_docs cd ON cd.component_id = c.id
+        WHERE c.status != 'missing' AND c.ds_id = ${dsId}
+        ORDER BY c.slug ASC
+      `
+      : await this.sql`
+        SELECT
+          c.id,
+          c.slug,
+          cd.applied_at AS applied_at,
+          c.figma_descriptions_synced_at AS synced_at
+        FROM components c
+        LEFT JOIN component_docs cd ON cd.component_id = c.id
+        WHERE c.status != 'missing'
+        ORDER BY c.slug ASC
+      `;
 
-    return rows.map(row => {
+    return rows.map((row) => {
       let status: 'fresh' | 'stale' | 'missing';
       if (row.applied_at == null) {
         status = 'missing';
@@ -1681,56 +1636,39 @@ export class ComponentRepository {
     });
   }
 
-  // ===========================================================================
-  // S-03: Figma descriptions CRUD (component_figma_variants + components)
-  // ===========================================================================
-
-  /**
-   * Save Figma descriptions (component set description + variant descriptions)
-   * and update figma_descriptions_synced_at on the components row.
-   */
-  saveFigmaDescriptions(
+  async saveFigmaDescriptions(
     componentId: number,
     data: {
       componentSet: string | null;
       syncedAt: number;
-      variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }>;
+      variants: Array<{
+        nodeId: string;
+        canonicalKey: string;
+        description: string | null;
+      }>;
     },
-  ): void {
-    const tx = this.db.transaction(() => {
-      // Update component set description + synced_at
-      this.db.prepare(`
-        UPDATE components
-        SET figma_description = ?, figma_descriptions_synced_at = ?
-        WHERE id = ?
-      `).run(data.componentSet ?? null, data.syncedAt, componentId);
+  ): Promise<void> {
+    const syncedAt = new Date(data.syncedAt * 1000);
 
-      // Upsert variants
-      // NOTE: variant_name is TEXT NOT NULL in the schema; we use canonicalKey
-      // as the variant_name since it uniquely identifies the variant properties.
-      // ON CONFLICT must match the UNIQUE(component_id, variant_name, node_id).
-      const upsert = this.db.prepare(`
+    await this.sql`
+      UPDATE components
+      SET figma_description = ${data.componentSet ?? null}, figma_descriptions_synced_at = ${syncedAt}
+      WHERE id = ${componentId}
+    `;
+
+    for (const v of data.variants) {
+      const vName = v.canonicalKey || '';
+      await this.sql`
         INSERT INTO component_figma_variants (component_id, node_id, variant_name, canonical_key, description)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (${componentId}, ${v.nodeId}, ${vName}, ${v.canonicalKey || null}, ${v.description ?? null})
         ON CONFLICT(component_id, variant_name, node_id) DO UPDATE SET
           canonical_key = EXCLUDED.canonical_key,
           description = EXCLUDED.description
-      `);
-
-      for (const v of data.variants) {
-        const vName = v.canonicalKey || '';
-        upsert.run(componentId, v.nodeId, vName, v.canonicalKey || null, v.description ?? null);
-      }
-    });
-    tx();
+      `;
+    }
   }
 
-  /**
-   * Replace all token bindings for a component with the provided set.
-   * Used when enriching a component on-demand (e.g. during AI doc generation)
-   * without running a full Figma sync.
-   */
-  saveTokenBindingsForComponent(
+  async saveTokenBindingsForComponent(
     componentId: number,
     bindings: Array<{
       nodeId: string;
@@ -1745,135 +1683,124 @@ export class ComponentRepository {
       modeId?: string;
       modeName?: string;
     }>,
-  ): void {
-    const now = Math.floor(Date.now() / 1000);
-    const tx = this.db.transaction(() => {
-      this.db.prepare('DELETE FROM component_figma_token_bindings WHERE component_id = ?').run(componentId);
-      const stmt = this.db.prepare(`
+  ): Promise<void> {
+    const now = new Date();
+
+    await this
+      .sql`DELETE FROM component_figma_token_bindings WHERE component_id = ${componentId}`;
+
+    const seen = new Set<string>();
+    for (const b of bindings) {
+      const nodeId = String(b.nodeId || '').trim();
+      const nodeName = String(b.nodeName || '').trim();
+      const field = String(b.field || '').trim();
+      const variableId = String(b.variableId || '').trim();
+      if (!nodeId || !nodeName || !field || !variableId) continue;
+      const variantNodeId = String(b.variantNodeId || '').trim();
+      const propertyPath = String(b.propertyPath || field)
+        .trim()
+        .toLowerCase();
+      const modeId = String(b.modeId || '').trim();
+      const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      const status = b.status
+        ? b.status === 'unresolved'
+          ? 'unresolved'
+          : 'resolved'
+        : String(b.tokenPath || '').trim()
+          ? 'resolved'
+          : 'unresolved';
+
+      await this.sql`
         INSERT INTO component_figma_token_bindings (
           component_id, node_id, node_name, field, variable_id, token_path, mode,
           run_id, captured_at, schema_version,
           variant_node_id, variant_signature, property_path, status, mode_id, mode_name
         )
         VALUES (
-          @component_id, @node_id, @node_name, @field, @variable_id, @token_path, @mode,
-          @run_id, @captured_at, @schema_version,
-          @variant_node_id, @variant_signature, @property_path, @status, @mode_id, @mode_name
+          ${componentId}, ${nodeId}, ${nodeName}, ${field}, ${variableId}, ${b.tokenPath ?? null}, '',
+          null, ${now}, 1,
+          ${variantNodeId}, ${String(b.variantSignature || '').trim()}, ${propertyPath}, ${status}, ${modeId}, ${String(b.modeName || '').trim()}
         )
-      `);
-      const seen = new Set<string>();
-      for (const b of bindings) {
-        const nodeId = String(b.nodeId || '').trim();
-        const nodeName = String(b.nodeName || '').trim();
-        const field = String(b.field || '').trim();
-        const variableId = String(b.variableId || '').trim();
-        if (!nodeId || !nodeName || !field || !variableId) continue;
-        const variantNodeId = String(b.variantNodeId || '').trim();
-        const propertyPath = String(b.propertyPath || field).trim().toLowerCase();
-        const modeId = String(b.modeId || '').trim();
-        const dedupeKey = `${variantNodeId}\x00${nodeId}\x00${propertyPath}\x00${modeId}\x00${variableId}`;
-        if (seen.has(dedupeKey)) continue;
-        seen.add(dedupeKey);
-        const status = b.status
-          ? (b.status === 'unresolved' ? 'unresolved' : 'resolved')
-          : (String(b.tokenPath || '').trim() ? 'resolved' : 'unresolved');
-        stmt.run({
-          component_id: componentId,
-          node_id: nodeId,
-          node_name: nodeName,
-          field,
-          variable_id: variableId,
-          token_path: b.tokenPath ?? null,
-          mode: '',
-          run_id: null,
-          captured_at: now,
-          schema_version: 1,
-          variant_node_id: variantNodeId,
-          variant_signature: String(b.variantSignature || '').trim(),
-          property_path: propertyPath,
-          status,
-          mode_id: modeId,
-          mode_name: String(b.modeName || '').trim(),
-        });
-      }
-    });
-    tx();
+      `;
+    }
   }
 
-  /**
-   * Get Figma descriptions for a component.
-   * Returns null if no descriptions have ever been synced.
-   */
-  getFigmaDescriptions(
+  async getFigmaDescriptions(
     componentId: number,
-  ): FigmaDescriptionsRawResult | null {
-    const compRow = this.db.prepare(`
+  ): Promise<FigmaDescriptionsRawResult | null> {
+    const compRows = (await this.sql`
       SELECT figma_description, figma_descriptions_synced_at
       FROM components
-      WHERE id = ?
-    `).get(componentId) as { figma_description: string | null; figma_descriptions_synced_at: number | null } | undefined;
+      WHERE id = ${componentId}
+    `) as Array<{
+      figma_description: string | null;
+      figma_descriptions_synced_at: Date | null;
+    }>;
 
-    if (!compRow || compRow.figma_descriptions_synced_at == null) return null;
+    if (
+      compRows.length === 0 ||
+      compRows[0].figma_descriptions_synced_at == null
+    )
+      return null;
 
-    const variantRows = this.db.prepare(`
+    const variantRows = (await this.sql`
       SELECT node_id, canonical_key, description
       FROM component_figma_variants
-      WHERE component_id = ?
+      WHERE component_id = ${componentId}
       ORDER BY id ASC
-    `).all(componentId) as Array<{ node_id: string; canonical_key: string | null; description: string | null }>;
+    `) as Array<{
+      node_id: string;
+      canonical_key: string | null;
+      description: string | null;
+    }>;
 
     return {
-      componentSet: compRow.figma_description ?? null,
-      variants: variantRows.map(v => ({
+      componentSet: compRows[0].figma_description ?? null,
+      variants: variantRows.map((v) => ({
         nodeId: v.node_id,
         canonicalKey: v.canonical_key ?? '',
         description: v.description ?? null,
       })),
-      syncedAt: compRow.figma_descriptions_synced_at,
+      syncedAt: compRows[0].figma_descriptions_synced_at,
     };
   }
 
-  // ===========================================================================
-  // S-03: Component docs CRUD (component_docs table)
-  // ===========================================================================
-
-  /**
-   * Save or replace an AI-generated component doc.
-   */
-  saveComponentDoc(
+  async saveComponentDoc(
     componentId: number,
     data: { outputJson: string; editorialJson?: string | null; jobId: string },
-  ): void {
-    this.db.prepare(`
-      INSERT INTO component_docs (component_id, output_json, editorial_json, job_id)
-      VALUES (?, ?, ?, ?)
+  ): Promise<void> {
+    await this.sql`
+      INSERT INTO component_docs (component_id, output_json, editorial_json, job_id, applied_at)
+      VALUES (${componentId}, ${data.outputJson}, ${data.editorialJson ?? null}, ${data.jobId}, now())
       ON CONFLICT(component_id) DO UPDATE SET
         output_json = EXCLUDED.output_json,
         editorial_json = EXCLUDED.editorial_json,
         job_id = EXCLUDED.job_id,
-        applied_at = strftime('%s', 'now')
-    `).run(componentId, data.outputJson, data.editorialJson ?? null, data.jobId);
+        applied_at = now()
+    `;
   }
 
-  /**
-   * Get the AI-generated doc for a component, or null if none exists.
-   */
-  getComponentDoc(componentId: number): ComponentDocRecord | null {
-    const row = this.db.prepare(`
+  async getComponentDoc(
+    componentId: number,
+  ): Promise<ComponentDocRecord | null> {
+    const rows = (await this.sql`
       SELECT id, component_id, output_json, editorial_json, job_id, applied_at
       FROM component_docs
-      WHERE component_id = ?
-    `).get(componentId) as {
+      WHERE component_id = ${componentId}
+    `) as Array<{
       id: number;
       component_id: number;
       output_json: string;
       editorial_json: string | null;
       job_id: string | null;
-      applied_at: number;
-    } | undefined;
+      applied_at: Date;
+    }>;
 
-    if (!row) return null;
+    if (rows.length === 0) return null;
 
+    const row = rows[0];
     return {
       id: row.id,
       componentId: row.component_id,
@@ -1885,28 +1812,21 @@ export class ComponentRepository {
   }
 }
 
-// ===========================================================================
-// S-03: Exported types for Figma descriptions resolution
-// ===========================================================================
-
-/**
- * Raw DB result for Figma descriptions (no staleness computed).
- * See services/figma-descriptions-resolver.ts for the enriched type.
- */
 export interface FigmaDescriptionsRawResult {
   componentSet: string | null;
-  variants: Array<{ nodeId: string; canonicalKey: string; description: string | null }>;
-  syncedAt: number | null;
+  variants: Array<{
+    nodeId: string;
+    canonicalKey: string;
+    description: string | null;
+  }>;
+  syncedAt: Date | null;
 }
 
-/**
- * A stored AI-generated component doc row.
- */
 export interface ComponentDocRecord {
   id: number;
   componentId: number;
   outputJson: string;
   editorialJson: string | null;
   jobId: string | null;
-  appliedAt: number;
+  appliedAt: Date;
 }

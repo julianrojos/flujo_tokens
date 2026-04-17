@@ -64,7 +64,7 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
   let componentId: number | null = null;
 
   try {
-    componentId = componentRepo.getComponentIdBySlug(slug, dsId);
+    componentId = await componentRepo.getComponentIdBySlug(slug, dsId);
   } catch (error) {
     console.error('[component-docs-route] Failed to resolve component by slug', {
       slug,
@@ -86,7 +86,9 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
   }
 
   // Check if descriptions are stale
-  const existingDescriptions = componentRepo.getFigmaDescriptions(componentId);
+  const existingDescriptions = await componentRepo.getFigmaDescriptions(
+    componentId,
+  );
   const nowSec = Math.floor(Date.now() / 1000);
   const isStale =
     existingDescriptions == null ||
@@ -112,7 +114,7 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
   }
 
   // Get the (possibly updated) descriptions
-  const dbDescriptions = componentRepo.getFigmaDescriptions(componentId);
+  const dbDescriptions = await componentRepo.getFigmaDescriptions(componentId);
   const figmaDescriptions = resolveDescriptionsForRender(dbDescriptions);
 
   // Build raw descriptions payload for UI display
@@ -126,7 +128,11 @@ async function handleGetDocsMarkdown(c: Context, deps: ComponentDocsRouteDeps): 
 
   // Assemble ComponentDocOutput from DB (handles missing AI doc, corrupt JSON, etc.)
   // Pass dbDescriptions to avoid duplicate getFigmaDescriptions call inside assembler
-  const { output, editorialPatch, warnings } = buildDocOutputFromDb(componentId, componentRepo, dbDescriptions);
+  const { output, editorialPatch, warnings } = await buildDocOutputFromDb(
+    componentId,
+    componentRepo,
+    dbDescriptions,
+  );
 
   // Render markdown — always produces a string
   const markdown = renderComponentDoc({ output, editorialPatch }, figmaDescriptions);
@@ -149,7 +155,7 @@ async function syncDescriptionsFromFigma(
   componentRepo: ComponentRepository,
   componentId: number,
 ): Promise<boolean> {
-  const nodeId = componentRepo.getFigmaComponentSetNodeId(componentId);
+  const nodeId = await componentRepo.getFigmaComponentSetNodeId(componentId);
   if (!nodeId) return false;
 
   // Resolve Figma file key:
@@ -162,7 +168,7 @@ async function syncDescriptionsFromFigma(
 
   if (!isFileKeySuccess(resolved)) {
     // Fallback: extract fileKey from the component's stored figma_file_url
-    const figmaUrl = componentRepo.getFigmaFileUrl(componentId) ?? '';
+    const figmaUrl = (await componentRepo.getFigmaFileUrl(componentId)) ?? '';
     const fileKey = extractFileKey(figmaUrl);
     if (!fileKey) return false;
 
@@ -182,7 +188,11 @@ async function syncDescriptionsFromFigma(
     description: v.description ?? null,
   }));
 
-  componentRepo.saveFigmaDescriptions(componentId, { componentSet: componentSetDesc, syncedAt, variants });
+  await componentRepo.saveFigmaDescriptions(componentId, {
+    componentSet: componentSetDesc,
+    syncedAt,
+    variants,
+  });
   return true;
 }
 

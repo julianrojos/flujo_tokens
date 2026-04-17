@@ -56,11 +56,11 @@ export interface DocStatusResult {
  *   - applied_at < synced_at  → stale
  * - No component_docs row → missing
  */
-export function computeDocStatusesDb(
+export async function computeDocStatusesDb(
     componentRepo: ComponentRepository,
     dsId?: string,
-): DocStatusResult {
-    const snapshots = componentRepo.listDocStatusFromComponentDocs(dsId);
+): Promise<DocStatusResult> {
+    const snapshots = await componentRepo.listDocStatusFromComponentDocs(dsId);
 
     return {
         connected: true,
@@ -92,7 +92,7 @@ export async function computeDocStatuses(
     opts?: { componentRepo?: ComponentRepository },
 ): Promise<DocStatusResult> {
     if (opts?.componentRepo) {
-        return computeDocStatusesDb(opts.componentRepo);
+        return await computeDocStatusesDb(opts.componentRepo);
     }
     // No DB available — return empty result (filesystem scan removed in S-11)
     return {

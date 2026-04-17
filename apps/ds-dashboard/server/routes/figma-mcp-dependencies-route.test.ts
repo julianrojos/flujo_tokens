@@ -4,101 +4,29 @@
 
 import assert from 'node:assert/strict';
 import { test, describe, beforeEach, afterEach } from 'node:test';
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 import { Hono } from 'hono';
 
-import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.ts';
+import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DependencySyncService } from '../services/dependency-sync-service.js';
 import { DependencyAnalysisService } from '../services/dependency-analysis-service.js';
 import { DependencySimulateService } from '../services/dependency-simulate-service.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 
 describe('figma-mcp-dependencies-route', () => {
-  let db: Database.Database;
+  let sql: Sql;
+  let cleanup: () => Promise<void>;
   let repository: DependencyRepository;
   let syncService: DependencySyncService;
   let analysisService: DependencyAnalysisService;
   let simulateService: DependencySimulateService;
   let app: Hono;
 
-  beforeEach(() => {
-    db = new Database(':memory:');
+  beforeEach(async () => {
+    ({ sql, cleanup } = await createTestDatabase());
 
-    // Apply migrations to create tables
-    db.exec(`
-      CREATE TABLE ds_consumers (
-        id TEXT PRIMARY KEY,
-        ds_file_key TEXT NOT NULL,
-        consumer_file_key TEXT NOT NULL,
-        consumer_name TEXT NOT NULL,
-        enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        UNIQUE (ds_file_key, consumer_file_key)
-      );
-
-      CREATE TABLE ds_sync_runs (
-        id TEXT PRIMARY KEY,
-        consumer_id TEXT NOT NULL,
-        synced_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        duration_ms INTEGER NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'partial', 'skipped')),
-        error_message TEXT,
-        ds_last_modified TEXT,
-        consumer_last_modified TEXT,
-        component_count INTEGER NOT NULL DEFAULT 0,
-        variable_count INTEGER NOT NULL DEFAULT 0,
-        warning_count INTEGER NOT NULL DEFAULT 0,
-        local_component_defined_count INTEGER DEFAULT NULL,
-        local_component_used_count INTEGER DEFAULT NULL,
-        local_variable_defined_count INTEGER DEFAULT NULL,
-        local_variable_used_count INTEGER DEFAULT NULL,
-        FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_component_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        component_key TEXT NOT NULL,
-        component_name TEXT NOT NULL,
-        instance_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_variable_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        variable_key TEXT NOT NULL,
-        variable_name TEXT NOT NULL,
-        variable_type TEXT NOT NULL,
-        node_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_parent_variable_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ds_file_key TEXT NOT NULL,
-        variable_key TEXT NOT NULL,
-        variable_name TEXT NOT NULL,
-        variable_type TEXT NOT NULL,
-        node_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        UNIQUE (ds_file_key, variable_key)
-      );
-
-      CREATE TABLE ds_sync_warnings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        code TEXT NOT NULL,
-        message TEXT NOT NULL,
-        node_id TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-    `);
-
-    repository = new DependencyRepository(db);
+    repository = new DependencyRepository(sql);
 
     // Mock system config
     const mockSystemConfig = () => ({
@@ -119,14 +47,14 @@ describe('figma-mcp-dependencies-route', () => {
     app = new Hono();
     registerFigmaMcpDependenciesRoutes(app, {
       readJsonBody: async (c: any) => await c.req.json(),
-      db,
+      db: sql,
       getSystemConfig: (_c: any) => mockSystemConfig(),
       getConnInfoFn: mockGetConnInfo as any,
     });
   });
 
-  afterEach(() => {
-    db.close();
+  afterEach(async () => {
+    await cleanup();
   });
 
   test('POST /api/figma-mcp/dependencies/consumers - valid request', async () => {
@@ -167,7 +95,7 @@ describe('figma-mcp-dependencies-route', () => {
 
   test('GET /api/figma-mcp/dependencies/consumers - list consumers', async () => {
     // Add a consumer first
-    repository.addConsumer({
+    await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
@@ -184,7 +112,7 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/consumers/:consumerId - get single consumer', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer-single',
       consumer_name: 'Single Consumer',
@@ -203,7 +131,7 @@ describe('figma-mcp-dependencies-route', () => {
 
   test('DELETE /api/figma-mcp/dependencies/consumers/:consumerId - remove consumer', async () => {
     // Add a consumer first
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
@@ -221,7 +149,7 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - update enabled state', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer-enable',
       consumer_name: 'Enable Toggle',
@@ -241,7 +169,7 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - invalid JSON', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer-invalid-json',
       consumer_name: 'Invalid JSON',
@@ -299,7 +227,7 @@ describe('figma-mcp-dependencies-route', () => {
     const appWithoutToken = new Hono();
     registerFigmaMcpDependenciesRoutes(appWithoutToken, {
       readJsonBody: async (c: any) => await c.req.json(),
-      db,
+      db: sql,
       getSystemConfig: (_c: any) => ({ figmaApiToken: '${FIGMA_TOKEN_MISSING_FOR_TEST}' }),
       getConnInfoFn: (() => ({ remote: { address: '127.0.0.1' } })) as any,
     });
@@ -322,7 +250,7 @@ describe('figma-mcp-dependencies-route', () => {
     const appWithDsFileResolver = new Hono();
     registerFigmaMcpDependenciesRoutes(appWithDsFileResolver, {
       readJsonBody: async (c: any) => await c.req.json(),
-      db,
+      db: sql,
       getSystemConfig: (_c: any) => ({ figmaApiToken: '' }),
       getSystemConfigByDsFileKey: (dsFileKey: string) =>
         dsFileKey === 'ds123' ? { figmaApiToken: 'mock-token' } : null,
@@ -348,7 +276,7 @@ describe('figma-mcp-dependencies-route', () => {
     const appWithNullDsFileResolver = new Hono();
     registerFigmaMcpDependenciesRoutes(appWithNullDsFileResolver, {
       readJsonBody: async (c: any) => await c.req.json(),
-      db,
+      db: sql,
       getSystemConfig: (_c: any) => ({ figmaApiToken: '' }),
       getSystemConfigByDsFileKey: () => null,
       getConnInfoFn: (() => ({ remote: { address: '127.0.0.1' } })) as any,
@@ -378,20 +306,20 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/report/by-file - supports stale filter', async () => {
-    const staleConsumer = repository.addConsumer({
+    const staleConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale',
       consumer_file_key: 'consumer-stale',
       consumer_name: 'Stale Consumer',
       enabled: true,
     });
-    const freshConsumer = repository.addConsumer({
+    const freshConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale',
       consumer_file_key: 'consumer-fresh',
       consumer_name: 'Fresh Consumer',
       enabled: true,
     });
 
-    const staleRun = repository.saveSyncRun({
+    const staleRun = await repository.saveSyncRun({
       consumer_id: staleConsumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -399,7 +327,7 @@ describe('figma-mcp-dependencies-route', () => {
       variable_usage: [],
       warnings: [],
     });
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: freshConsumer.id,
       duration_ms: 900,
       status: 'ok',
@@ -409,10 +337,7 @@ describe('figma-mcp-dependencies-route', () => {
     });
 
     // Force first consumer to be stale (>72h)
-    db.prepare('UPDATE ds_sync_runs SET synced_at = ? WHERE id = ?').run(
-      new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-      staleRun.id,
-    );
+    await sql`UPDATE ds_sync_runs SET synced_at = ${new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString()} WHERE id = ${staleRun.id}`;
 
     const response = await app.request('/api/figma-mcp/dependencies/report/by-file?dsFileKey=ds-stale&stale=true');
 
@@ -425,20 +350,20 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/report/by-file - stale filter boundary at 72h', async () => {
-    const nearThresholdConsumer = repository.addConsumer({
+    const nearThresholdConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale-boundary',
       consumer_file_key: 'consumer-71h',
       consumer_name: 'Near Threshold Consumer',
       enabled: true,
     });
-    const pastThresholdConsumer = repository.addConsumer({
+    const pastThresholdConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale-boundary',
       consumer_file_key: 'consumer-73h',
       consumer_name: 'Past Threshold Consumer',
       enabled: true,
     });
 
-    const nearThresholdRun = repository.saveSyncRun({
+    const nearThresholdRun = await repository.saveSyncRun({
       consumer_id: nearThresholdConsumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -446,7 +371,7 @@ describe('figma-mcp-dependencies-route', () => {
       variable_usage: [],
       warnings: [],
     });
-    const pastThresholdRun = repository.saveSyncRun({
+    const pastThresholdRun = await repository.saveSyncRun({
       consumer_id: pastThresholdConsumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -456,14 +381,8 @@ describe('figma-mcp-dependencies-route', () => {
     });
 
     // Stale threshold is 72h: 71h should be excluded, 73h should be included.
-    db.prepare('UPDATE ds_sync_runs SET synced_at = ? WHERE id = ?').run(
-      new Date(Date.now() - 71 * 60 * 60 * 1000).toISOString(),
-      nearThresholdRun.id,
-    );
-    db.prepare('UPDATE ds_sync_runs SET synced_at = ? WHERE id = ?').run(
-      new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString(),
-      pastThresholdRun.id,
-    );
+    await sql`UPDATE ds_sync_runs SET synced_at = ${new Date(Date.now() - 71 * 60 * 60 * 1000).toISOString()} WHERE id = ${nearThresholdRun.id}`;
+    await sql`UPDATE ds_sync_runs SET synced_at = ${new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString()} WHERE id = ${pastThresholdRun.id}`;
 
     const response = await app.request('/api/figma-mcp/dependencies/report/by-file?dsFileKey=ds-stale-boundary&stale=true');
 
@@ -476,14 +395,14 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/report/by-file - ignores legacy staleHours query param', async () => {
-    const staleConsumer = repository.addConsumer({
+    const staleConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale-legacy-param',
       consumer_file_key: 'consumer-stale-legacy',
       consumer_name: 'Legacy Param Consumer',
       enabled: true,
     });
 
-    const staleRun = repository.saveSyncRun({
+    const staleRun = await repository.saveSyncRun({
       consumer_id: staleConsumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -492,10 +411,7 @@ describe('figma-mcp-dependencies-route', () => {
       warnings: [],
     });
 
-    db.prepare('UPDATE ds_sync_runs SET synced_at = ? WHERE id = ?').run(
-      new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-      staleRun.id,
-    );
+    await sql`UPDATE ds_sync_runs SET synced_at = ${new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString()} WHERE id = ${staleRun.id}`;
 
     const response = await app.request('/api/figma-mcp/dependencies/report/by-file?dsFileKey=ds-stale-legacy-param&stale=true&staleHours=12abc');
 
@@ -570,7 +486,7 @@ describe('figma-mcp-dependencies-route', () => {
 
   test('GET /api/figma-mcp/dependencies/consumers/:id/runs - list sync runs', async () => {
     // Add a consumer first
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
@@ -578,7 +494,7 @@ describe('figma-mcp-dependencies-route', () => {
     });
 
     // Add some sync runs
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -591,7 +507,7 @@ describe('figma-mcp-dependencies-route', () => {
     const start = Date.now();
     while (Date.now() - start < 2) { /* wait */ }
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1500,
       status: 'partial',
@@ -613,7 +529,7 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/consumers/:id/runs - with limit', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
@@ -622,7 +538,7 @@ describe('figma-mcp-dependencies-route', () => {
 
     // Add 5 sync runs
     for (let i = 0; i < 5; i++) {
-      repository.saveSyncRun({
+      await repository.saveSyncRun({
         consumer_id: consumer.id,
         duration_ms: 1000 + i * 100,
         status: 'ok',
@@ -654,7 +570,7 @@ describe('figma-mcp-dependencies-route', () => {
   });
 
   test('GET /api/figma-mcp/dependencies/consumers/:id/runs - invalid limit', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',

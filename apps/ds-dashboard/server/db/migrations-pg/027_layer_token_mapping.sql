@@ -1,0 +1,3 @@
+-- Migration 027: layer_token_mapping
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

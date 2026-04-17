@@ -1,103 +1,64 @@
 /**
  * Pending Operations Repository
  *
- * SQLite-backed persistence for pending operations (write-ahead log).
+ * PostgreSQL-backed persistence for pending operations (write-ahead log).
  * Tracks in-progress operations that span multiple systems (FS, DB, config)
  * to enable recovery after server crashes.
  */
 
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
-/**
- * Pending operation status
- */
 export type PendingOperationStatus = 'in_progress' | 'completed' | 'abandoned';
 
-/**
- * Pending operation database row type
- */
 export interface PendingOperation {
   id: string;
   type: string;
-  payload: string;    // JSON raw — el caller parsea
+  payload: Record<string, unknown>;
   status: PendingOperationStatus;
-  created_at: string;
-  completed_at: string | null;
+  created_at: Date;
+  completed_at: Date | null;
 }
 
-/**
- * Pending operation insert input type
- */
 export interface PendingOperationInput {
   id: string;
   type: string;
   payload: Record<string, unknown>;
 }
 
-/**
- * Pending Operations Repository for write-ahead log persistence
- */
 export class PendingOperationsRepository {
-  private db: Database.Database;
+  constructor(private sql: Sql) {}
 
-  constructor(db: Database.Database) {
-    this.db = db;
-  }
-
-  /**
-   * Insert a new pending operation
-   */
-  insert(op: PendingOperationInput): void {
-    const stmt = this.db.prepare(`
+  async insert(op: PendingOperationInput): Promise<void> {
+    await this.sql`
       INSERT INTO pending_operations (id, type, payload, status, created_at)
-      VALUES (?, ?, ?, 'in_progress', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    `);
-    stmt.run(op.id, op.type, JSON.stringify(op.payload));
+      VALUES (${op.id}, ${op.type}, ${op.payload}, 'in_progress', now())
+      ON CONFLICT (id) DO NOTHING
+    `;
   }
 
-  /**
-   * Mark an operation as completed
-   */
-  complete(id: string): void {
-    const stmt = this.db.prepare(`
+  async complete(id: string): Promise<void> {
+    await this.sql`
       UPDATE pending_operations
-      SET status = 'completed', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-      WHERE id = ? AND status = 'in_progress'
-    `);
-    stmt.run(id);
+      SET status = 'completed', completed_at = now()
+      WHERE id = ${id} AND status = 'in_progress'
+    `;
   }
 
-  /**
-   * Mark an operation as abandoned
-   */
-  abandon(id: string): void {
-    const stmt = this.db.prepare(`
+  async abandon(id: string): Promise<void> {
+    await this.sql`
       UPDATE pending_operations
-      SET status = 'abandoned', completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-      WHERE id = ? AND status = 'in_progress'
-    `);
-    stmt.run(id);
+      SET status = 'abandoned', completed_at = now()
+      WHERE id = ${id} AND status = 'in_progress'
+    `;
   }
 
-  /**
-   * List incomplete operations, optionally filtered by type
-   */
-  listIncomplete(type?: string): PendingOperation[] {
-    let sql = `
+  async listIncomplete(type?: string): Promise<PendingOperation[]> {
+    return this.sql`
       SELECT id, type, payload, status, created_at, completed_at
       FROM pending_operations
       WHERE status = 'in_progress'
-    `;
-    const params: unknown[] = [];
-
-    if (type) {
-      sql += ' AND type = ?';
-      params.push(type);
-    }
-
-    sql += ' ORDER BY created_at ASC';
-
-    const stmt = this.db.prepare(sql);
-    return stmt.all(...params) as PendingOperation[];
+      ${type ? this.sql`AND type = ${type}` : this.sql``}
+      ORDER BY created_at ASC
+    ` as Promise<PendingOperation[]>;
   }
 }

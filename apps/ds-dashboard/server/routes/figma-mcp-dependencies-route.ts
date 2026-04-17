@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type { ConnInfo } from 'hono/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import type { Database as DatabaseType } from 'better-sqlite3';
+import type { Sql } from 'postgres';
 import { isLoopbackAddress } from '../lib/loopback-utils.js';
 import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
@@ -98,7 +98,7 @@ type RouteDeps = {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
   getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
-  db: DatabaseType;
+  db: Sql;
   getSystemConfig: (c: Context) => SystemConfig;
   getSystemConfigByDsFileKey?: (dsFileKey: string) => SystemConfig | null;
 };
@@ -529,8 +529,8 @@ export function registerFigmaMcpDependenciesRoutes(
     try {
       const staleOnly = query.stale === 'true';
 
-      const reports = analysisService
-        .reportByFile(query.dsFileKey)
+      const reports = (await analysisService
+        .reportByFile(query.dsFileKey))
         .filter((report) => {
           if (!staleOnly) return true;
           const syncedMs = Date.parse(report.lastSyncedAt);
@@ -576,7 +576,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = analysisService.reportByComponent(query.dsFileKey, query.componentKey);
+      const reports = await analysisService.reportByComponent(query.dsFileKey, query.componentKey);
 
       return c.json({
         ok: true,
@@ -615,7 +615,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = analysisService.reportByVariable(query.dsFileKey, query.variableKey);
+      const reports = await analysisService.reportByVariable(query.dsFileKey, query.variableKey);
 
       return c.json({
         ok: true,
@@ -665,7 +665,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const result = simulateService.simulateVariableChange(
+      const result = await simulateService.simulateVariableChange(
         body.dsFileKey as string,
         body.variableKey as string,
         body.proposedValue

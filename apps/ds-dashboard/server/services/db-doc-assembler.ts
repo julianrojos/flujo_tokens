@@ -19,15 +19,21 @@ import { entryToEditorialPatch } from './editorial-entry-to-patch.js';
 // Public API
 // ---------------------------------------------------------------------------
 
-export function buildDocOutputFromDb(
+export async function buildDocOutputFromDb(
   componentId: number,
   repo: ComponentRepository,
-  preloadedFigmaDescriptions?: ReturnType<ComponentRepository['getFigmaDescriptions']> | null,
-): { output: ComponentDocOutput; editorialPatch: EditorialPatch | null; warnings: string[] } {
+  preloadedFigmaDescriptions?: Awaited<
+    ReturnType<ComponentRepository['getFigmaDescriptions']>
+  > | null,
+): Promise<{
+  output: ComponentDocOutput;
+  editorialPatch: EditorialPatch | null;
+  warnings: string[];
+}> {
   const warnings: string[] = [];
 
   // 1. Basic info
-  const basicInfo = repo.getComponentBasicInfo(componentId);
+  const basicInfo = await repo.getComponentBasicInfo(componentId);
   const name = basicInfo?.name ?? 'Unknown';
   const title = basicInfo?.displayName ?? name;
   // Use the captured Figma component set node ID when available.
@@ -35,7 +41,7 @@ export function buildDocOutputFromDb(
   const figmaNodeId = basicInfo?.figmaComponentSetNodeId ?? '';
 
   // 2. AI doc record (if any)
-  const docRecord = repo.getComponentDoc(componentId);
+  const docRecord = await repo.getComponentDoc(componentId);
   let aiOutput: ComponentDocOutput | null = null;
   if (docRecord) {
     try {
@@ -46,12 +52,12 @@ export function buildDocOutputFromDb(
   }
 
   // 3. Editorial data (live, from component_editorial table)
-  const editorialEntry = repo.getEditorial(componentId);
+  const editorialEntry = await repo.getEditorial(componentId);
 
   // 4. Figma descriptions (reuse preloaded if provided to avoid duplicate DB read)
   const figmaRaw = preloadedFigmaDescriptions !== undefined
     ? preloadedFigmaDescriptions
-    : repo.getFigmaDescriptions(componentId);
+    : await repo.getFigmaDescriptions(componentId);
 
   // 5. Resolve summary
   const summary = resolveSummary(editorialEntry, aiOutput);

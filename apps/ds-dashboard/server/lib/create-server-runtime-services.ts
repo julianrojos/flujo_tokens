@@ -67,7 +67,9 @@ export interface CreateServerRuntimeServices {
   buildSnippet: (content: string, line: number, before: number, after: number) => SnippetResult;
   isDevRuntime: () => boolean;
   sha256Text: (value: string) => string;
-  getSystemContext: (systemHeader: string) => { systemId: string; header: string };
+  getSystemContext: (
+    systemHeader: string,
+  ) => Promise<{ systemId: string; header: string }>;
   queueNpmScript: (...args: unknown[]) => { id: string };
   queueNodeJsonCommand: (...args: unknown[]) => { id: string };
 }

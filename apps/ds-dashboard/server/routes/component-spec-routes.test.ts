@@ -1,23 +1,17 @@
 /**
  * Component Spec Routes Tests (DB-first)
- * 
+ *
  * Tests for GET /api/component-spec/:slug and PATCH /api/component-spec/:slug/editorial
  */
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import { ComponentRepository } from '../db/component-repository.js';
-import { createInMemoryDbFromSchema } from '../db/test-db-helpers.ts';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
 import { Hono } from 'hono';
-
-function createTestDb(): Database.Database {
-  return createInMemoryDbFromSchema({
-    designSystems: [{ id: 'sys-01', name: 'Test System' }],
-  });
-}
 
 function createFailJson() {
   return (c: any, statusCode: number, payload: any) =>
@@ -39,18 +33,19 @@ function createTestApp(componentRepo: ComponentRepository) {
 }
 
 describe('component-spec-routes (DB-first)', () => {
-  let db: Database.Database;
+  let sql: Sql;
+  let cleanup: () => Promise<void>;
   let repo: ComponentRepository;
   let app: Hono;
 
-  before(() => {
-    db = createTestDb();
-    repo = new ComponentRepository(db);
+  before(async () => {
+    ({ sql, cleanup } = await createTestDatabase({ designSystems: [{ id: 'sys-01', name: 'Test System' }] }));
+    repo = new ComponentRepository(sql);
     app = createTestApp(repo);
   });
 
-  after(() => {
-    if (db) db.close();
+  after(async () => {
+    await cleanup();
   });
 
   it('returns 404 for non-existent component', async () => {
@@ -98,7 +93,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET returns 200 with exists=false when no editorial row', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'button', name: 'Button', status: 'draft', docType: 'component' },
     ]);
 
@@ -112,7 +107,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET exposes figma_token_bindings as an array payload', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       {
         slug: 'badge',
         name: 'Badge',
@@ -143,7 +138,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET returns spec.properties from captured Figma props (Migration 034)', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       {
         slug: 'button-props',
         name: 'Button Props',
@@ -175,7 +170,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET returns empty properties when no Figma props captured', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'no-props', name: 'No Props', status: 'draft', docType: 'component' },
     ]);
 
@@ -186,7 +181,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET builds figma_metadata from component record, not from token bindings', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       {
         slug: 'chip',
         name: 'Chip',
@@ -217,7 +212,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET keeps figma_metadata when pageName is missing but file/node are present', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       {
         slug: 'tag',
         name: 'Tag',
@@ -239,15 +234,18 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET returns 200 with exists=true when editorial row exists', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'card', name: 'Card', status: 'draft', docType: 'component' },
     ]);
 
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'card') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, ?, strftime('%s', 'now'))
-    `).run(component.id, JSON.stringify({ purpose: 'A card component' }));
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'card'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'A card component' })}, now())
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const res = await app.request('/api/component-spec/card');
     assert.equal(res.status, 200);
@@ -257,7 +255,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial returns 200 when creating editorial row', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'input', name: 'Input', status: 'draft', docType: 'component' },
     ]);
 
@@ -306,14 +304,17 @@ describe('component-spec-routes (DB-first)', () => {
 
   it('PATCH /editorial returns 409 for optimistic locking conflict', async () => {
     // First create editorial row with known updatedAt
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'checkbox', name: 'Checkbox', status: 'draft', docType: 'component' },
     ]);
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'checkbox') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, ?, 1000)
-    `).run(component.id, JSON.stringify({ purpose: 'Old' }));
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'checkbox'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Old' })}, to_timestamp(1))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     // Try to update with wrong expectedUpdatedAt
     const res = await app.request('/api/component-spec/checkbox/editorial', {
@@ -331,14 +332,17 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial returns 400 when updating existing row without expectedUpdatedAt', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'radio', name: 'Radio', status: 'draft', docType: 'component' },
     ]);
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'radio') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, ?, 2000)
-    `).run(component.id, JSON.stringify({ purpose: 'Old radio' }));
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'radio'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Old radio' })}, to_timestamp(2))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const res = await app.request('/api/component-spec/radio/editorial', {
       method: 'PATCH',
@@ -355,7 +359,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial stores accessibility.notes only in accessibility_notes_json', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'a11y-notes', name: 'A11y Notes', status: 'draft', docType: 'component' },
     ]);
 
@@ -375,15 +379,12 @@ describe('component-spec-routes (DB-first)', () => {
     });
 
     assert.equal(res.status, 200);
-    const row = db.prepare(`
+    const [row] = await sql`
       SELECT accessibility_json, accessibility_notes_json
       FROM component_editorial e
       JOIN components c ON c.id = e.component_id
-      WHERE c.ds_id = ? AND c.slug = ?
-    `).get('sys-01', 'a11y-notes') as {
-      accessibility_json: string | null;
-      accessibility_notes_json: string | null;
-    };
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'a11y-notes'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
 
     assert.ok(row.accessibility_json);
     const accessibilityJson = JSON.parse(row.accessibility_json as string) as Record<string, unknown>;
@@ -392,19 +393,22 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial with notes-only preserves existing accessibility_json', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'a11y-preserve', name: 'A11y Preserve', status: 'draft', docType: 'component' },
     ]);
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'a11y-preserve') as { id: number };
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'a11y-preserve'}` as [{ id: number }];
     const originalAccessibility = {
       role: 'button',
       focus: { tokens: { inner: '{color.focus.inner}' } },
       labeling: { rules: ['Rule A'] },
     };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, accessibility_json, updated_at)
-      VALUES (?, ?, 1111)
-    `).run(component.id, JSON.stringify(originalAccessibility));
+    await sql`
+      INSERT INTO component_editorial (component_id, accessibility_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify(originalAccessibility)}, to_timestamp(1.111))
+      ON CONFLICT (component_id) DO UPDATE SET
+        accessibility_json = EXCLUDED.accessibility_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const res = await app.request('/api/component-spec/a11y-preserve/editorial', {
       method: 'PATCH',
@@ -420,22 +424,19 @@ describe('component-spec-routes (DB-first)', () => {
     });
 
     assert.equal(res.status, 200);
-    const row = db.prepare(`
+    const [row] = await sql`
       SELECT accessibility_json, accessibility_notes_json
       FROM component_editorial e
       JOIN components c ON c.id = e.component_id
-      WHERE c.ds_id = ? AND c.slug = ?
-    `).get('sys-01', 'a11y-preserve') as {
-      accessibility_json: string | null;
-      accessibility_notes_json: string | null;
-    };
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'a11y-preserve'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
 
     assert.deepEqual(JSON.parse(row.accessibility_json as string), originalAccessibility);
     assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keep original accessibility object']);
   });
 
   it('PATCH /editorial persists variants and omits tokens from GET response', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'vt-test', name: 'VT Test', status: 'draft', docType: 'component' },
     ]);
 
@@ -470,7 +471,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial persists behaviour, content_guidelines, and accessibility labeling', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
     ]);
 
@@ -530,7 +531,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial rejects properties as a read-only field (hard cut, Migration 034) without mutating captured props', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       {
         slug: 'readonly-props',
         name: 'Readonly Props',
@@ -576,7 +577,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial rejects tokens as an unknown field', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'vt-legacy', name: 'VT Legacy', status: 'draft', docType: 'component' },
     ]);
 
@@ -599,7 +600,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial rejects token_mapping as an unknown field', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'legacy-token-mapping', name: 'Legacy Token Mapping', status: 'draft', docType: 'component' },
     ]);
 
@@ -624,7 +625,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial rejects non-string behaviour payload', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'bad-behaviour', name: 'Bad Behaviour', status: 'draft', docType: 'component' },
     ]);
 
@@ -647,7 +648,7 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial rejects best_practices as an unknown field', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'unknown-best-practices', name: 'Unknown Best Practices', status: 'draft', docType: 'component' },
     ]);
 
@@ -670,15 +671,18 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial with summary: null clears summary_json and returns summary = null', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'clear-summary', name: 'Clear Summary', status: 'draft', docType: 'component' },
     ]);
 
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'clear-summary') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, ?, 5000)
-    `).run(component.id, JSON.stringify({ purpose: 'Will be cleared' }));
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'clear-summary'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Will be cleared' })}, to_timestamp(5))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const patchRes = await app.request('/api/component-spec/clear-summary/editorial', {
       method: 'PATCH',
@@ -691,12 +695,12 @@ describe('component-spec-routes (DB-first)', () => {
 
     assert.equal(patchRes.status, 200);
 
-    const row = db.prepare(`
+    const [row] = await sql`
       SELECT summary_json
       FROM component_editorial e
       JOIN components c ON c.id = e.component_id
-      WHERE c.ds_id = ? AND c.slug = ?
-    `).get('sys-01', 'clear-summary') as { summary_json: string | null };
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'clear-summary'}
+    ` as [{ summary_json: string | null }];
     assert.equal(row.summary_json, null);
 
     const getRes = await app.request('/api/component-spec/clear-summary');
@@ -706,19 +710,24 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('PATCH /editorial with accessibility: null clears both accessibility columns', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'clear-a11y', name: 'Clear A11y', status: 'draft', docType: 'component' },
     ]);
 
-    const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'clear-a11y') as { id: number };
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, accessibility_json, accessibility_notes_json, updated_at)
-      VALUES (?, ?, ?, 5100)
-    `).run(
-      component.id,
-      JSON.stringify({ role: 'button', labeling: { rules: ['Rule 1'] } }),
-      JSON.stringify(['legacy note']),
-    );
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'clear-a11y'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, accessibility_json, accessibility_notes_json, updated_at)
+      VALUES (
+        ${component.id},
+        ${JSON.stringify({ role: 'button', labeling: { rules: ['Rule 1'] } })},
+        ${JSON.stringify(['legacy note'])},
+        to_timestamp(5.1)
+      )
+      ON CONFLICT (component_id) DO UPDATE SET
+        accessibility_json = EXCLUDED.accessibility_json,
+        accessibility_notes_json = EXCLUDED.accessibility_notes_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const patchRes = await app.request('/api/component-spec/clear-a11y/editorial', {
       method: 'PATCH',
@@ -731,15 +740,12 @@ describe('component-spec-routes (DB-first)', () => {
 
     assert.equal(patchRes.status, 200);
 
-    const row = db.prepare(`
+    const [row] = await sql`
       SELECT accessibility_json, accessibility_notes_json
       FROM component_editorial e
       JOIN components c ON c.id = e.component_id
-      WHERE c.ds_id = ? AND c.slug = ?
-    `).get('sys-01', 'clear-a11y') as {
-      accessibility_json: string | null;
-      accessibility_notes_json: string | null;
-    };
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'clear-a11y'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
     assert.equal(row.accessibility_json, null);
     assert.equal(row.accessibility_notes_json, null);
 
@@ -750,37 +756,36 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {
-    // Use the existing sys-01 design system (configured in test app)
-    db.prepare(`
+    await sql`
       INSERT INTO components (ds_id, slug, name, status, doc_type)
       VALUES ('sys-01', 'ltm-button', 'LTM Button', 'draft', 'component')
-    `).run();
+    `;
 
-    const comp = db.prepare("SELECT id FROM components WHERE slug = 'ltm-button' AND ds_id = 'sys-01'").get() as { id: number };
-    db.prepare(`
+    const [comp] = await sql`SELECT id FROM components WHERE slug = 'ltm-button' AND ds_id = 'sys-01'` as [{ id: number }];
+    await sql`
       INSERT INTO component_figma_token_bindings (
         component_id, node_id, node_name, field, variable_id, token_path, mode,
         variant_node_id, variant_signature, property_path, status, mode_id, mode_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      comp.id, '10:1', 'Button/Default', 'fills', '123:456', 'primitives.blue.500', 'Default',
-      '10:0', 'State=Default', 'fills', 'resolved', 'mode:1', 'Default',
-    );
-    db.prepare(`
+      ) VALUES (
+        ${comp.id}, ${'10:1'}, ${'Button/Default'}, ${'fills'}, ${'123:456'}, ${'primitives.blue.500'}, ${'Default'},
+        ${'10:0'}, ${'State=Default'}, ${'fills'}, ${'resolved'}, ${'mode:1'}, ${'Default'}
+      )
+    `;
+    await sql`
       INSERT INTO component_figma_token_bindings (
         component_id, node_id, node_name, field, variable_id, token_path, mode,
         variant_node_id, variant_signature, property_path, status, mode_id, mode_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      comp.id, '10:2', 'Button/Hover', 'fills', '999:999', null, 'Default',
-      '10:3', 'State=Hover', 'fills', 'unresolved', 'mode:1', 'Default',
-    );
+      ) VALUES (
+        ${comp.id}, ${'10:2'}, ${'Button/Hover'}, ${'fills'}, ${'999:999'}, ${null}, ${'Default'},
+        ${'10:3'}, ${'State=Hover'}, ${'fills'}, ${'unresolved'}, ${'mode:1'}, ${'Default'}
+      )
+    `;
 
     // Create an editorial row so exists=true
-    db.prepare(`
+    await sql`
       INSERT INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, '{"purpose":"test"}', strftime('%s', 'now'))
-    `).run(comp.id);
+      VALUES (${comp.id}, ${'{"purpose":"test"}'}, now())
+    `;
 
     const res = await app.request('/api/component-spec/ltm-button');
     assert.equal(res.status, 200);
@@ -805,21 +810,21 @@ describe('component-spec-routes (DB-first)', () => {
   });
 
   it('GET /api/component-spec/:slug does not expose token_mapping', async () => {
-    repo.upsertFromRegistry('sys-01', [
+    await repo.upsertFromRegistry('sys-01', [
       { slug: 'token-mapping-cutover', name: 'Token Mapping Cutover', status: 'draft', docType: 'component' },
     ]);
 
-    const component = db.prepare(
-      'SELECT id FROM components WHERE ds_id = ? AND slug = ?',
-    ).get('sys-01', 'token-mapping-cutover') as { id: number };
+    const [component] = await sql`
+      SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'token-mapping-cutover'}
+    ` as [{ id: number }];
 
-    db.prepare(`
-      INSERT OR REPLACE INTO component_editorial (component_id, summary_json, updated_at)
-      VALUES (?, ?, strftime('%s', 'now'))
-    `).run(
-      component.id,
-      JSON.stringify({ purpose: 'Legacy editorial row with token mapping' }),
-    );
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Legacy editorial row with token mapping' })}, now())
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const res = await app.request('/api/component-spec/token-mapping-cutover');
     assert.equal(res.status, 200);

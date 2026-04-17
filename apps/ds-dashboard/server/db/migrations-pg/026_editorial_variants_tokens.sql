@@ -1,0 +1,3 @@
+-- Migration 026: editorial_variants_tokens
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

@@ -16,7 +16,9 @@ export interface HealthRouteHandlerDeps {
     statusCode: number,
     args: Record<string, unknown>,
   ) => any;
-  getSystemContext: (systemHeader: string) => SystemContext;
+  getSystemContext: (
+    systemHeader: string,
+  ) => SystemContext | Promise<SystemContext>;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
 }
 
@@ -34,8 +36,8 @@ export async function handleTokenHealthRoute(
 ): Promise<any> {
   const { getSystemContext, healthRepo } = deps;
   if (!healthRepo) return buildMissingRepoError(c, deps);
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const snapshot = healthRepo.getSnapshot(sysCtx.systemId, 'tokens');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  const snapshot = await healthRepo.getSnapshot(sysCtx.systemId, 'tokens');
   if (snapshot) return c.json(snapshot.snapshotJson);
   return c.json(
     buildEmptyTokenHealthReport({
@@ -52,10 +54,10 @@ export async function handleHealthHistoryRoute(
 ): Promise<any> {
   const { getSystemContext, healthRepo } = deps;
   if (!healthRepo) return buildMissingRepoError(c, deps);
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const range = normalizeHealthHistoryRange(c.req.query('range'));
 
-  const rows = healthRepo.getHistory(sysCtx.systemId, undefined, 500);
+  const rows = await healthRepo.getHistory(sysCtx.systemId, undefined, 500);
   const snapshots = rows
     .map((row) => row.entryJson)
     .filter((entry) =>

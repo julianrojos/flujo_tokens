@@ -69,7 +69,7 @@ export interface CommandDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
@@ -137,7 +137,7 @@ export interface ServerDeps {
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
 }
 
 export function buildSharedSystemContextDeps(deps: ServerDeps): SharedSystemContextDeps {

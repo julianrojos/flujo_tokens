@@ -1,85 +1,27 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import Database from 'better-sqlite3';
-import type { Database as DatabaseType } from 'better-sqlite3';
-import { DependencyRepository } from '../db/dependency-repository';
+import type { Sql } from 'postgres';
+import { DependencyRepository } from '../db/dependency-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 
 describe('DependencySyncService', () => {
-  let db: DatabaseType;
+  let sql: Sql;
+  let cleanup: () => Promise<void>;
   let repository: DependencyRepository;
   let syncService: DependencySyncService;
 
-  test('setup', () => {
-    db = new Database(':memory:');
-
-    // Create tables manually for testing
-    db.exec(`
-      CREATE TABLE ds_consumers (
-        id TEXT PRIMARY KEY,
-        ds_file_key TEXT NOT NULL,
-        consumer_file_key TEXT NOT NULL,
-        consumer_name TEXT NOT NULL,
-        enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        UNIQUE (ds_file_key, consumer_file_key)
-      );
-
-      CREATE TABLE ds_sync_runs (
-        id TEXT PRIMARY KEY,
-        consumer_id TEXT NOT NULL,
-        synced_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        duration_ms INTEGER NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'partial', 'skipped')),
-        error_message TEXT,
-        ds_last_modified TEXT,
-        consumer_last_modified TEXT,
-        component_count INTEGER NOT NULL DEFAULT 0,
-        variable_count INTEGER NOT NULL DEFAULT 0,
-        warning_count INTEGER NOT NULL DEFAULT 0,
-        local_component_defined_count INTEGER DEFAULT NULL,
-        local_component_used_count INTEGER DEFAULT NULL,
-        local_variable_defined_count INTEGER DEFAULT NULL,
-        local_variable_used_count INTEGER DEFAULT NULL,
-        FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_component_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        component_key TEXT NOT NULL,
-        component_name TEXT NOT NULL,
-        instance_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_variable_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        variable_key TEXT NOT NULL,
-        variable_name TEXT NOT NULL,
-        variable_type TEXT NOT NULL,
-        node_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_sync_warnings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        code TEXT NOT NULL,
-        message TEXT NOT NULL,
-        node_id TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-    `);
-
-    repository = new DependencyRepository(db);
+  before(async () => {
+    ({ sql, cleanup } = await createTestDatabase());
+    repository = new DependencyRepository(sql);
     syncService = new DependencySyncService(
       repository,
       () => ({ figmaApiToken: 'test-token' })  // Direct token, not env-ref format
     );
+  });
+
+  after(async () => {
+    await cleanup();
   });
 
   test('syncConsumers returns empty result for no consumers', async () => {
@@ -95,8 +37,7 @@ describe('DependencySyncService', () => {
   });
 
   test('syncConsumers filters disabled consumers', async () => {
-    // Add a disabled consumer
-    repository.addConsumer({
+    await repository.addConsumer({
       ds_file_key: 'test-ds',
       consumer_file_key: 'test-consumer',
       consumer_name: 'Test Consumer',
@@ -119,7 +60,7 @@ describe('DependencySyncService', () => {
   });
 
   test('syncConsumers counts partial runs as synced (not errored)', async () => {
-    const consumer = repository.addConsumer({
+    const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds',
       consumer_file_key: 'test-consumer-partial',
       consumer_name: 'Partial Consumer',
@@ -183,9 +124,5 @@ describe('DependencySyncService', () => {
       service.fetchMetadataWithRetry = originalFetchMetadataWithRetry;
       service.syncConsumer = originalSyncConsumer;
     }
-  });
-
-  test('teardown', () => {
-    db.close();
   });
 });

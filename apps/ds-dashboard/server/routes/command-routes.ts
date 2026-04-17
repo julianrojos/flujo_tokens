@@ -26,12 +26,21 @@ export interface CommandRoutesDeps {
   ) => Response;
   createApiRequestId: () => string;
   readJsonBody: (c: Context) => Promise<Record<string, unknown>>;
-  getSystemContext: (systemHeader: string) => {
-    repoRoot: string;
-    systemId: string;
-    figmaFileId?: string;
-    captureFromFigmaUrlScriptPath: string;
-  };
+  getSystemContext: (
+    systemHeader: string,
+  ) =>
+    | {
+        repoRoot: string;
+        systemId: string;
+        figmaFileId?: string;
+        captureFromFigmaUrlScriptPath: string;
+      }
+    | Promise<{
+        repoRoot: string;
+        systemId: string;
+        figmaFileId?: string;
+        captureFromFigmaUrlScriptPath: string;
+      }>;
   queueJobAcceptedPayload: (job: { id: string }) => {
     ok: boolean;
     jobId: string;
@@ -44,7 +53,7 @@ export interface CommandRoutesDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
   syncDesignSystemFromPluginFn?: CommandRouteHandlerDeps['syncDesignSystemFromPluginFn'];
   hasPluginSocketForFile?: CommandRouteHandlerDeps['hasPluginSocketForFile'];
   toBooleanString: (value: unknown, fallback: boolean) => string;

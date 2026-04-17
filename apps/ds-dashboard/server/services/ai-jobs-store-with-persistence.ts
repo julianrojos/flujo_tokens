@@ -1,5 +1,5 @@
 /**
- * AI Jobs Store with SQLite Persistence
+ * AI Jobs Store with PostgreSQL Persistence
  *
  * Extends AiJobsStore with database persistence.
  * DB is required for all operations.
@@ -7,53 +7,46 @@
 
 import { randomBytes } from 'node:crypto';
 
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import { AiJobsStore } from './ai-jobs-store.js';
 import type { AiJobInput, AiJobState } from './ai-component-doc-schema.js';
 import type { AiProviderName } from './ai-provider.js';
 import { JobsRepository } from '../db/jobs-repository.js';
 
-/**
- * Options for AiJobsStoreWithPersistence
- */
 export interface AiJobsStoreWithPersistenceOptions {
-  /** Database for persistence */
-  db: Database.Database;
-  /** Stale threshold in ms (default: 5 minutes) */
+  sql: Sql;
   staleThresholdMs?: number;
 }
 
-/**
- * AI Jobs Store with SQLite persistence
- *
- * DB is required:
- * - Jobs are persisted on enqueue/complete/fail/cancel
- * - Events are appended to DB on pushEvent
- * - Stale running jobs are marked as failed on startup
- */
 export class AiJobsStoreWithPersistence extends AiJobsStore {
   private jobsRepo: JobsRepository;
 
   constructor(options: AiJobsStoreWithPersistenceOptions) {
     super();
-    const staleThresholdMs = options.staleThresholdMs ?? 300000; // 5 minutes
-    this.jobsRepo = new JobsRepository(options.db);
+    const staleThresholdMs = options.staleThresholdMs ?? 300000;
+    this.jobsRepo = new JobsRepository(options.sql);
 
-    // Mark stale running jobs as failed on startup
-    const marked = this.jobsRepo.markStaleRunningJobsAsFailed(staleThresholdMs);
-    if (marked > 0) {
-      console.log(
-        `[AiJobsStore] Marked ${marked} stale running job(s) as failed`,
-      );
-    }
+    this.jobsRepo
+      .markStaleRunningJobsAsFailed(staleThresholdMs)
+      .then((marked) => {
+        if (marked > 0) {
+          console.log(
+            `[AiJobsStore] Marked ${marked} stale running job(s) as failed`,
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          '[AiJobsStore] Error marking stale running jobs as failed:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
   }
 
   private isIdempotencyUniqueConstraintError(error: unknown): boolean {
     const message = error instanceof Error ? error.message : String(error);
-    return message.includes(
-      'UNIQUE constraint failed: ai_jobs.idempotency_key',
-    );
+    return message.includes('duplicate key');
   }
 
   private rehydratePersistentJobIfMissing(job: AiJobState): AiJobState {
@@ -61,8 +54,17 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     if (existing) return existing;
 
     this.loadJobIntoMemory(job);
-    const maxSeq = this.jobsRepo.getMaxEventSeq(job.id);
-    this.setNextEventSeq(job.id, maxSeq + 1);
+    this.jobsRepo
+      .getMaxEventSeq(job.id)
+      .then((maxSeq) => {
+        this.setNextEventSeq(job.id, maxSeq + 1);
+      })
+      .catch((error) => {
+        console.error(
+          `[AiJobsStore] Error getting max event sequence for job ${job.id}:`,
+          error instanceof Error ? error.message : String(error),
+        );
+      });
 
     if (job.status === 'queued') {
       this.addToQueue(job.input.provider, job.id);
@@ -73,10 +75,6 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     return this.findById(job.id) ?? job;
   }
 
-  /**
-   * Override enqueue to recover gracefully from DB idempotency uniqueness conflicts.
-   * This can happen after restarts when memory index is cold but DB already has the key.
-   */
   override enqueue(input: AiJobInput): AiJobState {
     const idempotencyKey = this.computeIdempotencyKey(input);
 
@@ -92,49 +90,36 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
         throw error;
       }
 
-      // super.enqueue may have already inserted an in-memory queued job
-      // before DB persistence failed with UNIQUE(idempotency_key). Remove
-      // that orphan to avoid duplicate dequeues/executions.
       const orphan = this.findByIdempotencyKey(idempotencyKey);
       if (orphan && orphan.id !== persistent.id) {
         this.removeJobFromMemory(orphan.id);
       }
-      // Reuse only active jobs. Terminal jobs (completed|failed|cancelled)
-      // must allow a fresh rerun even with identical inputs.
+
       if (persistent.status === 'queued' || persistent.status === 'running') {
         return this.rehydratePersistentJobIfMissing(persistent);
       }
 
-      // Terminal job — create a fresh rerun.
-      // Preserve original input.idempotencyKey (user intent). Use a
-      // separate override key for internal DB uniqueness.
       const rerunKey = `${idempotencyKey}:rerun:${Date.now()}:${randomBytes(4).toString('hex')}`;
       return super.enqueue(input, rerunKey);
     }
   }
 
-  /**
-   * Override pushEvent - persist job snapshot + event atomically
-   * PERSISTENCE CONTRACT: job snapshot MUST be persisted BEFORE appending event (FK order)
-   */
-  override pushEvent(jobId: string, event: string, data?: unknown): void {
-    // Call parent to update in-memory state first
+  override async pushEvent(
+    jobId: string,
+    event: string,
+    data?: unknown,
+  ): Promise<void> {
     super.pushEvent(jobId, event, data);
 
-    // Persist to DB using selective snapshot strategy:
-    // - keep snapshot freshness for queued/running jobs (stale recovery safety)
-    // - always persist snapshot on terminal job.* events
-    // - append-only for non-critical events after terminal states
     const job = this.getJobById(jobId);
     if (job && job.events.length > 0) {
       const lastEvent = job.events[job.events.length - 1];
       if (this.shouldPersistSnapshot(job, lastEvent.event)) {
-        // Atomic transaction: job + event or nothing
-        this.jobsRepo.persistTransition(job, lastEvent);
+        await this.jobsRepo.persistTransition(job, lastEvent);
         return;
       }
 
-      this.jobsRepo.appendJobEvent(jobId, lastEvent);
+      await this.jobsRepo.appendJobEvent(jobId, lastEvent);
     }
   }
 
@@ -150,61 +135,45 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     );
   }
 
-  /**
-   * Get a job by ID (from DB)
-   */
-  getJobPersistent(jobId: string): AiJobState | null {
+  async getJobPersistent(jobId: string): Promise<AiJobState | null> {
     return this.jobsRepo.getJob(jobId);
   }
 
-  /**
-   * Get a job by idempotency key (from DB)
-   */
-  getJobByIdempotencyKeyPersistent(idempotencyKey: string): AiJobState | null {
+  async getJobByIdempotencyKeyPersistent(
+    idempotencyKey: string,
+  ): Promise<AiJobState | null> {
     return this.jobsRepo.getJobByIdempotencyKey(idempotencyKey);
   }
 
-  /**
-   * List jobs with optional filters (from DB)
-   */
-  listJobsPersistent(provider?: AiProviderName, status?: string): AiJobState[] {
+  async listJobsPersistent(
+    provider?: AiProviderName,
+    status?: string,
+  ): Promise<AiJobState[]> {
     return this.jobsRepo.listJobs(provider, status);
   }
 
-  /**
-   * Load jobs from database and rehydrate in-memory state
-   * @param limit Maximum number of jobs to load (default: 100)
-   * @param options Loading options
-   */
-  loadJobsFromDb(
+  async loadJobsFromDb(
     limit: number = 100,
     options: { autoResume?: boolean } = {},
-  ): void {
-    // Load recent jobs that are not in terminal states
-    const jobs = this.jobsRepo.listJobs();
+  ): Promise<void> {
+    const jobs = await this.jobsRepo.listJobs();
     let rehydratedCount = 0;
 
     for (let i = 0; i < jobs.length && rehydratedCount < limit; i++) {
       const job = jobs[i];
-      // Only load non-terminal or recently completed jobs
       if (
         job.status === 'queued' ||
         job.status === 'running' ||
         (job.status === 'completed' && Date.now() - job.updatedAt < 3600000)
       ) {
         const existingJob = this.getJobById(job.id);
-        // Load job into memory
         this.loadJobIntoMemory(job);
-        // Rehydrate nextEventSeq = max(seq)+1 to avoid UNIQUE violations
-        const maxSeq = this.jobsRepo.getMaxEventSeq(job.id);
+        const maxSeq = await this.jobsRepo.getMaxEventSeq(job.id);
         this.setNextEventSeq(job.id, maxSeq + 1);
-        // Rehydrate queues for queued jobs (no cast needed - input.provider is AiProviderName)
         if (job.status === 'queued') {
           this.addToQueue(job.input.provider, job.id);
         }
-        // Rehydrate runningCount for running jobs (avoid double-counting)
         if (job.status === 'running') {
-          // Use pre-load state to avoid suppressing first count after loadJobIntoMemory.
           if (!existingJob || existingJob.status !== 'running') {
             this.incrementRunningCount(job.input.provider);
           }
@@ -217,25 +186,15 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
       `[AiJobsStore] Rehydrated ${rehydratedCount} job(s) from database`,
     );
 
-    // Auto-resume queued jobs by default for backward compatibility
     if (options.autoResume !== false) {
       this.triggerRecoveryDequeue();
     }
   }
 
-  /**
-   * Resume execution of recovered queued jobs
-   * Call this after setting up job execution handlers
-   */
   resumeRecoveredQueue(): void {
     this.triggerRecoveryDequeue();
   }
 
-  /**
-   * Trigger tryDequeue for recovered queued jobs after restart
-   * This ensures jobs queued before restart resume execution
-   * Drains queue until concurrency limit reached per provider
-   */
   private triggerRecoveryDequeue(): void {
     const providers: AiProviderName[] = [
       'anthropic',
@@ -247,8 +206,6 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     const maxConcurrent = this.getMaxConcurrentPerProvider();
 
     for (const provider of providers) {
-      // Drain queue until concurrency limit reached
-      // This ensures all recovered queued jobs get a chance to run
       let status = this.getQueueStatus(provider);
       while (status.queued > 0 && status.running < maxConcurrent) {
         this.tryDequeue(provider);

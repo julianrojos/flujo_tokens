@@ -4,67 +4,27 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { DesignSystemRepository, isValidSystemId, resolveSystemPaths } from './design-system-repository.js';
+import { createTestDatabase } from './test-db-helpers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Create in-memory test database with required schema
- */
-function createTestDb(): Database.Database {
-    const db = new Database(':memory:');
-    db.pragma('foreign_keys = ON');
-
-    // Create minimal schema needed for tests
-    db.exec(`
-        CREATE TABLE design_systems (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            app_name TEXT,
-            figma_file_id TEXT,
-            figma_api_token TEXT,
-            collections TEXT,
-            compile_variables_on_capture INTEGER NOT NULL DEFAULT 1 CHECK (compile_variables_on_capture IN (0, 1)),
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-        );
-
-        CREATE TABLE app_settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL,
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-        );
-
-        CREATE TABLE tokens (
-            id TEXT PRIMARY KEY,
-            ds_id TEXT REFERENCES design_systems(id) ON DELETE CASCADE,
-            slash_path TEXT NOT NULL,
-            css_var TEXT UNIQUE NOT NULL,
-            type TEXT NOT NULL,
-            collection TEXT NOT NULL,
-            raw_value TEXT NOT NULL
-        );
-    `);
-
-    return db;
-}
-
 describe('DesignSystemRepository', () => {
-    let db: Database.Database;
+    let sql: Sql;
+    let cleanup: () => Promise<void>;
     let repo: DesignSystemRepository;
 
-    before(() => {
-        db = createTestDb();
-        repo = new DesignSystemRepository(db);
+    before(async () => {
+        ({ sql, cleanup } = await createTestDatabase());
+        repo = new DesignSystemRepository(sql);
     });
 
-    after(() => {
-        if (db) db.close();
+    after(async () => {
+        await cleanup();
     });
 
     describe('resolveSystemPaths', () => {
@@ -90,8 +50,8 @@ describe('DesignSystemRepository', () => {
     });
 
     describe('CRUD operations', () => {
-        it('creates a new design system', () => {
-            const entry = repo.create({
+        it('creates a new design system', async () => {
+            const entry = await repo.create({
                 id: 'test-sys-01',
                 name: 'Test System 01',
                 appName: 'Test App',
@@ -106,28 +66,28 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(entry.compileVariablesOnCapture, true);
         });
 
-        it('gets all design systems', () => {
-            const all = repo.getAll();
+        it('gets all design systems', async () => {
+            const all = await repo.getAll();
             assert.ok(all.length >= 1);
             const testSys = all.find((s) => s.id === 'test-sys-01');
             assert.ok(testSys);
             assert.strictEqual(testSys?.name, 'Test System 01');
         });
 
-        it('gets design system by ID', () => {
-            const entry = repo.getById('test-sys-01');
+        it('gets design system by ID', async () => {
+            const entry = await repo.getById('test-sys-01');
             assert.ok(entry);
             assert.strictEqual(entry?.id, 'test-sys-01');
             assert.strictEqual(entry?.name, 'Test System 01');
         });
 
-        it('returns null for non-existent ID', () => {
-            const entry = repo.getById('non-existent');
+        it('returns null for non-existent ID', async () => {
+            const entry = await repo.getById('non-existent');
             assert.strictEqual(entry, null);
         });
 
-        it('updates an existing design system', () => {
-            const updated = repo.update('test-sys-01', {
+        it('updates an existing design system', async () => {
+            const updated = await repo.update('test-sys-01', {
                 name: 'Updated Test System',
                 appName: 'Updated App',
             });
@@ -137,59 +97,59 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(updated?.appName, 'Updated App');
 
             // Verify persistence
-            const fetched = repo.getById('test-sys-01');
+            const fetched = await repo.getById('test-sys-01');
             assert.strictEqual(fetched?.name, 'Updated Test System');
         });
 
-        it('returns null when updating non-existent system', () => {
-            const updated = repo.update('non-existent', { name: 'New Name' });
+        it('returns null when updating non-existent system', async () => {
+            const updated = await repo.update('non-existent', { name: 'New Name' });
             assert.strictEqual(updated, null);
         });
 
-        it('deletes a design system', () => {
+        it('deletes a design system', async () => {
             // Create a system to delete
-            repo.create({
+            await repo.create({
                 id: 'to-delete',
                 name: 'To Delete',
             });
 
-            const deleted = repo.delete('to-delete');
+            const deleted = await repo.delete('to-delete');
             assert.strictEqual(deleted, true);
 
             // Verify deletion
-            const fetched = repo.getById('to-delete');
+            const fetched = await repo.getById('to-delete');
             assert.strictEqual(fetched, null);
         });
 
-        it('returns false when deleting non-existent system', () => {
-            const deleted = repo.delete('non-existent');
+        it('returns false when deleting non-existent system', async () => {
+            const deleted = await repo.delete('non-existent');
             assert.strictEqual(deleted, false);
         });
     });
 
     describe('default system', () => {
-        it('returns null when no default is set', () => {
-            const defaultId = repo.getDefaultSystemId();
+        it('returns null when no default is set', async () => {
+            const defaultId = await repo.getDefaultSystemId();
             assert.strictEqual(defaultId, null);
         });
 
-        it('sets and gets default system ID', () => {
-            repo.setDefaultSystemId('test-sys-01');
-            const defaultId = repo.getDefaultSystemId();
+        it('sets and gets default system ID', async () => {
+            await repo.setDefaultSystemId('test-sys-01');
+            const defaultId = await repo.getDefaultSystemId();
             assert.strictEqual(defaultId, 'test-sys-01');
         });
 
-        it('clears default system ID when set to null', () => {
-            repo.setDefaultSystemId(null);
-            const defaultId = repo.getDefaultSystemId();
+        it('clears default system ID when set to null', async () => {
+            await repo.setDefaultSystemId(null);
+            const defaultId = await repo.getDefaultSystemId();
             assert.strictEqual(defaultId, null);
         });
     });
 
     describe('getConfig', () => {
-        it('returns full config with systems and default', () => {
-            repo.setDefaultSystemId('test-sys-01');
-            const config = repo.getConfig();
+        it('returns full config with systems and default', async () => {
+            await repo.setDefaultSystemId('test-sys-01');
+            const config = await repo.getConfig();
 
             assert.ok(Array.isArray(config.systems));
             assert.ok(config.systems.length >= 1);
@@ -198,56 +158,55 @@ describe('DesignSystemRepository', () => {
     });
 
     describe('CASCADE delete', () => {
-        it('deletes related tokens when design system is deleted', () => {
+        it('deletes related tokens when design system is deleted', async () => {
             // Create a system with a token
             const systemId = 'cascade-test-sys';
-            repo.create({
+            await repo.create({
                 id: systemId,
                 name: 'Cascade Test System',
             });
 
             // Insert a token directly
-            const stmt = db.prepare(`
+            await sql`
                 INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `);
-            stmt.run('test.token', systemId, 'test/token', '--test-token', 'color', 'test', '{}');
+                VALUES ('test.token', ${systemId}, 'test/token', '--test-token', 'color', 'test', '{}')
+            `;
 
             // Verify token exists
-            const tokenStmt = db.prepare('SELECT COUNT(*) as count FROM tokens WHERE ds_id = ?');
-            const beforeCount = tokenStmt.get(systemId) as { count: number };
-            assert.strictEqual(beforeCount.count, 1);
+            const beforeCount = (await sql`SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${systemId}`)[0] as { count: string };
+            assert.strictEqual(Number(beforeCount.count), 1);
 
             // Delete the system
-            repo.delete(systemId);
+            await repo.delete(systemId);
 
             // Verify token was deleted by CASCADE
-            const afterCount = tokenStmt.get(systemId) as { count: number };
-            assert.strictEqual(afterCount.count, 0);
+            const afterCount = (await sql`SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${systemId}`)[0] as { count: string };
+            assert.strictEqual(Number(afterCount.count), 0);
         });
     });
 });
 
 describe('DesignSystemRepository - Empty state', () => {
-    let db: Database.Database;
+    let sql: Sql;
+    let cleanup: () => Promise<void>;
     let repo: DesignSystemRepository;
 
-    before(() => {
-        db = createTestDb();
-        repo = new DesignSystemRepository(db);
+    before(async () => {
+        ({ sql, cleanup } = await createTestDatabase());
+        repo = new DesignSystemRepository(sql);
     });
 
-    after(() => {
-        if (db) db.close();
+    after(async () => {
+        await cleanup();
     });
 
-    it('returns empty array when no systems exist', () => {
-        const all = repo.getAll();
+    it('returns empty array when no systems exist', async () => {
+        const all = await repo.getAll();
         assert.deepStrictEqual(all, []);
     });
 
-    it('getConfig returns empty systems and empty default', () => {
-        const config = repo.getConfig();
+    it('getConfig returns empty systems and empty default', async () => {
+        const config = await repo.getConfig();
         assert.deepStrictEqual(config.systems, []);
         assert.strictEqual(config.defaultSystem, '');
     });

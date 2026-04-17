@@ -105,13 +105,13 @@ export class DependencyAnalysisService {
   /**
    * Generate report by consumer file
    */
-  reportByFile(dsFileKey: string, options: AnalysisOptions = {}): FileReport[] {
+  async reportByFile(dsFileKey: string, options: AnalysisOptions = {}): Promise<FileReport[]> {
     const opts = this.mergeOptions(options);
-    const consumers = this.repository.listConsumers(dsFileKey);
+    const consumers = await this.repository.listConsumers(dsFileKey);
 
     // Query usage data once (not per consumer) to avoid N+1 queries
-    const allComponentUsage = this.repository.getLatestComponentUsage(dsFileKey);
-    const allVariableUsage = this.repository.getLatestVariableUsage(dsFileKey);
+    const allComponentUsage = await this.repository.getLatestComponentUsage(dsFileKey);
+    const allVariableUsage = await this.repository.getLatestVariableUsage(dsFileKey);
 
     // Pre-group by consumer_file_key
     const componentsByConsumer = new Map<string, typeof allComponentUsage>();
@@ -137,8 +137,8 @@ export class DependencyAnalysisService {
       return total === 0 ? null : dsUsed / total;
     };
 
-    return consumers.map(consumer => {
-      const latestSync = this.repository.getLatestSyncRun(consumer.id);
+    return Promise.all(consumers.map(async consumer => {
+      const latestSync = await this.repository.getLatestSyncRun(consumer.id);
 
       if (!latestSync) {
         return {
@@ -208,15 +208,15 @@ export class DependencyAnalysisService {
         localVariableUsedCount: latestSync.local_variable_used_count,
         adoptionRate,
       };
-    });
+    }));
   }
 
   /**
    * Generate report by component
    */
-  reportByComponent(dsFileKey: string, componentKey?: string, options: AnalysisOptions = {}): ComponentUsage[] {
+  async reportByComponent(dsFileKey: string, componentKey?: string, options: AnalysisOptions = {}): Promise<ComponentUsage[]> {
     const opts = this.mergeOptions(options);
-    const componentUsage = this.repository.getLatestComponentUsage(dsFileKey);
+    const componentUsage = await this.repository.getLatestComponentUsage(dsFileKey);
 
     // Filter by specific component if provided
     const filteredUsage = componentKey
@@ -263,10 +263,10 @@ export class DependencyAnalysisService {
   /**
    * Generate report by variable
    */
-  reportByVariable(dsFileKey: string, variableKey?: string, options: AnalysisOptions = {}): VariableUsage[] {
+  async reportByVariable(dsFileKey: string, variableKey?: string, options: AnalysisOptions = {}): Promise<VariableUsage[]> {
     const opts = this.mergeOptions(options);
-    const variableUsage = this.repository.getLatestVariableUsage(dsFileKey);
-    const parentVariableUsage = this.repository.getParentVariableUsage(dsFileKey);
+    const variableUsage = await this.repository.getLatestVariableUsage(dsFileKey);
+    const parentVariableUsage = await this.repository.getParentVariableUsage(dsFileKey);
 
     // Filter by specific variable if provided
     const filteredUsage = variableKey
@@ -396,7 +396,7 @@ export class DependencyAnalysisService {
   /**
    * Build Figma links from sample node IDs
    */
-  private buildSampleLinks(fileKey: string, sampleNodeIdsJson: string | undefined, maxLinks: number): string[] {
+  private buildSampleLinks(fileKey: string, sampleNodeIdsJson: unknown, maxLinks: number): string[] {
     const nodeIds = this.parseSampleNodeIds(sampleNodeIdsJson);
     return nodeIds
       .slice(0, maxLinks)
@@ -406,23 +406,34 @@ export class DependencyAnalysisService {
   /**
    * Parse sample node IDs from JSON
    */
-  private parseSampleNodeIds(sampleNodeIdsJson: string | undefined): string[] {
-    if (!sampleNodeIdsJson) {
+  private parseSampleNodeIds(raw: unknown): string[] {
+    if (!raw) {
       return [];
     }
 
-    try {
-      const parsed: unknown = JSON.parse(sampleNodeIdsJson);
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-      return parsed
+    if (Array.isArray(raw)) {
+      return raw
         .filter((item): item is string => typeof item === 'string')
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
-    } catch {
-      return [];
     }
+
+    if (typeof raw === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+        return parsed
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
   }
 
   /**

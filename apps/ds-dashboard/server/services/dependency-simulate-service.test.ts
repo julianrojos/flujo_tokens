@@ -1,86 +1,28 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import Database from 'better-sqlite3';
-import type { Database as DatabaseType } from 'better-sqlite3';
-import { DependencyRepository } from '../db/dependency-repository';
-import { DependencySimulateService } from './dependency-simulate-service';
+import type { Sql } from 'postgres';
+import { DependencyRepository } from '../db/dependency-repository.js';
+import { DependencySimulateService } from './dependency-simulate-service.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
 
 describe('DependencySimulateService', () => {
-  let db: DatabaseType;
+  let sql: Sql;
+  let cleanup: () => Promise<void>;
   let repository: DependencyRepository;
   let simulateService: DependencySimulateService;
 
-  test('setup', () => {
-    db = new Database(':memory:');
-
-    // Create tables manually for testing
-    db.exec(`
-      CREATE TABLE ds_consumers (
-        id TEXT PRIMARY KEY,
-        ds_file_key TEXT NOT NULL,
-        consumer_file_key TEXT NOT NULL,
-        consumer_name TEXT NOT NULL,
-        enabled BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        UNIQUE (ds_file_key, consumer_file_key)
-      );
-
-      CREATE TABLE ds_sync_runs (
-        id TEXT PRIMARY KEY,
-        consumer_id TEXT NOT NULL,
-        synced_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        duration_ms INTEGER NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'partial', 'skipped')),
-        error_message TEXT,
-        ds_last_modified TEXT,
-        consumer_last_modified TEXT,
-        component_count INTEGER NOT NULL DEFAULT 0,
-        variable_count INTEGER NOT NULL DEFAULT 0,
-        warning_count INTEGER NOT NULL DEFAULT 0,
-        local_component_defined_count INTEGER DEFAULT NULL,
-        local_component_used_count INTEGER DEFAULT NULL,
-        local_variable_defined_count INTEGER DEFAULT NULL,
-        local_variable_used_count INTEGER DEFAULT NULL,
-        FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_component_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        component_key TEXT NOT NULL,
-        component_name TEXT NOT NULL,
-        instance_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_variable_usage (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        variable_key TEXT NOT NULL,
-        variable_name TEXT NOT NULL,
-        variable_type TEXT NOT NULL,
-        node_count INTEGER NOT NULL,
-        sample_node_ids_json TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE ds_sync_warnings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id TEXT NOT NULL,
-        code TEXT NOT NULL,
-        message TEXT NOT NULL,
-        node_id TEXT,
-        FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
-      );
-    `);
-
-    repository = new DependencyRepository(db);
+  before(async () => {
+    ({ sql, cleanup } = await createTestDatabase());
+    repository = new DependencyRepository(sql);
     simulateService = new DependencySimulateService(repository);
   });
 
-  test('simulateVariableChange returns warning for unknown variable', () => {
-    const result = simulateService.simulateVariableChange(
+  after(async () => {
+    await cleanup();
+  });
+
+  test('simulateVariableChange returns warning for unknown variable', async () => {
+    const result = await simulateService.simulateVariableChange(
       'test-ds',
       'VariableID:nonexistent',
       '#ff0000'
@@ -99,15 +41,14 @@ describe('DependencySimulateService', () => {
     assert(result.disclaimer.includes('based on the latest sync data'));
   });
 
-  test('simulateVariableChange returns correct impact for known variable', () => {
-    // Setup test data
-    const consumer = repository.addConsumer({
+  test('simulateVariableChange returns correct impact for known variable', async () => {
+    const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds-2',
       consumer_file_key: 'test-consumer-2',
       consumer_name: 'Test Consumer 2',
     });
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -124,7 +65,7 @@ describe('DependencySimulateService', () => {
       warnings: [],
     });
 
-    const result = simulateService.simulateVariableChange(
+    const result = await simulateService.simulateVariableChange(
       'test-ds-2',
       'VariableID:123:456',
       '#00ff00'
@@ -147,15 +88,14 @@ describe('DependencySimulateService', () => {
     assert(result.disclaimer.includes('based on the latest sync data'));
   });
 
-  test('simulateVariableChange calculates high impact correctly', () => {
-    // Setup test data with high node count
-    const consumer = repository.addConsumer({
+  test('simulateVariableChange calculates high impact correctly', async () => {
+    const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds-3',
       consumer_file_key: 'test-consumer-3',
       consumer_name: 'High Usage Consumer',
     });
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -165,14 +105,14 @@ describe('DependencySimulateService', () => {
           variable_key: 'VariableID:789:012',
           variable_name: 'spacing-lg',
           variable_type: 'FLOAT',
-          node_count: 25, // High threshold
+          node_count: 25,
           sample_node_ids_json: JSON.stringify(['node1', 'node2']),
         },
       ],
       warnings: [],
     });
 
-    const result = simulateService.simulateVariableChange(
+    const result = await simulateService.simulateVariableChange(
       'test-ds-3',
       'VariableID:789:012',
       '24'
@@ -182,22 +122,20 @@ describe('DependencySimulateService', () => {
     assert.strictEqual(result.totalNodes, 25);
   });
 
-  test('simulateVariableChange handles multiple consumers', () => {
-    // Setup multiple consumers
-    const consumer1 = repository.addConsumer({
+  test('simulateVariableChange handles multiple consumers', async () => {
+    const consumer1 = await repository.addConsumer({
       ds_file_key: 'test-ds-4',
       consumer_file_key: 'test-consumer-4',
       consumer_name: 'Consumer 1',
     });
 
-    const consumer2 = repository.addConsumer({
+    const consumer2 = await repository.addConsumer({
       ds_file_key: 'test-ds-4',
       consumer_file_key: 'test-consumer-5',
       consumer_name: 'Consumer 2',
     });
 
-    // Add sync runs for both consumers with the same variable
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer1.id,
       duration_ms: 1000,
       status: 'ok',
@@ -214,7 +152,7 @@ describe('DependencySimulateService', () => {
       warnings: [],
     });
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer2.id,
       duration_ms: 1000,
       status: 'ok',
@@ -231,7 +169,7 @@ describe('DependencySimulateService', () => {
       warnings: [],
     });
 
-    const result = simulateService.simulateVariableChange(
+    const result = await simulateService.simulateVariableChange(
       'test-ds-4',
       'VariableID:global:font-size',
       '16'
@@ -242,20 +180,18 @@ describe('DependencySimulateService', () => {
     assert.strictEqual(result.affectedConsumers.length, 2);
     assert.strictEqual(result.impactLevel, 'MEDIUM'); // 7 nodes > medium threshold (5)
 
-    // Check both consumers are included
     const consumerNames = result.affectedConsumers.map(c => c.consumerName).sort();
     assert.deepStrictEqual(consumerNames, ['Consumer 1', 'Consumer 2']);
   });
 
-  test('simulateVariableChange respects custom thresholds', () => {
-    // Setup test data
-    const consumer = repository.addConsumer({
+  test('simulateVariableChange respects custom thresholds', async () => {
+    const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds-5',
       consumer_file_key: 'test-consumer-5',
       consumer_name: 'Custom Threshold Consumer',
     });
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -265,23 +201,21 @@ describe('DependencySimulateService', () => {
           variable_key: 'VariableID:custom:color',
           variable_name: 'accent-color',
           variable_type: 'COLOR',
-          node_count: 25,  // Above high threshold (20) for HIGH impact
+          node_count: 25,
           sample_node_ids_json: JSON.stringify(['node1']),
         },
       ],
       warnings: [],
     });
 
-    // With default thresholds, 25 nodes would be HIGH (> 20)
-    const defaultResult = simulateService.simulateVariableChange(
+    const defaultResult = await simulateService.simulateVariableChange(
       'test-ds-5',
       'VariableID:custom:color',
       '#purple'
     );
     assert.strictEqual(defaultResult.impactLevel, 'HIGH');
 
-    // With custom thresholds, 25 nodes should be LOW (< 30 medium threshold)
-    const customResult = simulateService.simulateVariableChange(
+    const customResult = await simulateService.simulateVariableChange(
       'test-ds-5',
       'VariableID:custom:color',
       '#purple',
@@ -296,9 +230,8 @@ describe('DependencySimulateService', () => {
     assert.strictEqual(customResult.impactLevel, 'LOW');
   });
 
-  test('simulateVariableChange limits sample links', () => {
-    // Setup test data with many sample nodes
-    const consumer = repository.addConsumer({
+  test('simulateVariableChange limits sample links', async () => {
+    const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds-6',
       consumer_file_key: 'test-consumer-6',
       consumer_name: 'Many Samples Consumer',
@@ -306,7 +239,7 @@ describe('DependencySimulateService', () => {
 
     const manyNodeIds = Array.from({ length: 10 }, (_, i) => `node${i + 1}`);
 
-    repository.saveSyncRun({
+    await repository.saveSyncRun({
       consumer_id: consumer.id,
       duration_ms: 1000,
       status: 'ok',
@@ -323,7 +256,7 @@ describe('DependencySimulateService', () => {
       warnings: [],
     });
 
-    const result = simulateService.simulateVariableChange(
+    const result = await simulateService.simulateVariableChange(
       'test-ds-6',
       'VariableID:many:samples',
       '8',
@@ -331,10 +264,42 @@ describe('DependencySimulateService', () => {
     );
 
     assert.strictEqual(result.affectedConsumers[0].sampleLinks.length, 3);
-    assert.strictEqual(result.affectedConsumers[0].sampleNodeIds.length, 10); // All node IDs preserved
+    assert.strictEqual(result.affectedConsumers[0].sampleNodeIds.length, 10);
   });
 
-  test('teardown', () => {
-    db.close();
+  test('simulateVariableChange handles JSONB arrays from postgres.js', async () => {
+    const consumer = await repository.addConsumer({
+      ds_file_key: 'test-ds-jsonb-array',
+      consumer_file_key: 'test-consumer-jsonb-array',
+      consumer_name: 'JSONB Array Consumer',
+    });
+
+    await repository.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 1000,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [
+        {
+          variable_key: 'VariableID:jsonb:array',
+          variable_name: 'jsonb-array',
+          variable_type: 'COLOR',
+          node_count: 2,
+          sample_node_ids_json: ['node-a', 'node-b'],
+        },
+      ],
+      warnings: [],
+    });
+
+    const result = await simulateService.simulateVariableChange(
+      'test-ds-jsonb-array',
+      'VariableID:jsonb:array',
+      '#000000',
+    );
+
+    assert.strictEqual(result.totalNodes, 2);
+    assert.strictEqual(result.affectedConsumers.length, 1);
+    assert.deepStrictEqual(result.affectedConsumers[0].sampleNodeIds, ['node-a', 'node-b']);
+    assert.strictEqual(result.affectedConsumers[0].sampleLinks.length, 2);
   });
 });

@@ -58,16 +58,16 @@ export class DependencySimulateService {
   /**
    * Simulate the impact of changing a variable value
    */
-  simulateVariableChange(
+  async simulateVariableChange(
     dsFileKey: string,
     variableKey: string,
     proposedValue: unknown,
     options: SimulationOptions = {}
-  ): SimulationResult {
+  ): Promise<SimulationResult> {
     const opts = this.mergeOptions(options);
 
     // Get latest variable usage data
-    const variableUsage = this.repository.getLatestVariableUsage(dsFileKey)
+    const variableUsage = (await this.repository.getLatestVariableUsage(dsFileKey))
       .filter(usage => usage.variable_key === variableKey);
 
     if (variableUsage.length === 0) {
@@ -117,7 +117,7 @@ export class DependencySimulateService {
     const impactLevel = this.computeImpactLevel(totalNodes, affectedConsumers.length, opts);
 
     // Generate warnings
-    const warnings = this.generateWarnings(dsFileKey, affectedConsumers, variableUsage);
+    const warnings = await this.generateWarnings(dsFileKey, affectedConsumers, variableUsage);
 
     return {
       variableKey,
@@ -161,7 +161,7 @@ export class DependencySimulateService {
   /**
    * Generate warnings for the simulation
    */
-  private generateWarnings(dsFileKey: string, consumers: AffectedConsumer[], variableUsage: any[]): SimulationWarning[] {
+  private async generateWarnings(dsFileKey: string, consumers: AffectedConsumer[], variableUsage: any[]): Promise<SimulationWarning[]> {
     const warnings: SimulationWarning[] = [];
 
     // Check for stale data
@@ -176,7 +176,7 @@ export class DependencySimulateService {
     }
 
     // Check for consumers with warnings in their latest sync
-    const latestWarningsByConsumer = this.repository.getLatestWarnings(dsFileKey);
+    const latestWarningsByConsumer = await this.repository.getLatestWarnings(dsFileKey);
     for (const usage of variableUsage) {
       const latestWarnings = latestWarningsByConsumer
         .filter(warning => warning.consumer_file_key === usage.consumer_file_key);
@@ -226,16 +226,34 @@ export class DependencySimulateService {
   /**
    * Parse sample node IDs from JSON
    */
-  private parseSampleNodeIds(sampleNodeIdsJson: string | undefined): string[] {
-    if (!sampleNodeIdsJson) {
+  private parseSampleNodeIds(raw: unknown): string[] {
+    if (!raw) {
       return [];
     }
 
-    try {
-      return JSON.parse(sampleNodeIdsJson) as string[];
-    } catch {
-      return [];
+    if (Array.isArray(raw)) {
+      return raw
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
     }
+
+    if (typeof raw === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+        return parsed
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
   }
 
   /**

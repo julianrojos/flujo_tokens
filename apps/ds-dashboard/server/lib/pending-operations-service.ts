@@ -5,128 +5,92 @@
  * Ensures system consistency after crashes.
  */
 
-import type { Database } from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import { PendingOperationsRepository } from '../db/pending-operations-repository.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import type { DesignSystemsConfig } from '../db/design-system-repository.js';
 
-/**
- * Reconcile result
- */
 export interface ReconcileResult {
-  completed: string[];   // op IDs
+  completed: string[];
   abandoned: string[];
   errors: Array<{ id: string; error: string }>;
 }
 
-/**
- * Reconcile arguments
- */
 export interface ReconcileDeleteDsOpsArgs {
-  db: Database;
+  sql: Sql;
   pendingOpsRepo: PendingOperationsRepository;
   designSystemRepository: {
-    getConfig(): DesignSystemsConfig;
-    delete(id: string): boolean;
-    setDefaultSystemId(id: string | null): void;
+    getConfig(): Promise<DesignSystemsConfig>;
+    delete(id: string): Promise<boolean>;
+    setDefaultSystemId(id: string | null): Promise<void>;
   };
-  dependencyRepo?: Pick<DependencyRepository, 'listConsumers' | 'removeAllByDsFileKey'>;
+  dependencyRepo?: Pick<
+    DependencyRepository,
+    'listConsumers' | 'removeAllByDsFileKey'
+  >;
 }
 
-/**
- * Reconcile incomplete delete_design_system operations
- *
- * For each in_progress operation, checks the actual state of the system
- * and brings the operation to a terminal state (completed/abandoned).
- *
- * Four possible states:
- * - configHasDS=Y, dbHasConsumers=Y → abandoned (crash pre-FS, nothing was touched)
- * - configHasDS=Y, dbHasConsumers=N → delete DS + set default + complete (the gap we want to cover)
- * - configHasDS=N, dbHasConsumers=Y → cascade delete + complete (defensive for original bug)
- * - configHasDS=N, dbHasConsumers=N → complete (already finished)
- */
-export function reconcileDeleteDesignSystemOps(args: ReconcileDeleteDsOpsArgs): ReconcileResult {
-  const { db, pendingOpsRepo, designSystemRepository, dependencyRepo: injectedDependencyRepo } = args;
+export async function reconcileDeleteDesignSystemOps(
+  args: ReconcileDeleteDsOpsArgs,
+): Promise<ReconcileResult> {
+  const {
+    sql,
+    pendingOpsRepo,
+    designSystemRepository,
+    dependencyRepo: injectedDependencyRepo,
+  } = args;
   const dependencyRepo =
-    injectedDependencyRepo ??
-    new DependencyRepository(db);
+    injectedDependencyRepo ?? new DependencyRepository(sql);
   const result: ReconcileResult = {
     completed: [],
     abandoned: [],
     errors: [],
   };
 
-  const ops = pendingOpsRepo.listIncomplete('delete_design_system');
+  const ops = await pendingOpsRepo.listIncomplete('delete_design_system');
 
   for (const op of ops) {
     try {
-      // Parse payload
-      let payload: { systemId: string; figmaFileId: string };
-      try {
-        payload = JSON.parse(op.payload) as { systemId: string; figmaFileId: string };
-      } catch (parseError) {
-        console.warn(`[Reconcile] Malformed payload for op ${op.id}, abandoning`);
-        pendingOpsRepo.abandon(op.id);
+      const payload = op.payload as { systemId: string; figmaFileId?: string };
+      const systemId = payload.systemId;
+      const figmaFileId = (payload.figmaFileId ?? systemId).trim();
+      if (!figmaFileId) {
+        await pendingOpsRepo.abandon(op.id);
         result.abandoned.push(op.id);
         continue;
       }
+      const config = await designSystemRepository.getConfig();
+      const hasDS = config.systems.some((s) => s.id === systemId);
+      const consumers = await dependencyRepo.listConsumers(figmaFileId);
+      const hasConsumers = consumers.length > 0;
 
-      const { systemId, figmaFileId } = payload;
-
-      // Skip if figmaFileId is empty
-      if (!figmaFileId || figmaFileId.trim() === '') {
-        console.warn(`[Reconcile] Op ${op.id} has empty figmaFileId, abandoning`);
-        pendingOpsRepo.abandon(op.id);
+      if (hasDS && hasConsumers) {
+        await pendingOpsRepo.abandon(op.id);
         result.abandoned.push(op.id);
-        continue;
-      }
-
-      // Check actual system state
-      const config = designSystemRepository.getConfig();
-      const configHasDS = config.systems.some((s) => s.id === systemId);
-
-      const consumers = dependencyRepo.listConsumers(figmaFileId.trim());
-      const dbHasConsumers = consumers.length > 0;
-
-      // Four-way decision
-      if (configHasDS && dbHasConsumers) {
-        // Y+Y: Nothing was done, crash pre-FS
-        console.warn(`[Reconcile] Op ${op.id}: DS ${systemId} still in config with consumers - abandoning (user should retry)`);
-        pendingOpsRepo.abandon(op.id);
-        result.abandoned.push(op.id);
-      } else if (configHasDS && !dbHasConsumers) {
-        // Y+N: Consumers deleted but DS still exists - remove it and repair default.
-        designSystemRepository.delete(systemId);
-        const nextSystems = config.systems.filter((s) => s.id !== systemId);
-        const nextDefault = config.defaultSystem === systemId
-          ? (nextSystems[0]?.id ?? null)
-          : (config.defaultSystem || nextSystems[0]?.id || null);
-        designSystemRepository.setDefaultSystemId(nextDefault);
-        pendingOpsRepo.complete(op.id);
-        result.completed.push(op.id);
-        console.log(`[Reconcile] Op ${op.id}: Completed - removed DS ${systemId}`);
-      } else if (!configHasDS && dbHasConsumers) {
-        // N+Y: Config cleaned but consumers remain - defensive cleanup
-        try {
-          dependencyRepo.removeAllByDsFileKey(figmaFileId.trim());
-          pendingOpsRepo.complete(op.id);
-          result.completed.push(op.id);
-          console.log(`[Reconcile] Op ${op.id}: Completed - cleaned up consumers for ${figmaFileId}`);
-        } catch (cascadeError) {
-          console.warn(`[Reconcile] Op ${op.id}: Cascade delete failed`, cascadeError);
-          throw cascadeError;
+      } else if (hasDS && !hasConsumers) {
+        await designSystemRepository.delete(systemId);
+        if (config.defaultSystem === systemId) {
+          const remaining = config.systems.filter((s) => s.id !== systemId);
+          await designSystemRepository.setDefaultSystemId(
+            remaining[0]?.id ?? null,
+          );
         }
-      } else {
-        // N+N: Already finished
-        pendingOpsRepo.complete(op.id);
+        await pendingOpsRepo.complete(op.id);
         result.completed.push(op.id);
-        console.log(`[Reconcile] Op ${op.id}: Already complete - nothing to do`);
+      } else if (!hasDS && hasConsumers) {
+        await dependencyRepo.removeAllByDsFileKey(figmaFileId);
+        await pendingOpsRepo.complete(op.id);
+        result.completed.push(op.id);
+      } else {
+        await pendingOpsRepo.complete(op.id);
+        result.completed.push(op.id);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      result.errors.push({ id: op.id, error: errorMessage });
-      console.error(`[Reconcile] Error processing op ${op.id}:`, errorMessage);
+      result.errors.push({
+        id: op.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

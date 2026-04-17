@@ -25,9 +25,7 @@ import {
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
 } from './lib/system-utils.ts';
-import {
-  validateGitRef,
-} from './services/analysis-artifacts-service.ts';
+import { validateGitRef } from './services/analysis-artifacts-service.ts';
 import {
   isQueueJobFinalStatus,
   listQueueJobEvents,
@@ -54,10 +52,13 @@ import {
   toBooleanString,
   toNumberString,
 } from './lib/request-file-helpers.ts';
+import { disposeFigmaMcpPingService } from './services/figma-mcp-ping-service.ts';
 import {
-  disposeFigmaMcpPingService,
-} from './services/figma-mcp-ping-service.ts';
-import { bootstrapDatabase } from './db/db-service.js';
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+  closeDatabase,
+} from './db/pg-db-service.js';
+import type { Sql } from 'postgres';
 import { PendingOperationsRepository } from './db/pending-operations-repository.js';
 import { reconcileDeleteDesignSystemOps } from './lib/pending-operations-service.js';
 import { AiJobsStoreWithPersistence } from './services/ai-jobs-store-with-persistence.js';
@@ -74,24 +75,7 @@ export interface ServerApp {
   port: number;
   host: string;
   repoRoot: string;
-  disposeDesignSystemRepository: () => void;
-}
-
-function resolveDashboardDbPath(repoRoot: string, env: NodeJS.ProcessEnv): string {
-  const fromEnv = String(env.DS_DASHBOARD_DB_PATH || '').trim();
-  if (fromEnv) {
-    if (!path.isAbsolute(fromEnv)) {
-      throw new Error('DS_DASHBOARD_DB_PATH must be an absolute path.');
-    }
-    const resolved = path.resolve(fromEnv);
-    const parentDir = path.dirname(resolved);
-    if (!fsSync.existsSync(parentDir)) {
-      throw new Error(`DS_DASHBOARD_DB_PATH parent directory does not exist: ${parentDir}`);
-    }
-    fsSync.accessSync(parentDir, fsSync.constants.R_OK | fsSync.constants.W_OK);
-    return resolved;
-  }
-  return path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
+  disposeDesignSystemRepository: () => Promise<void>;
 }
 
 function defaultRepoRoot(): string {
@@ -107,7 +91,9 @@ function formatHostForHttpUrl(host: string): string {
   return normalized.includes(':') ? `[${normalized}]` : normalized;
 }
 
-function ensureDashboardInternalToken(env: NodeJS.ProcessEnv = process.env): string {
+function ensureDashboardInternalToken(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const fromEnvArg = String(env?.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
   if (fromEnvArg) {
     process.env.DS_DASHBOARD_INTERNAL_TOKEN = fromEnvArg;
@@ -120,15 +106,13 @@ function ensureDashboardInternalToken(env: NodeJS.ProcessEnv = process.env): str
   return generated;
 }
 
-export function createServerApp(options: CreateServerAppOptions = {}): ServerApp {
-  const {
-    env = process.env,
-    repoRoot = defaultRepoRoot(),
-  } = options;
+export async function createServerApp(
+  options: CreateServerAppOptions = {},
+): Promise<ServerApp> {
+  const { env = process.env, repoRoot = defaultRepoRoot() } = options;
 
-  // Initialize SQLite database
-  let dbPath = '';
-  let db: import('better-sqlite3').Database | undefined;
+  // Initialize PostgreSQL database
+  let sql: Sql | undefined;
   let aiJobsStore!: AiJobsStoreWithPersistence;
   let tokenRepo!: TokenRepository;
   let componentRepo!: ComponentRepository;
@@ -138,19 +122,18 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   let designSystemRepository: DesignSystemRepository | null = null;
 
   try {
-    dbPath = resolveDashboardDbPath(repoRoot, env);
-    db = bootstrapDatabase({ dbPath });
-    designSystemRepository = new DesignSystemRepository(db, { repoRoot });
-    componentRepo = new ComponentRepository(db);
-    healthRepo = new HealthRepository(db);
-    aiJobsStore = new AiJobsStoreWithPersistence({ db });
-    tokenRepo = new TokenRepository(db);
+    sql = await bootstrapDatabase(resolveDashboardDbUrl(env));
+    designSystemRepository = new DesignSystemRepository(sql, repoRoot);
+    componentRepo = new ComponentRepository(sql);
+    healthRepo = new HealthRepository(sql);
+    aiJobsStore = new AiJobsStoreWithPersistence({ sql });
+    tokenRepo = new TokenRepository(sql);
 
     // Wire the persistent store to the singleton so routes use it
     initializeAiJobsStore(aiJobsStore);
 
     // Load existing jobs from DB into memory (without auto-resume)
-    aiJobsStore.loadJobsFromDb(100, { autoResume: false });
+    await aiJobsStore.loadJobsFromDb(100, { autoResume: false });
 
     // Resume execution of recovered queued jobs after routes are set up
     // This ensures job handlers are registered before dequeue
@@ -160,7 +143,10 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       }
     }, 0);
   } catch (error) {
-    console.error('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
+    console.error(
+      '[Server] Failed to initialize PostgreSQL database:',
+      error instanceof Error ? error.message : String(error),
+    );
 
     // Stop in-memory cleanup timer if store was initialized before failure.
     if (aiJobsStore) {
@@ -168,12 +154,17 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     }
 
     // Close DB if it was partially initialized before re-throwing
-    if (db) {
+    if (sql) {
       try {
-        db.close();
-        console.log('[Server] Database connection closed due to initialization failure');
+        await closeDatabase(sql);
+        console.log(
+          '[Server] Database connection closed due to initialization failure',
+        );
       } catch (closeError) {
-        console.warn('[Server] Error closing database during cleanup:', closeError instanceof Error ? closeError.message : String(closeError));
+        console.warn(
+          '[Server] Error closing database during cleanup:',
+          closeError instanceof Error ? closeError.message : String(closeError),
+        );
       }
     }
 
@@ -182,24 +173,49 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
 
   // Reconcile incomplete delete operations from previous server runs
   try {
-    const pendingOpsRepo = new PendingOperationsRepository(db);
-    const reconcileResult = reconcileDeleteDesignSystemOps({
-      db,
+    const pendingOpsRepo = new PendingOperationsRepository(sql);
+    const reconcileResult = await reconcileDeleteDesignSystemOps({
+      sql,
       pendingOpsRepo,
       designSystemRepository,
     });
     if (reconcileResult.errors.length > 0) {
-      console.error('[Server] Pending operation reconciliation errors:', reconcileResult.errors);
+      console.error(
+        '[Server] Pending operation reconciliation errors:',
+        reconcileResult.errors,
+      );
     }
-    if (reconcileResult.completed.length > 0 || reconcileResult.abandoned.length > 0) {
-      console.warn('[Server] Reconciled incomplete delete operations:', reconcileResult);
+    if (
+      reconcileResult.completed.length > 0 ||
+      reconcileResult.abandoned.length > 0
+    ) {
+      console.warn(
+        '[Server] Reconciled incomplete delete operations:',
+        reconcileResult,
+      );
     }
   } catch (error) {
-    console.error('[Server] Failed to reconcile pending operations:', error instanceof Error ? error.message : String(error));
+    console.error(
+      '[Server] Failed to reconcile pending operations:',
+      error instanceof Error ? error.message : String(error),
+    );
+
+    aiJobsStore.stopCleanup();
+    if (sql) {
+      try {
+        await closeDatabase(sql);
+      } catch (closeError) {
+        console.warn(
+          '[Server] Error closing database during reconciliation failure:',
+          closeError instanceof Error ? closeError.message : String(closeError),
+        );
+      }
+    }
+
     throw error;
   }
 
-  function disposeDesignSystemRepository(): void {
+  async function disposeDesignSystemRepository(): Promise<void> {
     if (designSystemRepositoryDisposed) return;
     designSystemRepositoryDisposed = true;
 
@@ -220,12 +236,15 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     disposeFigmaMcpPingService();
     // Close database connection
     try {
-      if (db) {
-        db.close();
+      if (sql) {
+        await closeDatabase(sql);
         console.log('[Server] Database connection closed');
       }
     } catch (error) {
-      console.warn('[Server] Error closing database:', error instanceof Error ? error.message : String(error));
+      console.warn(
+        '[Server] Error closing database:',
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -270,11 +289,19 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   });
 
   // Adapt helper signatures to createServerHttpApp contracts.
-  const buildApiErrorPayloadAdapter = (...args: unknown[]): Record<string, unknown> => {
-    return buildApiErrorPayload(args[0] as BuildApiErrorPayloadOptions, createApiRequestId);
+  const buildApiErrorPayloadAdapter = (
+    ...args: unknown[]
+  ): Record<string, unknown> => {
+    return buildApiErrorPayload(
+      args[0] as BuildApiErrorPayloadOptions,
+      createApiRequestId,
+    );
   };
 
-  const writeStructuredLogAdapter = (level: string, payload: Record<string, unknown>): void => {
+  const writeStructuredLogAdapter = (
+    level: string,
+    payload: Record<string, unknown>,
+  ): void => {
     writeStructuredLog(level, { ...payload, level } as StructuredLogPayload);
   };
 
@@ -287,35 +314,62 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     routeDeps: buildCreateServerAppRouteDeps({
       createApiRequestId,
       queueJobAcceptedPayload,
-      readJsonBody: readJsonBody as (c: unknown) => Promise<Record<string, unknown>>,
+      readJsonBody: readJsonBody as (
+        c: unknown,
+      ) => Promise<Record<string, unknown>>,
       designSystemRepository,
       componentRepo,
       tokenRepo,
       healthRepo,
       normalizeSystemId: normalizeSystemId as (...args: unknown[]) => string,
-      ensureRelativeDir: ensureRelativeDir as unknown as (...args: unknown[]) => string,
-      normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (...args: unknown[]) => string,
-      normalizeCollectionList: normalizeCollectionList as unknown as (...args: unknown[]) => string,
-      summarizeDesignSystemsConfig: summarizeDesignSystemsConfig as (...args: unknown[]) => unknown,
-      resolveSafeSystemPathsForDeletion: resolveSafeSystemPathsForDeletion as (...args: unknown[]) => unknown,
+      ensureRelativeDir: ensureRelativeDir as unknown as (
+        ...args: unknown[]
+      ) => string,
+      normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (
+        ...args: unknown[]
+      ) => string,
+      normalizeCollectionList: normalizeCollectionList as unknown as (
+        ...args: unknown[]
+      ) => string,
+      summarizeDesignSystemsConfig: summarizeDesignSystemsConfig as (
+        ...args: unknown[]
+      ) => unknown,
+      resolveSafeSystemPathsForDeletion: resolveSafeSystemPathsForDeletion as (
+        ...args: unknown[]
+      ) => unknown,
       repoRoot,
       fsSync,
       getSystemContext,
       isDevRuntime,
       resolveRepoFilePath,
       sha256Text,
-      readTextFileLimited: readTextFileLimited as (...args: unknown[]) => Promise<{ content: string; truncated: boolean; }>,
-      findLineForQuery: findLineForQuery as unknown as (...args: unknown[]) => number | null,
-      buildSnippet: buildSnippet as unknown as (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string; },
+      readTextFileLimited: readTextFileLimited as (
+        ...args: unknown[]
+      ) => Promise<{ content: string; truncated: boolean }>,
+      findLineForQuery: findLineForQuery as unknown as (
+        ...args: unknown[]
+      ) => number | null,
+      buildSnippet: buildSnippet as unknown as (...args: unknown[]) => {
+        targetLine: number;
+        startLine: number;
+        endLine: number;
+        snippet: string;
+      },
       guessContentType,
       MAX_FILE_BYTES,
       queueJobs,
-      listQueueJobEvents: listQueueJobEvents as (...args: unknown[]) => { seq: number; }[],
+      listQueueJobEvents: listQueueJobEvents as (
+        ...args: unknown[]
+      ) => { seq: number }[],
       queueJobSnapshot: queueJobSnapshot as (...args: unknown[]) => unknown,
       isQueueJobFinalStatus,
       cancelQueueJob,
-      toQueueTerminalEvent: toQueueTerminalEvent as (...args: unknown[]) => unknown,
-      buildApiErrorPayload: buildApiErrorPayload as (...args: unknown[]) => Record<string, unknown>,
+      toQueueTerminalEvent: toQueueTerminalEvent as (
+        ...args: unknown[]
+      ) => unknown,
+      buildApiErrorPayload: buildApiErrorPayload as (
+        ...args: unknown[]
+      ) => Record<string, unknown>,
       MAX_RETAINED_EVENTS,
       enqueueQueueJob,
       runQueuedSpawnCommand,
@@ -324,8 +378,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       toBooleanString,
       toNumberString,
       validateGitRef,
-      tokenRepo: db ? tokenRepo : undefined,
-      db,
+      tokenRepo: sql ? tokenRepo : undefined,
+      db: sql,
     }),
   });
 
@@ -336,7 +390,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   // client that the DS Graph is already connected to — avoiding
   // the port-mismatch problem that occurs when subprocesses spawn their own
   // fresh DS Graph instances.
-  const internalHostRaw = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+  const internalHostRaw =
+    HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
   const internalHost = formatHostForHttpUrl(internalHostRaw);
   process.env.DS_DASHBOARD_INTERNAL_URL = `http://${internalHost}:${PORT}`;
   ensureDashboardInternalToken(env);

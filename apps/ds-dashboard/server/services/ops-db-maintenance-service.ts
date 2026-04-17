@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 
 import {
   buildTokenGraph,
@@ -60,22 +60,18 @@ function uniqueSorted(values: string[]): string[] {
   );
 }
 
-function buildTokenRegistryFromDb(args: {
+async function buildTokenRegistryFromDb(args: {
   systemId: string;
   tokenRepo: TokenRepository;
-  db: Database.Database;
+  sql: Sql;
 }) {
-  const { systemId, tokenRepo, db } = args;
-  const tokenRegistry = tokenRepo.getTokenRegistry(systemId);
-  const aliasRows = db
-    .prepare(
-      `
-       SELECT from_path, to_path, modes
-       FROM figma_aliases
-       WHERE ds_id = ?
-     `,
-    )
-    .all(systemId) as AliasRow[];
+  const { systemId, tokenRepo, sql } = args;
+  const tokenRegistry = await tokenRepo.getTokenRegistry(systemId);
+  const aliasRows = (await sql`
+    SELECT from_path, to_path, modes
+    FROM figma_aliases
+    WHERE ds_id = ${systemId}
+  `) as AliasRow[];
 
   const aliasesBySource = new Map<string, string[]>();
   for (const row of aliasRows) {
@@ -106,13 +102,13 @@ function buildTokenRegistryFromDb(args: {
   };
 }
 
-function buildUsageRowsFromDb(args: {
+async function buildUsageRowsFromDb(args: {
   systemId: string;
-  db: Database.Database;
+  sql: Sql;
   aliasRows: AliasRow[];
   validTokenIds: Set<string>;
-}): { rows: UsageRow[]; warnings: string[] } {
-  const { systemId, db, aliasRows, validTokenIds } = args;
+}): Promise<{ rows: UsageRow[]; warnings: string[] }> {
+  const { systemId, sql, aliasRows, validTokenIds } = args;
   const warnings: string[] = [];
   const rows: UsageRow[] = [];
   const dedupe = new Set<string>();
@@ -125,16 +121,12 @@ function buildUsageRowsFromDb(args: {
     rows.push(row);
   };
 
-  const figmaBindingRows = db
-    .prepare(
-      `
-      SELECT b.component_id, b.node_id, b.field, b.mode, b.token_path
-      FROM component_figma_token_bindings b
-      INNER JOIN components c ON c.id = b.component_id
-      WHERE c.ds_id = ?
-    `,
-    )
-    .all(systemId) as ComponentFigmaTokenBindingRow[];
+  const figmaBindingRows = (await sql`
+    SELECT b.component_id, b.node_id, b.field, b.mode, b.token_path
+    FROM component_figma_token_bindings b
+    INNER JOIN components c ON c.id = b.component_id
+    WHERE c.ds_id = ${systemId}
+  `) as ComponentFigmaTokenBindingRow[];
 
   for (const row of figmaBindingRows) {
     const tokenPath = asString(row.token_path);
@@ -176,14 +168,14 @@ function buildUsageRowsFromDb(args: {
  * - Intentionally does not scan docs/spec files from filesystem.
  * - Re-upserts current component rows to normalize persisted shapes.
  */
-export function refreshRegistryDbOnly(args: {
+export async function refreshRegistryDbOnly(args: {
   systemId: string;
   componentRepo: ComponentRepository;
   emitChunk: EmitChunk;
 }) {
   const { systemId, componentRepo, emitChunk } = args;
-  const rows = componentRepo.getAll(systemId);
-  const upserted = componentRepo.upsertFromRegistry(
+  const rows = await componentRepo.getAll(systemId);
+  const upserted = await componentRepo.upsertFromRegistry(
     systemId,
     rows.map((row) => ({
       slug: row.slug,
@@ -270,18 +262,18 @@ export function refreshRegistryDbOnly(args: {
  *
  * No filesystem scans are performed.
  */
-export function refreshUsageIndexDbOnly(args: {
+export async function refreshUsageIndexDbOnly(args: {
   systemId: string;
   emitChunk: EmitChunk;
-  db: Database.Database;
+  sql: Sql;
   tokenRepo: TokenRepository;
 }) {
-  const { systemId, emitChunk, db, tokenRepo } = args;
+  const { systemId, emitChunk, sql, tokenRepo } = args;
 
-  const { registry, aliasRows } = buildTokenRegistryFromDb({
+  const { registry, aliasRows } = await buildTokenRegistryFromDb({
     systemId,
     tokenRepo,
-    db,
+    sql,
   });
 
   if (registry.entries.length === 0) {
@@ -290,9 +282,9 @@ export function refreshUsageIndexDbOnly(args: {
     );
   }
 
-  const usageBuild = buildUsageRowsFromDb({
+  const usageBuild = await buildUsageRowsFromDb({
     systemId,
-    db,
+    sql,
     aliasRows,
     validTokenIds: new Set(registry.entries.map((entry) => entry.id)),
   });
@@ -301,25 +293,16 @@ export function refreshUsageIndexDbOnly(args: {
     emitChunk('warning', warning);
   }
 
-  db.transaction(() => {
-    db.prepare('DELETE FROM token_usage_occurrences WHERE ds_id = ?').run(
-      systemId,
-    );
-    const insertStmt = db.prepare(`
-      INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${systemId}`;
     for (const row of usageBuild.rows) {
-      insertStmt.run(
-        systemId,
-        row.tokenId,
-        row.kind,
-        row.source,
-        row.owner,
-        row.detail,
-      );
+      await tx`
+        INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+        VALUES (${systemId}, ${row.tokenId}, ${row.kind}, ${row.source}, ${row.owner}, ${row.detail})
+        ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
+      `;
     }
-  })();
+  });
 
   emitChunk(
     'result',
@@ -359,19 +342,19 @@ function toCyclePayload(args: {
  * Recomputes token dependency graph from DB token registry + alias edges.
  * Persists result into `token_graph.graph_json`.
  */
-export function refreshTokenGraphDbOnly(args: {
+export async function refreshTokenGraphDbOnly(args: {
   systemId: string;
   emitChunk: EmitChunk;
-  db: Database.Database;
+  sql: Sql;
   tokenRepo: TokenRepository;
   sha256Text: (value: string) => string;
 }) {
-  const { systemId, emitChunk, db, tokenRepo, sha256Text } = args;
+  const { systemId, emitChunk, sql, tokenRepo, sha256Text } = args;
 
-  const { registry, tokenRegistry } = buildTokenRegistryFromDb({
+  const { registry, tokenRegistry } = await buildTokenRegistryFromDb({
     systemId,
     tokenRepo,
-    db,
+    sql,
   });
 
   if (registry.entries.length === 0) {
@@ -455,15 +438,13 @@ export function refreshTokenGraphDbOnly(args: {
     ),
   };
 
-  db.prepare(
-    `
+  await sql`
     INSERT INTO token_graph (ds_id, graph_json, generated_at)
-    VALUES (?, ?, strftime('%s', 'now'))
-    ON CONFLICT(ds_id) DO UPDATE SET
-      graph_json = excluded.graph_json,
-      generated_at = excluded.generated_at
-  `,
-  ).run(systemId, JSON.stringify(payload));
+    VALUES (${systemId}, ${JSON.stringify(payload)}, now())
+    ON CONFLICT (ds_id) DO UPDATE SET
+      graph_json = EXCLUDED.graph_json,
+      generated_at = EXCLUDED.generated_at
+  `;
 
   emitChunk(
     'result',
@@ -482,16 +463,16 @@ export function refreshTokenGraphDbOnly(args: {
  * Reads WCAG pair config from app_settings (`wcag_pairs`) in DB.
  * Returns an empty array when setting is absent or malformed.
  */
-function readWcagPairsFromDb(db: Database.Database): unknown[] {
-  const row = db
-    .prepare("SELECT value FROM app_settings WHERE key = 'wcag_pairs' LIMIT 1")
-    .get() as { value?: string | null } | undefined;
-  const raw = asString(row?.value);
+async function readWcagPairsFromDb(sql: Sql): Promise<unknown[]> {
+  const rows = (await sql`
+    SELECT value FROM app_settings WHERE key = 'wcag_pairs' LIMIT 1
+  `) as Array<{ value?: string | null }>;
+  const raw = asString(rows[0]?.value);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as { pairs?: unknown[] } | unknown[];
     if (Array.isArray(parsed)) return parsed;
-    return Array.isArray(parsed?.pairs) ? parsed.pairs : [];
+    return Array.isArray((parsed as { pairs?: unknown[] })?.pairs) ? (parsed as { pairs: unknown[] }).pairs : [];
   } catch {
     return [];
   }
@@ -577,20 +558,20 @@ function collectHighCouplingRows(args: {
  * - token registry exists in DB
  * - token graph exists in DB
  */
-export function refreshTokenHealthSnapshotDbOnly(args: {
+export async function refreshTokenHealthSnapshotDbOnly(args: {
   systemId: string;
   emitChunk: EmitChunk;
   tokenRepo: TokenRepository;
   healthRepo: HealthRepository;
-  db: Database.Database;
+  sql: Sql;
   sha256Text: (value: string) => string;
 }) {
-  const { systemId, emitChunk, tokenRepo, healthRepo, db, sha256Text } = args;
+  const { systemId, emitChunk, tokenRepo, healthRepo, sql, sha256Text } = args;
 
-  const { registry } = buildTokenRegistryFromDb({
+  const { registry } = await buildTokenRegistryFromDb({
     systemId,
     tokenRepo,
-    db,
+    sql,
   });
   if (registry.entries.length === 0) {
     throw new Error(
@@ -598,15 +579,15 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
     );
   }
 
-  const usageIndex = tokenRepo.getTokenUsageIndex(systemId);
-  const graph = tokenRepo.getTokenGraph(systemId);
+  const usageIndex = await tokenRepo.getTokenUsageIndex(systemId);
+  const graph = await tokenRepo.getTokenGraph(systemId);
   if (!graph || typeof graph !== 'object') {
     throw new Error(
       `Cannot refresh token health for "${systemId}": token graph is missing in DB. Run refresh-token-graph first.`,
     );
   }
 
-  const wcagPairs = readWcagPairsFromDb(db);
+  const wcagPairs = await readWcagPairsFromDb(sql);
   const report = generateHealthReport(
     registry,
     usageIndex,
@@ -829,7 +810,7 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
     fingerprint_sha256: sha256Text(JSON.stringify(snapshotBase)),
   };
 
-  healthRepo.upsertSnapshot(systemId, 'tokens', snapshot);
+  await healthRepo.upsertSnapshot(systemId, 'tokens', snapshot);
 
   emitChunk(
     'result',
@@ -848,7 +829,7 @@ export function refreshTokenHealthSnapshotDbOnly(args: {
  * Captures historical health entry into DB (`health_history`) from current
  * token/components snapshots. Applies dedupe and retention pruning.
  */
-export function captureHealthSnapshotDbOnly(args: {
+export async function captureHealthSnapshotDbOnly(args: {
   systemId: string;
   beforeRef: string;
   retentionDays: number;
@@ -857,7 +838,7 @@ export function captureHealthSnapshotDbOnly(args: {
   emitChunk: EmitChunk;
   tokenRepo: TokenRepository;
   healthRepo: HealthRepository;
-  db: Database.Database;
+  sql: Sql;
   sha256Text: (value: string) => string;
 }) {
   const {
@@ -869,11 +850,10 @@ export function captureHealthSnapshotDbOnly(args: {
     emitChunk,
     tokenRepo,
     healthRepo,
-    db,
     sha256Text,
   } = args;
 
-  const tokenSnapshot = healthRepo.getSnapshot(systemId, 'tokens')
+  const tokenSnapshot = (await healthRepo.getSnapshot(systemId, 'tokens'))
     ?.snapshotJson as Record<string, unknown> | null;
 
   if (!tokenSnapshot) {
@@ -882,7 +862,7 @@ export function captureHealthSnapshotDbOnly(args: {
     );
   }
 
-  const usageIndex = tokenRepo.getTokenUsageIndex(systemId);
+  const usageIndex = await tokenRepo.getTokenUsageIndex(systemId);
   const nowIso = new Date().toISOString();
   // DB-only mode does not execute token diffing yet.
   const breakingChanges: number | null = null;
@@ -934,7 +914,7 @@ export function captureHealthSnapshotDbOnly(args: {
     }),
   );
 
-  const latest = healthRepo.getHistory(systemId, 'tokens', 1)[0]?.entryJson as
+  const latest = ((await healthRepo.getHistory(systemId, 'tokens', 1))[0])?.entryJson as
     | { captured_at?: unknown; fingerprints?: { signature_sha256?: unknown } }
     | undefined;
 
@@ -949,7 +929,7 @@ export function captureHealthSnapshotDbOnly(args: {
   const shouldAppend = allowDuplicateDay || !(sameDay && sameSignature);
 
   if (shouldAppend) {
-    healthRepo.appendHistory(systemId, 'tokens', snapshot);
+    await healthRepo.appendHistory(systemId, 'tokens', snapshot);
   }
 
   const effectiveRetentionDays = Math.max(
@@ -958,18 +938,14 @@ export function captureHealthSnapshotDbOnly(args: {
   );
   const cutoffEpoch =
     Math.floor(Date.now() / 1000) - effectiveRetentionDays * 24 * 60 * 60;
-  const pruneResult = db
-    .prepare(
-      'DELETE FROM health_history WHERE ds_id = ? AND kind = ? AND recorded_at < ?',
-    )
-    .run(systemId, 'tokens', cutoffEpoch);
+  const pruneResult = await args.sql`
+    DELETE FROM health_history WHERE ds_id = ${systemId} AND kind = 'tokens' AND recorded_at < to_timestamp(${cutoffEpoch})
+  `;
 
-  const historyCountRow = db
-    .prepare(
-      'SELECT COUNT(*) AS count FROM health_history WHERE ds_id = ? AND kind = ?',
-    )
-    .get(systemId, 'tokens') as { count?: number } | undefined;
-  const snapshotsTotal = asInt(historyCountRow?.count, 0);
+  const historyCountRows = (await args.sql`
+    SELECT COUNT(*) AS count FROM health_history WHERE ds_id = ${systemId} AND kind = 'tokens'
+  `) as Array<{ count: string }>;
+  const snapshotsTotal = asInt(historyCountRows[0]?.count, 0);
 
   emitChunk(
     'result',
@@ -985,16 +961,19 @@ export function captureHealthSnapshotDbOnly(args: {
     summary: shouldAppend
       ? 'Health snapshot captured in DB-only mode.'
       : 'Health snapshot deduplicated in DB-only mode.',
-    payload: {
-      ok: true,
-      dry_run: false,
-      appended: shouldAppend,
-      deduplicated_same_day: !shouldAppend,
-      pruned_old_snapshots: asInt(pruneResult.changes, 0),
-      snapshots_total: snapshotsTotal,
-      changed: shouldAppend,
-      written: shouldAppend,
-      snapshot,
+      payload: {
+        ok: true,
+        dry_run: false,
+        appended: shouldAppend,
+        deduplicated_same_day: !shouldAppend,
+        pruned_old_snapshots: asInt(
+          (pruneResult as { count?: number | string }).count,
+          0,
+        ),
+        snapshots_total: snapshotsTotal,
+        changed: shouldAppend,
+        written: shouldAppend,
+        snapshot,
       warnings: [diffWarning],
     },
   };

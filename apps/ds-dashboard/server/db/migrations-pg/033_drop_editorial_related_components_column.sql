@@ -1,0 +1,3 @@
+-- Migration 033: drop_editorial_related_components_column
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

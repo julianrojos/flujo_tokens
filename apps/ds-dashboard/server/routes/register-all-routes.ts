@@ -55,8 +55,8 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
     failJson: (c, statusCode, args) => ensureResponse(deps.failJson(c, statusCode, args), 'commandDeps.failJson'),
     createApiRequestId: deps.createApiRequestId,
     readJsonBody: deps.readJsonBody,
-    getSystemContext: (systemHeader) => {
-      const context = deps.getSystemContext(systemHeader);
+    getSystemContext: async (systemHeader) => {
+      const context = await deps.getSystemContext(systemHeader);
       if (!isRecord(context)) {
         throw new TypeError('commandDeps.getSystemContext must return an object');
       }
@@ -126,23 +126,35 @@ function hasDbDesignSystemRepo(value: unknown): value is DbDesignSystemRepoShape
 
 export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const routeDeps = buildAllRouteDeps(deps);
+  const figmaTokenByDsFileKey = new Map<string, string>();
+  const figmaTokenBySystemId = new Map<string, string>();
+  if (hasDbDesignSystemRepo(deps.designSystemRepository)) {
+    Promise.resolve(deps.designSystemRepository.getAll?.())
+      .then((systems) => {
+        if (!Array.isArray(systems)) return;
+        for (const system of systems) {
+          const systemId = String((system as { id?: unknown })?.id || '').trim();
+          const dsFileKey = String(system?.figmaFileId || '').trim();
+          const tokenRef = String(system?.figmaApiToken || '').trim();
+          if (dsFileKey && tokenRef) {
+            figmaTokenByDsFileKey.set(dsFileKey, tokenRef);
+          }
+          if (systemId && tokenRef) {
+            figmaTokenBySystemId.set(systemId, tokenRef);
+          }
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          '[register-all-routes] Failed to preload DB Figma token references',
+          error,
+        );
+      });
+  }
   const resolveFigmaTokenRefByDsFileKey = (dsFileKey: string): string => {
     const normalizedDsFileKey = String(dsFileKey || '').trim();
     if (!normalizedDsFileKey) return '';
-    if (!hasDbDesignSystemRepo(deps.designSystemRepository)) return '';
-    try {
-      const systems = deps.designSystemRepository.getAll() || [];
-      const matchedSystem = systems.find(
-        (system) => String(system?.figmaFileId || '').trim() === normalizedDsFileKey,
-      );
-      return String(matchedSystem?.figmaApiToken || '').trim();
-    } catch (error) {
-      console.warn(
-        `[register-all-routes] Failed to resolve Figma token for dsFileKey="${normalizedDsFileKey}"`,
-        error,
-      );
-      return '';
-    }
+    return figmaTokenByDsFileKey.get(normalizedDsFileKey) || '';
   };
 
   registerSystemRoutes(app, routeDeps.systemDeps);
@@ -182,8 +194,9 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
       db: deps.db,
       getSystemConfig: (c) => {
         const systemHeader = String(c.req.header('x-ds-system') || '');
-        const context = deps.getSystemContext(systemHeader) as Record<string, unknown>;
-        const rawRef = String(context?.figmaApiToken || process.env.FIGMA_TOKEN || '');
+        const rawRef = String(
+          figmaTokenBySystemId.get(systemHeader) || process.env.FIGMA_TOKEN || '',
+        );
         return { figmaApiToken: rawRef };
       },
       getSystemConfigByDsFileKey: (dsFileKey) => {

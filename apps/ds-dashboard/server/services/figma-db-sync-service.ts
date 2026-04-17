@@ -1,11 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type Database from 'better-sqlite3';
+import type { Sql } from 'postgres';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
-import type { FigmaVariable, FigmaVariableCollection, FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
-import { buildAliasChains, extractCssReferences, extractSpecReferences, generateUsageIndex } from '../../../../tooling/src/services/token-usage-index.js';
-import { fetchVariablesDirect, getComponentImageDirect, getComponentSpecDirect, searchComponentsDirect } from './figma-direct-bridge-service.ts';
+import type {
+  FigmaVariable,
+  FigmaVariableCollection,
+  FigmaVariablesResponse,
+} from '../../../../tooling/src/utils/figma.ts';
+import {
+  buildAliasChains,
+  extractCssReferences,
+  extractSpecReferences,
+  generateUsageIndex,
+} from '../../../../tooling/src/services/token-usage-index.js';
+import {
+  fetchVariablesDirect,
+  getComponentImageDirect,
+  getComponentSpecDirect,
+  searchComponentsDirect,
+} from './figma-direct-bridge-service.ts';
 import type { ComponentRepository } from '../db/component-repository.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 
@@ -37,7 +51,11 @@ function normalizeSegments(rawName: string): string[] {
     .filter(Boolean);
 }
 
-function toTokenPaths(rawName: string): { path: string; slashPath: string; cssVar: string } {
+function toTokenPaths(rawName: string): {
+  path: string;
+  slashPath: string;
+  cssVar: string;
+} {
   const segments = normalizeSegments(rawName);
   const slashPath = segments.join('/');
   const path = segments.join('.');
@@ -52,7 +70,9 @@ function toTokenPaths(rawName: string): { path: string; slashPath: string; cssVa
 }
 
 function normalizeType(resolvedType: string): string {
-  const type = String(resolvedType || '').trim().toUpperCase();
+  const type = String(resolvedType || '')
+    .trim()
+    .toUpperCase();
   if (type === 'COLOR') return 'color';
   if (type === 'FLOAT') return 'dimension';
   if (type === 'STRING') return 'string';
@@ -62,7 +82,9 @@ function normalizeType(resolvedType: string): string {
 
 function toHexByte(value: number): string {
   const clamped = Math.max(0, Math.min(1, Number(value || 0)));
-  return Math.round(clamped * 255).toString(16).padStart(2, '0');
+  return Math.round(clamped * 255)
+    .toString(16)
+    .padStart(2, '0');
 }
 
 function figmaColorToHex(raw: unknown): string | null {
@@ -76,7 +98,9 @@ function figmaColorToHex(raw: unknown): string | null {
   return `#${r}${g}${b}${a}`.toUpperCase();
 }
 
-function toModeNameMap(collections: Record<string, FigmaVariableCollection>): Map<string, Map<string, string>> {
+function toModeNameMap(
+  collections: Record<string, FigmaVariableCollection>,
+): Map<string, Map<string, string>> {
   const byCollectionId = new Map<string, Map<string, string>>();
   for (const collection of Object.values(collections || {})) {
     const modes = new Map<string, string>();
@@ -93,7 +117,11 @@ function toModeNameMap(collections: Record<string, FigmaVariableCollection>): Ma
 function toResolvedValue(raw: unknown, idToPath: Map<string, string>): string {
   if (raw && typeof raw === 'object') {
     const objectValue = raw as Record<string, unknown>;
-    if (String(objectValue.type || '').trim().toUpperCase() === 'VARIABLE_ALIAS') {
+    if (
+      String(objectValue.type || '')
+        .trim()
+        .toUpperCase() === 'VARIABLE_ALIAS'
+    ) {
       const aliasId = String(objectValue.id || '').trim();
       return idToPath.get(aliasId) || aliasId;
     }
@@ -147,25 +175,39 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
 
   for (const variable of variables) {
     const variableId = String(variable?.id || '').trim();
-    const { path, slashPath, cssVar } = toTokenPaths(String(variable?.name || ''));
+    const { path, slashPath, cssVar } = toTokenPaths(
+      String(variable?.name || ''),
+    );
     if (!variableId || !path || !slashPath) continue;
 
     const collection = collections[String(variable.variableCollectionId || '')];
-    const collectionName = String(collection?.name || 'default').trim() || 'default';
+    const collectionName =
+      String(collection?.name || 'default').trim() || 'default';
     const type = normalizeType(String(variable.resolvedType || ''));
-    const modeNameMap = modeNameMapByCollectionId.get(String(variable.variableCollectionId || '')) || new Map<string, string>();
+    const modeNameMap =
+      modeNameMapByCollectionId.get(
+        String(variable.variableCollectionId || ''),
+      ) || new Map<string, string>();
 
     const localModeValues: TokenModeValueRow[] = [];
-    for (const [modeId, rawValue] of Object.entries(variable.valuesByMode || {})) {
-      const mode = modeNameMap.get(modeId) || String(modeId || '').trim() || 'Default';
+    for (const [modeId, rawValue] of Object.entries(
+      variable.valuesByMode || {},
+    )) {
+      const mode =
+        modeNameMap.get(modeId) || String(modeId || '').trim() || 'Default';
       const resolvedValue = toResolvedValue(rawValue, idToPath);
       localModeValues.push({ tokenPath: path, mode, resolvedValue });
 
-      const aliasType = rawValue && typeof rawValue === 'object'
-        ? String((rawValue as Record<string, unknown>).type || '').trim().toUpperCase()
-        : '';
+      const aliasType =
+        rawValue && typeof rawValue === 'object'
+          ? String((rawValue as Record<string, unknown>).type || '')
+              .trim()
+              .toUpperCase()
+          : '';
       if (aliasType === 'VARIABLE_ALIAS') {
-        const aliasId = String((rawValue as Record<string, unknown>).id || '').trim();
+        const aliasId = String(
+          (rawValue as Record<string, unknown>).id || '',
+        ).trim();
         const targetPath = idToPath.get(aliasId);
         if (targetPath) {
           const key = `${path}::${targetPath}`;
@@ -192,19 +234,21 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
     });
     for (const modeValue of localModeValues) {
       const modeKey = `${modeValue.tokenPath}\x00${modeValue.mode}`;
-      // Last writer wins to stay aligned with tokens_staging INSERT OR REPLACE semantics.
+      // Last writer wins to stay aligned with ON CONFLICT DO UPDATE semantics.
       modeValuesByKey.set(modeKey, modeValue);
     }
   }
 
-  const aliases: AliasRow[] = Array.from(aliasModes.entries()).map(([edge, modes]) => {
-    const [fromPath, toPath] = edge.split('::');
-    return {
-      fromPath,
-      toPath,
-      modes: Array.from(modes).sort((a, b) => a.localeCompare(b)),
-    };
-  });
+  const aliases: AliasRow[] = Array.from(aliasModes.entries()).map(
+    ([edge, modes]) => {
+      const [fromPath, toPath] = edge.split('::');
+      return {
+        fromPath,
+        toPath,
+        modes: Array.from(modes).sort((a, b) => a.localeCompare(b)),
+      };
+    },
+  );
 
   const graphJson = JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -222,16 +266,23 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
     },
   });
 
-  return { tokens, modeValues: Array.from(modeValuesByKey.values()), aliases, graphJson };
+  return {
+    tokens,
+    modeValues: Array.from(modeValuesByKey.values()),
+    aliases,
+    graphJson,
+  };
 }
 
 function slugifyComponentName(name: string): string {
-  return stripDiacritics(String(name || '').trim())
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120) || 'component';
+  return (
+    stripDiacritics(String(name || '').trim())
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120) || 'component'
+  );
 }
 
 function uniqueSlug(baseSlug: string, used: Set<string>): string {
@@ -356,7 +407,12 @@ type FullComponentSpecResult = {
   variantAxes?: Array<{ name: string; values: string[] }>;
   props: Array<{ name: string; type: string; defaultValue: unknown }>;
   states: string[];
-  tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+  tokenBindings: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+  }>;
 };
 
 type FetchFullComponentSpecFn = (
@@ -375,7 +431,9 @@ function toSnakeCaseId(value: string, fallback = 'part'): string {
 
 const warnedUnknownFigmaPropertyTypes = new Set<string>();
 
-function mapFigmaPropertyType(value: string): 'enum' | 'text' | 'boolean' | 'instance_swap' | 'slot' {
+function mapFigmaPropertyType(
+  value: string,
+): 'enum' | 'text' | 'boolean' | 'instance_swap' | 'slot' {
   const rawType = String(value || '').trim();
   const type = rawType.toUpperCase();
   if (type === 'VARIANT') return 'enum';
@@ -384,16 +442,26 @@ function mapFigmaPropertyType(value: string): 'enum' | 'text' | 'boolean' | 'ins
   if (type === 'SLOT') return 'slot';
   if (rawType && !warnedUnknownFigmaPropertyTypes.has(type)) {
     warnedUnknownFigmaPropertyTypes.add(type);
-    console.warn(`[mapFigmaPropertyType] Unknown Figma property type "${rawType}", falling back to "text"`);
+    console.warn(
+      `[mapFigmaPropertyType] Unknown Figma property type "${rawType}", falling back to "text"`,
+    );
   }
   return 'text';
 }
 
-function normalizeVariantAxisValues(specData: FullComponentSpecResult | null, propName: string): string[] {
-  const name = String(propName || '').trim().toLowerCase();
+function normalizeVariantAxisValues(
+  specData: FullComponentSpecResult | null,
+  propName: string,
+): string[] {
+  const name = String(propName || '')
+    .trim()
+    .toLowerCase();
   if (!name) return [];
   const directAxis = (specData?.variantAxes || []).find(
-    (axis) => String(axis?.name || '').trim().toLowerCase() === name,
+    (axis) =>
+      String(axis?.name || '')
+        .trim()
+        .toLowerCase() === name,
   );
   const directValues = Array.from(
     new Set(
@@ -406,7 +474,9 @@ function normalizeVariantAxisValues(specData: FullComponentSpecResult | null, pr
   const fromVariants = Array.from(
     new Set(
       (specData?.variants || [])
-        .map((variant) => String(variant?.variantProperties?.[propName] || '').trim())
+        .map((variant) =>
+          String(variant?.variantProperties?.[propName] || '').trim(),
+        )
         .filter(Boolean),
     ),
   );
@@ -415,13 +485,17 @@ function normalizeVariantAxisValues(specData: FullComponentSpecResult | null, pr
 
 function yamlBooleanOrString(value: unknown, fallback: boolean): string {
   if (typeof value === 'boolean') return value ? 'true' : 'false';
-  const normalized = String(value ?? '').trim().toLowerCase();
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (normalized === 'true') return 'true';
   if (normalized === 'false') return 'false';
   return fallback ? 'true' : 'false';
 }
 
-export function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Map<string, string> {
+export function buildVariableIdToTokenPathMap(
+  meta: FigmaVariablesResponse['meta'],
+): Map<string, string> {
   const out = new Map<string, string>();
   for (const variable of Object.values(meta?.variables || {})) {
     const variableId = String(variable?.id || '').trim();
@@ -452,8 +526,11 @@ function buildVariableIdToDefaultModeContextMap(
       String(collection?.modes?.[0]?.modeId || '').trim();
     if (!modeId) continue;
     const modeName =
-      String(collection?.modes?.find((item) => String(item?.modeId || '').trim() === modeId)?.name || '').trim() ||
-      modeId;
+      String(
+        collection?.modes?.find(
+          (item) => String(item?.modeId || '').trim() === modeId,
+        )?.name || '',
+      ).trim() || modeId;
     out.set(variableId, { modeId, modeName });
   }
   return out;
@@ -508,7 +585,10 @@ function makeLayerTokenBindingRow(args: {
   variantNodeId: string;
   variantSignature: string;
   variableIdToTokenPath: Map<string, string>;
-  variableIdToDefaultModeContext: Map<string, { modeId: string; modeName: string }>;
+  variableIdToDefaultModeContext: Map<
+    string,
+    { modeId: string; modeName: string }
+  >;
 }): {
   row: SyncComponentEntry['figma']['tokenBindings'][number] | null;
   unresolvedVariableId: string | null;
@@ -518,9 +598,12 @@ function makeLayerTokenBindingRow(args: {
   const { nodeId, nodeName, field, variableId } = normalized;
 
   const tokenPath = args.variableIdToTokenPath.get(variableId);
-  const defaultModeContext = args.variableIdToDefaultModeContext.get(variableId);
-  const modeId = normalized.modeId || String(defaultModeContext?.modeId || '').trim();
-  const modeName = normalized.modeName || String(defaultModeContext?.modeName || '').trim();
+  const defaultModeContext =
+    args.variableIdToDefaultModeContext.get(variableId);
+  const modeId =
+    normalized.modeId || String(defaultModeContext?.modeId || '').trim();
+  const modeName =
+    normalized.modeName || String(defaultModeContext?.modeName || '').trim();
 
   return {
     row: {
@@ -554,7 +637,10 @@ function makeLayerTokenBindingRow(args: {
 function extractStructuredFigmaData(args: {
   specData: FullComponentSpecResult | null;
   variableIdToTokenPath: Map<string, string>;
-  variableIdToDefaultModeContext: Map<string, { modeId: string; modeName: string }>;
+  variableIdToDefaultModeContext: Map<
+    string,
+    { modeId: string; modeName: string }
+  >;
 }): {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
@@ -562,8 +648,10 @@ function extractStructuredFigmaData(args: {
   unresolvedVariableIds: string[];
   usedLegacyFlatBindings: boolean;
 } {
-  const { specData, variableIdToTokenPath, variableIdToDefaultModeContext } = args;
-  if (!specData) return { unresolvedVariableIds: [], usedLegacyFlatBindings: false };
+  const { specData, variableIdToTokenPath, variableIdToDefaultModeContext } =
+    args;
+  if (!specData)
+    return { unresolvedVariableIds: [], usedLegacyFlatBindings: false };
 
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
@@ -591,7 +679,10 @@ function extractStructuredFigmaData(args: {
     result.props = specData.props.map((p) => {
       const name = String(p.name || '').trim();
       const type = mapFigmaPropertyType(String(p.type || ''));
-      const hasExplicitValuesField = Object.prototype.hasOwnProperty.call((p as Record<string, unknown>), 'values');
+      const hasExplicitValuesField = Object.prototype.hasOwnProperty.call(
+        p as Record<string, unknown>,
+        'values',
+      );
       const rawValues = (p as Record<string, unknown>).values;
       const explicitValues = Array.isArray(rawValues)
         ? Array.from(
@@ -603,16 +694,24 @@ function extractStructuredFigmaData(args: {
           )
         : [];
       const inferredVariantValues =
-        type === 'enum' && name ? normalizeVariantAxisValues(specData, name) : [];
+        type === 'enum' && name
+          ? normalizeVariantAxisValues(specData, name)
+          : [];
       return {
         name,
         type,
         values: hasExplicitValuesField
-          ? (explicitValues.length > 0 ? explicitValues : undefined)
-          : (inferredVariantValues.length > 0 ? inferredVariantValues : undefined),
+          ? explicitValues.length > 0
+            ? explicitValues
+            : undefined
+          : inferredVariantValues.length > 0
+            ? inferredVariantValues
+            : undefined,
         defaultValue: (p as Record<string, unknown>).defaultValue,
         required: Boolean((p as Record<string, unknown>).required),
-        description: String((p as Record<string, unknown>).description || '').trim(),
+        description: String(
+          (p as Record<string, unknown>).description || '',
+        ).trim(),
       };
     });
   }
@@ -632,11 +731,15 @@ function extractStructuredFigmaData(args: {
         variableIdToTokenPath,
         variableIdToDefaultModeContext,
       });
-      if (unresolvedVariableId) result.unresolvedVariableIds.push(unresolvedVariableId);
+      if (unresolvedVariableId)
+        result.unresolvedVariableIds.push(unresolvedVariableId);
       if (row) result.tokenBindings.push(row);
     }
   }
-  if (result.tokenBindings.length === 0 && (specData.tokenBindings || []).length > 0) {
+  if (
+    result.tokenBindings.length === 0 &&
+    (specData.tokenBindings || []).length > 0
+  ) {
     result.usedLegacyFlatBindings = true;
   }
 
@@ -653,7 +756,10 @@ async function enrichComponentEntriesWithStructuredData(options: {
   figmaFileId: string | null;
   fetchFullComponentSpec: FetchFullComponentSpecFn;
   variableIdToTokenPath: Map<string, string>;
-  variableIdToDefaultModeContext: Map<string, { modeId: string; modeName: string }>;
+  variableIdToDefaultModeContext: Map<
+    string,
+    { modeId: string; modeName: string }
+  >;
   concurrency: number;
   warningSink?: string[];
 }): Promise<{ attempted: number; failed: number }> {
@@ -688,7 +794,9 @@ async function enrichComponentEntriesWithStructuredData(options: {
       const reason = error instanceof Error ? error.message : String(error);
       const failureMessage = `slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`;
       failureMessages.push(failureMessage);
-      console.warn(`[enrichComponentEntriesWithStructuredData] Failed fetching spec for ${failureMessage}`);
+      console.warn(
+        `[enrichComponentEntriesWithStructuredData] Failed fetching spec for ${failureMessage}`,
+      );
       return; // Skip this component, continue with others
     }
 
@@ -709,13 +817,16 @@ async function enrichComponentEntriesWithStructuredData(options: {
       return;
     }
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
-    if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
+    if (structuredData.tokenBindings)
+      entry.figma.tokenBindings = structuredData.tokenBindings;
     if (Object.prototype.hasOwnProperty.call(structuredData, 'props')) {
       entry.figma.props = structuredData.props ?? [];
     }
     entry.figma.structuredCaptureStatus = 'ok';
     if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
-      const unresolved = Array.from(new Set(structuredData.unresolvedVariableIds));
+      const unresolved = Array.from(
+        new Set(structuredData.unresolvedVariableIds),
+      );
       warningSink.push(
         `[enrichComponentEntriesWithStructuredData] Unresolved token binding variable IDs for slug=${entry.slug}: ${unresolved.join(', ')}`,
       );
@@ -741,7 +852,9 @@ async function enrichComponentEntriesWithStructuredData(options: {
 }
 
 function extensionFromFormat(format: string): string {
-  const normalized = String(format || '').trim().toUpperCase();
+  const normalized = String(format || '')
+    .trim()
+    .toUpperCase();
   if (normalized === 'JPG' || normalized === 'JPEG') return 'jpg';
   if (normalized === 'SVG') return 'svg';
   return 'png';
@@ -795,7 +908,10 @@ const MAX_PROOF_ERROR_SLUGS = 100;
 const MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR = 20;
 const MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS = 1000;
 
-function createProofRequiredError(message: string, context: Record<string, unknown>) {
+function createProofRequiredError(
+  message: string,
+  context: Record<string, unknown>,
+) {
   return {
     code: 'sync.component_proofs_required_failed',
     message,
@@ -803,7 +919,12 @@ function createProofRequiredError(message: string, context: Record<string, unkno
   } as const;
 }
 
-function normalizeBoundedInt(value: number, fallback: number, min: number, max: number): number {
+function normalizeBoundedInt(
+  value: number,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   const rounded = Math.floor(numeric);
@@ -864,7 +985,11 @@ async function captureComponentMainProofImages(options: {
     maxImageBytes,
   } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
-  const proofImageDir = path.join(paths.generatedDir, 'visual-proofs', 'images');
+  const proofImageDir = path.join(
+    paths.generatedDir,
+    'visual-proofs',
+    'images',
+  );
   fs.mkdirSync(proofImageDir, { recursive: true });
 
   const nodeIdToEntry = new Map<string, SyncComponentEntry>();
@@ -951,7 +1076,12 @@ async function captureComponentVariantProofImages(options: {
     maxImageBytes,
   } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
-  const variantsDir = path.join(paths.generatedDir, 'visual-proofs', 'images', 'variants');
+  const variantsDir = path.join(
+    paths.generatedDir,
+    'visual-proofs',
+    'images',
+    'variants',
+  );
   fs.mkdirSync(variantsDir, { recursive: true });
 
   const processEntry = async (entry: SyncComponentEntry): Promise<void> => {
@@ -971,7 +1101,9 @@ async function captureComponentVariantProofImages(options: {
       );
       return;
     }
-    const variants = Array.isArray(spec?.variants) ? spec.variants.slice(0, variantLimitPerComponent) : [];
+    const variants = Array.isArray(spec?.variants)
+      ? spec.variants.slice(0, variantLimitPerComponent)
+      : [];
     if (variants.length === 0) return;
     const nodeIds = [
       ...new Set(
@@ -981,7 +1113,16 @@ async function captureComponentVariantProofImages(options: {
       ),
     ];
     if (nodeIds.length === 0) return;
-    const byNode = new Map<string, { nodeId: string; base64?: string; format: string; byteLength?: number; error?: string }>();
+    const byNode = new Map<
+      string,
+      {
+        nodeId: string;
+        base64?: string;
+        format: string;
+        byteLength?: number;
+        error?: string;
+      }
+    >();
     const batchSize = Math.max(1, Math.floor(imageBatchSize));
     for (let i = 0; i < nodeIds.length; i += batchSize) {
       const batch = nodeIds.slice(i, i + batchSize);
@@ -1029,7 +1170,8 @@ async function captureComponentVariantProofImages(options: {
         continue;
       }
       const ext = extensionFromFormat(image?.format || 'PNG');
-      const variantName = sanitizeFileSegment(String(variant.name || 'variant')) || 'variant';
+      const variantName =
+        sanitizeFileSegment(String(variant.name || 'variant')) || 'variant';
       const outName = `${entry.slug}__${String(i + 1).padStart(2, '0')}__${variantName}.${ext}`;
       const outPath = path.join(variantsDir, outName);
       try {
@@ -1058,24 +1200,39 @@ const IMAGE_EXTENSION_TO_CONTENT_TYPE: Record<string, string> = {
 
 function isImageFile(fileName: string): boolean {
   const ext = path.extname(String(fileName || '').toLowerCase());
-  return Object.prototype.hasOwnProperty.call(IMAGE_EXTENSION_TO_CONTENT_TYPE, ext);
+  return Object.prototype.hasOwnProperty.call(
+    IMAGE_EXTENSION_TO_CONTENT_TYPE,
+    ext,
+  );
 }
 
-function toRepoRelativePath(repoRoot: string, absolutePath: string): string | null {
-  const relative = path.relative(path.resolve(repoRoot), path.resolve(absolutePath));
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+function toRepoRelativePath(
+  repoRoot: string,
+  absolutePath: string,
+): string | null {
+  const relative = path.relative(
+    path.resolve(repoRoot),
+    path.resolve(absolutePath),
+  );
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative))
+    return null;
   return relative.split(path.sep).join('/');
 }
 
-function walkFiles(dirPath: string, options: {
-  maxDepth?: number;
-  maxFiles?: number;
-} = {}): { files: string[]; truncated: boolean } {
+function walkFiles(
+  dirPath: string,
+  options: {
+    maxDepth?: number;
+    maxFiles?: number;
+  } = {},
+): { files: string[]; truncated: boolean } {
   const { maxDepth = 6, maxFiles = 10_000 } = options;
   if (!fs.existsSync(dirPath)) return { files: [], truncated: false };
   const out: string[] = [];
   let truncated = false;
-  const stack: Array<{ path: string; depth: number }> = [{ path: dirPath, depth: 0 }];
+  const stack: Array<{ path: string; depth: number }> = [
+    { path: dirPath, depth: 0 },
+  ];
   while (stack.length > 0) {
     if (out.length >= maxFiles) {
       truncated = true;
@@ -1112,7 +1269,9 @@ function walkFiles(dirPath: string, options: {
 }
 
 function deriveVariantName(fileStem: string, slug: string): string {
-  const normalizedSlug = String(slug || '').trim().toLowerCase();
+  const normalizedSlug = String(slug || '')
+    .trim()
+    .toLowerCase();
   const normalizedStem = String(fileStem || '').trim();
   if (!normalizedStem) return 'Variant';
   if (normalizedStem.includes('__')) {
@@ -1120,8 +1279,14 @@ function deriveVariantName(fileStem: string, slug: string): string {
     const candidate = rest.join(' ').replace(/[_-]+/g, ' ').trim();
     return candidate || 'Variant';
   }
-  if (normalizedSlug && normalizedStem.toLowerCase().startsWith(`${normalizedSlug}-`)) {
-    const candidate = normalizedStem.slice(normalizedSlug.length + 1).replace(/[_-]+/g, ' ').trim();
+  if (
+    normalizedSlug &&
+    normalizedStem.toLowerCase().startsWith(`${normalizedSlug}-`)
+  ) {
+    const candidate = normalizedStem
+      .slice(normalizedSlug.length + 1)
+      .replace(/[_-]+/g, ' ')
+      .trim();
     return candidate || 'Variant';
   }
   return normalizedStem.replace(/[_-]+/g, ' ').trim() || 'Variant';
@@ -1150,11 +1315,13 @@ function discoverComponentSpecsFromFilesystem(options: {
     const absolutePath = path.join(componentsDir, file.name);
     const markdownPath = toRepoRelativePath(repoRoot, absolutePath);
     if (!markdownPath) continue;
-    bySlug.set(slug, [{
-      markdownPath,
-      docStatus: 'draft',
-      coverage: 0,
-    }]);
+    bySlug.set(slug, [
+      {
+        markdownPath,
+        docStatus: 'draft',
+        coverage: 0,
+      },
+    ]);
   }
   return bySlug;
 }
@@ -1171,13 +1338,16 @@ function discoverComponentVisualProofsFromFilesystem(options: {
   const variantsDir = path.join(mainImageDir, 'variants');
   if (!fs.existsSync(mainImageDir)) return bySlug;
 
-  const variantRowsBySlug = new Map<string, Array<{
-    name: string;
-    image_path?: string | null;
-    captured_at?: string | null;
-    image_bytes?: number | null;
-    image_content_type?: string | null;
-  }>>();
+  const variantRowsBySlug = new Map<
+    string,
+    Array<{
+      name: string;
+      image_path?: string | null;
+      captured_at?: string | null;
+      image_bytes?: number | null;
+      image_content_type?: string | null;
+    }>
+  >();
 
   const variantWalk = walkFiles(variantsDir);
   if (variantWalk.truncated) {
@@ -1189,7 +1359,9 @@ function discoverComponentVisualProofsFromFilesystem(options: {
     const fileName = path.basename(absolutePath);
     if (!isImageFile(fileName)) continue;
     const fileStem = path.basename(fileName, path.extname(fileName));
-    const slugRaw = fileStem.includes('__') ? fileStem.split('__')[0] : fileStem.split('.')[0];
+    const slugRaw = fileStem.includes('__')
+      ? fileStem.split('__')[0]
+      : fileStem.split('.')[0];
     const slug = slugifyComponentName(slugRaw);
     if (!knownSlugs.has(slug)) continue;
     const relPath = toRepoRelativePath(repoRoot, absolutePath);
@@ -1206,7 +1378,9 @@ function discoverComponentVisualProofsFromFilesystem(options: {
       image_path: relPath,
       captured_at: stats ? new Date(stats.mtimeMs).toISOString() : null,
       image_bytes: stats ? stats.size : null,
-      image_content_type: IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(fileName).toLowerCase()] || null,
+      image_content_type:
+        IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(fileName).toLowerCase()] ||
+        null,
     });
     variantRowsBySlug.set(slug, variantRows);
   }
@@ -1220,7 +1394,9 @@ function discoverComponentVisualProofsFromFilesystem(options: {
 
   for (const file of files) {
     if (!file.isFile() || !isImageFile(file.name)) continue;
-    const slug = slugifyComponentName(path.basename(file.name, path.extname(file.name)));
+    const slug = slugifyComponentName(
+      path.basename(file.name, path.extname(file.name)),
+    );
     if (!knownSlugs.has(slug)) continue;
     const absolutePath = path.join(mainImageDir, file.name);
     const imagePath = toRepoRelativePath(repoRoot, absolutePath);
@@ -1232,15 +1408,20 @@ function discoverComponentVisualProofsFromFilesystem(options: {
       stats = null;
     }
     const variants = variantRowsBySlug.get(slug) || [];
-    bySlug.set(slug, [{
-      imagePath,
-      capturedAt: stats ? new Date(stats.mtimeMs).toISOString() : undefined,
-      capturedAtEpoch: stats ? Math.floor(stats.mtimeMs / 1000) : undefined,
-      imageBytes: stats ? stats.size : undefined,
-      imageContentType: IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(file.name).toLowerCase()],
-      variantsCount: variants.length,
-      variants,
-    }]);
+    bySlug.set(slug, [
+      {
+        imagePath,
+        capturedAt: stats ? new Date(stats.mtimeMs).toISOString() : undefined,
+        capturedAtEpoch: stats ? Math.floor(stats.mtimeMs / 1000) : undefined,
+        imageBytes: stats ? stats.size : undefined,
+        imageContentType:
+          IMAGE_EXTENSION_TO_CONTENT_TYPE[
+            path.extname(file.name).toLowerCase()
+          ],
+        variantsCount: variants.length,
+        variants,
+      },
+    ]);
   }
 
   return bySlug;
@@ -1271,7 +1452,9 @@ function enrichComponentEntriesFromFilesystem(options: {
       ...entry,
       specs: specs && specs.length > 0 ? specs : entry.specs,
       visualProofs:
-        visualProofs && visualProofs.length > 0 ? visualProofs : entry.visualProofs,
+        visualProofs && visualProofs.length > 0
+          ? visualProofs
+          : entry.visualProofs,
     };
   });
 }
@@ -1364,7 +1547,7 @@ type SyncComponentEntry = {
 };
 
 export interface SyncFromPluginOptions {
-  db: Database.Database;
+  db: Sql;
   componentRepo: ComponentRepository;
   dsId: string;
   figmaFileId: string;
@@ -1376,13 +1559,16 @@ export interface SyncFromPluginOptions {
   /** When true, import fails if any component with variants lacks variant screenshots. */
   requireVariantProofsWhenPresent?: boolean;
   fetchVariables?: (fileKey?: string | null) => Promise<FigmaVariablesResponse>;
-  searchComponents?: (fileKey: string | null, params: {
-    includeVariants?: boolean;
-    compact?: boolean;
-    limit?: number;
-    offset?: number;
-    scanSessionId?: string;
-  }) => Promise<{
+  searchComponents?: (
+    fileKey: string | null,
+    params: {
+      includeVariants?: boolean;
+      compact?: boolean;
+      limit?: number;
+      offset?: number;
+      scanSessionId?: string;
+    },
+  ) => Promise<{
     components: Array<{ nodeId: string; name: string; pageName?: string }>;
     truncated?: boolean;
     total?: number;
@@ -1416,7 +1602,11 @@ export interface SyncFromPluginResult {
   usageDropped: number;
   usageReindexed: number;
   usageReindexStatus: 'not_requested' | 'ok' | 'failed';
-  usageReindexReason: 'none' | 'missing_repo_root' | 'no_sources' | 'runtime_error';
+  usageReindexReason:
+    | 'none'
+    | 'missing_repo_root'
+    | 'no_sources'
+    | 'runtime_error';
   usageReindexWarnings: string[];
   specsEnriched: number;
   proofsEnriched: number;
@@ -1434,44 +1624,54 @@ type UsageOccurrenceRow = {
   detail: string;
 };
 
-function mapPluginBridgeError(error: unknown, args: {
-  figmaFileId: string;
-  operation: 'variables' | 'components';
-}): Error {
+function mapPluginBridgeError(
+  error: unknown,
+  args: {
+    figmaFileId: string;
+    operation: 'variables' | 'components';
+  },
+): Error {
   const message = error instanceof Error ? error.message : String(error);
   const wrapWithCause = (userMessage: string): Error => {
     const cause = error instanceof Error ? error : new Error(message);
     return new Error(userMessage, { cause });
   };
-  const action = args.operation === 'variables' ? 'read variables' : 'read components';
+  const action =
+    args.operation === 'variables' ? 'read variables' : 'read components';
   if (message.includes('ws.request.no_socket_for_file')) {
     return wrapWithCause(
       `Cannot ${action} from Figma file "${args.figmaFileId}" because no plugin socket is connected for that file. ` +
-      'Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
+        'Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
     );
   }
   if (message.includes('ws.request.timeout')) {
     return wrapWithCause(
       `Timeout while trying to ${action} from Figma file "${args.figmaFileId}". ` +
-      'Ensure the Figma Desktop Bridge plugin is running and responsive, then retry.',
+        'Ensure the Figma Desktop Bridge plugin is running and responsive, then retry.',
     );
   }
-  if (message.includes('ws.request.socket_not_open') || message.includes('ws.connection.closed')) {
+  if (
+    message.includes('ws.request.socket_not_open') ||
+    message.includes('ws.connection.closed')
+  ) {
     return wrapWithCause(
       `Plugin connection was lost while trying to ${action} from Figma file "${args.figmaFileId}". ` +
-      'Reopen the file in Figma Desktop, restart the Figma Desktop Bridge plugin, and retry.',
+        'Reopen the file in Figma Desktop, restart the Figma Desktop Bridge plugin, and retry.',
     );
   }
-  if (message.includes('ws.request.no_connection') || message.includes('ws.request.send_failed')) {
+  if (
+    message.includes('ws.request.no_connection') ||
+    message.includes('ws.request.send_failed')
+  ) {
     return wrapWithCause(
       `Plugin bridge is unavailable while trying to ${action} from Figma file "${args.figmaFileId}". ` +
-      'Restart the Figma Desktop Bridge plugin and retry.',
+        'Restart the Figma Desktop Bridge plugin and retry.',
     );
   }
   if (message.includes('ws.response.error:')) {
     return wrapWithCause(
       `Plugin reported an error while trying to ${action} from Figma file "${args.figmaFileId}". ` +
-      'Check the Figma Desktop Bridge plugin console for details and retry.',
+        'Check the Figma Desktop Bridge plugin console for details and retry.',
     );
   }
   // Unmapped error: wrap with original as cause if it's an Error
@@ -1504,7 +1704,8 @@ function buildTokenUsageRowsFromFilesystem(options: {
   ];
   const existingCssFiles = cssFiles.filter((filePath) => {
     const exists = fs.existsSync(filePath);
-    if (!exists) warnings.push(`Missing CSS source for usage scan: ${filePath}`);
+    if (!exists)
+      warnings.push(`Missing CSS source for usage scan: ${filePath}`);
     return exists;
   });
   const specsDirExists = fs.existsSync(paths.specsDir);
@@ -1528,7 +1729,12 @@ function buildTokenUsageRowsFromFilesystem(options: {
   }
   const cssRefs = extractCssReferences(existingCssFiles, tokenRegistry);
   const aliasChains = buildAliasChains(existingCssFiles, tokenRegistry);
-  const usageIndex = generateUsageIndex(tokenRegistry, specRefs, cssRefs, aliasChains);
+  const usageIndex = generateUsageIndex(
+    tokenRegistry,
+    specRefs,
+    cssRefs,
+    aliasChains,
+  );
 
   for (const entry of usageIndex.entries) {
     for (const usage of entry.usedIn) {
@@ -1555,7 +1761,9 @@ function buildTokenUsageRowsFromFilesystem(options: {
   return { rows, warnings, noSources: false };
 }
 
-export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions): Promise<SyncFromPluginResult> {
+export async function syncDesignSystemFromPlugin(
+  options: SyncFromPluginOptions,
+): Promise<SyncFromPluginResult> {
   const {
     db,
     componentRepo,
@@ -1618,7 +1826,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   const structuredSchemaVersion = 1;
 
   if (reindexUsageFromFilesystem && !repoRoot && usageReindexStrict) {
-    throw new Error('Token usage reindex failed: Token usage reindex requested but repoRoot is missing.');
+    throw new Error(
+      'Token usage reindex failed: Token usage reindex requested but repoRoot is missing.',
+    );
   }
 
   let variablesResponse: FigmaVariablesResponse;
@@ -1630,9 +1840,15 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       operation: 'variables',
     });
   }
-  const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
-  const variableIdToTokenPath = buildVariableIdToTokenPathMap(variablesResponse.meta);
-  const variableIdToDefaultModeContext = buildVariableIdToDefaultModeContextMap(variablesResponse.meta);
+  const { tokens, modeValues, aliases, graphJson } = buildTokenRows(
+    variablesResponse.meta,
+  );
+  const variableIdToTokenPath = buildVariableIdToTokenPathMap(
+    variablesResponse.meta,
+  );
+  const variableIdToDefaultModeContext = buildVariableIdToDefaultModeContextMap(
+    variablesResponse.meta,
+  );
 
   let componentEntries: SyncComponentEntry[] = [];
   let componentsTruncated = false;
@@ -1654,7 +1870,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     const PAGE_LIMIT = 500;
     const MAX_COMPONENT_SCAN_PAGES = 100;
     const scanSessionId = `sync-${syncRunId}`;
-    const dedupedByNodeId = new Map<string, { nodeId: string; name: string; pageName?: string }>();
+    const dedupedByNodeId = new Map<
+      string,
+      { nodeId: string; name: string; pageName?: string }
+    >();
     let scannedTotal: number | null = null;
     let offset = 0;
     let page = 0;
@@ -1670,9 +1889,18 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           offset,
           scanSessionId,
         });
-        const pageComponents = Array.isArray(pageResult.components) ? pageResult.components : [];
-        componentsTruncated = componentsTruncated || pageResult.truncated === true || pageResult.totalIsEstimated === true;
-        if (typeof pageResult.total === 'number' && Number.isFinite(pageResult.total) && pageResult.total >= 0) {
+        const pageComponents = Array.isArray(pageResult.components)
+          ? pageResult.components
+          : [];
+        componentsTruncated =
+          componentsTruncated ||
+          pageResult.truncated === true ||
+          pageResult.totalIsEstimated === true;
+        if (
+          typeof pageResult.total === 'number' &&
+          Number.isFinite(pageResult.total) &&
+          pageResult.total >= 0
+        ) {
           scannedTotal = Math.floor(pageResult.total);
         }
 
@@ -1686,9 +1914,13 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           });
         }
 
-        const pageHasMore = pageResult.hasMore === true || (pageResult.hasMore === undefined && pageComponents.length === PAGE_LIMIT);
+        const pageHasMore =
+          pageResult.hasMore === true ||
+          (pageResult.hasMore === undefined &&
+            pageComponents.length === PAGE_LIMIT);
         const reachedKnownTotal =
-          scannedTotal !== null && offset + pageComponents.length >= scannedTotal;
+          scannedTotal !== null &&
+          offset + pageComponents.length >= scannedTotal;
         if (!pageHasMore || pageComponents.length === 0) {
           hasMore = false;
           break;
@@ -1755,7 +1987,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       });
       const filteredCount = beforeCount - componentEntries.length;
       if (filteredCount > 0) {
-        console.log(`[syncDesignSystemFromPlugin] Partial import: ${componentEntries.length}/${beforeCount} components selected`);
+        console.log(
+          `[syncDesignSystemFromPlugin] Partial import: ${componentEntries.length}/${beforeCount} components selected`,
+        );
       }
       if (selectedSet.size > 0 && componentEntries.length === 0) {
         console.warn(
@@ -1764,9 +1998,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       }
     }
     selectedCount = componentEntries.length;
-    notSelectedCount = importMode === 'partial'
-      ? Math.max(0, effectiveScannedTotal - selectedCount)
-      : 0;
+    notSelectedCount =
+      importMode === 'partial'
+        ? Math.max(0, effectiveScannedTotal - selectedCount)
+        : 0;
 
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
       // Keep writing doc skeletons as a compatibility artifact for local tooling
@@ -1862,8 +2097,12 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           repoRoot,
           dsId,
         });
-        specsEnriched = componentEntries.filter(e => Array.isArray(e.specs) && e.specs.length > 0).length;
-        proofsEnriched = componentEntries.filter(e => Array.isArray(e.visualProofs) && e.visualProofs.length > 0).length;
+        specsEnriched = componentEntries.filter(
+          (e) => Array.isArray(e.specs) && e.specs.length > 0,
+        ).length;
+        proofsEnriched = componentEntries.filter(
+          (e) => Array.isArray(e.visualProofs) && e.visualProofs.length > 0,
+        ).length;
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.warn(
@@ -1873,7 +2112,11 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     }
 
     // Strict proof validation (S-05, S-06, S-07)
-    if (!dryRun && (requireComponentProofs || requireVariantProofsWhenPresent) && componentEntries.length > 0) {
+    if (
+      !dryRun &&
+      (requireComponentProofs || requireVariantProofsWhenPresent) &&
+      componentEntries.length > 0
+    ) {
       const normalizeVariantName = (value: unknown): string =>
         String(value || '')
           .trim()
@@ -1884,7 +2127,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           .trim();
 
       const expectedVariantNamesBySlug = new Map<string, string[]>();
-      const variantExpectationErrors: Array<{ slug: string; reason: string }> = [];
+      const variantExpectationErrors: Array<{ slug: string; reason: string }> =
+        [];
       let variantFallbackSpecLookups = 0;
       let variantFallbackLookupLimitHit = false;
       let variantFallbackLookupLimitHitSlug = '';
@@ -1920,7 +2164,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
               return;
             }
 
-            if (variantFallbackSpecLookups >= MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS) {
+            if (
+              variantFallbackSpecLookups >=
+              MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS
+            ) {
               variantFallbackLookupLimitHit = true;
               variantFallbackLookupLimitHitSlug = slug;
               expectedVariantNamesBySlug.set(slug, []);
@@ -1934,7 +2181,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
                 depth: 2,
                 compact: true,
               });
-              const fallbackVariants = Array.isArray(spec?.variants) ? spec.variants : [];
+              const fallbackVariants = Array.isArray(spec?.variants)
+                ? spec.variants
+                : [];
               const fallbackNames = Array.from(
                 new Set(
                   fallbackVariants
@@ -1944,7 +2193,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
               );
               expectedVariantNamesBySlug.set(slug, fallbackNames);
             } catch (error) {
-              const reason = error instanceof Error ? error.message : String(error);
+              const reason =
+                error instanceof Error ? error.message : String(error);
               variantExpectationErrors.push({ slug, reason });
               expectedVariantNamesBySlug.set(slug, []);
             }
@@ -1955,12 +2205,15 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
             `Strict variant screenshot validation stopped after ${MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS} fallback component-spec lookups. ` +
               'Narrow the component selection or ensure compact component search includes variant names.',
             {
-              importMode: options.selectedComponentNodeIds?.length ? 'partial' : 'full',
+              importMode: options.selectedComponentNodeIds?.length
+                ? 'partial'
+                : 'full',
               importedCount: componentEntries.length,
               proofsEnriched,
               fallbackSpecLookupLimit: MAX_VARIANT_EXPECTATION_FALLBACK_LOOKUPS,
               fallbackSpecLookups: variantFallbackSpecLookups,
-              fallbackSpecLookupLimitHitSlug: variantFallbackLookupLimitHitSlug || null,
+              fallbackSpecLookupLimitHitSlug:
+                variantFallbackLookupLimitHitSlug || null,
             },
           );
         }
@@ -1980,7 +2233,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
 
       for (const entry of componentEntries) {
         const slug = String(entry.slug || '').trim();
-        const visualProofs = Array.isArray(entry.visualProofs) ? entry.visualProofs : [];
+        const visualProofs = Array.isArray(entry.visualProofs)
+          ? entry.visualProofs
+          : [];
 
         const hasMainProof = visualProofs.some((proof) => {
           const imagePath = String(proof?.imagePath || '').trim();
@@ -1992,11 +2247,14 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         }
 
         if (requireVariantProofsWhenPresent) {
-          const expectedVariantNames = expectedVariantNamesBySlug.get(slug) || [];
+          const expectedVariantNames =
+            expectedVariantNamesBySlug.get(slug) || [];
           if (expectedVariantNames.length > 0) {
             const capturedVariantNames = new Set<string>();
             for (const proof of visualProofs) {
-              const variants = Array.isArray(proof?.variants) ? proof.variants : [];
+              const variants = Array.isArray(proof?.variants)
+                ? proof.variants
+                : [];
               for (const variant of variants) {
                 const normalized = normalizeVariantName(variant?.name);
                 const hasVariantImage =
@@ -2013,7 +2271,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
             if (missingVariants.length > 0) {
               missingVariantProofSlugs.push({
                 slug,
-                missingVariants: missingVariants.slice(0, MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR),
+                missingVariants: missingVariants.slice(
+                  0,
+                  MAX_MISSING_VARIANTS_PER_COMPONENT_IN_ERROR,
+                ),
                 totalMissingVariants: missingVariants.length,
               });
             }
@@ -2026,7 +2287,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         missingVariantProofSlugs.length > 0 ||
         variantExpectationErrors.length > 0
       ) {
-        const hasSelection = options.selectedComponentNodeIds && options.selectedComponentNodeIds.length > 0;
+        const hasSelection =
+          options.selectedComponentNodeIds &&
+          options.selectedComponentNodeIds.length > 0;
         const totalMissingMainProofs = missingMainProofSlugs.length;
         const totalMissingVariantProofs = missingVariantProofSlugs.length;
         const totalVariantExpectationErrors = variantExpectationErrors.length;
@@ -2034,11 +2297,20 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           importMode: hasSelection ? 'partial' : 'full',
           importedCount: componentEntries.length,
           proofsEnriched,
-          missingMainProofSlugs: missingMainProofSlugs.slice(0, MAX_PROOF_ERROR_SLUGS),
+          missingMainProofSlugs: missingMainProofSlugs.slice(
+            0,
+            MAX_PROOF_ERROR_SLUGS,
+          ),
           totalMissingMainProofs,
-          missingVariantProofSlugs: missingVariantProofSlugs.slice(0, MAX_PROOF_ERROR_SLUGS),
+          missingVariantProofSlugs: missingVariantProofSlugs.slice(
+            0,
+            MAX_PROOF_ERROR_SLUGS,
+          ),
           totalMissingVariantProofs,
-          variantExpectationErrors: variantExpectationErrors.slice(0, MAX_PROOF_ERROR_SLUGS),
+          variantExpectationErrors: variantExpectationErrors.slice(
+            0,
+            MAX_PROOF_ERROR_SLUGS,
+          ),
           totalVariantExpectationErrors,
         };
         throw createProofRequiredError(
@@ -2051,11 +2323,11 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
 
   if (!dryRun) {
     const runId = syncRunId;
-    const usageRows = db.prepare(`
+    const usageRows = (await db`
       SELECT token_id, kind, source, owner, detail
       FROM token_usage_occurrences
-      WHERE ds_id = ?
-    `).all(dsId) as Array<{
+      WHERE ds_id = ${dsId}
+    `) as Array<{
       token_id: string;
       kind: string;
       source: string;
@@ -2065,7 +2337,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     let usageRestored = 0;
     let usageDropped = 0;
     let usageReindexed = 0;
-    let usageReindexStatus: SyncFromPluginResult['usageReindexStatus'] = 'not_requested';
+    let usageReindexStatus: SyncFromPluginResult['usageReindexStatus'] =
+      'not_requested';
     let usageReindexReason: SyncFromPluginResult['usageReindexReason'] = 'none';
     let usageReindexWarnings: string[] = [];
     let reindexUsageRows: UsageOccurrenceRow[] = [];
@@ -2106,161 +2379,127 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
           throw new Error(`Token usage reindex failed: ${reason}`);
         }
         usageReindexWarnings = [...usageReindexWarnings, reason];
-        console.warn(`[syncDesignSystemFromPlugin] Token usage reindex failed (non-strict mode): ${reason}`);
+        console.warn(
+          `[syncDesignSystemFromPlugin] Token usage reindex failed (non-strict mode): ${reason}`,
+        );
       }
     }
 
-    // Stage
-    db.transaction(() => {
-      db.prepare('DELETE FROM tokens_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
-      db.prepare('DELETE FROM token_mode_values_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
-      db.prepare('DELETE FROM figma_aliases_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
+    // Upsert tokens directly with ON CONFLICT DO UPDATE (replaces staging)
+    await db.begin(async (tx) => {
+      await tx`DELETE FROM token_mode_values WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM tokens WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM figma_aliases WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM token_graph WHERE ds_id = ${dsId}`;
 
-      const insertTokenStaging = db.prepare(`
-        INSERT OR REPLACE INTO tokens_staging (id, run_id, ds_id, slash_path, css_var, type, collection, raw_value)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
       for (const token of tokens) {
-        insertTokenStaging.run(token.id, runId, dsId, token.slashPath, token.cssVar, token.type, token.collection, token.rawValue);
+        await tx`
+          INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+          VALUES (${token.id}, ${dsId}, ${token.slashPath}, ${token.cssVar}, ${token.type}, ${token.collection}, ${token.rawValue})
+          ON CONFLICT (id, ds_id) DO UPDATE SET
+            slash_path = EXCLUDED.slash_path,
+            css_var = EXCLUDED.css_var,
+            type = EXCLUDED.type,
+            collection = EXCLUDED.collection,
+            raw_value = EXCLUDED.raw_value
+        `;
       }
 
-      const insertModeStaging = db.prepare(`
-        INSERT INTO token_mode_values_staging (run_id, ds_id, token_path, mode, resolved_value)
-        VALUES (?, ?, ?, ?, ?)
-      `);
       for (const modeValue of modeValues) {
-        insertModeStaging.run(runId, dsId, modeValue.tokenPath, modeValue.mode, modeValue.resolvedValue);
+        await tx`
+          INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+          VALUES (${dsId}, ${modeValue.tokenPath}, ${modeValue.mode}, ${modeValue.resolvedValue})
+          ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET
+            resolved_value = EXCLUDED.resolved_value
+        `;
       }
 
-      const insertAliasStaging = db.prepare(`
-        INSERT OR IGNORE INTO figma_aliases_staging (run_id, ds_id, from_path, to_path, modes)
-        VALUES (?, ?, ?, ?, ?)
-      `);
       for (const alias of aliases) {
-        insertAliasStaging.run(runId, dsId, alias.fromPath, alias.toPath, JSON.stringify(alias.modes));
+        await tx`
+          INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+          VALUES (${dsId}, ${alias.fromPath}, ${alias.toPath}, ${JSON.stringify(alias.modes)})
+          ON CONFLICT (ds_id, from_path, to_path) DO NOTHING
+        `;
       }
-    })();
 
-    // Validate
-    const tokenCount = (db.prepare('SELECT COUNT(*) as count FROM tokens_staging WHERE run_id = ? AND ds_id = ?').get(runId, dsId) as { count: number }).count;
-    if (tokenCount === 0) {
-      throw new Error('No tokens in staging after import — aborting swap');
-    }
+      const tokenCountResult = await tx<
+        { count: bigint }[]
+      >`SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${dsId}`;
+      const tokenCount = Number(tokenCountResult[0]?.count ?? 0);
+      if (tokenCount === 0) {
+        throw new Error('No tokens inserted — aborting swap');
+      }
 
-    const orphanAliasCount = (db.prepare(`
-      SELECT COUNT(*) as count
-      FROM figma_aliases_staging sa
-      WHERE sa.run_id = ? AND sa.ds_id = ?
-        AND (
-          NOT EXISTS (SELECT 1 FROM tokens_staging st WHERE st.run_id = sa.run_id AND st.ds_id = sa.ds_id AND st.id = sa.from_path)
-          OR NOT EXISTS (SELECT 1 FROM tokens_staging st WHERE st.run_id = sa.run_id AND st.ds_id = sa.ds_id AND st.id = sa.to_path)
-        )
-    `).get(runId, dsId) as { count: number }).count;
-    if (orphanAliasCount > 0) {
-      throw new Error(`Staging contains ${orphanAliasCount} figma aliases with missing token endpoints — aborting swap`);
-    }
+      const orphanAliasResult = await tx<{ count: bigint }[]>`
+        SELECT COUNT(*) as count
+        FROM figma_aliases fa
+        WHERE fa.ds_id = ${dsId}
+          AND (
+            NOT EXISTS (SELECT 1 FROM tokens st WHERE st.ds_id = fa.ds_id AND st.id = fa.from_path)
+            OR NOT EXISTS (SELECT 1 FROM tokens st WHERE st.ds_id = fa.ds_id AND st.id = fa.to_path)
+          )
+      `;
+      const orphanAliasCount = Number(orphanAliasResult[0]?.count ?? 0);
+      if (orphanAliasCount > 0) {
+        throw new Error(
+          `Inserted ${orphanAliasCount} figma aliases with missing token endpoints — aborting swap`,
+        );
+      }
 
-    const orphanModeCount = (db.prepare(`
-      SELECT COUNT(*) as count
-      FROM token_mode_values_staging sm
-      WHERE sm.run_id = ? AND sm.ds_id = ?
-        AND NOT EXISTS (
-          SELECT 1
-          FROM tokens_staging st
-          WHERE st.run_id = sm.run_id
-            AND st.ds_id = sm.ds_id
-            AND st.id = sm.token_path
-        )
-    `).get(runId, dsId) as { count: number }).count;
-    if (orphanModeCount > 0) {
-      throw new Error(`Staging contains ${orphanModeCount} mode value rows with missing token endpoints — aborting swap`);
-    }
-
-    // Swap
-    db.transaction(() => {
-      db.prepare('DELETE FROM token_mode_values WHERE ds_id = ?').run(dsId);
-      db.prepare('DELETE FROM tokens WHERE ds_id = ?').run(dsId);
-      db.prepare('DELETE FROM figma_aliases WHERE ds_id = ?').run(dsId);
-      db.prepare('DELETE FROM token_graph WHERE ds_id = ?').run(dsId);
-
-      db.prepare(`
-        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
-        SELECT id, ds_id, slash_path, css_var, type, collection, raw_value
-        FROM tokens_staging WHERE run_id = ? AND ds_id = ?
-      `).run(runId, dsId);
-
-      db.prepare(`
-        INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
-        SELECT ds_id, token_path, mode, resolved_value
-        FROM (
-          SELECT
-            ds_id,
-            token_path,
-            mode,
-            resolved_value,
-            ROW_NUMBER() OVER (
-              PARTITION BY ds_id, token_path, mode
-              ORDER BY id DESC
-            ) AS rn
-          FROM token_mode_values_staging
-          WHERE run_id = ? AND ds_id = ?
-        ) dedup
-        WHERE dedup.rn = 1
-      `).run(runId, dsId);
-
-      db.prepare(`
-        INSERT OR IGNORE INTO figma_aliases (ds_id, from_path, to_path, modes)
-        SELECT ds_id, from_path, to_path, modes
-        FROM figma_aliases_staging WHERE run_id = ? AND ds_id = ?
-      `).run(runId, dsId);
+      const orphanModeResult = await tx<{ count: bigint }[]>`
+        SELECT COUNT(*) as count
+        FROM token_mode_values sm
+        WHERE sm.ds_id = ${dsId}
+          AND NOT EXISTS (
+            SELECT 1
+            FROM tokens st
+            WHERE st.ds_id = sm.ds_id
+              AND st.id = sm.token_path
+          )
+      `;
+      const orphanModeCount = Number(orphanModeResult[0]?.count ?? 0);
+      if (orphanModeCount > 0) {
+        throw new Error(
+          `Inserted ${orphanModeCount} mode value rows with missing token endpoints — aborting swap`,
+        );
+      }
 
       if (willRunReindex && usageReindexStatus === 'ok') {
-        db.prepare('DELETE FROM token_usage_occurrences WHERE ds_id = ?').run(dsId);
-        const reindexUsageStmt = db.prepare(`
-          INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `);
+        await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${dsId}`;
         for (const usage of reindexUsageRows) {
-          const result = reindexUsageStmt.run(
-            dsId,
-            usage.tokenId,
-            usage.kind,
-            usage.source,
-            usage.owner,
-            usage.detail,
-          );
-          usageReindexed += Number(result.changes || 0);
+          const result = await tx`
+            INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+            VALUES (${dsId}, ${usage.tokenId}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
+            ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
+          `;
+          usageReindexed += result.count ?? 0;
         }
       } else {
-        const tokenRows = db.prepare(`
-          SELECT id
-          FROM tokens
-          WHERE ds_id = ?
-        `).all(dsId) as Array<{ id: string }>;
+        const tokenRows = await tx<
+          { id: string }[]
+        >`SELECT id FROM tokens WHERE ds_id = ${dsId}`;
         const existingTokenIds = new Set(tokenRows.map((row) => row.id));
-        const restoreUsageStmt = db.prepare(`
-          INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `);
         for (const usage of usageRows) {
           if (!existingTokenIds.has(usage.token_id)) {
             usageDropped += 1;
             continue;
           }
-          restoreUsageStmt.run(dsId, usage.token_id, usage.kind, usage.source, usage.owner, usage.detail);
-          usageRestored += 1;
+          const result = await tx`
+            INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+            VALUES (${dsId}, ${usage.token_id}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
+            ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
+          `;
+          if ((result.count ?? 0) > 0) {
+            usageRestored += 1;
+          }
         }
       }
 
-      db.prepare(`
+      await tx`
         INSERT INTO token_graph (ds_id, graph_json, generated_at)
-        VALUES (?, ?, strftime('%s', 'now'))
-      `).run(dsId, graphJson);
-
-      db.prepare('DELETE FROM tokens_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
-      db.prepare('DELETE FROM token_mode_values_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
-      db.prepare('DELETE FROM figma_aliases_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
-    })();
+        VALUES (${dsId}, ${graphJson}, EXTRACT(EPOCH FROM now()))
+      `;
+    });
 
     if (reindexUsageFromFilesystem && !repoRoot) {
       usageReindexStatus = 'failed';
@@ -2300,25 +2539,36 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         }
       }
 
-      componentRepo.upsertFromRegistry(dsId, componentEntries);
+      await componentRepo.upsertFromRegistry(dsId, componentEntries);
 
       // Only mark missing when the component list is complete.
       // If truncated, marking missing would create false positives for components not fetched yet.
       // If partial import, skip missing reconciliation entirely — unselected ≠ missing.
       if (importMode === 'full' && !componentsTruncated) {
         const syncedSlugs = componentEntries.map((e) => e.slug);
-        const markedMissing = componentRepo.markMissingComponents(dsId, syncedSlugs);
+        const markedMissing = await componentRepo.markMissingComponents(
+          dsId,
+          syncedSlugs,
+        );
         if (markedMissing > 0) {
-          console.log(`  Marked ${markedMissing} component(s) as missing (removed from Figma).`);
+          console.log(
+            `  Marked ${markedMissing} component(s) as missing (removed from Figma).`,
+          );
         }
       } else if (importMode === 'partial') {
-        console.log('  Partial import: missing-component reconciliation skipped.');
+        console.log(
+          '  Partial import: missing-component reconciliation skipped.',
+        );
       } else {
-        console.warn('  Component search results were truncated; missing-component reconciliation skipped.');
+        console.warn(
+          '  Component search results were truncated; missing-component reconciliation skipped.',
+        );
       }
     }
     if (usageDropped > 0) {
-      console.warn(`  Dropped ${usageDropped} token-usage row(s) referencing removed tokens.`);
+      console.warn(
+        `  Dropped ${usageDropped} token-usage row(s) referencing removed tokens.`,
+      );
     }
     return {
       tokens: tokens.length,
@@ -2362,9 +2612,14 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   };
 }
 
-export function resolveFileKeyForSystem(figmaFileId: string | undefined, body: Record<string, unknown>): string {
+export function resolveFileKeyForSystem(
+  figmaFileId: string | undefined,
+  body: Record<string, unknown>,
+): string {
   const fromSystem = String(figmaFileId || '').trim();
   const fromBodyFileKey = String(body.fileKey || body['file-key'] || '').trim();
-  const fromBodyUrl = parseFileKey(String(body.url || body.figmaUrl || '').trim());
+  const fromBodyUrl = parseFileKey(
+    String(body.url || body.figmaUrl || '').trim(),
+  );
   return fromBodyFileKey || fromBodyUrl || fromSystem;
 }

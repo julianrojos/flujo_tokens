@@ -1,19 +1,33 @@
 /**
  * Component Spec DB Handler Service
- * 
+ *
  * Handles GET and PATCH /editorial requests for component specs.
- * All data is read from and written to SQLite DB (no filesystem).
+ * All data is read from and written to PostgreSQL DB (no filesystem).
  */
 
-import { EDITORIAL_ALLOWED_KEYS, type ComponentRepository } from '../db/component-repository.js';
-import type { EditorialEntry, StructuredFigmaData } from '../db/component-repository.js';
+import {
+  EDITORIAL_ALLOWED_KEYS,
+  type ComponentRepository,
+} from '../db/component-repository.js';
+import type {
+  EditorialEntry,
+  StructuredFigmaData,
+} from '../db/component-repository.js';
 import type { PartialComponentSpec } from 'ds-types';
 import type { Context } from 'hono';
 
 interface ComponentSpecHandlerDeps {
   componentRepo: ComponentRepository;
-  getSystemContext: (systemHeader?: string) => { systemId: string; repoRoot: string };
-  failJson: (ctx: Context, status: number, payload: { code: string; userMessage: string;[key: string]: unknown }) => Response;
+  getSystemContext: (
+    systemHeader?: string,
+  ) =>
+    | { systemId: string; repoRoot: string }
+    | Promise<{ systemId: string; repoRoot: string }>;
+  failJson: (
+    ctx: Context,
+    status: number,
+    payload: { code: string; userMessage: string; [key: string]: unknown },
+  ) => Response;
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -35,7 +49,8 @@ function buildSpecFromDb(params: {
   figmaFileUrl?: string;
   figmaComponentSetNodeId?: string;
 }): PartialComponentSpec {
-  const { editorial, structured, figmaFileUrl, figmaComponentSetNodeId } = params;
+  const { editorial, structured, figmaFileUrl, figmaComponentSetNodeId } =
+    params;
   const hasFigmaMetadata =
     Boolean(structured?.pageName) ||
     Boolean(figmaComponentSetNodeId) ||
@@ -60,9 +75,9 @@ function buildSpecFromDb(params: {
     behaviour: editorial?.behaviour ?? null,
     accessibility: editorial?.accessibility
       ? {
-        ...editorial.accessibility,
-        notes: editorial.accessibilityNotes ?? undefined,
-      }
+          ...editorial.accessibility,
+          notes: editorial.accessibilityNotes ?? undefined,
+        }
       : editorial?.accessibilityNotes
         ? { notes: editorial.accessibilityNotes }
         : null,
@@ -71,20 +86,21 @@ function buildSpecFromDb(params: {
     variants: editorial?.variants ?? null,
 
     // Additional structured data
-    variant_visuals: structured?.variants?.map((v) => ({
-      name: v.name,
-      properties: v.properties,
-    })) ?? [],
+    variant_visuals:
+      structured?.variants?.map((v) => ({
+        name: v.name,
+        properties: v.properties,
+      })) ?? [],
 
     layout: structured?.layout,
 
     // Figma metadata
     figma_metadata: hasFigmaMetadata
       ? {
-        page_name: structured?.pageName ?? null,
-        component_set_node_id: figmaComponentSetNodeId ?? null,
-        file_url: figmaFileUrl ?? null,
-      }
+          page_name: structured?.pageName ?? null,
+          component_set_node_id: figmaComponentSetNodeId ?? null,
+          file_url: figmaFileUrl ?? null,
+        }
       : null,
 
     // Raw token bindings for reference
@@ -104,10 +120,13 @@ function buildSpecFromDb(params: {
           variant_signature: binding.variantSignature ?? '',
           layer_node_id: binding.nodeId,
           layer_name: binding.nodeName,
-          property_path: String(binding.propertyPath || binding.field || '').trim().toLowerCase(),
+          property_path: String(binding.propertyPath || binding.field || '')
+            .trim()
+            .toLowerCase(),
           variable_id: binding.variableId,
           token_path: binding.tokenPath ?? null,
-          status: binding.status ?? (binding.tokenPath ? 'resolved' : 'unresolved'),
+          status:
+            binding.status ?? (binding.tokenPath ? 'resolved' : 'unresolved'),
           mode_id: binding.modeId ?? '',
           mode_name: binding.modeName ?? binding.mode ?? '',
         }))
@@ -137,10 +156,10 @@ export async function handleGetComponentSpecRoute(
     });
   }
 
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system'));
 
   // Resolve slug → componentId
-  const component = componentRepo.getBySlug(sysCtx.systemId, slug);
+  const component = await componentRepo.getBySlug(sysCtx.systemId, slug);
   if (!component) {
     return failJson(c, 404, {
       code: 'component.not_found',
@@ -151,7 +170,7 @@ export async function handleGetComponentSpecRoute(
   const componentId = component.id;
 
   // Load all spec data from DB
-  const editorial = componentRepo.getEditorial(componentId);
+  const editorial = await componentRepo.getEditorial(componentId);
   const structured = component.figma;
 
   // Build complete spec
@@ -167,7 +186,7 @@ export async function handleGetComponentSpecRoute(
   const exists = editorial !== null;
 
   // Compute staleness from DB timestamps
-  const staleness = componentRepo.getComponentDocStaleness(componentId);
+  const staleness = await componentRepo.getComponentDocStaleness(componentId);
 
   try {
     return c.json({
@@ -175,7 +194,7 @@ export async function handleGetComponentSpecRoute(
       exists,
       slug,
       spec,
-      updatedAt: editorial?.updatedAt ?? null,
+      updatedAt: editorial?.updatedAt?.getTime() ?? null,
       staleness: {
         status: staleness.status,
         editorialUpdatedAt: staleness.editorialUpdatedAt,
@@ -183,7 +202,10 @@ export async function handleGetComponentSpecRoute(
       },
     });
   } catch (error: any) {
-    console.error('[handleGetComponentSpecRoute] JSON serialization error:', error.message);
+    console.error(
+      '[handleGetComponentSpecRoute] JSON serialization error:',
+      error.message,
+    );
     return failJson(c, 500, {
       code: 'internal.json_error',
       userMessage: 'Failed to serialize spec response',
@@ -193,7 +215,7 @@ export async function handleGetComponentSpecRoute(
 
 /**
  * PATCH /api/component-spec/:slug/editorial handler
- * 
+ *
  * Updates editorial (human-authored) fields with optimistic locking.
  */
 export async function handlePatchEditorialSpecRoute(
@@ -210,10 +232,10 @@ export async function handlePatchEditorialSpecRoute(
     });
   }
 
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system'));
 
   // Resolve slug → componentId
-  const component = componentRepo.getBySlug(sysCtx.systemId, slug);
+  const component = await componentRepo.getBySlug(sysCtx.systemId, slug);
   if (!component) {
     return failJson(c, 404, {
       code: 'component.not_found',
@@ -246,7 +268,8 @@ export async function handlePatchEditorialSpecRoute(
   if (
     expectedUpdatedAt !== null &&
     expectedUpdatedAt !== undefined &&
-    (!Number.isFinite(expectedUpdatedAt) || !Number.isInteger(expectedUpdatedAt))
+    (!Number.isFinite(expectedUpdatedAt) ||
+      !Number.isInteger(expectedUpdatedAt))
   ) {
     return failJson(c, 400, {
       code: 'invalid.expected_updated_at',
@@ -258,7 +281,8 @@ export async function handlePatchEditorialSpecRoute(
   if (fields.properties !== undefined) {
     return failJson(c, 400, {
       code: 'invalid.field',
-      userMessage: 'properties is read-only and sourced from Figma capture. Use the Figma plugin to update component properties.',
+      userMessage:
+        'properties is read-only and sourced from Figma capture. Use the Figma plugin to update component properties.',
     });
   }
 
@@ -274,13 +298,21 @@ export async function handlePatchEditorialSpecRoute(
     }
   }
 
-  if (fields.behaviour !== undefined && fields.behaviour !== null && typeof fields.behaviour !== 'string') {
+  if (
+    fields.behaviour !== undefined &&
+    fields.behaviour !== null &&
+    typeof fields.behaviour !== 'string'
+  ) {
     return failJson(c, 400, {
       code: 'invalid.field',
       userMessage: 'Invalid field: behaviour must be a string or null.',
     });
   }
-  if (fields.accessibility !== undefined && fields.accessibility !== null && !isPlainRecord(fields.accessibility)) {
+  if (
+    fields.accessibility !== undefined &&
+    fields.accessibility !== null &&
+    !isPlainRecord(fields.accessibility)
+  ) {
     return failJson(c, 400, {
       code: 'invalid.field',
       userMessage: 'Invalid field: accessibility must be an object or null.',
@@ -289,9 +321,12 @@ export async function handlePatchEditorialSpecRoute(
   const savedKeys = Object.keys(fields);
 
   // Convert snake_case keys to camelCase for repository
-  const camelCaseFields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>> = {};
+  const camelCaseFields: Partial<
+    Omit<EditorialEntry, 'componentId' | 'updatedAt'>
+  > = {};
   if (fields.summary !== undefined) camelCaseFields.summary = fields.summary;
-  if (fields.behaviour !== undefined) camelCaseFields.behaviour = fields.behaviour;
+  if (fields.behaviour !== undefined)
+    camelCaseFields.behaviour = fields.behaviour;
   if (fields.accessibility !== undefined) {
     if (fields.accessibility === null) {
       camelCaseFields.accessibility = null;
@@ -301,21 +336,28 @@ export async function handlePatchEditorialSpecRoute(
       // Extract notes from accessibility object — stored separately in DB
       const { notes, ...accWithoutNotes } = acc;
       if (notes !== undefined) {
-        camelCaseFields.accessibilityNotes = Array.isArray(notes) ? notes : null;
+        camelCaseFields.accessibilityNotes = Array.isArray(notes)
+          ? notes
+          : null;
       }
       if (Object.keys(accWithoutNotes).length > 0) {
         camelCaseFields.accessibility = accWithoutNotes;
       }
     }
   }
-  if (fields.content_guidelines !== undefined) camelCaseFields.contentGuidelines = fields.content_guidelines;
+  if (fields.content_guidelines !== undefined)
+    camelCaseFields.contentGuidelines = fields.content_guidelines;
   if (fields.qa !== undefined) camelCaseFields.qa = fields.qa;
   if (fields.variants !== undefined) camelCaseFields.variants = fields.variants;
 
   // Upsert with optimistic locking
   let editorial: EditorialEntry;
   try {
-    editorial = componentRepo.upsertEditorial(componentId, camelCaseFields, expectedUpdatedAt ?? null);
+    editorial = await componentRepo.upsertEditorial(
+      componentId,
+      camelCaseFields,
+      expectedUpdatedAt ?? null,
+    );
   } catch (error: any) {
     if (error.statusCode === 400) {
       return failJson(c, 400, {
@@ -331,7 +373,10 @@ export async function handlePatchEditorialSpecRoute(
       });
     }
     const reason = error instanceof Error ? error.message : String(error);
-    console.error('[handlePatchEditorialSpecRoute] Failed to upsert editorial data:', reason);
+    console.error(
+      '[handlePatchEditorialSpecRoute] Failed to upsert editorial data:',
+      reason,
+    );
     return failJson(c, 500, {
       code: 'internal.editorial_upsert_failed',
       userMessage: 'Failed to persist editorial spec data',
@@ -353,12 +398,15 @@ export async function handlePatchEditorialSpecRoute(
       exists: true,
       slug,
       spec,
-      updatedAt: editorial.updatedAt,
+      updatedAt: editorial.updatedAt.getTime(),
       savedKeys,
       message: 'Editorial fields saved successfully.',
     });
   } catch (error: any) {
-    console.error('[handlePatchEditorialSpecRoute] JSON serialization error:', error.message);
+    console.error(
+      '[handlePatchEditorialSpecRoute] JSON serialization error:',
+      error.message,
+    );
     return failJson(c, 500, {
       code: 'internal.json_error',
       userMessage: 'Failed to serialize spec response',

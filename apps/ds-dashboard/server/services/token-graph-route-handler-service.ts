@@ -8,7 +8,9 @@ import {
 
 export interface TokenGraphRouteHandlerDeps {
   failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => unknown;
-  getSystemContext: (systemHeader: string) => { systemId: string };
+  getSystemContext: (
+    systemHeader: string,
+  ) => { systemId: string } | Promise<{ systemId: string }>;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }
 
@@ -23,15 +25,15 @@ function missingRepo(c: Context, deps: TokenGraphRouteHandlerDeps) {
 export async function handleTokenUsageIndexRoute(c: Context, deps: TokenGraphRouteHandlerDeps): Promise<unknown> {
   const { getSystemContext, tokenRepo } = deps;
   if (!tokenRepo) return missingRepo(c, deps);
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  return c.json(tokenRepo.getTokenUsageIndex(sysCtx.systemId));
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  return c.json(await tokenRepo.getTokenUsageIndex(sysCtx.systemId));
 }
 
 export async function handleTokenGraphRoute(c: Context, deps: TokenGraphRouteHandlerDeps): Promise<unknown> {
   const { getSystemContext, tokenRepo } = deps;
   if (!tokenRepo) return missingRepo(c, deps);
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const graph = tokenRepo.getTokenGraph(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  const graph = await tokenRepo.getTokenGraph(sysCtx.systemId);
   if (!graph) {
     return deps.failJson(c, 404, {
       code: 'token_graph.not_found',
@@ -56,8 +58,8 @@ export async function handleTokenGraphQueryRoute(c: Context, deps: TokenGraphRou
   }
   const direction = normalizeTokenGraphDirection(c.req.query('direction'));
   const depth = normalizeTokenGraphDepth(c.req.query('depth'));
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const graph = tokenRepo.getTokenGraph(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  const graph = await tokenRepo.getTokenGraph(sysCtx.systemId);
   if (!graph) {
     return deps.failJson(c, 404, {
       code: 'token_graph.not_found',

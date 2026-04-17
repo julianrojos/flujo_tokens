@@ -109,12 +109,21 @@ export interface CommandRouteHandlerDeps {
     args: Record<string, unknown>,
   ) => Response;
   createApiRequestId: () => string;
-  getSystemContext: (systemHeader: string) => {
-    repoRoot: string;
-    systemId: string;
-    figmaFileId?: string;
-    captureFromFigmaUrlScriptPath: string;
-  };
+  getSystemContext: (
+    systemHeader: string,
+  ) =>
+    | {
+        repoRoot: string;
+        systemId: string;
+        figmaFileId?: string;
+        captureFromFigmaUrlScriptPath: string;
+      }
+    | Promise<{
+        repoRoot: string;
+        systemId: string;
+        figmaFileId?: string;
+        captureFromFigmaUrlScriptPath: string;
+      }>;
   queueNpmScript: (args: unknown) => { id: string };
   queueJobAcceptedPayload: (job: { id: string }) => {
     ok: boolean;
@@ -132,9 +141,8 @@ export interface CommandRouteHandlerDeps {
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  healthRepo?: import('../db/health-repository.js').HealthRepository;
   syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
   hasPluginSocketForFile?: (fileKey: string) => boolean;
   validateGitRef: (value: string) => string | null;
@@ -142,7 +150,7 @@ export interface CommandRouteHandlerDeps {
   toNumberString: (value: unknown, fallback: number, max: number) => string;
 }
 
-export function enqueueRefreshScriptJob(
+export async function enqueueRefreshScriptJob(
   c: Context,
   script: string,
   deps: Pick<
@@ -159,7 +167,7 @@ export function enqueueRefreshScriptJob(
     | 'healthRepo'
     | 'db'
   >,
-): Response {
+): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -174,18 +182,27 @@ export function enqueueRefreshScriptJob(
     db,
   } = deps;
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const normalizedScript = String(script || '').trim();
   type RefreshDepKey = 'componentRepo' | 'db' | 'tokenRepo' | 'healthRepo';
   const queueDbOnlyJob = (args: {
     label: string;
     operationName: string;
-    execute: (ctx: { emitChunk: (kind: string, text: string) => void }) => {
-      ok: boolean;
-      code?: number;
-      summary: string;
-      payload?: unknown;
-    };
+    execute: (ctx: {
+      emitChunk: (kind: string, text: string) => void;
+    }) =>
+      | {
+          ok: boolean;
+          code?: number;
+          summary: string;
+          payload?: unknown;
+        }
+      | Promise<{
+          ok: boolean;
+          code?: number;
+          summary: string;
+          payload?: unknown;
+        }>;
   }) =>
     enqueueQueueJob({
       label: args.label,
@@ -204,7 +221,7 @@ export function enqueueRefreshScriptJob(
         emitChunk,
       }: {
         emitChunk: (kind: string, text: string) => void;
-      }) => args.execute({ emitChunk }),
+      }) => await args.execute({ emitChunk }),
     });
 
   const hasDep = (dep: RefreshDepKey): boolean => {
@@ -224,7 +241,12 @@ export function enqueueRefreshScriptJob(
           code?: number;
           summary: string;
           payload?: unknown;
-        };
+        } | Promise<{
+          ok: boolean;
+          code?: number;
+          summary: string;
+          payload?: unknown;
+        }>;
         label: string;
         operationName: string;
       }
@@ -249,7 +271,7 @@ export function enqueueRefreshScriptJob(
         refreshUsageIndexDbOnly({
           systemId: sysCtx.systemId,
           emitChunk,
-          db: db as NonNullable<typeof db>,
+          sql: db as NonNullable<typeof db>,
           tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
         }),
     },
@@ -261,7 +283,7 @@ export function enqueueRefreshScriptJob(
         refreshTokenGraphDbOnly({
           systemId: sysCtx.systemId,
           emitChunk,
-          db: db as NonNullable<typeof db>,
+          sql: db as NonNullable<typeof db>,
           tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
           sha256Text,
         }),
@@ -276,7 +298,7 @@ export function enqueueRefreshScriptJob(
           emitChunk,
           tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
           healthRepo: healthRepo as NonNullable<typeof healthRepo>,
-          db: db as NonNullable<typeof db>,
+          sql: db as NonNullable<typeof db>,
           sha256Text,
         }),
     },
@@ -441,8 +463,8 @@ type RestartSpawnFn = (
 
 type RestartSetTimeoutHandle =
   | {
-    unref?: () => void;
-  }
+      unref?: () => void;
+    }
   | number;
 
 type RestartSetTimeoutFn = (
@@ -489,7 +511,7 @@ export async function handleRunScriptRoute(
     fromStep: pickFirstNonEmpty(body.fromStep, c.req.query('fromStep')),
     onlyStep: pickFirstNonEmpty(body.onlyStep, c.req.query('onlyStep')),
   };
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
 
   if (parsedScript.scriptName === 'ds:component-doc') {
     if (!specFile && !component) {
@@ -550,7 +572,7 @@ export async function handleCaptureHealthSnapshotRoute(
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
 
   const parsed = buildHealthSnapshotCommandConfig({
@@ -604,7 +626,7 @@ export async function handleCaptureHealthSnapshotRoute(
         emitChunk,
         tokenRepo,
         healthRepo,
-        db,
+        sql: db,
         sha256Text,
       }),
   });
@@ -631,7 +653,7 @@ export async function handleSyncFigmaTokensRoute(
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
   const tokensSource = String(
     body.tokensSource ?? body.tokens_source ?? body['tokens-source'] ?? 'mcp',
@@ -672,18 +694,18 @@ export async function handleSyncFigmaTokensRoute(
     typeof hasPluginSocketForFile === 'function'
       ? hasPluginSocketForFile(figmaFileId)
       : (() => {
-        const manager = getPluginConnectionManager();
-        // Best-effort precheck:
-        // 1) Prefer an OPEN socket bound to this exact file key.
-        // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
-        // The socket can still disconnect before sync starts; service-level error mapping
-        // provides the user-facing message in that case.
-        if (manager.getPreferredSocketId(figmaFileId)) return true;
-        return (
-          manager.getConnectionCount() === 1 &&
-          manager.getActiveFileKeys().length === 0
-        );
-      })();
+          const manager = getPluginConnectionManager();
+          // Best-effort precheck:
+          // 1) Prefer an OPEN socket bound to this exact file key.
+          // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
+          // The socket can still disconnect before sync starts; service-level error mapping
+          // provides the user-facing message in that case.
+          if (manager.getPreferredSocketId(figmaFileId)) return true;
+          return (
+            manager.getConnectionCount() === 1 &&
+            manager.getActiveFileKeys().length === 0
+          );
+        })();
   if (!canUsePluginSocket) {
     console.warn(
       `[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`,
@@ -706,9 +728,9 @@ export async function handleSyncFigmaTokensRoute(
     toBooleanString(body.includeComponents, true) === 'true';
   const selectedComponentNodeIds = Array.isArray(body.selectedComponentNodeIds)
     ? body.selectedComponentNodeIds.filter(
-      (id: unknown): id is string =>
-        typeof id === 'string' && id.trim().length > 0,
-    )
+        (id: unknown): id is string =>
+          typeof id === 'string' && id.trim().length > 0,
+      )
     : undefined;
   const requireComponentProofs =
     toBooleanString(body.requireComponentProofs, true) === 'true';
@@ -812,7 +834,7 @@ export async function handleCaptureFigmaScreenshotRoute(
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
 
   let parsed;
@@ -854,7 +876,7 @@ export async function handleCaptureFigmaScreenshotRoute(
       payload: unknown;
       emitChunk: (kind: string, text: string) => void;
     }) => {
-      const persisted = persistCapturePayloadToComponentRepo({
+      const persisted = await persistCapturePayloadToComponentRepo({
         payload,
         componentRepo,
         systemId: sysCtx.systemId,

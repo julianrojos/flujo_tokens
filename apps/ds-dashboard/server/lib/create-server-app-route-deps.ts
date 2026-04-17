@@ -45,7 +45,7 @@ export interface CreateServerAppRouteDepsConfig {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
 }
 
 export type CreateServerAppRouteDeps = CreateServerAppRouteDepsConfig;

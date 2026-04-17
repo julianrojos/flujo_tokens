@@ -75,7 +75,9 @@
     "dashboard:dev": "HOST=localhost npm --prefix apps/ds-dashboard run dev",
     "dashboard:dev:host": "npm --prefix apps/ds-dashboard run dev",
     "dashboard:build": "npm --prefix apps/ds-dashboard run build",
-    "dashboard:preview": "npm --prefix apps/ds-dashboard run preview"
+    "dashboard:preview": "npm --prefix apps/ds-dashboard run preview",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
