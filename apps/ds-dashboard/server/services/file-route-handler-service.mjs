@@ -11,9 +11,9 @@ import {
   resolveSnippetTargetLine,
 } from "../lib/file-route-service.mjs";
 
-function resolvePath(c, deps, { requested, code, userMessage }) {
+async function resolvePath(c, deps, { requested, code, userMessage }) {
   const { getSystemContext, resolveRepoFilePath } = deps;
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
   return resolveRequestedRepoPath({
     repoRoot: sysCtx.repoRoot,
     requested,
@@ -26,7 +26,7 @@ function resolvePath(c, deps, { requested, code, userMessage }) {
 export async function handleFileRoute(c, deps) {
   const { failJson, readTextFileLimited, MAX_FILE_BYTES } = deps;
   const requested = c.req.query("path") ?? c.req.query("file") ?? "";
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: "file.invalid_path",
     userMessage: "Invalid file path.",
@@ -54,7 +54,7 @@ export async function handleFileRoute(c, deps) {
 export async function handleFileSnippetRoute(c, deps) {
   const { failJson, readTextFileLimited, MAX_FILE_BYTES, findLineForQuery, buildSnippet } = deps;
   const requested = c.req.query("file") ?? "";
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: "file.invalid_path",
     userMessage: "Invalid file path.",
@@ -103,7 +103,7 @@ export async function handleFileSnippetRoute(c, deps) {
 export async function handleAssetRoute(c, deps) {
   const { failJson, guessContentType } = deps;
   const requested = c.req.query("path") ?? "";
-  const resolved = resolvePath(c, deps, {
+  const resolved = await resolvePath(c, deps, {
     requested,
     code: "asset.invalid_path",
     userMessage: "Invalid asset path.",

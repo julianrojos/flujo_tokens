@@ -31,9 +31,9 @@ export function handleApiHealthRoute(c, deps) {
   return c.json(buildHealthPayload());
 }
 
-export function handleListDesignSystemsRoute(_c, deps) {
+export async function handleListDesignSystemsRoute(_c, deps) {
   const { designSystemRepository } = deps;
-  const config = designSystemRepository.getConfig();
+  const config = await designSystemRepository.getConfig();
   return buildNoStoreJsonResponse(config);
 }
 
@@ -52,7 +52,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     db,
   } = deps;
   const body = await readJsonBody(c);
-  const config = designSystemRepository.getConfig();
+  const config = await designSystemRepository.getConfig();
   const mutation = buildCreateDesignSystemConfigMutation({
     config,
     body,
@@ -89,7 +89,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     try {
       const { DependencyRepository } = await import("../db/dependency-repository.js");
       const dependencyRepo = new DependencyRepository(db);
-      const existingConsumers = dependencyRepo.listConsumers(normalizedFigmaFileId);
+      const existingConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
       existingConsumersCount = existingConsumers.length;
     } catch (dbError) {
       existingConsumersCheckFailed = true;
@@ -97,7 +97,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     }
   }
 
-  designSystemRepository.create({
+  await designSystemRepository.create({
     id: nextSystem.id,
     name: nextSystem.name,
     appName: nextSystem.appName,
@@ -106,7 +106,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     collections: nextSystem.collections,
     compileVariablesOnCapture: nextSystem.compileVariablesOnCapture,
   });
-  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
     buildCreateDesignSystemSuccessPayload({
       nextSystem,
@@ -129,7 +129,7 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
   } = deps;
   const routeSystemId = decodeSystemRouteId(c.req.param("id"));
   const body = await readJsonBody(c);
-  const config = designSystemRepository.getConfig();
+  const config = await designSystemRepository.getConfig();
   const mutation = buildUpdateDesignSystemConfigMutation({
     config,
     routeSystemId,
@@ -140,12 +140,12 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     return failJson(c, mutation.error.status, mutation.error.payload);
   }
   const { updated, nextConfig } = mutation;
-  designSystemRepository.update(routeSystemId, {
+  await designSystemRepository.update(routeSystemId, {
     name: updated.name,
     appName: updated.appName,
     compileVariablesOnCapture: updated.compileVariablesOnCapture,
   });
-  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
     buildUpdateDesignSystemSuccessPayload({
       routeSystemId,
@@ -168,7 +168,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     db,
   } = deps;
   const routeSystemId = decodeSystemRouteId(c.req.param("id"));
-  const config = designSystemRepository.getConfig();
+  const config = await designSystemRepository.getConfig();
   const mutation = buildDeleteDesignSystemConfigMutation({ config, routeSystemId });
   if (mutation.error) {
     return failJson(c, mutation.error.status, mutation.error.payload);
@@ -183,10 +183,10 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   let preflightConsumers = undefined;
   let pendingOpId = undefined;
   let pendingOpsRepo = undefined;
-  const markPendingOpAbandoned = () => {
+  const markPendingOpAbandoned = async () => {
     if (!pendingOpId || !pendingOpsRepo) return;
     try {
-      pendingOpsRepo.abandon(pendingOpId);
+      await pendingOpsRepo.abandon(pendingOpId);
     } catch (error) {
       console.error("[handleDeleteDesignSystemRoute] Failed to abandon pending op:", {
         pendingOpId,
@@ -195,10 +195,10 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
       });
     }
   };
-  const markPendingOpCompleted = () => {
+  const markPendingOpCompleted = async () => {
     if (!pendingOpId || !pendingOpsRepo) return;
     try {
-      pendingOpsRepo.complete(pendingOpId);
+      await pendingOpsRepo.complete(pendingOpId);
     } catch (error) {
       console.error("[handleDeleteDesignSystemRoute] Failed to complete pending op:", {
         pendingOpId,
@@ -213,7 +213,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     try {
       const { DependencyRepository } = await import("../db/dependency-repository.js");
       dependencyRepo = new DependencyRepository(db);
-      preflightConsumers = dependencyRepo.listConsumers(normalizedFigmaFileId);
+      preflightConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
     } catch (dbError) {
       console.warn("[handleDeleteDesignSystemRoute] DB preflight check failed:", dbError);
       return failJson(c, 500, {
@@ -233,7 +233,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
       const { PendingOperationsRepository } = await import("../db/pending-operations-repository.js");
       pendingOpsRepo = new PendingOperationsRepository(db);
       pendingOpId = randomUUID();
-      pendingOpsRepo.insert({
+      await pendingOpsRepo.insert({
         id: pendingOpId,
         type: 'delete_design_system',
         payload: { systemId: routeSystemId, figmaFileId: normalizedFigmaFileId },
@@ -277,7 +277,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         fsSync,
       });
     } catch (error) {
-      markPendingOpAbandoned();
+      await markPendingOpAbandoned();
       return failJson(c, 500, {
         code: "design_system.cleanup_failed",
         userMessage: "Failed to reset global documentation artifacts after removing the last design system.",
@@ -300,13 +300,13 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         const consumerNameById = new Map(
           linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
         );
-        const result = dependencyRepo.removeAllByDsFileKey(normalizedFigmaFileId);
+        const result = await dependencyRepo.removeAllByDsFileKey(normalizedFigmaFileId);
         deletedConsumersCount = result.deletedConsumerCount;
         // Best-effort naming: if rows changed between preflight and cleanup,
         // unknown IDs are returned as raw IDs in the response.
         deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
       } catch (dbError) {
-        markPendingOpAbandoned();
+        await markPendingOpAbandoned();
         console.warn("[handleDeleteDesignSystemRoute] DB cascade delete failed:", dbError);
         return failJson(c, 500, {
           code: "design_system.consumer_cleanup_failed",
@@ -331,11 +331,11 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     }
   }
 
-  designSystemRepository.delete(routeSystemId);
-  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  await designSystemRepository.delete(routeSystemId);
+  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
 
   // Mark pending operation as completed
-  markPendingOpCompleted();
+  await markPendingOpCompleted();
 
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
@@ -357,7 +357,7 @@ export async function handleDeletePreviewRoute(c, deps) {
   const normalizedSystemId = decodeSystemRouteId(routeSystemId);
 
   try {
-    const config = designSystemRepository.getConfig();
+    const config = await designSystemRepository.getConfig();
     const systems = Array.isArray(config?.systems) ? config.systems : [];
     const targetSystem = systems.find(
       (system) => String(system?.id || "").trim() === normalizedSystemId,
@@ -399,7 +399,7 @@ export async function handleDeletePreviewRoute(c, deps) {
     // Dynamic import to avoid .mjs/.ts import issues
     const { DependencyRepository } = await import("../db/dependency-repository.js");
     const dependencyRepo = new DependencyRepository(db);
-    const preview = dependencyRepo.getDeletePreview(figmaFileId.trim());
+    const preview = await dependencyRepo.getDeletePreview(figmaFileId.trim());
 
     return c.json({
       ok: true,

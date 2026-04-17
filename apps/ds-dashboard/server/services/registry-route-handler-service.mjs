@@ -104,8 +104,8 @@ export async function handleComponentRegistryRoute(c, deps) {
       recoverable: false,
     });
   }
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const rows = componentRepo.getAll(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
+  const rows = await componentRepo.getAll(sysCtx.systemId);
   const components = rows.map((row) => {
     const specExists = row.editorialExists;
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
@@ -167,8 +167,8 @@ export async function handleComponentUsageIndexRoute(c, deps) {
       recoverable: false,
     });
   }
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const rows = componentRepo.getAll(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
+  const rows = await componentRepo.getAll(sysCtx.systemId);
   const registry = {
     components: rows.map((row) => {
       const specPath = toSpecPathForUsageIndex(row, sysCtx.systemId);
@@ -192,8 +192,8 @@ export async function handleTokenRegistryRoute(c, deps) {
       recoverable: false,
     });
   }
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const registry = tokenRepo.getTokenRegistry(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
+  const registry = await tokenRepo.getTokenRegistry(sysCtx.systemId);
   return c.json(registry);
 }
 
@@ -206,7 +206,7 @@ export async function handleTokenCollectionTreesRoute(c, deps) {
       recoverable: false,
     });
   }
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const registry = tokenRepo.getTokenRegistry(sysCtx.systemId);
+  const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
+  const registry = await tokenRepo.getTokenRegistry(sysCtx.systemId);
   return c.json(buildTokenCollectionTrees(registry.entries));
 }

@@ -2497,7 +2497,10 @@ export async function syncDesignSystemFromPlugin(
 
       await tx`
         INSERT INTO token_graph (ds_id, graph_json, generated_at)
-        VALUES (${dsId}, ${graphJson}, EXTRACT(EPOCH FROM now()))
+        VALUES (${dsId}, ${graphJson}, now())
+        ON CONFLICT (ds_id) DO UPDATE SET
+          graph_json = EXCLUDED.graph_json,
+          generated_at = EXCLUDED.generated_at
       `;
     });
 
