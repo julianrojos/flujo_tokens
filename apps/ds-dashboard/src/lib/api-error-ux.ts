@@ -22,6 +22,18 @@ function toTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isFetchFailureMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("failed to fetch") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("load failed") ||
+    normalized.includes("the operation was aborted") ||
+    normalized.includes("connection refused")
+  );
+}
+
 function resolveTitle(code: string, status: number, fallbackTitle: string) {
   switch (code) {
     case API_ERROR_CODES.SYSTEM_INVALID_OR_MISSING:
@@ -124,6 +136,18 @@ export function toApiErrorDisplay(
 
   const message =
     toTrimmedString(error instanceof Error ? error.message : error) || options.fallbackMessage;
+
+  if (isFetchFailureMessage(message)) {
+    return {
+      title: "API unavailable",
+      message:
+        "The dashboard API is not reachable. Make sure `npm run db:up` is running and then restart `npm run dashboard:dev`.",
+      action: "Check PostgreSQL and restart the dashboard.",
+      code: null,
+      requestId: null,
+      retryable: true,
+    };
+  }
 
   return {
     title: options.fallbackTitle,
