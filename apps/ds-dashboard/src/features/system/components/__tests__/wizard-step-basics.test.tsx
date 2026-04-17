@@ -39,6 +39,7 @@ describe("WizardStepBasics", () => {
     },
     actions: {
       onFieldChange: () => {},
+      onFigmaFileUrlBlur: () => {},
       onScan: () => {},
       onImport: () => {},
       onToggleComponent: () => {},

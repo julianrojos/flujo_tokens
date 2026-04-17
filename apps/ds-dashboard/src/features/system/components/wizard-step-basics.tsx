@@ -39,6 +39,7 @@ interface WizardBasicsDerived {
 
 interface WizardBasicsActions {
   onFieldChange: (field: keyof WizardFormValues, value: string | boolean) => void;
+  onFigmaFileUrlBlur: () => void | Promise<void>;
   onScan: () => void;
   onImport: () => void;
   onToggleComponent: (nodeId: string) => void;
@@ -144,6 +145,9 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
             id="figma-file-url"
             value={form.figmaFileUrl}
             onChange={(e) => actions.onFieldChange("figmaFileUrl", e.target.value)}
+            onBlur={() => {
+              void actions.onFigmaFileUrlBlur();
+            }}
             placeholder="https://www.figma.com/file/..."
           />
           {derived.figmaFileId && <p className="mt-1 text-xs text-muted-foreground">File key: {derived.figmaFileId}</p>}

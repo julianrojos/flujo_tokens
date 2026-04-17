@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
-import { createDesignSystem, scanFigmaComponents } from "@/lib/api";
+import { createDesignSystem, getFigmaMcpHeartbeat, scanFigmaComponents } from "@/lib/api";
 import { toApiErrorDisplay, type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import type { CaptureFigmaProgress } from "@/lib/api";
@@ -10,6 +10,9 @@ import {
   toDocumentWideFigmaUrl,
   toSystemId,
 } from "../lib/new-system-transforms";
+import {
+  resolveSuggestedSystemName,
+} from "../new-system-page-logic";
 
 type WizardStep = "basics" | "importing" | "done";
 
@@ -264,6 +267,7 @@ interface NewSystemWizardViewModel {
   showImportErrorDetails: boolean;
   isCancellingImport: boolean;
   setFormField: (field: keyof WizardFormState, value: string | boolean) => void;
+  handleFigmaFileUrlBlur: () => Promise<void>;
   handleScan: () => Promise<void>;
   handleImportDesignSystem: () => Promise<void>;
   toggleComponent: (nodeId: string) => void;
@@ -287,6 +291,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const replaceSystemsRef = useRef(replaceSystems);
   const activeSystemRef = useRef(activeSystem);
   const latestImportRef = useRef(state.import);
+  const latestFormRef = useRef(state.form);
 
   useEffect(() => {
     replaceSystemsRef.current = replaceSystems;
@@ -299,6 +304,10 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   useEffect(() => {
     latestImportRef.current = state.import;
   }, [state.import]);
+
+  useEffect(() => {
+    latestFormRef.current = state.form;
+  }, [state.form]);
 
   const generatedSystemId = useMemo(() => toSystemId(state.form.systemName), [state.form.systemName]);
   const figmaFileId = useMemo(() => extractFigmaFileIdFromUrl(state.form.figmaFileUrl), [state.form.figmaFileUrl]);
@@ -321,6 +330,34 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
 
   const setFormField = useCallback((field: keyof WizardFormState, value: string | boolean) => {
     dispatch({ type: "SET_FORM_FIELD", field, value });
+  }, []);
+
+  const handleFigmaFileUrlBlur = useCallback(async () => {
+    const formSnapshot = latestFormRef.current;
+    if (formSnapshot.systemName.trim()) return;
+    const expectedFileKey = extractFigmaFileIdFromUrl(formSnapshot.figmaFileUrl);
+    if (!expectedFileKey) return;
+
+    try {
+      const heartbeat = await getFigmaMcpHeartbeat();
+      const suggestedName = resolveSuggestedSystemName({
+        currentSystemName: formSnapshot.systemName,
+        figmaUrl: formSnapshot.figmaFileUrl,
+        heartbeat,
+        expectedFileKey,
+      });
+      if (!suggestedName) return;
+      dispatch({ type: "SET_FORM_FIELD", field: "systemName", value: suggestedName });
+    } catch {
+      const suggestedName = resolveSuggestedSystemName({
+        currentSystemName: formSnapshot.systemName,
+        figmaUrl: formSnapshot.figmaFileUrl,
+        heartbeat: null,
+        expectedFileKey,
+      });
+      if (!suggestedName) return;
+      dispatch({ type: "SET_FORM_FIELD", field: "systemName", value: suggestedName });
+    }
   }, []);
 
   const handleScan = useCallback(async () => {
@@ -586,6 +623,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
+    handleFigmaFileUrlBlur,
     handleScan,
     handleImportDesignSystem,
     toggleComponent,

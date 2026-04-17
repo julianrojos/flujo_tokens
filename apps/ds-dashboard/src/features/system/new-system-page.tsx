@@ -121,6 +121,7 @@ export function NewSystemPage() {
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
+    handleFigmaFileUrlBlur,
     handleScan,
     handleImportDesignSystem,
     toggleComponent,
@@ -392,6 +393,7 @@ export function NewSystemPage() {
           }}
           actions={{
             onFieldChange: setFormField,
+            onFigmaFileUrlBlur: handleFigmaFileUrlBlur,
             onScan: handleScan,
             onImport: handleImportDesignSystem,
             onToggleComponent: toggleComponent,
