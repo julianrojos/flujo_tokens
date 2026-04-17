@@ -6,6 +6,7 @@ let shuttingDown = false;
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = 8787;
 const DEFAULT_RESTART_EXISTING_API = true;
+const DEFAULT_DATABASE_URL = "postgres://ds:local@localhost:5432/ds_dashboard";
 
 function parsePort(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -46,6 +47,16 @@ export function resolveApiRuntimeConfig(env = process.env) {
     port,
     explicitUrl: false,
   };
+}
+
+function resolveDashboardDatabaseUrl(env = process.env) {
+  const testDbUrl = String(env.TEST_DATABASE_URL || "").trim();
+  if (testDbUrl) return testDbUrl;
+
+  const dbUrl = String(env.DATABASE_URL || "").trim();
+  if (dbUrl) return dbUrl;
+
+  return DEFAULT_DATABASE_URL;
 }
 
 export function isPortAvailable(port, host) {
@@ -121,11 +132,14 @@ function shutdown(code = 0) {
 }
 
 function startScript(name, runtimeConfig) {
+  const databaseUrl = resolveDashboardDatabaseUrl(process.env);
   const child = spawn("npm", ["run", name], {
     stdio: "inherit",
     shell: false,
     env: {
       ...process.env,
+      DATABASE_URL: databaseUrl,
+      TEST_DATABASE_URL: process.env.TEST_DATABASE_URL || databaseUrl,
       NODE_ENV: process.env.NODE_ENV || "development",
       DS_DASHBOARD_API_URL: runtimeConfig.apiBaseUrl,
       DS_DASHBOARD_API_PORT: String(runtimeConfig.port),
@@ -247,6 +261,12 @@ process.on("SIGTERM", () => shutdown(143));
 async function main() {
   try {
     const runtimeConfig = resolveApiRuntimeConfig(process.env);
+    const databaseUrl = resolveDashboardDatabaseUrl(process.env);
+    if (!String(process.env.DATABASE_URL || "").trim()) {
+      console.log(
+        `[dev-with-api] DATABASE_URL was not set; using local default ${databaseUrl}.`,
+      );
+    }
     const portStatus = await classifyApiPort(runtimeConfig);
     const restartExistingApi = shouldRestartExistingApi(process.env);
 
