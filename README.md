@@ -432,6 +432,13 @@ Run:
 npm run dashboard:dev
 ```
 
+`dashboard:dev` uses the local PostgreSQL database by default (`postgres://ds:local@localhost:5432/ds_dashboard`).
+If the server is not running yet, start it with:
+
+```bash
+npm run db:up
+```
+
 API-only mode:
 
 ```bash
