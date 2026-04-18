@@ -237,6 +237,37 @@ describe('ai-jobs-route', () => {
             assert.ok(json.jobId);
         });
 
+        it('should accept opencode provider when API key is configured', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const prevOpenCode = process.env.OPENCODE_API_KEY;
+            process.env.OPENCODE_API_KEY = 'opencode-key';
+
+            try {
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'opencode',
+                        componentId: '68:4097',
+                        dryRun: true,
+                    }),
+                });
+
+                assert.equal(res.status, 202);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.ok(json.jobId);
+            } finally {
+                if (prevOpenCode === undefined) {
+                    delete process.env.OPENCODE_API_KEY;
+                } else {
+                    process.env.OPENCODE_API_KEY = prevOpenCode;
+                }
+            }
+        });
+
         it('stores resolved systemId on the enqueued job input', async () => {
             cleanupStore();
             const prevApiKey = process.env.ANTHROPIC_API_KEY;
