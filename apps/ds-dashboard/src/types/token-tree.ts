@@ -1,4 +1,4 @@
-import type { TokenEntry } from "@/types/token-registry";
+import type { TokenCatalogEntry } from "@/types/token-catalog";
 
 export type TokenTreeNodeType = "collection" | "group" | "token";
 
@@ -8,7 +8,7 @@ export interface TokenTreeNode {
   type: TokenTreeNodeType;
   path: string;
   children: TokenTreeNode[];
-  tokenData?: TokenEntry;
+  tokenData?: TokenCatalogEntry;
 }
 
 export interface TokenCollectionTree {

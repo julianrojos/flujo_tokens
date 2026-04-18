@@ -4,7 +4,7 @@ import {
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
+import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
 function sha256Json(value) {
@@ -183,7 +183,7 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   return c.json(buildComponentUsageIndex(registry.components, sysCtx.repoRoot));
 }
 
-export async function handleTokenRegistryRoute(c, deps) {
+export async function handleTokenCatalogRoute(c, deps) {
   const { failJson, getSystemContext, tokenRepo } = deps;
   if (!tokenRepo) {
     return failJson(c, 500, {
@@ -193,8 +193,8 @@ export async function handleTokenRegistryRoute(c, deps) {
     });
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
-  const registry = await tokenRepo.getTokenRegistry(sysCtx.systemId);
-  return c.json(registry);
+  const catalog = await tokenRepo.getTokenCatalog(sysCtx.systemId);
+  return c.json(catalog);
 }
 
 export async function handleTokenCollectionTreesRoute(c, deps) {
@@ -207,6 +207,6 @@ export async function handleTokenCollectionTreesRoute(c, deps) {
     });
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
-  const registry = await tokenRepo.getTokenRegistry(sysCtx.systemId);
+  const registry = await tokenRepo.getTokenCatalog(sysCtx.systemId);
   return c.json(buildTokenCollectionTrees(registry.entries));
 }

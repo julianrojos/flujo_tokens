@@ -36,7 +36,7 @@ function createTestApp(
       ...componentRepoOverrides,
     },
     tokenRepo: {
-      getTokenRegistry: () => ({ entries: [] }),
+      getTokenCatalog: () => ({ entries: [] }),
     },
   });
   return app;

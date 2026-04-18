@@ -1,17 +1,17 @@
-import type { TokenEntry } from "@/types/token-registry";
+import type { TokenCatalogEntry } from "@/types/token-catalog";
 
 import { normalizeToHex6 } from "./color-utils";
 import type { SemanticColorCategory, SemanticColorOption } from "./types";
 
 interface TokenIndexes {
-  byCssVar: Map<string, TokenEntry>;
+  byCssVar: Map<string, TokenCatalogEntry>;
 }
 
 const VAR_REF_RE = /^var\(\s*(--[a-z0-9-]+)\s*(?:,\s*(.+)\s*)?\)$/i;
 const MAX_RESOLUTION_DEPTH = 12;
 
-function buildIndexes(entries: TokenEntry[]): TokenIndexes {
-  const byCssVar = new Map<string, TokenEntry>();
+function buildIndexes(entries: TokenCatalogEntry[]): TokenIndexes {
+  const byCssVar = new Map<string, TokenCatalogEntry>();
   for (const entry of entries) {
     const cssVar = String(entry.cssVar || "").trim();
     if (!cssVar) continue;
@@ -30,7 +30,7 @@ function parseVarReference(rawValue: string): { cssVar: string; fallback: string
 }
 
 function resolveEntryToHex(
-  entry: TokenEntry,
+  entry: TokenCatalogEntry,
   indexes: TokenIndexes,
   depth = 0,
   visited = new Set<string>(),
@@ -58,7 +58,7 @@ function resolveEntryToHex(
   return normalizeToHex6(fallback);
 }
 
-function classifySemanticColor(entry: TokenEntry): SemanticColorCategory | null {
+function classifySemanticColor(entry: TokenCatalogEntry): SemanticColorCategory | null {
   const haystack = `${entry.path} ${entry.slashPath}`.toLowerCase();
 
   const hasBackgroundKeyword =
@@ -77,7 +77,7 @@ function classifySemanticColor(entry: TokenEntry): SemanticColorCategory | null 
   return null;
 }
 
-function labelFor(entry: TokenEntry): string {
+function labelFor(entry: TokenCatalogEntry): string {
   const slash = String(entry.slashPath || "").trim();
   if (slash) return slash;
   return String(entry.path || "").trim();
@@ -87,7 +87,7 @@ function compareOptions(a: SemanticColorOption, b: SemanticColorOption): number 
   return a.label.localeCompare(b.label, "en", { sensitivity: "base" });
 }
 
-export function buildSemanticColorOptions(entries: TokenEntry[]): {
+export function buildSemanticColorOptions(entries: TokenCatalogEntry[]): {
   all: SemanticColorOption[];
   background: SemanticColorOption[];
   foreground: SemanticColorOption[];

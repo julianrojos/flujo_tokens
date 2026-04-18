@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Copy } from "lucide-react";
-import type { TokenEntry } from "@/types/token-registry";
+import type { TokenCatalogEntry } from "@/types/token-catalog";
 
 interface TokenIdentitySectionProps {
-  token: TokenEntry;
+  token: TokenCatalogEntry;
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
   onCopyField: (field: string, value: string) => void;

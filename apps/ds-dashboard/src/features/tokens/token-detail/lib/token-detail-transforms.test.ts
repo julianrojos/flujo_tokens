@@ -1,13 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { TokenEntry } from "../../../../types/token-registry";
+import type { TokenCatalogEntry } from "../../../../types/token-catalog";
 import {
   buildTokenUsageTargets,
   normalizeUsageKeyForMatch,
   variableReportMatchesTokenTargets,
 } from "./token-detail-transforms";
 
-function makeToken(overrides: Partial<TokenEntry> = {}): TokenEntry {
+function makeToken(overrides: Partial<TokenCatalogEntry> = {}): TokenCatalogEntry {
   return {
     path: "semanticos.color.bg-accent",
     slashPath: "semanticos/color/bg-accent",

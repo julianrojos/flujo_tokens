@@ -6,7 +6,7 @@ import { toApiErrorDisplay } from "./api-error-ux";
 describe("toApiErrorDisplay", () => {
   it("maps fetch failures to an API unavailable message", () => {
     const result = toApiErrorDisplay(new Error("Failed to fetch"), {
-      fallbackTitle: "Token registry unavailable",
+      fallbackTitle: "Token data unavailable",
       fallbackMessage: "Failed to fetch",
     });
 
@@ -18,11 +18,11 @@ describe("toApiErrorDisplay", () => {
 
   it("keeps generic errors on the provided fallback", () => {
     const result = toApiErrorDisplay(new Error("Boom"), {
-      fallbackTitle: "Token registry unavailable",
+      fallbackTitle: "Token data unavailable",
       fallbackMessage: "Failed to fetch",
     });
 
-    assert.equal(result.title, "Token registry unavailable");
+    assert.equal(result.title, "Token data unavailable");
     assert.equal(result.message, "Boom");
     assert.equal(result.action, "Retry the action.");
     assert.equal(result.retryable, true);

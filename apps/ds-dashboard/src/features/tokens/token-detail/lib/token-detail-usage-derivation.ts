@@ -1,5 +1,5 @@
 import type { VariableUsageReport } from "@/types/consumers";
-import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalog } from "@/types/token-catalog";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   buildTokenUsageTargets,
@@ -10,12 +10,12 @@ import {
 
 const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
 
-function resolveTokenTargets(tokenPath: string, registry: TokenRegistry | null): Set<string> {
+function resolveTokenTargets(tokenPath: string, registry: TokenCatalog | null): Set<string> {
   const token = registry?.byPath?.[tokenPath] ?? null;
   return buildTokenUsageTargets(token);
 }
 
-export function collectAliasDescendantPaths(registry: TokenRegistry | null, tokenPath: string): string[] {
+export function collectAliasDescendantPaths(registry: TokenCatalog | null, tokenPath: string): string[] {
   if (!registry) return [];
   const reverse = new Map<string, string[]>();
   for (const entry of registry.entries ?? []) {
@@ -150,7 +150,7 @@ function buildOccurrencesFromReports(args: {
 
 export function buildFigmaConsumerUsageOccurrences(args: {
   tokenPath: string;
-  registry: TokenRegistry | null;
+  registry: TokenCatalog | null;
   consumerVariableReports: VariableUsageReport[] | null;
 }): {
   parentCount: number;

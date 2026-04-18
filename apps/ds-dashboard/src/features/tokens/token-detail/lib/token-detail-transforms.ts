@@ -3,7 +3,7 @@
  * No React hooks, no JSX — pure transformations only.
  */
 
-import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 
 /**
  * Extract hex color from token value if present
@@ -19,7 +19,7 @@ export function resolveColorSwatch(value: string): string | null {
 /**
  * Resolve the target token for an alias reference
  */
-export function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | null): TokenEntry | null {
+export function resolveAliasTarget(registry: TokenCatalog | null, aliasOf: string | null): TokenCatalogEntry | null {
   const ref = String(aliasOf || "").trim();
   if (!registry || !ref) return null;
   const directMatch = registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;
@@ -59,7 +59,7 @@ export function parseDimensionPreview(value: string) {
 /**
  * Check if a token matches a reference value
  */
-export function tokenMatchesRef(token: TokenEntry, value: string): boolean {
+export function tokenMatchesRef(token: TokenCatalogEntry, value: string): boolean {
   const ref = String(value || "").trim();
   if (!ref) return false;
   return ref === token.path || ref === token.slashPath || ref === token.cssVar;
@@ -68,11 +68,11 @@ export function tokenMatchesRef(token: TokenEntry, value: string): boolean {
 /**
  * Build the alias chain for a token (following aliasOf references)
  */
-export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntry | null) {
+export function buildAliasChain(registry: TokenCatalog | null, token: TokenCatalogEntry | null) {
   if (!registry || !token) {
-    return { chain: [] as TokenEntry[], brokenRef: null as string | null, hasCycle: false };
+    return { chain: [] as TokenCatalogEntry[], brokenRef: null as string | null, hasCycle: false };
   }
-  const chain: TokenEntry[] = [token];
+  const chain: TokenCatalogEntry[] = [token];
   const visited = new Set<string>([token.path]);
   let current = token;
   let brokenRef: string | null = null;
@@ -118,7 +118,7 @@ export function normalizeUsageKeyForMatch(value: string): string {
 /**
  * Build candidate targets used to match a token against external usage reports.
  */
-export function buildTokenUsageTargets(token: TokenEntry | null): Set<string> {
+export function buildTokenUsageTargets(token: TokenCatalogEntry | null): Set<string> {
   if (!token) return new Set<string>();
   return new Set([
     normalizeUsageKeyForMatch(token.path),

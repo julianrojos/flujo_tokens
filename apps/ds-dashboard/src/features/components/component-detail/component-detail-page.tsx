@@ -31,7 +31,7 @@ export function ComponentDetailPage() {
     spec,
     hasEditorialSpec,
     isEditorialSpecStatusUnknown,
-    tokenRegistry,
+    tokenCatalog,
     captureModalOpen,
     captureSummary,
     canOpenDocs,
@@ -117,7 +117,7 @@ export function ComponentDetailPage() {
         figmaSyncedAt={descriptionsData.syncedAt}
       />
 
-      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenRegistry={tokenRegistry} />
+      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenCatalog={tokenCatalog} />
 
       <ComponentGraphSection usage={usage} allItems={allItems} />
 

@@ -1,6 +1,6 @@
 import type { Sql } from 'postgres';
 
-export interface TokenRegistryEntry {
+export interface TokenCatalogEntry {
   path: string;
   slashPath: string;
   cssVar: string;
@@ -40,12 +40,12 @@ export class TokenRepository {
     this.sql = sql;
   }
 
-  private static buildRegistryIndexes(entries: TokenRegistryEntry[]): {
-    byPath: Record<string, TokenRegistryEntry>;
-    bySlashPath: Record<string, TokenRegistryEntry>;
+  private static buildRegistryIndexes(entries: TokenCatalogEntry[]): {
+    byPath: Record<string, TokenCatalogEntry>;
+    bySlashPath: Record<string, TokenCatalogEntry>;
   } {
-    const byPath: Record<string, TokenRegistryEntry> = {};
-    const bySlashPath: Record<string, TokenRegistryEntry> = {};
+    const byPath: Record<string, TokenCatalogEntry> = {};
+    const bySlashPath: Record<string, TokenCatalogEntry> = {};
     for (const entry of entries) {
       byPath[entry.path] = entry;
       bySlashPath[entry.slashPath] = entry;
@@ -55,11 +55,11 @@ export class TokenRepository {
 
   private static buildVariableIdIndex(args: {
     mappings: VariableIdMappingRow[];
-    byPath: Record<string, TokenRegistryEntry>;
-    bySlashPath: Record<string, TokenRegistryEntry>;
-  }): Record<string, TokenRegistryEntry> {
+    byPath: Record<string, TokenCatalogEntry>;
+    bySlashPath: Record<string, TokenCatalogEntry>;
+  }): Record<string, TokenCatalogEntry> {
     const { mappings, byPath, bySlashPath } = args;
-    const byVariableId: Record<string, TokenRegistryEntry> = {};
+    const byVariableId: Record<string, TokenCatalogEntry> = {};
     for (const mapping of mappings) {
       const bareId = String(mapping.variable_id || '').trim();
       const tokenPath = String(mapping.token_path || '').trim();
@@ -88,11 +88,11 @@ export class TokenRepository {
     return { byPath, bySlashPath, byCssVar };
   }
 
-  async getTokenRegistry(dsId: string): Promise<{
-    entries: TokenRegistryEntry[];
-    byPath: Record<string, TokenRegistryEntry>;
-    bySlashPath: Record<string, TokenRegistryEntry>;
-    byVariableId: Record<string, TokenRegistryEntry>;
+  async getTokenCatalog(dsId: string): Promise<{
+    entries: TokenCatalogEntry[];
+    byPath: Record<string, TokenCatalogEntry>;
+    bySlashPath: Record<string, TokenCatalogEntry>;
+    byVariableId: Record<string, TokenCatalogEntry>;
   }> {
     const rows = (await this.sql`
       WITH ranked_mode_values AS (
@@ -248,7 +248,7 @@ export class TokenRepository {
     bySlashPath: Record<string, TokenUsageEntry>;
     byCssVar: Record<string, TokenUsageEntry>;
   }> {
-    const registry = await this.getTokenRegistry(dsId);
+    const registry = await this.getTokenCatalog(dsId);
     const usageRows = (await this.sql`
       SELECT token_id, kind, source, owner, detail
       FROM token_usage_occurrences

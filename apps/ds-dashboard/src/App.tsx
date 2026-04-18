@@ -51,7 +51,7 @@ import { useDesignSystem } from '@/lib/design-system-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal, ModalContent } from '@/components/ui/overlay/modal';
-import { fetchComponentCatalog, fetchTokenRegistry } from '@/lib/api';
+import { fetchComponentCatalog, fetchTokenCatalog } from '@/lib/api';
 import {
   ROUTE_PATTERNS,
   toComponentDetail,
@@ -378,13 +378,13 @@ export default function App() {
     setSearchIndexLoading(true);
     setSearchIndexError(null);
     setSearchIndexWarning(null);
-    const [tokenRegistryResult, componentCatalogResult] = await Promise.allSettled(
-      [fetchTokenRegistry(), fetchComponentCatalog()],
+    const [tokenCatalogResult, componentCatalogResult] = await Promise.allSettled(
+      [fetchTokenCatalog(), fetchComponentCatalog()],
     );
 
-    if (tokenRegistryResult.status === 'fulfilled') {
+    if (tokenCatalogResult.status === 'fulfilled') {
       setTokenSearchItems(
-        (tokenRegistryResult.value.entries ?? []).map((entry) => ({
+        (tokenCatalogResult.value.entries ?? []).map((entry) => ({
           id: `token:${entry.path}`,
           label: entry.path,
           section: 'Tokens',
@@ -413,18 +413,18 @@ export default function App() {
     }
 
     if (
-      tokenRegistryResult.status === 'rejected' &&
+      tokenCatalogResult.status === 'rejected' &&
       componentCatalogResult.status === 'rejected'
     ) {
       indexLoadedForSystemRef.current = null;
       setSearchIndexError('Search index unavailable. Please retry.');
     } else {
       if (
-        tokenRegistryResult.status === 'rejected' ||
+        tokenCatalogResult.status === 'rejected' ||
         componentCatalogResult.status === 'rejected'
       ) {
         const failedSource =
-          tokenRegistryResult.status === 'rejected' ? 'tokens' : 'components';
+          tokenCatalogResult.status === 'rejected' ? 'tokens' : 'components';
         setSearchIndexWarning(
           `Partial results: ${failedSource} search data is temporarily unavailable.`,
         );

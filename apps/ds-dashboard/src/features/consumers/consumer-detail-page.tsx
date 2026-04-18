@@ -14,7 +14,7 @@ import {
   fetchReportByVariable,
   fetchConsumerSyncRuns,
   fetchComponentCatalog,
-  fetchTokenRegistry,
+  fetchTokenCatalog,
 } from "@/lib/api";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
@@ -174,14 +174,14 @@ export function ConsumerDetailPage() {
         }
 
         // Load component and variable reports
-        const [componentsResponse, variablesResponse, componentCatalog, tokenRegistry] = await Promise.all([
+        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog] = await Promise.all([
           fetchReportByComponent(dsFileKey),
           fetchReportByVariable(dsFileKey),
           fetchComponentCatalog().catch((cause) => {
             console.warn("[consumer-detail] Component registry fetch failed", cause);
             return { components: [] };
           }),
-          fetchTokenRegistry().catch((cause) => {
+          fetchTokenCatalog().catch((cause) => {
             console.warn("[consumer-detail] Token registry fetch failed", cause);
             return { entries: [] };
           }),
@@ -190,7 +190,7 @@ export function ConsumerDetailPage() {
         setVariables(variablesResponse.data || []);
         setComponentSlugByLookup(buildComponentLookupMap(componentCatalog.components || []));
         const exactTokenLookup = Object.fromEntries(
-          (tokenRegistry.entries || []).flatMap((entry) => {
+          (tokenCatalog.entries || []).flatMap((entry) => {
             const path = String(entry.path || "").trim();
             if (!path) return [];
             const slashPath = String(entry.slashPath || "").trim();
@@ -204,7 +204,7 @@ export function ConsumerDetailPage() {
           }),
         );
         setTokenByExactLookup(exactTokenLookup);
-        const tokenLookup = (tokenRegistry.entries || []).reduce<Record<string, TokenLookupEntry | null>>(
+        const tokenLookup = (tokenCatalog.entries || []).reduce<Record<string, TokenLookupEntry | null>>(
           (acc, entry) => {
             const path = String(entry.path || "").trim();
             if (!path) return acc;

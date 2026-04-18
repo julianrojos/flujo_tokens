@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
-import type { TokenEntry } from "@/types/token-registry";
+import type { TokenCatalogEntry } from "@/types/token-catalog";
 
 interface TokenAliasSectionProps {
-  token: TokenEntry;
-  tokenAliasChain: TokenEntry[];
-  aliasFinal: TokenEntry | null;
-  aliasDescendantChains: Map<string, TokenEntry[]>;
+  token: TokenCatalogEntry;
+  tokenAliasChain: TokenCatalogEntry[];
+  aliasFinal: TokenCatalogEntry | null;
+  aliasDescendantChains: Map<string, TokenCatalogEntry[]>;
   onCopyField: (field: string, value: string) => void;
   copiedField: string | null;
 }

@@ -1,4 +1,4 @@
-import type { TokenRegistry, TokenEntry } from '@/types/token-registry';
+import type { TokenCatalog, TokenCatalogEntry } from '@/types/token-catalog';
 import type { ResolvedVariableRef } from './types';
 export type { ResolvedVariableRef } from './types';
 
@@ -12,12 +12,12 @@ const TOKEN_PATH_PATTERN = /[A-Za-z0-9_-]+(?:[./][A-Za-z0-9_-]+)+/g;
  * Rebuilt automatically when the registry reference changes (new fetch).
  * Uses a WeakMap so the registry object itself is never mutated.
  */
-const cssVarCache = new WeakMap<TokenRegistry, Record<string, TokenEntry>>();
+const cssVarCache = new WeakMap<TokenCatalog, Record<string, TokenCatalogEntry>>();
 
-function getCssVarIndex(registry: TokenRegistry): Record<string, TokenEntry> {
+function getCssVarIndex(registry: TokenCatalog): Record<string, TokenCatalogEntry> {
   const cached = cssVarCache.get(registry);
   if (cached) return cached;
-  const index: Record<string, TokenEntry> = {};
+  const index: Record<string, TokenCatalogEntry> = {};
   for (const entry of registry.entries) {
     if (entry.cssVar) index[entry.cssVar] = entry;
   }
@@ -39,7 +39,7 @@ function stripBrackets(text: string): string {
  * Attempt to find a token entry from a normalized text form.
  * Tries exact match, then dot-form, then slash-form in both byPath and bySlashPath.
  */
-function tryNormalizedLookup(text: string, registry: TokenRegistry): TokenEntry | null {
+function tryNormalizedLookup(text: string, registry: TokenCatalog): TokenCatalogEntry | null {
   if (!text) return null;
   const dotForm = text.replace(/\//g, '.');
   const slashForm = text.replace(/\./g, '/');
@@ -50,7 +50,7 @@ function tryNormalizedLookup(text: string, registry: TokenRegistry): TokenEntry 
     ?? null;
 }
 
-function findRegistryEntry(inputText: string, registry: TokenRegistry): TokenEntry | null {
+function findRegistryEntry(inputText: string, registry: TokenCatalog): TokenCatalogEntry | null {
   // 1. Exact match by VariableID, path, or slash path
   const fromDirectKeys =
     registry.byVariableId[inputText]
@@ -127,11 +127,11 @@ function findRegistryEntry(inputText: string, registry: TokenRegistry): TokenEnt
  * Reusable in any view that renders Figma variable / token references.
  *
  * @param rawText  — raw text from a token field (name or value)
- * @param registry — token registry from `/api/token-registry`
+ * @param registry — token catalog from `/api/token-catalog`
  */
 export function resolveVariableRef(
   rawText: unknown,
-  registry: TokenRegistry,
+  registry: TokenCatalog,
 ): ResolvedVariableRef {
   const inputText = typeof rawText === 'string'
     ? rawText.trim()
@@ -178,7 +178,7 @@ export function resolveVariableRef(
   }
 
   // Alias — try to resolve the target's value (single hop).
-  const targetEntry: TokenEntry | undefined =
+  const targetEntry: TokenCatalogEntry | undefined =
     aliasTarget != null
       ? registry.byPath[aliasTarget] ?? registry.bySlashPath[aliasTarget]
       : undefined;

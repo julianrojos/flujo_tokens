@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { resolveVariableRef, formatVariableRef } from './index.js';
-import type { TokenRegistry, TokenEntry } from '@/types/token-registry';
+import type { TokenCatalog, TokenCatalogEntry } from '@/types/token-catalog';
 
-function makeEntry(partial: Partial<TokenEntry>): TokenEntry {
+function makeEntry(partial: Partial<TokenCatalogEntry>): TokenCatalogEntry {
   return {
     path: partial.path ?? '',
     slashPath: partial.slashPath ?? (partial.path?.replace(/\./g, '/') ?? ''),
@@ -16,10 +16,10 @@ function makeEntry(partial: Partial<TokenEntry>): TokenEntry {
   };
 }
 
-function makeRegistry(entries: TokenEntry[]): TokenRegistry {
-  const byPath: Record<string, TokenEntry> = {};
-  const bySlashPath: Record<string, TokenEntry> = {};
-  const byVariableId: Record<string, TokenEntry> = {};
+function makeRegistry(entries: TokenCatalogEntry[]): TokenCatalog {
+  const byPath: Record<string, TokenCatalogEntry> = {};
+  const bySlashPath: Record<string, TokenCatalogEntry> = {};
+  const byVariableId: Record<string, TokenCatalogEntry> = {};
   for (const e of entries) {
     byPath[e.path] = e;
     bySlashPath[e.slashPath] = e;

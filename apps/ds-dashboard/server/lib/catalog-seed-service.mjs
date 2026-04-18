@@ -12,15 +12,6 @@ export function createEmptyComponentCatalog() {
   };
 }
 
-export function createEmptyTokenRegistry() {
-  return {
-    entries: [],
-    byPath: {},
-    bySlashPath: {},
-    byVariableId: {},
-  };
-}
-
 export function createEmptyTokenUsageIndex() {
   return {
     ok: true,

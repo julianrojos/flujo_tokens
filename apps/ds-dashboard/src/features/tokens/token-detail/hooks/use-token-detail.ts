@@ -5,7 +5,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTokenDetailData } from "../use-token-detail-data";
-import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 import {
   resolveColorSwatch,
   resolveAliasTarget,
@@ -35,20 +35,20 @@ interface TokenDetailViewModel {
   // Derived data
   loading: boolean;
   error: string | null;
-  registry: TokenRegistry | null;
-  token: TokenEntry | null;
+  registry: TokenCatalog | null;
+  token: TokenCatalogEntry | null;
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
-  tokenAliasChain: TokenEntry[];
+  tokenAliasChain: TokenCatalogEntry[];
   aliasBrokenRef: string | null;
   aliasHasCycle: boolean;
-  aliasFinal: TokenEntry | null;
-  scopedTokens: TokenEntry[];
+  aliasFinal: TokenCatalogEntry | null;
+  scopedTokens: TokenCatalogEntry[];
   currentTokenIndex: number;
-  previousToken: TokenEntry | null;
-  nextToken: TokenEntry | null;
-  reverseAliasMap: Map<string, TokenEntry[]>;
-  aliasDescendantChains: Map<string, TokenEntry[]>;
+  previousToken: TokenCatalogEntry | null;
+  nextToken: TokenCatalogEntry | null;
+  reverseAliasMap: Map<string, TokenCatalogEntry[]>;
+  aliasDescendantChains: Map<string, TokenCatalogEntry[]>;
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
   healthIssues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }>;
@@ -56,7 +56,7 @@ interface TokenDetailViewModel {
   // Handlers
   handleCopyValue: (key: string, value: string) => Promise<void>;
   setComponentFilter: (key: "cmode" | "cq", value: string) => void;
-  handleNavigate: (token: TokenEntry) => void;
+  handleNavigate: (token: TokenCatalogEntry) => void;
 }
 
 export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
@@ -129,7 +129,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
 
   // Reverse alias map
   const reverseAliasMap = useMemo(() => {
-    const map = new Map<string, TokenEntry[]>();
+    const map = new Map<string, TokenCatalogEntry[]>();
     if (!registry) return map;
     for (const entry of registry.entries ?? []) {
       if (!entry.aliasOf) continue;
@@ -144,9 +144,9 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
 
   // Descendant chains
   const aliasDescendantChains = useMemo(() => {
-    const chains = new Map<string, TokenEntry[]>();
+    const chains = new Map<string, TokenCatalogEntry[]>();
     if (!token) return chains;
-    const queue: Array<{ entry: TokenEntry; chain: TokenEntry[] }> = [{ entry: token, chain: [token] }];
+    const queue: Array<{ entry: TokenCatalogEntry; chain: TokenCatalogEntry[] }> = [{ entry: token, chain: [token] }];
     const visited = new Set<string>([token.path]);
     while (queue.length > 0) {
       const current = queue.shift();
@@ -332,7 +332,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     }
   }, []);
 
-  const handleNavigate = useCallback((token: TokenEntry) => {
+  const handleNavigate = useCallback((token: TokenCatalogEntry) => {
     navigate({
       pathname: `/tokens/${encodeURIComponent(token.path)}`,
     });

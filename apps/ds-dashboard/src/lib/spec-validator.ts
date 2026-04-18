@@ -1,10 +1,10 @@
 import { buildSpecDiff } from "./spec-diff";
-import type { TokenRegistry } from "../types/token-registry";
+import type { TokenCatalog } from "../types/token-catalog";
 import type { ComponentSpec } from "ds-types";
 import type { SpecValidationIssue, SpecValidationResult } from "../types/spec-editor";
 
 type ValidationContext = {
-  tokenRegistry?: TokenRegistry | null;
+  tokenCatalog?: TokenCatalog | null;
   previousSpec?: ComponentSpec | null;
 };
 
@@ -39,15 +39,15 @@ function toValidationSummary(issues: SpecValidationIssue[]): SpecValidationResul
 }
 
 function resolveTokenReference(
-  tokenRegistry: TokenRegistry | null | undefined,
+  tokenCatalog: TokenCatalog | null | undefined,
   tokenRef: string,
 ) {
-  if (!tokenRegistry) return null;
+  if (!tokenCatalog) return null;
   const query = String(tokenRef || "").trim();
   if (!query) return null;
   return (
-    tokenRegistry.byPath?.[query] ??
-    tokenRegistry.bySlashPath?.[query] ??
+    tokenCatalog.byPath?.[query] ??
+    tokenCatalog.bySlashPath?.[query] ??
     null
   );
 }
@@ -383,17 +383,17 @@ function validateTokenReferences(
   spec: ComponentSpec,
   context: ValidationContext,
 ) {
-  if (context.tokenRegistry) {
+  if (context.tokenCatalog) {
     for (const tokenRef of collectTokenRefChecks(spec)) {
-      if (!resolveTokenReference(context.tokenRegistry, tokenRef.value)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_TOKEN_REF_UNRESOLVED",
-          path: tokenRef.path,
-          message: `Token reference '${tokenRef.value}' was not found in token registry.`,
-        });
+      if (!resolveTokenReference(context.tokenCatalog, tokenRef.value)) {
+          addIssue(issues, {
+            severity: "error",
+            code: "SPEC_TOKEN_REF_UNRESOLVED",
+            path: tokenRef.path,
+            message: `Token reference '${tokenRef.value}' was not found in token data.`,
+          });
+        }
       }
-    }
   }
 }
 

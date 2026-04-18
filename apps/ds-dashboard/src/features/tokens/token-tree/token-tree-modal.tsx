@@ -107,7 +107,7 @@ export function TokenTreeModal({
               Token Collections Tree
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Estructura jerárquica derivada de `token-registry.json` por colección.
+              Estructura jerárquica derivada del inventario de tokens por colección.
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">

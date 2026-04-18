@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FilterBar } from "@/components/composites";
 import { Link } from "react-router-dom";
-import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalog } from "@/types/token-catalog";
 
 export interface LayerTokenMappingEntry {
   variant_node_id: string;
@@ -31,7 +31,7 @@ export interface LayerTokenMappingEntry {
 
 interface LayerTokenMappingSectionProps {
   entries: LayerTokenMappingEntry[];
-  tokenRegistry?: TokenRegistry | null;
+  tokenCatalog?: TokenCatalog | null;
 }
 
 type SortField = "token" | "property" | "collection" | "variant" | "mode";
@@ -46,8 +46,8 @@ type BindingWithCollection = {
 
 function resolveCollectionFromTokenPath(
   tokenPath: string | null,
-  byPath?: TokenRegistry["byPath"],
-  bySlashPath?: TokenRegistry["bySlashPath"],
+  byPath?: TokenCatalog["byPath"],
+  bySlashPath?: TokenCatalog["bySlashPath"],
 ): string | null {
   const path = String(tokenPath || "").trim();
   if (!path) return null;
@@ -95,10 +95,10 @@ function compareBindingRows(left: BindingWithCollection, right: BindingWithColle
   return tieA < tieB ? -1 : tieA > tieB ? 1 : 0;
 }
 
-export function LayerTokenMappingSection({ entries, tokenRegistry }: LayerTokenMappingSectionProps) {
+export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMappingSectionProps) {
   const hasEntries = entries.length > 0;
-  const byPath = tokenRegistry?.byPath;
-  const bySlashPath = tokenRegistry?.bySlashPath;
+  const byPath = tokenCatalog?.byPath;
+  const bySlashPath = tokenCatalog?.bySlashPath;
   const [search, setSearch] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<string>("__all__");
   const [selectedCollection, setSelectedCollection] = useState<string>("__all__");

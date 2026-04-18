@@ -59,13 +59,13 @@ function uniqueSorted(values: string[]): string[] {
   );
 }
 
-async function buildTokenRegistryFromDb(args: {
+async function buildTokenCatalogFromDb(args: {
   systemId: string;
   tokenRepo: TokenRepository;
   sql: Sql;
 }) {
   const { systemId, tokenRepo, sql } = args;
-  const tokenRegistry = await tokenRepo.getTokenRegistry(systemId);
+  const tokenCatalog = await tokenRepo.getTokenCatalog(systemId);
   const aliasRows = (await sql`
     SELECT from_path, to_path, modes
     FROM figma_aliases
@@ -82,8 +82,8 @@ async function buildTokenRegistryFromDb(args: {
     aliasesBySource.set(fromPath, next);
   }
 
-  const registry = Object.assign({}, tokenRegistry, {
-    entries: tokenRegistry.entries.map((entry) => ({
+  const registry = Object.assign({}, tokenCatalog, {
+    entries: tokenCatalog.entries.map((entry) => ({
       id: entry.path,
       path: entry.path,
       $value: entry.resolvedValue,
@@ -97,7 +97,7 @@ async function buildTokenRegistryFromDb(args: {
   return {
     registry,
     aliasRows,
-    tokenRegistry,
+    tokenCatalog,
   };
 }
 
@@ -177,7 +177,7 @@ export async function refreshUsageIndexDbOnly(args: {
 }) {
   const { systemId, emitChunk, sql, tokenRepo } = args;
 
-  const { registry, aliasRows } = await buildTokenRegistryFromDb({
+  const { registry, aliasRows } = await buildTokenCatalogFromDb({
     systemId,
     tokenRepo,
     sql,
@@ -258,7 +258,7 @@ export async function refreshTokenGraphDbOnly(args: {
 }) {
   const { systemId, emitChunk, sql, tokenRepo, sha256Text } = args;
 
-  const { registry, tokenRegistry } = await buildTokenRegistryFromDb({
+  const { registry, tokenCatalog } = await buildTokenCatalogFromDb({
     systemId,
     tokenRepo,
     sql,
@@ -277,7 +277,7 @@ export async function refreshTokenGraphDbOnly(args: {
     registry.entries.map((entry) => [entry.id, entry.path]),
   );
   const tokenByPath = new Map(
-    tokenRegistry.entries.map((entry) => [entry.path, entry]),
+    tokenCatalog.entries.map((entry) => [entry.path, entry]),
   );
   const cyclePayload = toCyclePayload({
     cycles: graph.cycles,
@@ -475,7 +475,7 @@ export async function refreshTokenHealthSnapshotDbOnly(args: {
 }) {
   const { systemId, emitChunk, tokenRepo, healthRepo, sql, sha256Text } = args;
 
-  const { registry } = await buildTokenRegistryFromDb({
+  const { registry } = await buildTokenCatalogFromDb({
     systemId,
     tokenRepo,
     sql,

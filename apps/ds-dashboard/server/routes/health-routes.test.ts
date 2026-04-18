@@ -23,7 +23,7 @@ function createApp(overrides: Partial<any> = {}) {
     failJson: createFailJson(),
     getSystemContext: () => ({
       systemId: 'sys-01',
-      tokenRegistryPath: '/db/token-registry',
+      tokenCatalogPath: '/db/token-catalog',
       tokenUsageIndexPath: '/db/token-usage-index',
       tokenGraphVizPath: '/db/token-graph',
       wcagPairsPath: '/cfg/wcag-pairs',

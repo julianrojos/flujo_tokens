@@ -1,6 +1,6 @@
 import type { ComponentCatalog } from '@/types/component-catalog';
 import type { ComponentUsageIndex } from '@/types/component-usage-index';
-import type { TokenRegistry } from '@/types/token-registry';
+import type { TokenCatalog } from '@/types/token-catalog';
 import type { TokenCollectionTreeIndex } from '@/types/token-tree';
 import type { TokenUsageIndex } from '@/types/token-usage-index';
 import type {
@@ -355,8 +355,8 @@ export function fetchComponentUsageIndex() {
   return getJson<ComponentUsageIndex>('/api/component-usage-index');
 }
 
-export function fetchTokenRegistry() {
-  return getJson<TokenRegistry>('/api/token-registry');
+export function fetchTokenCatalog() {
+  return getJson<TokenCatalog>('/api/token-catalog');
 }
 
 export function fetchTokenCollectionTrees() {

@@ -1,13 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { VariableUsageReport } from "@/types/consumers";
-import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 import {
   buildFigmaConsumerUsageOccurrences,
   collectAliasDescendantPaths,
 } from "./lib/token-detail-usage-derivation";
 
-function makeToken(overrides: Partial<TokenEntry>): TokenEntry {
+function makeToken(overrides: Partial<TokenCatalogEntry>): TokenCatalogEntry {
   return {
     path: "color.background.base",
     slashPath: "color/background/base",
@@ -19,10 +19,10 @@ function makeToken(overrides: Partial<TokenEntry>): TokenEntry {
   };
 }
 
-function buildRegistry(entries: TokenEntry[]): TokenRegistry {
-  const byPath: Record<string, TokenEntry> = {};
-  const bySlashPath: Record<string, TokenEntry> = {};
-  const byVariableId: Record<string, TokenEntry> = {};
+function buildRegistry(entries: TokenCatalogEntry[]): TokenCatalog {
+  const byPath: Record<string, TokenCatalogEntry> = {};
+  const bySlashPath: Record<string, TokenCatalogEntry> = {};
+  const byVariableId: Record<string, TokenCatalogEntry> = {};
   for (const entry of entries) {
     byPath[entry.path] = entry;
     bySlashPath[entry.slashPath] = entry;

@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { StaticRouter } from "react-router-dom/server";
 import { LayerTokenMappingSection } from "../components/layer-token-mapping-section";
 import type { LayerTokenMappingEntry } from "../components/layer-token-mapping-section";
-import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalog } from "@/types/token-catalog";
 
 function makeEntry(overrides: Partial<LayerTokenMappingEntry> = {}): LayerTokenMappingEntry {
   return {
@@ -28,7 +28,7 @@ function makeEntry(overrides: Partial<LayerTokenMappingEntry> = {}): LayerTokenM
 }
 
 describe("LayerTokenMappingSection", () => {
-  const tokenRegistry: TokenRegistry = {
+  const tokenCatalog: TokenCatalog = {
     entries: [],
     byPath: {
       "primitives.blue.500": {
@@ -47,11 +47,11 @@ describe("LayerTokenMappingSection", () => {
 
   function renderSection(
     entries: LayerTokenMappingEntry[],
-    registry: TokenRegistry | null | undefined = tokenRegistry,
+    registry: TokenCatalog | null | undefined = tokenCatalog,
   ): string {
     return renderToStaticMarkup(
       <StaticRouter location="/">
-        <LayerTokenMappingSection entries={entries} tokenRegistry={registry} />
+        <LayerTokenMappingSection entries={entries} tokenCatalog={registry} />
       </StaticRouter>,
     );
   }
@@ -83,7 +83,7 @@ describe("LayerTokenMappingSection", () => {
     assert.match(html, /Primitives/);
   });
 
-  it("handles null tokenRegistry gracefully", () => {
+  it("handles null tokenCatalog gracefully", () => {
     const html = renderSection([makeEntry()], null);
     const tbody = extractTbody(html);
     assert.match(tbody, /primitives\.blue\.500/);
@@ -91,10 +91,10 @@ describe("LayerTokenMappingSection", () => {
     assert.equal((tbody.match(/—/g) || []).length, 1);
   });
 
-  it("handles undefined tokenRegistry gracefully", () => {
+  it("handles undefined tokenCatalog gracefully", () => {
     const html = renderToStaticMarkup(
       <StaticRouter location="/">
-        <LayerTokenMappingSection entries={[makeEntry()]} tokenRegistry={undefined} />
+        <LayerTokenMappingSection entries={[makeEntry()]} tokenCatalog={undefined} />
       </StaticRouter>,
     );
     const tbody = extractTbody(html);

@@ -9,14 +9,14 @@ import {
   fetchDesignSystemsConfig,
   fetchReportByVariable,
   fetchTokenCollectionTrees,
-  fetchTokenRegistry,
+  fetchTokenCatalog,
   getActiveSystemId,
 } from "@/lib/api";
 import { resolveDesignSystemContext } from "@/lib/design-system-keys";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
-import type { TokenEntry } from "@/types/token-registry";
+import type { TokenCatalogEntry } from "@/types/token-catalog";
 import type { TokenUsageEntry } from "@/types/token-usage-index";
 import type { VariableUsageReport } from "@/types/consumers";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +75,7 @@ function splitReportNodeCounts(report: VariableUsageReport): { parent: number; c
 }
 
 function buildMergedUsageByPath(args: {
-  entries: TokenEntry[];
+  entries: TokenCatalogEntry[];
   variableReports: VariableUsageReport[];
 }): Record<string, TokenUsageEntry> {
   const merged: Record<string, TokenUsageEntry> = {};
@@ -135,7 +135,7 @@ type SortField =
   | "usageCount";
 
 export function TokensPage() {
-  const [entries, setEntries] = useState<TokenEntry[]>([]);
+  const [entries, setEntries] = useState<TokenCatalogEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
@@ -158,7 +158,7 @@ export function TokensPage() {
       try {
         const [configPayload, registryPayload] = await Promise.all([
           fetchDesignSystemsConfig().catch(() => null),
-          fetchTokenRegistry(),
+          fetchTokenCatalog(),
         ]);
         const { dsFileKey } = resolveDesignSystemContext(
           configPayload,
@@ -183,7 +183,7 @@ export function TokensPage() {
         setError(
           toApiErrorDisplay(cause, {
             fallbackTitle: "Token registry unavailable",
-            fallbackMessage: "Run `npm run generate:registry` and refresh the page.",
+            fallbackMessage: "Refresh the page after regenerating tokens.",
           }),
         );
       } finally {
@@ -218,7 +218,7 @@ export function TokensPage() {
     });
 
     next.sort((a, b) => {
-      const valueFor = (entry: TokenEntry): string | number => {
+      const valueFor = (entry: TokenCatalogEntry): string | number => {
         if (sort.field === "path") return entry.path.toLowerCase();
         if (sort.field === "collection") return entry.collection.toLowerCase();
         if (sort.field === "type") return entry.type.toLowerCase();

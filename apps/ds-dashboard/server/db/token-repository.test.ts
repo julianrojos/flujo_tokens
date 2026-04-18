@@ -67,7 +67,7 @@ describe('token-repository', () => {
     repo = undefined;
   });
 
-  it('getTokenRegistry returns entries scoped by ds_id', async () => {
+  it('getTokenCatalog returns entries scoped by ds_id', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -89,13 +89,13 @@ describe('token-repository', () => {
     `,
     ).run('sys-01', 'color.primary', 'Default', '#ffffff');
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.entries.length, 1);
     assert.equal(payload.entries[0].resolvedValue, '#ffffff');
     assert.equal(payload.byPath['color.primary'].cssVar, '--color-primary');
   });
 
-  it('getTokenRegistry falls back to raw_value when mode values are missing', async () => {
+  it('getTokenCatalog falls back to raw_value when mode values are missing', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -111,7 +111,7 @@ describe('token-repository', () => {
       '{"value":"8px","type":"dimension"}',
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.entries.length, 1);
     assert.equal(
       payload.entries[0].resolvedValue,
@@ -119,7 +119,7 @@ describe('token-repository', () => {
     );
   });
 
-  it('getTokenRegistry prefers exact Default mode over other default-like mode names', async () => {
+  it('getTokenCatalog prefers exact Default mode over other default-like mode names', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -149,7 +149,7 @@ describe('token-repository', () => {
     `,
     ).run('sys-01', 'color.primary', 'Default', '#ffffff');
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.entries.length, 1);
     assert.equal(payload.entries[0].resolvedValue, '#ffffff');
   });
@@ -261,7 +261,7 @@ describe('token-repository', () => {
     assert.equal(graph.source.registry_path, 'registry.json');
   });
 
-  it('getTokenRegistry returns exactly 1 row per token with multi-mode aliases', async () => {
+  it('getTokenCatalog returns exactly 1 row per token with multi-mode aliases', async () => {
     // Insert a token
     await db.prepare(
       `
@@ -306,7 +306,7 @@ describe('token-repository', () => {
     `,
     ).run('sys-01', 'color.primary', 'other.alias', JSON.stringify(['Dark']));
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
 
     // Exactly 1 row
     assert.equal(payload.entries.length, 1);
@@ -316,7 +316,7 @@ describe('token-repository', () => {
     assert.equal(entry.aliasOf, 'semantic.brand');
   });
 
-  it('getTokenRegistry resolves alias when token has aliases but no token_mode_values row', async () => {
+  it('getTokenCatalog resolves alias when token has aliases but no token_mode_values row', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -357,7 +357,7 @@ describe('token-repository', () => {
       JSON.stringify(['Dark']),
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
 
     assert.equal(payload.entries.length, 1);
     const entry = payload.entries[0];
@@ -368,7 +368,7 @@ describe('token-repository', () => {
     assert.equal(entry.aliasOf, 'semantic.ghost.default');
   });
 
-  it('getTokenRegistry falls back to stable insertion order when no winning mode and no Default alias exist', async () => {
+  it('getTokenCatalog falls back to stable insertion order when no winning mode and no Default alias exist', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -409,7 +409,7 @@ describe('token-repository', () => {
       JSON.stringify(['Brand']),
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.entries.length, 1);
     const entry = payload.entries[0];
     assert.equal(entry.path, 'color.brand.cta');
@@ -418,7 +418,7 @@ describe('token-repository', () => {
     assert.equal(entry.aliasOf, 'semantic.brand.dark');
   });
 
-  it('getTokenRegistry exposes byVariableId mapping using latest captured token binding', async () => {
+  it('getTokenCatalog exposes byVariableId mapping using latest captured token binding', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -504,7 +504,7 @@ describe('token-repository', () => {
       200,
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(
       payload.byVariableId['VariableID:1:12']?.path,
       'color.background.accent',
@@ -515,7 +515,7 @@ describe('token-repository', () => {
     );
   });
 
-  it('getTokenRegistry ranks latest binding across bare and prefixed variable id forms', async () => {
+  it('getTokenCatalog ranks latest binding across bare and prefixed variable id forms', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -604,7 +604,7 @@ describe('token-repository', () => {
       200,
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
     assert.equal(
       payload.byVariableId['VariableID:1:12']?.path,
@@ -612,7 +612,7 @@ describe('token-repository', () => {
     );
   });
 
-  it('getTokenRegistry indexes variable ids in prefixed and bare forms', async () => {
+  it('getTokenCatalog indexes variable ids in prefixed and bare forms', async () => {
     await db.prepare(
       `
       INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
@@ -661,7 +661,7 @@ describe('token-repository', () => {
       100,
     );
 
-    const payload = await repo.getTokenRegistry('sys-01');
+    const payload = await repo.getTokenCatalog('sys-01');
     assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
     assert.equal(
       payload.byVariableId['VariableID:1:12']?.path,

@@ -8,12 +8,12 @@ import {
   fetchComponentCatalog,
   fetchComponentSpec,
   fetchComponentUsageIndex,
-  fetchTokenRegistry,
+  fetchTokenCatalog,
 } from "@/lib/api";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { PartialComponentSpec } from "ds-types";
-import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenCatalog } from "@/types/token-catalog";
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
 interface ComponentDetailViewModel {
@@ -26,7 +26,7 @@ interface ComponentDetailViewModel {
   spec: PartialComponentSpec | null;
   hasEditorialSpec: boolean;
   isEditorialSpecStatusUnknown: boolean;
-  tokenRegistry: TokenRegistry | null;
+  tokenCatalog: TokenCatalog | null;
   downloadError: string | null;
   downloadWarnings: string[];
 
@@ -61,7 +61,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
   const [hasEditorialSpec, setHasEditorialSpec] = useState(false);
   const [isEditorialSpecStatusUnknown, setIsEditorialSpecStatusUnknown] = useState(false);
-  const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
+  const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -85,14 +85,14 @@ export function useComponentDetail(): ComponentDetailViewModel {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, specResult, tokenRegistryPayload] =
+        const [registry, usageIndex, specResult, tokenCatalogPayload] =
           await Promise.all([
             fetchComponentCatalog(),
             fetchComponentUsageIndex().catch(() => EMPTY_COMPONENT_USAGE_INDEX),
             fetchComponentSpec(slug)
               .then((payload) => ({ ok: true as const, payload }))
               .catch((cause) => ({ ok: false as const, cause })),
-            fetchTokenRegistry().catch(() => null),
+            fetchTokenCatalog().catch(() => null),
           ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
         setItem(found);
@@ -114,7 +114,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
           setIsEditorialSpecStatusUnknown(true);
         }
 
-        setTokenRegistry(tokenRegistryPayload);
+        setTokenCatalog(tokenCatalogPayload);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -200,7 +200,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     spec,
     hasEditorialSpec,
     isEditorialSpecStatusUnknown,
-    tokenRegistry,
+    tokenCatalog,
     downloadError,
     downloadWarnings,
     captureModalOpen,

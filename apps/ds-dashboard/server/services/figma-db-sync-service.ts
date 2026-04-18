@@ -1659,7 +1659,7 @@ function mapPluginBridgeError(
 function buildTokenUsageRowsFromFilesystem(options: {
   dsId: string;
   repoRoot: string;
-  tokenRegistry: {
+  tokenCatalog: {
     entries: Array<{
       id: string;
       path: string;
@@ -1671,7 +1671,7 @@ function buildTokenUsageRowsFromFilesystem(options: {
   };
   aliases: AliasRow[];
 }): { rows: UsageOccurrenceRow[]; warnings: string[]; noSources: boolean } {
-  const { dsId, repoRoot, tokenRegistry, aliases } = options;
+  const { dsId, repoRoot, tokenCatalog, aliases } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
   const warnings: string[] = [];
   const rows: UsageOccurrenceRow[] = [];
@@ -1694,9 +1694,9 @@ function buildTokenUsageRowsFromFilesystem(options: {
     };
   }
 
-  const cssRefs = extractCssReferences(existingCssFiles, tokenRegistry);
-  const aliasChains = buildAliasChains(existingCssFiles, tokenRegistry);
-  const usageIndex = generateUsageIndex(tokenRegistry, cssRefs, aliasChains);
+  const cssRefs = extractCssReferences(existingCssFiles, tokenCatalog);
+  const aliasChains = buildAliasChains(existingCssFiles, tokenCatalog);
+  const usageIndex = generateUsageIndex(tokenCatalog, cssRefs, aliasChains);
 
   for (const entry of usageIndex.entries) {
     for (const usage of entry.usedIn) {
@@ -2305,7 +2305,7 @@ export async function syncDesignSystemFromPlugin(
     let usageReindexWarnings: string[] = [];
     let reindexUsageRows: UsageOccurrenceRow[] = [];
 
-    const nextTokenRegistry = {
+    const nextTokenCatalog = {
       entries: tokens.map((token) => ({
         id: token.id,
         path: token.id,
@@ -2321,7 +2321,7 @@ export async function syncDesignSystemFromPlugin(
         const usageBuild = buildTokenUsageRowsFromFilesystem({
           dsId,
           repoRoot: String(repoRoot),
-          tokenRegistry: nextTokenRegistry,
+          tokenCatalog: nextTokenCatalog,
           aliases,
         });
         usageReindexWarnings = usageBuild.warnings;

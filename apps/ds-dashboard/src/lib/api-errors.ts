@@ -73,7 +73,7 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     httpStatus: 404,
     recoverable: true,
     description: "The requested component spec target could not be resolved.",
-    fix: "Check the component slug and registry mapping.",
+    fix: "Check the component slug and catalog mapping.",
   },
   [API_ERROR_CODES.DESIGN_SYSTEM_ALREADY_EXISTS]: {
     code: API_ERROR_CODES.DESIGN_SYSTEM_ALREADY_EXISTS,
