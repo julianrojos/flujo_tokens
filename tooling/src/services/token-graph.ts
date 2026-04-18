@@ -8,8 +8,8 @@
  */
 
 import type {
-  TokenRegistry,
-  TokenRegistryEntry,
+  TokenCatalog,
+  TokenCatalogEntry,
   TokenGraph,
   TokenGraphNode,
   TokenGraphEdge,
@@ -27,7 +27,7 @@ import {
 /**
  * Build token graph from registry
  */
-export function buildTokenGraph(registry: TokenRegistry): TokenGraph {
+export function buildTokenGraph(registry: TokenCatalog): TokenGraph {
   const nodes: TokenGraphNode[] = [];
   const edges: TokenGraphEdge[] = [];
   const adjacencyList = new Map<string, string[]>();
@@ -311,7 +311,7 @@ export function findUnusedPrimitives(graph: TokenGraph): string[] {
  * Find unresolved aliases
  */
 export function findUnresolvedAliases(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   graph: TokenGraph,
 ): string[] {
   const unresolved: string[] = [];
@@ -333,7 +333,7 @@ export function findUnresolvedAliases(
 /**
  * Find identity collisions (same cssVar for different tokens)
  */
-export function findIdentityCollisions(registry: TokenRegistry): Array<{
+export function findIdentityCollisions(registry: TokenCatalog): Array<{
   cssVar: string;
   tokenIds: string[];
 }> {
@@ -362,7 +362,7 @@ export function findIdentityCollisions(registry: TokenRegistry): Array<{
  * Generate token graph report
  */
 export function generateGraphReport(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   options: {
     indirectionThreshold: number;
     maxItems: number;

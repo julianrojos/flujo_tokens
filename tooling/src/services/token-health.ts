@@ -8,7 +8,7 @@
  */
 
 import type {
-  TokenRegistry,
+  TokenCatalog,
   TokenHealthReport,
   TokenHealthIssue,
   WcagPair,
@@ -21,7 +21,7 @@ import {
 /**
  * Check for broken aliases in token registry
  */
-export function findBrokenAliases(registry: TokenRegistry): TokenHealthIssue[] {
+export function findBrokenAliases(registry: TokenCatalog): TokenHealthIssue[] {
   const issues: TokenHealthIssue[] = [];
 
   for (const entry of registry.entries) {
@@ -50,7 +50,7 @@ export function findBrokenAliases(registry: TokenRegistry): TokenHealthIssue[] {
  * Extracts ALL var(--name) references from the value, not just pure var() values.
  */
 export function findBrokenRefs(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   cssVarIndex: Map<string, string>,
 ): TokenHealthIssue[] {
   const issues: TokenHealthIssue[] = [];
@@ -93,7 +93,7 @@ export function findBrokenRefs(
  * per WCAG 2.1 guidelines (luminance formula).
  */
 export function checkWcagPairs(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   wcagPairs: WcagPair[],
 ): Array<{
   fgToken: string;
@@ -188,7 +188,7 @@ export function findHighIndegreeTokens(
  * Generate token health report
  */
 export function generateHealthReport(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   usageIndex: any,
   graph: any,
   wcagPairs: WcagPair[],

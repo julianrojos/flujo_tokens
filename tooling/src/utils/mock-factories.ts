@@ -63,22 +63,20 @@ export function createCaptureContextMock(
           generated: '/mock/repo/docs/_generated',
           specs: '/mock/repo/design-systems/sys-01/docs/_spec/components',
           databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
-          tokenRegistry: '/mock/repo/docs/_generated/token-registry.json',
           figmaAliasGraph: '/mock/repo/docs/_generated/figma-alias-graph.json',
         },
       },
-      paths: {
-        docsRootOverride: null,
-        docsRootDir: '/mock/repo/docs',
-        componentDocsDir: '/mock/repo/design-systems/sys-01/docs/components',
-        proofDir: '/mock/repo/docs/_generated/visual-proofs',
-        proofImageDir: '/mock/repo/docs/_generated/visual-proofs/images',
-        resolvedSpecRoot:
-          '/mock/repo/design-systems/sys-01/docs/_spec/components',
-        tokenRegistryPath: '/mock/repo/docs/_generated/token-registry.json',
-        overviewPath: '/mock/repo/docs/overview.md',
-        databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
-      },
+        paths: {
+          docsRootOverride: null,
+          docsRootDir: '/mock/repo/docs',
+          componentDocsDir: '/mock/repo/design-systems/sys-01/docs/components',
+          proofDir: '/mock/repo/docs/_generated/visual-proofs',
+          proofImageDir: '/mock/repo/docs/_generated/visual-proofs/images',
+          resolvedSpecRoot:
+            '/mock/repo/design-systems/sys-01/docs/_spec/components',
+          overviewPath: '/mock/repo/docs/overview.md',
+          databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
+        },
       flags: {
         componentSlugOverride: '',
         componentKind: 'component_set',

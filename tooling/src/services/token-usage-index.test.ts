@@ -14,12 +14,12 @@ import {
   generateUsageIndexFromFile,
 } from './token-usage-index.js';
 import { extractSpecReferences } from './spec-token-references.js';
-import type { TokenRegistry, TokenUsageEntryNew } from './token-types.js';
+import type { TokenCatalog, TokenUsageEntryNew } from './token-types.js';
 
 describe('token-usage-index', () => {
   describe('generateUsageIndex()', () => {
     it('returns new shape with byPath, bySlashPath, byCssVar, entries, summary.usage_links_total', () => {
-      const mockRegistry: TokenRegistry = {
+      const mockRegistry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -49,7 +49,7 @@ describe('token-usage-index', () => {
     });
 
     it('populates css-alias usage correctly', () => {
-      const mockRegistry: TokenRegistry = {
+      const mockRegistry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -275,7 +275,7 @@ describe('token-usage-index', () => {
       cssFiles = [path.join(tempDir, 'test.css')];
 
       // Create mock registry
-      const mockRegistry: TokenRegistry = {
+      const mockRegistry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -351,7 +351,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
       assert.ok(refs.length >= 1);
       assert.ok(refs.some((ref) => ref.owner === 'button'));
@@ -371,7 +371,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
       assert.ok(refs.some((ref) => ref.owner === 'badge'));
       assert.ok(refs.some((ref) => String(ref.property || '').includes('anatomy')));
@@ -390,7 +390,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
 
       assert.ok(refs.some((ref) => ref.owner === 'alert'), 'Must include owner from variant component spec');
@@ -447,7 +447,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
       assert.ok(refs.some((ref) => ref.owner === 'boton'));
       assert.ok(refs.some((ref) => ref.tokenPath === 'color.background.default' || ref.tokenPath === 'semanticos.color.background.default'));
@@ -496,7 +496,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
       assert.ok(refs.some((ref) => ref.owner === 'badge'));
       assert.ok(refs.some((ref) => ref.tokenPath === 'theme.color.background.accent'));
@@ -519,7 +519,7 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenCatalog;
       const refs = extractSpecReferences(specRoot, registry);
       const chipRefs = refs.filter((ref) => ref.owner === 'chip');
       assert.equal(chipRefs.length, 1);

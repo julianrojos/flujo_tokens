@@ -9,9 +9,7 @@ export type CliOptions = {
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
-    registryOutput: string;
     split: boolean;
-    registry: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -28,9 +26,7 @@ type ParseState = {
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
-    registryOutput: string;
     split: boolean;
-    registry: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -87,13 +83,11 @@ function getSystemPaths(rootDir: string, systemId?: string) {
         const resolvedSid = sid || 'sys-01';
         const baseDir = path.join('design-systems', resolvedSid);
         const outputDir = path.join(baseDir, 'output');
-        const docsDir = path.join(baseDir, 'docs');
         return {
             inputDir: path.resolve(rootDir, baseDir, 'input'),
             outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
             outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
             outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
-            registryOutput: path.resolve(rootDir, docsDir, '_generated/token-registry.json'),
         };
     }
     const configuredDefault = repository.getDefaultSystemId();
@@ -113,13 +107,11 @@ function getSystemPaths(rootDir: string, systemId?: string) {
     repository.dispose();
     const baseDir = path.join('design-systems', sid);
     const outputDir = path.join(baseDir, 'output');
-    const docsDir = path.join(baseDir, 'docs');
     return {
         inputDir: path.resolve(rootDir, baseDir, 'input'),
         outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
         outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
         outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
-        registryOutput: path.resolve(rootDir, docsDir, '_generated/token-registry.json'),
     };
 }
 
@@ -134,8 +126,6 @@ Options:
       --single         Emit one file (disables split)
       --output-primitives <file>  Primitives CSS output (default: <system>/output/primitives.css)
       --output-tokens <file>      Tokens CSS output (default: <system>/output/tokens.css)
-      --registry       Also export docs token registry JSON (default: off)
-      --registry-output <file>    Token registry output (default: system dependent)
       --system <id>        Set active design system (default: from config)
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
@@ -200,22 +190,6 @@ const OPTION_SPECS: OptionSpec[] = [
         takesValue: true,
         apply: (state, { value, cwd }) => {
             state.outputTokens = path.resolve(cwd, String(value || ''));
-            return true;
-        }
-    },
-    {
-        names: ['--registry'],
-        apply: (state) => {
-            state.registry = true;
-            return true;
-        }
-    },
-    {
-        names: ['--registry-output'],
-        takesValue: true,
-        apply: (state, { value, cwd }) => {
-            state.registryOutput = path.resolve(cwd, String(value || ''));
-            state.registry = true;
             return true;
         }
     },
@@ -324,9 +298,7 @@ export function parseArgs(
         outputFile: sysPaths.outputFile,
         outputPrimitives: sysPaths.outputPrimitives,
         outputTokens: sysPaths.outputTokens,
-        registryOutput: sysPaths.registryOutput,
         split: true,
-        registry: false,
         help: false,
         mode: undefined,
         modeStrict: false,
@@ -372,9 +344,7 @@ export function parseArgs(
         outputFile: state.outputFile,
         outputPrimitives: state.outputPrimitives,
         outputTokens: state.outputTokens,
-        registryOutput: state.registryOutput,
         split: state.split,
-        registry: state.registry,
         help: state.help,
         mode: state.mode,
         modeStrict: state.modeStrict,

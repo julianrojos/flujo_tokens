@@ -9,8 +9,8 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 
 import type {
-  TokenRegistry,
-  TokenRegistryEntry,
+  TokenCatalog,
+  TokenCatalogEntry,
 } from './token-types.js';
 
 /**
@@ -130,21 +130,12 @@ export function normalizeA11yPath(path: string): string {
 }
 
 /**
- * Load and parse token registry from JSON file
- */
-export function loadTokenRegistry(registryPath: string): TokenRegistry {
-  const resolvedPath = path.resolve(registryPath);
-  const content = fs.readFileSync(resolvedPath, 'utf8');
-  return JSON.parse(content) as TokenRegistry;
-}
-
-/**
  * Find token entry by CSS variable name
  */
 export function findTokenByCssVar(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   cssVar: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.cssVar === cssVar);
 }
 
@@ -152,9 +143,9 @@ export function findTokenByCssVar(
  * Find token entry by path
  */
 export function findTokenByPath(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenPath: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.path === tokenPath);
 }
 
@@ -162,9 +153,9 @@ export function findTokenByPath(
  * Find token entry by ID
  */
 export function findTokenById(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenId: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.id === tokenId);
 }
 
@@ -172,9 +163,9 @@ export function findTokenById(
  * Get all tokens that reference a given token (alias references)
  */
 export function getTokenAliases(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenId: string,
-): TokenRegistryEntry[] {
+): TokenCatalogEntry[] {
   return registry.entries.filter(
     (entry) =>
       entry.aliases?.includes(tokenId) ||
@@ -194,9 +185,9 @@ export function isPrimitiveValue(value: unknown): boolean {
  * Group tokens by collection
  */
 export function groupTokensByCollection(
-  registry: TokenRegistry,
-): Map<string, TokenRegistryEntry[]> {
-  const groups = new Map<string, TokenRegistryEntry[]>();
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry[]> {
+  const groups = new Map<string, TokenCatalogEntry[]>();
 
   for (const entry of registry.entries) {
     const collection = entry.collection || 'unknown';
@@ -212,9 +203,9 @@ export function groupTokensByCollection(
  * Group tokens by mode
  */
 export function groupTokensByMode(
-  registry: TokenRegistry,
-): Map<string, TokenRegistryEntry[]> {
-  const groups = new Map<string, TokenRegistryEntry[]>();
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry[]> {
+  const groups = new Map<string, TokenCatalogEntry[]>();
 
   for (const entry of registry.entries) {
     const mode = entry.mode || 'default';

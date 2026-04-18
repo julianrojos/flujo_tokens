@@ -9,8 +9,8 @@
 
 // Token services (types)
 export type {
-  TokenRegistry,
-  TokenRegistryEntry,
+  TokenCatalog,
+  TokenCatalogEntry,
   CssVarReference,
   TokenUsage,
   TokenGraphNode,
@@ -38,7 +38,6 @@ export {
   isCssVarRef,
   extractVarName,
   normalizeA11yPath,
-  loadTokenRegistry,
   findTokenByCssVar,
   findTokenByPath,
   findTokenById,
@@ -131,9 +130,6 @@ export type {
   AssertDocStatusStableOptions,
   MutationViolation,
 } from '../services/evidence-gated-mutations.js';
-
-// Registry loader
-export { loadRegistryOrThrow } from './registry-loader.js';
 
 // File snapshot utilities
 export { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';

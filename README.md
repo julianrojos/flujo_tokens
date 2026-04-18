@@ -64,12 +64,11 @@ If the command fails, fix the local tooling or test environment before continuin
 ### Token Compilation Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
-- **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
-- **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
-- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from component spec files (`design-systems/<id>/docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
-- **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
+- **`npm run ds:token-graph`**: Builds a token dependency graph from the active system database, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
+- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
+- **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` from the active system database plus CSS alias chains and optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
 - **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
 - **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
 
@@ -127,9 +126,6 @@ Behavior can be adjusted using environment variables:
   - `--single`: generate one file (`--output`) instead of split outputs.
   - `--output-primitives <file>`: primitives output path (default: `output/primitives.css`).
   - `--output-tokens <file>`: semantic/component tokens output path (default: `output/tokens.css`).
-- Registry export flags (CLI):
-  - `--registry`: also generate docs token registry JSON.
-  - `--registry-output <file>`: registry output path (default: `docs/_generated/token-registry.json`).
 - Pipeline extension flags (CLI):
   - `--plugin <path>`: load an external phase plugin module (`plugin`, `plugins`, or `default` export). Repeatable.
 
@@ -155,12 +151,6 @@ Strict mode example (preferred mode required):
 
 ```bash
 npm run generate:strict -- --mode dark
-```
-
-Registry example:
-
-```bash
-npm run generate:registry
 ```
 
 Sync variables directly from Figma:
@@ -354,13 +344,13 @@ System context (DB-backed):
 - `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
 - `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `DATABASE_URL`: operational storage for dashboard sync/capture state
-- `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
+- `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage index (where each token/custom property is referenced)
 
 ### Local dashboard (React, local-only)
 
 The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
 
-- `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`, plus `Used In` from `docs/_generated/token-usage-index.json`)
+- `Tokens & Properties` (custom properties + token inventory from the active system database, plus `Used In` from `docs/_generated/token-usage-index.json`)
 - `Componentes` (component pipeline state from the dashboard PostgreSQL database via the local API)
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
@@ -575,6 +565,5 @@ Useful flags are documented above in the capture sections; prefer `ds:capture-fr
 Recommended sequence before rendering:
 
 ```bash
-npm run generate:registry
 npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
 ```

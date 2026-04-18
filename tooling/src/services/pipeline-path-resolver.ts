@@ -14,7 +14,6 @@ export interface PipelinePaths {
   proofDir: string;
   proofImageDir: string;
   databaseUrl: string;
-  tokenRegistryPath: string;
   resolvedSpecRoot: string;
   overviewPath: string;
 }
@@ -24,7 +23,6 @@ export interface PipelinePathsArgs {
   'proof-dir'?: string;
   'proof-image-dir'?: string;
   'spec-root'?: string;
-  registry?: string;
   template?: string;
   [key: string]: unknown;
 }
@@ -70,9 +68,6 @@ export function resolvePipelinePaths(
     proofDir,
     proofImageDir,
     databaseUrl: systemContext.paths.databaseUrl,
-    tokenRegistryPath: path.resolve(
-      args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, '_generated', 'token-registry.json')
-    ),
     resolvedSpecRoot,
     overviewPath: path.resolve(path.join(docsRootDir, 'overview.md')),
   };

@@ -15,12 +15,12 @@ import {
   generateHealthReport,
 } from './token-health.js';
 import { generateUsageIndex } from './token-usage-index.js';
-import type { TokenRegistry, WcagPair } from './token-types.js';
+import type { TokenCatalog, WcagPair } from './token-types.js';
 
 describe('token-health', () => {
   describe('findBrokenRefs()', () => {
     it('detects broken CSS variable references in pure var() values', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -47,7 +47,7 @@ describe('token-health', () => {
     });
 
     it('detects broken CSS variable references in compound values', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -72,7 +72,7 @@ describe('token-health', () => {
     });
 
     it('detects multiple broken references in a single value', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -98,7 +98,7 @@ describe('token-health', () => {
     });
 
     it('does not report valid CSS variable references', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -123,7 +123,7 @@ describe('token-health', () => {
     });
 
     it('handles var() with fallback values', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -148,7 +148,7 @@ describe('token-health', () => {
     });
 
     it('handles compound values with mixed valid and invalid refs', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -177,7 +177,7 @@ describe('token-health', () => {
 
   describe('checkWcagPairs()', () => {
     it('returns empty array when WCAG check is not implemented', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [],
         meta: {
           generatedAt: '2024-01-01T00:00:00Z',
@@ -200,7 +200,7 @@ describe('token-health', () => {
     });
 
     it('returns empty array for missing tokens (graceful skip)', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [],
         meta: {
           generatedAt: '2024-01-01T00:00:00Z',
@@ -225,7 +225,7 @@ describe('token-health', () => {
 
   describe('findBrokenAliases()', () => {
     it('detects aliases pointing to non-existent tokens', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -250,7 +250,7 @@ describe('token-health', () => {
     });
 
     it('does not report valid aliases', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -326,7 +326,7 @@ describe('token-health', () => {
 
     it('producer-consumer contract: generateUsageIndex → findHighUsageTokens', () => {
       // Minimal registry fixture
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           { id: '1', path: 'color.primary', $value: '#ff0000', type: 'color', collection: 'colors', cssVar: '--color-primary' },
           { id: '2', path: 'color.secondary', $value: '#00ff00', type: 'color', collection: 'colors', cssVar: '--color-secondary' },
@@ -395,7 +395,7 @@ describe('token-health', () => {
 
   describe('generateHealthReport()', () => {
     it('generates report with broken aliases and refs', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',
@@ -435,7 +435,7 @@ describe('token-health', () => {
     });
 
     it('generates healthy report when no issues', () => {
-      const registry: TokenRegistry = {
+      const registry: TokenCatalog = {
         entries: [
           {
             id: '1',

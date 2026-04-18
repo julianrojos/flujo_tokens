@@ -169,10 +169,6 @@ export interface QaAuditOptions {
    */
   generatedDir?: string;
   /**
-   * Path to token registry JSON.
-   */
-  tokenRegistryPath?: string;
-  /**
    * Days threshold for stale file detection.
    */
   staleThresholdDays?: number;

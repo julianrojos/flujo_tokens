@@ -12,29 +12,35 @@ import * as path from 'node:path';
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
 
-import { loadTokenRegistry } from '../services/token-utils.js';
+import { buildAliasChains, extractCssReferences, generateUsageIndex } from '../services/token-usage-index.js';
+import { loadTokenCatalogFromDatabase } from '../services/token-catalog-db.js';
+import { generateGraphReport } from '../services/token-graph.js';
 import { generateHealthReport } from '../services/token-health.js';
 
 const CLI_CONFIG = {
   command: 'ds:token-health [options]',
   description:
-    'Build an operational health summary for token-registry entries (usage, coupling, broken aliases, broken refs, WCAG pairs).',
+    'Build an operational health summary from the active system database, CSS alias chains, and WCAG pairs.',
   options: [
     {
-      name: '--registry',
-      description: 'Token registry input path.',
-      defaultValue: '<active-system-docs>/_generated/token-registry.json',
+      name: '--css-files',
+      description: 'Comma-separated CSS files to scan for var(--token) references.',
+      defaultValue: '<system>/output/primitives.css,<system>/output/tokens.css',
+    },
+    {
+      name: '--figma-alias-graph',
+      description: 'Path to figma-alias-graph.json file.',
+      defaultValue: '<active-system-docs>/_generated/figma-alias-graph.json',
     },
     {
       name: '--usage-index',
-      description: 'Token usage index input path.',
-      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
+      description: 'Legacy usage index input path. Overrides database-backed generation when present.',
     },
     {
       name: '--graph-viz',
-      description: 'Token graph viz input path.',
-      defaultValue: '<active-system-docs>/_generated/token-graph.viz.json',
+      description: 'Legacy graph viz JSON input path. Overrides database-backed graph generation when present.',
     },
     {
       name: '--wcag-pairs',
@@ -118,16 +124,14 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
+  await loadDesignSystemsConfigAsync();
   const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
-  const registryPath = path.resolve(
-    String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
-  );
-  const usageIndexPath = path.resolve(
-    String(getStringArg(parsed, 'usage-index') || ctx.paths.generated + '/token-usage-index.json'),
-  );
-  const graphVizPath = path.resolve(
-    String(parsed['graph-viz'] || ctx.paths.generated + '/token-graph.viz.json'),
+  const cssFiles = String(parsed['css-files'] || `${path.join(ctx.paths.output, 'primitives.css')},${path.join(ctx.paths.output, 'tokens.css')}`)
+    .split(',')
+    .map((f: string) => path.resolve(f.trim()));
+  const figmaAliasGraphPath = path.resolve(
+    String(getStringArg(parsed, 'figma-alias-graph') || ctx.paths.figmaAliasGraph)
   );
   const wcagPairsPath = path.resolve(
     String(parsed['wcag-pairs'] || 'tooling/config/wcag-pairs.json'),
@@ -138,21 +142,43 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
   const highUsageThreshold = parsePositiveInteger(String(parsed['high-usage-threshold']), '--high-usage-threshold', 25);
   const highIndegreeThreshold = parsePositiveInteger(String(parsed['high-indegree-threshold']), '--high-indegree-threshold', 15);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
+  const usageIndexPathArg = getStringArg(parsed, 'usage-index');
+  const graphVizPathArg = getStringArg(parsed, 'graph-viz');
+  const usageIndexPath = usageIndexPathArg ? path.resolve(usageIndexPathArg) : '';
+  const graphVizPath = graphVizPathArg ? path.resolve(graphVizPathArg) : '';
 
-  // Load registry
-  const registry = loadTokenRegistry(registryPath);
-
-  // Load usage index (optional)
-  let usageIndex: any = null;
-  if (fs.existsSync(usageIndexPath)) {
-    usageIndex = JSON.parse(fs.readFileSync(usageIndexPath, 'utf8'));
+  if (usageIndexPathArg && !usageIndexPath) {
+    throw new Error('Invalid --usage-index path: value is empty.');
+  }
+  if (usageIndexPathArg && !fs.existsSync(usageIndexPath)) {
+    throw new Error(`Invalid --usage-index path: ${usageIndexPath}`);
+  }
+  if (graphVizPathArg && !graphVizPath) {
+    throw new Error('Invalid --graph-viz path: value is empty.');
+  }
+  if (graphVizPathArg && !fs.existsSync(graphVizPath)) {
+    throw new Error(`Invalid --graph-viz path: ${graphVizPath}`);
   }
 
-  // Load graph viz (optional)
-  let graph: any = null;
-  if (fs.existsSync(graphVizPath)) {
-    graph = JSON.parse(fs.readFileSync(graphVizPath, 'utf8'));
-  }
+  const registry = await loadTokenCatalogFromDatabase({
+    databaseUrl: ctx.paths.databaseUrl,
+    systemId: ctx.id,
+  });
+
+  const usageIndex = usageIndexPath
+    ? JSON.parse(fs.readFileSync(usageIndexPath, 'utf8'))
+    : generateUsageIndex(
+        registry,
+        extractCssReferences(cssFiles, registry),
+        buildAliasChains(cssFiles, registry),
+        figmaAliasGraphPath,
+      );
+  const graph = graphVizPath
+    ? JSON.parse(fs.readFileSync(graphVizPath, 'utf8'))
+    : generateGraphReport(registry, {
+        indirectionThreshold: 3,
+        maxItems,
+      }).graph;
 
   // Load WCAG pairs (optional)
   let wcagPairs: any[] = [];

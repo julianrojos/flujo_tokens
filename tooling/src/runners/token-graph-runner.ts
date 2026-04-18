@@ -12,21 +12,17 @@ import * as path from 'node:path';
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
 
-import { loadTokenRegistry } from '../services/token-utils.js';
+import { loadTokenCatalogFromDatabase } from '../services/token-catalog-db.js';
 import { generateGraphReport } from '../services/token-graph.js';
 import type { TokenGraph, TokenGraphReport } from '../services/token-types.js';
 
 const CLI_CONFIG = {
   command: 'ds:token-graph [options]',
   description:
-    'Build a deterministic token dependency graph from token-registry.json and report cycles, indirection chains, and unused primitive terminals.',
+    'Build a deterministic token dependency graph from the active system database and report cycles, indirection chains, and unused primitive terminals.',
   options: [
-    {
-      name: '--registry',
-      description: 'Token registry input path.',
-      defaultValue: '<active-system-docs>/_generated/token-registry.json',
-    },
     {
       name: '--out-json',
       description: 'JSON report output path.',
@@ -139,11 +135,9 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
+  await loadDesignSystemsConfigAsync();
   const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
-  const registryPath = path.resolve(
-    String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
-  );
   const outJson = path.resolve(String(getStringArg(parsed, 'out-json') || ctx.paths.generated + '/token-graph.json'));
   const outVizJson = path.resolve(String(getStringArg(parsed, 'out-viz-json') || ctx.paths.generated + '/token-graph.viz.json'));
   const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || ctx.paths.generated + '/token-graph.md'));
@@ -158,8 +152,11 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
   const mermaidMaxEdges = parsePositiveInteger(parsed['mermaid-max-edges'], '--mermaid-max-edges', 2000);
 
-  // Load registry
-  const registry = loadTokenRegistry(registryPath);
+  // Load registry from the database-backed source of truth.
+  const registry = await loadTokenCatalogFromDatabase({
+    databaseUrl: ctx.paths.databaseUrl,
+    systemId: ctx.id,
+  });
 
   // Generate report
   const report = generateGraphReport(registry, { indirectionThreshold, maxItems });

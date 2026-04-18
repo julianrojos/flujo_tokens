@@ -129,9 +129,7 @@ type PipelineContextConfig = {
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
-    registryOutput: string;
     splitOutput: boolean;
-    registryEnabled: boolean;
     preferredMode?: string;
     modeStrict: boolean;
     modeStrictPreferred: boolean;
@@ -153,9 +151,7 @@ function createPipelineContextConfig(args: CliOptions): PipelineContextConfig {
         outputFile: args.outputFile,
         outputPrimitives: args.outputPrimitives,
         outputTokens: args.outputTokens,
-        registryOutput: args.registryOutput,
         splitOutput: args.split,
-        registryEnabled: args.registry,
         preferredMode,
         modeStrict,
         modeStrictPreferred,
@@ -225,9 +221,7 @@ function getEmitManifestPath(outputs: OutputTarget[], outputFile: string): strin
 
 function isEmitCheckpointUsable(
     payload: EmitCheckpointPayload,
-    outputs: OutputTarget[],
-    registryEnabled: boolean,
-    registryOutput: string
+    outputs: OutputTarget[]
 ): boolean {
     if (payload.outputs.length !== outputs.length) return false;
 
@@ -239,12 +233,7 @@ function isEmitCheckpointUsable(
         if (currentHash !== snapshot.contentHash) return false;
     }
 
-    if (!registryEnabled) return true;
-    if (!payload.registry) return false;
-    if (payload.registry.filePath !== registryOutput) return false;
-    if (!fs.existsSync(registryOutput)) return false;
-    const registryHash = sha256FromFile(registryOutput);
-    return registryHash === payload.registry.contentHash;
+    return true;
 }
 
 // --- Main execution ---
@@ -317,8 +306,6 @@ function createCorePipelinePlugins(): TokenPipelinePlugin[] {
                         fromPhase: options.fromPhase,
                         forcePhases: options.forcePhases,
                         splitOutput: pipelineContext.splitOutput,
-                        registryEnabled: pipelineContext.registryEnabled,
-                        registryOutput: pipelineContext.registryOutput,
                         preferredMode: pipelineContext.preferredMode,
                         modeStrictPreferred: pipelineContext.modeStrictPreferred
                     },

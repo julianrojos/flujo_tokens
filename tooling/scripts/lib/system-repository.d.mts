@@ -28,7 +28,6 @@ export interface ScriptSystemContext extends DesignSystemConfigEntry {
     specs: string;
     docs: string;
     registry: string;
-    tokenRegistry: string;
   };
 }
 

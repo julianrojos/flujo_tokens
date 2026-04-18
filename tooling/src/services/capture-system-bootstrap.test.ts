@@ -97,12 +97,12 @@ describe('capture-system-bootstrap', () => {
     setSystemRepositoryFactory(null);
   });
 
-  it('bootstraps input JSON even when empty token-registry seed exists', async () => {
+  it('bootstraps input JSON even when an empty generated seed exists', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-seed-'));
     try {
       fs.mkdirSync(path.join(repoRoot, 'docs', 'demo', '_generated'), { recursive: true });
       fs.writeFileSync(
-        path.join(repoRoot, 'docs', 'demo', '_generated', 'token-registry.json'),
+        path.join(repoRoot, 'docs', 'demo', '_generated', 'bootstrap-seed.json'),
         JSON.stringify({ entries: [], byPath: {}, bySlashPath: {} }, null, 2),
         'utf8',
       );
@@ -181,12 +181,12 @@ describe('capture-system-bootstrap', () => {
     }
   });
 
-  it('does not short-circuit compile only because token-registry exists', () => {
+  it('does not short-circuit compile only because a generated seed exists', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-compile-'));
     try {
       fs.mkdirSync(path.join(repoRoot, 'docs', 'demo', '_generated'), { recursive: true });
       fs.writeFileSync(
-        path.join(repoRoot, 'docs', 'demo', '_generated', 'token-registry.json'),
+        path.join(repoRoot, 'docs', 'demo', '_generated', 'bootstrap-seed.json'),
         JSON.stringify({ entries: [], byPath: {}, bySlashPath: {} }, null, 2),
         'utf8',
       );

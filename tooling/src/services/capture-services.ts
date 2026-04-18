@@ -87,7 +87,7 @@ export function createCaptureServices(params: {
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         throw new Error(
-          `[capture-services] Failed to read component registry from DB at ${databaseUrl} for system "${context.system.id}": ${reason}`,
+          `[capture-services] Failed to read component catalog from DB at ${databaseUrl} for system "${context.system.id}": ${reason}`,
         );
       } finally {
         if (db) await db.end();

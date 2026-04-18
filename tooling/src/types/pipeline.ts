@@ -14,7 +14,6 @@ export interface PipelinePaths {
     proofDir: string;
     proofImageDir: string;
     databaseUrl: string;
-    tokenRegistryPath: string;
     resolvedSpecRoot: string;
     overviewPath: string;
 }

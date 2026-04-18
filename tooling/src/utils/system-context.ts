@@ -70,7 +70,6 @@ export interface ScriptSystemContext {
     specs: string;
     docs: string;
     databaseUrl: string;
-    tokenRegistry: string;
     figmaAliasGraph: string;
   };
 }
@@ -91,7 +90,6 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
       databaseUrl: resolveDashboardDatabaseUrl(),
-      tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
       figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },
   };

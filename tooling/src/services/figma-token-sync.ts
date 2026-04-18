@@ -834,7 +834,6 @@ export interface RunTokensCompileResult {
   outputs?: {
     primitives: string;
     tokens: string;
-    registry: string;
   };
   output?: string;
 }
@@ -854,21 +853,17 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
 
   const inputDirPath = path.resolve(repoRoot, inputDir);
   const outputDir = path.resolve(repoRoot, String(system.outputDir || system.paths?.output || ''));
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || system.paths?.docs || ''));
-  const tokenRegistryPath = path.join(docsDir, '_generated', 'token-registry.json');
 
   if (!hasInputJsonFiles(repoRoot, inputDir)) {
     return { attempted: false, reason: 'input-json-missing' };
   }
 
   fs.mkdirSync(outputDir, { recursive: true });
-  fs.mkdirSync(path.join(docsDir, '_generated'), { recursive: true });
 
   const args = [
     '--import',
     'tsx',
     path.join(repoRoot, 'tooling', 'src', 'cli', 'index.ts'),
-    '--registry',
     '--split',
     '--input',
     inputDirPath,
@@ -876,8 +871,6 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
     path.join(outputDir, 'primitives.css'),
     '--output-tokens',
     path.join(outputDir, 'tokens.css'),
-    '--registry-output',
-    tokenRegistryPath,
   ];
 
   const result = spawnSync(process.execPath, args, {
@@ -904,7 +897,6 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
     outputs: {
       primitives: path.relative(repoRoot, path.join(outputDir, 'primitives.css')),
       tokens: path.relative(repoRoot, path.join(outputDir, 'tokens.css')),
-      registry: path.relative(repoRoot, tokenRegistryPath),
     },
     output: stdout,
   };

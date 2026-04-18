@@ -8,7 +8,7 @@
 import * as fs from 'node:fs';
 import * as yaml from 'js-yaml';
 
-import type { TokenRegistry, TokenRegistryEntry } from './token-types.js';
+import type { TokenCatalog, TokenCatalogEntry } from './token-types.js';
 import { extractCssVarReferences, findTokenByCssVar } from './token-utils.js';
 
 function isTbdMarker(value: string): boolean {
@@ -50,11 +50,11 @@ function normalizeTokenResolvedValue(value: string): string | null {
   return trimmed.toLowerCase();
 }
 
-function buildPathLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry[]> {
+function buildPathLookup(registry: TokenCatalog): Map<string, TokenCatalogEntry[]> {
   const setLookup = (
-    map: Map<string, TokenRegistryEntry[]>,
+    map: Map<string, TokenCatalogEntry[]>,
     rawKey: string,
-    entry: TokenRegistryEntry,
+    entry: TokenCatalogEntry,
   ) => {
     const key = String(rawKey || '').trim();
     if (!key) return;
@@ -70,11 +70,11 @@ function buildPathLookup(registry: TokenRegistry): Map<string, TokenRegistryEntr
     }
   };
 
-  const map = new Map<string, TokenRegistryEntry[]>();
+  const map = new Map<string, TokenCatalogEntry[]>();
   for (const entry of registry.entries) {
     const tokenPath = String(entry.path || '').trim();
     const slashFromPath = tokenPath.replace(/\./g, '/');
-    const slashPath = String((entry as TokenRegistryEntry & { slashPath?: string }).slashPath || '').trim();
+    const slashPath = String((entry as TokenCatalogEntry & { slashPath?: string }).slashPath || '').trim();
     const collection = String(entry.collection || '').trim();
 
     setLookup(map, tokenPath, entry);
@@ -119,11 +119,11 @@ function extractContextKeywords(raw: string): string[] {
     .filter((part) => part.length > 1 && !stopWords.has(part));
 }
 
-function rankTokenCandidate(entry: TokenRegistryEntry, keywords: string[]): number {
+function rankTokenCandidate(entry: TokenCatalogEntry, keywords: string[]): number {
   const haystack = [
     String(entry.path || ''),
     String(entry.cssVar || ''),
-    String((entry as TokenRegistryEntry & { slashPath?: string }).slashPath || ''),
+    String((entry as TokenCatalogEntry & { slashPath?: string }).slashPath || ''),
     String(entry.collection || ''),
   ]
     .join(' ')
@@ -137,9 +137,9 @@ function rankTokenCandidate(entry: TokenRegistryEntry, keywords: string[]): numb
 }
 
 function pickBestTokenCandidate(
-  candidates: TokenRegistryEntry[],
+  candidates: TokenCatalogEntry[],
   contextHint: string,
-): TokenRegistryEntry | null {
+): TokenCatalogEntry | null {
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
   if (candidates.length === 1) return candidates[0];
 
@@ -159,11 +159,11 @@ function pickBestTokenCandidate(
   return ranked[0]?.entry || null;
 }
 
-function buildResolvedValueLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry[]> {
-  const map = new Map<string, TokenRegistryEntry[]>();
+function buildResolvedValueLookup(registry: TokenCatalog): Map<string, TokenCatalogEntry[]> {
+  const map = new Map<string, TokenCatalogEntry[]>();
   for (const entry of registry.entries) {
     const rawValue =
-      (entry as TokenRegistryEntry & { resolvedValue?: unknown }).resolvedValue ?? entry.$value;
+      (entry as TokenCatalogEntry & { resolvedValue?: unknown }).resolvedValue ?? entry.$value;
     const normalized = normalizeTokenResolvedValue(String(rawValue || ''));
     if (!normalized) continue;
     const current = map.get(normalized) || [];
@@ -174,12 +174,12 @@ function buildResolvedValueLookup(registry: TokenRegistry): Map<string, TokenReg
 }
 
 function resolveTokenFromRef(
-  registry: TokenRegistry,
-  pathLookup: Map<string, TokenRegistryEntry[]>,
-  resolvedValueLookup: Map<string, TokenRegistryEntry[]>,
+  registry: TokenCatalog,
+  pathLookup: Map<string, TokenCatalogEntry[]>,
+  resolvedValueLookup: Map<string, TokenCatalogEntry[]>,
   rawRef: unknown,
   contextHint = '',
-): TokenRegistryEntry | null {
+): TokenCatalogEntry | null {
   const ref = String(rawRef ?? '').trim();
   if (!ref || isTbdMarker(ref)) return null;
 
@@ -291,7 +291,7 @@ function collectVariantReferences(
 
 export function extractSpecReferences(
   specRoot: string,
-  registry: TokenRegistry,
+  registry: TokenCatalog,
 ): SpecReference[] {
   const refs: SpecReference[] = [];
   const seen = new Set<string>();

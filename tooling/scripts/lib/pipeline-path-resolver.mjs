@@ -36,7 +36,6 @@ export function resolvePipelinePaths(args, systemContext) {
     proofDir,
     proofImageDir,
     databaseUrl: systemContext.paths.databaseUrl,
-    tokenRegistryPath: path.resolve(args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, "_generated", "token-registry.json")),
     resolvedSpecRoot,
     overviewPath: path.resolve(path.join(docsRootDir, "overview.md")),
   };

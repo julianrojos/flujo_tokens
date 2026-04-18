@@ -7,7 +7,7 @@
 /**
  * Token registry entry structure
  */
-export interface TokenRegistryEntry {
+export interface TokenCatalogEntry {
   /** Token ID (internal identifier) */
   id: string;
   /** Token path (e.g., "Semantic.Color.Focus-Outline.Inner") */
@@ -29,9 +29,9 @@ export interface TokenRegistryEntry {
 /**
  * Token registry structure
  */
-export interface TokenRegistry {
+export interface TokenCatalog {
   /** Registry entries */
-  entries: TokenRegistryEntry[];
+  entries: TokenCatalogEntry[];
   /** Registry metadata */
   meta: {
     generatedAt: string;

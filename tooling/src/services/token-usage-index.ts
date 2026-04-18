@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 
 import type {
-  TokenRegistry,
+  TokenCatalog,
   TokenUsageIndex,
   TokenUsageEntryNew,
   TokenUsageKindExtended,
@@ -31,7 +31,7 @@ export interface CssReference {
  */
 export function extractCssReferences(
   cssFiles: string[],
-  registry: TokenRegistry,
+  registry: TokenCatalog,
 ): CssReference[] {
   const refs: CssReference[] = [];
 
@@ -68,7 +68,7 @@ export function extractCssReferences(
  */
 export function buildAliasChains(
   cssFiles: string[],
-  registry: TokenRegistry,
+  registry: TokenCatalog,
 ): Map<string, string[]> {
   const chains = new Map<string, string[]>();
 
@@ -143,7 +143,7 @@ export function injectFigmaAliases(
  * Pure function - all I/O is passed as parameters
  */
 export function generateUsageIndex(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   cssRefs: CssReference[],
   aliasChains: Map<string, string[]>,
   figmaAliasGraphPath?: string,
@@ -263,7 +263,7 @@ export function generateUsageIndexFromFile(
 ): TokenUsageIndex {
   // Load registry
   const registryContent = fs.readFileSync(registryPath, 'utf8');
-  const registry = JSON.parse(registryContent) as TokenRegistry;
+  const registry = JSON.parse(registryContent) as TokenCatalog;
 
   const cssRefs = extractCssReferences(cssFiles, registry);
   const aliasChains = buildAliasChains(cssFiles, registry);
