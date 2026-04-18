@@ -352,7 +352,6 @@ System context (DB-backed):
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
-- **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
@@ -579,23 +578,6 @@ npm run ds:capture-visual-proof -- --component-name <Name>
 ```
 
 Useful flags are documented above in the capture sections; prefer `ds:capture-from-url` for import flows and `ds:capture-visual-proof` for one-off screenshots.
-
-### 4e) Foundations docs sync from token registry
-
-```bash
-npm run ds:foundations:sync -- --create-root true
-```
-
-Useful flags:
-
-- `--system <id>` (recommended in multi-system repos)
-- `--docs-root <path>` (default from active system context)
-- `--foundations-root <path>` (default from active system context)
-- `--registry <path>` (default from active system context)
-- `--status <draft|ready|needs-review>` (default: `draft`)
-- `--max-samples <number>` (default: `2`)
-- `--create-root <true|false>` (default: `false`)
-- `--dry-run true`
 
 Recommended sequence before rendering:
 

@@ -22,7 +22,7 @@ globs:
 - Every component doc should start with a one-line description immediately after the H1.
 - Component pages should include `### Visual Proof` inside `## Overview` (not as a new H2). This subsection stores screenshot evidence and related metadata.
 - Prefer tables for properties, states, and token mappings. Use consistent column order across all tables of the same kind.
-- Apply page taxonomy from `docs-taxonomy.mdc` (`component`, `overview`, `foundation`, `workflow`) and keep scope boundaries clear.
+- Apply page taxonomy from `docs-taxonomy.mdc` (`component`, `overview`, `workflow`) and keep scope boundaries clear.
 - `## Gaps / TBD` follows a deterministic contract:
   - present only when unresolved gaps exist,
   - omitted when no gaps exist,

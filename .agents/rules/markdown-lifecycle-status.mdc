@@ -19,7 +19,7 @@ Markdown docs use `doc_status` with these values only:
 
 - Lifecycle status values are defined in this rule and enforced by the docs pipeline.
 - Component docs (`docs/components/*.md`, excluding `overview.md`) must carry an explicit lifecycle status in the pipeline metadata.
-- Overview/foundation/workflow pages should also carry lifecycle status when edited.
+- Overview/workflow pages should also carry lifecycle status when edited.
 
 ## YAML alignment note
 

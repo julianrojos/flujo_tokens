@@ -24,7 +24,7 @@ inputs:
     type: boolean
     required: false
     default: false
-    description: "When true, also scaffolds foundations/, workflows/, a11y/, and index.md."
+    description: "When true, also scaffolds workflows/, a11y/, and index.md."
   - name: repo_conventions
     type: string
     required: false
@@ -38,10 +38,6 @@ outputs:
     type: path
     value: "${docs_root}/index.md"
     description: "Top-level design system index (only when include_optional_sections=true)."
-  - name: foundations_overview
-    type: path
-    value: "${docs_root}/foundations/overview.md"
-    description: "Foundations section overview (only when include_optional_sections=true)."
   - name: workflows_overview
     type: path
     value: "${docs_root}/workflows/overview.md"
@@ -63,7 +59,7 @@ Use this skill when the user wants to:
 
 - Start documenting a Design System in Markdown in the repo
 - Establish the baseline structure required by the current docs pipeline
-- Optionally scaffold extra IA sections (Foundations, workflows, accessibility overviews)
+- Optionally scaffold extra IA sections (workflows, accessibility overviews)
 
 ## Inputs (ask only if missing)
 
@@ -83,7 +79,6 @@ Baseline outputs (always):
 Optional outputs (`include_optional_sections=true` or explicit user request):
 
 - `${docs_root}/index.md`
-- `${docs_root}/foundations/overview.md`
 - `${docs_root}/workflows/overview.md`
 - `${docs_root}/a11y/overview.md`
 
@@ -116,15 +111,9 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 - Title: `${system_name}`
 - Sections:
   - Components (links)
-  - Foundations (links, if enabled)
   - Workflows (links, if enabled)
   - Accessibility (links, if enabled)
   - How docs are generated (tokens vs specs)
-
-### Optional: ${docs_root}/foundations/overview.md
-
-- What foundations cover
-- Link list of foundation pages (to be created/maintained by ds-foundations)
 
 ### Optional: ${docs_root}/workflows/overview.md
 

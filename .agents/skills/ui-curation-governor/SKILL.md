@@ -43,7 +43,7 @@ Activate for **any** task that modifies files in:
 
 - `apps/ds-dashboard/src/components/**` — UI primitives and composites
 - `apps/ds-dashboard/src/features/**/*.tsx` — feature components
-- `apps/ds-dashboard/src/index.css` — token foundation
+- `apps/ds-dashboard/src/index.css` — base token layer
 - `apps/ds-dashboard/tailwind.config.ts` — token mapping
 - `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md` — component catalog
 
@@ -118,7 +118,7 @@ Motion exists to communicate state — not to decorate. Every animation must ans
 ## Architecture: Layer model
 
 ```
-Tier 0   Foundations     index.css, tailwind.config.ts
+Tier 0   Base tokens      index.css, tailwind.config.ts
   ↓                     (tokens — the single source of visual truth)
 Tier 1   Primitives      ui/button, ui/card, ui/input, ui/overlay/modal...
   ↓                     (generic building blocks, CVA + cn + forwardRef)

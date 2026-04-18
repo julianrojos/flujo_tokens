@@ -55,9 +55,6 @@ export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
 export { runTokenGraph } from '../runners/token-graph-runner.js';
 export { runTokenHealth } from '../runners/token-health-runner.js';
 
-// Foundations runners
-export { runFoundationsSync } from '../runners/foundations-sync-runner.js';
-
 // Health runners
 export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
 
@@ -66,12 +63,6 @@ export { runTokensSync } from '../runners/tokens-sync-runner.js';
 
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
-
-// Detect missing zones runners
-export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js';
-
-// Migrate markdown zones runners
-export { runMigrateMarkdownZones } from '../runners/migrate-markdown-zones-runner.js';
 
 // Command execution utilities
 export { parseJsonFromText, runJsonCommand, runOrThrow } from './exec.js';

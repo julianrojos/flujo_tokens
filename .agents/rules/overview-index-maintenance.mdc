@@ -1,5 +1,5 @@
 ---
-description: Keeps section overview/index pages synchronized when component or foundation docs change.
+description: Keeps section overview/index pages synchronized when component docs change.
 globs:
   - "docs/components/*.md"
   - "docs/**/overview.md"
@@ -9,7 +9,7 @@ globs:
 
 ## Mandatory synchronization
 
-When a component/foundation page is created, deleted, or renamed, update its overview page in the same change.
+When a component page is created, deleted, or renamed, update its overview page in the same change.
 
 ## Components
 
@@ -21,13 +21,6 @@ When a component/foundation page is created, deleted, or renamed, update its ove
 - Ties MUST be resolved by `snake_case.md` ascending.
 - Ensure links point to existing files.
 - For exact format/order/uniqueness constraints, follow `overview-components-canonical-list.mdc`.
-
-## Foundations (optional section)
-
-- Source pages: `docs/foundations/*.md` (excluding `overview.md`)
-- Index page: `docs/foundations/overview.md`
-- Apply this block only when `docs/foundations/` exists in the repository.
-- Keep link lists updated and remove stale entries.
 
 ## Consistency checks
 

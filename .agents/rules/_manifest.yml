@@ -356,18 +356,6 @@ matrix:
         ds-docs-guardrails,
         git-constraints,
       ]
-    foundation:
-      [
-        docs-taxonomy,
-        inclusive-docs,
-        token-references,
-        token-registry-validation,
-        design-token-discrepancies,
-        markdown-lifecycle-status,
-        docs-language-tone,
-        ds-docs-guardrails,
-        git-constraints,
-      ]
     workflow:
       [
         docs-taxonomy,

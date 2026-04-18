@@ -16,7 +16,7 @@ Follow the UI governance rules in `.agents/rules/ui-component-governance.mdc` an
 
 ## Table of Contents
 
-1. [Tier 0 — Foundations](#tier-0--foundations)
+1. [Tier 0 — Base Tokens](#tier-0--base-tokens)
 2. [Tier 1 — Primitives](#tier-1--primitives)
 3. [Tier 1.5 — Composites](#tier-15--composites)
 4. [Tier 2 — Feature Components](#tier-2--feature-components)
@@ -24,7 +24,7 @@ Follow the UI governance rules in `.agents/rules/ui-component-governance.mdc` an
 
 ---
 
-## Tier 0 — Foundations
+## Tier 0 — Base Tokens
 
 ### Token System
 

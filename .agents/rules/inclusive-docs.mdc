@@ -2,7 +2,6 @@
 description: Inclusive documentation contract combining accessibility and internationalization requirements for markdown docs and component specs.
 globs:
   - "docs/components/*.md"
-  - "docs/foundations/*.md"
   - "docs/workflows/**/*.md"
   - "docs/_spec/components/*.yml"
 ---
@@ -74,10 +73,6 @@ Pattern/workflow pages:
   - string-length stress cases,
   - locale format dependencies.
 - Include at least one localization failure mode and expected fallback.
-
-Foundation pages:
-
-- For typography/content-related foundations, include text expansion guidance, non-Latin line-height implications, and truncation policy references when available.
 
 Motion and zoom resilience:
 

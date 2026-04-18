@@ -54,7 +54,7 @@ Governance/lifecycle workflow pages must cover all topics below:
 
 ## Review cadence
 
-- Define a recurring review cadence per scope (components/foundations/workflows).
+- Define a recurring review cadence per scope (components/workflows).
 - Define stale-page trigger criteria (for example: no review in N months).
 
 ## Feedback intake and triage
@@ -70,4 +70,3 @@ Governance/lifecycle workflow pages must cover all topics below:
   - one quality KPI,
   - one maintenance KPI.
 - KPI definitions must include source, formula, and reporting cadence.
-
