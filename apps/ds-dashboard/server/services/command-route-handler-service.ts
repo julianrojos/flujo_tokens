@@ -56,11 +56,6 @@ function pickFirstNonEmpty(...values: unknown[]): string | undefined {
   return undefined;
 }
 
-/**
- * Resolve component and specFile from an incoming request body + query string,
- * collapsing all known alias variants (camelCase, snake_case, kebab-case) into
- * a single canonical pair.
- */
 function normalizeComponentDocArgs(
   body: Record<string, unknown>,
   queryFn: (key: string) => string | undefined,
