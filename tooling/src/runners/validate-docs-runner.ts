@@ -14,9 +14,30 @@ import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context
 
 // Import from existing lib during migration
 import { validateDocs } from '../services/docs-validator.js';
+import type {
+  DocsValidationReport,
+  DocsValidatorIssue,
+} from '../services/docs-validator-types.js';
 
 const TOKEN_REGISTRY_CHECK = 'token-registry';
 const TOKEN_SOURCE_CODES = new Set(['TOK01', 'TOK02', 'TOK03', 'SPEC01']);
+
+type ValidationFinding = Pick<
+  DocsValidatorIssue,
+  'code' | 'message' | 'suggested' | 'token' | 'file' | 'line' | 'rule_ids'
+> & {
+  source_code?: string;
+};
+
+type TokenRegistryReport = Omit<DocsValidationReport, 'errors' | 'warnings'> & {
+  ok: boolean;
+  summary: DocsValidationReport['summary'] & {
+    errors: number;
+    warnings: number;
+  };
+  errors: ValidationFinding[];
+  warnings: ValidationFinding[];
+};
 
 const CLI_CONFIG = {
   command: 'validate:docs [options]',
@@ -81,16 +102,16 @@ function parseBooleanOption(rawValue: unknown, fallback: boolean): boolean {
   throw new Error(`Invalid boolean value: ${rawValue}`);
 }
 
-function mapTokenRegistryCode(finding: any): string {
-  const message = String(finding?.message || '').toLowerCase();
+function mapTokenRegistryCode(finding: ValidationFinding): string {
+  const message = String(finding.message || '').toLowerCase();
   if (message.includes('deprecated')) return 'TOKEN_DEPRECATED';
   if (message.includes('ambiguous') || message.includes('collision')) return 'TOKEN_AMBIGUOUS';
   return 'TOKEN_MISSING';
 }
 
-function projectTokenRegistryReport(report: any): any {
-  const mapFinding = (finding: any) => {
-    const sourceCode = String(finding?.code || '');
+function projectTokenRegistryReport(report: DocsValidationReport): TokenRegistryReport {
+  const mapFinding = (finding: DocsValidatorIssue): ValidationFinding => {
+    const sourceCode = String(finding.code || '');
     const mappedCode = mapTokenRegistryCode(finding);
     return {
       ...finding,
@@ -100,10 +121,10 @@ function projectTokenRegistryReport(report: any): any {
   };
 
   const errors = report.errors
-    .filter((finding: any) => TOKEN_SOURCE_CODES.has(String(finding?.code || '')))
+    .filter((finding) => TOKEN_SOURCE_CODES.has(String(finding.code || '')))
     .map(mapFinding);
   const warnings = report.warnings
-    .filter((finding: any) => TOKEN_SOURCE_CODES.has(String(finding?.code || '')))
+    .filter((finding) => TOKEN_SOURCE_CODES.has(String(finding.code || '')))
     .map(mapFinding);
 
   return {
@@ -156,7 +177,10 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
     checkSpecs: !noSpecs,
   });
 
-  const report = check === TOKEN_REGISTRY_CHECK ? projectTokenRegistryReport(baseReport) : baseReport;
+  const report =
+    check === TOKEN_REGISTRY_CHECK
+      ? projectTokenRegistryReport(baseReport)
+      : baseReport;
 
   console.log(JSON.stringify(report, null, 2));
 

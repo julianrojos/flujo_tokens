@@ -148,6 +148,44 @@ describe('docs-validator', () => {
             assert.ok(report.errors.some((item) => item?.code === 'REG01'));
         });
 
+        it('should report TOK01 for unresolved token references in markdown', () => {
+            const roots = resolveValidationRoots();
+            const filePath = path.join(roots.docsRoot, 'bad-token.md');
+            fs.writeFileSync(
+                filePath,
+                [
+                    '---',
+                    'doc_type: component',
+                    'title: Bad Token',
+                    'component: bad-token',
+                    'status: draft',
+                    '---',
+                    '',
+                    '# Bad Token',
+                    '',
+                    'Token ref: `color.missing`',
+                    '',
+                ].join('\n'),
+                'utf8',
+            );
+
+            const report = validateDocs({
+                docsRoot: roots.docsRoot,
+                specRoot: roots.specRoot,
+                registryPath: roots.registryPath,
+                checkPairing: false,
+                checkSpecs: false,
+                checkOverview: false,
+            });
+
+            assert.equal(report.ok, false);
+            assert.ok(
+                report.errors.some(
+                    (item) => item?.code === 'TOK01' && item?.file === filePath,
+                ),
+            );
+        });
+
         it('should use context-aware default paths when no options provided', () => {
             // This test ensures the migration maintains context-aware defaults
             // rather than hardcoded paths

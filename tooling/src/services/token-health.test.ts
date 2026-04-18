@@ -328,27 +328,22 @@ describe('token-health', () => {
       // Minimal registry fixture
       const registry: TokenRegistry = {
         entries: [
-          { id: '1', path: 'color.primary', $value: '#ff0000', type: 'color', collection: 'colors' },
-          { id: '2', path: 'color.secondary', $value: '#00ff00', type: 'color', collection: 'colors' },
-          { id: '3', path: 'color.tertiary', $value: '#0000ff', type: 'color', collection: 'colors' },
+          { id: '1', path: 'color.primary', $value: '#ff0000', type: 'color', collection: 'colors', cssVar: '--color-primary' },
+          { id: '2', path: 'color.secondary', $value: '#00ff00', type: 'color', collection: 'colors', cssVar: '--color-secondary' },
+          { id: '3', path: 'color.tertiary', $value: '#0000ff', type: 'color', collection: 'colors', cssVar: '--color-tertiary' },
         ],
         meta: { generatedAt: '2024-01-01T00:00:00Z', version: '1.0.0' },
       };
 
-      // Minimal spec refs (tokenId + tokenPath required)
-      const specRefs = [
-        { tokenId: '1', tokenPath: 'color.primary', file: 'button.yml', property: 'background' },
-        { tokenId: '1', tokenPath: 'color.primary', file: 'button.yml', property: 'color' },
-        { tokenId: '2', tokenPath: 'color.secondary', file: 'card.yml', property: 'border' },
-      ];
-
       // Minimal CSS refs
       const cssRefs = [
-        { varName: '--color-primary', file: 'tokens.css', value: '#ff0000' },
+        { varName: '--color-primary', file: 'tokens.css', value: 'var(--color-primary)' },
+        { varName: '--color-primary', file: 'tokens.css', value: 'var(--color-primary)' },
+        { varName: '--color-secondary', file: 'tokens.css', value: 'var(--color-secondary)' },
       ];
 
       // Generate usage index using producer function
-      const usageIndex = generateUsageIndex(registry, specRefs as any, cssRefs as any, new Map());
+      const usageIndex = generateUsageIndex(registry, cssRefs as any, new Map());
 
       // Consume with findHighUsageTokens
       const highUsage = findHighUsageTokens(usageIndex, 1);
@@ -364,8 +359,7 @@ describe('token-health', () => {
       // Specific contract assertions
       const primaryEntry = highUsage.find(u => u.tokenPath === 'color.primary');
       assert.ok(primaryEntry, 'color.primary should be in high usage');
-      // color.primary has 2 spec refs - CSS refs are handled differently
-      assert.ok(primaryEntry.usageCount >= 2, 'color.primary should have at least 2 usages from spec refs');
+      assert.strictEqual(primaryEntry.usageCount, 2, 'color.primary should have 2 CSS usages');
 
       const secondaryEntry = highUsage.find(u => u.tokenPath === 'color.secondary');
       assert.ok(secondaryEntry, 'color.secondary should be in high usage');

@@ -177,8 +177,8 @@ describe('token-repository', () => {
     ).run(
       'sys-01',
       'color.primary',
-      'component-spec',
-      'component-spec',
+      'css-alias',
+      'css-alias',
       'button',
       'background',
     );
@@ -188,7 +188,7 @@ describe('token-repository', () => {
     assert.equal(payload.summary.tokens_with_usage, 1);
     assert.equal(payload.byPath['color.primary'].usageCount, 1);
     assert.equal(
-      payload.byPath['color.primary'].usageByKind['component-spec'],
+      payload.byPath['color.primary'].usageByKind['css-alias'],
       1,
     );
   });

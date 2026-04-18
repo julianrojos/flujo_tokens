@@ -1,7 +1,7 @@
 /**
  * Documentation Validator Service
  *
- * Validates documentation integrity, structure, and token references.
+ * Validates documentation integrity and structure.
  * Full TypeScript implementation (migrated from docs-validator.mjs).
  *
  * @module tooling/src/services/docs-validator
@@ -39,17 +39,17 @@ import {
 } from './linking.js';
 import { validateSpecYamlFiles } from './yaml.js';
 import {
-  buildRegistryIndexes,
-  validateTokenReferences,
-  validateTokenFallbacks,
-} from './token-references.js';
-import {
   validateSectionOrder,
   validateComponentDocFileName,
   validateVariableIds,
   validateEditorialPlaceholders,
   validateInternalLinks,
 } from './markdown-quality.js';
+import {
+  buildRegistryIndexes,
+  validateTokenReferences,
+  validateTokenFallbacks,
+} from './token-references.js';
 import {
   buildLineStarts,
   lineFromOffset,
@@ -82,8 +82,6 @@ const RULE_MANIFEST_PATH = path.join(
   'rules',
   '_manifest.yml',
 );
-const TOKEN_LIKE_CODE_SPAN_RE =
-  /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
 
 type IndexedRegistryShape = {
   entries: unknown[];
@@ -151,7 +149,7 @@ function isIndexedRegistryShape(
 // ============================================================================
 
 /**
- * Validates documentation integrity, structure, and token references.
+ * Validates documentation integrity and structure.
  *
  * @param options - Validation options
  * @returns Validation report with errors, warnings, and summary
@@ -252,7 +250,7 @@ export function validateDocs(
     return report;
   }
 
-  // Guardrail: an empty registry gives false-green validations (0 token refs checked).
+  // Guardrail: an empty registry gives false-green validations for registry-aware checks.
   if (Object.keys(registry).length === 0) {
     report.errors.push({
       code: 'REG01',
@@ -267,9 +265,9 @@ export function validateDocs(
   }
 
   const registryIndexes = buildRegistryIndexes(registry);
+
   const markdownFiles = collectMarkdownFiles(docsRoot, resolvedFilePath);
   const componentFiles: string[] = [];
-  let componentFilesWithTokenLikeSpans = 0;
 
   const specResolution: { specFilePath?: string } =
     resolvedFilePath && resolvedSpecFilePath
@@ -318,9 +316,6 @@ export function validateDocs(
 
     if (treatAsComponent) {
       componentFiles.push(filePath);
-      if (TOKEN_LIKE_CODE_SPAN_RE.test(content)) {
-        componentFilesWithTokenLikeSpans += 1;
-      }
 
       // Validate component filename
       validateComponentDocFileName(filePath, report);
@@ -355,7 +350,7 @@ export function validateDocs(
       // Validate internal links
       validateInternalLinks(filePath, raw, report, lineStarts, lineFromOffset);
 
-      // Validate token references
+      // Validate token references and fallbacks against the active registry.
       validateTokenReferences(
         filePath,
         content,
@@ -365,8 +360,6 @@ export function validateDocs(
         lineFromOffset,
         contentOffset,
       );
-
-      // Validate token fallbacks
       validateTokenFallbacks(
         filePath,
         content,
@@ -464,19 +457,6 @@ export function validateDocs(
       docsRoot,
       componentFiles,
       report,
-    });
-  }
-
-  if (
-    componentFilesWithTokenLikeSpans > 0 &&
-    report.summary.tokenRefsChecked === 0
-  ) {
-    report.warnings.push({
-      code: 'TOK01',
-      file: docsRoot,
-      message:
-        'Token reference validation coverage is zero despite token-like references in component docs. Check token registry integrity and token path formats.',
-      suggested: 'npm run ds:tokens-sync',
     });
   }
 

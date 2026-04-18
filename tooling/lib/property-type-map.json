@@ -63,7 +63,7 @@
     "ordering_group":  5,
     "error_code":      "SPEC01",
     "action":          "Stop; report error SPEC01 with the invalid type value; do not render the property.",
-    "applies_to":      ["generating skills", "validate:docs", "ds:spec-from-figma", "ds:component-doc"],
+    "applies_to":      ["generating skills", "validate:docs"],
     "invalid_examples": [null, "", "variant_group", "color", "number"]
   },
   "ready_spec_constraints": {

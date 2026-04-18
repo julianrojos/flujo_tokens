@@ -12,8 +12,8 @@ import {
   generateUsageIndex,
   injectFigmaAliases,
   generateUsageIndexFromFile,
-  extractSpecReferences,
 } from './token-usage-index.js';
+import { extractSpecReferences } from './spec-token-references.js';
 import type { TokenRegistry, TokenUsageEntryNew } from './token-types.js';
 
 describe('token-usage-index', () => {
@@ -36,7 +36,7 @@ describe('token-usage-index', () => {
         },
       };
 
-      const result = generateUsageIndex(mockRegistry, [], [], new Map());
+      const result = generateUsageIndex(mockRegistry, [], new Map());
 
       assert.ok(result.byPath);
       assert.ok(result.bySlashPath);
@@ -48,7 +48,7 @@ describe('token-usage-index', () => {
       assert.strictEqual(result.summary.usage_links_total, 0);
     });
 
-    it('populates usageByKind correctly for different reference types', () => {
+    it('populates css-alias usage correctly', () => {
       const mockRegistry: TokenRegistry = {
         entries: [
           {
@@ -66,22 +66,16 @@ describe('token-usage-index', () => {
         },
       };
 
-      const specRefs = [
-        // R-020: Verificar estructura specRefs - owner es requerido, property es opcional
-        { tokenId: '1', tokenPath: 'color.primary', file: 'test.yml', owner: 'test', property: 'color' },
-      ];
-
       const cssRefs = [
         { varName: '--color-primary', file: 'test.css', value: 'var(--color-primary)' },
       ];
 
-      const result = generateUsageIndex(mockRegistry, specRefs, cssRefs, new Map());
+      const result = generateUsageIndex(mockRegistry, cssRefs, new Map());
 
       const entry = result.byPath['color.primary'];
       assert.ok(entry);
-      assert.strictEqual(entry.usageByKind['component-spec'], 1);
       assert.strictEqual(entry.usageByKind['css-alias'], 1);
-      assert.strictEqual(entry.usageCount, 2);
+      assert.strictEqual(entry.usageCount, 1);
     });
   });
 
@@ -311,7 +305,7 @@ describe('token-usage-index', () => {
     });
 
     it('loads files and generates usage index with new shape', () => {
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+      const result = generateUsageIndexFromFile(registryPath, cssFiles);
 
       assert.ok(result.byPath);
       assert.ok(result.bySlashPath);
@@ -337,7 +331,7 @@ describe('token-usage-index', () => {
       };
       fs.writeFileSync(figmaAliasGraphPath, JSON.stringify(figmaAliasGraph, null, 2));
 
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles, figmaAliasGraphPath);
+      const result = generateUsageIndexFromFile(registryPath, cssFiles, figmaAliasGraphPath);
 
       const entry = result.byPath['color.primary'];
       assert.ok(entry);
@@ -364,7 +358,7 @@ describe('token-usage-index', () => {
       assert.ok(refs.some((ref) => String(ref.property || '').startsWith('token_mapping.container.background')));
     });
 
-    it('infers anatomy color usage when token_mapping is missing', () => {
+    it('resolves anatomy refs without counting them as usage', () => {
       const specPath = path.join(specRoot, 'badge.yml');
       fs.writeFileSync(
         specPath,
@@ -377,11 +371,37 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
-      const entry = result.byPath['color.primary'];
-      assert.ok(entry);
-      assert.ok(entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'badge'));
-      assert.ok(entry.usedIn.some((occ) => String(occ.detail).includes('anatomy')));
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+      assert.ok(refs.some((ref) => ref.owner === 'badge'));
+      assert.ok(refs.some((ref) => String(ref.property || '').includes('anatomy')));
+    });
+
+    it('indexes variants token and fallback references', () => {
+      const specPath = path.join(specRoot, 'alert.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: alert',
+          'variants:',
+          '  - name: Default',
+          '    token: color.primary',
+          '    fallback: "#ff0000"',
+        ].join('\n'),
+      );
+
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+
+      assert.ok(refs.some((ref) => ref.owner === 'alert'), 'Must include owner from variant spec file');
+      assert.ok(
+        refs.some((ref) => String(ref.property || '').includes('variants[0].token')),
+        'Must index variants token reference',
+      );
+      assert.ok(
+        refs.some((ref) => String(ref.property || '').includes('variants[0].fallback')),
+        'Must index variants fallback reference',
+      );
     });
 
     it('resolves imported shorthand refs against canonical semantic token paths', () => {
@@ -427,11 +447,10 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
-      const entry = result.byPath['semanticos.color.background.default'];
-      assert.ok(entry);
-      assert.equal(entry.usageCount, 1);
-      assert.ok(entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'boton'));
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+      assert.ok(refs.some((ref) => ref.owner === 'boton'));
+      assert.ok(refs.some((ref) => ref.tokenPath === 'color.background.default' || ref.tokenPath === 'semanticos.color.background.default'));
     });
 
     it('resolves ambiguous value refs using context without collection hardcoding', () => {
@@ -477,13 +496,10 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
-      const entry = result.byPath['theme.color.background.accent'];
-      assert.ok(entry);
-      assert.equal(entry.usageCount, 1);
-      assert.ok(
-        entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'badge'),
-      );
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+      assert.ok(refs.some((ref) => ref.owner === 'badge'));
+      assert.ok(refs.some((ref) => ref.tokenPath === 'theme.color.background.accent'));
     });
 
     it('ignores fill_alias_chain and fill_resolved helper fields during heuristic extraction', () => {
@@ -503,14 +519,11 @@ describe('token-usage-index', () => {
         ].join('\n'),
       );
 
-      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
-      const entry = result.byPath['color.primary'];
-      assert.ok(entry);
-      const componentSpecRefs = entry.usedIn.filter(
-        (occ) => occ.kind === 'component-spec' && occ.owner === 'chip',
-      );
-      assert.equal(componentSpecRefs.length, 1);
-      assert.ok(String(componentSpecRefs[0]?.detail || '').includes('.fill'));
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+      const chipRefs = refs.filter((ref) => ref.owner === 'chip');
+      assert.equal(chipRefs.length, 1);
+      assert.ok(String(chipRefs[0]?.property || '').includes('.fill'));
     });
   });
 });

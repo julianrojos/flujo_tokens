@@ -157,7 +157,6 @@ export function variableReportMatchesTokenTargets(
  * Labels for token usage kinds
  */
 export const KIND_LABELS: Record<string, string> = {
-  "component-spec": "Component spec",
   "css-alias": "CSS alias",
   "figma-alias": "Figma alias",
   "figma-applied": "Figma parent usage",

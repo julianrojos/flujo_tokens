@@ -15,18 +15,13 @@ import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context
 
 import {
   generateUsageIndexFromFile,
-  extractSpecReferences,
-  extractCssReferences,
-  buildAliasChains,
-  generateUsageIndex,
 } from '../services/token-usage-index.js';
 import type { TokenUsageIndex } from '../services/token-types.js';
-import { loadTokenRegistry } from '../services/token-utils.js';
 
 const CLI_CONFIG = {
   command: 'ds:token-usage-index [options]',
   description:
-    'Generate a deterministic usage index for token-registry entries from component specs and CSS alias chains.',
+    'Generate a deterministic usage index for token-registry entries from CSS alias chains and Figma aliases.',
   options: [
     {
       name: '--registry',
@@ -34,7 +29,7 @@ const CLI_CONFIG = {
     },
     {
       name: '--spec-root',
-      description: 'Directory containing component spec YAML files (resolves from system context if not provided).',
+      description: 'Component spec root directory (ignored by token usage index; retained for compatibility).',
     },
     {
       name: '--css-files',
@@ -102,9 +97,6 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   const registryPath = path.resolve(
     String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
   );
-  const specRoot = path.resolve(
-    String(getStringArg(parsed, 'spec-root') || ctx.paths.specs),
-  );
   const cssFiles = String(parsed['css-files'] || `${path.join(ctx.paths.output, 'primitives.css')},${path.join(ctx.paths.output, 'tokens.css')}`)
     .split(',')
     .map((f: string) => path.resolve(f.trim()));
@@ -117,7 +109,7 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
   // Generate usage index
-  const report = generateUsageIndexFromFile(registryPath, specRoot, cssFiles, figmaAliasGraphPath) as TokenUsageIndex;
+  const report = generateUsageIndexFromFile(registryPath, cssFiles, figmaAliasGraphPath) as TokenUsageIndex;
 
   // Output to stdout
   if (format === 'json') {

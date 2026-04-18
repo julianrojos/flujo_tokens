@@ -285,9 +285,9 @@ export interface TokenServiceOptions {
 }
 
 /**
- * Extended token usage kinds (including figma-alias)
+ * Extended token usage kinds used by the usage index.
  */
-export type TokenUsageKindExtended = 'component-spec' | 'css-alias' | 'figma-alias';
+export type TokenUsageKindExtended = 'css-alias' | 'figma-alias';
 
 /**
  * Token usage occurrence with extended kinds

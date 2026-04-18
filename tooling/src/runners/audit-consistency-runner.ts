@@ -177,7 +177,7 @@ function buildSuggestedCommands(params: {
   const { markdownPath, specPath, registryPath } = params;
   return [
     `npm run validate:docs -- --check token-registry --file "${markdownPath}" --spec-file "${specPath}" --no-overview true`,
-    `npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}" --registry "${registryPath}" --force true`,
+    `Update the component docs entry in the dashboard for "${markdownPath}" if the docs content is stale.`,
     'npm run generate:registry',
   ];
 }

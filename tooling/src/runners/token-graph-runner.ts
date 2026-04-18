@@ -14,7 +14,8 @@ import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 import { loadTokenRegistry } from '../services/token-utils.js';
-import { generateGraphReport, buildTokenGraph } from '../services/token-graph.js';
+import { generateGraphReport } from '../services/token-graph.js';
+import type { TokenGraph, TokenGraphReport } from '../services/token-types.js';
 
 const CLI_CONFIG = {
   command: 'ds:token-graph [options]',
@@ -226,7 +227,7 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
   }
 }
 
-function generateMarkdownReport(report: any): string {
+function generateMarkdownReport(report: TokenGraphReport): string {
   const lines: string[] = [];
 
   lines.push('# Token Graph Report\n');
@@ -268,7 +269,7 @@ function generateMarkdownReport(report: any): string {
   return lines.join('\n');
 }
 
-function generateMermaidGraph(graph: any, maxEdges: number): string {
+function generateMermaidGraph(graph: TokenGraph, maxEdges: number): string {
   const lines: string[] = [];
   lines.push('graph TD');
 

@@ -11,7 +11,6 @@ import type {
 import {
   buildAliasChains,
   extractCssReferences,
-  extractSpecReferences,
   generateUsageIndex,
 } from '../../../../tooling/src/services/token-usage-index.js';
 import {
@@ -1708,11 +1707,7 @@ function buildTokenUsageRowsFromFilesystem(options: {
       warnings.push(`Missing CSS source for usage scan: ${filePath}`);
     return exists;
   });
-  const specsDirExists = fs.existsSync(paths.specsDir);
-  if (!specsDirExists) {
-    warnings.push(`Missing specs directory for usage scan: ${paths.specsDir}`);
-  }
-  if (!specsDirExists && existingCssFiles.length === 0) {
+  if (existingCssFiles.length === 0) {
     return {
       rows: [],
       warnings,
@@ -1720,21 +1715,9 @@ function buildTokenUsageRowsFromFilesystem(options: {
     };
   }
 
-  let specRefs: ReturnType<typeof extractSpecReferences> = [];
-  try {
-    specRefs = extractSpecReferences(paths.specsDir, tokenRegistry);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    warnings.push(`Spec usage scan failed for ${paths.specsDir}: ${reason}`);
-  }
   const cssRefs = extractCssReferences(existingCssFiles, tokenRegistry);
   const aliasChains = buildAliasChains(existingCssFiles, tokenRegistry);
-  const usageIndex = generateUsageIndex(
-    tokenRegistry,
-    specRefs,
-    cssRefs,
-    aliasChains,
-  );
+  const usageIndex = generateUsageIndex(tokenRegistry, cssRefs, aliasChains);
 
   for (const entry of usageIndex.entries) {
     for (const usage of entry.usedIn) {

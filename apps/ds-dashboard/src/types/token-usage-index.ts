@@ -1,5 +1,4 @@
 export type TokenUsageKind =
-  | "component-spec"
   | "css-alias"
   | "figma-alias"
   | "figma-applied"
