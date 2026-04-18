@@ -1,6 +1,26 @@
+import type { CaptureFigmaScreenshotArgs } from "@/lib/api";
+
+export type CaptureFigmaScreenshotPayload = CaptureFigmaScreenshotArgs &
+  Record<string, unknown>;
+
 export interface BuildUpdateComponentsPayloadArgs {
   figmaUrl: string;
   figmaToken?: string;
+}
+
+export interface BuildCaptureFromFigmaPayloadArgs {
+  figmaUrl: string;
+  figmaToken?: string;
+  includeVariants?: boolean;
+  variantLimit?: number;
+  requireExistingDoc?: boolean;
+  continueOnError?: boolean;
+  refreshIndices?: boolean;
+  dryRun?: boolean;
+  mainCaptureMode?: NonNullable<CaptureFigmaScreenshotArgs["mainCaptureMode"]>;
+  componentKind?: NonNullable<CaptureFigmaScreenshotArgs["componentKind"]>;
+  tokensSource?: NonNullable<CaptureFigmaScreenshotArgs["tokensSource"]>;
+  injectDocSpecs?: boolean;
 }
 
 export interface BuildUpdateVariablesPayloadArgs {
@@ -8,9 +28,37 @@ export interface BuildUpdateVariablesPayloadArgs {
   figmaToken?: string;
 }
 
+export function buildCaptureFromFigmaPayload(
+  args: BuildCaptureFromFigmaPayloadArgs,
+): CaptureFigmaScreenshotPayload {
+  const figmaUrl = String(args.figmaUrl || "").trim();
+  if (!figmaUrl) {
+    throw new Error("Figma URL is required to capture from Figma.");
+  }
+
+  const payload: CaptureFigmaScreenshotPayload = {
+    figmaUrl,
+    includeVariants: args.includeVariants ?? false,
+    variantLimit: args.variantLimit ?? 6,
+    requireExistingDoc: args.requireExistingDoc ?? false,
+    continueOnError: args.continueOnError ?? true,
+    refreshIndices: args.refreshIndices ?? false,
+    dryRun: args.dryRun ?? false,
+    mainCaptureMode: args.mainCaptureMode ?? "rest",
+    componentKind: args.componentKind ?? "component_set",
+    tokensSource: args.tokensSource ?? "mcp",
+    injectDocSpecs: args.injectDocSpecs ?? false,
+  };
+
+  const token = String(args.figmaToken || "").trim();
+  if (token) payload.figmaToken = token;
+
+  return payload;
+}
+
 export function buildUpdateComponentsPayload(
   args: BuildUpdateComponentsPayloadArgs,
-): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
+): { ok: true; payload: CaptureFigmaScreenshotPayload } | { ok: false; error: string } {
   const figmaUrl = String(args.figmaUrl || "").trim();
   if (!figmaUrl) {
     return {
@@ -19,24 +67,23 @@ export function buildUpdateComponentsPayload(
     };
   }
 
-  const payload: Record<string, unknown> = {
-    figmaUrl,
-    includeVariants: false,
-    variantLimit: 6,
-    requireExistingDoc: true,
-    continueOnError: true,
-    refreshIndices: true,
-    dryRun: false,
-    injectDocSpecs: false,
-    mainCaptureMode: "rest",
-    componentKind: "component_set",
-    tokensSource: "mcp",
+  return {
+    ok: true,
+    payload: buildCaptureFromFigmaPayload({
+      figmaUrl,
+      figmaToken: args.figmaToken,
+      includeVariants: false,
+      variantLimit: 6,
+      requireExistingDoc: true,
+      continueOnError: true,
+      refreshIndices: true,
+      dryRun: false,
+      mainCaptureMode: "rest",
+      componentKind: "component_set",
+      tokensSource: "mcp",
+      injectDocSpecs: false,
+    }),
   };
-
-  const token = String(args.figmaToken || "").trim();
-  if (token) payload.figmaToken = token;
-
-  return { ok: true, payload };
 }
 
 export function buildUpdateVariablesPayload(

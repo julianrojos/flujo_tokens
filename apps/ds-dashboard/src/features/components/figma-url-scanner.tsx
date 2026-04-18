@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { buildCaptureFromFigmaPayload } from "@/features/system/design-system-update-actions-logic";
 
 interface FigmaUrlScannerProps {
   /** Called after a successful scan to trigger a data refresh in the parent. */
@@ -151,7 +152,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   const [figmaToken, setFigmaToken] = useState("");
   const [rememberToken, setRememberToken] = useState(true);
   const [componentSlug, setComponentSlug] = useState("");
-  const [requireExistingDoc, setRequireExistingDoc] = useState(false);
   const [includeVariants, setIncludeVariants] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -239,15 +239,19 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   }, [activeSystem, isSystemLoading]);
 
   const buildScanRequest = (): CaptureFigmaScreenshotArgs => ({
-    figmaUrl: url.trim(),
-    figmaToken: figmaToken.trim() || undefined,
+    ...buildCaptureFromFigmaPayload({
+      figmaUrl: url.trim(),
+      figmaToken: figmaToken.trim() || undefined,
+      includeVariants,
+      requireExistingDoc: false,
+      refreshIndices: true,
+      dryRun: false,
+      mainCaptureMode: "rest",
+      componentKind: "component_set",
+      tokensSource: "mcp",
+      injectDocSpecs: true,
+    }),
     componentSlug: componentSlug.trim() || undefined,
-    componentKind: "component_set",
-    requireExistingDoc,
-    includeVariants,
-    injectDocSpecs: true,
-    refreshIndices: true,
-    continueOnError: true,
   });
 
   const extractExistingTargets = (
@@ -402,7 +406,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           <div>
             <CardTitle className="text-base">Import from Figma</CardTitle>
             <CardDescription className="text-xs">
-              Paste a Figma URL to generate docs and capture visual proof.
+              Paste a Figma URL to capture visual proof from the current file.
             </CardDescription>
           </div>
         </div>
@@ -496,16 +500,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
                 disabled={loading}
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={requireExistingDoc}
-                onChange={(e) => setRequireExistingDoc(e.target.checked)}
-                disabled={loading}
-                className="h-3.5 w-3.5"
-              />
-              <span>Require existing doc (skip new components)</span>
-            </label>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
               <input
                 type="checkbox"
