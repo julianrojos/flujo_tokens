@@ -108,10 +108,7 @@ describe('docs-validator', () => {
             const roots = resolveValidationRoots();
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
-                specRoot: roots.specRoot,
                 registryPath: roots.registryPath,
-                checkPairing: false,
-                checkSpecs: false,
                 checkOverview: false,
             });
 
@@ -133,7 +130,6 @@ describe('docs-validator', () => {
             const roots = resolveValidationRoots();
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
-                specRoot: roots.specRoot,
                 registryPath: path.join(process.cwd(), '__nonexistent__', 'token-registry.json'),
             });
 
@@ -157,10 +153,7 @@ describe('docs-validator', () => {
 
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
-                specRoot: roots.specRoot,
                 registryPath: roots.registryPath,
-                checkPairing: false,
-                checkSpecs: false,
                 checkOverview: false,
             });
 
@@ -239,10 +232,7 @@ describe('docs-validator', () => {
             
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
-                specRoot: roots.specRoot,
                 registryPath: roots.registryPath,
-                checkPairing: false,
-                checkSpecs: false,
             });
 
             const hasReg01 = report.errors.some((e) => e.code === 'REG01');
@@ -256,19 +246,17 @@ describe('docs-validator', () => {
             }
         });
 
-        it('does not require spec-root when spec checks and pairing are disabled', () => {
+        it('does not require spec-only options when only docs and registry checks are requested', () => {
             const roots = resolveValidationRoots();
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
                 registryPath: roots.registryPath,
-                checkSpecs: false,
-                checkPairing: false,
                 checkOverview: false,
             });
 
             assert.ok(
                 !report.errors.some((e) => e.code === 'DOC01'),
-                'Should not require spec-root when spec checks and pairing are disabled.',
+                'Should not require spec-only options when only docs and registry checks are requested.',
             );
         });
     });
@@ -279,7 +267,6 @@ describe('docs-validator', () => {
             const roots = resolveValidationRoots();
             const report = validateDocs({
                 docsRoot: roots.docsRoot,
-                specRoot: roots.specRoot,
                 registryPath: roots.registryPath,
             });
 

@@ -16,7 +16,6 @@ export interface PipelinePaths {
   databaseUrl: string;
   tokenRegistryPath: string;
   resolvedSpecRoot: string;
-  templatePath: string;
   overviewPath: string;
 }
 
@@ -64,12 +63,6 @@ export function resolvePipelinePaths(
   const specRoot = args['spec-root'] || systemContext.paths.specs;
   const resolvedSpecRoot = path.resolve(specRoot);
 
-  // Template lives in tooling/templates/component-spec/_template.yml
-  const defaultTemplatePath = path.resolve(
-    PROJECT_ROOT,
-    'tooling/templates/component-spec/_template.yml',
-  );
-
   return {
     docsRootOverride,
     docsRootDir,
@@ -81,7 +74,6 @@ export function resolvePipelinePaths(
       args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, '_generated', 'token-registry.json')
     ),
     resolvedSpecRoot,
-    templatePath: path.resolve(args.template || defaultTemplatePath),
     overviewPath: path.resolve(path.join(docsRootDir, 'overview.md')),
   };
 }

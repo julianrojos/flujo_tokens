@@ -4,10 +4,8 @@ This is the single entry point for the Design System documentation pipeline.
 
 Canonical sequence:
 
-1. `spec` -> create/update `design-systems/<system-id>/docs/_spec/components/<snake_case>.yml`
+1. `spec` -> create/update the component spec file at `design-systems/<system-id>/docs/_spec/components/<snake_case>.yml`
 2. `markdown` -> generate/update `design-systems/<system-id>/docs/components/<snake_case>.md`
-
-Global legacy roots (`docs/components/*` and `docs/_spec/components/*`) are not part of this workflow.
 
 ## Prerequisites
 

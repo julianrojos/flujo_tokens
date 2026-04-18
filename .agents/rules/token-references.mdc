@@ -1,5 +1,5 @@
 ---
-description: Rules for referencing design tokens consistently across all documentation — Markdown pages and spec YAMLs.
+description: Rules for referencing design tokens consistently across all documentation — Markdown pages and component specs.
 globs:
   - "docs/**/*.md"
   - "docs/_spec/**/*.yml"

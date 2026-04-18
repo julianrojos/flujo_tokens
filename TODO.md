@@ -10,10 +10,10 @@ No existe validación formal de que los docs generados sean correctos, completos
 **Propuesta**  
 Crear un skill de auditoría que:
 
-- Verifique que cada componente en Figma tiene su spec YAML, su `.md` y su sección `Doc/` renderizada.
+- Verifique que cada componente en Figma tiene su component spec, su `.md` y su sección `Doc/` renderizada.
 - Detecte tokens referenciados en docs que no existen en los JSON.
 - Detecte componentes en Figma sin documentar.
-- Compare propiedades del spec YAML vs propiedades reales del `COMPONENT_SET` en Figma.
+- Compare propiedades del component spec vs propiedades reales del `COMPONENT_SET` en Figma.
 - Genere un reporte de cobertura y discrepancias.
 
 ## COMPILACIÓN DE TOKENS
@@ -48,7 +48,7 @@ Falta una regla de organización para ubicar claramente scripts, generated artif
 ## COMUNES
 
 Context
-The documentation project has reached governance maturity (14 rules, 6 skills) but suffers from fundamental architectural gaps: the token compilation and documentation pipelines are completely disconnected, zero rules are machine-enforced, the MD→Figma pipeline loses inline formatting, there is no orchestration, and spec YAMLs are written entirely by hand. This plan introduces 7 improvements that connect the pipelines, automate validation, and add the missing infrastructure.
+The documentation project has reached governance maturity (14 rules, 6 skills) but suffers from fundamental architectural gaps: the token compilation and documentation pipelines are completely disconnected, zero rules are machine-enforced, the MD→Figma pipeline loses inline formatting, there is no orchestration, and component specs are written entirely by hand. This plan introduces 7 improvements that connect the pipelines, automate validation, and add the missing infrastructure.
 Implementation Order (Dependency Graph)
 
 ---
@@ -77,19 +77,19 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 
 **Coverage** (what exists vs. what should):
 
-- `COV-01`: Spec YAMLs vs. markdown files
+- `COV-01`: Component specs vs. markdown files
 - `COV-02`: Markdown files vs. overview links
 - `COV-03`: Token paths in docs vs. token registry
 
 **Freshness** (what might be stale):
 
-- `FRE-01`: Spec YAMLs still `draft`
+- `FRE-01`: Component specs still `draft`
 - `FRE-02`: Markdown with `doc_status: needs-review`
 - `FRE-03`: `last_verified` dates older than 30 days
 
 **Completeness** (what has TBD gaps):
 
-- `COM-01`: Spec YAMLs with TBD values (count per file)
+- `COM-01`: Component specs with TBD values (count per file)
 - `COM-02`: Markdowns with `## Gaps / TBD` section
 
 **Integrity** (cross-pipeline):

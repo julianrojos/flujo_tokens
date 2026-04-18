@@ -23,7 +23,7 @@ Markdown docs use `doc_status` with these values only:
 
 ## YAML alignment note
 
-- Component spec YAML keeps `status` limited to `draft | ready` (as defined in `component-spec-yaml.mdc`).
+- Component specs keep `status` limited to `draft | ready` (as defined in `component-spec-yaml.mdc`).
 - `needs-review` is markdown-only and should be used when docs may be stale but YAML has not been revalidated yet.
 
 ## Transition guidance

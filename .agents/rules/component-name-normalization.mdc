@@ -17,11 +17,11 @@ Canonical slug regex:
 File regexes:
 
 - Markdown: `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\\.md$`
-- Spec YAML: `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\\.yml$`
+- Spec file name: `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\\.yml$`
 
 Deterministic path contract:
 
-- Spec YAML: `docs/_spec/components/<snake_case>.yml`
+- Spec file: `docs/_spec/components/<snake_case>.yml`
 - Markdown: `docs/components/<snake_case>.md`
 - Explicit CLI paths override inferred paths.
 

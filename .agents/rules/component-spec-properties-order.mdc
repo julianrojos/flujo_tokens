@@ -1,5 +1,5 @@
 ---
-description: Deterministic ordering rules for `properties` in component spec YAML files.
+description: Deterministic ordering rules for `properties` in component spec files.
 globs:
   - "docs/_spec/components/*.yml"
 ---

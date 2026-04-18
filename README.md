@@ -70,7 +70,7 @@ Note: `--system` is strict; empty values and invalid IDs are rejected (allowed c
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
-- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from component specs (`design-systems/<id>/docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
+- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from component spec files (`design-systems/<id>/docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 - **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
 - **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
 - **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
@@ -352,16 +352,6 @@ npm run ds:pipeline -- --component Alert --from-step markdown
 
 ```
 
-Migration notes (legacy cleanup):
-
-- Pipeline steps `render/proof` were removed from `ds:pipeline` (canonical flow is now `spec -> markdown`).
-- Visual proof capture remains available as a standalone command: `npm run ds:capture-visual-proof`.
-- `ds-component-orchestrator` now defaults `capture_visual_proof=true` (previously `false`). Pass `capture_visual_proof=false` to keep spec+markdown-only runs.
-- Removed scripts: `npm run ds:active-md-to-figma` and `npm run ds:render-figma:all`.
-  - Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
-- Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
-- Global component docs/spec roots (`docs/components/*`, `docs/_spec/components/*`) are deprecated and no longer used at runtime.
-
 ### Documentation Scripts
 
 System context (DB-backed):
@@ -387,14 +377,13 @@ System context (DB-backed):
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
+- **`npm run validate:docs`**: Validates component docs against project rules and `docs/_generated/token-registry.json` (section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, overview links, canonical `snake_case` file naming, unresolved editorial placeholders, and internal markdown link integrity). It does not validate the component-spec JSON schema; that validation path has been retired permanently.
   - Validation findings are annotated with rule IDs using `.agents/rules/_manifest.yml`.
-  - Enforces spec/markdown pairing, spec schema, and deterministic `Gaps / TBD` content checks.
+  - Enforces canonical docs structure, token-reference hygiene, and deterministic content checks.
 
 ### Documentation folders
 
 - `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
-- `design-systems/<id>/docs/_spec/`: component specs and visual theme contract
 - `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `DATABASE_URL`: operational storage for component registry state
 - `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
@@ -501,7 +490,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
   - optional spec `related_components` is validated:
     - values must be `snake_case` slugs, unique, and must not self-reference
-    - in `ready` specs, every entry must resolve to an existing component spec YAML
+    - in `ready` specs, every entry must resolve to an existing component spec
   - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
@@ -630,7 +619,7 @@ Useful flags:
 
 - `--component-name <Name>`
 - `--markdown <path/to/component.md>`
-- `--spec-file <path/to/spec.yml>`
+- `--spec-file <path/to/component-spec.yml>`
 - `--component-set-id <figma-node-id>` (override spec node id)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
 - `--proof-image-dir <path>` (default: `docs/_generated/visual-proofs/images`)
@@ -644,19 +633,7 @@ Useful flags:
 - `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
-### 3b) Auto-mark stale docs as needs-review
-
-```bash
-```
-
-Useful flags:
-
-- `--system <id>` (recommended in multi-system repos)
-- `--file <path/to/component.md>` (single file mode)
-- `--spec-file <path/to/spec.yml>` (single file mode)
-- `--dry-run true`
-
-### 3c) Component registry and overview sync
+### 3b) Component registry and overview sync
 
 ```bash
 npm run ds:registry:sync
@@ -710,10 +687,9 @@ npm run validate:docs
 
 Validation command options:
 
-- `npm run validate:docs` -> full docs + specs + overview checks
+- `npm run validate:docs` -> full docs + registry + overview checks
 - `npm run validate:docs -- --check token-registry` -> focused token-registry check (codes: `TOKEN_MISSING` / `TOKEN_AMBIGUOUS` / `TOKEN_DEPRECATED`, mapped from validator findings)
-- `npm run validate:docs -- --system my-system --file design-systems/my-system/docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
-- `npm run validate:docs -- --system my-system --spec-file design-systems/my-system/docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
+- `npm run validate:docs -- --system my-system --file design-systems/my-system/docs/components/alert.md --no-overview true` -> validate one markdown file only
 - `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
 - validation output includes `rule_ids` per finding when mapped in `.agents/rules/_manifest.yml`
 

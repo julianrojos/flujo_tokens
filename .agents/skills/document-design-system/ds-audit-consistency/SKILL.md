@@ -1,6 +1,6 @@
 ---
 name: ds-audit-consistency
-description: Audit consistency across component spec YAML, markdown docs, and token registry traceability checks.
+description: Audit consistency across component specs, markdown docs, and token registry traceability checks.
 version: "1.1.1"
 context:
   doc_type: component
@@ -23,7 +23,7 @@ inputs:
     type: path
     required: false
     default: "docs/_spec/components"
-    description: "Directory containing component spec YAML files."
+    description: "Directory containing component specs."
   - name: registry
     type: path
     required: false

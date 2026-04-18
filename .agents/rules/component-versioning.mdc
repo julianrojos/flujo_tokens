@@ -20,7 +20,7 @@ version:
   docs: "1.0.0"
 ```
 
-### Spec YAML (`docs/_spec/components/*.yml`)
+### Component spec files (`docs/_spec/components/*.yml`)
 
 ```yaml
 version:
@@ -33,7 +33,7 @@ Rules:
 - If present, it must be an object.
 - Allowed keys:
   - Markdown: `spec`, `component`, `docs`
-  - Spec YAML: `spec`, `component`
+  - Spec: `spec`, `component`
 - Values must be concrete SemVer strings (`MAJOR.MINOR.PATCH`, optional prerelease/build metadata).
 
 ## Changelog placement

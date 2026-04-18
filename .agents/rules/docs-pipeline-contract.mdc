@@ -29,9 +29,9 @@ This contract defines the only canonical order for component documentation:
 
 ## Validation gates (blocking)
 
-- After `spec` stage, run `npm run validate:docs` for the generated spec and block on errors.
+- After `spec` stage, run `npm run validate:docs` for the generated spec and block on errors. This command validates docs/token/overview integrity only; component-spec schema/`ready` validation is permanently retired.
 - After `markdown` stage, run `npm run validate:docs` for the generated markdown and block on errors.
-- Before promoting a component to `doc_status: ready`, run `npm run validate:docs` and block if any `TOK*` findings remain.
+- Before promoting a component to `doc_status: ready`, run `npm run validate:docs` and block if any `TOK*` findings remain; there is no automated schema/`ready` gate anymore.
 - `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
 - `visual-proof` stage must fail when screenshot capture cannot produce a concrete URL.
 

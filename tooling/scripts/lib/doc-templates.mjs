@@ -13,15 +13,6 @@ export const GOLDEN_COMPONENT_DOC_SAMPLE_PATH = path.resolve(
   "component-doc.md",
 );
 
-export const GOLDEN_COMPONENT_SPEC_SAMPLE_PATH = path.resolve(
-  PROJECT_ROOT,
-  "tooling",
-  "scripts",
-  "lib",
-  "golden-samples",
-  "component-spec.yml",
-);
-
 function sanitizeComponentName(rawName) {
   const value =
     typeof rawName === "string"

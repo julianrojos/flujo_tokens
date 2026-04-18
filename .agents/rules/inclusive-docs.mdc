@@ -13,7 +13,7 @@ This rule is the canonical inclusive-content contract for docs: accessibility + 
 
 ## Accessibility
 
-Every component doc `## Accessibility` section and every spec YAML `accessibility` field must cover:
+Every component doc `## Accessibility` section and every component spec `accessibility` field must cover:
 
 1. ARIA role and semantics.
 2. Keyboard navigation.
@@ -40,7 +40,7 @@ Hit area requirements for interactive components:
 - Mobile token: `Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA` (48px).
 - For non-interactive components, hit-area details may be omitted.
 
-Spec YAML minimum shape:
+Component spec minimum shape:
 
 ```yaml
 accessibility:

@@ -27,7 +27,7 @@ inputs:
     type: path
     required: false
     default: "${docs_root}/_spec/components"
-    description: "Directory where the canonical spec YAML will be created or updated."
+    description: "Directory where the canonical component spec will be created or updated."
   - name: registry
     type: path
     required: false
@@ -47,7 +47,7 @@ outputs:
   - name: spec_file
     type: path
     value: "${spec_root}/${component_name_snake_case}.yml"
-    description: "Created or repaired canonical spec YAML."
+    description: "Created or repaired canonical component spec."
   - name: markdown_file
     type: path
     value: "${docs_root}/components/${component_name_snake_case}.md"
@@ -61,7 +61,7 @@ outputs:
 
 ## When to use
 
-- Existing markdown docs without matching spec YAML
+- Existing markdown docs without matching component spec
 - Component docs with non-canonical structure/order
 - Docs with hardcoded values that should be token references
 - Components that fail `validate:docs` due to structure/traceability drift
@@ -91,14 +91,14 @@ Migration output must comply with:
 
 1. **Analyze current inputs**
 - Inspect the legacy markdown and infer component display name + slug.
-- Detect whether spec YAML exists.
+- Detect whether the component spec exists.
 - Extract any existing Figma source traceability from frontmatter/prose.
 - Identify hardcoded visual values and token candidates.
 - Pre-flight overwrite guard:
   - If target spec/markdown already exist and `force` is `false`, report file conflicts and stop without writing.
   - If `force` is `true`, continue and explicitly note overwrite intent in the output report.
 
-2. **Create or repair spec YAML**
+2. **Create or repair the component spec**
 - Target path: `docs/_spec/components/<snake_case>.yml`.
 - Fill required schema fields from existing docs.
 - Use `TBD` only where data is genuinely unknown.

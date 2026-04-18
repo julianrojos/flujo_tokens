@@ -31,7 +31,7 @@ globs:
 ## Pipeline order and preconditions
 
 - Follow the canonical stage contract in `docs-pipeline-contract.mdc`.
-- Source of truth: spec YAML. Markdown and Figma sections are derived artifacts.
+- Source of truth: the component spec. Markdown and Figma sections are derived artifacts.
 
 ## Token references
 
@@ -45,7 +45,7 @@ globs:
 - Follow `prohibited-patterns.mdc`.
 - Figma node IDs are allowed in source links and metadata (for example, `node-id` in source URLs or explicit node references in metadata).
 - Do not use node IDs as token identifiers; keep token references human-readable.
-- For deterministic markdown -> Figma placement, prefer `figma.component_set_node_id` from the spec YAML.
+- For deterministic markdown -> Figma placement, prefer `figma.component_set_node_id` from the spec.
 - For visual evidence capture, use the screenshot workflow:
 
 ```bash
@@ -57,7 +57,7 @@ npm run ds:capture-visual-proof -- --component-name <ComponentName> --agent code
 ## Metadata
 
 - Component docs must carry a lifecycle status consistent with `markdown-lifecycle-status.mdc`.
-- Component spec YAMLs must declare `status`: `draft` or `ready`.
+- Component specs must declare `status`: `draft` or `ready`.
 - Component specs in `ready` status must include a concrete `figma.component_set_node_id`.
 - Generated files in `docs/_generated/` must not be hand-edited; they are overwritten by skills.
 

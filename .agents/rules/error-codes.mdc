@@ -23,7 +23,6 @@ This file is the canonical human-readable reference for validation/governance co
 | `TOK01` | yes | Token path in markdown does not resolve in registry. | `token-references`, `token-registry-validation` |
 | `TOK02` | yes | Token path is deprecated. | `token-references`, `token-registry-validation` |
 | `TOK03` | yes | Forbidden token format (`VariableID:*` or equivalent). | `prohibited-patterns`, `token-references`, `token-registry-validation` |
-| `SPEC01` | yes | Invalid spec structure/value contract or unresolved token in spec mappings. | `component-spec-yaml`, `token-registry-validation` |
 | `REL01` | no | Non-blocking spec relation inconsistency (advisory). | `component-spec-yaml` |
 | `DET01` | yes | Deterministic ordering contract failed (for example properties order). | `component-spec-properties-order` |
 | `NAME01` | yes | Component naming normalization contract failed. | `component-name-normalization` |

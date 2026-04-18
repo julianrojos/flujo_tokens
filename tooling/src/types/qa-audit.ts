@@ -47,7 +47,7 @@ export interface AuditFinding {
 }
 
 /**
- * Coverage audit: Spec YAMLs vs. markdown files.
+ * Coverage audit: Component specs vs. markdown files.
  */
 export interface CoverageSpecVsMarkdown {
   /**
@@ -92,7 +92,7 @@ export interface CoverageTokenPaths {
  */
 export interface FreshnessAudit {
   /**
-   * Spec YAMLs still in draft status.
+   * Component specs still in draft status.
    */
   draftSpecs: string[];
   /**
@@ -114,7 +114,7 @@ export interface FreshnessAudit {
  */
 export interface CompletenessAudit {
   /**
-   * Spec YAMLs with TBD values.
+   * Component specs with TBD values.
    */
   specsWithTbd: Array<{
     path: string;

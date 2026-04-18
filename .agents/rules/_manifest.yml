@@ -249,9 +249,6 @@ checks:
         token-registry-validation,
       ]
     blocking: true
-  SPEC01:
-    rule_ids: [component-spec-yaml, token-registry-validation]
-    blocking: true
   REL01:
     rule_ids: [component-spec-yaml]
     blocking: false

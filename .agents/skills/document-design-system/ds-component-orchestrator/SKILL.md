@@ -38,7 +38,7 @@ outputs:
     value: '${docs_root}/_spec/components/${component_name_snake_case}.yml'
     conditional: true
     condition: 'Only when the spec stage runs (spec is missing or outdated). Skipped when a valid up-to-date spec already exists.'
-    description: 'Created or updated spec YAML.'
+    description: 'Created or updated component spec.'
   - name: markdown_file
     type: path
     value: '${docs_root}/components/${component_name_snake_case}.md'
@@ -74,7 +74,7 @@ This skill orchestrates existing workflows. It does not replace specialized skil
 
 - Exact component name (display name, for example `Button` or `Status Bar`)
 - Documentation target path if non-default
-- Available source(s): Figma URL/node-id, spec file, token registry
+- Available source(s): Figma URL/node-id, component spec, token registry
 
 If the component name or source of truth is missing, ask before writing files.
 
