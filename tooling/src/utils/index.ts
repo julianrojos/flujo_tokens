@@ -58,9 +58,6 @@ export { runTokenHealth } from '../runners/token-health-runner.js';
 // Health runners
 export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
 
-// Tokens sync runners
-export { runTokensSync } from '../runners/tokens-sync-runner.js';
-
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 

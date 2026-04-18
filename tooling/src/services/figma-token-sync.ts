@@ -840,7 +840,7 @@ export interface RunTokensCompileResult {
 }
 
 /**
- * Run the tokens-sync runner to compile input JSON → CSS custom properties.
+ * Run the token compiler to compile input JSON → CSS custom properties.
  */
 export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCompileResult {
   const { repoRoot, system } = options;
@@ -867,7 +867,9 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
   const args = [
     '--import',
     'tsx',
-    path.join(repoRoot, 'tooling', 'src', 'runners', 'tokens-sync-runner.ts'),
+    path.join(repoRoot, 'tooling', 'src', 'cli', 'index.ts'),
+    '--registry',
+    '--split',
     '--input',
     inputDirPath,
     '--output-primitives',
@@ -876,8 +878,6 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
     path.join(outputDir, 'tokens.css'),
     '--registry-output',
     tokenRegistryPath,
-    '--force',
-    'true',
   ];
 
   const result = spawnSync(process.execPath, args, {
