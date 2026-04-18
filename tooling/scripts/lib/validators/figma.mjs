@@ -42,7 +42,7 @@ function buildTraceabilityRegenerationCommand({
   const specArg = JSON.stringify(toCliPath(specPath));
   const outputArg = JSON.stringify(toCliPath(markdownPath));
   const registryArg = JSON.stringify(toCliPath(databaseUrl));
-  return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
+  return `Regenerate manually: update ${outputArg} from ${specArg} using the dashboard, then refresh registry data from ${registryArg}.`;
 }
 
 function sha256FileCached(filePath) {

@@ -32,5 +32,5 @@ This command is the authoritative path for synchronized index updates.
 
 ## Scope
 
-- Applies to: `ds:doc-from-figma-url`, `ds:component-doc`, `ds:spec-from-figma`, `ds:capture-visual-proof`, and markdown-to-Figma workflows that mutate component status metadata.
+- Applies to: `ds:doc-from-figma-url`, `ds:capture-visual-proof`, and markdown-to-Figma workflows that mutate component status metadata.
 - May be used by other scripts as a finalization step when they modify component artifacts.

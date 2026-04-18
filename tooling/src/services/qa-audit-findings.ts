@@ -38,7 +38,7 @@ export function buildFindings(
       title: 'Spec without markdown',
       location: `<active-system-docs>/docs/_spec/components/${spec}.yml`,
       message: `Spec YAML exists but no corresponding markdown file`,
-      suggestion: `Run ds-spec-to-markdown to generate markdown from spec`,
+      suggestion: `Create or update the component docs entry in the dashboard`,
     });
   }
 

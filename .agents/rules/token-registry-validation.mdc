@@ -29,26 +29,16 @@ The standalone token-ref report (see below) maps these to four buckets:
 
 ## Validation commands
 
-**Focused token-reference report** (preferred for CI and pre-promote checks):
-
-```bash
-npm run validate:token-refs
-```
-
-Options:
-```bash
-npm run validate:token-refs -- --component-name Alert      # single component
-npm run validate:token-refs -- --spec-file docs/_spec/components/alert.yml
-npm run validate:token-refs -- --file docs/components/alert.md
-npm run validate:token-refs -- --json                      # machine-readable JSON
-npm run validate:token-refs -- --no-specs                  # skip spec YAML files
-npm run validate:token-refs -- --no-markdown               # skip markdown files
-```
-
-Exit codes: `0` clean · `1` unresolved tokens · `2` wrong-format tokens · `3` both.
-
 **Full docs validation** (structural + token + all other rules):
 
 ```bash
 npm run validate:docs
 ```
+
+**Consistency audit** (useful as a targeted follow-up when you need an explicit token report):
+
+```bash
+npm run ds:audit-consistency
+```
+
+Use `npm run validate:docs` and inspect the emitted TOK* findings for token-reference validation.

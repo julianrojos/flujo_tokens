@@ -130,8 +130,7 @@ Migration output must comply with:
 # 1) Ensure registry is fresh
 npm run generate:registry
 
-# 2) Generate/repair markdown from spec
-npm run ds:component-doc -- --component-name "<DisplayName>" --force true
+# 2) Update the component docs entry in the dashboard
 
 # 3) Validate migrated output (if script exists)
 npm run validate:docs -- --file "docs/components/<snake_case>.md" --no-overview true

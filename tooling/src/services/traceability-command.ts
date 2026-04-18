@@ -43,5 +43,5 @@ export function buildTraceabilityRegenerationCommand(paths: {
   const specArg = JSON.stringify(toCliPath(paths.specPath));
   const outputArg = JSON.stringify(toCliPath(paths.markdownPath));
   const registryArg = JSON.stringify(toCliPath(paths.databaseUrl));
-  return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
+  return `Regenerate manually: update ${outputArg} from ${specArg} using the dashboard, then refresh registry data from ${registryArg}.`;
 }

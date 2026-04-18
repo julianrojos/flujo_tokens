@@ -108,7 +108,7 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 - Each component page follows the structure defined in `component-doc.mdc` (required frontmatter + ordered sections)
 - How to add a component:
   1. Create spec YAML in `_spec/components/<Component>.yml` (see `component-spec-yaml.mdc`)
-  2. Run ds-component-doc
+  2. Update the docs entry in the dashboard
 - Definition of done checklist (short)
 
 ### Optional: ${docs_root}/index.md
@@ -144,4 +144,4 @@ After writing files, output:
 
 - Created files list
 - Files skipped (already existed)
-- Next suggested step: run `ds:tokens-sync`, then `ds-component-doc`
+- Next suggested step: run `ds:tokens-sync`, then update the docs entry in the dashboard

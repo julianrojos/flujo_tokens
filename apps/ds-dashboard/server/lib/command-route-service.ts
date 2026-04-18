@@ -148,16 +148,6 @@ function redactFigmaToken(args: string[]): string[] {
 export function buildRunScriptCommandArgs(options: RunScriptCommandArgsOptions): RunScriptCommandArgsResult {
   const { scriptName, body, systemId } = options;
   const args = ['run', scriptName, '--', '--system', systemId];
-  if (scriptName === 'ds:component-doc') {
-    const specFile = body.specFile || body.spec_file || body['spec-file'];
-    const componentName = body.component || body.componentName || body.componentSlug;
-    if (specFile) {
-      args.push('--spec-file', String(specFile));
-    } else if (componentName) {
-      args.push('--component-name', String(componentName));
-    }
-    return { args };
-  }
   if (scriptName !== 'ds:pipeline') return { args };
   if (body.all) args.push('--all');
   if (body.component) args.push('--component', String(body.component));

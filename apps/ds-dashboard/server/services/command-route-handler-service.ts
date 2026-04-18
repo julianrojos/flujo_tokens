@@ -513,17 +513,6 @@ export async function handleRunScriptRoute(
   };
   const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
 
-  if (parsedScript.scriptName === 'ds:component-doc') {
-    if (!specFile && !component) {
-      return failJson(c, 400, {
-        code: 'validation.component_doc_args_required',
-        userMessage: 'Either componentName or specFile is required.',
-        recoverable: true,
-        requestId,
-      });
-    }
-  }
-
   const runConfig = buildRunScriptQueueConfig({
     scriptName: parsedScript.scriptName,
     body: mergedBody,

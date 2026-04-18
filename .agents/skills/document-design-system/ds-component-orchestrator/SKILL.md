@@ -87,13 +87,11 @@ If the component name or source of truth is missing, ask before writing files.
 
 2. **Spec stage**
 
-- If spec is missing or outdated, run:
-  - `ds:spec-from-figma` (preferred when Figma source is available), or
-  - migrate/repair existing spec following `component-spec-yaml.mdc`.
+- If spec is missing or outdated, update it in the dashboard or migrate/repair the existing spec following `component-spec-yaml.mdc`.
 
 3. **Markdown stage**
 
-- Generate/update markdown via `ds:component-doc`.
+- Generate/update markdown via the dashboard docs editor or the live API-backed docs flow.
 - Preserve canonical H2 contract from `component-doc.mdc`.
 - Ensure `## Overview` includes `### Visual Proof`.
 - Ensure `## Usage Guidelines` includes behavior/examples guidance.

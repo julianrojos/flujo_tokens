@@ -207,6 +207,26 @@ describe('pipeline-execution', () => {
       assert.ok(metrics.success === true || metrics.failedSteps.length > 0);
     });
 
+    it('stops at first markdown failure when strict mode is enabled', () => {
+      const componentPlan = {
+        slug: 'test-component',
+        steps: [
+          { id: 'markdown', needed: true, blocked: false },
+          { id: 'spec', needed: true, blocked: false },
+        ],
+      };
+
+      const metrics = executeComponentTasks(componentPlan, {
+        ...baseOptions,
+        strict: true,
+        system: 'test',
+      });
+
+      assert.strictEqual(metrics.success, false);
+      assert.deepStrictEqual(metrics.failedSteps, ['markdown']);
+      assert.deepStrictEqual(metrics.executedSteps, []);
+    });
+
     it('includes system flag in command args when provided', () => {
       const componentPlan = {
         slug: 'test-component',

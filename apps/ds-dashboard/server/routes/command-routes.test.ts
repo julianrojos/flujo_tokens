@@ -106,56 +106,6 @@ describe('command-routes', () => {
       assert.equal((payload as any).code, 'validation.missing_script_name');
     });
 
-    it('accepts component args from query when body is empty', async () => {
-      const captured: any[] = [];
-      const app = createTestApp({
-        readJsonBody: async () => ({}),
-        enqueueQueueJob: (args: any) => {
-          captured.push(args);
-          return { id: 'queued_component_doc' };
-        },
-      });
-
-      const res = await app.request(
-        '/api/run/ds:component-doc?component=button&specFile=docs/test-system/_spec/components/button.yml',
-        { method: 'POST' },
-      );
-      assert.equal(res.status, 202);
-      assert.equal(captured.length, 1);
-      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/test-system\/_spec\/components\/button\.yml/);
-    });
-
-    it('accepts legacy query aliases when body is empty', async () => {
-      const captured: any[] = [];
-      const app = createTestApp({
-        readJsonBody: async () => ({}),
-        enqueueQueueJob: (args: any) => {
-          captured.push(args);
-          return { id: 'queued_component_doc_legacy' };
-        },
-      });
-
-      const res = await app.request(
-        '/api/run/ds:component-doc?componentName=button&spec_file=docs/test-system/_spec/components/button.yml',
-        { method: 'POST' },
-      );
-      assert.equal(res.status, 202);
-      assert.equal(captured.length, 1);
-      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/test-system\/_spec\/components\/button\.yml/);
-    });
-
-    it('returns typed error when ds:component-doc args are missing', async () => {
-      const app = createTestApp({
-        readJsonBody: async () => ({}),
-      });
-
-      const res = await app.request('/api/run/ds:component-doc', { method: 'POST' });
-      assert.equal(res.status, 400);
-      const payload = await res.json();
-      assert.equal((payload as any).ok, false);
-      assert.equal((payload as any).code, 'validation.component_doc_args_required');
-      assert.match(String((payload as any).message || ''), /componentName|specFile/i);
-    });
   });
 
   describe('/api/admin/restart-api', () => {

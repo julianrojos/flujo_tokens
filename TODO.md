@@ -53,21 +53,9 @@ Implementation Order (Dependency Graph)
 
 ---
 
-## Improvement 5: Spec Auto-Generation from Figma (`ds-spec-from-figma`)
+## Improvement 5: Spec capture from Figma
 
-**Problem**: Writing spec YAMLs by hand is the slowest bottleneck. User must inspect Figma, extract properties, map tokens — all manually.
-
-### Files to create
-
-- `.agents/skills/document-design-system/ds-spec-from-figma/SKILL.md`
-
-#### Skill workflow (agent-driven, uses Figma MCP)
-
-1. `figma_search_components` / `figma_get_component_details` → extract `name`, `properties`, layer tree
-2. Read `input/Components.json` → match token entries for this component → pre-fill `token_mapping`
-3. Pre-fill `accessibility` with standard tokens from `_template.yml`
-4. Leave subjective fields (`summary`, `content_guidelines`) as `TBD`
-5. Write to `docs/_spec/components/{snake_name}.yml`
+Keep the dashboard-driven spec editor aligned with Figma capture and docs validation.
 
 #### Applicable rules
 

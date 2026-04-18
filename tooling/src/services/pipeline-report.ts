@@ -77,11 +77,11 @@ export function formatOrphanReport(plan: PipelinePlan): string {
   let output = `${bright}⚠️ ORPHAN DETECTIONS (${totalOrphans})${reset}\n`;
   if (plan.orphans.figma_only.length > 0) {
     output += `   ${fgCyan}Figma Only (Needs Spec+Doc):${reset} ${plan.orphans.figma_only.join(', ')}\n`;
-    output += `     ↳ Fix with: npm run ds:spec-from-figma -- --component-name <component>\n`;
+    output += `     ↳ Fix by creating or updating the spec in the dashboard.\n`;
   }
   if (plan.orphans.spec_only.length > 0) {
     output += `   ${fgYellow}Spec Only (Needs Doc):${reset} ${plan.orphans.spec_only.join(', ')}\n`;
-    output += `     ↳ Fix with: npm run ds:component-doc -- --component-name <Component>\n`;
+    output += `     ↳ Fix by editing the component docs entry in the dashboard.\n`;
   }
   if (plan.orphans.doc_only.length > 0) {
     output += `   ${fgRed}Doc Only (Not in Figma/Unmapped):${reset} ${plan.orphans.doc_only.join(', ')}\n`;

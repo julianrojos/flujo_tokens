@@ -1,7 +1,7 @@
 /**
  * Pipeline Execution
  *
- * I/O operations for pipeline execution: command spawning, task execution, report writing.
+ * I/O operations for pipeline execution: global command execution and report writing.
  * Separated from orchestration logic for testability.
  */
 
@@ -10,7 +10,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
-import type { PipelineOptions, PipelineExecutionState, ComponentExecutionMetrics, PipelineStepId } from './pipeline-types.js';
+import type {
+  PipelineOptions,
+  ComponentExecutionMetrics,
+  PipelineStepId,
+} from './pipeline-types.js';
 import { COLORS } from './pipeline-report.js';
 
 // ============================================================================
@@ -64,13 +68,13 @@ export function runGlobalCommand(
 }
 
 /**
- * Execute tasks for a single component.
- * 
- * Iterates through the given component's execution plan steps and spawns child
- * processes based on each step's instructions. Tracks success metrics for the run.
+ * Evaluate tasks for a single component.
+ *
+ * The CLI-driven per-step execution path is retired. We now only mark
+ * unsupported steps as failed so callers can report actionable status.
  *
  * @param componentPlan - Execution plan for a single component containing ordered steps.
- * @param options - Pipeline options including context, dry-run flags, and strict mode.
+ * @param options - Pipeline options (used for output mode).
  * @returns Execution metrics containing successes and failure paths.
  */
 export function executeComponentTasks(
@@ -85,16 +89,13 @@ export function executeComponentTasks(
   options: PipelineOptions,
 ): ComponentExecutionMetrics {
   const { slug, steps } = componentPlan;
-  const { json, strict, system } = options;
-  const dryRun = options['dry-run'] ?? false;
+  const { json, strict } = options;
 
   const metrics: ComponentExecutionMetrics = {
     success: true,
     executedSteps: [],
     failedSteps: [],
   };
-
-  const sysArgs = system ? ['--', '--system', system] : [];
 
   for (const step of steps) {
     if (!step.needed || step.blocked) {
@@ -105,41 +106,25 @@ export function executeComponentTasks(
       console.log(`\n\x1b[35m--- ${slug}: Executing step ${step.id} ---\x1b[0m`);
     }
 
-    let cmd: string;
-    let stepArgs: string[];
-
     switch (step.id) {
       case 'spec':
         // Spec generation would go here
         continue;
       case 'markdown':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:component-doc', ...sysArgs, '--', '--component-name', slug];
-        break;
-      default:
-        continue;
-    }
-
-    const result = spawnSync(cmd, stepArgs, {
-      stdio: json ? 'pipe' : 'inherit',
-      shell: false,
-      cwd: PROJECT_ROOT,
-    });
-
-    if (result.status === 0) {
-      metrics.executedSteps.push(step.id as PipelineStepId);
-    } else {
-      metrics.failedSteps.push(step.id as PipelineStepId);
-      metrics.success = false;
-
-      if (strict && !dryRun) {
+        // Markdown generation via component-doc has been retired.
+        metrics.failedSteps.push(step.id as PipelineStepId);
+        metrics.success = false;
         if (!json) {
-          console.error(
-            `\n\x1b[31m❌ Strict mode: Aborting due to failure in '${slug}' at step '${step.id}'.\x1b[0m`,
+          console.warn(
+            `   Markdown step is no longer executed here; update the docs entry in the dashboard instead.`,
           );
         }
-        break;
-      }
+        if (strict) {
+          break;
+        }
+        continue;
+      default:
+        continue;
     }
   }
 

@@ -97,11 +97,7 @@ export { runTokenHealth } from '../runners/token-health-runner.js';
 export { runRegistrySync } from '../runners/registry-sync-runner.js';
 
 // Spec runners
-export { runSpecFromFigmaRunner } from '../runners/spec-from-figma-runner.js';
 export { runSortSpec } from '../runners/sort-spec-runner.js';
-
-// Doc regeneration runners
-export { runRegenerateDocs } from '../runners/regenerate-docs-runner.js';
 
 // Governance runners
 export { runMarkNeedsReview } from '../runners/mark-needs-review-runner.js';
@@ -124,12 +120,6 @@ export { runTokensSync } from '../runners/tokens-sync-runner.js';
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 
-// Component doc runners
-export { runComponentDoc } from '../runners/component-doc-runner.js';
-
-// Spec to markdown runners
-export { runSpecToMarkdown } from '../runners/spec-to-markdown-runner.js';
-
 // Validate docs runners
 export { runValidateDocs } from '../runners/validate-docs-runner.js';
 
@@ -141,9 +131,6 @@ export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js
 
 // Migrate markdown zones runners
 export { runMigrateMarkdownZones } from '../runners/migrate-markdown-zones-runner.js';
-
-// Validate token refs runners
-export { runValidateTokenRefs } from '../runners/validate-token-refs-runner.js';
 
 // Compute traceability runners
 export { runComputeTraceability } from '../runners/compute-traceability-runner.js';
@@ -332,23 +319,6 @@ export {
   writeSpecWithSnapshotGuard,
 } from '../services/spec-writer.js';
 
-// Spec result and finalization
-export { buildSpecGenerationResult } from '../services/spec-result.js';
-export { finalizeSpecResult } from '../services/spec-finalization.js';
-
-export type {
-  SpecGenerationResult,
-  IndexSyncResult,
-  BuildSpecResultOptions,
-} from '../services/spec-result.js';
-
-export type { FinalizeSpecOptions } from '../services/spec-finalization.js';
-
-// Spec runner
-export { runSpecWithGuards } from '../services/spec-runner.js';
-
-export type { RunSpecWithGuardsOptions } from '../services/spec-runner.js';
-
 // Pipeline context
 export { createPipelineContext } from '../services/pipeline-context.js';
 
@@ -356,11 +326,6 @@ export { createPipelineContext } from '../services/pipeline-context.js';
 export { parsePipelineIdentity } from '../services/pipeline-identity.js';
 export { parsePipelineOptions } from '../services/pipeline-options.js';
 export { resolvePipelinePaths } from '../services/pipeline-path-resolver.js';
-
-// Spec orchestrator
-export { runSpecFromFigma } from '../services/spec-orchestrator.js';
-
-export type { SpecOrchestratorDeps } from '../services/spec-orchestrator.js';
 
 // Argument parsing utilities
 export { parseArgs, renderUsage, printUsage } from './parse-args.js';
@@ -425,24 +390,6 @@ export {
   pickBestTokenPath,
   prefillTokenMapping,
 } from '../services/spec-token-mapping.js';
-
-// Spec to markdown utilities
-export {
-  makeHeader,
-  processZone,
-  renderAnatomyMarkdown,
-  renderPropertiesTable,
-  renderLayoutTable,
-  renderVariantSpecs,
-  renderVariantRows,
-  injectSpecZones,
-  isSpecInput,
-} from '../services/spec-to-markdown.js';
-
-export type {
-  ZoneProcessResult,
-  SpecToMarkdownResult,
-} from '../services/spec-to-markdown.js';
 
 // Figma API utilities
 export {

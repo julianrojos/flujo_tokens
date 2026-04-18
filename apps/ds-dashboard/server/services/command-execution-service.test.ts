@@ -163,7 +163,7 @@ describe('command-execution-service', () => {
           spawnError: null,
           exitCode: 1,
           stdout: '',
-          stderr: 'npm ERR! Missing script: "ds:component-doc"',
+          stderr: 'npm ERR! Missing script: "ds:missing-script"',
           jsonParseError: null,
           parsedJson: null,
         }),
@@ -172,9 +172,9 @@ describe('command-execution-service', () => {
       const result = await service.runQueuedSpawnCommand({
         cwd: '/repo',
         command: 'npm',
-        commandArgs: ['run', 'ds:component-doc'],
+        commandArgs: ['run', 'ds:missing-script'],
         emitChunk() {},
-        commandLabel: 'npm run ds:component-doc',
+        commandLabel: 'npm run ds:missing-script',
       });
 
       assert.equal(result.ok, false);

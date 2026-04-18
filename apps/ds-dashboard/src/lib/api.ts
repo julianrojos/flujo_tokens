@@ -801,51 +801,6 @@ export async function refreshTokenHealth(options?: QueueWaitOptions) {
   return runQueuedRefresh('/api/refresh-token-health', options);
 }
 
-export async function regenerateComponentMarkdown(
-  args: { slug: string; specFile?: string | null },
-  options?: QueueWaitOptions,
-) {
-  const endpoint = '/api/run/ds:component-doc';
-  const requestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      component: args.slug,
-      componentName: args.slug,
-      componentSlug: args.slug,
-      specFile: args.specFile ?? null,
-      spec_file: args.specFile ?? null,
-    }),
-  } as const;
-
-  try {
-    return await runQueuedRefresh(endpoint, options, requestInit);
-  } catch (error) {
-    const argsRequiredError =
-      error instanceof ApiError &&
-      error.code === API_ERROR_CODES.VALIDATION_COMPONENT_DOC_ARGS_REQUIRED;
-    const missingScriptError =
-      error instanceof ApiError &&
-      error.code === API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED &&
-      hasQueuePayloadErrorCode(error, QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT);
-    if (!argsRequiredError && !missingScriptError) {
-      throw error;
-    }
-    const pipelineEndpoint = '/api/run/ds:pipeline';
-    return runQueuedRefresh(pipelineEndpoint, options, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        component: args.slug,
-        onlyStep: 'markdown',
-        fromStep: 'markdown',
-      }),
-    });
-  }
-}
-
 export function restartApiServer() {
   return getJson<{
     ok: boolean;

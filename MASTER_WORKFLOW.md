@@ -27,24 +27,13 @@ npm run ds:doctor -- --system <id>
 
 ## Recommended commands
 
-### 1) Generate or refresh spec from Figma
+### 1) Capture spec in the dashboard
 
-```bash
-npm run ds:spec-from-figma -- \
-  --system my-system \
-  --component-name Alert \
-  --component-set-node-id 2304:1892 \
-  --agent codex
-```
+Open the component spec editor in the dashboard and update the spec from the captured Figma data.
 
-### 2) Generate markdown from spec
+### 2) Edit component docs
 
-```bash
-npm run ds:component-doc -- \
-  --system my-system \
-  --component-name Alert \
-  --agent codex
-```
+Open the component docs page in the dashboard and update the editorial fields directly.
 
 ### 3) Capture/update visual proof (standalone)
 
