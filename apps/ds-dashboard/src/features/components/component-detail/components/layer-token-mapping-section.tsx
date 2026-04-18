@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ interface LayerTokenMappingSectionProps {
   tokenCatalog?: TokenCatalog | null;
 }
 
-type SortField = "token" | "property" | "collection" | "variant" | "mode";
+type SortField = "token" | "property" | "collection" | "variant";
 type SortDirection = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -42,6 +42,11 @@ const PAGE_SIZE_ALL = "all";
 type BindingWithCollection = {
   entry: LayerTokenMappingEntry;
   collection: string;
+};
+type GroupedBindingWithCollection = {
+  entry: LayerTokenMappingEntry;
+  collection: string;
+  refsCount: number;
 };
 
 function resolveCollectionFromTokenPath(
@@ -67,8 +72,7 @@ function sortValue(item: BindingWithCollection, field: SortField): string {
   if (field === "token") return normalizedSortText(item.entry.token_path);
   if (field === "property") return normalizedSortText(item.entry.property_path);
   if (field === "collection") return normalizedSortText(item.collection);
-  if (field === "variant") return normalizedSortText(item.entry.variant_signature);
-  return normalizedSortText(item.entry.mode_name);
+  return normalizedSortText(item.entry.variant_signature);
 }
 
 function stableIdentity(item: BindingWithCollection): string {
@@ -137,8 +141,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
       const tokenPath = String(entry.token_path || "").trim();
       const layer = String(entry.layer_name || "").trim();
       const property = String(entry.property_path || "").trim();
-      const mode = String(entry.mode_name || "").trim();
-      const matchesVariant =
+    const matchesVariant =
         selectedVariant === "__all__" || variant === selectedVariant;
       const matchesCollection =
         selectedCollection === "__all__" || collection === selectedCollection;
@@ -147,7 +150,6 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
         tokenPath.toLowerCase().includes(loweredSearch) ||
         layer.toLowerCase().includes(loweredSearch) ||
         property.toLowerCase().includes(loweredSearch) ||
-        mode.toLowerCase().includes(loweredSearch) ||
         variant.toLowerCase().includes(loweredSearch);
       return matchesVariant && matchesCollection && matchesSearch;
     });
@@ -179,13 +181,33 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filteredEntries.length)),
     [filteredEntries.length],
   );
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filteredEntries.length : Number(pageSize);
+
+  const groupedSortedFilteredEntries = useMemo(() => {
+    const byVisibleRow = new Map<string, GroupedBindingWithCollection>();
+    for (const row of sortedFilteredEntries) {
+      const key = [
+        normalizedSortText(row.entry.token_path),
+        normalizedSortText(row.entry.property_path),
+        normalizedSortText(row.collection),
+        normalizedSortText(row.entry.variant_signature),
+      ].join("|");
+      const current = byVisibleRow.get(key);
+      if (!current) {
+        byVisibleRow.set(key, { ...row, refsCount: 1 });
+        continue;
+      }
+      current.refsCount += 1;
+    }
+    return Array.from(byVisibleRow.values());
+  }, [sortedFilteredEntries]);
+
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? groupedSortedFilteredEntries.length : Number(pageSize);
   const shouldPaginate =
     pageSize !== PAGE_SIZE_ALL &&
     Number.isFinite(pageSizeValue) &&
     pageSizeValue > 0 &&
-    filteredEntries.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filteredEntries.length / pageSizeValue)) : 1;
+    groupedSortedFilteredEntries.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(groupedSortedFilteredEntries.length / pageSizeValue)) : 1;
   useEffect(() => {
     if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
       setPageSize("25");
@@ -205,14 +227,14 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
   const pagedEntries = useMemo(() => {
-    if (!shouldPaginate) return sortedFilteredEntries;
+    if (!shouldPaginate) return groupedSortedFilteredEntries;
     const start = (currentPage - 1) * pageSizeValue;
-    return sortedFilteredEntries.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, sortedFilteredEntries]);
-  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : filteredEntries.length === 0 ? 0 : 1;
-  const pageEnd = shouldPaginate ? Math.min(filteredEntries.length, currentPage * pageSizeValue) : filteredEntries.length;
+    return groupedSortedFilteredEntries.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, groupedSortedFilteredEntries]);
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : groupedSortedFilteredEntries.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(groupedSortedFilteredEntries.length, currentPage * pageSizeValue) : groupedSortedFilteredEntries.length;
 
-  const hasFilteredEntries = filteredEntries.length > 0;
+  const hasFilteredEntries = groupedSortedFilteredEntries.length > 0;
 
   const toggleSort = useCallback((field: SortField) => {
     setSort((current) =>
@@ -230,8 +252,8 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           {hasEntries
             ? (
                 selectedVariant === "__all__"
-                  ? `Token bindings per layer and variant — ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
-                  : `Token bindings per layer and variant — ${filteredEntries.length} of ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
+                  ? `Token bindings per layer and variant — ${groupedSortedFilteredEntries.length} grouped row${groupedSortedFilteredEntries.length !== 1 ? "s" : ""} from ${entries.length} binding${entries.length !== 1 ? "s" : ""}`
+                  : `Token bindings per layer and variant — ${groupedSortedFilteredEntries.length} grouped row${groupedSortedFilteredEntries.length !== 1 ? "s" : ""} from ${filteredEntries.length} binding${filteredEntries.length !== 1 ? "s" : ""}`
               )
             : "Token bindings per layer and variant from the latest structured capture."}
         </CardDescription>
@@ -241,7 +263,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
-            searchPlaceholder="Filter by token, layer, property, mode, or variant"
+            searchPlaceholder="Filter by token, layer, property, or variant"
             rightSlot={(
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Rows</span>
@@ -293,7 +315,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           {shouldPaginate ? (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filteredEntries.length}
+                Showing {pageStart}-{pageEnd} of {groupedSortedFilteredEntries.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -325,12 +347,12 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                 <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
                 <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
                 <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
-                <SortableTableHead label="Mode" onSort={() => toggleSort("mode")} ariaLabel="Sort by mode" />
+                <TableHead className="normal-case">Instances</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {hasFilteredEntries ? (
-                pagedEntries.map(({ entry, collection }) => (
+                pagedEntries.map(({ entry, collection, refsCount }) => (
                   <TableRow
                     key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
                   >
@@ -367,11 +389,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                       </span>
                     </TableCell>
                     <TableCell>
-                      {entry.mode_name ? (
-                        <Badge variant="neutral" className="text-xs">{entry.mode_name}</Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <Badge variant="neutral">{refsCount} refs</Badge>
                     </TableCell>
                   </TableRow>
                 ))
@@ -387,7 +405,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           {shouldPaginate ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filteredEntries.length}
+                Showing {pageStart}-{pageEnd} of {groupedSortedFilteredEntries.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
