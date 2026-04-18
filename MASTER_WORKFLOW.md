@@ -20,7 +20,7 @@ Sequence:
 3. Validate environment:
 
 ```bash
-npm run ds:doctor -- --system <id>
+npm run ds:registry:validate -- --system <id>
 ```
 
 ## Recommended commands
@@ -45,9 +45,8 @@ npm run ds:capture-visual-proof -- \
 ### 4) Validate and audit
 
 ```bash
-npm run validate:docs -- --system my-system
-npm run ds:audit-consistency -- --component-name Alert
-npm run ds:doctor
+npm run ds:registry:validate -- --system my-system
+npm run test:tooling:core
 ```
 
 ## Guardrails

@@ -12,7 +12,7 @@ La base queda en modo **canónico estricto**:
    - `design-systems/<id>/input`
    - `design-systems/<id>/output`
    - `design-systems/<id>/docs`
-2. `ds:doctor` falla si detecta rutas no canónicas.
+2. La verificación de entorno falla si detecta rutas no canónicas.
 3. CLI de tokens exige sistema activo (`defaultSystem` o `--system`) y deja de resolver outputs globales fuera del sistema activo.
 4. La documentación de estructura refleja únicamente el layout canónico.
 
@@ -26,6 +26,5 @@ La base queda en modo **canónico estricto**:
 ```bash
 cd apps/ds-dashboard && npx tsc --noEmit -p tsconfig.app.json
 cd /Users/julian/Documents/flujo_tokens/tooling && npx tsc --noEmit -p tsconfig.json
-cd /Users/julian/Documents/flujo_tokens && node --import tsx --test tooling/src/services/doctor-checks.test.ts
-cd /Users/julian/Documents/flujo_tokens && npm run ds:doctor
+cd /Users/julian/Documents/flujo_tokens && npm run test:tooling:core
 ```

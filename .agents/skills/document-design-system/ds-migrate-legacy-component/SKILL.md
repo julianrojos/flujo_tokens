@@ -64,7 +64,7 @@ outputs:
 - Existing markdown docs without matching component spec
 - Component docs with non-canonical structure/order
 - Docs with hardcoded values that should be token references
-- Components that fail `validate:docs` due to structure/traceability drift
+- Components that fail docs/token validation due to structure/traceability drift
 
 ## Scope
 
@@ -122,7 +122,7 @@ Migration output must comply with:
 - Run docs validation gate.
 - Fix blocking errors.
 - Ensure `docs/components/overview.md` includes canonical entry.
-- If `validate:docs` is unavailable in the workspace, record it under `next_actions` and continue with the best-effort report.
+- If the validation command is unavailable in the workspace, record it under `next_actions` and continue with the best-effort report.
 
 ## Recommended commands
 
@@ -132,11 +132,11 @@ npm run generate:registry
 
 # 2) Update the component docs entry in the dashboard
 
-# 3) Validate migrated output (if script exists)
-npm run validate:docs -- --file "docs/components/<snake_case>.md" --no-overview true
+# 3) Validate migrated output in the active system context
+npm run ds:registry:validate -- --system "<system-id>"
 
-# 4) Full audit (optional, recommended before ready)
-npm run ds:audit-consistency -- --component-name "<DisplayName>"
+# 4) Run the core tooling test suite for the migration path
+npm run test:tooling:core
 ```
 
 ## Output report
