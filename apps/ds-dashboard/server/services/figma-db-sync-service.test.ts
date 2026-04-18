@@ -11,6 +11,7 @@ import { ComponentRepository as ComponentRepositoryClass } from '../db/component
 import { createTestDatabase } from '../db/test-db-helpers.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
+import type { FullComponentSpecResult } from './figma-db-sync-service.js';
 import { syncDesignSystemFromPlugin } from './figma-db-sync-service.js';
 
 function makeComponentRepoStub(): ComponentRepository {
@@ -1805,7 +1806,7 @@ describe('figma-db-sync-service', () => {
       const fetchFullComponentSpec = async (
         _fileKey: string | null,
         params: { nodeId: string },
-      ) => ({
+      ): Promise<FullComponentSpecResult> => ({
         success: true,
         nodeId: params.nodeId,
         name: 'LTM Test',
@@ -1906,6 +1907,95 @@ describe('figma-db-sync-service', () => {
       assert.equal(hoverBinding.variantNodeId, '101:2');
     });
 
+    it('falls back to flat tokenBindings when variants do not expose layerTokens', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'mode:1', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '100:1', name: 'LTM Test' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async (
+        _fileKey: string | null,
+        params: { nodeId: string },
+      ): Promise<FullComponentSpecResult> => ({
+        success: true,
+        nodeId: params.nodeId,
+        name: 'LTM Test',
+        type: 'COMPONENT_SET',
+        description: 'Test component',
+        variants: [],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [
+          {
+            nodeId: '102:1',
+            nodeName: 'Background',
+            field: 'fills',
+            variableId: 'v1',
+          },
+        ],
+      });
+
+      await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: {
+          deleteAll: async () => 0,
+          upsertFromRegistry: async (
+            _sysId: string,
+            entries: Array<Record<string, unknown>>,
+          ) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry(
+              'ltm-sync-sys',
+              entries as any,
+            );
+          },
+          markMissingComponents: async () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_ltm',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-ltm-flat',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(entry.figma);
+      assert.ok(Array.isArray(entry.figma.tokenBindings));
+      assert.equal(entry.figma.tokenBindings.length, 1);
+      assert.equal(entry.figma.tokenBindings[0].nodeId, '102:1');
+      assert.equal(entry.figma.tokenBindings[0].variantNodeId, '');
+      assert.equal(entry.figma.tokenBindings[0].variantSignature, '');
+      assert.equal(entry.figma.tokenBindings[0].status, 'resolved');
+    });
+
     it('marks bindings with unknown variableId as unresolved', async () => {
       let receivedEntries: Array<Record<string, unknown>> = [];
 
@@ -2003,7 +2093,7 @@ describe('figma-db-sync-service', () => {
       assert.equal(entry.figma.tokenBindings[0].tokenPath, undefined);
     });
 
-    it('returns empty tokenBindings when no layerTokens exist (no fallback to flat tokenBindings)', async () => {
+    it('persists flat tokenBindings when no layerTokens exist', async () => {
       let receivedEntries: Array<Record<string, unknown>> = [];
 
       const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
@@ -2038,7 +2128,7 @@ describe('figma-db-sync-service', () => {
       `;
 
       // Spec has flat tokenBindings but NO layerTokens on any variant
-      const fetchFullComponentSpec = async () => ({
+      const fetchFullComponentSpec = async (): Promise<FullComponentSpecResult> => ({
         success: true,
         nodeId: '300:1',
         name: 'No LayerTokens Test',
@@ -2088,13 +2178,11 @@ describe('figma-db-sync-service', () => {
       assert.ok(result);
       assert.equal(receivedEntries.length, 1);
       const entry = receivedEntries[0] as Record<string, any>;
-      // No layerTokens → no tokenBindings extracted (legacy flat bindings are ignored)
-      assert.ok(
-        entry.figma.tokenBindings === undefined ||
-          (Array.isArray(entry.figma.tokenBindings) &&
-            entry.figma.tokenBindings.length === 0),
-        'Should NOT fallback to flat tokenBindings',
-      );
+      assert.ok(Array.isArray(entry.figma.tokenBindings));
+      assert.equal(entry.figma.tokenBindings.length, 1);
+      assert.equal(entry.figma.tokenBindings[0].nodeId, '301:1');
+      assert.equal(entry.figma.tokenBindings[0].variantNodeId, '');
+      assert.equal(entry.figma.tokenBindings[0].variantSignature, '');
     });
 
     it('derives enum property values from variant axes when props.values is missing', async () => {

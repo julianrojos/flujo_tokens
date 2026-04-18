@@ -602,6 +602,39 @@ function makeLayerTokenBindingRow(args: {
   };
 }
 
+function makeFlatTokenBindingRow(args: {
+  binding: {
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+  };
+  variableIdToTokenPath: Map<string, string>;
+}): SyncComponentEntry['figma']['tokenBindings'][number] | null {
+  const nodeId = String(args.binding.nodeId || '').trim();
+  const nodeName = String(args.binding.nodeName || '').trim();
+  const field = String(args.binding.field || '').trim();
+  const variableId = String(args.binding.variableId || '').trim();
+  if (!nodeId || !nodeName || !field || !variableId) return null;
+
+  const tokenPath = args.variableIdToTokenPath.get(variableId);
+
+  return {
+    nodeId,
+    nodeName,
+    field,
+    variableId,
+    tokenPath,
+    mode: '',
+    variantNodeId: '',
+    variantSignature: '',
+    propertyPath: field.toLowerCase(),
+    status: tokenPath ? 'resolved' : 'unresolved',
+    modeId: '',
+    modeName: '',
+  };
+}
+
 /**
  * Extract structured Figma data from spec result (SC-04)
  * Returns variants, tokenBindings (now Layer Token Mapping rows), and unresolved variable IDs.
@@ -624,22 +657,22 @@ function extractStructuredFigmaData(args: {
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
   props?: SyncComponentEntry['figma']['props'];
   unresolvedVariableIds: string[];
-  usedLegacyFlatBindings: boolean;
+  usedFlatTokenBindingsFallback: boolean;
 } {
   const { specData, variableIdToTokenPath, variableIdToDefaultModeContext } =
     args;
   if (!specData)
-    return { unresolvedVariableIds: [], usedLegacyFlatBindings: false };
+    return { unresolvedVariableIds: [], usedFlatTokenBindingsFallback: false };
 
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
     props?: SyncComponentEntry['figma']['props'];
     unresolvedVariableIds: string[];
-    usedLegacyFlatBindings: boolean;
+    usedFlatTokenBindingsFallback: boolean;
   } = {
     unresolvedVariableIds: [],
-    usedLegacyFlatBindings: false,
+    usedFlatTokenBindingsFallback: false,
   };
 
   // Extract variants from variantAxes + variantProperties
@@ -695,8 +728,8 @@ function extractStructuredFigmaData(args: {
   }
 
   // Primary source of truth: variants[].layerTokens.
-  // Legacy flat tokenBindings are intentionally ignored for replacement because
-  // they do not preserve variant context.
+  // If the payload only exposes flat tokenBindings, keep them as a fallback so
+  // imported components still retain visible token usage in the UI.
   result.tokenBindings = [];
   for (const variant of specData.variants || []) {
     const vNodeId = String(variant.nodeId || '').trim();
@@ -718,7 +751,14 @@ function extractStructuredFigmaData(args: {
     result.tokenBindings.length === 0 &&
     (specData.tokenBindings || []).length > 0
   ) {
-    result.usedLegacyFlatBindings = true;
+    result.usedFlatTokenBindingsFallback = true;
+    for (const binding of specData.tokenBindings || []) {
+      const row = makeFlatTokenBindingRow({
+        binding,
+        variableIdToTokenPath,
+      });
+      if (row) result.tokenBindings.push(row);
+    }
   }
 
   return result;
@@ -784,15 +824,10 @@ async function enrichComponentEntriesWithStructuredData(options: {
       variableIdToTokenPath,
       variableIdToDefaultModeContext,
     });
-    if (structuredData.usedLegacyFlatBindings) {
-      // Guardrail: avoid replacing rich per-variant bindings with legacy flat payloads.
-      entry.figma.structuredCaptureStatus = 'failed';
-      if (warningSink) {
-        warningSink.push(
-          `[enrichComponentEntriesWithStructuredData] Skipping structured replacement for slug=${entry.slug}: received legacy flat tokenBindings without variants[].layerTokens.`,
-        );
-      }
-      return;
+    if (structuredData.usedFlatTokenBindingsFallback && warningSink) {
+      warningSink.push(
+        `[enrichComponentEntriesWithStructuredData] Used flat tokenBindings fallback for slug=${entry.slug}: variants[].layerTokens were absent in the payload.`,
+      );
     }
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings)

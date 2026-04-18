@@ -25,6 +25,9 @@ import {
 } from './figma-db-sync-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
+import { DependencyRepository } from '../db/dependency-repository.js';
+import { DependencySyncService } from './dependency-sync-service.js';
+import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import {
   captureHealthSnapshotDbOnly,
   refreshTokenGraphDbOnly,
@@ -718,6 +721,102 @@ export async function handleSyncFigmaTokensRoute(
           'warning',
           `Token usage reindex status: failed (${result.usageReindexReason}).`,
         );
+      }
+      if (!dryRun) {
+        try {
+          const rows = (await db`
+            SELECT figma_api_token
+            FROM design_systems
+            WHERE id = ${sysCtx.systemId}
+            LIMIT 1
+          `) as Array<{ figma_api_token: string | null }>;
+          const rawTokenRef = String(rows[0]?.figma_api_token || '').trim();
+          const resolvedToken = resolveEnvRef(rawTokenRef);
+          const dependencyRepo = new DependencyRepository(db);
+          const captureParentUsageFromBindings = async (): Promise<number> => {
+            const bindingRows = (await db`
+              SELECT
+                b.token_path,
+                COUNT(*)::int AS node_count,
+                COALESCE(MAX(t.type), 'UNKNOWN') AS variable_type,
+                ARRAY_AGG(DISTINCT NULLIF(TRIM(b.node_id), ''))
+                  FILTER (WHERE NULLIF(TRIM(b.node_id), '') IS NOT NULL) AS sample_node_ids
+              FROM component_figma_token_bindings b
+              JOIN components c ON c.id = b.component_id
+              LEFT JOIN tokens t ON t.ds_id = c.ds_id AND t.id = b.token_path
+              WHERE c.ds_id = ${sysCtx.systemId}
+                AND LENGTH(TRIM(COALESCE(b.token_path, ''))) > 0
+              GROUP BY b.token_path
+              ORDER BY node_count DESC
+            `) as Array<{
+              token_path: string;
+              node_count: number;
+              variable_type: string;
+              sample_node_ids: string[] | null;
+            }>;
+
+            await dependencyRepo.replaceParentVariableUsage(
+              figmaFileId,
+              bindingRows.map((row) => ({
+                variable_key: String(row.token_path || '').trim(),
+                variable_name: String(row.token_path || '').trim(),
+                variable_type: String(row.variable_type || 'UNKNOWN').trim(),
+                node_count: Number(row.node_count || 0),
+                sample_node_ids_json: JSON.stringify(
+                  Array.isArray(row.sample_node_ids)
+                    ? row.sample_node_ids.filter((id) => Boolean(String(id || '').trim())).slice(0, 20)
+                    : [],
+                ),
+              })),
+            );
+            return bindingRows.length;
+          };
+          if (!resolvedToken) {
+            const captured = await captureParentUsageFromBindings();
+            if (captured > 0) {
+              emitChunk(
+                'warning',
+                `Parent token-usage snapshot used DB fallback from captured component bindings (${captured} variable entries); Figma API token was not resolved.`,
+              );
+            } else {
+              emitChunk(
+                'warning',
+                'Parent token-usage snapshot skipped: unresolved Figma API token and no component bindings available for fallback.',
+              );
+            }
+          } else {
+            const dependencySyncService = new DependencySyncService(
+              dependencyRepo,
+              () => ({ figmaApiToken: rawTokenRef }),
+            );
+            try {
+              const usageSyncResult = await dependencySyncService.syncConsumers({
+                dsFileKey: figmaFileId,
+                force: true,
+                captureParentUsage: true,
+                token: resolvedToken,
+              });
+              emitChunk(
+                'result',
+                `Captured parent variable usage snapshot (consumers synced: ${usageSyncResult.synced}, skipped: ${usageSyncResult.skipped}, errors: ${usageSyncResult.errored}).`,
+              );
+            } catch (usageError) {
+              const captured = await captureParentUsageFromBindings();
+              const reason =
+                usageError instanceof Error ? usageError.message : String(usageError);
+              emitChunk(
+                'warning',
+                `Parent usage scan via API failed (${reason}); DB fallback from captured component bindings wrote ${captured} variable entries.`,
+              );
+            }
+          }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          emitChunk(
+            'warning',
+            `Parent token-usage snapshot failed: ${reason}`,
+          );
+        }
       }
       emitChunk(
         'result',
