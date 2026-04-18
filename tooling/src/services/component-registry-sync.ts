@@ -326,8 +326,9 @@ export function buildExpectedComponentRegistry(
 /**
  * Compare DB-backed registry with expected state from sources.
  *
- * `currentRegistry` lets tests or higher-level callers compare against a preloaded
- * registry snapshot without paying the DB round-trip.
+ * `currentRegistry` is intentionally optional so tests or composite callers that
+ * already loaded registry state can skip the DB round-trip. Plain CLI runners
+ * should keep using the default path unless they already have a snapshot in hand.
  */
 export async function compareComponentRegistryToSources(
   options: {
@@ -425,8 +426,9 @@ export async function compareComponentRegistryToSources(
 /**
  * Sync component registry from source files into DB + overview markdown.
  *
- * `currentEntries` and `imported` are optional precomputed hints that let
- * callers bypass DB reads when they already know the current state.
+ * `currentEntries` and `imported` are optional precomputed hints for tests or
+ * higher-level orchestration that already knows the current DB state. Normal
+ * runners should only pass them when they already have authoritative values.
  */
 export async function syncComponentRegistry(
   options: SyncRegistryOptions & {

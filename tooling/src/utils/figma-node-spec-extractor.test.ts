@@ -221,7 +221,7 @@ describe("figma-node-spec-extractor utils", () => {
       const markdown = generateSpecMarkdown(spec, "Button", "1:2", "https://figma.com/file/abc");
       
       assert.ok(markdown.includes("---"));
-      assert.ok(markdown.includes("doc_type: component"));
+      assert.ok(markdown.includes("## Overview"));
       assert.ok(markdown.includes("# Button"));
       assert.ok(markdown.includes("## Anatomy"));
       assert.ok(markdown.includes("## Component API"));
