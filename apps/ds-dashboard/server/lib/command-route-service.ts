@@ -24,19 +24,7 @@ const {
 export interface RunScriptCommandArgsOptions {
   scriptName: string;
   systemId: string;
-  body: {
-    all?: boolean;
-    component?: string;
-    componentName?: string;
-    componentSlug?: string;
-    specFile?: string;
-    spec_file?: string;
-    ['spec-file']?: string;
-    fromStep?: string;
-    onlyStep?: string;
-    dryRun?: boolean;
-    [key: string]: unknown;
-  };
+  body: Record<string, unknown>;
 }
 
 export interface RunScriptCommandArgsResult {
@@ -146,12 +134,7 @@ function redactFigmaToken(args: string[]): string[] {
 export function buildRunScriptCommandArgs(options: RunScriptCommandArgsOptions): RunScriptCommandArgsResult {
   const { scriptName, body, systemId } = options;
   const args = ['run', scriptName, '--', '--system', systemId];
-  if (scriptName !== 'ds:pipeline') return { args };
-  if (body.all) args.push('--all');
-  if (body.component) args.push('--component', String(body.component));
-  if (body.fromStep) args.push('--from-step', String(body.fromStep));
-  if (body.onlyStep) args.push('--only-step', String(body.onlyStep));
-  if (body.dryRun) args.push('--status-only');
+  void body;
   return { args };
 }
 

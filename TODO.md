@@ -59,7 +59,7 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 
 #### Applicable rules
 
-- `component-spec-yaml.mdc` — output must comply with spec schema
+- component-spec rules — output must comply with spec schema
 - `token-references.mdc` — token paths in token_mapping must use real paths
 - `ds-docs-guardrails.mdc` — no invented content
 

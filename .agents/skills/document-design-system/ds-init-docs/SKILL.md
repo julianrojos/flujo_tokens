@@ -107,7 +107,7 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 - One-page-per-component policy
 - Each component page follows the structure defined in `component-doc.mdc` (required frontmatter + ordered sections)
 - How to add a component:
-  1. Create the component spec in `_spec/components/<Component>.yml` (see `component-spec-yaml.mdc`)
+  1. Create the component spec in `_spec/components/<Component>.yml` (see the component-spec rules)
   2. Update the docs entry in the dashboard
 - Definition of done checklist (short)
 

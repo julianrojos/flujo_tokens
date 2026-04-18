@@ -8,7 +8,7 @@ Aquí tienes **10 propuestas priorizadas** con su justificación para incorporar
 
 ## 1. Regla: Estandarización de Anatomía Visual (Visual Anatomy)
 
-**Falta actual:** Aunque `component-spec-yaml.mdc` incluye un campo `anatomy`, no hay directrices sobre cómo documentar la anatomía de forma visual (imágenes con markers numéricos y tabla de leyenda) que es el estándar en Material Design o Carbon.
+**Falta actual:** Aunque las reglas de `component-spec` incluyen un campo `anatomy`, no hay directrices sobre cómo documentar la anatomía de forma visual (imágenes con markers numéricos y tabla de leyenda) que es el estándar en Material Design o Carbon.
 **Justificación:** Los documentos muestran 164 menciones a "Anatomía". Sin una regla explícita de presentación, cada componente describe sus partes de forma ad-hoc a nivel de texto, lo que dificulta la comprensión visual rápida para desarrolladores y diseñadores.
 
 ## 2. Regla: Patrones de Uso Correcto e Incorrecto (Do's and Don'ts)

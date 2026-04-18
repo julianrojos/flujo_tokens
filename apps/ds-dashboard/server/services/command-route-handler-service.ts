@@ -33,44 +33,6 @@ import {
   refreshUsageIndexDbOnly,
 } from './ops-db-maintenance-service.ts';
 
-// ---------------------------------------------------------------------------
-// Alias resolution helpers
-// ---------------------------------------------------------------------------
-
-const COMPONENT_ALIASES = [
-  'component',
-  'componentName',
-  'componentSlug',
-] as const;
-const SPEC_FILE_ALIASES = ['specFile', 'spec_file', 'spec-file'] as const;
-
-/**
- * Return the first value that, once stringified and trimmed, is non-empty.
- * Returns `undefined` when no candidate qualifies.
- */
-function pickFirstNonEmpty(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    const normalized = String(value || '').trim();
-    if (normalized) return normalized;
-  }
-  return undefined;
-}
-
-function normalizeComponentDocArgs(
-  body: Record<string, unknown>,
-  queryFn: (key: string) => string | undefined,
-): { component: string | undefined; specFile: string | undefined } {
-  const component = pickFirstNonEmpty(
-    ...COMPONENT_ALIASES.map((k) => body[k]),
-    ...COMPONENT_ALIASES.map((k) => queryFn(k)),
-  );
-  const specFile = pickFirstNonEmpty(
-    ...SPEC_FILE_ALIASES.map((k) => body[k]),
-    ...SPEC_FILE_ALIASES.map((k) => queryFn(k)),
-  );
-  return { component, specFile };
-}
-
 function failBuildCommandConfig(
   c: Context,
   deps: {
@@ -492,25 +454,11 @@ export async function handleRunScriptRoute(
   }
 
   const body = await readJsonBody(c);
-  const { component, specFile } = normalizeComponentDocArgs(body, (key) =>
-    c.req.query(key),
-  );
-  const mergedBody = {
-    ...body,
-    component,
-    componentName: component,
-    componentSlug: component,
-    specFile,
-    spec_file: specFile,
-    'spec-file': specFile,
-    fromStep: pickFirstNonEmpty(body.fromStep, c.req.query('fromStep')),
-    onlyStep: pickFirstNonEmpty(body.onlyStep, c.req.query('onlyStep')),
-  };
   const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
 
   const runConfig = buildRunScriptQueueConfig({
     scriptName: parsedScript.scriptName,
-    body: mergedBody,
+    body,
     sysCtx,
     requestId,
     buildRunScriptCommandArgsFn: buildRunScriptCommandArgs,

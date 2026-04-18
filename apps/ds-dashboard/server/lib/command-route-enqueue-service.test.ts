@@ -24,9 +24,9 @@ function createSysCtx() {
 describe('command-route-enqueue-service', () => {
   describe('parseScriptNameFromRoute()', () => {
     it('validates empties', () => {
-      const ok = parseScriptNameFromRoute('ds:pipeline', 'req_1');
+      const ok = parseScriptNameFromRoute('ds:registry:refresh', 'req_1');
       assert.equal(ok.ok, true);
-      assert.equal(ok.scriptName, 'ds:pipeline');
+      assert.equal(ok.scriptName, 'ds:registry:refresh');
 
       const invalid = parseScriptNameFromRoute('   ', 'req_1');
       assert.equal(invalid.ok, false);
@@ -51,18 +51,18 @@ describe('command-route-enqueue-service', () => {
   describe('buildRunScriptQueueConfig()', () => {
     it('returns queue args and run command', () => {
       const config = buildRunScriptQueueConfig({
-        scriptName: 'ds:pipeline',
+        scriptName: 'ds:registry:refresh',
         body: { all: true },
         sysCtx: createSysCtx(),
         requestId: 'req_1',
-        buildRunScriptCommandArgsFn: () => ({ args: ['run', 'ds:pipeline', '--', '--system', 'core'] }),
+        buildRunScriptCommandArgsFn: () => ({ args: ['run', 'ds:registry:refresh', '--', '--system', 'core'] }),
         sha256TextFn: (value: string) => `hash:${value.length}`,
       });
 
-      assert.equal(config.commandLabel, 'npm run ds:pipeline -- --system core');
-      assert.equal(config.queueArgs.operationName, 'run:ds:pipeline');
+      assert.equal(config.commandLabel, 'npm run ds:registry:refresh -- --system core');
+      assert.equal(config.queueArgs.operationName, 'run:ds:registry:refresh');
       assert.equal(config.runCommand.command, 'npm');
-      assert.deepEqual(config.runCommand.commandArgs, ['run', 'ds:pipeline', '--', '--system', 'core']);
+      assert.deepEqual(config.runCommand.commandArgs, ['run', 'ds:registry:refresh', '--', '--system', 'core']);
       assert.match(config.queueArgs.inputHash, /^hash:/);
     });
   });

@@ -14,35 +14,20 @@ import {
 
 describe('command-route-service', () => {
   describe('buildRunScriptCommandArgs()', () => {
-    it('adds pipeline options', () => {
+    it('builds base npm run args for any script', () => {
       const payload = buildRunScriptCommandArgs({
-        scriptName: 'ds:pipeline',
+        scriptName: 'ds:registry:refresh',
         systemId: 'core',
-        body: {
-          all: true,
-          component: 'button',
-          fromStep: 'markdown',
-          onlyStep: 'markdown',
-          dryRun: true,
-        },
+        body: { any: 'value' },
       });
       assert.deepEqual(payload.args, [
         'run',
-        'ds:pipeline',
+        'ds:registry:refresh',
         '--',
         '--system',
         'core',
-        '--all',
-        '--component',
-        'button',
-        '--from-step',
-        'markdown',
-        '--only-step',
-        'markdown',
-        '--status-only',
       ]);
     });
-
   });
 
   describe('buildHealthSnapshotCommandConfig()', () => {

@@ -5,7 +5,7 @@ This repository has two independent workflows:
 1. Token compilation from JSON (DTCG) to CSS custom properties.
 2. Component documentation from Figma to Markdown.
 
-For the end-to-end docs pipeline entry point, see `MASTER_WORKFLOW.md`.
+For the end-to-end component docs workflow entry point, see `MASTER_WORKFLOW.md`.
 
 ## 1) Token Compilation (CSS Custom Properties Generator)
 
@@ -333,24 +333,14 @@ npm run ds:health:record
 
 This workflow documents Design System components from Figma.
 
-### Master Pipeline (Orchestrator)
+### Component Docs Workflow
 
-The recommended way to run the component documentation workflow is via the **`ds:pipeline`** orchestrator. It automatically plans and executes the entire sequence deterministically (Token sync -> Spec -> Markdown) by reading the component registry.
+Component docs are edited directly in the dashboard and through dedicated commands. There is no single monolithic orchestrator.
 
-```bash
-# Run the pipeline for all components
-npm run ds:pipeline -- --all
-
-# Run the pipeline for a specific component
-npm run ds:pipeline -- --component Alert
-
-# Plan and preview what needs to be run (identifies orphans)
-npm run ds:pipeline -- --status-only
-
-# Run from a specific step (spec | markdown)
-npm run ds:pipeline -- --component Alert --from-step markdown
-
-```
+- Use the dashboard to update component specs and markdown pages.
+- Use `npm run validate:docs` to check docs/token/overview integrity.
+- Use `npm run ds:audit-consistency` to compare spec, markdown, token registry, and Figma data.
+- Use `npm run ds:capture-visual-proof` to update screenshot evidence for a single component.
 
 ### Documentation Scripts
 
@@ -364,7 +354,7 @@ System context (DB-backed):
 
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `design-systems/<id>/docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `design-systems/<id>/docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard PostgreSQL database and refreshes `design-systems/<id>/docs/components/overview.md`, then regenerates `design-systems/<id>/docs/_generated/token-usage-index.json`.
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
+- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard PostgreSQL database and refreshes overview.
@@ -372,7 +362,7 @@ System context (DB-backed):
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
 - **`npm run ds:registry:report`**: Generates read-only registry projections in active system docs (`design-systems/<id>/docs/_generated/components-index.md` and `design-systems/<id>/docs/_generated/components-health.json`) without scanning specs/docs again.
-- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
+- **`npm run ds:doctor`**: Runs component docs precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
@@ -484,7 +474,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
   - infer default file paths with `snake_case` (`status_bar`)
   - explicit path flags (`--output`, `--spec-file`) always take precedence
-- Canonical pipeline order is enforced:
+- Canonical spec/markdown order is enforced:
   - `(1) spec` -> `(2) markdown`
   - do not run markdown generation without a valid spec
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
@@ -492,7 +482,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
     - values must be `snake_case` slugs, unique, and must not self-reference
     - in `ready` specs, every entry must resolve to an existing component spec
   - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
-  - validation is a gate after spec and markdown generation
+  - validation is a gate after spec and markdown updates
   - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
   - include only when linked spec has unresolved gaps
@@ -695,7 +685,7 @@ Validation command options:
 
 Doctor command examples:
 
-- `npm run ds:doctor` -> full docs-pipeline health checks + `validate:docs`
+- `npm run ds:doctor` -> full component docs health checks + `validate:docs`
 - `npm run ds:doctor -- --component-name Button` -> include pair check for one component slug
 - `npm run ds:doctor -- --skip-validate true` -> quick preflight without full validation gate
 

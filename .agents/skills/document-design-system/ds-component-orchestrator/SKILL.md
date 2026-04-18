@@ -87,7 +87,7 @@ If the component name or source of truth is missing, ask before writing files.
 
 2. **Spec stage**
 
-- If spec is missing or outdated, update it in the dashboard or migrate/repair the existing spec following `component-spec-yaml.mdc`.
+- If spec is missing or outdated, update it in the dashboard or migrate/repair the existing spec following the component-spec rules.
 
 3. **Markdown stage**
 

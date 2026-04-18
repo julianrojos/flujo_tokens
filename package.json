@@ -48,7 +48,6 @@
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
     "ds:ui:guard": "node tooling/scripts/ds-ui-guard.mjs",
     "ds:qa": "node tooling/scripts/ds-qa.mjs",
-    "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "test:tooling:ds-types": "tsx --test packages/ds-types/src/*.test.ts",
     "test:tooling:core": "tsx --test tooling/src/utils/*.test.ts tooling/src/services/*.test.ts tooling/src/runners/*.test.ts",
     "test:tooling": "npm run assert:repo-root && npm run build:shared && npm run test:tooling:ds-types && npm run test:tooling:core",

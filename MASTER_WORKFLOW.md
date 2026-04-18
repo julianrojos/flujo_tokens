@@ -1,11 +1,11 @@
-# Master Workflow
+# Component Docs Workflow
 
-This is the single entry point for the Design System documentation pipeline.
+This is the canonical editing order for component documentation assets.
 
-Canonical sequence:
+Sequence:
 
 1. `spec` -> create/update the component spec file at `design-systems/<system-id>/docs/_spec/components/<snake_case>.yml`
-2. `markdown` -> generate/update `design-systems/<system-id>/docs/components/<snake_case>.md`
+2. `markdown` -> create/update `design-systems/<system-id>/docs/components/<snake_case>.md`
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ npm run ds:doctor -- --system <id>
 
 ### 1) Capture spec in the dashboard
 
-Open the component spec editor in the dashboard and update the spec from the captured Figma data.
+Open the component spec editor in the dashboard and update the spec from captured Figma data.
 
 ### 2) Edit component docs
 
@@ -55,5 +55,5 @@ npm run ds:doctor
 - Never skip stage order (`spec` -> `markdown`).
 - Keep one spec and one markdown file per component slug.
 - Always target the correct design system (`--system <id>`) for multi-system repositories.
-- Visual proof capture (`ds:capture-visual-proof`) is a standalone operation, not part of the canonical pipeline.
+- Visual proof capture (`ds:capture-visual-proof`) is a standalone operation.
 - For `doc_status: ready`, visual proof must contain a concrete screenshot URL.

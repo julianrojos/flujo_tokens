@@ -79,7 +79,7 @@ It does not generate implementation code for UI components.
 
 Migration output must comply with:
 - `component-name-normalization.mdc`
-- `component-spec-yaml.mdc`
+- component-spec rules
 - `component-doc.mdc`
 - `component-figma-traceability.mdc`
 - `token-references.mdc`
