@@ -16,7 +16,6 @@ export interface PipelinePaths {
     databaseUrl: string;
     tokenRegistryPath: string;
     resolvedSpecRoot: string;
-    templatePath: string;
     overviewPath: string;
 }
 
@@ -45,24 +44,4 @@ export interface PipelineContext extends PipelineIdentity {
     paths: PipelinePaths;
     flags: PipelineFlags;
     argsRaw: Record<string, unknown>;  // Flexible to accommodate all CLI argument types
-}
-
-export interface SpecRunContext {
-    figmaUrl: string;
-    componentName: string;
-    componentSlug: string;
-    specRoot: string;
-    resolvedSpecRoot: string;
-    docsRootDir: string;
-    templatePath: string;
-    registryPath: string;
-    skipValidation: boolean;
-    allowNonEvidenceUpdates: boolean;
-    agent: string;
-    fileKeyFromUrl: string;
-    nodeId: string;
-    outputPath: string;
-    overviewPath: string;
-    databaseUrl: string;
-    allowedWritePaths: string[];
 }

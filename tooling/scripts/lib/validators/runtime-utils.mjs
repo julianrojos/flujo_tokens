@@ -52,17 +52,3 @@ export function collectMarkdownFiles(docsRoot, explicitFilePath) {
     a.localeCompare(b, "en", { sensitivity: "base" }),
   );
 }
-
-export function collectSpecFiles(specRoot) {
-  if (!fs.existsSync(specRoot)) return [];
-  return fs
-    .readdirSync(specRoot, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        entry.name.endsWith(".yml") &&
-        entry.name !== "_template.yml",
-    )
-    .map((entry) => path.join(specRoot, entry.name))
-    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
-}

@@ -67,20 +67,3 @@ export function collectMarkdownFiles(docsRoot: string, explicitFilePath: string 
 
   return files.sort(compareAlpha);
 }
-
-/**
- * Collect all spec YAML files from a directory.
- */
-export function collectSpecFiles(specRoot: string): string[] {
-  if (!fs.existsSync(specRoot)) return [];
-  return fs
-    .readdirSync(specRoot, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        entry.name.endsWith('.yml') &&
-        entry.name !== '_template.yml'
-    )
-    .map((entry) => path.join(specRoot, entry.name))
-    .sort(compareAlpha);
-}

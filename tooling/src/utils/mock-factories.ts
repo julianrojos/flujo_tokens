@@ -75,8 +75,6 @@ export function createCaptureContextMock(
         proofImageDir: '/mock/repo/docs/_generated/visual-proofs/images',
         resolvedSpecRoot:
           '/mock/repo/design-systems/sys-01/docs/_spec/components',
-        templatePath:
-          '/mock/repo/tooling/templates/component-spec/_template.yml',
         tokenRegistryPath: '/mock/repo/docs/_generated/token-registry.json',
         overviewPath: '/mock/repo/docs/overview.md',
         databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',

@@ -113,6 +113,7 @@ export function validateOverviewLinks({
   }
 
   if (entries.length === 0) {
+    if (componentFiles.length === 0) return;
     report.errors.push({
       code: "LINK02",
       file: overviewPath,
@@ -202,98 +203,5 @@ export function validateOverviewLinks({
         message: `Orphan component doc not listed in overview: ${path.relative(process.cwd(), componentFile)}.`,
       });
     }
-  }
-}
-
-export function validateSpecMarkdownPairing({
-  componentFiles,
-  docsRoot,
-  specRoot,
-  checkSpecs,
-  explicitSpecFilePath,
-  explicitFilePath,
-  report,
-  collectSpecFiles,
-}) {
-  const componentSet = new Set(
-    componentFiles.map((filePath) => path.resolve(filePath)),
-  );
-  const explicitPairMode = Boolean(explicitFilePath && explicitSpecFilePath);
-  const resolvedExplicitFilePath = explicitFilePath
-    ? path.resolve(explicitFilePath)
-    : "";
-  const resolvedExplicitSpecFilePath = explicitSpecFilePath
-    ? path.resolve(explicitSpecFilePath)
-    : "";
-
-  for (const componentFile of componentFiles) {
-    if (
-      explicitPairMode &&
-      path.resolve(componentFile) === resolvedExplicitFilePath
-    ) {
-      if (fs.existsSync(resolvedExplicitSpecFilePath)) continue;
-      report.errors.push({
-        code: "PAIR01",
-        file: componentFile,
-        message:
-          "Component markdown must have a matching spec YAML file: " +
-          `${path.relative(process.cwd(), resolvedExplicitSpecFilePath)}.`,
-      });
-      continue;
-    }
-
-    const slug = path.basename(componentFile, path.extname(componentFile));
-    const expectedSpecPath = path.resolve(specRoot, `${slug}.yml`);
-    if (fs.existsSync(expectedSpecPath)) continue;
-    report.errors.push({
-      code: "PAIR01",
-      file: componentFile,
-      message:
-        "Component markdown must have a matching spec YAML file: " +
-        `${path.relative(process.cwd(), expectedSpecPath)}.`,
-    });
-  }
-
-  const specFilesForPairing = explicitSpecFilePath
-    ? [path.resolve(explicitSpecFilePath)]
-    : checkSpecs
-      ? collectSpecFiles(specRoot)
-      : [];
-
-  for (const specFile of specFilesForPairing) {
-    if (
-      explicitPairMode &&
-      path.resolve(specFile) === resolvedExplicitSpecFilePath
-    ) {
-      const expectedMarkdownPath = resolvedExplicitFilePath;
-      if (
-        componentSet.has(expectedMarkdownPath) ||
-        fs.existsSync(expectedMarkdownPath)
-      )
-        continue;
-      report.errors.push({
-        code: "PAIR01",
-        file: specFile,
-        message:
-          "Component spec YAML must have a matching markdown file: " +
-          `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
-      });
-      continue;
-    }
-
-    const slug = path.basename(specFile, path.extname(specFile));
-    const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
-    if (
-      componentSet.has(expectedMarkdownPath) ||
-      fs.existsSync(expectedMarkdownPath)
-    )
-      continue;
-    report.errors.push({
-      code: "PAIR01",
-      file: specFile,
-      message:
-        "Component spec YAML must have a matching markdown file: " +
-        `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
-    });
   }
 }

@@ -1,12 +1,12 @@
 /**
  * Linking Validators
  *
- * Validate overview links and spec-markdown pairing.
+ * Validate overview links.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DocsValidationReport } from './docs-validator-types.js';
-import { collectSpecFiles, buildLineStarts, lineFromOffset, compareAlpha } from './runtime-utils.js';
+import { buildLineStarts, lineFromOffset, compareAlpha } from './runtime-utils.js';
 import { normalizeHeadingText } from './markdown-quality.js';
 
 const CANONICAL_COMPONENT_LIST_HEADING = 'component list';
@@ -220,92 +220,5 @@ export function validateOverviewLinks(options: ValidateOverviewLinksOptions): vo
         message: `Orphan component doc not listed in overview: ${path.relative(process.cwd(), componentFile)}.`,
       });
     }
-  }
-}
-
-export interface ValidateSpecMarkdownPairingOptions {
-  componentFiles: string[];
-  docsRoot: string;
-  specRoot: string;
-  checkSpecs: boolean;
-  explicitSpecFilePath: string | null;
-  explicitFilePath: string | null;
-  report: DocsValidationReport;
-}
-
-/**
- * Validate spec-markdown pairing.
- */
-export function validateSpecMarkdownPairing(options: ValidateSpecMarkdownPairingOptions): void {
-  const {
-    componentFiles,
-    docsRoot,
-    specRoot,
-    checkSpecs,
-    explicitSpecFilePath,
-    explicitFilePath,
-    report,
-  } = options;
-
-  const componentSet = new Set(componentFiles.map((filePath) => path.resolve(filePath)));
-  const explicitPairMode = Boolean(explicitFilePath && explicitSpecFilePath);
-  const resolvedExplicitFilePath = explicitFilePath ? path.resolve(explicitFilePath) : '';
-  const resolvedExplicitSpecFilePath = explicitSpecFilePath ? path.resolve(explicitSpecFilePath) : '';
-
-  for (const componentFile of componentFiles) {
-    if (explicitPairMode && path.resolve(componentFile) === resolvedExplicitFilePath) {
-      if (fs.existsSync(resolvedExplicitSpecFilePath)) continue;
-      report.errors.push({
-        code: 'PAIR01',
-        file: componentFile,
-        message:
-          'Component markdown must have a matching spec YAML file: ' +
-          `${path.relative(process.cwd(), resolvedExplicitSpecFilePath)}.`,
-      });
-      continue;
-    }
-
-    const slug = path.basename(componentFile, path.extname(componentFile));
-    const expectedSpecPath = path.resolve(specRoot, `${slug}.yml`);
-    if (fs.existsSync(expectedSpecPath)) continue;
-    report.errors.push({
-      code: 'PAIR01',
-      file: componentFile,
-      message:
-        'Component markdown must have a matching spec YAML file: ' +
-        `${path.relative(process.cwd(), expectedSpecPath)}.`,
-    });
-  }
-
-  const specFilesForPairing = explicitSpecFilePath
-    ? [path.resolve(explicitSpecFilePath)]
-    : checkSpecs
-      ? collectSpecFiles(specRoot)
-      : [];
-
-  for (const specFile of specFilesForPairing) {
-    if (explicitPairMode && path.resolve(specFile) === resolvedExplicitSpecFilePath) {
-      const expectedMarkdownPath = resolvedExplicitFilePath;
-      if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
-      report.errors.push({
-        code: 'PAIR01',
-        file: specFile,
-        message:
-          'Component spec YAML must have a matching markdown file: ' +
-          `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
-      });
-      continue;
-    }
-
-    const slug = path.basename(specFile, path.extname(specFile));
-    const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
-    if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
-    report.errors.push({
-      code: 'PAIR01',
-      file: specFile,
-      message:
-        'Component spec YAML must have a matching markdown file: ' +
-        `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
-    });
   }
 }

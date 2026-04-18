@@ -1,7 +1,7 @@
 /**
  * Gaps Extraction Utilities
  *
- * Extract and validate gaps from spec YAML files.
+ * Extract and validate gaps from component spec content.
  */
 
 import { isPlainObject } from '../utils/is-plain-object.js';

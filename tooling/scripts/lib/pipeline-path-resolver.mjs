@@ -29,11 +29,6 @@ export function resolvePipelinePaths(args, systemContext) {
 
   const specRoot = args["spec-root"] || systemContext.paths.specs || path.join(docsRootDir, "_spec", "components");
   const resolvedSpecRoot = path.resolve(specRoot);
-  const defaultTemplatePath = path.resolve(
-    PROJECT_ROOT,
-    "tooling/templates/component-spec/_template.yml",
-  );
-
   return {
     docsRootOverride,
     docsRootDir,
@@ -43,7 +38,6 @@ export function resolvePipelinePaths(args, systemContext) {
     databaseUrl: systemContext.paths.databaseUrl,
     tokenRegistryPath: path.resolve(args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, "_generated", "token-registry.json")),
     resolvedSpecRoot,
-    templatePath: path.resolve(args.template || defaultTemplatePath),
     overviewPath: path.resolve(path.join(docsRootDir, "overview.md")),
   };
 }

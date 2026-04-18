@@ -1,7 +1,8 @@
 /**
  * Documentation Validator Service
  *
- * Validates documentation integrity and structure.
+ * Validates markdown documentation structure, token references, and overview links.
+ * Spec↔markdown consistency and gaps checks live in dedicated audit helpers/runners.
  * Full TypeScript implementation (migrated from docs-validator.mjs).
  *
  * @module tooling/src/services/docs-validator
@@ -27,9 +28,7 @@ import type {
 // Import extracted validator modules (FULLY WIRED - single source of truth)
 import {
   validateOverviewLinks,
-  validateSpecMarkdownPairing,
 } from './linking.js';
-import { validateSpecYamlFiles } from './yaml.js';
 import {
   validateSectionOrder,
   validateComponentDocFileName,
@@ -46,16 +45,12 @@ import {
   buildLineStarts,
   lineFromOffset,
   collectMarkdownFiles,
-  collectSpecFiles,
 } from './runtime-utils.js';
 import {
   loadRuleManifest,
   annotateFindingsWithManifest,
   createBaseReport,
 } from './governance.js';
-
-// Import gaps validator (single source of truth)
-import { validateGapsSectionContract } from './figma.js';
 
 // ============================================================================
 // Constants
@@ -80,14 +75,12 @@ function resolveDocsValidatorDefaults() {
     const ctx = resolveSystemContextSafe();
     return {
       docsRoot: ctx.paths.docs,
-      specRoot: ctx.paths.specs,
       registryPath: ctx.paths.tokenRegistry,
       contextError: null as string | null,
     };
   } catch (error) {
     return {
       docsRoot: '',
-      specRoot: '',
       registryPath: '',
       contextError:
         error instanceof Error
@@ -145,22 +138,12 @@ export function validateDocs(
 ): DocsValidationReport {
   const defaults = resolveDocsValidatorDefaults();
   const explicitDocsRoot = String(options.docsRoot || '').trim();
-  const explicitSpecRoot = String(options.specRoot || '').trim();
   const explicitRegistryPath = String(options.registryPath || '').trim();
   const explicitFilePath = String(options.filePath || '').trim();
-  const explicitSpecFilePath = String(options.specFilePath || '').trim();
-  const checkPairing = options.checkPairing !== false;
   const checkOverview = explicitFilePath
     ? false
     : options.checkOverview !== false;
-  const checkSpecs =
-    options.checkSpecs !== false &&
-    (!explicitFilePath || Boolean(explicitSpecFilePath));
-  const needsSpecRoot = checkPairing || checkSpecs;
-  const hasRequiredExplicitPaths =
-    Boolean(explicitDocsRoot) &&
-    Boolean(explicitRegistryPath) &&
-    (!needsSpecRoot || Boolean(explicitSpecRoot));
+  const hasRequiredExplicitPaths = Boolean(explicitDocsRoot) && Boolean(explicitRegistryPath);
 
   if (defaults.contextError && !hasRequiredExplicitPaths) {
     const report = createBaseReport({ manifestPath: RULE_MANIFEST_PATH });
@@ -168,7 +151,6 @@ export function validateDocs(
     const missing: string[] = [];
     if (!explicitDocsRoot) missing.push('--docs-root');
     if (!explicitRegistryPath) missing.push('--registry');
-    if (needsSpecRoot && !explicitSpecRoot) missing.push('--spec-root');
     report.errors.push({
       code: 'DOC01',
       file: 'design-system-context',
@@ -184,10 +166,6 @@ export function validateDocs(
     return report;
   }
   const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
-  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
-  const resolvedSpecFilePath = options.specFilePath
-    ? path.resolve(options.specFilePath)
-    : null;
   const registryPath = path.resolve(
     options.registryPath || defaults.registryPath,
   );
@@ -254,11 +232,6 @@ export function validateDocs(
 
   const markdownFiles = collectMarkdownFiles(docsRoot, resolvedFilePath);
   const componentFiles: string[] = [];
-
-  const specResolution: { specFilePath?: string } =
-    resolvedFilePath && resolvedSpecFilePath
-      ? { specFilePath: resolvedSpecFilePath }
-      : {};
 
   // Process each markdown file
   for (const filePath of markdownFiles) {
@@ -331,40 +304,6 @@ export function validateDocs(
       0,
     );
 
-    // Validate gaps section contract
-    validateGapsSectionContract(
-      filePath,
-      raw,
-      specRoot,
-      registry,
-      report,
-      lineStarts,
-      lineFromOffset,
-      specResolution,
-    );
-  }
-
-  // Validate spec-markdown pairing
-  if (checkPairing) {
-    validateSpecMarkdownPairing({
-      componentFiles,
-      docsRoot,
-      specRoot,
-      checkSpecs,
-      explicitSpecFilePath: resolvedSpecFilePath,
-      explicitFilePath: resolvedFilePath,
-      report,
-    });
-  }
-
-  // Validate spec YAML files
-  if (checkSpecs) {
-    validateSpecYamlFiles({
-      specRoot,
-      report,
-      explicitSpecFilePath: resolvedSpecFilePath,
-      collectSpecFiles,
-    });
   }
 
   // Validate overview links

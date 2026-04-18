@@ -64,7 +64,7 @@ export function injectSpecZones(markdown, spec, slug) {
     throw new Error("Markdown content must be a string.");
   }
   if (!spec || typeof spec !== "object") {
-    throw new Error("YAML spec must be a valid object.");
+    throw new Error("Component spec must be a valid object.");
   }
 
   let result = markdown;

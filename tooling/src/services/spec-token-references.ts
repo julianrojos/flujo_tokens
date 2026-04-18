@@ -1,7 +1,7 @@
 /**
  * Spec Token References
  *
- * Extract token references from component spec YAML files.
+ * Extract token references from component specs.
  * This module is independent from token usage index generation.
  */
 

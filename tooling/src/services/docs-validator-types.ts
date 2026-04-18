@@ -28,7 +28,6 @@ export interface DocsValidatorIssue {
  */
 export interface DocsValidationSummary {
   filesChecked: number;
-  specFilesChecked: number;
   tokenRefsChecked: number;
   tokenRefsInvalid: number;
   errors: number;
@@ -60,13 +59,9 @@ export interface DocsValidationReport {
  */
 export interface DocsValidatorOptions {
   docsRoot?: string;
-  specRoot?: string;
-  specFilePath?: string;
   registryPath?: string;
   filePath?: string;
   allowExtraH2?: boolean;
-  checkPairing?: boolean;
   checkOverview?: boolean;
-  checkSpecs?: boolean;
   manifestPath?: string;
 }

@@ -9,21 +9,16 @@ import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
 } from "./token-registry.mjs";
-import { validateOptionalVersionBlock } from "./validators/version-block.mjs";
 import {
   validateOverviewLinks,
-  validateSpecMarkdownPairing,
 } from "./validators/linking.mjs";
-import { validateSpecYamlFiles } from "./validators/yaml.mjs";
 import {
   createBaseReport,
   loadRuleManifest,
   annotateFindingsWithManifest,
 } from "./validators/governance.mjs";
-import { validateGapsSectionContract } from "./validators/figma.mjs";
 import {
   buildRegistryIndexes,
-  resolveTokenCandidate,
   validateTokenReferences,
   validateTokenFallbacks,
 } from "./validators/token-references.mjs";
@@ -39,7 +34,6 @@ import {
   buildLineStarts,
   lineFromOffset,
   collectMarkdownFiles,
-  collectSpecFiles,
 } from "./validators/runtime-utils.mjs";
 
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
@@ -52,13 +46,11 @@ function resolveDocsValidatorDefaults() {
     const ctx = resolveSystemContextSafe();
     return {
       docsRoot: ctx.paths.docs,
-      specRoot: ctx.paths.specs,
       registryPath: ctx.paths.tokenRegistry,
     };
   } catch {
     return {
       docsRoot: path.join(PROJECT_ROOT, "docs", "components"),
-      specRoot: path.join(PROJECT_ROOT, "docs", "_spec", "components"),
       registryPath: path.join(PROJECT_ROOT, "docs", "_generated", "token-registry.json"),
     };
   }
@@ -67,10 +59,6 @@ function resolveDocsValidatorDefaults() {
 export function validateDocs(options = {}) {
   const defaults = resolveDocsValidatorDefaults();
   const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
-  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
-  const explicitSpecFilePath = options.specFilePath
-    ? path.resolve(options.specFilePath)
-    : null;
   const registryPath = path.resolve(
     options.registryPath || defaults.registryPath || DEFAULT_TOKEN_REGISTRY_PATH,
   );
@@ -78,13 +66,9 @@ export function validateDocs(options = {}) {
     ? path.resolve(options.filePath)
     : null;
   const allowExtraH2 = options.allowExtraH2 === true;
-  const checkPairing = options.checkPairing !== false;
   const checkOverview = explicitFilePath
     ? false
     : options.checkOverview !== false;
-  const checkSpecs =
-    options.checkSpecs !== false &&
-    (!explicitFilePath || Boolean(explicitSpecFilePath));
 
   const report = createBaseReport({
     manifestPath: RULE_MANIFEST_PATH,
@@ -124,11 +108,6 @@ export function validateDocs(options = {}) {
     (filePath) => path.basename(filePath) === "overview.md",
   );
   const componentFiles = [];
-
-  const specResolution =
-    explicitFilePath && explicitSpecFilePath
-      ? { specFilePath: explicitSpecFilePath }
-      : {};
 
   for (const filePath of markdownFiles) {
     if (!fs.existsSync(filePath)) {
@@ -189,42 +168,6 @@ export function validateDocs(options = {}) {
       lineFromOffset,
       0,
     );
-    validateGapsSectionContract(
-      filePath,
-      raw,
-      specRoot,
-      registry,
-      report,
-      lineStarts,
-      lineFromOffset,
-      specResolution,
-    );
-  }
-
-  if (checkPairing) {
-    validateSpecMarkdownPairing({
-      componentFiles,
-      docsRoot,
-      specRoot,
-      checkSpecs,
-      explicitSpecFilePath,
-      explicitFilePath,
-      report,
-      collectSpecFiles,
-    });
-  }
-
-  if (checkSpecs) {
-    validateSpecYamlFiles({
-      specRoot,
-      report,
-      registryIndexes,
-      explicitSpecFilePath,
-      collectSpecFiles,
-      resolveTokenCandidate,
-      specComponentsDir: defaults.specRoot,
-      validateOptionalVersionBlock,
-    });
   }
 
   if (checkOverview) {

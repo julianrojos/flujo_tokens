@@ -54,7 +54,7 @@ export const GAPS_VALIDATION = Object.freeze({
  * Check descriptions for error codes.
  */
 export const GAP_CHECK_MESSAGES = Object.freeze({
-  GAP00: 'Gaps section exists but linked spec file is missing; deterministic gap checks were skipped.',
+  GAP00: 'Gaps section exists but linked component spec is missing; deterministic gap checks were skipped.',
 
   GAP01_spec_parse_error:
     'Unable to validate Gaps / TBD contract because spec could not be parsed.',

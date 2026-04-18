@@ -42,7 +42,7 @@ export function getSpecPropertyTypeInfo(rawType) {
 }
 
 /**
- * Canonical field order within each property object in a spec YAML.
+ * Canonical field order within each property object in a component spec.
  * Sourced from component-spec-properties-order.mdc § "Canonical field order".
  * Used by validate:docs (DET01).
  */

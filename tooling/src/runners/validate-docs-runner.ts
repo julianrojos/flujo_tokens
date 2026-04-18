@@ -3,7 +3,7 @@
 /**
  * Validate Docs Runner
  *
- * Validates component documentation and specs against project rules.
+ * Validates component documentation against project rules.
  */
 
 import * as path from 'node:path';
@@ -20,7 +20,7 @@ import type {
 } from '../services/docs-validator-types.js';
 
 const TOKEN_REGISTRY_CHECK = 'token-registry';
-const TOKEN_SOURCE_CODES = new Set(['TOK01', 'TOK02', 'TOK03', 'SPEC01']);
+const TOKEN_SOURCE_CODES = new Set(['TOK01', 'TOK02', 'TOK03']);
 
 type ValidationFinding = Pick<
   DocsValidatorIssue,
@@ -41,7 +41,7 @@ type TokenRegistryReport = Omit<DocsValidationReport, 'errors' | 'warnings'> & {
 
 const CLI_CONFIG = {
   command: 'validate:docs [options]',
-  description: 'Validates component documentation and specs against project rules.',
+  description: 'Validates component documentation against project rules.',
   options: [
     {
       name: '--docs-root',
@@ -57,10 +57,6 @@ const CLI_CONFIG = {
       description: 'Single component markdown file to validate.',
     },
     {
-      name: '--spec-file',
-      description: 'Single spec YAML file to validate.',
-    },
-    {
       name: '--strict',
       description: 'Fail on warnings.',
       defaultValue: 'false',
@@ -68,11 +64,6 @@ const CLI_CONFIG = {
     {
       name: '--no-overview',
       description: 'Skip overview.md validation.',
-      defaultValue: 'false',
-    },
-    {
-      name: '--no-specs',
-      description: 'Skip spec YAML validation.',
       defaultValue: 'false',
     },
     {
@@ -153,12 +144,9 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
   const docsRoot = String(getStringArg(parsed, 'docs-root') || ctx.paths.docs);
   const registryPath = String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry);
   const fileArg = getStringArg(parsed, 'file');
-  const specFileArg = getStringArg(parsed, 'spec-file');
   const filePath = fileArg ? path.resolve(fileArg) : null;
-  const specFilePath = specFileArg ? path.resolve(specFileArg) : null;
   const strict = parseBooleanOption(getStringArg(parsed, 'strict'), false);
   const noOverview = parseBooleanOption(parsed['no-overview'], false);
-  const noSpecs = parseBooleanOption(parsed['no-specs'], false);
   const allowExtraH2 = parseBooleanOption(parsed['allow-extra-h2'], false);
   const check = String(parsed.check || '').trim().toLowerCase();
 
@@ -171,10 +159,8 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
     docsRoot,
     registryPath,
     filePath: filePath ?? undefined,
-    specFilePath: specFilePath ?? undefined,
     allowExtraH2,
     checkOverview: !noOverview,
-    checkSpecs: !noSpecs,
   });
 
   const report =

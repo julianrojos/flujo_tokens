@@ -163,26 +163,6 @@ export type {
   AgentPromptResult,
 } from '../services/agent-runner.js';
 
-// Spec agent runner utilities
-export {
-  buildSpecPrompt,
-  buildSpecValidationFeedbackPrompt,
-  buildSpecAgentLabel,
-  runSpecGenerationPrompt,
-  runSpecRepairPrompt,
-  GOLDEN_COMPONENT_SPEC_SAMPLE_PATH,
-  SPEC_REQUIRED_TOP_LEVEL_FIELDS,
-  RULE_BLOCKS,
-} from '../services/spec-agent-runner.js';
-
-export type {
-  BuildSpecPromptOptions,
-  BuildSpecValidationFeedbackPromptOptions,
-  BuildSpecAgentLabelOptions,
-  RunSpecGenerationPromptOptions,
-  RunSpecRepairPromptOptions,
-} from '../services/spec-agent-runner.js';
-
 // Spec run guards and resolvers
 export {
   assertBypassPolicy,
@@ -197,58 +177,16 @@ export type {
   ResolvedFigmaSource,
 } from '../services/spec-guards.js';
 
-// Spec run context service
-export { createSpecRunContext } from '../services/spec-run-context.js';
-
-export type { CreateSpecRunContextOptions } from '../services/spec-run-context.js';
-
 // Pipeline types
 export type {
   PipelineIdentity,
   PipelinePaths,
   PipelineFlags,
   PipelineContext,
-  SpecRunContext,
 } from '../types/pipeline.js';
-
-// Spec registry and flow services
-export { buildSpecPromptWithRegistry } from '../services/spec-registry-prompt.js';
-export { runSpecGenerationFlow } from '../services/spec-generation-flow.js';
-
-export type {
-  BuildSpecPromptWithRegistryOptions,
-} from '../services/spec-registry-prompt.js';
-
-export type {
-  RunSpecGenerationFlowOptions,
-  SpecGenerationFlowResult,
-} from '../services/spec-generation-flow.js';
-
-export {
-  coerceSpecPropertyType,
-  getSpecPropertyTypeInfo,
-  getValidSpecPropertyTypes,
-  PROPERTY_FIELD_ORDER,
-} from '../services/spec-property-types.js';
-
-export type {
-  SpecPropertyType,
-  SpecPropertyTypeInfo,
-} from '../services/spec-property-types.js';
-
-export {
-  countTbdValues,
-  mergeWithTemplate,
-  normalizeSpecOrder,
-  normalizeSpec,
-  SPEC_TOP_LEVEL_ORDER,
-} from '../services/spec-normalizer.js';
-
-export type { NormalizeSpecOptions } from '../services/spec-normalizer.js';
 
 // Validation services
 export { validateDocs } from '../services/docs-validator.js';
-export { validateGeneratedSpec } from '../services/spec-validation.js';
 
 export type {
   DocsValidatorIssue,
@@ -256,8 +194,6 @@ export type {
   DocsValidationReport,
   DocsValidatorOptions,
 } from '../services/docs-validator-types.js';
-
-export type { SpecValidationResult } from '../services/spec-validation.js';
 
 // Evidence-gated mutations
 export {
@@ -271,19 +207,6 @@ export type {
   AssertDocStatusStableOptions,
   MutationViolation,
 } from '../services/evidence-gated-mutations.js';
-
-// Spec write adapter
-export {
-  ensureSpecTemplateExists,
-  ensureSpecOutputDirectory,
-  materializeSpec,
-  parseExistingSpecFromSnapshot,
-} from '../services/spec-write-adapter.js';
-
-export type {
-  MaterializeSpecOptions,
-  SpecOutputSnapshot,
-} from '../services/spec-write-adapter.js';
 
 // Registry loader
 export { loadRegistryOrThrow } from './registry-loader.js';
@@ -440,9 +363,6 @@ export {
 export { parseFigmaUrl } from './figma-url-parser.js';
 
 export type { ParsedFigmaUrl } from './figma-url-parser.js';
-
-// Spec path utilities
-export { buildSpecOutputPath } from '../services/spec-paths.js';
 
 // Figma component map runners
 export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';

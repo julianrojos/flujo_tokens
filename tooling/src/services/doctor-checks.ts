@@ -715,6 +715,9 @@ export function checkComponentByName(ctx: DoctorContext): DoctorCheck[] {
 
 /**
  * Check VALIDATE_DOCS
+ *
+ * This health check is the operator-facing wrapper around markdown/token-registry
+ * validation. Spec pair and gaps coverage are surfaced through dedicated audits.
  */
 export function checkValidateDocs(ctx: DoctorContext): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
@@ -733,7 +736,6 @@ export function checkValidateDocs(ctx: DoctorContext): DoctorCheck[] {
   } else {
     const validation = validateDocs({
       docsRoot: ctx.docsRoot,
-      specRoot: ctx.specRoot,
       registryPath: ctx.registryPath,
     });
 
