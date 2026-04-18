@@ -353,7 +353,6 @@ System context (DB-backed):
 - `--system` without value (for example `--system ""`) is rejected.
 
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `design-systems/<id>/docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `design-systems/<id>/docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard PostgreSQL database and refreshes `design-systems/<id>/docs/components/overview.md`, then regenerates `design-systems/<id>/docs/_generated/token-usage-index.json`.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
@@ -534,46 +533,10 @@ If non-interactive execution is unavailable, the command stores a fallback promp
 
 - `docs/_generated/agent_prompts/`
 
-### 1) Figma URL -> component markdown
-
-Generate/update one component markdown page from a Figma URL:
-
-```bash
-npm run ds:doc-from-figma-url -- \
-  --system my-system \
-  --url "https://www.figma.com/design/<file>?node-id=<node>" \
-  --component-name Alert \
-  --output design-systems/my-system/docs/components/alert.md \
-  --agent codex
-```
-
-Useful flags:
-
-- `--system <id>` (recommended in multi-system repos)
-- `--docs-root <path>` (default resolved from active system context: `design-systems/<id>/docs/components`)
-- `--component-name <Name>`
-- `--output <path/to/component.md>` (default inferred from active system context as `design-systems/<id>/docs/components/<snake_case>.md`)
-- `--figma-token <token>` (or `FIGMA_TOKEN` env var; required for file URL discovery mode)
-- `--auto-component-map <true|false>` (default: `true`)
-- `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
-- `--capture-proof <true|false>` (default: `true`)
-- `--capture-proof-strict <true|false>` (default: `false`)
-- `--capture-proof-variants <true|false>` (default: `true`)
-- `--capture-proof-variant-limit <number>` (default: `6`)
-- `--allow-doc-status-change true` (exceptional override; requires `--force true`)
-- `--force true` (required when `--allow-doc-status-change true`)
-- `--agent <codex|claude|gemini>`
-
-If the provided URL has no `node-id`, the command switches to discovery mode and writes:
-
-- `docs/_generated/figma-component-map/<fileKey>.json`
-
-Then it prints a sample list of component URLs so you can rerun documentation for a specific node.
-
-The retired CLI flows for generating component markdown or specs from Figma are no longer part of the supported workflow.
 Component docs are edited in the dashboard and read back through the API.
+File-level Figma URL discovery is handled by `ds:figma-component-map`.
 
-### 2) Figma file URL -> component map (all pages)
+### 1) Figma file URL -> component map (all pages)
 
 Extract all component nodes for one Figma file and persist a deterministic map:
 
@@ -597,7 +560,7 @@ Useful flags:
 - `--timeout-ms <number>` (default: `30000`)
 - `--dry-run true`
 
-### 3) Capture visual proof (standalone)
+### 2) Capture visual proof (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \
@@ -623,7 +586,7 @@ Useful flags:
 - `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
-### 3b) Component registry and overview sync
+### 3) Component registry and overview sync
 
 ```bash
 npm run ds:registry:sync
