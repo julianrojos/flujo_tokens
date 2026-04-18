@@ -33,8 +33,8 @@ rules:
     applies_to: [markdown]
     blocking: true
     layer: stage
-  - id: component-figma-traceability
-    file: component-figma-traceability.mdc
+  - id: component-figma-metadata
+    file: component-figma-metadata.mdc
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
@@ -123,12 +123,6 @@ rules:
     applies_to: [spec, markdown, pipeline]
     blocking: true
     layer: core
-  - id: frontmatter-contract
-    file: frontmatter-contract.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: stage
   - id: general-programming-principles
     file: general-programming-principles.mdc
     owner: docs-governance
@@ -234,13 +228,6 @@ checks:
   DOC01:
     rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
     blocking: true
-  FM01:
-    rule_ids:
-      [frontmatter-contract, component-figma-traceability, docs-taxonomy]
-    blocking: true
-  FM02:
-    rule_ids: [frontmatter-contract, markdown-lifecycle-status]
-    blocking: true
   SEC01:
     rule_ids: [component-doc]
     blocking: true
@@ -278,13 +265,7 @@ checks:
     rule_ids: [component-name-normalization, component-spec-yaml]
     blocking: true
   TRACE01:
-    rule_ids: [component-figma-traceability, component-spec-yaml]
-    blocking: true
-  TRACE02:
-    rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
-    blocking: true
-  TRACE03:
-    rule_ids: [component-figma-traceability, docs-pipeline-contract]
+    rule_ids: [component-figma-metadata, component-spec-yaml]
     blocking: true
   LINK01:
     rule_ids: [overview-index-maintenance]
@@ -353,10 +334,9 @@ matrix:
   by_doc_type:
     component:
       [
-        frontmatter-contract,
         component-doc,
         component-visual-usage,
-        component-figma-traceability,
+        component-figma-metadata,
         inclusive-docs,
         design-token-discrepancies,
         token-references,
@@ -371,7 +351,6 @@ matrix:
       ]
     overview:
       [
-        frontmatter-contract,
         docs-taxonomy,
         overview-index-maintenance,
         overview-components-canonical-list,
@@ -382,7 +361,6 @@ matrix:
       ]
     foundation:
       [
-        frontmatter-contract,
         docs-taxonomy,
         inclusive-docs,
         token-references,
@@ -395,7 +373,6 @@ matrix:
       ]
     workflow:
       [
-        frontmatter-contract,
         docs-taxonomy,
         docs-governance-ops,
         pattern-doc-workflow,
@@ -440,13 +417,12 @@ matrix:
     markdown:
       [
         component-doc,
-        frontmatter-contract,
         markdown-lifecycle-status,
         docs-language-tone,
         general-programming-principles,
         git-constraints,
       ]
-    visual-proof: [component-figma-traceability]
+    visual-proof: [component-figma-metadata]
     pipeline:
       [
         docs-pipeline-contract,

@@ -17,9 +17,9 @@ Markdown docs use `doc_status` with these values only:
 
 ## Required status metadata
 
-- Required frontmatter fields and allowed values are defined in `frontmatter-contract.mdc`.
-- Component docs (`docs/components/*.md`, excluding `overview.md`) must declare `doc_status` in YAML frontmatter.
-- Overview/foundation/workflow pages should also declare `doc_status` when edited.
+- Lifecycle status values are defined in this rule and enforced by the docs pipeline.
+- Component docs (`docs/components/*.md`, excluding `overview.md`) must carry an explicit lifecycle status in the pipeline metadata.
+- Overview/foundation/workflow pages should also carry lifecycle status when edited.
 
 ## YAML alignment note
 
@@ -30,21 +30,14 @@ Markdown docs use `doc_status` with these values only:
 
 - Set to `needs-review` after major Figma component changes, token renames, or render-layout regressions.
 - Promote to `ready` only after re-checking source Figma and token mappings.
-- Use automated drift marking to reduce manual misses:
-
-```bash
-npm run ds:mark-needs-review
-```
 
 Automatic drift trigger (component docs):
 
-- `pipeline.ds_component_doc.spec_sha256` differs from the linked spec hash.
-- `pipeline.ds_component_doc.token_registry_sha256` differs from current token registry hash.
-- traceability block is missing/invalid.
+- required lifecycle metadata is missing or invalid.
 
 ## `ready` hard gate (components)
 
-For component pages (`docs/components/*.md`, excluding `overview.md`), `doc_status: ready` requires all:
+For component pages (`docs/components/*.md`, excluding `overview.md`), `ready` requires all:
 
 - Linked spec status is also `ready`.
 - No `TBD` markers remain in markdown content.

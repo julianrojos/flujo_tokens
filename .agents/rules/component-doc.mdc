@@ -8,13 +8,6 @@ globs:
 
 Every component page in `docs/components/` (excluding `overview.md`) must follow this contract.
 
-## Frontmatter dependency
-
-Frontmatter fields and traceability metadata are defined in:
-
-- `frontmatter-contract.mdc`
-- `component-figma-traceability.mdc`
-
 ## Required sections (in order)
 
 > **Machine-readable version:** `tooling/lib/markdown-sections.json` contains this section list as structured data — heading name, index, required flag, conditional rules, and per-section notes. Scripts and agents must import the JSON instead of hardcoding the list.
@@ -54,7 +47,7 @@ If additional details are needed, place them under `###` inside the nearest allo
   2. `TOKEN_INVALID`
   3. `CONTENT_UNKNOWN`
   4. `A11Y_TBD`
-- When gaps exist and `doc_status: ready`, emit **`GAP02`** (see `error-codes.mdc`); resolve all gaps first.
+- When gaps exist and the page lifecycle state is `ready`, emit **`GAP02`** (see `error-codes.mdc`); resolve all gaps first.
 
 ## General rules
 

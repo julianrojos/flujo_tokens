@@ -11,7 +11,7 @@ globs:
 
 When version tracking is needed, use a `version` object with SemVer strings.
 
-### Markdown frontmatter (`docs/components/*.md`)
+### Markdown metadata (`docs/components/*.md`)
 
 ```yaml
 version:

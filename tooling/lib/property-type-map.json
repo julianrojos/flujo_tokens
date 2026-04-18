@@ -94,7 +94,7 @@
     "source_of_truth_for": [
       "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE)",
       "tooling/schemas/component-spec.schema.json ($defs.figma_node_id)",
-      "component-figma-traceability.mdc (Node ID format contract)"
+      "component-figma-metadata.mdc (Node ID format contract)"
     ]
   }
 }

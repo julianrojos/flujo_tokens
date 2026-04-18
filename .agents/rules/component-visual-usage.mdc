@@ -14,7 +14,7 @@ Every component documentation page MUST include a visual diagram illustrating it
 
 - **Visual Diagram**: The image must clearly label the component's internal structural parts using numerical markers (1, 2, 3...) or distinct visual indicators.
 - **Legend Table**: The diagram MUST be accompanied by a markdown table or numbered list mapping the markers to the structural parts.
-- **YAML Alignment**: The identifiers used in the legend MUST map exactly to the `anatomy` items defined in the component's YAML frontmatter (e.g., if marker 1 is "container", the frontmatter must have an anatomy item with id `container`).
+- **Metadata Alignment**: The identifiers used in the legend MUST map exactly to the `anatomy` items defined in the component metadata (e.g., if marker 1 is "container", the spec metadata must have an anatomy item with id `container`).
 
 ### Markdown vs Figma render scope
 

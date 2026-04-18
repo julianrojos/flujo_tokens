@@ -34,11 +34,6 @@ This contract defines the only canonical order for component documentation:
 - Before promoting a component to `doc_status: ready`, run `npm run validate:docs` and block if any `TOK*` findings remain.
 - `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
 - `visual-proof` stage must fail when screenshot capture cannot produce a concrete URL.
-- Generated markdown must include a deterministic traceability block in frontmatter:
-  - `pipeline.ds_component_doc.contract_version`
-  - `pipeline.ds_component_doc.spec_sha256`
-  - `pipeline.ds_component_doc.token_registry_sha256`
-  - `pipeline.ds_component_doc.generator_script_sha256` (optional diagnostic hash; not a blocking drift field)
 
 ## Component index synchronization (blocking)
 

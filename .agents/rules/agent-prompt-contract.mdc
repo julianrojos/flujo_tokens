@@ -23,7 +23,7 @@ Prompts produced by tooling scripts must follow a stable, deterministic template
 
 - No invented component or token facts.
 - Follow `prohibited-patterns.mdc` constraints for forbidden identifiers and patterns.
-- Figma node IDs are allowed when used for source traceability.
+- Figma node IDs are allowed when used for source links.
 - No component implementation code; documentation-only output.
 - Explicit output path(s) when writing files.
 - Canonical H2 constraints must be included for markdown outputs.

@@ -24,7 +24,7 @@ Key constraints (see schema for full detail):
 
 - Required top-level fields are enforced by schema; unknown values use explicit `TBD`.
 - `status` in spec YAML is only `draft | ready`.
-- `figma.component_set_node_id` is required for `ready` and is the deterministic traceability key.
+- `figma.component_set_node_id` is required for `ready` and is the deterministic Figma key.
 - `properties` must use canonical types (`enum`, `text`, `boolean`, `instance_swap`) and deterministic ordering.
 - For `ready`, defaults must be concrete (no `TBD`) and enum values must be concrete.
 - File naming and slug consistency follow `component-name-normalization.mdc`.

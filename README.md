@@ -382,16 +382,14 @@ System context (DB-backed):
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
 - **`npm run ds:registry:report`**: Generates read-only registry projections in active system docs (`design-systems/<id>/docs/_generated/components-index.md` and `design-systems/<id>/docs/_generated/components-health.json`) without scanning specs/docs again.
-- **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
+- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
   - Validation findings are annotated with rule IDs using `.agents/rules/_manifest.yml`.
-  - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
-  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot reference: URL or local proof image).
+  - Enforces spec/markdown pairing, spec schema, and deterministic `Gaps / TBD` content checks.
 
 ### Documentation folders
 
@@ -486,18 +484,13 @@ npm run dashboard:preview
 
 Component pages are governed by rules in `.agents/rules/` and must include:
 
-- YAML frontmatter metadata:
-  - `doc_type: component`
-  - `doc_status: draft | ready | needs-review`
-  - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
-  - optional `figma.component_set_node_id` (must match spec if declared)
-- Stable section order from `component-doc.mdc`
+- Canonical section order from `component-doc.mdc`
   - H2 headings are strict: only canonical allowed section titles, in canonical order
 - `### Visual Proof` must live inside `## Overview` (never as an extra H2)
 - `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
-- Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
+- Figma node IDs are allowed in source links (for example in `node-id` URLs)
 - `component_name` normalization contract:
   - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
   - infer default file paths with `snake_case` (`status_bar`)
@@ -654,7 +647,6 @@ Useful flags:
 ### 3b) Auto-mark stale docs as needs-review
 
 ```bash
-npm run ds:mark-needs-review
 ```
 
 Useful flags:

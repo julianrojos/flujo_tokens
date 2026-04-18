@@ -44,13 +44,7 @@ npm run ds:capture-visual-proof -- \
   --agent codex
 ```
 
-### 4) Auto-mark stale docs as `needs-review`
-
-```bash
-npm run ds:mark-needs-review -- --system my-system
-```
-
-### 5) Validate and audit
+### 4) Validate and audit
 
 ```bash
 npm run validate:docs -- --system my-system

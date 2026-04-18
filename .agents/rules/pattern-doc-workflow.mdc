@@ -10,10 +10,10 @@ globs:
 Pattern pages document reusable solutions to user-flow problems (not single components).
 They are authored as `workflow` pages and should remain implementation-agnostic.
 
-## Frontmatter contract
+## Lifecycle contract
 
 - `doc_type` must be `workflow`.
-- `doc_status` must follow `frontmatter-contract.mdc`.
+- `doc_status` must follow `markdown-lifecycle-status.mdc`.
 - Unknown information must be explicit `TBD`.
 
 ## Required sections (in order)
@@ -82,4 +82,3 @@ If extra depth is required, use `###` subsections under the closest allowed H2.
 
 - Pattern docs must not duplicate full component API tables.
 - Component APIs remain canonical in `docs/components/*.md`.
-

@@ -20,7 +20,7 @@ globs:
 - Component pages must use only the canonical allowed H2 headings from `component-doc.mdc` (no extra H2 sections).
 - Apply canonical `component_name` normalization and deterministic path rules from `component-name-normalization.mdc`.
 - Every component doc should start with a one-line description immediately after the H1.
-- Component pages should include `### Visual Proof` inside `## Overview` (not as a new H2). This subsection stores screenshot evidence and traceability details.
+- Component pages should include `### Visual Proof` inside `## Overview` (not as a new H2). This subsection stores screenshot evidence and related metadata.
 - Prefer tables for properties, states, and token mappings. Use consistent column order across all tables of the same kind.
 - Apply page taxonomy from `docs-taxonomy.mdc` (`component`, `overview`, `foundation`, `workflow`) and keep scope boundaries clear.
 - `## Gaps / TBD` follows a deterministic contract:
@@ -43,7 +43,7 @@ globs:
 
 - Reference Figma by **component set name** and **property name** only.
 - Follow `prohibited-patterns.mdc`.
-- Figma node IDs are allowed for traceability (for example, `node-id` in source URLs or explicit node references in metadata).
+- Figma node IDs are allowed in source links and metadata (for example, `node-id` in source URLs or explicit node references in metadata).
 - Do not use node IDs as token identifiers; keep token references human-readable.
 - For deterministic markdown -> Figma placement, prefer `figma.component_set_node_id` from the spec YAML.
 - For visual evidence capture, use the screenshot workflow:
@@ -56,7 +56,7 @@ npm run ds:capture-visual-proof -- --component-name <ComponentName> --agent code
 
 ## Metadata
 
-- Component docs must declare `doc_status` in frontmatter: `draft`, `ready`, or `needs-review` (see `frontmatter-contract.mdc` and `markdown-lifecycle-status.mdc`).
+- Component docs must carry a lifecycle status consistent with `markdown-lifecycle-status.mdc`.
 - Component spec YAMLs must declare `status`: `draft` or `ready`.
 - Component specs in `ready` status must include a concrete `figma.component_set_node_id`.
 - Generated files in `docs/_generated/` must not be hand-edited; they are overwritten by skills.
@@ -64,6 +64,6 @@ npm run ds:capture-visual-proof -- --component-name <ComponentName> --agent code
 ## Editorial consistency
 
 - Follow language and tone rules from `docs-language-tone.mdc`.
-- For component docs, include Figma traceability metadata from `component-figma-traceability.mdc`.
+- For component docs, include Figma metadata from `component-figma-metadata.mdc`.
 - Keep overview/index pages synchronized per `overview-index-maintenance.mdc`.
 - Ensure internal markdown links resolve to real local targets.

@@ -16,7 +16,7 @@ All docs under `docs/` must be classified into one of these page types:
 
 ## Metadata contract
 
-Use `frontmatter-contract.mdc` for required frontmatter fields and allowed values.
+Use `markdown-lifecycle-status.mdc` for lifecycle status values and `component-figma-metadata.mdc` for component metadata when applicable.
 This rule defines taxonomy scope and page intent boundaries, not field validation details.
 
 ## Scope discipline

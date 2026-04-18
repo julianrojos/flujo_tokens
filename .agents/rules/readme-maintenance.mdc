@@ -48,7 +48,7 @@ If rules under `.agents/rules/*.mdc` add or change author-facing requirements, u
 
 Examples:
 
-- New required frontmatter fields.
+- New required documentation metadata fields.
 - New mandatory section ordering.
 - New markdown subset constraints for Figma rendering.
 - New overview/index synchronization requirements.

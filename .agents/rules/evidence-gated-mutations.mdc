@@ -27,9 +27,9 @@ If evidence is not available, keep the current value unchanged.
 
 ## Source-of-truth mapping
 
-- Figma evidence: component identity, node traceability, properties, variants, structural metadata.
+- Figma evidence: component identity, node identity, properties, variants, structural metadata.
 - Token registry evidence: token references and validity.
-- Pipeline evidence: deterministic hashes and generated traceability metadata.
+- Pipeline evidence: deterministic hashes and generated source metadata.
 
 No other source is authoritative for automated mutations.
 
