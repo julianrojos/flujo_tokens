@@ -72,7 +72,7 @@ const CLI_CONFIG = {
     },
     {
       name: '--compile',
-      description: 'Run ds-tokens-sync after writing.',
+      description: 'Compile generated tokens after writing.',
       defaultValue: 'true',
     },
     {

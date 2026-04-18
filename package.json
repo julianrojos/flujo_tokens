@@ -20,7 +20,6 @@
     "generate": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/cli/index.ts",
     "generate:registry": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/cli/index.ts --registry",
     "generate:strict": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/cli/index.ts --mode-strict",
-    "ds:tokens-sync": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/tokens-sync-runner.ts",
     "ds:tokens-from-figma": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/tokens-from-figma-runner.ts",
     "ds:tokens-from-figma:mcp": "npm run ds:tokens-from-figma -- --source mcp",
     "ds:sync-figma": "node --import tsx tooling/scripts/ds-sync-figma.ts",
