@@ -44,15 +44,37 @@ test("queue-job-factory: queueNpmScript enqueues npm command with system arg", (
   const { service, enqueued } = createFactory();
   const job = service.queueNpmScript({
     repoRoot: "/repo",
-    script: "ds:registry:refresh",
+    script: "ds:token-graph",
     systemId: "core",
     requestId: "req_1",
   });
 
   assert.deepEqual(job, { id: "job_1" });
   assert.equal(enqueued.length, 1);
-  assert.equal(enqueued[0].operationName, "script:ds:registry:refresh");
-  assert.match(enqueued[0].label, /npm run ds:registry:refresh/);
+  assert.equal(enqueued[0].operationName, "script:ds:token-graph");
+  assert.match(enqueued[0].label, /npm run ds:token-graph/);
+});
+
+test("queue-job-factory: queueNodeJsonCommand adds tsx loader for TypeScript runners", async () => {
+  const { service, enqueued, runCalls } = createFactory();
+  service.queueNodeJsonCommand({
+    repoRoot: "/repo",
+    commandLabel: "node --import tsx tooling/src/runners/capture.mjs",
+    scriptPath: "tooling/src/runners/capture-visual-proof-runner.ts",
+    scriptArgs: ["--flag", "1"],
+    commandEnv: { FIGMA_TOKEN: "secret" },
+    systemId: "core",
+    allowNonZeroJson: true,
+  });
+
+  assert.equal(enqueued.length, 1);
+  await enqueued[0].execute({ emitChunk() {}, setProcess() {} });
+  assert.deepEqual(runCalls[0].commandArgs.slice(0, 3), [
+    "--import",
+    "tsx",
+    "tooling/src/runners/capture-visual-proof-runner.ts",
+  ]);
+  assert.deepEqual(runCalls[0].commandEnv, { FIGMA_TOKEN: "secret" });
 });
 
 test("queue-job-factory: queueNodeJsonCommand configures JSON parsing", async () => {

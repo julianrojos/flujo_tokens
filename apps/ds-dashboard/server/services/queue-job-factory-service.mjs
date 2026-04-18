@@ -1,5 +1,18 @@
 import path from "node:path";
 
+function shouldUseTsxLoader(scriptPath) {
+  const normalizedPath = String(scriptPath || "").trim().toLowerCase();
+  return normalizedPath.endsWith(".ts") || normalizedPath.endsWith(".tsx") || normalizedPath.endsWith(".mts") || normalizedPath.endsWith(".cts");
+}
+
+function buildNodeCommandArgs(scriptPath, scriptArgs) {
+  const normalizedScriptPath = String(scriptPath || "").trim();
+  const extraArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
+  return shouldUseTsxLoader(normalizedScriptPath)
+    ? ["--import", "tsx", normalizedScriptPath, ...extraArgs]
+    : [normalizedScriptPath, ...extraArgs];
+}
+
 export function createQueueJobFactoryService(config) {
   const {
     getSystemContext,
@@ -58,7 +71,7 @@ export function createQueueJobFactoryService(config) {
   }) {
     const finalArgs = [...scriptArgs];
     if (systemId) finalArgs.push("--system", systemId);
-    const commandArgs = [scriptPath, ...finalArgs];
+    const commandArgs = buildNodeCommandArgs(scriptPath, finalArgs);
 
     return enqueueQueueJob({
       label: commandLabel,

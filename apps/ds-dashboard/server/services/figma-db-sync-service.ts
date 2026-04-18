@@ -313,7 +313,7 @@ function buildComponentDocTemplate(args: {
     '',
     '- Screenshot: _TBD_',
     `- Source node: \`${componentNodeId || 'TBD'}\``,
-    '- Metadata source: component registry (database-backed)',
+    '- Metadata source: component catalog (database-backed)',
     '',
     '## Structure',
     '',

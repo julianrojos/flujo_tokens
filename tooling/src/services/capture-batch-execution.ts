@@ -8,6 +8,7 @@
 import * as path from 'node:path';
 import type { CaptureTarget } from '../types/capture-targets.js';
 import { persistCaptureReportToDb } from './capture-db-persistence.js';
+import { buildNodeScriptCommandArgs, buildNodeScriptDisplayArgs } from '../utils/exec.js';
 
 /**
  * Captured component result.
@@ -349,20 +350,23 @@ export function executeCaptureBatchAndRefresh(params: {
   const captureScriptPath = path.join(
     projectRoot,
     'tooling',
-    'scripts',
-    'ds-capture-visual-proof.mjs',
+    'src',
+    'runners',
+    'capture-visual-proof-runner.ts',
   );
   const tokenUsageIndexScriptPath = path.join(
     projectRoot,
     'tooling',
-    'scripts',
-    'ds-token-usage-index.mjs',
+    'src',
+    'runners',
+    'token-usage-index-runner.ts',
   );
   const tokenGraphScriptPath = path.join(
     projectRoot,
     'tooling',
-    'scripts',
-    'ds-token-graph.mjs',
+    'src',
+    'runners',
+    'token-graph-runner.ts',
   );
 
   const captureBatch = runCaptureBatchFn({
@@ -489,10 +493,14 @@ function runNodeScriptJson(params: {
     displayArgs[tokenArgIndex + 1] = '***redacted***';
   }
 
-  const result = runJsonCommandFn(process.execPath, [scriptPath, ...scriptArgsList], {
-    cwd: repoRoot,
-    displayArgs: [path.relative(repoRoot, scriptPath), ...displayArgs],
-  });
+  const result = runJsonCommandFn(
+    process.execPath,
+    buildNodeScriptCommandArgs(scriptPath, scriptArgsList),
+    {
+      cwd: repoRoot,
+      displayArgs: buildNodeScriptDisplayArgs(repoRoot, scriptPath, displayArgs),
+    },
+  );
 
   return result.data;
 }

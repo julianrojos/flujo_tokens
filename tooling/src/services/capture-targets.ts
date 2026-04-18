@@ -18,29 +18,6 @@ export function normalizeNameToSlug(rawName: unknown): string {
 }
 
 /**
- * Build slug lookup map from component registry.
- */
-export function buildSlugLookupFromRegistry(
-  componentRows: unknown[],
-): Map<string, string> {
-  const byNodeId = new Map<string, string>();
-  
-  if (!Array.isArray(componentRows)) return byNodeId;
-  
-  for (const row of componentRows) {
-    if (!row || typeof row !== 'object') continue;
-    const rowObj = row as Record<string, unknown>;
-    const slug = String(rowObj?.slug || '').trim();
-    const nodeId = String((rowObj.figma as Record<string, unknown>)?.component_set_node_id || '').trim();
-    
-    if (!slug || !nodeId) continue;
-    if (!byNodeId.has(nodeId)) byNodeId.set(nodeId, slug);
-  }
-  
-  return byNodeId;
-}
-
-/**
  * Build slug lookup map from component spec contents.
  */
 export function buildSlugLookupFromSpecContents(
@@ -65,12 +42,36 @@ export function buildSlugLookupFromSpecContents(
 }
 
 /**
+ * Build slug lookup map from persisted component rows.
+ */
+export function buildSlugLookupFromRegistry(
+  componentRows: unknown[],
+): Map<string, string> {
+  const byNodeId = new Map<string, string>();
+
+  if (!Array.isArray(componentRows)) return byNodeId;
+
+  for (const row of componentRows) {
+    if (!row || typeof row !== 'object') continue;
+    const rowObj = row as Record<string, unknown>;
+    const slug = String(rowObj.slug || '').trim();
+    const nodeId =
+      String((rowObj.figma as Record<string, unknown> | undefined)?.component_set_node_id || '').trim();
+
+    if (!slug || !nodeId) continue;
+    if (!byNodeId.has(nodeId)) byNodeId.set(nodeId, slug);
+  }
+
+  return byNodeId;
+}
+
+/**
  * Resolve inferred slug for candidate.
  */
 export function resolveInferredSlug(params: {
   applySlugOverride?: boolean;
   componentSlugOverride?: string;
-  slugByNodeFromRegistry: Map<string, string>;
+  slugByNodeFromRegistry?: Map<string, string>;
   slugByNodeFromSpecs: Map<string, string>;
   nodeId: string;
   candidateName?: unknown;
@@ -86,7 +87,7 @@ export function resolveInferredSlug(params: {
 
   return (
     (applySlugOverride ? componentSlugOverride : '') ||
-    slugByNodeFromRegistry.get(nodeId) ||
+    slugByNodeFromRegistry?.get(nodeId) ||
     slugByNodeFromSpecs.get(nodeId) ||
     normalizeNameToSlug(candidateName)
   );

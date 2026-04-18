@@ -122,7 +122,7 @@ export interface ComponentVisualProofEntry {
   }>;
 }
 
-export interface ComponentRegistryEntry {
+export interface ComponentCatalogEntry {
   slug: string;
   name: string;
   status?: 'draft' | 'ready' | 'needs-review' | 'missing';
@@ -383,7 +383,7 @@ export class ComponentRepository {
   }
 
   private static shouldReplaceStructuredFigmaData(
-    entry: ComponentRegistryEntry['figma'],
+    entry: ComponentCatalogEntry['figma'],
   ): boolean {
     if (!entry) return false;
     const status = String(entry.structuredCaptureStatus || '')
@@ -1113,7 +1113,7 @@ export class ComponentRepository {
 
   async upsertFromRegistry(
     dsId: string,
-    entries: ComponentRegistryEntry[],
+    entries: ComponentCatalogEntry[],
   ): Promise<number> {
     let upsertedCount = 0;
 

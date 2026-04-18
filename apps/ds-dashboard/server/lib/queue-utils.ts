@@ -141,8 +141,6 @@ export function toQueueSummaryFromPayload(payload: Record<string, unknown>, fall
   const syncReason = toTrimmedString(sync?.reason);
   const syncStderr = toTrimmedString(sync?.stderr);
 
-  const registryRefresh = toRecord(row.registry_refresh);
-  const registryRefreshStderr = toTrimmedString(registryRefresh?.stderr);
   const pipelinePhaseSummary = formatPipelinePhaseSummary(row.pipeline_phase);
   const figmaError = toRecord(row.figma_error);
   const figmaErrorMessage = toTrimmedString(figmaError?.message);
@@ -173,7 +171,6 @@ export function toQueueSummaryFromPayload(payload: Record<string, unknown>, fall
     syncError ||
     syncReason ||
     syncStderr ||
-    registryRefreshStderr ||
     codeText
   );
 }

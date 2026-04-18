@@ -55,16 +55,6 @@ export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
 export { runTokenGraph } from '../runners/token-graph-runner.js';
 export { runTokenHealth } from '../runners/token-health-runner.js';
 
-// Registry runners
-export { runRegistrySync } from '../runners/registry-sync-runner.js';
-
-// Governance runners
-// Registry runners (additional)
-export { runRegistryOverview } from '../runners/registry-overview-runner.js';
-export { runRegistryRefresh } from '../runners/registry-refresh-runner.js';
-export { runRegistryValidate } from '../runners/registry-validate-runner.js';
-export { runRegistryReport } from '../runners/registry-report-runner.js';
-
 // Foundations runners
 export { runFoundationsSync } from '../runners/foundations-sync-runner.js';
 

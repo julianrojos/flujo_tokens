@@ -8,9 +8,11 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
-import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
-import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
-import { runJsonCommand } from '../utils/exec.js';
+import {
+  buildNodeScriptCommandArgs,
+  buildNodeScriptDisplayArgs,
+  runJsonCommand,
+} from '../utils/exec.js';
 import {
   fetchFigmaFile,
   fetchFigmaImages,
@@ -23,12 +25,24 @@ import {
 } from '../utils/figma-node-spec-extractor.js';
 import { injectExtractedSpecSectionsIntoMarkdown } from './capture-markdown-sections.js';
 import type { PipelineContext } from './pipeline-context.js';
+import {
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 /**
  * Capture services interface.
  */
 export interface CaptureServices {
-  readComponentRegistry: () => Promise<unknown[]>;
+  readComponentRegistry: () => Promise<
+    Array<{
+      slug: string;
+      figma?: {
+        component_set_node_id?: string | null;
+      };
+    }>
+  >;
   readSpecContents: () => Array<{ slug: string; content: string }>;
   readMarkdownContent: (path: string) => string;
   markdownExists: (path: string) => boolean;
@@ -58,9 +72,10 @@ export function createCaptureServices(params: {
 
   return {
     readComponentRegistry: async () => {
-      const databaseUrl = context.paths.databaseUrl;
-      const db = await bootstrapDatabase(databaseUrl);
+      const databaseUrl = resolveDashboardDbUrl(process.env);
+      let db;
       try {
+        db = await bootstrapDatabase(databaseUrl);
         const repo = new ComponentRepository(db);
         const entries = await repo.getAll(context.system.id);
         return entries.map((entry) => ({
@@ -75,7 +90,7 @@ export function createCaptureServices(params: {
           `[capture-services] Failed to read component registry from DB at ${databaseUrl} for system "${context.system.id}": ${reason}`,
         );
       } finally {
-        await db.end();
+        if (db) await db.end();
       }
     },
     readSpecContents: () => {
@@ -107,13 +122,14 @@ export function createCaptureServices(params: {
 
       const result = runJsonCommand(
         process.execPath,
-        [params.scriptPath, ...scriptArgsList],
+        buildNodeScriptCommandArgs(params.scriptPath, scriptArgsList),
         {
           cwd: context.repoRoot,
-          displayArgs: [
-            path.relative(context.repoRoot, params.scriptPath),
-            ...displayArgs,
-          ],
+          displayArgs: buildNodeScriptDisplayArgs(
+            context.repoRoot,
+            params.scriptPath,
+            displayArgs,
+          ),
         },
       );
       return result.data;

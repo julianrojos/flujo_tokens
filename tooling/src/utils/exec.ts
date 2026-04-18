@@ -1,4 +1,5 @@
 import { spawnSync, SpawnSyncOptions } from "node:child_process";
+import * as path from "node:path";
 
 function formatCommand(command: string, args: readonly string[]): string {
   return [command, ...args].join(" ");
@@ -110,6 +111,37 @@ export interface RunJsonCommandResult<T = unknown> {
   stdout: string;
   stderr: string;
   data: T;
+}
+
+export function shouldUseTsxLoader(scriptPath: string): boolean {
+  const extension = path.extname(String(scriptPath || "")).toLowerCase();
+  return extension === ".ts" || extension === ".tsx" || extension === ".mts" || extension === ".cts";
+}
+
+export function buildNodeScriptCommandArgs(
+  scriptPath: string,
+  scriptArgs: readonly string[] = [],
+): string[] {
+  const normalizedScriptPath = String(scriptPath || "").trim();
+  const baseArgs = shouldUseTsxLoader(normalizedScriptPath)
+    ? ["--import", "tsx", normalizedScriptPath]
+    : [normalizedScriptPath];
+  return [...baseArgs, ...scriptArgs];
+}
+
+export function buildNodeScriptDisplayArgs(
+  repoRoot: string,
+  scriptPath: string,
+  scriptArgs: readonly string[] = [],
+): string[] {
+  const normalizedScriptPath = String(scriptPath || "").trim();
+  const displayPath = repoRoot
+    ? path.relative(repoRoot, normalizedScriptPath) || normalizedScriptPath
+    : normalizedScriptPath;
+  const baseArgs = shouldUseTsxLoader(normalizedScriptPath)
+    ? ["--import", "tsx", displayPath]
+    : [displayPath];
+  return [...baseArgs, ...scriptArgs];
 }
 
 export function runJsonCommand<T = unknown>(

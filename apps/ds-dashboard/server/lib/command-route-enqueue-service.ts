@@ -165,7 +165,7 @@ export function buildCaptureFigmaScreenshotQueueArgs(options: {
   const { sysCtx, requestId, parsed } = options;
   return {
     repoRoot: sysCtx.repoRoot,
-    commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${parsed.commandDisplayArgs.join(' ')}`,
+    commandLabel: `node --import tsx tooling/src/runners/capture-from-figma-url-runner.ts ${parsed.commandDisplayArgs.join(' ')}`,
     scriptPath: sysCtx.captureFromFigmaUrlScriptPath,
     systemId: sysCtx.systemId,
     requestId,

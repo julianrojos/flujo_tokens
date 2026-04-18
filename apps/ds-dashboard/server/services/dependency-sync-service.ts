@@ -65,7 +65,7 @@ export class DependencySyncService {
     const token = tokenOverride || this.resolveFigmaToken();
 
     // Get consumers to sync
-    const consumers = this.getConsumersToSync(dsFileKey, consumerIds);
+    const consumers = await this.getConsumersToSync(dsFileKey, consumerIds);
 
     if (consumers.length === 0 && !captureParentUsage) {
       return {
@@ -142,7 +142,7 @@ export class DependencySyncService {
   ): Promise<void> {
     try {
       const scanResult = await this.scanFileWithRetry(dsFileKey, token, dsCatalog);
-      this.repository.replaceParentVariableUsage(
+      await this.repository.replaceParentVariableUsage(
         dsFileKey,
         scanResult.variableBindings.map((binding) => ({
           variable_key: binding.variableKey,
@@ -206,7 +206,7 @@ export class DependencySyncService {
       const scanResult = await this.scanConsumerWithRetry(consumer, dsCatalog, token);
 
       // Save the sync run
-      const syncRun = this.repository.saveSyncRun({
+      const syncRun = await this.repository.saveSyncRun({
         consumer_id: consumer.id,
         duration_ms: Date.now() - startTime,
         status: scanResult.warnings.length > 0 ? 'partial' : 'ok',
@@ -233,7 +233,7 @@ export class DependencySyncService {
       });
 
       // Prune old runs for this consumer
-      this.repository.pruneOldRuns(consumer.id, 20);
+      await this.repository.pruneOldRuns(consumer.id, 20);
 
       return {
         consumerId: consumer.id,
@@ -251,7 +251,7 @@ export class DependencySyncService {
       };
     } catch (error) {
       // Save error run
-      const syncRun = this.repository.saveSyncRun({
+      const syncRun = await this.repository.saveSyncRun({
         consumer_id: consumer.id,
         duration_ms: Date.now() - startTime,
         status: 'error',
@@ -286,7 +286,7 @@ export class DependencySyncService {
     token: string
   ): Promise<{ skip: true; reason: string } | { skip: false; metadata?: { name: string; lastModified: string } }> {
     // Get latest sync run for this consumer
-    const latestRun = this.repository.getLatestSyncRun(consumer.id);
+    const latestRun = await this.repository.getLatestSyncRun(consumer.id);
 
     if (!latestRun) {
       return { skip: false }; // No previous sync, don't skip
@@ -323,8 +323,8 @@ export class DependencySyncService {
   /**
    * Get consumers to sync, optionally filtered by consumerIds
    */
-  private getConsumersToSync(dsFileKey: string, consumerIds?: string[]): DsConsumer[] {
-    const allConsumers = this.repository.listConsumers(dsFileKey);
+  private async getConsumersToSync(dsFileKey: string, consumerIds?: string[]): Promise<DsConsumer[]> {
+    const allConsumers = await this.repository.listConsumers(dsFileKey);
 
     // Filter by enabled status and optionally by specific IDs
     return allConsumers.filter(consumer => {

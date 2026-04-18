@@ -230,10 +230,10 @@ test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provide
 test('reconcileDeleteDesignSystemOps: malformed payload → abandon', async () => {
   const ctx = await createTestContext();
   try {
-    // Insert pending op with invalid JSON payload (direct SQL)
+    // Insert pending op with an invalid payload shape that should be abandoned.
     await ctx.sql`
       INSERT INTO pending_operations (id, type, payload, status)
-      VALUES ('op-bad', 'delete_design_system', 'not-valid-json', 'in_progress')
+      VALUES ('op-bad', 'delete_design_system', '{"bogus":true}', 'in_progress')
     `;
 
     // Reconcile

@@ -27,7 +27,7 @@ function createApp(overrides: Partial<any> = {}) {
       tokenUsageIndexPath: '/db/token-usage-index',
       tokenGraphVizPath: '/db/token-graph',
       wcagPairsPath: '/cfg/wcag-pairs',
-      componentRegistryPath: '/db/component-registry',
+      componentCatalogPath: '/db/component-catalog',
     }),
     healthRepo: {
       getSnapshot: () => null,

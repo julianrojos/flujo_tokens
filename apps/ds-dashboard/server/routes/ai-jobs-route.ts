@@ -1528,7 +1528,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       return c.json(
         errorResponse(
           'ai.apply.no_component',
-          'No matching component found in the registry',
+          'No matching component found in the catalog',
         ),
         404,
       );

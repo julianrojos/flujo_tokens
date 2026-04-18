@@ -7,7 +7,7 @@
 import type { Hono } from 'hono';
 
 import { registerSystemRoutes } from './system-routes.mjs';
-import { registerRegistryRoutes } from './registry-routes.mjs';
+import { registerCatalogRoutes } from './catalog-routes.mjs';
 import { registerTokenGraphRoutes } from './token-graph-routes.ts';
 import { registerHealthRoutes } from './health-routes.mjs';
 import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
@@ -67,7 +67,7 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
           typeof context.figmaFileId === 'string' && context.figmaFileId.trim()
             ? context.figmaFileId
             : undefined,
-        captureFromFigmaUrlScriptPath: `${ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot')}/tooling/scripts/ds-capture-from-figma-url.mjs`,
+        captureFromFigmaUrlScriptPath: `${ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot')}/tooling/src/runners/capture-from-figma-url-runner.ts`,
       };
     },
     queueJobAcceptedPayload: (job) => {
@@ -158,7 +158,7 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   };
 
   registerSystemRoutes(app, routeDeps.systemDeps);
-  registerRegistryRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
+  registerCatalogRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
   registerTokenGraphRoutes(app, { ...routeDeps.tokenGraphDeps, tokenRepo: routeDeps.tokenRepo });
   registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);

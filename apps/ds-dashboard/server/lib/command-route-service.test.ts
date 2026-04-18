@@ -16,13 +16,13 @@ describe('command-route-service', () => {
   describe('buildRunScriptCommandArgs()', () => {
     it('builds base npm run args for any script', () => {
       const payload = buildRunScriptCommandArgs({
-        scriptName: 'ds:registry:refresh',
+        scriptName: 'ds:token-graph',
         systemId: 'core',
         body: { any: 'value' },
       });
       assert.deepEqual(payload.args, [
         'run',
-        'ds:registry:refresh',
+        'ds:token-graph',
         '--',
         '--system',
         'core',

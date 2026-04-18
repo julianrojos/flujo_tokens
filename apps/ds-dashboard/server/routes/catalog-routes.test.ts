@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { Hono } from "hono";
 
-import { registerRegistryRoutes } from "./registry-routes.mjs";
+import { registerCatalogRoutes } from "./catalog-routes.mjs";
 
 function createFailJson() {
   return (c: any, statusCode: number, args: Record<string, unknown>) =>
@@ -27,7 +27,7 @@ function createTestApp(
   const systemId = options.systemId ?? "sys-01";
   const repoRoot = options.repoRoot ?? "/repo";
   const app = new Hono();
-  registerRegistryRoutes(app, {
+  registerCatalogRoutes(app, {
     failJson: createFailJson(),
     getSystemContext: () => ({ systemId, repoRoot }),
     componentRepo: {
@@ -42,7 +42,7 @@ function createTestApp(
   return app;
 }
 
-test("registry-routes: /api/component-usage-index returns empty graph for db-backed components without spec refs", async () => {
+test("catalog-routes: /api/component-usage-index returns empty graph for db-backed components without spec refs", async () => {
   const app = createTestApp({
     getAll: () => [
       { id: 1, slug: "button" },
@@ -57,7 +57,7 @@ test("registry-routes: /api/component-usage-index returns empty graph for db-bac
   assert.deepEqual(payload.by_slug.icon.used_in, []);
 });
 
-test("registry-routes: /api/component-usage-index resolves YAML relationships derived from markdownPath", async () => {
+test("catalog-routes: /api/component-usage-index resolves YAML relationships derived from markdownPath", async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "registry-usage-route-"));
   try {
     const specPath = path.join(

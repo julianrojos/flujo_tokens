@@ -85,13 +85,13 @@ export function normalizeVisualProofFromRepositoryEntry(
   const imageWidth = toNullableFiniteNumber(value.imageWidth);
   const imageHeight = toNullableFiniteNumber(value.imageHeight);
   if (value.variants !== null && value.variants !== undefined && !Array.isArray(value.variants)) {
-    warn('[component-registry] visual proof variants payload is not an array; treating as empty.');
+    warn('[component-catalog] visual proof variants payload is not an array; treating as empty.');
   }
   const variants = normalizeVisualProofVariants(value.variants);
   const variantsCount = resolveVisualProofVariantsCount({
     value: value.variantsCount,
     variantsLength: variants.length,
-    context: 'component-registry',
+    context: 'component-catalog',
     warn,
   });
 

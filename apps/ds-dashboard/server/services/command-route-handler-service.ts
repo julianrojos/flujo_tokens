@@ -27,7 +27,6 @@ import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 import {
   captureHealthSnapshotDbOnly,
-  refreshRegistryDbOnly,
   refreshTokenGraphDbOnly,
   refreshTokenHealthSnapshotDbOnly,
   refreshUsageIndexDbOnly,
@@ -119,7 +118,6 @@ export async function enqueueRefreshScriptJob(
     | 'queueJobAcceptedPayload'
     | 'enqueueQueueJob'
     | 'sha256Text'
-    | 'componentRepo'
     | 'tokenRepo'
     | 'healthRepo'
     | 'db'
@@ -133,7 +131,6 @@ export async function enqueueRefreshScriptJob(
     queueJobAcceptedPayload,
     enqueueQueueJob,
     sha256Text,
-    componentRepo,
     tokenRepo,
     healthRepo,
     db,
@@ -141,7 +138,7 @@ export async function enqueueRefreshScriptJob(
   const requestId = createApiRequestId();
   const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const normalizedScript = String(script || '').trim();
-  type RefreshDepKey = 'componentRepo' | 'db' | 'tokenRepo' | 'healthRepo';
+  type RefreshDepKey = 'db' | 'tokenRepo' | 'healthRepo';
   const queueDbOnlyJob = (args: {
     label: string;
     operationName: string;
@@ -182,7 +179,6 @@ export async function enqueueRefreshScriptJob(
     });
 
   const hasDep = (dep: RefreshDepKey): boolean => {
-    if (dep === 'componentRepo') return Boolean(componentRepo);
     if (dep === 'db') return Boolean(db);
     if (dep === 'tokenRepo') return Boolean(tokenRepo);
     return Boolean(healthRepo);
@@ -209,17 +205,6 @@ export async function enqueueRefreshScriptJob(
       }
     >
   > = {
-    'ds:registry:refresh': {
-      deps: ['componentRepo'],
-      label: 'refresh registry (db-only)',
-      operationName: 'refresh:registry',
-      build: (emitChunk) =>
-        refreshRegistryDbOnly({
-          systemId: sysCtx.systemId,
-          componentRepo: componentRepo as NonNullable<typeof componentRepo>,
-          emitChunk,
-        }),
-    },
     'ds:token-usage-index': {
       deps: ['db', 'tokenRepo'],
       label: 'refresh token usage (db-only)',

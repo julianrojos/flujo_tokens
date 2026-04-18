@@ -4,7 +4,7 @@ import {
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { COMPONENT_REGISTRY_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
+import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/registry-seed-service.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
 function sha256Json(value) {
@@ -95,7 +95,7 @@ function toSpecPathForUsageIndex(row, systemId) {
   return path.posix.join("design-systems", String(systemId || "").trim(), "docs", "_spec", "components", `${slug}.yml`);
 }
 
-export async function handleComponentRegistryRoute(c, deps) {
+export async function handleComponentCatalogRoute(c, deps) {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
     return failJson(c, 500, {
@@ -148,7 +148,7 @@ export async function handleComponentRegistryRoute(c, deps) {
     if (item.spec.exists) summary.with_spec++;
   }
   const responseBase = {
-    schema_version: COMPONENT_REGISTRY_SCHEMA_VERSION,
+    schema_version: COMPONENT_CATALOG_SCHEMA_VERSION,
     components,
     summary,
   };

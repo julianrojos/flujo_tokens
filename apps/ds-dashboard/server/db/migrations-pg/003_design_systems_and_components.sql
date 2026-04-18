@@ -43,7 +43,7 @@ CREATE INDEX idx_token_mode_values_mode ON token_mode_values(mode);
 CREATE INDEX idx_token_mode_values_ds_token ON token_mode_values(ds_id, token_path);
 CREATE INDEX idx_token_mode_values_ds_token_mode ON token_mode_values(ds_id, token_path, mode);
 
--- components: Component registry entries
+-- components: Component catalog entries
 CREATE TABLE components (
   id              BIGSERIAL PRIMARY KEY,
   ds_id           TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,

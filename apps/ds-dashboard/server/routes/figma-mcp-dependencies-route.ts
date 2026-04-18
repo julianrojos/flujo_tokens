@@ -190,7 +190,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.addConsumer({
+      const consumer = await repository.addConsumer({
         ds_file_key: dsFileKey as string,
         consumer_file_key: consumerFileKey as string,
         consumer_name: body.consumerName as string,
@@ -245,7 +245,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const consumers = repository.listConsumers(query.dsFileKey);
+      const consumers = await repository.listConsumers(query.dsFileKey);
 
       return c.json({
         ok: true,
@@ -282,7 +282,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -291,7 +291,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 404);
       }
 
-      repository.removeConsumer(consumerId);
+      await repository.removeConsumer(consumerId);
 
       return c.json({
         ok: true,
@@ -328,7 +328,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -385,7 +385,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -403,7 +403,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const updatedConsumer = repository.updateConsumerEnabled(
+      const updatedConsumer = await repository.updateConsumerEnabled(
         consumerId,
         body.enabled !== undefined ? Boolean(body.enabled) : Boolean(consumer.enabled),
       );
@@ -716,7 +716,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -725,7 +725,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 404);
       }
 
-      const runs = repository.listSyncRuns(consumerId, limit);
+      const runs = await repository.listSyncRuns(consumerId, limit);
 
       return c.json({
         ok: true,

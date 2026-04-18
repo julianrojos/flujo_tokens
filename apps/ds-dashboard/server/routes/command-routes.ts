@@ -186,9 +186,6 @@ export function registerCommandRoutes(
   app.post('/api/admin/restart-api', (c: Context) =>
     handleRestartApiRoute(c, restartDeps),
   );
-  app.post('/api/refresh-registry', (c: Context) =>
-    enqueueRefreshScriptJob(c, 'ds:registry:refresh', commandDeps),
-  );
   app.post('/api/refresh-token-usage-index', (c: Context) =>
     enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps),
   );

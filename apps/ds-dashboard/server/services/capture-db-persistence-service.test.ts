@@ -365,7 +365,7 @@ describe('capture-db-persistence-service', () => {
     }
   });
 
-  it('reconciles empty registry payload by marking existing components as missing', () => {
+  it('reconciles empty catalog payload by marking existing components as missing', () => {
     const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
     const missingCalls: Array<{ dsId: string; slugs: string[] }> = [];
     const componentRepo = {
@@ -394,7 +394,7 @@ describe('capture-db-persistence-service', () => {
     assert.deepEqual(missingCalls[0]?.slugs, []);
   });
 
-  it('throws when registry entries payload is not an array', () => {
+  it('throws when catalog entries payload is not an array', () => {
     let called = false;
     const componentRepo = {
       upsertFromRegistry: () => {
@@ -411,7 +411,7 @@ describe('capture-db-persistence-service', () => {
           componentRepo,
           systemId: 'sys-01',
         }),
-      /invalid registry entries payload/i,
+      /invalid catalog entries payload/i,
     );
     assert.equal(called, false);
   });

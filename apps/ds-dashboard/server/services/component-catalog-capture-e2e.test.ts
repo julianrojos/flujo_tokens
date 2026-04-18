@@ -9,9 +9,9 @@ import { Hono } from 'hono';
 import { createTestDatabase } from '../db/test-db-helpers.js';
 import { ComponentRepository } from '../db/component-repository.js';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
-import { handleComponentRegistryRoute } from './registry-route-handler-service.mjs';
+import { handleComponentCatalogRoute } from './catalog-route-handler-service.mjs';
 
-test('e2e: capture payload upserts DB and /api/component-registry exposes spec-centric payload', async (t) => {
+test('e2e: capture payload upserts DB and /api/component-catalog exposes spec-centric payload', async (t) => {
   if (
     !String(
       process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
@@ -99,8 +99,8 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
     assert.deepEqual(persisted, { attempted: 1, upserted: 1, skipped: 0 });
 
     const app = new Hono();
-    app.get('/api/component-registry', (c) =>
-      handleComponentRegistryRoute(c, {
+    app.get('/api/component-catalog', (c) =>
+      handleComponentCatalogRoute(c, {
         failJson: (ctx: any, status: number, payload: unknown) =>
           ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
@@ -108,7 +108,7 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
       } as any),
     );
 
-    const res = await app.request('http://localhost/api/component-registry');
+    const res = await app.request('http://localhost/api/component-catalog');
     assert.equal(res.status, 200);
     const payload = (await res.json()) as any;
     assert.equal(payload.schema_version, 2);
@@ -143,7 +143,7 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes spec-c
   }
 });
 
-test('e2e: component-registry returns spec.exists=false when no editorial row', async (t) => {
+test('e2e: component-catalog returns spec.exists=false when no editorial row', async (t) => {
   if (
     !String(
       process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
@@ -209,8 +209,8 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
     assert.deepEqual(persisted, { attempted: 1, upserted: 1, skipped: 0 });
 
     const app = new Hono();
-    app.get('/api/component-registry', (c) =>
-      handleComponentRegistryRoute(c, {
+    app.get('/api/component-catalog', (c) =>
+      handleComponentCatalogRoute(c, {
         failJson: (ctx: any, status: number, payload: unknown) =>
           ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
@@ -218,7 +218,7 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
       } as any),
     );
 
-    const res = await app.request('http://localhost/api/component-registry');
+    const res = await app.request('http://localhost/api/component-catalog');
     assert.equal(res.status, 200);
     const payload = (await res.json()) as any;
     assert.equal(payload.schema_version, 2);
@@ -244,7 +244,7 @@ test('e2e: component-registry returns spec.exists=false when no editorial row', 
   }
 });
 
-test('e2e: /api/component-registry exposes structured Figma data (pageName, layout, variants, tokenBindings)', async (t) => {
+test('e2e: /api/component-catalog exposes structured Figma data (pageName, layout, variants, tokenBindings)', async (t) => {
   if (
     !String(
       process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '',
@@ -314,8 +314,8 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
     ]);
 
     const app = new Hono();
-    app.get('/api/component-registry', (c) =>
-      handleComponentRegistryRoute(c, {
+    app.get('/api/component-catalog', (c) =>
+      handleComponentCatalogRoute(c, {
         failJson: (ctx: any, status: number, payload: unknown) =>
           ctx.json(payload, status),
         getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
@@ -323,7 +323,7 @@ test('e2e: /api/component-registry exposes structured Figma data (pageName, layo
       } as any),
     );
 
-    const res = await app.request('http://localhost/api/component-registry');
+    const res = await app.request('http://localhost/api/component-catalog');
     assert.equal(res.status, 200);
     const payload = (await res.json()) as any;
     assert.equal(payload.schema_version, 2);

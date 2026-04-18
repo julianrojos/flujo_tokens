@@ -52,10 +52,14 @@ export async function reconcileDeleteDesignSystemOps(
 
   for (const op of ops) {
     try {
-      const payload = op.payload as { systemId: string; figmaFileId?: string };
-      const systemId = payload.systemId;
-      const figmaFileId = (payload.figmaFileId ?? systemId).trim();
-      if (!figmaFileId) {
+      const payload = op.payload as Record<string, unknown> | null;
+      const systemId = typeof payload?.systemId === 'string' ? payload.systemId.trim() : '';
+      const figmaFileId =
+        typeof payload?.figmaFileId === 'string'
+          ? payload.figmaFileId.trim()
+          : systemId;
+
+      if (!systemId || !figmaFileId) {
         await pendingOpsRepo.abandon(op.id);
         result.abandoned.push(op.id);
         continue;

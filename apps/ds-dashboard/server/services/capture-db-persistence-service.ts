@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 import type { ComponentRepository } from '../db/component-repository.js';
-import type { ComponentRegistryEntry } from '../db/component-repository.js';
+import type { ComponentCatalogEntry } from '../db/component-repository.js';
 
 type CapturePayloadObject = Record<string, unknown>;
 
@@ -43,7 +43,7 @@ export interface PersistCapturePayloadResult {
 }
 
 export interface PersistRegistryEntriesOptions {
-  entries: ComponentRegistryEntry[];
+  entries: ComponentCatalogEntry[];
   componentRepo: ComponentRepository;
   systemId: string;
 }
@@ -409,7 +409,7 @@ export async function persistCapturePayloadToComponentRepo(
 
   let attempted = 0;
   let skipped = 0;
-  const entriesBySlug = new Map<string, ComponentRegistryEntry>();
+  const entriesBySlug = new Map<string, ComponentCatalogEntry>();
 
   for (const row of capturedRows) {
     const slug = firstNonEmptyString(row.slug);
@@ -459,7 +459,7 @@ export async function persistCapturePayloadToComponentRepo(
     const capturedAt = toIsoString(row.captured_at) || nowIso();
     const capturedAtEpoch = toUnixEpochSeconds(capturedAt);
 
-    const entry: ComponentRegistryEntry = {
+    const entry: ComponentCatalogEntry = {
       slug,
       name: existing?.name || slugToDisplayName(slug),
       status: 'draft',
@@ -516,7 +516,7 @@ export async function persistRegistryEntriesToComponentRepo(
   const { entries, componentRepo, systemId } = options;
   if (!Array.isArray(entries)) {
     throw new Error(
-      '[capture-db-persistence] Invalid registry entries payload: expected an array.',
+      '[capture-db-persistence] Invalid catalog entries payload: expected an array.',
     );
   }
   const normalized = entries;

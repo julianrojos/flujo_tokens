@@ -6,7 +6,6 @@ import {
   findUnresolvedAliases,
 } from '../../../../tooling/src/services/token-graph.js';
 import { generateHealthReport } from '../../../../tooling/src/services/token-health.js';
-import type { ComponentRepository } from '../db/component-repository.js';
 import type { HealthRepository } from '../db/health-repository.js';
 import type { TokenRepository } from '../db/token-repository.js';
 
@@ -159,98 +158,6 @@ async function buildUsageRowsFromDb(args: {
   }
 
   return { rows, warnings };
-}
-
-/**
- * Reconciles component registry rows using DB as the only source of truth.
- *
- * Notes:
- * - Intentionally does not scan component specs from the filesystem.
- * - Re-upserts current component rows to normalize persisted shapes.
- */
-export async function refreshRegistryDbOnly(args: {
-  systemId: string;
-  componentRepo: ComponentRepository;
-  emitChunk: EmitChunk;
-}) {
-  const { systemId, componentRepo, emitChunk } = args;
-  const rows = await componentRepo.getAll(systemId);
-  const upserted = await componentRepo.upsertFromRegistry(
-    systemId,
-    rows.map((row) => ({
-      slug: row.slug,
-      name: row.name,
-      status: row.status,
-      docType: row.docType,
-      figma: {
-        fileUrl: row.figmaFileUrl,
-        componentSetNodeId: row.figmaComponentSetNodeId,
-        pageName: row.figma?.pageName,
-        variants: row.figma?.variants?.map((variant) => ({
-          name: variant.name,
-          properties: variant.properties,
-          nodeId: variant.nodeId,
-        })),
-        tokenBindings: row.figma?.tokenBindings?.map((binding) => ({
-          nodeId: binding.nodeId,
-          nodeName: binding.nodeName,
-          field: binding.field,
-          variableId: binding.variableId,
-          tokenPath: binding.tokenPath,
-          mode: binding.mode,
-        })),
-        layout: row.figma?.layout?.map((layout) => ({
-          nodeId: layout.nodeId,
-          nodeName: layout.nodeName,
-          depth: layout.depth,
-          direction: layout.direction,
-          hSizing: layout.hSizing,
-          vSizing: layout.vSizing,
-          alignmentH: layout.alignmentH,
-          alignmentV: layout.alignmentV,
-          itemSpacing: layout.itemSpacing,
-          padding: layout.padding,
-        })),
-      },
-      specs: (row.specs || []).map((spec) => ({
-        markdownPath: spec.markdownPath,
-        docStatus: spec.docStatus,
-        coverage: spec.coverage,
-      })),
-      visualProofs: (row.visualProofs || []).map((proof) => ({
-        imagePath: proof.imagePath,
-        screenshotUrl: proof.screenshotUrl,
-        caption: proof.caption,
-        capturedAt: proof.capturedAt,
-        capturedAtEpoch: proof.capturedAtEpoch,
-        nodeId: proof.nodeId,
-        imageSha256: proof.imageSha256,
-        imageBytes: proof.imageBytes,
-        imageContentType: proof.imageContentType,
-        imageWidth: proof.imageWidth,
-        imageHeight: proof.imageHeight,
-        variantsCount: proof.variantsCount,
-        variants: proof.variants,
-      })),
-    })),
-  );
-
-  emitChunk(
-    'result',
-    `Registry normalized in DB (${upserted} row(s) reconciled).`,
-  );
-
-  return {
-    ok: true,
-    code: 0,
-    summary: 'Registry refreshed in DB-only mode.',
-    payload: {
-      components_total: rows.length,
-      components_upserted: upserted,
-      changed: upserted > 0,
-      written: upserted > 0,
-    },
-  };
 }
 
 /**

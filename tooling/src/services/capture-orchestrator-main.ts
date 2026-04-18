@@ -44,8 +44,8 @@ import {
 } from './capture-doc-scaffold.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import {
-  buildSlugLookupFromRegistry,
   buildSlugLookupFromSpecContents,
+  buildSlugLookupFromRegistry,
 } from './capture-targets.js';
 import { createCaptureServices } from './capture-services.js';
 import {
@@ -115,8 +115,8 @@ export interface RunCaptureFromFigmaUrlDeps {
   parseMainCaptureModeFn?: typeof parseMainCaptureMode;
   parsePositiveNumberFn?: typeof parsePositiveNumber;
   ensureSystemDocsScaffoldFn?: typeof ensureSystemDocsScaffold;
-  buildSlugLookupFromRegistryFn?: typeof buildSlugLookupFromRegistry;
   buildSlugLookupFromSpecContentsFn?: typeof buildSlugLookupFromSpecContents;
+  buildSlugLookupFromRegistryFn?: typeof buildSlugLookupFromRegistry;
   isKindAllowedFn?: typeof isKindAllowed;
   classifyTargetKindFn?: typeof classifyTargetKind;
   buildCaptureTargetsFn?: typeof buildCaptureTargets;
@@ -169,8 +169,8 @@ export async function runCaptureFromFigmaUrl(
     parseMainCaptureModeFn = parseMainCaptureMode,
     parsePositiveNumberFn = parsePositiveNumber,
     ensureSystemDocsScaffoldFn = ensureSystemDocsScaffold,
-    buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
     buildSlugLookupFromSpecContentsFn = buildSlugLookupFromSpecContents,
+    buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
     isKindAllowedFn = isKindAllowed,
     classifyTargetKindFn = classifyTargetKind,
     buildCaptureTargetsFn = buildCaptureTargets,
@@ -349,8 +349,9 @@ export async function runCaptureFromFigmaUrl(
   const captureScriptPath = path.join(
     projectRoot,
     'tooling',
-    'scripts',
-    'ds-capture-visual-proof.mjs',
+    'src',
+    'runners',
+    'capture-visual-proof-runner.ts',
   );
 
   let targets: CaptureTarget[];

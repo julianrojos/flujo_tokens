@@ -1,8 +1,8 @@
-export const COMPONENT_REGISTRY_SCHEMA_VERSION = 2;
+export const COMPONENT_CATALOG_SCHEMA_VERSION = 2;
 
-export function createEmptyComponentRegistry() {
+export function createEmptyComponentCatalog() {
   return {
-    schema_version: COMPONENT_REGISTRY_SCHEMA_VERSION,
+    schema_version: COMPONENT_CATALOG_SCHEMA_VERSION,
     components: [],
     summary: {
       total_components: 0,

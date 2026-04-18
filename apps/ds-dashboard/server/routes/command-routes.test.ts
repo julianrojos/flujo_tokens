@@ -36,11 +36,11 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     failJson: createFailJson(),
     createApiRequestId: () => 'req_test',
     readJsonBody: async () => ({}),
-    getSystemContext: () => ({
-      repoRoot: '/repo',
-      systemId: 'core',
-      captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
-    }),
+      getSystemContext: () => ({
+        repoRoot: '/repo',
+        systemId: 'core',
+        captureFromFigmaUrlScriptPath: 'tooling/src/runners/capture-from-figma-url-runner.ts',
+      }),
     queueJobAcceptedPayload: (job: { id: string }) => ({ ok: true, jobId: job.id }),
     enqueueQueueJob: () => ({ id: 'queued_1' }),
     sha256Text: () => 'hash',
@@ -145,29 +145,6 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).ok, false);
       assert.equal((payload as any).code, 'server.restart_requires_supervisor');
-    });
-  });
-
-  describe('/api/refresh-registry', () => {
-    it('enqueues db-only refresh job', async () => {
-      const captured: any[] = [];
-      const app = createTestApp({
-        enqueueQueueJob: (args: any) => {
-          captured.push(args);
-          return { id: 'registry_job' };
-        },
-      });
-
-      const res = await app.request('/api/refresh-registry', {
-        method: 'POST',
-        headers: { 'x-ds-system': 'core' },
-      });
-      assert.equal(res.status, 202);
-      const payload = await res.json();
-      assert.deepEqual(payload, { ok: true, jobId: 'registry_job' });
-      assert.equal(captured.length, 1);
-      assert.equal(captured[0].operationName, 'refresh:registry');
-      assert.equal(captured[0].systemId, 'core');
     });
   });
 

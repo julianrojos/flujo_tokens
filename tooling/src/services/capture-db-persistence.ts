@@ -9,7 +9,7 @@ import {
   persistCapturePayloadToComponentRepo,
   persistRegistryEntriesToComponentRepo,
 } from '../../../apps/ds-dashboard/server/services/capture-db-persistence-service.js';
-import type { ComponentRegistryEntry } from '../../../apps/ds-dashboard/server/db/component-repository.js';
+import type { ComponentCatalogEntry } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 export interface CaptureDbPersistenceResult {
   attempted: number;
@@ -70,7 +70,7 @@ export async function persistCaptureReportToDb(options: {
 export async function persistRegistryEntriesToDb(options: {
   projectRoot: string;
   systemId: string;
-  entries: ComponentRegistryEntry[];
+  entries: ComponentCatalogEntry[];
   databaseUrl?: string;
 }): Promise<RegistryDbPersistenceResult> {
   const { projectRoot, systemId, entries, databaseUrl: databaseUrlOverride } = options;
@@ -94,7 +94,7 @@ export async function persistRegistryEntriesToDb(options: {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `[capture-db-persistence] Failed to persist registry entries for system "${systemId}": ${message}`,
+      `[capture-db-persistence] Failed to persist catalog entries for system "${systemId}": ${message}`,
     );
   } finally {
     await db.end();

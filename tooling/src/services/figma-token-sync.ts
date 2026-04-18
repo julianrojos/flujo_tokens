@@ -840,7 +840,7 @@ export interface RunTokensCompileResult {
 }
 
 /**
- * Run ds-tokens-sync.mjs to compile input JSON → CSS custom properties.
+ * Run the tokens-sync runner to compile input JSON → CSS custom properties.
  */
 export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCompileResult {
   const { repoRoot, system } = options;
@@ -865,7 +865,9 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
   fs.mkdirSync(path.join(docsDir, '_generated'), { recursive: true });
 
   const args = [
-    path.join(repoRoot, 'tooling', 'scripts', 'ds-tokens-sync.mjs'),
+    '--import',
+    'tsx',
+    path.join(repoRoot, 'tooling', 'src', 'runners', 'tokens-sync-runner.ts'),
     '--input',
     inputDirPath,
     '--output-primitives',
