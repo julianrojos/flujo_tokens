@@ -14,7 +14,7 @@ npm run dev:api
 npx tsx --test server/routes/*.test.ts
 
 # Testear endpoints con curl directamente
-curl http://localhost:8787/api/component-registry
+curl http://localhost:8787/api/component-catalog
 ```
 
 ## Host binding (LAN / Docker)

@@ -1,34 +1,23 @@
 ---
-description: Keep component registry JSON and components overview markdown synchronized atomically.
+description: Keep component docs and components overview markdown synchronized atomically.
 globs:
   - "tooling/scripts/ds-*.mjs"
-  - "tooling/scripts/lib/component-registry/*.mjs"
-  - "docs/_generated/component-registry.json"
   - "docs/components/overview.md"
+  - "docs/components/*.md"
 ---
 
 # Component indices synchronization
 
-Component index artifacts must be refreshed together as a single operation:
+Component index artifacts must stay aligned with the component docs:
 
-- `docs/_generated/component-registry.json`
+- `docs/components/*.md`
 - `docs/components/overview.md`
 
 ## Required behavior
 
-- Any pipeline command that updates component docs/spec/proof metadata must trigger an **atomic refresh** of both files.
-- Do not run "registry-only" updates from documentation generation flows.
-- If one index write fails, restore both files to their pre-run snapshots.
-
-## Canonical command
-
-Use:
-
-```bash
-npm run ds:registry:refresh
-```
-
-This command is the authoritative path for synchronized index updates.
+- Any pipeline command that updates component docs/spec/proof metadata must keep `overview.md` coherent with the component pages.
+- Do not leave `overview.md` out of sync after a capture/import flow.
+- If the overview write fails, restore the docs state to the pre-run snapshot.
 
 ## Scope
 

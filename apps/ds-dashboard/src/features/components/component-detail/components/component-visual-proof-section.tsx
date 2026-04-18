@@ -9,13 +9,13 @@ import type { SpecVariantVisual } from "ds-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal, ModalContent } from "@/components/ui/overlay";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 import { buildAssetUrl } from "../lib/component-detail-transforms";
 import { normalizeVariantName } from "../lib/spec-viewer-utils";
 
 interface ComponentVisualProofSectionProps {
-  item: ComponentRegistryItem | null;
+  item: ComponentCatalogItem | null;
   captureSummary: string | null;
   onOpenCapture: () => void;
   variantVisuals?: SpecVariantVisual[];

@@ -3,12 +3,12 @@ import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 
 import {
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   fetchComponentUsageIndex,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ function specBadgeVariant(exists: boolean) {
 }
 
 export function ComponentsPage() {
-  const [rows, setRows] = useState<ComponentRegistryItem[]>([]);
+  const [rows, setRows] = useState<ComponentCatalogItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
   >({});
@@ -57,7 +57,7 @@ export function ComponentsPage() {
     setError(null);
     try {
       const [registryPayload, usagePayload] = await Promise.all([
-        fetchComponentRegistry(),
+        fetchComponentCatalog(),
         fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
       ]);
       setRows(registryPayload.components ?? []);
@@ -66,7 +66,7 @@ export function ComponentsPage() {
       setError(
         toApiErrorDisplay(cause, {
           fallbackTitle: "Component data unavailable",
-          fallbackMessage: "Unable to load component registry.",
+          fallbackMessage: "Unable to load component catalog.",
         }),
       );
     } finally {
@@ -93,7 +93,7 @@ export function ComponentsPage() {
     });
 
     next.sort((a, b) => {
-      const valueFor = (row: ComponentRegistryItem): string | number => {
+      const valueFor = (row: ComponentCatalogItem): string | number => {
         if (sort.field === "display_name") return row.display_name.toLowerCase();
         if (sort.field === "spec_exists") return row.spec.exists ? 1 : 0;
         if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;

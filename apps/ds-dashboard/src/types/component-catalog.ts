@@ -1,4 +1,4 @@
-export interface ComponentRegistryItem {
+export interface ComponentCatalogItem {
   slug: string;
   display_name: string;
   paths: {
@@ -64,9 +64,9 @@ export interface ComponentRegistryItem {
   fingerprint_sha256: string;
 }
 
-export interface ComponentRegistry {
+export interface ComponentCatalog {
   schema_version: number;
-  components: ComponentRegistryItem[];
+  components: ComponentCatalogItem[];
   summary: {
     total_components: number;
     with_spec: number;

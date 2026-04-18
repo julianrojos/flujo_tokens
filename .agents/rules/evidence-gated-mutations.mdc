@@ -43,8 +43,7 @@ No other source is authoritative for automated mutations.
 
 - A component-targeted generation flow may only mutate:
   - the target component file,
-  - `docs/components/overview.md`,
-  - `docs/_generated/component-registry.json`.
+  - `docs/components/overview.md`.
 - Any other mutation is a blocking violation and must be rolled back.
 
 ## Failure behavior

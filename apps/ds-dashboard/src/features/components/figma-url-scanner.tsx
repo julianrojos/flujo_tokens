@@ -9,7 +9,7 @@ import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-
 import { useDesignSystem } from "@/lib/design-system-context";
 import {
   captureFigmaScreenshot,
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   type CaptureFigmaProgress,
   type CaptureFigmaScreenshotResult,
   type CaptureFigmaScreenshotArgs,
@@ -218,7 +218,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         return;
       }
       try {
-        const registry = await fetchComponentRegistry();
+        const registry = await fetchComponentCatalog();
         if (cancelled) return;
         const next = new Set(
           (registry.components || [])
@@ -302,7 +302,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       let currentExistingSlugs = existingSlugs;
       if (!registryLoaded) {
         try {
-          const registry = await fetchComponentRegistry();
+          const registry = await fetchComponentCatalog();
           currentExistingSlugs = new Set(
             (registry.components || [])
               .map((item) => String(item?.slug || "").trim())
@@ -385,7 +385,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
     result?.message ||
     result?.stderr ||
     result?.failed?.[0]?.error ||
-    result?.registry_refresh?.stderr ||
     "Scan failed";
 
   const primarySuccessSlug = result?.captured?.[0]?.slug || result?.targets?.[0]?.slug || null;
@@ -403,7 +402,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           <div>
             <CardTitle className="text-base">Import from Figma</CardTitle>
             <CardDescription className="text-xs">
-              Paste a Figma URL to generate docs, capture visual proof and refresh the registry.
+              Paste a Figma URL to generate docs and capture visual proof.
             </CardDescription>
           </div>
         </div>

@@ -51,7 +51,7 @@ import { useDesignSystem } from '@/lib/design-system-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Modal, ModalContent } from '@/components/ui/overlay/modal';
-import { fetchComponentRegistry, fetchTokenRegistry } from '@/lib/api';
+import { fetchComponentCatalog, fetchTokenRegistry } from '@/lib/api';
 import {
   ROUTE_PATTERNS,
   toComponentDetail,
@@ -378,8 +378,8 @@ export default function App() {
     setSearchIndexLoading(true);
     setSearchIndexError(null);
     setSearchIndexWarning(null);
-    const [tokenRegistryResult, componentRegistryResult] = await Promise.allSettled(
-      [fetchTokenRegistry(), fetchComponentRegistry()],
+    const [tokenRegistryResult, componentCatalogResult] = await Promise.allSettled(
+      [fetchTokenRegistry(), fetchComponentCatalog()],
     );
 
     if (tokenRegistryResult.status === 'fulfilled') {
@@ -397,9 +397,9 @@ export default function App() {
       setTokenSearchItems([]);
     }
 
-    if (componentRegistryResult.status === 'fulfilled') {
+    if (componentCatalogResult.status === 'fulfilled') {
       setComponentSearchItems(
-        (componentRegistryResult.value.components ?? []).map((item) => ({
+        (componentCatalogResult.value.components ?? []).map((item) => ({
           id: `component:${item.slug}`,
           label: item.display_name,
           section: 'Components',
@@ -414,14 +414,14 @@ export default function App() {
 
     if (
       tokenRegistryResult.status === 'rejected' &&
-      componentRegistryResult.status === 'rejected'
+      componentCatalogResult.status === 'rejected'
     ) {
       indexLoadedForSystemRef.current = null;
       setSearchIndexError('Search index unavailable. Please retry.');
     } else {
       if (
         tokenRegistryResult.status === 'rejected' ||
-        componentRegistryResult.status === 'rejected'
+        componentCatalogResult.status === 'rejected'
       ) {
         const failedSource =
           tokenRegistryResult.status === 'rejected' ? 'tokens' : 'components';

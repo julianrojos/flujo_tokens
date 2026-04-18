@@ -184,7 +184,6 @@ export function extractCaptureFailureFromPayload(payload: unknown): string {
   const result = toRecord(job?.result);
   const resultPayload = toRecord(result?.payload);
   const sync = toRecord(resultPayload?.sync);
-  const registryRefresh = toRecord(resultPayload?.registry_refresh);
   const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(root.events) ? root.events : [];
@@ -218,7 +217,6 @@ export function extractCaptureFailureFromPayload(payload: unknown): string {
     sync?.error,
     sync?.reason,
     sync?.stderr,
-    registryRefresh?.stderr,
     lastErrorEventMessage,
     result?.summary,
     formatPipelinePhaseMessage(pipelinePhase),
@@ -351,13 +349,11 @@ export function getCaptureErrorMessage(error: unknown): string {
       error?: string;
       message?: string;
       failed?: Array<{ error?: string }>;
-      registry_refresh?: { stderr?: string };
     };
     return (
       parsed.error ||
       parsed.message ||
       parsed.failed?.[0]?.error ||
-      parsed.registry_refresh?.stderr ||
       message
     );
   } catch {

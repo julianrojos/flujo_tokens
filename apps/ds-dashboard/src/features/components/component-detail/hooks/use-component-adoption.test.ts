@@ -6,9 +6,9 @@ import {
   loadComponentAdoptionReports,
 } from "./use-component-adoption";
 import type { ComponentUsageReport } from "@/types/consumers";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
-const BASE_ITEMS: ComponentRegistryItem[] = [
+const BASE_ITEMS: ComponentCatalogItem[] = [
   {
     slug: "boton",
     display_name: "Botón",

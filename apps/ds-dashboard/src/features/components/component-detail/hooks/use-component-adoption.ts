@@ -9,7 +9,7 @@ import {
 } from "@/lib/component-identity";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
 import type { ComponentUsageReport, ImpactLevel } from "@/types/consumers";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 export interface AggregatedConsumer {
   id: string;
@@ -35,7 +35,7 @@ export interface UseComponentAdoptionResult {
 export async function loadComponentAdoptionReports(args: {
   slug: string | undefined;
   dsFileKey: string | null | undefined;
-  allItems: ComponentRegistryItem[];
+  allItems: ComponentCatalogItem[];
   fetcher?: typeof fetchReportByComponent;
 }): Promise<ComponentUsageReport[]> {
   const { slug, dsFileKey, allItems, fetcher = fetchReportByComponent } = args;
@@ -116,7 +116,7 @@ export function aggregateComponentAdoption(
 
 export function useComponentAdoption(args: {
   slug: string | undefined;
-  allItems: ComponentRegistryItem[];
+  allItems: ComponentCatalogItem[];
 }): UseComponentAdoptionResult {
   const { slug, allItems } = args;
   const { dsFileKey } = useDsFileKey();

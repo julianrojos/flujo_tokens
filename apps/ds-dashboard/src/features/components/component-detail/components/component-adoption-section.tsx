@@ -6,11 +6,11 @@ import { formatSyncedAt } from "@/lib/format-synced-at";
 import { splitComponentName } from "@/lib/component-identity";
 import { toConsumerDetail } from "@/lib/routes";
 import { useComponentAdoption } from "../hooks/use-component-adoption";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 interface ComponentAdoptionSectionProps {
   slug: string;
-  allItems: ComponentRegistryItem[];
+  allItems: ComponentCatalogItem[];
 }
 
 export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSectionProps) {

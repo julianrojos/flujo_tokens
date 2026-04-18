@@ -5,12 +5,12 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   fetchComponentSpec,
   fetchComponentUsageIndex,
   fetchTokenRegistry,
 } from "@/lib/api";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { PartialComponentSpec } from "ds-types";
 import type { TokenRegistry } from "@/types/token-registry";
@@ -20,9 +20,9 @@ interface ComponentDetailViewModel {
   // Data
   loading: boolean;
   error: string | null;
-  item: ComponentRegistryItem | null;
+  item: ComponentCatalogItem | null;
   usage: ComponentUsageEntry | null;
-  allItems: ComponentRegistryItem[];
+  allItems: ComponentCatalogItem[];
   spec: PartialComponentSpec | null;
   hasEditorialSpec: boolean;
   isEditorialSpecStatusUnknown: boolean;
@@ -37,8 +37,8 @@ interface ComponentDetailViewModel {
   isDownloadingMarkdown: boolean;
 
   // Derived
-  previousItem: ComponentRegistryItem | null;
-  nextItem: ComponentRegistryItem | null;
+  previousItem: ComponentCatalogItem | null;
+  nextItem: ComponentCatalogItem | null;
   currentIndex: number;
   totalItems: number;
 
@@ -55,9 +55,9 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
-  const [item, setItem] = useState<ComponentRegistryItem | null>(null);
+  const [item, setItem] = useState<ComponentCatalogItem | null>(null);
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
-  const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
+  const [allItems, setAllItems] = useState<ComponentCatalogItem[]>([]);
   const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
   const [hasEditorialSpec, setHasEditorialSpec] = useState(false);
   const [isEditorialSpecStatusUnknown, setIsEditorialSpecStatusUnknown] = useState(false);
@@ -87,7 +87,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
       try {
         const [registry, usageIndex, specResult, tokenRegistryPayload] =
           await Promise.all([
-            fetchComponentRegistry(),
+            fetchComponentCatalog(),
             fetchComponentUsageIndex().catch(() => EMPTY_COMPONENT_USAGE_INDEX),
             fetchComponentSpec(slug)
               .then((payload) => ({ ok: true as const, payload }))

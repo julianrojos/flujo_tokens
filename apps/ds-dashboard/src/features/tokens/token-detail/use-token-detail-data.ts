@@ -1,5 +1,5 @@
 import {
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   fetchDesignSystemsConfig,
   fetchTokenHealth,
   fetchTokenRegistry,
@@ -8,7 +8,7 @@ import {
 import { resolveDesignSystemContext } from "@/lib/design-system-keys";
 import { useQuery } from "@tanstack/react-query";
 import { QUERY_DEFAULTS } from "@/lib/query-client";
-import type { ComponentRegistry } from "@/types/component-registry";
+import type { ComponentCatalog } from "@/types/component-catalog";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenHealthReport } from "@/types/token-health";
 
@@ -16,7 +16,7 @@ type TokenDetailQueryData = {
   systemId: string;
   registry: TokenRegistry;
   tokenHealth: TokenHealthReport | null;
-  componentRegistry: ComponentRegistry | null;
+  componentCatalog: ComponentCatalog | null;
 };
 
 export const tokenDetailQueryKey = (tokenPath: string, systemId: string) =>
@@ -35,18 +35,18 @@ export function useTokenDetailQuery(tokenPath: string) {
         activeSystemId,
       );
 
-      const [registry, tokenHealth, componentRegistry] =
+      const [registry, tokenHealth, componentCatalog] =
         await Promise.all([
           fetchTokenRegistry(),
           fetchTokenHealth().catch(() => null),
-          fetchComponentRegistry().catch(() => null),
+          fetchComponentCatalog().catch(() => null),
         ]);
 
       return {
         systemId: resolvedSystemId,
         registry,
         tokenHealth,
-        componentRegistry,
+        componentCatalog,
       };
     },
   });
@@ -73,7 +73,7 @@ export function useTokenDetailData(tokenPath: string) {
   const token = registry?.byPath[tokenPath] ?? null;
 
   const tokenHealth = query.data?.tokenHealth ?? null;
-  const components = query.data?.componentRegistry?.components ?? [];
+  const components = query.data?.componentCatalog?.components ?? [];
 
   return {
     loading: query.isLoading,

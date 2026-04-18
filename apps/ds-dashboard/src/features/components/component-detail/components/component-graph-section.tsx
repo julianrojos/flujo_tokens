@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import type { ComponentUsageEntry } from "@/types/component-usage-index";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 interface ComponentGraphSectionProps {
   usage: ComponentUsageEntry | null;
-  allItems: ComponentRegistryItem[];
+  allItems: ComponentCatalogItem[];
 }
 
 export function ComponentGraphSection({ usage, allItems }: ComponentGraphSectionProps) {

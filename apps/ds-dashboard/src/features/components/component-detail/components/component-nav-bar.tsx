@@ -3,11 +3,11 @@
  */
 
 import { PrevNextNav } from "@/components/composites";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 interface ComponentNavBarProps {
-  previousItem: ComponentRegistryItem | null;
-  nextItem: ComponentRegistryItem | null;
+  previousItem: ComponentCatalogItem | null;
+  nextItem: ComponentCatalogItem | null;
   currentIndex: number;
   totalItems: number;
   onNavigate: (slug: string) => void;

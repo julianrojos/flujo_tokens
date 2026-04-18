@@ -1,4 +1,4 @@
-import type { ComponentRegistry } from '@/types/component-registry';
+import type { ComponentCatalog } from '@/types/component-catalog';
 import type { ComponentUsageIndex } from '@/types/component-usage-index';
 import type { TokenRegistry } from '@/types/token-registry';
 import type { TokenCollectionTreeIndex } from '@/types/token-tree';
@@ -204,8 +204,8 @@ export async function requestJson<T>(
   return getJson<T>(url, init);
 }
 
-export function fetchComponentRegistry() {
-  return getJson<ComponentRegistry>('/api/component-registry');
+export function fetchComponentCatalog() {
+  return getJson<ComponentCatalog>('/api/component-catalog');
 }
 
 export interface CreateDesignSystemPayload {
@@ -539,7 +539,6 @@ function findQueuePayloadFailureSummary(
   const result = toRecord(job?.result);
   const resultPayload = toRecord(result?.payload);
   const sync = toRecord(resultPayload?.sync);
-  const registryRefresh = toRecord(resultPayload?.registry_refresh);
   const figmaError = toRecord(resultPayload?.figma_error);
   const figmaErrorMessage = toNonEmptyString(figmaError?.message);
   const figmaErrorStatus =
@@ -589,7 +588,6 @@ function findQueuePayloadFailureSummary(
       sync?.error,
       sync?.reason,
       sync?.stderr,
-      registryRefresh?.stderr,
       lastErrorEventMessage,
       result?.summary,
     ],
@@ -770,10 +768,6 @@ async function runQueuedRefresh(
   };
 }
 
-export async function refreshRegistry(options?: QueueWaitOptions) {
-  return runQueuedRefresh('/api/refresh-registry', options);
-}
-
 export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
   return runQueuedRefresh('/api/refresh-token-usage-index', options);
 }
@@ -942,11 +936,6 @@ export interface CaptureFigmaScreenshotResult {
   }>;
   skipped?: Array<Record<string, unknown>>;
   indices_refreshed?: boolean;
-  registry_refresh?: {
-    ok?: boolean;
-    output?: string;
-    stderr?: string;
-  };
   tokens_bootstrap?: TokensBootstrapResult;
   tokens_compile?: TokensCompileResult;
   figma_error?: CaptureFigmaErrorDetail;

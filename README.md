@@ -53,14 +53,13 @@ Bootstrap checklist:
 1. Ensure the DB path exists and is writable for your user/process.
 2. Create at least one design system (recommended via Dashboard Systems UI).
 3. Set a default system (or pass `--system <id>` explicitly in CLI commands).
-4. Verify context health:
+4. Verify tooling health:
 
 ```bash
-npm run ds:registry:validate -- --system <id>
+npm run test:tooling:core
 ```
 
-If you get `Cannot load design systems from DB` or `No systems configured`, complete steps 2-3 first.
-Note: `--system` is strict; empty values and invalid IDs are rejected (allowed chars: letters, numbers, `.`, `_`, `-`).
+If the command fails, fix the local tooling or test environment before continuing.
 
 ### Token Compilation Scripts
 
@@ -354,11 +353,6 @@ System context (DB-backed):
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
-- **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard PostgreSQL database and refreshes overview.
-- **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `design-systems/<id>/docs/components/overview.md` together (rollback on overview write failure).
-- **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
-- **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
-- **`npm run ds:registry:report`**: Generates read-only registry projections in active system docs (`design-systems/<id>/docs/_generated/components-index.md` and `design-systems/<id>/docs/_generated/components-health.json`) without scanning specs/docs again.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
@@ -367,10 +361,8 @@ System context (DB-backed):
 
 - `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
 - `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
-- `DATABASE_URL`: operational storage for component registry state
+- `DATABASE_URL`: operational storage for dashboard sync/capture state
 - `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
-- `design-systems/<id>/docs/_generated/components-index.md`: generated component index projection for human scanning
-- `design-systems/<id>/docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
 
 ### Local dashboard (React, local-only)
 
@@ -579,32 +571,14 @@ Useful flags:
 - `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
-### 3) Component registry and overview sync
+### 3) Import and capture from Figma
 
 ```bash
-npm run ds:registry:sync
-npm run ds:registry:validate
-npm run ds:registry:overview
-npm run ds:registry:report
+npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
+npm run ds:capture-visual-proof -- --component-name <Name>
 ```
 
-Useful flags:
-
-- `--registry <database-url>` (default from active system context)
-- `--system <id>` (recommended in multi-system repos)
-- `--spec-root <path>` (default from active system context)
-- `--docs-root <path>` (default from active system context)
-- `--proof-dir <path>` (default from active system context: `design-systems/<id>/docs/_generated/visual-proofs`)
-- `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
-
-Registry report specific flags:
-
-- `--out-md <path>` (default from active system context: `design-systems/<id>/docs/_generated/components-index.md`)
-- `--out-json <path>` (default from active system context: `design-systems/<id>/docs/_generated/components-health.json`)
-- `--format <json|text>` (default: `json`)
-- `--max-filter-items <number>` (default: `20`)
-- `--no-md true` / `--no-json true`
-- `--dry-run true`
+Useful flags are documented above in the capture sections; prefer `ds:capture-from-url` for import flows and `ds:capture-visual-proof` for one-off screenshots.
 
 ### 4e) Foundations docs sync from token registry
 
@@ -627,5 +601,5 @@ Recommended sequence before rendering:
 
 ```bash
 npm run generate:registry
-npm run ds:registry:validate
+npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
 ```

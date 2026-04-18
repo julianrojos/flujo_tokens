@@ -37,16 +37,15 @@ This contract defines the only canonical order for component documentation:
 
 ## Component index synchronization (blocking)
 
-After any stage that mutates component docs/spec/render/proof artifacts, refresh these two files together in one atomic step:
+After any stage that mutates component docs/spec/render/proof artifacts, keep the component overview aligned with the docs:
 
-- `docs/_generated/component-registry.json`
 - `docs/components/overview.md`
 
 Required behavior:
 
-- Both files are updated from the same source state.
-- If either write fails, restore both files to pre-run snapshots.
-- Prefer `npm run ds:registry:refresh` for deterministic synchronization.
+- The overview must reflect the same source state as the component pages.
+- If the overview write fails, restore the docs state to the pre-run snapshot.
+- There is no standalone registry refresh step in this repo anymore.
 
 ## Bypass policy
 

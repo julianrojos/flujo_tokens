@@ -13,7 +13,7 @@ import {
   fetchReportByComponent,
   fetchReportByVariable,
   fetchConsumerSyncRuns,
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   fetchTokenRegistry,
 } from "@/lib/api";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
@@ -174,10 +174,10 @@ export function ConsumerDetailPage() {
         }
 
         // Load component and variable reports
-        const [componentsResponse, variablesResponse, componentRegistry, tokenRegistry] = await Promise.all([
+        const [componentsResponse, variablesResponse, componentCatalog, tokenRegistry] = await Promise.all([
           fetchReportByComponent(dsFileKey),
           fetchReportByVariable(dsFileKey),
-          fetchComponentRegistry().catch((cause) => {
+          fetchComponentCatalog().catch((cause) => {
             console.warn("[consumer-detail] Component registry fetch failed", cause);
             return { components: [] };
           }),
@@ -188,7 +188,7 @@ export function ConsumerDetailPage() {
         ]);
         setComponents(componentsResponse.data || []);
         setVariables(variablesResponse.data || []);
-        setComponentSlugByLookup(buildComponentLookupMap(componentRegistry.components || []));
+        setComponentSlugByLookup(buildComponentLookupMap(componentCatalog.components || []));
         const exactTokenLookup = Object.fromEntries(
           (tokenRegistry.entries || []).flatMap((entry) => {
             const path = String(entry.path || "").trim();
