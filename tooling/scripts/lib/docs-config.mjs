@@ -14,7 +14,6 @@ export const CANONICAL_H2_ORDER = SECTIONS.canonical_h2_order;
 export const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, SECTIONS.required_count);
 export const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(SECTIONS.required_count);
 
-export const TRACEABILITY_CONTRACT_VERSION = "1";
 export const TOKEN_COLLECTION_PREFIXES = new Set([
   "Semantic",
   "Primitives",
@@ -22,15 +21,7 @@ export const TOKEN_COLLECTION_PREFIXES = new Set([
   "A11y",
 ]);
 
-export const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 export const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
-
-export const COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS = [
-  "file_url",
-  "page",
-  "component",
-  "last_verified",
-];
 
 export const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   "name",

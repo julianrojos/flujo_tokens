@@ -96,7 +96,7 @@ export interface FreshnessAudit {
    */
   draftSpecs: string[];
   /**
-   * Markdown files with doc_status: needs-review.
+   * Markdown files flagged for review.
    */
   needsReview: string[];
   /**

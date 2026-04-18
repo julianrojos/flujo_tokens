@@ -42,13 +42,6 @@ function createFallbackValidationRoots(): ValidationRoots {
     fs.writeFileSync(
         path.join(docsRoot, 'button.md'),
         [
-            '---',
-            'doc_type: component',
-            'title: Button',
-            'component: button',
-            'status: draft',
-            '---',
-            '',
             '# Button',
             '',
             '## Overview',
@@ -154,13 +147,6 @@ describe('docs-validator', () => {
             fs.writeFileSync(
                 filePath,
                 [
-                    '---',
-                    'doc_type: component',
-                    'title: Bad Token',
-                    'component: bad-token',
-                    'status: draft',
-                    '---',
-                    '',
                     '# Bad Token',
                     '',
                     'Token ref: `color.missing`',

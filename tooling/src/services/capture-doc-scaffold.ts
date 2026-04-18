@@ -45,12 +45,7 @@ export function writeTextAtomic(filePath: string, content: string): void {
  * Build seed content for overview.md.
  */
 export function buildOverviewSeed(): string {
-  return `---
-doc_type: overview
-doc_status: draft
----
-
-# Components Overview
+  return `# Components Overview
 
 ## Component list
 
@@ -91,19 +86,7 @@ export function buildMarkdownSeed(params: {
 }): string {
   const { slug, candidateName, nodeUrl, nodeId } = params;
   const displayName = componentNameToDisplayName(candidateName || slug) || 'Component';
-  
-  return `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: ${nodeUrl || 'TBD'}
-  page: TBD
-  component: ${displayName}
-  component_set_node_id: ${nodeId || 'TBD'}
-  last_verified: TBD
----
-
-# ${displayName}
+  return `# ${displayName}
 
 Auto-generated placeholder created during Figma capture workflow.
 

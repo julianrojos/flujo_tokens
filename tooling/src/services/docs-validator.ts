@@ -11,9 +11,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 // Import from existing TypeScript utilities
-import { isPlainObject } from '../utils/is-plain-object.js';
-import { isTbdMarker } from '../utils/tbd.js';
-import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 
 // Import shared types (single source of truth for validator types)
@@ -28,11 +25,6 @@ import type {
 // Import from newly created services
 
 // Import extracted validator modules (FULLY WIRED - single source of truth)
-import {
-  validateComponentFrontmatter,
-  validateOverviewFrontmatter,
-  validateWorkflowOrFoundationFrontmatter,
-} from './frontmatter.js';
 import {
   validateOverviewLinks,
   validateSpecMarkdownPairing,
@@ -62,14 +54,8 @@ import {
   createBaseReport,
 } from './governance.js';
 
-// Import Figma traceability validators (single source of truth)
-import {
-  validateMarkdownTraceabilityNodeId,
-  validateGeneratedTraceability,
-  validateGapsSectionContract,
-  validateVisualProofSection,
-  validateReadyLifecycleConsistency,
-} from './figma.js';
+// Import gaps validator (single source of truth)
+import { validateGapsSectionContract } from './figma.js';
 
 // ============================================================================
 // Constants
@@ -286,146 +272,76 @@ export function validateDocs(
     }
     const raw = fs.readFileSync(filePath, 'utf8');
     const lineStarts = buildLineStarts(raw);
-    let frontmatter: Record<string, unknown> = {};
-    let content = raw;
-    try {
-      const parsed = parseMarkdownFrontmatter(raw);
-      frontmatter = parsed.frontmatter as Record<string, unknown>;
-      content = parsed.content;
-    } catch (error) {
-      report.errors.push({
-        code: 'FM01',
-        file: filePath,
-        message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
-    const contentOffset = raw.length - content.length;
     const isOverview = path.basename(filePath) === 'overview.md';
 
     report.summary.filesChecked += 1;
     if (isOverview) {
-      // Validate overview frontmatter
-      validateOverviewFrontmatter(filePath, frontmatter, report);
       continue;
     }
 
-    const docType = String(frontmatter.doc_type || '')
-      .trim()
-      .toLowerCase();
-    const treatAsComponent = docType === 'component' || !docType;
+    componentFiles.push(filePath);
 
-    if (treatAsComponent) {
-      componentFiles.push(filePath);
+    // Validate component filename
+    validateComponentDocFileName(filePath, report);
 
-      // Validate component filename
-      validateComponentDocFileName(filePath, report);
+    // Validate section order
+    validateSectionOrder(
+      filePath,
+      raw,
+      report,
+      lineStarts,
+      lineFromOffset,
+      0,
+      { allowExtraH2 },
+    );
 
-      // Validate component frontmatter
-      validateComponentFrontmatter(filePath, frontmatter, report);
+    // Validate variable IDs
+    validateVariableIds(filePath, raw, report, lineStarts, lineFromOffset);
 
-      // Validate section order
-      validateSectionOrder(
-        filePath,
-        content,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-        { allowExtraH2 },
-      );
+    // Validate editorial placeholders
+    validateEditorialPlaceholders(
+      filePath,
+      raw,
+      report,
+      lineStarts,
+      lineFromOffset,
+      0,
+    );
 
-      // Validate variable IDs
-      validateVariableIds(filePath, raw, report, lineStarts, lineFromOffset);
+    // Validate internal links
+    validateInternalLinks(filePath, raw, report, lineStarts, lineFromOffset);
 
-      // Validate editorial placeholders
-      validateEditorialPlaceholders(
-        filePath,
-        content,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-      );
+    // Validate token references and fallbacks against the active registry.
+    validateTokenReferences(
+      filePath,
+      raw,
+      registryIndexes,
+      report,
+      lineStarts,
+      lineFromOffset,
+      0,
+    );
+    validateTokenFallbacks(
+      filePath,
+      raw,
+      registryIndexes,
+      report,
+      lineStarts,
+      lineFromOffset,
+      0,
+    );
 
-      // Validate internal links
-      validateInternalLinks(filePath, raw, report, lineStarts, lineFromOffset);
-
-      // Validate token references and fallbacks against the active registry.
-      validateTokenReferences(
-        filePath,
-        content,
-        registryIndexes,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-      );
-      validateTokenFallbacks(
-        filePath,
-        content,
-        registryIndexes,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-      );
-
-      // Validate gaps section contract
-      validateGapsSectionContract(
-        filePath,
-        raw,
-        specRoot,
-        registry,
-        report,
-        lineStarts,
-        lineFromOffset,
-        specResolution,
-      );
-
-      // Validate visual proof section
-      validateVisualProofSection(
-        filePath,
-        raw,
-        frontmatter,
-        report,
-        lineStarts,
-        lineFromOffset,
-      );
-
-      // Validate traceability node ID
-      validateMarkdownTraceabilityNodeId(
-        filePath,
-        frontmatter,
-        specRoot,
-        report,
-        specResolution,
-      );
-
-      // Validate generated traceability
-      validateGeneratedTraceability(
-        filePath,
-        frontmatter,
-        specRoot,
-        registryPath,
-        report,
-        specResolution,
-      );
-
-      // Validate ready lifecycle consistency
-      validateReadyLifecycleConsistency(
-        filePath,
-        raw,
-        frontmatter,
-        specRoot,
-        report,
-        lineStarts,
-        lineFromOffset,
-        specResolution,
-      );
-    } else {
-      // Validate workflow/foundation frontmatter
-      validateWorkflowOrFoundationFrontmatter(filePath, frontmatter, report);
-    }
+    // Validate gaps section contract
+    validateGapsSectionContract(
+      filePath,
+      raw,
+      specRoot,
+      registry,
+      report,
+      lineStarts,
+      lineFromOffset,
+      specResolution,
+    );
   }
 
   // Validate spec-markdown pairing

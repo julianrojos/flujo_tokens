@@ -17,8 +17,6 @@ export interface CapturedComponent {
   slug: string;
   /** Figma node ID. */
   node_id: string;
-  /** Markdown file path (relative). */
-  markdown_path: string;
   /** Screenshot URL. */
   screenshot_url: string | null;
   /** Local image path. */
@@ -49,8 +47,6 @@ export interface FailedCapture {
   slug: string;
   /** Figma node ID. */
   node_id: string;
-  /** Markdown file path (relative). */
-  markdown_path: string;
   /** Error message. */
   error: string;
 }
@@ -146,8 +142,8 @@ export function buildCaptureArgs(params: {
   } = params;
 
   const captureArgs: string[] = [
-    '--markdown',
-    target.markdownPath,
+    '--component-name',
+    target.name,
     '--component-set-id',
     target.nodeId,
     '--url',
@@ -173,10 +169,6 @@ export function buildCaptureArgs(params: {
     '--skip-db-persistence',
     'true',
   ];
-
-  if (target.specExists) {
-    captureArgs.push('--spec-file', target.specPath);
-  }
 
   return captureArgs;
 }
@@ -237,7 +229,6 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
       captured.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
         screenshot_url: (captureResult.screenshotUrl as string) || null,
         local_image_path: (captureResult.localImagePath as string) || null,
         variants_count: Number(captureResult.variantsCount || 0),
@@ -270,7 +261,6 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
       failed.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
         error: error instanceof Error ? error.message : String(error),
       });
 
@@ -421,7 +411,6 @@ export function executeCaptureBatchAndRefresh(params: {
         {
           slug: 'db-sync',
           node_id: '',
-          markdown_path: '',
           error: `Failed to persist capture results to DB: ${toErrorMessage(error)}`,
         },
       ];

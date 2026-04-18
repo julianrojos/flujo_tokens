@@ -148,7 +148,7 @@ export type AiJobStatus =
     | 'cancelled';
 
 /**
- * Job event for traceability
+ * Job event for auditability
  */
 export interface AiJobEvent {
     /** Sequential event number */

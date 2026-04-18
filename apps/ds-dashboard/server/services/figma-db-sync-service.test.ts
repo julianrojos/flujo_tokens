@@ -11,7 +11,6 @@ import { ComponentRepository as ComponentRepositoryClass } from '../db/component
 import { createTestDatabase } from '../db/test-db-helpers.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
-import { parseMarkdownFrontmatter } from '../../../../tooling/src/utils/parse-frontmatter.js';
 import { syncDesignSystemFromPlugin } from './figma-db-sync-service.js';
 
 function makeComponentRepoStub(): ComponentRepository {
@@ -872,12 +871,12 @@ describe('figma-db-sync-service', () => {
     }
   });
 
-  it('writes YAML-safe component names in generated doc frontmatter', async () => {
+  it('writes YAML-safe component names in generated markdown', async () => {
     const { sql, cleanup } = await createTestDatabase({
       designSystems: [{ id: 'sys-01', name: 'System 01' }],
     });
     const repoRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'ds-sync-safe-frontmatter-'),
+      path.join(os.tmpdir(), 'ds-sync-safe-markdown-'),
     );
     try {
       const componentRepo = {
@@ -918,7 +917,7 @@ describe('figma-db-sync-service', () => {
         figmaFileId: 'file_123',
         includeComponents: true,
         dryRun: false,
-        createRunId: () => 'run-yaml-safe-frontmatter',
+        createRunId: () => 'run-yaml-safe-markdown',
         fetchVariables,
         searchComponents,
         repoRoot,
@@ -930,12 +929,8 @@ describe('figma-db-sync-service', () => {
         'button-primary-v2.md',
       );
       const markdown = fs.readFileSync(markdownPath, 'utf8');
-      const parsed =
-        parseMarkdownFrontmatter<Record<string, unknown>>(markdown);
-      const figma = parsed.frontmatter.figma as Record<string, unknown>;
-      assert.equal(typeof figma.component, 'string');
-      assert.equal(String(figma.component), 'Button: Primary [v2]');
-      assert.equal(String(figma.node_id), '10:1');
+      assert.ok(markdown.startsWith('# Button: Primary [v2]'));
+      assert.equal(markdown.includes('---'), false);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
       await cleanup();

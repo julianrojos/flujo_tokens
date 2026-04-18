@@ -9,15 +9,7 @@ import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
 } from "./token-registry.mjs";
-import {
-  parseMarkdownFrontmatter,
-} from "./parse-frontmatter.mjs";
-import {
-  validateOptionalVersionBlock,
-  validateComponentFrontmatter,
-  validateOverviewFrontmatter,
-  validateWorkflowOrFoundationFrontmatter,
-} from "./validators/frontmatter.mjs";
+import { validateOptionalVersionBlock } from "./validators/version-block.mjs";
 import {
   validateOverviewLinks,
   validateSpecMarkdownPairing,
@@ -28,13 +20,7 @@ import {
   loadRuleManifest,
   annotateFindingsWithManifest,
 } from "./validators/governance.mjs";
-import {
-  validateMarkdownTraceabilityNodeId,
-  validateGeneratedTraceability,
-  validateGapsSectionContract,
-  validateVisualProofSection,
-  validateReadyLifecycleConsistency,
-} from "./validators/figma.mjs";
+import { validateGapsSectionContract } from "./validators/figma.mjs";
 import {
   buildRegistryIndexes,
   resolveTokenCandidate,
@@ -155,129 +141,63 @@ export function validateDocs(options = {}) {
     }
     const raw = fs.readFileSync(filePath, "utf8");
     const lineStarts = buildLineStarts(raw);
-    let frontmatter = {};
-    let content = raw;
-    try {
-      ({ frontmatter, content } = parseMarkdownFrontmatter(raw));
-    } catch (error) {
-      report.errors.push({
-        code: "FM01",
-        file: filePath,
-        message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
-    const contentOffset = raw.length - content.length;
     const isOverview = path.basename(filePath) === "overview.md";
 
     report.summary.filesChecked += 1;
     if (isOverview) {
-      validateOverviewFrontmatter(filePath, frontmatter, report);
-      validateEditorialPlaceholders(
-        filePath,
-        content,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-      );
-      validateInternalLinks(filePath, raw, report, lineStarts, lineFromOffset);
       continue;
     }
 
-    const docType = String(frontmatter.doc_type || "")
-      .trim()
-      .toLowerCase();
-    const treatAsComponent = docType === "component" || !docType;
-
-    if (treatAsComponent) {
-      componentFiles.push(filePath);
-      validateComponentDocFileName(filePath, report);
-      validateComponentFrontmatter(filePath, frontmatter, report);
-      validateMarkdownTraceabilityNodeId(
-        filePath,
-        frontmatter,
-        specRoot,
-        report,
-        specResolution,
-      );
-      validateGeneratedTraceability(
-        filePath,
-        frontmatter,
-        specRoot,
-        registryPath,
-        report,
-        specResolution,
-      );
-      validateGapsSectionContract(
-        filePath,
-        raw,
-        specRoot,
-        registry,
-        report,
-        lineStarts,
-        lineFromOffset,
-        specResolution,
-      );
-      validateReadyLifecycleConsistency(
-        filePath,
-        raw,
-        frontmatter,
-        specRoot,
-        report,
-        lineStarts,
-        lineFromOffset,
-        specResolution,
-      );
-      validateVisualProofSection(
-        filePath,
-        raw,
-        frontmatter,
-        report,
-        lineStarts,
-        lineFromOffset,
-      );
-      validateSectionOrder(
-        filePath,
-        content,
-        report,
-        lineStarts,
-        lineFromOffset,
-        contentOffset,
-        {
-          allowExtraH2,
-        },
-      );
-    } else {
-      validateWorkflowOrFoundationFrontmatter(filePath, frontmatter, report);
-    }
-
-    validateEditorialPlaceholders(
+    componentFiles.push(filePath);
+    validateComponentDocFileName(filePath, report);
+    validateSectionOrder(
       filePath,
-      content,
+      raw,
       report,
       lineStarts,
       lineFromOffset,
-      contentOffset,
+      0,
+      {
+        allowExtraH2,
+      },
+    );
+    validateEditorialPlaceholders(
+      filePath,
+      raw,
+      report,
+      lineStarts,
+      lineFromOffset,
+      0,
     );
     validateInternalLinks(filePath, raw, report, lineStarts, lineFromOffset);
     validateVariableIds(filePath, raw, report, lineStarts, lineFromOffset);
     validateTokenReferences(
       filePath,
-      content,
+      raw,
       registryIndexes,
       report,
       lineStarts,
       lineFromOffset,
-      contentOffset,
+      0,
     );
     validateTokenFallbacks(
       filePath,
-      content,
+      raw,
       registryIndexes,
       report,
       lineStarts,
       lineFromOffset,
-      contentOffset,
+      0,
+    );
+    validateGapsSectionContract(
+      filePath,
+      raw,
+      specRoot,
+      registry,
+      report,
+      lineStarts,
+      lineFromOffset,
+      specResolution,
     );
   }
 
@@ -312,17 +232,10 @@ export function validateDocs(options = {}) {
       docsRoot,
       componentFiles,
       report,
-      parseMarkdownFrontmatter,
       buildLineStarts,
       lineFromOffset,
       normalizeHeadingText,
     });
-    for (const overviewPath of overviewFiles) {
-      if (!fs.existsSync(overviewPath)) continue;
-      const raw = fs.readFileSync(overviewPath, "utf8");
-      const lineStarts = buildLineStarts(raw);
-      validateVariableIds(overviewPath, raw, report, lineStarts, lineFromOffset);
-    }
   }
 
   annotateFindingsWithManifest(report.errors, manifestInfo.checks);

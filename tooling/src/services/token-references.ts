@@ -321,7 +321,7 @@ export function resolveTokenCandidate(
  */
 export function validateTokenReferences(
   filePath: string,
-  content: string,
+  markdown: string,
   registryIndexes: RegistryIndexes,
   report: DocsValidationReport,
   lineStarts: number[],
@@ -332,7 +332,7 @@ export function validateTokenReferences(
   let spanMatch: RegExpExecArray | null;
   const seen = new Set<string>();
 
-  while ((spanMatch = codeSpanRegex.exec(content)) !== null) {
+  while ((spanMatch = codeSpanRegex.exec(markdown)) !== null) {
     const span = spanMatch[1];
     const spanOffset = spanMatch.index + 1;
     const candidates = extractTokenCandidatesFromSpan(span);
@@ -376,14 +376,14 @@ export function validateTokenReferences(
  */
 export function validateTokenFallbacks(
   filePath: string,
-  content: string,
+  markdown: string,
   registryIndexes: RegistryIndexes,
   report: DocsValidationReport,
   lineStarts: number[],
   lineFromOffset: (starts: number[], offset: number) => number,
   baseOffset: number = 0
 ): void {
-  const tables = collectMarkdownTables(content);
+  const tables = collectMarkdownTables(markdown);
   for (const table of tables) {
     const tokenCol = findHeaderIndex(table.headerCells, 'token');
     if (tokenCol < 0) continue;

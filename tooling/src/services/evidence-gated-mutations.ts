@@ -167,7 +167,7 @@ export interface AssertDocStatusStableOptions {
  * Asserts that doc_status remains stable unless allowed.
  */
 export function assertDocStatusStable(options: AssertDocStatusStableOptions): void {
-    const { beforeFrontmatter, afterFrontmatter, allowDocStatusChange = false, label = 'markdown frontmatter' } = options;
+    const { beforeFrontmatter, afterFrontmatter, allowDocStatusChange = false, label = 'markdown metadata' } = options;
     if (allowDocStatusChange) return;
     const beforeStatus = readDocStatus(beforeFrontmatter);
     const afterStatus = readDocStatus(afterFrontmatter);

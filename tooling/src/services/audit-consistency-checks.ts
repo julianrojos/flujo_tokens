@@ -25,7 +25,6 @@ export interface TokenValidityResult extends CheckResult {
 
 export interface ConsistencyCheckParams {
   spec: Record<string, unknown>;
-  frontmatter: Record<string, unknown>;
   markdownContent: string;
   lookup: {
     byPath: Map<string, unknown>;
@@ -35,7 +34,6 @@ export interface ConsistencyCheckParams {
 
 export interface FigmaConsistencyCheckParams {
   spec: Record<string, unknown>;
-  frontmatter: Record<string, unknown>;
   markdownContent: string;
 }
 
@@ -194,12 +192,11 @@ const TOKEN_CODES = new Set([
  * - Properties defined in spec are documented in markdown Component API
  * - Enum values from spec are documented in markdown
  * - Token mappings from spec are documented in markdown Visual Specifications
- * - Lifecycle status matches between spec and markdown
  */
 export function checkSpecMarkdownConsistency(
   params: ConsistencyCheckParams,
 ): CheckResult {
-  const { spec, frontmatter, markdownContent, lookup } = params;
+  const { spec, markdownContent, lookup } = params;
   const errors: unknown[] = [];
   const componentApi = extractSectionBody(markdownContent, 'Component API');
   const visualSpecs = extractSectionBody(
@@ -243,21 +240,6 @@ export function checkSpecMarkdownConsistency(
     }
   }
 
-  const specStatus = String(spec.status || '')
-    .trim()
-    .toLowerCase();
-  const docStatus = String(frontmatter.doc_status || '')
-    .trim()
-    .toLowerCase();
-  if (
-    (specStatus === 'ready' && docStatus !== 'ready') ||
-    (docStatus === 'ready' && specStatus !== 'ready')
-  ) {
-    errors.push(
-      `Lifecycle mismatch: spec status is \`${specStatus || 'missing'}\` but markdown doc_status is \`${docStatus || 'missing'}\`.`,
-    );
-  }
-
   return {
     ok: errors.length === 0,
     errors,
@@ -268,57 +250,13 @@ export function checkSpecMarkdownConsistency(
  * Check markdown ↔ Figma consistency.
  *
  * Validates:
- * - Figma component name matches between spec and markdown frontmatter
- * - Figma page matches between spec and markdown frontmatter
- * - Figma node ID matches between spec and markdown frontmatter
  * - State values from spec are documented in markdown States section
  */
 export function checkMarkdownFigmaConsistency(
   params: FigmaConsistencyCheckParams,
 ): CheckResult {
-  const { spec, frontmatter, markdownContent } = params;
+  const { spec, markdownContent } = params;
   const errors: unknown[] = [];
-  const figmaFm = (
-    frontmatter?.figma && typeof frontmatter.figma === 'object'
-      ? frontmatter.figma
-      : {}
-  ) as Record<string, unknown>;
-  const figmaSpec = (
-    spec?.figma && typeof spec.figma === 'object' ? spec.figma : {}
-  ) as Record<string, unknown>;
-
-  const specComponentSet = String(figmaSpec.component_set || '').trim();
-  const markdownComponent = String(figmaFm.component || '').trim();
-  if (
-    specComponentSet &&
-    markdownComponent &&
-    specComponentSet !== markdownComponent
-  ) {
-    errors.push(
-      `Figma component mismatch: spec figma.component_set is \`${specComponentSet}\`, markdown figma.component is \`${markdownComponent}\`.`,
-    );
-  }
-
-  const specPage = String(figmaSpec.page || '').trim();
-  const markdownPage = String(figmaFm.page || '').trim();
-  if (specPage && markdownPage && specPage !== markdownPage) {
-    errors.push(
-      `Figma page mismatch: spec page is \`${specPage}\`, markdown page is \`${markdownPage}\`.`,
-    );
-  }
-
-  const specNode = normalizeNodeId(
-    String(figmaSpec.component_set_node_id || '').trim(),
-  );
-  const markdownNode = normalizeNodeId(
-    String(figmaFm.component_set_node_id || '').trim(),
-  );
-  if (specNode && markdownNode && specNode !== markdownNode) {
-    errors.push(
-      `Figma node mismatch: spec figma.component_set_node_id is \`${specNode}\`, markdown frontmatter has \`${markdownNode}\`.`,
-    );
-  }
-
   const stateProperty = (
     Array.isArray(spec.properties) ? spec.properties : []
   ).find(

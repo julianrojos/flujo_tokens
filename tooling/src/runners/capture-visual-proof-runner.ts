@@ -3,18 +3,14 @@
 /**
  * Capture visual proof runner
  *
- * Capture a Figma screenshot proof and upsert `### Visual Proof` under `## Overview`
- * for a component markdown doc.
+ * Capture a Figma screenshot proof and persist proof artifacts for a component.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import type { CaptureVisualProofArgs, CaptureVisualProofReport } from '../types/capture-visual-proof.js';
 import type { LocalImageInfo, VisualProofVariant } from '../types/capture-visual-proof.js';
 import type { CaptureVisualProofContext } from '../services/capture-visual-proof-preparation.js';
-import { splitFrontmatter } from '../services/capture-visual-proof-io.js';
-import { upsertVisualProofInOverview } from '../services/capture-visual-proof-payload.js';
 import {
   captureMainImage,
   captureVariantImages,
@@ -24,7 +20,6 @@ import {
   loadPreviousProofImagePaths,
 } from '../services/capture-visual-proof-image.js';
 import {
-  buildVisualSectionLines,
   writeProofArtifacts,
   buildCaptureReport,
 } from '../services/capture-visual-proof-payload.js';
@@ -43,24 +38,16 @@ const USAGE = {
   command:
     'npm run ds:capture-visual-proof -- --component-name Alert [--agent codex]',
   description:
-    'Capture a Figma screenshot proof and upsert `### Visual Proof` under `## Overview` for a component markdown doc.',
+    'Capture a Figma screenshot proof and persist proof artifacts for a component.',
   options: [
     {
       name: '--component-name <name>',
       description:
-        'Component display name used to infer markdown/spec file paths.',
-    },
-    {
-      name: '--markdown <path>',
-      description: 'Explicit markdown path (defaults to <active-system-docs>/docs/components/<slug>.md).',
-    },
-    {
-      name: '--spec-file <path>',
-      description: 'Explicit spec path (defaults to <active-system-docs>/docs/_spec/components/<slug>.yml).',
+        'Component display name used to infer the capture slug.',
     },
     {
       name: '--component-set-id <node-id>',
-      description: 'Explicit Figma component set node id (overrides spec value).',
+      description: 'Explicit Figma component set node id (overrides any inferred value).',
     },
     {
       name: '--url <figma-url>',
@@ -225,26 +212,6 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     }
   }
 
-  const rawMarkdown = fs.readFileSync(ctx.markdownPath, 'utf8');
-  const { frontmatterRaw, content } = splitFrontmatter(rawMarkdown);
-  const visualSectionLines = buildVisualSectionLines({
-    mainResult,
-    localImageInfo,
-    variantProofs,
-    capturedAt,
-    markdownPath: ctx.markdownPath,
-  });
-
-  let nextContent = '';
-  try {
-    nextContent = upsertVisualProofInOverview(content, visualSectionLines);
-  } catch (error) {
-    throw new CaptureError(
-      error instanceof Error ? error.message : String(error),
-      'MARKDOWN_UPSERT_FAILED',
-    );
-  }
-
   let dbPersistence:
     | {
       ok: true;
@@ -267,14 +234,12 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
             {
               slug: ctx.componentSlug,
               node_id: ctx.nodeId,
-              markdown_path: ctx.markdownPath,
             },
           ],
           captured: [
             {
               slug: ctx.componentSlug,
               node_id: mainResult.normalizedNodeId,
-              markdown_path: ctx.markdownPath,
               local_image_path: localImageInfo.path,
               screenshot_url: mainResult.imageUrlRaw,
               variants_count: variantProofs.length,
@@ -292,18 +257,15 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
       dbPersistence = { ok: true, ...persistence };
     } catch (error) {
       throw new CaptureError(
-        `DB persistence failed before markdown upsert; no proof artifacts were written. ${error instanceof Error ? error.message : String(error)}`,
+        `DB persistence failed; no proof artifacts were written. ${error instanceof Error ? error.message : String(error)}`,
         'DB_PERSISTENCE_FAILED',
       );
     }
   }
 
-  // 8. Write artifacts and cleanup stale images
+  // 8. Cleanup stale images
   const deletedStaleImages = writeProofArtifacts(
     ctx,
-    ctx.markdownPath,
-    frontmatterRaw,
-    nextContent,
     localImageInfo,
     variantProofs,
     previousProofImagePaths,

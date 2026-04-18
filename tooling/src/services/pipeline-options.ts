@@ -17,11 +17,9 @@ export interface PipelineFlags {
   componentSlugOverride: string;
   componentKind: string;
   includeVariants: boolean;
-  requireExistingDoc: boolean;
   continueOnError: boolean;
   refreshIndices: boolean;
   dryRun: boolean;
-  injectDocSpecs: boolean;
   includeSpecExhibits: boolean;
   variantLimit: number;
   scale: number;
@@ -39,11 +37,9 @@ export interface PipelineOptionsArgs {
   'component-slug'?: string;
   'component-kind'?: string;
   'include-variants'?: string | boolean;
-  'require-existing-doc'?: string | boolean;
   'continue-on-error'?: string | boolean;
   'refresh-indices'?: string | boolean;
   'dry-run'?: string | boolean;
-  'inject-doc-specs'?: string | boolean;
   'include-spec-exhibits'?: string | boolean;
   'variant-limit'?: string | number;
   scale?: string | number;
@@ -69,11 +65,9 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     componentSlugOverride,
     componentKind: parseComponentKind(args['component-kind']),
     includeVariants: parseBooleanOption(args['include-variants'], '--include-variants', true),
-    requireExistingDoc: parseBooleanOption(args['require-existing-doc'], '--require-existing-doc', true),
     continueOnError: parseBooleanOption(args['continue-on-error'], '--continue-on-error', true),
     refreshIndices: parseBooleanOption(args['refresh-indices'], '--refresh-indices', false),
     dryRun: parseBooleanOption(args['dry-run'], '--dry-run', false),
-    injectDocSpecs: parseBooleanOption(args['inject-doc-specs'], '--inject-doc-specs', false),
     includeSpecExhibits: parseBooleanOption(args['include-spec-exhibits'], '--include-spec-exhibits', true),
     variantLimit: Math.floor(parsePositiveNumber(args['variant-limit'], '--variant-limit', 6)),
     scale: parsePositiveNumber(args.scale, '--scale', 2),

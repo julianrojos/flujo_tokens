@@ -9,8 +9,6 @@
  */
 export interface CaptureVisualProofArgs {
   'component-name'?: string;
-  markdown?: string;
-  'spec-file'?: string;
   'component-set-id'?: string;
   url?: string;
   'figma-token'?: string;
@@ -68,8 +66,6 @@ export interface CaptureVisualProofReport {
   ok: boolean;
   dryRun: boolean;
   component: string;
-  markdownPath: string;
-  specPath: string;
   proofImagesSlugPath: string;
   localImagePath: string | null;
   screenshotUrl: string;
@@ -117,12 +113,4 @@ export interface ImageDimensions {
 export interface VariantNode {
   nodeId: string;
   name: string;
-}
-
-/**
- * Split frontmatter result.
- */
-export interface SplitFrontmatterResult {
-  frontmatterRaw: string;
-  content: string;
 }

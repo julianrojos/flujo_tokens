@@ -41,22 +41,6 @@ export function renderComponentDoc(
 
     const lines: string[] = [];
 
-    // Frontmatter
-    lines.push('---');
-    lines.push(`doc_type: component`);
-    lines.push(`doc_status: ai-draft`);
-    lines.push(`figma.component_set_node_id: ${output.componentId}`);
-    lines.push(`ai.schema_version: ${output.schemaVersion}`);
-    lines.push(`ai.generated_at: ${output.metadata?.generatedAt || new Date().toISOString()}`);
-    if (output.metadata?.provider) {
-        lines.push(`ai.provider: ${output.metadata.provider}`);
-    }
-    if (output.metadata?.model) {
-        lines.push(`ai.model: ${output.metadata.model}`);
-    }
-    lines.push('---');
-    lines.push('');
-
     // Title
     lines.push(`# ${escapeMarkdown(output.title)}`);
     lines.push('');

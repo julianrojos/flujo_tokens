@@ -4,8 +4,6 @@
  * Executes batch capture for multiple component targets.
  */
 
-import * as path from 'node:path';
-
 import type { CaptureTarget } from './capture-target-builder.js';
 import type { RunScriptJsonFn } from '../types/capture-batch-runner.js';
 
@@ -51,7 +49,6 @@ export interface RunCaptureBatchOptions {
 export interface CaptureResult {
   slug: string;
   node_id: string;
-  markdown_path: string;
   screenshot_url: string | null;
   local_image_path: string | null;
   variants_count: number;
@@ -63,7 +60,6 @@ export interface CaptureResult {
 export interface CaptureFailure {
   slug: string;
   node_id: string;
-  markdown_path: string;
   error: string;
 }
 
@@ -85,8 +81,8 @@ export function buildCaptureArgs(options: BuildCaptureArgsOptions): string[] {
   } = options;
 
   const captureArgs: string[] = [
-    '--markdown',
-    target.markdownPath,
+    '--component-name',
+    target.name,
     '--component-set-id',
     String(target.nodeId),
     '--url',
@@ -112,10 +108,6 @@ export function buildCaptureArgs(options: BuildCaptureArgsOptions): string[] {
     '--skip-db-persistence',
     'true',
   ];
-
-  if (target.specExists) {
-    captureArgs.push('--spec-file', target.specPath);
-  }
 
   return captureArgs;
 }
@@ -162,7 +154,7 @@ export function runCaptureBatch(options: RunCaptureBatchOptions): {
     });
 
     try {
-      const captureResult = runScriptJson({
+    const captureResult = runScriptJson({
         repoRoot,
         scriptPath: captureScriptPath,
         scriptArgs: captureArgs,
@@ -170,7 +162,6 @@ export function runCaptureBatch(options: RunCaptureBatchOptions): {
       captured.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
         screenshot_url: captureResult.screenshotUrl || null,
         local_image_path: captureResult.localImagePath || null,
         variants_count: Number.isFinite(Number(captureResult.variantsCount)) ? Number(captureResult.variantsCount) : 0,
@@ -179,7 +170,6 @@ export function runCaptureBatch(options: RunCaptureBatchOptions): {
       failed.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
         error: error instanceof Error ? error.message : String(error),
       });
       if (!continueOnError) {

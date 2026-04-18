@@ -9,15 +9,12 @@ import crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { parseMarkdownFrontmatter } from "../utils/parse-frontmatter.js";
-import { isPlainObject } from "../utils/is-plain-object.js";
 import { writeJsonAtomic } from "../utils/file-snapshot.js";
 
 /**
  * Output contract structure for hashing.
  */
 export interface OutputContract {
-  frontmatter_keys: string[];
   h2_headings: string[];
   table_count: number;
   token_ref_count: number;
@@ -121,6 +118,10 @@ function countTbdMarkers(markdown: string): number {
   return matches ? matches.length : 0;
 }
 
+function extractMarkdownContent(markdown: string): string {
+  return String(markdown || "").replace(/\r\n/g, "\n");
+}
+
 /**
  * Sanitize component slug for file naming.
  */
@@ -138,11 +139,8 @@ function sanitizeComponentSlug(raw: string): string {
  */
 export function computeOutputContractHash(markdown: string): HashResult {
   const source = String(markdown || "");
-  const { frontmatter, content } = parseMarkdownFrontmatter(source);
+  const content = extractMarkdownContent(source);
   const contract: OutputContract = {
-    frontmatter_keys: isPlainObject(frontmatter)
-      ? Object.keys(frontmatter).sort((a, b) => a.localeCompare(b, "en"))
-      : [],
     h2_headings: extractH2Headings(content),
     table_count: countTables(content),
     token_ref_count: countTokenReferences(source),

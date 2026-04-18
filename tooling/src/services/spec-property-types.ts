@@ -87,7 +87,7 @@ export function getSpecPropertyTypeInfo(rawType: unknown): SpecPropertyTypeInfo 
 /**
  * Canonical field order within each property object in a spec YAML.
  * Sourced from component-spec-properties-order.mdc § "Canonical field order".
- * Used by ds:sort-spec and validate:docs (DET01).
+ * Used by validate:docs (DET01).
  */
 export const PROPERTY_FIELD_ORDER = Object.freeze([
   'name',

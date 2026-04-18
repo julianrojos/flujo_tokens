@@ -51,17 +51,7 @@ describe('component-registry-sync', () => {
 
     writeFile(
       path.join(docsDir, 'alert.md'),
-      [
-        '---',
-        'doc_status: draft',
-        'figma:',
-        "  file_url: 'https://www.figma.com/design/file/Alert?node-id=10-20'",
-        "  component_set_node_id: '10:20'",
-        '---',
-        '',
-        '# Alert',
-        '',
-      ].join('\n'),
+      ['# Alert', ''].join('\n'),
     );
 
     const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
@@ -133,7 +123,7 @@ describe('component-registry-sync', () => {
     writeFile(path.join(specsDir, 'alert.yml'), 'name: alert\nstatus: draft\n');
     writeFile(
       path.join(docsDir, 'alert.md'),
-      ['---', 'doc_status: draft', '---', '', '# Alert', ''].join('\n'),
+      ['# Alert', ''].join('\n'),
     );
     writeFile(overviewPath, '# Components\n\n## Component list\n\n');
 
@@ -199,7 +189,7 @@ describe('component-registry-sync', () => {
     writeFile(path.join(specsDir, 'alert.yml'), 'name: alert\nstatus: draft\n');
     writeFile(
       path.join(docsDir, 'alert.md'),
-      ['---', 'doc_status: draft', '---', '', '# Alert', ''].join('\n'),
+      ['# Alert', ''].join('\n'),
     );
     writeFile(overviewPath, '# Components\n');
 

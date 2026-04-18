@@ -1067,7 +1067,7 @@ export async function runGenerateComponentDoc(
         }
       } else {
         // Intentional behavior: when user disables validation, do not enforce publish gate.
-        // We still surface the skip event for traceability in the timeline.
+        // We still surface the skip event for auditability in the timeline.
         store.pushEvent(job.id, 'validation.skipped', {
           reason: 'disabled-by-user',
         });

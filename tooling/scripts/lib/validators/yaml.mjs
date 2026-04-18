@@ -274,7 +274,7 @@ function validateSpecPropertyOrder(filePath, properties, report, options = {}) {
       message:
         "Property fields must follow canonical order: " +
         PROPERTY_FIELD_ORDER.join(", ") +
-        ". Fix with: npm run ds:sort-spec -- --file <spec>",
+        ". Reorder the fields to match the canonical spec property order.",
     });
   }
 }

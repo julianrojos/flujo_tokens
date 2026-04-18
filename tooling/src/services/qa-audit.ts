@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
 import { requireNonEmptyPathOption } from '../utils/path-guards.js';
-import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
+import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { buildFindings } from './qa-audit-findings.js';
 import type {
@@ -259,43 +259,20 @@ function auditFreshness(
     }
   }
 
-  // Check markdown files for needs-review and stale last_verified
+  // Check markdown files for filesystem staleness.
   for (const file of fs.readdirSync(componentsDir)) {
     if (!file.endsWith('.md') || file === 'overview.md') continue;
 
     const filePath = path.join(componentsDir, file);
-    const content = fs.readFileSync(filePath, 'utf8');
+    const stats = fs.statSync(filePath);
+    const daysOld = Math.floor((now - stats.mtimeMs) / msPerDay);
 
-    let frontmatter: Record<string, unknown> | null = null;
-    try {
-      const result = parseMarkdownFrontmatter<Record<string, unknown>>(content);
-      frontmatter = result.frontmatter;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.warn(`auditFreshness: failed to parse frontmatter in ${filePath}: ${message}`);
-      continue;
-    }
-
-    if (!frontmatter) continue;
-
-    // Check doc_status
-    if (frontmatter.doc_status === 'needs-review') {
-      needsReview.push(filePath);
-    }
-
-    // Check last_verified
-    const lastVerified = frontmatter.last_verified as string | undefined;
-    if (lastVerified) {
-      const verifiedDate = new Date(lastVerified).getTime();
-      const daysOld = Math.floor((now - verifiedDate) / msPerDay);
-
-      if (daysOld > staleThresholdDays) {
-        staleFiles.push({
-          path: filePath,
-          lastVerified,
-          daysOld,
-        });
-      }
+    if (daysOld > staleThresholdDays) {
+      staleFiles.push({
+        path: filePath,
+        lastVerified: new Date(stats.mtimeMs).toISOString(),
+        daysOld,
+      });
     }
   }
 

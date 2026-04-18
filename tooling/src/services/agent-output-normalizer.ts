@@ -1,35 +1,13 @@
 /**
  * Agent Output Normalizer
- * 
+ *
  * Normalizes AI agent output to match project documentation standards.
- * Handles frontmatter ordering, heading normalization, and artifact removal.
+ * Handles heading normalization and artifact removal.
  */
 
 import * as fs from "node:fs";
-import yaml from "js-yaml";
 
 import { CANONICAL_H2_ORDER } from "../utils/docs-config.js";
-import { isPlainObject } from "../utils/is-plain-object.js";
-import { parseMarkdownFrontmatter } from "../utils/parse-frontmatter.js";
-
-const FRONTMATTER_KEY_ORDER = [
-  "doc_type",
-  "doc_status",
-  "figma",
-  "pipeline",
-  "version",
-];
-
-const FIGMA_KEY_ORDER = [
-  "file_url",
-  "page",
-  "component",
-  "component_set_node_id",
-  "last_verified",
-  "component_hash",
-  "properties_count",
-  "variants_count",
-];
 
 const HEADING_LOOKUP = new Map(
   CANONICAL_H2_ORDER.map((heading) => [
@@ -53,47 +31,6 @@ function normalizeHeadingToken(raw: unknown): string {
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-/**
- * Order object keys according to preferred order.
- */
-function orderObjectKeys<T extends Record<string, unknown>>(
-  source: T,
-  preferredOrder: string[],
-): T {
-  const next: Partial<T> = {};
-  for (const key of preferredOrder) {
-    if (key in source) next[key as keyof T] = source[key as keyof T];
-  }
-  for (const [key, value] of Object.entries(source)) {
-    if (!(key in next)) next[key as keyof T] = value as T[keyof T];
-  }
-  return next as T;
-}
-
-/**
- * Normalize frontmatter key ordering in markdown.
- */
-function normalizeFrontmatterOrder(markdown: string): string {
-  const { frontmatter, content } = parseMarkdownFrontmatter(markdown);
-  if (!isPlainObject(frontmatter) || Object.keys(frontmatter).length === 0) {
-    return markdown;
-  }
-
-  const fm = { ...frontmatter } as Record<string, unknown>;
-  if (isPlainObject(fm.figma)) {
-    fm.figma = orderObjectKeys(fm.figma as Record<string, unknown>, FIGMA_KEY_ORDER);
-  }
-  const ordered = orderObjectKeys(fm, FRONTMATTER_KEY_ORDER);
-  const frontmatterYaml = yaml.dump(ordered, {
-    lineWidth: 120,
-    noRefs: true,
-    sortKeys: false,
-  });
-
-  const normalizedContent = String(content || "").replace(/^\n+/, "");
-  return `---\n${frontmatterYaml.trimEnd()}\n---\n\n${normalizedContent}`;
 }
 
 /**
@@ -210,7 +147,6 @@ export function normalizeAgentOutput(markdown: string): string {
     normalizeTbdMarkers,
     normalizeTokenReferences,
     normalizeSectionHeadings,
-    normalizeFrontmatterOrder,
     normalizeTableFormatting,
   ];
 

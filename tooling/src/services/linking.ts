@@ -7,7 +7,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DocsValidationReport } from './docs-validator-types.js';
 import { collectSpecFiles, buildLineStarts, lineFromOffset, compareAlpha } from './runtime-utils.js';
-import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 import { normalizeHeadingText } from './markdown-quality.js';
 
 const CANONICAL_COMPONENT_LIST_HEADING = 'component list';
@@ -44,17 +43,8 @@ export function validateOverviewLinks(options: ValidateOverviewLinksOptions): vo
 
   const overviewRaw = fs.readFileSync(overviewPath, 'utf8');
   const lineStarts = buildLineStarts(overviewRaw);
-  let content = overviewRaw;
-  try {
-    ({ content } = parseMarkdownFrontmatter(overviewRaw));
-  } catch (error) {
-    report.errors.push({
-      code: 'FM01',
-      file: overviewPath,
-      message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
-    });
-  }
-  const contentOffset = overviewRaw.length - content.length;
+  const content = overviewRaw;
+  const contentOffset = 0;
 
   const headingRegex = /^##\s+(.+?)\s*$/gim;
   let headingMatch: RegExpExecArray | null;

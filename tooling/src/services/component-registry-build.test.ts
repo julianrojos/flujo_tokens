@@ -36,17 +36,7 @@ describe('component-registry-build', () => {
 
     writeFile(
       path.join(docsDir, 'button.md'),
-      [
-        '---',
-        'doc_status: draft',
-        'figma:',
-        "  file_url: 'https://www.figma.com/design/test/Test?node-id=1-2'",
-        "  component_set_node_id: '1:2'",
-        '---',
-        '',
-        '# Button',
-        '',
-      ].join('\n'),
+      ['# Button', ''].join('\n'),
     );
 
     const registry = buildComponentRegistry({ specsDir, docsDir, proofsDir });

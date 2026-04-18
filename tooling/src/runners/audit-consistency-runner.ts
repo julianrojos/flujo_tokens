@@ -22,7 +22,7 @@ import {
 } from '../services/audit-consistency-checks.js';
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
-import { parseYamlDocument, parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
+import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 
 // ============================================================================
 // Type Definitions
@@ -290,14 +290,12 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
 
     let spec: Record<string, unknown>;
     let markdown: string;
-    let frontmatter: Record<string, unknown>;
     try {
       spec = parseYamlDocument(
         fs.readFileSync(pair.specPath, 'utf8'),
         `spec YAML (${path.basename(pair.specPath)})`,
       );
       markdown = fs.readFileSync(pair.markdownPath, 'utf8');
-      frontmatter = parseMarkdownFrontmatter(markdown).frontmatter;
     } catch (error) {
       componentReports.push({
         component: pair.slug,
@@ -322,15 +320,11 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
 
     const specMarkdown = checkSpecMarkdownConsistency({
       spec,
-      frontmatter:
-        frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
       markdownContent: markdown,
       lookup,
     });
     const markdownFigma = checkMarkdownFigmaConsistency({
       spec,
-      frontmatter:
-        frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
       markdownContent: markdown,
     });
     const tokenValidity = checkTokenValidity({

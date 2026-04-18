@@ -83,7 +83,7 @@ const USAGE = {
     {
       name: '--allow-doc-status-change <true|false>',
       description:
-        'Allow doc_status changes in frontmatter (requires --force true).',
+        'Allow status changes in generated markdown metadata (requires --force true).',
       defaultValue: 'false',
     },
     {
@@ -272,8 +272,7 @@ export async function runDocFromFigmaUrl(
       'Fill placeholders with concrete content, but do not add or remove H2 sections.',
       'Do not invent properties, variants, states, or token semantics.',
       RULE_BLOCKS.NO_INTERNAL_IDS,
-      'Figma node IDs are allowed for source traceability (for example in `node-id` URLs).',
-      'Include component metadata/frontmatter expected by project rules.',
+      'Figma node IDs are allowed as source references (for example in `node-id` URLs).',
       'Do not document system_cover or non-component pages.',
     ],
     examples: [
@@ -285,7 +284,7 @@ export async function runDocFromFigmaUrl(
     ],
     expectedOutput: [
       'Write/update the markdown file in the repo.',
-      'Return a short report with: final path, doc_status value, and unresolved TBD count.',
+      'Return a short report with: final path and unresolved TBD count.',
     ],
   });
   const outputSnapshot = captureFileSnapshot(ctx.outputPath);

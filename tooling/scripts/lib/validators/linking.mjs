@@ -9,7 +9,6 @@ export function validateOverviewLinks({
   docsRoot,
   componentFiles,
   report,
-  parseMarkdownFrontmatter,
   buildLineStarts,
   lineFromOffset,
   normalizeHeadingText,
@@ -26,17 +25,8 @@ export function validateOverviewLinks({
 
   const overviewRaw = fs.readFileSync(overviewPath, "utf8");
   const lineStarts = buildLineStarts(overviewRaw);
-  let content = overviewRaw;
-  try {
-    ({ content } = parseMarkdownFrontmatter(overviewRaw));
-  } catch (error) {
-    report.errors.push({
-      code: "FM01",
-      file: overviewPath,
-      message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
-    });
-  }
-  const contentOffset = overviewRaw.length - content.length;
+  const content = overviewRaw;
+  const contentOffset = 0;
 
   const headingRegex = /^##\s+(.+?)\s*$/gim;
   let headingMatch;

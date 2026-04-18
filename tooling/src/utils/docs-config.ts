@@ -35,11 +35,6 @@ export const OPTIONAL_CANONICAL_H2: string[] = CANONICAL_H2_ORDER.slice(
 );
 
 /**
- * Traceability contract version for component docs.
- */
-export const TRACEABILITY_CONTRACT_VERSION = '1';
-
-/**
  * Allowed token collection prefixes for validation.
  */
 export const TOKEN_COLLECTION_PREFIXES = new Set([
@@ -50,24 +45,9 @@ export const TOKEN_COLLECTION_PREFIXES = new Set([
 ]);
 
 /**
- * Allowed documentation status values.
- */
-export const ALLOWED_DOC_STATUS = new Set(['draft', 'ready', 'needs-review']);
-
-/**
  * Allowed spec status values.
  */
 export const SPEC_ALLOWED_STATUS = new Set(['draft', 'ready']);
-
-/**
- * Required frontmatter fields for component documentation.
- */
-export const COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS: string[] = [
-  'file_url',
-  'page',
-  'component',
-  'last_verified',
-];
 
 /**
  * Required top-level fields for component specs.

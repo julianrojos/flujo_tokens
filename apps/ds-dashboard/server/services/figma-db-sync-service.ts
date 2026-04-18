@@ -296,33 +296,13 @@ function uniqueSlug(baseSlug: string, used: Set<string>): string {
   return next;
 }
 
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function toYamlScalar(value: string): string {
-  return JSON.stringify(String(value || ''));
-}
-
 function buildComponentDocTemplate(args: {
   componentName: string;
-  figmaFileUrl: string;
   componentNodeId: string;
 }): string {
-  const { componentName, figmaFileUrl, componentNodeId } = args;
+  const { componentName, componentNodeId } = args;
   const safeName = String(componentName || 'Component').trim() || 'Component';
   return [
-    '---',
-    'doc_type: component',
-    'doc_status: draft',
-    'figma:',
-    `  file_url: ${toYamlScalar(figmaFileUrl || 'https://www.figma.com/design/')}`,
-    '  page: TBD',
-    `  component: ${toYamlScalar(safeName)}`,
-    `  node_id: ${toYamlScalar(componentNodeId || 'TBD')}`,
-    `  last_verified: ${todayIsoDate()}`,
-    '---',
-    '',
     `# ${safeName}`,
     '',
     '## Overview',
@@ -369,7 +349,6 @@ function ensureComponentDocTemplates(options: {
     if (fs.existsSync(targetPath)) continue;
     const markdown = buildComponentDocTemplate({
       componentName: entry.name,
-      figmaFileUrl: entry.figma.fileUrl,
       componentNodeId: entry.figma.componentSetNodeId,
     });
     try {

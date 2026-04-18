@@ -12,7 +12,7 @@ import { isPlainObject } from '../utils/is-plain-object.js';
 import { normalizeNodeId } from '../utils/figma-node-id.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { requireNonEmptyPathOption } from '../utils/path-guards.js';
-import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
+import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import type {
   ComponentRegistry,
@@ -23,7 +23,6 @@ import type {
   PipelineStage,
   BuildRegistryOptions,
   SpecStatus,
-  DocStatus,
 } from '../types/component-registry.js';
 import {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
@@ -31,7 +30,6 @@ import {
 } from './component-registry-constants.js';
 import {
   fileExists,
-  isValidHttpUrl,
   isValidNodeId,
   normalizeDisplayLabel,
   normalizeSortKey,
@@ -40,7 +38,6 @@ import {
 } from './component-registry-utils.js';
 
 const SPEC_STATUS = new Set(['draft', 'ready']);
-const DOC_STATUS = new Set(['draft', 'ready', 'needs-review']);
 
 /**
  * List files by extension in a directory.
@@ -219,23 +216,12 @@ function readDocState(docPath: string): ComponentDocState {
   }
 
   const rawMarkdown = fs.readFileSync(docPath, 'utf8');
-  const { frontmatter, content } = parseMarkdownFrontmatter(rawMarkdown);
-  const frontmatterObj = isPlainObject(frontmatter) ? frontmatter : {};
-  const figma = isPlainObject(frontmatterObj.figma) ? (frontmatterObj.figma as Record<string, unknown>) : {};
-  const status = normalizeStatus(frontmatterObj.doc_status, DOC_STATUS) as DocStatus;
-
-  const fileUrlRaw = String(figma.file_url || '').trim();
-  const figmaFileUrl = isValidHttpUrl(fileUrlRaw) ? fileUrlRaw : null;
-
-  const rawNodeId = normalizeNodeId(String(figma.component_set_node_id || '').trim());
-  const componentSetNodeId = isValidNodeId(rawNodeId) ? rawNodeId : null;
-
   return {
     exists: true,
-    status,
-    title: extractMarkdownH1(content),
-    figmaFileUrl,
-    componentSetNodeId,
+    status: 'draft',
+    title: extractMarkdownH1(rawMarkdown),
+    figmaFileUrl: null,
+    componentSetNodeId: null,
   };
 }
 
@@ -436,7 +422,7 @@ function buildComponentEntry(params: {
   const stage = inferPipelineStage({ spec, doc, visualProof });
   const readyForPublish =
     spec.status === 'ready' &&
-    doc.status === 'ready' &&
+    doc.exists &&
     hasVisualProofAsset(visualProof);
 
   const entry: Omit<ComponentRegistryEntry, 'fingerprint_sha256'> = {

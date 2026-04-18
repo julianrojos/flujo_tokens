@@ -1,8 +1,7 @@
 /**
- * Figma Component Traceability
+ * Figma Spec Metadata Snapshot
  *
- * Derives traceability metadata (component hash, node ID, counts) from spec objects.
- * Used for validating that component docs match their source specs.
+ * Derives stable spec metadata (component hash, node ID, counts) from spec objects.
  */
 import * as crypto from 'node:crypto';
 import { isPlainObject } from '../utils/is-plain-object.js';
@@ -12,9 +11,9 @@ import type { FigmaNode } from '../types/figma.js';
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
 /**
- * Result of deriving Figma frontmatter traceability from a spec.
+ * Result of deriving stable Figma spec metadata from a spec.
  */
-export interface FigmaFrontmatterTraceability {
+export interface FigmaSpecMetadataSnapshot {
   componentSetNodeId: string;
   componentHash: string;
   propertiesCount: number;
@@ -134,14 +133,14 @@ function getNormalizedComponentSetNodeId(spec: Record<string, unknown>): string 
 }
 
 /**
- * Derive Figma frontmatter traceability metadata from a spec object.
+ * Derive stable Figma spec metadata from a spec object.
  *
  * @param spec - Parsed spec YAML object
- * @returns Traceability metadata including component hash, node ID, and counts
+ * @returns Stable metadata including component hash, node ID, and counts
  */
-export function deriveFigmaFrontmatterTraceability(
+export function deriveFigmaSpecMetadataSnapshot(
   spec: unknown
-): FigmaFrontmatterTraceability {
+): FigmaSpecMetadataSnapshot {
   const safeSpec = isPlainObject(spec) ? (spec as Record<string, unknown>) : {};
   const properties = parseProperties(safeSpec);
   const normalizedProperties = properties.map((property) =>

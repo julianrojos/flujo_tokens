@@ -30,7 +30,6 @@ import { orchestrateTokenSync } from './capture-token-orchestrator.js';
 import { configureFigmaContext } from './capture-figma-context.js';
 import {
   extractComponentSpec,
-  renderEnrichedMarkdownSeed,
 } from '../utils/figma-node-spec-extractor.js';
 import { runJsonCommand } from '../utils/exec.js';
 import {
@@ -41,9 +40,7 @@ import {
 } from './capture-options.js';
 import { createPipelineContext } from './pipeline-context.js';
 import {
-  buildMarkdownSeed,
   ensureSystemDocsScaffold,
-  writeTextAtomic,
 } from './capture-doc-scaffold.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import {
@@ -57,7 +54,6 @@ import {
   isKindAllowed,
   resolveSpecExhibitNodeIds,
 } from './figma-component-discovery.js';
-import { injectSpecZones } from './capture-spec-markdown-injector.js';
 import { buildCaptureTargets } from './capture-target-builder.js';
 import { createCaptureReport } from './capture-report.js';
 import { executeCaptureBatchAndRefresh } from './capture-batch-execution.js';
@@ -130,10 +126,6 @@ export interface RunCaptureFromFigmaUrlDeps {
   extractComponentSpecFn?: typeof extractComponentSpec;
   resolveSpecExhibitNodeIdsFn?: typeof resolveSpecExhibitNodeIds;
   resolveDocsPathsFn?: typeof resolveDocsPaths;
-  renderEnrichedMarkdownSeedFn?: typeof renderEnrichedMarkdownSeed;
-  injectSpecZonesFn?: typeof injectSpecZones;
-  buildMarkdownSeedFn?: typeof buildMarkdownSeed;
-  writeTextAtomic?: typeof writeTextAtomic;
   stderrWrite?: (data: string) => void;
   createPipelineContext?: typeof createPipelineContext;
   orchestrateTokenSyncFn?: typeof orchestrateTokenSync;
@@ -188,10 +180,6 @@ export async function runCaptureFromFigmaUrl(
     extractComponentSpecFn = extractComponentSpec,
     resolveSpecExhibitNodeIdsFn = resolveSpecExhibitNodeIds,
     resolveDocsPathsFn = resolveDocsPaths,
-    renderEnrichedMarkdownSeedFn = renderEnrichedMarkdownSeed,
-    injectSpecZonesFn = injectSpecZones,
-    buildMarkdownSeedFn = buildMarkdownSeed,
-    writeTextAtomic: writeTextAtomicFn = writeTextAtomic,
     stderrWrite: stderrWriteFn = process.stderr.write.bind(process.stderr),
     createPipelineContext: createPipelineContextFn = createPipelineContext,
     orchestrateTokenSyncFn = orchestrateTokenSync,
@@ -234,11 +222,9 @@ export async function runCaptureFromFigmaUrl(
     componentSlugOverride,
     componentKind,
     includeVariants,
-    requireExistingDoc,
     continueOnError,
     refreshIndices,
     dryRun,
-    injectDocSpecs,
     includeSpecExhibits,
     variantLimit,
     scale,
@@ -379,8 +365,6 @@ export async function runCaptureFromFigmaUrl(
       componentSlugOverride,
       slugByNodeFromRegistry,
       slugByNodeFromSpecs,
-      requireExistingDoc,
-      injectDocSpecs,
       includeSpecExhibits,
       figmaToken,
       repoRoot: projectRoot,
@@ -413,27 +397,8 @@ export async function runCaptureFromFigmaUrl(
       classifyTargetKind: classifyTargetKindFn as unknown as (
         kind?: string | null,
       ) => CaptureTargetKind,
-      renderEnrichedMarkdownSeed:
-        renderEnrichedMarkdownSeedFn as unknown as (options: {
-          slug: string;
-          displayName: string;
-          nodeUrl: string;
-          nodeId: string;
-          spec?: unknown;
-        }) => string,
-      injectSpecZones: injectSpecZonesFn as unknown as (
-        markdown: string,
-        spec: unknown,
-        slug: string,
-      ) => string,
-      writeTextAtomic: writeTextAtomicFn as unknown as (
-        filePath: string,
-        content: string,
-      ) => Promise<void>,
       stderrWrite: stderrWriteFn,
-      markdownExistsFn: services.markdownExists,
       specExistsFn: services.specExists,
-      readMarkdownContentFn: services.readMarkdownContent,
     });
     targets = targetBuild.targets as CaptureTarget[];
     skipped = targetBuild.skipped as unknown[];
@@ -455,9 +420,7 @@ export async function runCaptureFromFigmaUrl(
       variant_limit: variantLimit,
       scale,
       format,
-      require_existing_doc: requireExistingDoc,
       main_capture_mode: mainCaptureMode,
-      inject_doc_specs: injectDocSpecs,
       include_spec_exhibits: includeSpecExhibits,
     },
     tokenBootstrap,
@@ -465,7 +428,6 @@ export async function runCaptureFromFigmaUrl(
     sourceCandidates,
     targets,
     skipped,
-    repoRoot: projectRoot,
   });
 
   if (dryRun) {

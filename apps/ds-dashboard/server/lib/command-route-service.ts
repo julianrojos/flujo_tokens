@@ -84,11 +84,9 @@ export interface CaptureFigmaScreenshotCommandConfigOptions {
     figmaToken?: string;
     componentSlug?: string;
     includeVariants?: boolean;
-    requireExistingDoc?: boolean;
     continueOnError?: boolean;
     refreshIndices?: boolean;
     dryRun?: boolean;
-    injectDocSpecs?: boolean;
     variantLimit?: number;
     scale?: number;
     format?: string;
@@ -248,11 +246,9 @@ export function buildCaptureFigmaScreenshotCommandConfig(
   const componentSlug = toLowerTrimmed(body.componentSlug);
   const figmaToken = toTrimmed(body.figmaToken);
   const includeVariants = toBooleanString(body.includeVariants, false);
-  const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
   const continueOnError = toBooleanString(body.continueOnError, true);
   const refreshIndices = toBooleanString(body.refreshIndices, false);
   const dryRun = toBooleanString(body.dryRun, false);
-  const injectDocSpecs = toBooleanString(body.injectDocSpecs, false);
   const variantLimit = toNumberString(body.variantLimit, 6, 20);
   const scale = toNumberString(body.scale, 2, 4);
   const format = toLowerTrimmed(body.format ?? 'png') || 'png';
@@ -285,16 +281,12 @@ export function buildCaptureFigmaScreenshotCommandConfig(
     includeVariants,
     '--variant-limit',
     variantLimit,
-    '--require-existing-doc',
-    requireExistingDoc,
     '--continue-on-error',
     continueOnError,
     '--refresh-indices',
     refreshIndices,
     '--dry-run',
     dryRun,
-    '--inject-doc-specs',
-    injectDocSpecs,
     '--scale',
     scale,
     '--format',

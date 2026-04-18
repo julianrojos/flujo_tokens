@@ -368,12 +368,7 @@ export function buildDeleteDesignSystemSuccessPayload({
  * @returns Markdown content string
  */
 function buildOverviewSeed(): string {
-  return `---
-doc_type: overview
-doc_status: draft
----
-
-# Components Overview
+  return `# Components Overview
 
 ## Component list
 

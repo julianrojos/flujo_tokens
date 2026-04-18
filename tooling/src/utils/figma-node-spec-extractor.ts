@@ -489,17 +489,7 @@ export function generateSpecMarkdown(
     ? spec.variantProperties.join(", ")
     : "TBD";
 
-  return `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: ${safeUrl}
-  last_verified: TBD
-  node_id: ${nodeId || "TBD"}
-component_name: ${safeName}
----
-
-# ${componentName}
+  return `# ${componentName}
 
 ## Overview
 
@@ -584,18 +574,7 @@ export function renderEnrichedMarkdownSeed(opts: {
     .join(", ");
   const safeUrl = nodeUrl || "TBD";
 
-  return `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: ${safeUrl}
-  page: TBD
-  component: ${safeName}
-  component_set_node_id: ${nodeId || "TBD"}
-  last_verified: TBD
----
-
-# ${safeName}
+  return `# ${safeName}
 
 Auto-generated component documentation from Figma capture.
 

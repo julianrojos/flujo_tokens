@@ -13,7 +13,6 @@ import type {
   LocalImageInfo,
   DownloadedBinary,
   ImageDimensions,
-  SplitFrontmatterResult,
 } from '../types/capture-visual-proof.js';
 
 /**
@@ -182,30 +181,6 @@ export async function downloadBinary(
   } finally {
     clearTimeout(timer);
   }
-}
-
-/**
- * Split markdown frontmatter from content.
- */
-export function splitFrontmatter(rawMarkdown: string): SplitFrontmatterResult {
-  const source = String(rawMarkdown || '').replace(/\r\n/g, '\n');
-  if (!source.startsWith('---\n')) {
-    return { frontmatterRaw: '', content: source };
-  }
-  const lines = source.split('\n');
-  let endIndex = -1;
-  for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i].trim() === '---') {
-      endIndex = i;
-      break;
-    }
-  }
-  if (endIndex === -1) {
-    return { frontmatterRaw: '', content: source };
-  }
-  const frontmatterRaw = `${lines.slice(0, endIndex + 1).join('\n')}\n`;
-  const content = lines.slice(endIndex + 1).join('\n').replace(/^\n/, '');
-  return { frontmatterRaw, content };
 }
 
 /**

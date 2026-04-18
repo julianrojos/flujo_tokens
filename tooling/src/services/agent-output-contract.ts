@@ -2,19 +2,16 @@
  * Agent Output Contract
  * 
  * Validates AI agent output against documentation contract.
- * Ensures frontmatter, headings, and content meet project standards.
+ * Ensures headings and content meet project standards.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
-  ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
   REQUIRED_CANONICAL_H2,
 } from "../utils/docs-config.js";
-import { isPlainObject } from "../utils/is-plain-object.js";
-import { parseMarkdownFrontmatter } from "../utils/parse-frontmatter.js";
 
 const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
 const IMPLEMENTATION_CODE_FENCE_RE =
@@ -73,33 +70,6 @@ function extractH2Headings(markdownContent: string): string[] {
 }
 
 /**
- * Validate last_verified field value.
- */
-function isValidLastVerified(value: unknown): boolean {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-  if (/^tbd$/i.test(raw)) return true;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return true;
-  const asDate = new Date(raw);
-  return !Number.isNaN(asDate.getTime());
-}
-
-/**
- * Validate figma file_url field value.
- */
-function isValidFileUrl(value: unknown): boolean {
-  const raw = String(value || "").trim();
-  if (!raw) return false;
-  if (/^tbd$/i.test(raw)) return true;
-  try {
-    const parsed = new URL(raw);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Sanitize component slug for file naming.
  */
 function sanitizeComponentSlug(raw: string): string {
@@ -120,70 +90,7 @@ export function validateAgentOutputContract(
   const { markdown, expectedComponentName, unresolvedGapCount } = options;
   const errors: ContractError[] = [];
   const source = String(markdown || "");
-  let frontmatter: Record<string, unknown> = {};
-  let content = source;
-  let frontmatterParseError = "";
-  
-  try {
-    ({ frontmatter, content } = parseMarkdownFrontmatter(source));
-  } catch (error) {
-    frontmatterParseError = error instanceof Error ? error.message : String(error);
-  }
-
-  if (frontmatterParseError) {
-    errors.push({
-      code: "AOC01",
-      message: `Invalid markdown frontmatter: ${frontmatterParseError}`,
-    });
-  }
-
-  if (
-    !frontmatterParseError &&
-    (!isPlainObject(frontmatter) || Object.keys(frontmatter).length === 0)
-  ) {
-    errors.push({
-      code: "AOC01",
-      message: "Missing YAML frontmatter block.",
-    });
-  } else if (!frontmatterParseError) {
-    if (frontmatter.doc_type !== "component") {
-      errors.push({
-        code: "AOC01",
-        message: "Frontmatter `doc_type` must be `component`.",
-      });
-    }
-
-    const status = String(frontmatter.doc_status || "").trim();
-    if (!ALLOWED_DOC_STATUS.has(status)) {
-      errors.push({
-        code: "AOC01",
-        message:
-          "Frontmatter `doc_status` must be one of: draft, ready, needs-review.",
-      });
-    }
-
-    const figma = frontmatter.figma;
-    if (!isPlainObject(figma)) {
-      errors.push({
-        code: "AOC01",
-        message: "Frontmatter `figma` object is required.",
-      });
-    } else {
-      if (!isValidFileUrl(figma.file_url)) {
-        errors.push({
-          code: "AOC01",
-          message: "Frontmatter `figma.file_url` must be a valid URL or `TBD`.",
-        });
-      }
-      if (!isValidLastVerified(figma.last_verified)) {
-        errors.push({
-          code: "AOC01",
-          message:
-            "Frontmatter `figma.last_verified` must be ISO date/time or `TBD`.",
-        });
-      }
-    }
-  }
+  const content = source;
 
   const h1Match = String(content || "").match(/^#\s+(.+?)\s*$/m);
   if (!h1Match) {

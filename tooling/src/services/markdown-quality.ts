@@ -5,7 +5,6 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 import {
   componentNameToSnakeCase,
   isSnakeCaseFileSlug,
@@ -232,14 +231,7 @@ function slugifyHeading(text: string): string {
 }
 
 function collectHeadingAnchorsFromMarkdown(rawMarkdown: string): Set<string> {
-  let content = String(rawMarkdown || '');
-  try {
-    const parsed = parseMarkdownFrontmatter(rawMarkdown);
-    content = parsed.content;
-  } catch {
-    // Fall back to raw markdown when frontmatter parsing fails.
-  }
-
+  const content = String(rawMarkdown || '');
   const headingRegex = /^#{1,6}\s+(.+?)\s*$/gm;
   const counts = new Map<string, number>();
   const anchors = new Set<string>();
@@ -319,16 +311,8 @@ export function validateInternalLinks(
   lineStarts: number[],
   lineFromOffsetFn: (starts: number[], offset: number) => number
 ): void {
-  let content = String(rawMarkdown || '');
-  let contentOffset = 0;
-  try {
-    const parsed = parseMarkdownFrontmatter(rawMarkdown);
-    content = parsed.content;
-    contentOffset = String(rawMarkdown || '').length - String(content || '').length;
-  } catch {
-    content = String(rawMarkdown || '');
-    contentOffset = 0;
-  }
+  const content = String(rawMarkdown || '');
+  const contentOffset = 0;
 
   MARKDOWN_LINK_RE.lastIndex = 0;
   let match: RegExpExecArray | null;

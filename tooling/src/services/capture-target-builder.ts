@@ -2,15 +2,12 @@
  * Capture Target Builder
  *
  * Builds capture targets from Figma source candidates.
- * Handles spec extraction, exhibit mapping, and atomic writes.
+ * Handles spec extraction and exhibit mapping.
  */
 
 import * as fs from 'node:fs/promises';
-import * as yaml from 'js-yaml';
 import * as path from 'node:path';
 
-import { componentNameToDisplayName } from '../utils/component-name.js';
-import { isPlainObject } from '../utils/is-plain-object.js';
 import { resolveInferredSlug } from './capture-targets.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import type { ExtractedComponentSpec } from '../types/spec.js';
@@ -59,8 +56,6 @@ export interface BuildCaptureTargetsOptions {
   componentSlugOverride?: string;
   slugByNodeFromRegistry?: Map<string, string> | Record<string, string>;
   slugByNodeFromSpecs?: Map<string, string> | Record<string, string>;
-  requireExistingDoc?: boolean;
-  injectDocSpecs?: boolean;
   includeSpecExhibits?: boolean;
   figmaToken: string;
   repoRoot: string;
@@ -89,19 +84,8 @@ export interface BuildCaptureTargetsOptions {
   } | null;
   buildFigmaNodeUrl: (descriptor: FigmaDescriptor | Record<string, unknown>, nodeId: string) => string;
   classifyTargetKind: (kind?: string | null) => CaptureTargetKind;
-  renderEnrichedMarkdownSeed: (options: {
-    slug: string;
-    displayName: string;
-    nodeUrl: string;
-    nodeId: string;
-    spec?: ExtractedComponentSpec;
-  }) => string;
-  injectSpecZones: (markdown: string, spec: unknown, slug: string) => string;
-  writeTextAtomic: (filePath: string, content: string) => Promise<void>;
   stderrWrite?: (data: string) => void;
-  markdownExistsFn: (filePath: string) => boolean;
   specExistsFn: (filePath: string) => boolean;
-  readMarkdownContentFn: (filePath: string) => string;
 }
 
 /**
@@ -112,7 +96,6 @@ export interface SkippedTarget {
   node_id: string;
   name: string;
   reason: string;
-  markdown_path?: string;
   error?: string;
 }
 
@@ -143,38 +126,6 @@ function mapSpecExhibit(sourceNodeId: string | undefined, imagesByNodeId: Record
     nodeId: normalizedNodeId,
     imageUrl: imageUrl || null,
   };
-}
-
-/**
- * Write YAML and Markdown atomically using temp files.
- */
-async function writeDualAtomic(
-  ymlPath: string,
-  ymlContent: string,
-  mdPath: string,
-  mdContent: string,
-): Promise<void> {
-  const crypto = await import('node:crypto');
-  const uniqueId = crypto.randomBytes(4).toString('hex');
-  const ts = Date.now();
-  const pid = process.pid;
-  const ymlTemp = `${ymlPath}.tmp.${pid}.${ts}.${uniqueId}`;
-  const mdTemp = `${mdPath}.tmp.${pid}.${ts}.${uniqueId}`;
-
-  try {
-    await fs.writeFile(ymlTemp, ymlContent, 'utf8');
-    await fs.writeFile(mdTemp, mdContent, 'utf8');
-    await Promise.all([
-      fs.rename(ymlTemp, ymlPath),
-      fs.rename(mdTemp, mdPath),
-    ]);
-  } catch (error) {
-    await Promise.all([
-      fs.unlink(ymlTemp).catch(() => {}),
-      fs.unlink(mdTemp).catch(() => {}),
-    ]);
-    throw error;
-  }
 }
 
 function normalizeSlugLookup(
@@ -316,8 +267,6 @@ export async function buildCaptureTargets(
     componentSlugOverride,
     slugByNodeFromRegistry,
     slugByNodeFromSpecs,
-    requireExistingDoc,
-    injectDocSpecs,
     includeSpecExhibits,
     figmaToken,
     repoRoot,
@@ -328,13 +277,8 @@ export async function buildCaptureTargets(
     resolveSpecExhibitNodeIds,
     buildFigmaNodeUrl,
     classifyTargetKind,
-    renderEnrichedMarkdownSeed,
-    injectSpecZones,
-    writeTextAtomic,
     stderrWrite = process.stderr.write.bind(process.stderr),
-    markdownExistsFn,
     specExistsFn,
-    readMarkdownContentFn,
   } = options;
 
   const targets: CaptureTarget[] = [];
@@ -371,31 +315,27 @@ export async function buildCaptureTargets(
       slug: inferredSlug,
     });
     const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.figmaUrl || descriptor.sourceUrl || '';
-    const markdownExists = markdownExistsFn(resolvedPaths.markdownPath);
     let extractedNodeSpec: ExtractedComponentSpec | null = null;
     let specExhibits: SpecExhibits | null = null;
-    const shouldExtractNodeSpec = !markdownExists || (markdownExists && injectDocSpecs);
 
-    if (shouldExtractNodeSpec) {
-      try {
-        const fullNodePayload = await fetchFigmaNodes({
-          fileKey: descriptor.fileKey,
-          nodeIds: [nodeId],
-          token: figmaToken,
+    try {
+      const fullNodePayload = await fetchFigmaNodes({
+        fileKey: descriptor.fileKey,
+        nodeIds: [nodeId],
+        token: figmaToken,
+      });
+      const nodeEntry = fullNodePayload?.nodes?.[nodeId]?.document ?? null;
+      if (nodeEntry) {
+        extractedNodeSpec = extractComponentSpec(nodeEntry, {
+          resolveTokenTraceByVariableId: (variableId) =>
+            resolveTokenTrace(variableTraceById, variableId),
         });
-        const nodeEntry = fullNodePayload?.nodes?.[nodeId]?.document ?? null;
-        if (nodeEntry) {
-          extractedNodeSpec = extractComponentSpec(nodeEntry, {
-            resolveTokenTraceByVariableId: (variableId) =>
-              resolveTokenTrace(variableTraceById, variableId),
-          });
-        }
-      } catch (error) {
-        stderrWrite(buildNodeErrorMessage('Node extraction failed', nodeId, error));
       }
+    } catch (error) {
+      stderrWrite(buildNodeErrorMessage('Node extraction failed', nodeId, error));
     }
 
-    if (shouldExtractNodeSpec && includeSpecExhibits) {
+    if (includeSpecExhibits) {
       try {
         const fileTree = await ensureFilePayload();
         const exhibitNodeIds = resolveSpecExhibitNodeIds({
@@ -436,118 +376,6 @@ export async function buildCaptureTargets(
       }
     }
 
-    if (requireExistingDoc && !markdownExists) {
-      skipped.push({
-        slug: inferredSlug,
-        node_id: nodeId,
-        name: String(candidate.name || '').trim() || inferredSlug,
-        reason: 'markdown-missing',
-        markdown_path: path.relative(repoRoot, resolvedPaths.markdownPath),
-      });
-      continue;
-    }
-
-    let finalWritePayloads: { yml: string; md: string } | null = null;
-
-    try {
-      if (extractedNodeSpec) {
-        let currentYml: Record<string, unknown> = {};
-        try {
-          if (specExistsFn(resolvedPaths.specPath)) {
-            const content = await fs.readFile(resolvedPaths.specPath, 'utf8');
-            const parsed = yaml.load(content) as unknown;
-            if (!isPlainObject(parsed)) {
-              // Spec file is corrupted or not an object - start fresh
-              currentYml = { name: inferredSlug, figma: { component_set_node_id: nodeId } };
-            } else {
-              currentYml = parsed as Record<string, unknown>;
-            }
-          } else {
-            currentYml = { name: inferredSlug, figma: { component_set_node_id: nodeId } };
-          }
-        } catch {
-          // Assume empty/corrupt and overwrite safely
-          currentYml = { name: inferredSlug, figma: { component_set_node_id: nodeId } };
-        }
-
-        currentYml.anatomy = extractedNodeSpec.anatomy;
-        currentYml.properties = extractedNodeSpec.properties;
-        currentYml.variants = extractedNodeSpec.variants;
-        currentYml.layout = extractedNodeSpec.layout;
-
-        const mergedYmlText = yaml.dump(currentYml, { lineWidth: -1 });
-
-        let mdToWrite: string | null = null;
-        if (markdownExists && injectDocSpecs) {
-          const currentMarkdown = readMarkdownContentFn(resolvedPaths.markdownPath);
-          const newMd = injectSpecZones(currentMarkdown, currentYml, inferredSlug);
-          if (newMd !== currentMarkdown || !specExistsFn(resolvedPaths.specPath)) {
-            mdToWrite = newMd;
-          }
-        } else if (!markdownExists && !requireExistingDoc) {
-          const seed = renderEnrichedMarkdownSeed({
-            slug: inferredSlug,
-            displayName: componentNameToDisplayName(String(candidate.name || '').trim()) || inferredSlug,
-            nodeUrl,
-            nodeId,
-            spec: extractedNodeSpec,
-          });
-          mdToWrite = injectSpecZones(seed, currentYml, inferredSlug);
-        }
-
-        if (mdToWrite !== null) {
-          finalWritePayloads = {
-            yml: mergedYmlText,
-            md: mdToWrite,
-          };
-        } else if (!specExistsFn(resolvedPaths.specPath) && injectDocSpecs && markdownExists) {
-          finalWritePayloads = {
-            yml: mergedYmlText,
-            md: readMarkdownContentFn(resolvedPaths.markdownPath),
-          };
-        }
-      } else if (!markdownExists && !requireExistingDoc) {
-        const seed = buildMarkdownSeed({
-          slug: inferredSlug,
-          candidateName: String(candidate.name || '').trim() || inferredSlug,
-          nodeUrl,
-          nodeId,
-        });
-        await writeTextAtomic(resolvedPaths.markdownPath, seed);
-      }
-    } catch (error) {
-      skipped.push({
-        slug: inferredSlug,
-        node_id: nodeId,
-        name: String(candidate.name || '').trim() || inferredSlug,
-        reason: 'markdown-enrich-failed',
-        markdown_path: resolvedPaths.markdownPath,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      continue;
-    }
-
-    if (finalWritePayloads) {
-      try {
-        await writeDualAtomic(
-          resolvedPaths.specPath,
-          finalWritePayloads.yml,
-          resolvedPaths.markdownPath,
-          finalWritePayloads.md,
-        );
-      } catch (error) {
-        skipped.push({
-          slug: inferredSlug,
-          node_id: nodeId,
-          name: String(candidate.name || '').trim() || inferredSlug,
-          reason: 'atomic-write-failed',
-          markdown_path: resolvedPaths.markdownPath,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        continue;
-      }
-    }
-
     const specExists = specExistsFn(resolvedPaths.specPath);
 
     targets.push({
@@ -556,8 +384,6 @@ export async function buildCaptureTargets(
       name: String(candidate.name || '').trim() || inferredSlug,
       kind: classifyTargetKind(candidate.kind),
       pageName: String(candidate.page_name || '').trim() || null,
-      markdownPath: resolvedPaths.markdownPath,
-      specPath: resolvedPaths.specPath,
       specExists,
       nodeUrl,
       specExhibits,
@@ -565,68 +391,4 @@ export async function buildCaptureTargets(
   }
 
   return { targets, skipped };
-}
-
-/**
- * Build markdown seed for new component.
- */
-function buildMarkdownSeed(params: {
-  slug: string;
-  candidateName: string;
-  nodeUrl: string;
-  nodeId: string;
-}): string {
-  const { slug, candidateName, nodeUrl, nodeId } = params;
-  return `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: ${nodeUrl}
-  last_verified: TBD
-  node_id: ${nodeId}
-component_name: ${slug}
----
-
-# ${candidateName}
-
-## Overview
-
-- Purpose: TBD
-- Figma component set: \`${candidateName}\`.
-- Source: [${candidateName} in Figma](${nodeUrl}).
-
-## Anatomy
-
-TBD
-
-## Component API
-
-TBD
-
-## Visual Specifications
-
-TBD
-
-## Usage Guidelines
-
-### When to use
-
-- TBD
-
-### When not to use
-
-- TBD
-
-## Accessibility
-
-- ARIA: TBD
-- Keyboard: TBD
-- Focus: TBD
-- Hit area: TBD
-- Contrast: TBD
-
-## Gaps / TBD
-
-- [ ] [CONTENT_UNKNOWN] Complete component documentation with product evidence.
-`;
 }

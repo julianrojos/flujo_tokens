@@ -7,17 +7,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
-import { normalizeAgentOutputFile } from '../services/agent-output-normalizer.js';
 import {
   validateAgentOutputContract,
   writeAgentOutputErrorReport,
 } from '../utils/agent-output-contract.js';
 import { updateAgentDriftBaseline } from '../services/agent-drift-detector.js';
-import {
-  assertDocStatusStable,
-  assertEvidenceGatedScalarChanges,
-} from '../services/evidence-gated-mutations.js';
 import { assertScopedWritePolicy } from '../services/scoped-write-guard.js';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationState } from '../services/component-registry-index.js';
@@ -25,22 +19,10 @@ import { runAgentPrompt } from '../services/agent-runner.js';
 import { logger } from '../utils/logger.js';
 import type { DocGenerationContext } from './doc-from-figma-url-context.js';
 
-const FRONTMATTER_EVIDENCE_PREFIXES: readonly string[] = Object.freeze([
-  'figma.file_url',
-  'figma.page',
-  'figma.component',
-  'figma.component_set_node_id',
-  'figma.last_verified',
-  'figma.component_hash',
-  'figma.properties_count',
-  'figma.variants_count',
-  'pipeline.ds_component_doc',
-] as const);
-
 /**
  * Run doc generation pipeline.
  *
- * Executes: agent prompt → normalize → validate → drift → capture proof → sync.
+ * Executes: agent prompt → validate → drift → capture proof → sync.
  * Throws Error instead of calling process.exit() for testability.
  */
 export async function runDocGenerationPipeline(
@@ -48,10 +30,6 @@ export async function runDocGenerationPipeline(
   prompt: string,
   outputSnapshot: { exists: boolean; content: string },
 ): Promise<void> {
-  const previousFrontmatter = outputSnapshot.exists
-    ? parseMarkdownFrontmatter(outputSnapshot.content).frontmatter
-    : {};
-
   runAgentPrompt({
     prompt,
     agent: ctx.agent,
@@ -62,25 +40,8 @@ export async function runDocGenerationPipeline(
       `Agent did not produce markdown output at the required path: ${ctx.outputPath}`,
     );
   }
-  normalizeAgentOutputFile(ctx.outputPath);
 
   const generatedMarkdown = fs.readFileSync(ctx.outputPath, 'utf8');
-  const { frontmatter: generatedFrontmatter } =
-    parseMarkdownFrontmatter(generatedMarkdown);
-  if (outputSnapshot.exists) {
-    assertDocStatusStable({
-      beforeFrontmatter: previousFrontmatter,
-      afterFrontmatter: generatedFrontmatter,
-      allowDocStatusChange: ctx.allowDocStatusChange,
-      label: `${ctx.outputPath} frontmatter`,
-    });
-    assertEvidenceGatedScalarChanges({
-      before: previousFrontmatter,
-      after: generatedFrontmatter,
-      allowedKnownToKnownPrefixes: FRONTMATTER_EVIDENCE_PREFIXES,
-      label: `${ctx.outputPath} frontmatter`,
-    });
-  }
   const outputContract = validateAgentOutputContract({
     markdown: generatedMarkdown,
     expectedComponentName: ctx.componentName || undefined,
@@ -136,10 +97,6 @@ export async function runDocGenerationPipeline(
       try {
         runOrThrow(process.execPath, [
           ctx.captureVisualProofScriptPath,
-          '--markdown',
-          ctx.outputPath,
-          '--spec-file',
-          path.join(ctx.specComponentsDir, `${resolvedSlug}.yml`),
           '--component-set-id',
           nodeId,
           '--proof-dir',

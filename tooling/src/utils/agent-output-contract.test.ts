@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   validateAgentOutputContract,
-  ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
   REQUIRED_CANONICAL_H2,
   writeAgentOutputErrorReport,
@@ -42,12 +41,6 @@ A11y nodes.
 `;
 
   describe("constants", () => {
-    it("exports ALLOWED_DOC_STATUS", () => {
-      assert.ok(ALLOWED_DOC_STATUS.has("draft"));
-      assert.ok(ALLOWED_DOC_STATUS.has("ready"));
-      assert.ok(ALLOWED_DOC_STATUS.has("needs-review"));
-    });
-
     it("exports CANONICAL_H2_ORDER", () => {
       assert.ok(Array.isArray(CANONICAL_H2_ORDER));
       assert.ok(CANONICAL_H2_ORDER.length > 0);
@@ -63,140 +56,21 @@ A11y nodes.
 
   describe("validateAgentOutputContract", () => {
     it("returns empty errors for valid markdown", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc123
-  last_verified: 2024-01-15
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 `;
       const result = validateAgentOutputContract({ markdown, expectedComponentName: "Button" });
       assert.deepStrictEqual(result.errors, []);
     });
 
-    it("errors on missing frontmatter", () => {
-      const markdown = "# Button\n\nContent without frontmatter.";
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.length > 0);
-      assert.ok(result.errors.some(e => e.code === "AOC01"));
-    });
-
-    it("errors on wrong doc_type", () => {
-      const markdown = `---
-doc_type: overview
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("doc_type")));
-    });
-
-    it("errors on invalid doc_status", () => {
-      const markdown = `---
-doc_type: component
-doc_status: published
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("doc_status")));
-    });
-
-    it("errors on missing figma object", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("figma")));
-    });
-
-    it("errors on invalid figma URL", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: not-a-url
-  last_verified: TBD
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("file_url")));
-    });
-
-    it("errors on non-figma.com URL", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://evil.figma.com.hacker.io/
-  last_verified: TBD
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("file_url")));
-    });
-
-    it("accepts subdomain.figma.com URLs", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc123
-  last_verified: TBD
----
-
-# Button
-`;
-      const result = validateAgentOutputContract({ markdown });
-      assert.ok(!result.errors.some(e => e.message.includes("file_url")));
-    });
-
     it("errors on missing H1", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-## Overview only
-`;
+      const markdown = `## Overview only`;
       const result = validateAgentOutputContract({ markdown });
       assert.ok(result.errors.some(e => e.message.includes("H1")));
     });
 
     it("errors on missing required sections", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 
 ## Overview only
 `;
@@ -205,15 +79,7 @@ figma:
     });
 
     it("accepts Usage Guidelines, Content Guidelines, and Accessibility as valid sections", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 `;
       const result = validateAgentOutputContract({ markdown, expectedComponentName: "Button" });
@@ -221,15 +87,7 @@ ${VALID_REQUIRED_SECTIONS}
     });
 
     it("errors on any VariableID references", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 
 ## Overview
 
@@ -245,15 +103,7 @@ VariableID:color-6
     });
 
     it("errors on unresolved gaps without Gaps section", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 `;
       const result = validateAgentOutputContract({
@@ -265,15 +115,7 @@ ${VALID_REQUIRED_SECTIONS}
     });
 
     it("accepts unresolved gaps with canonical ## Gaps / TBD section", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 
 ## Gaps / TBD
@@ -289,15 +131,7 @@ ${VALID_REQUIRED_SECTIONS}
     });
 
     it("errors on empty Gaps / TBD section when unresolved gaps exist", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 
 ## Gaps / TBD
@@ -311,15 +145,7 @@ ${VALID_REQUIRED_SECTIONS}
     });
 
     it("errors on non-checkbox Gaps / TBD items when unresolved gaps exist", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 ${VALID_REQUIRED_SECTIONS}
 
 ## Gaps / TBD
@@ -335,15 +161,7 @@ ${VALID_REQUIRED_SECTIONS}
     });
 
     it("errors on unauthorized H2 heading", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 
 ## Overview
 
@@ -354,19 +172,11 @@ figma:
 ## Secret Section
 `;
       const result = validateAgentOutputContract({ markdown });
-      assert.ok(result.errors.some(e => e.message.includes("Unauthorized H2 heading: Secret Section")));
+      assert.ok(result.errors.some(e => e.message.includes("Unauthorized H2 heading") && e.message.includes("Secret Section")));
     });
 
     it("errors on out of order H2 heading", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 
 ## Anatomy
 
@@ -379,15 +189,7 @@ figma:
     });
 
     it("errors on implementation code fences", () => {
-      const markdown = `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: https://www.figma.com/file/abc
-  last_verified: TBD
----
-
-# Button
+      const markdown = `# Button
 
 ## Overview
 

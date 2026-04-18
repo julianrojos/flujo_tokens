@@ -4,8 +4,6 @@
  * Creates capture report from pipeline execution results.
  */
 
-import * as path from 'node:path';
-
 import type { CaptureTarget } from './capture-target-builder.js';
 import type { SourceCandidate } from './capture-target-builder.js';
 import type { SpecExhibits } from './capture-target-builder.js';
@@ -18,8 +16,6 @@ export interface MappedCaptureTarget {
   node_id: string;
   kind: string;
   page_name: string | null;
-  markdown_path: string;
-  spec_path: string;
   spec_exists: boolean;
   figma_url: string;
   spec_exhibits: {
@@ -58,15 +54,12 @@ export interface CaptureReport {
  */
 export function mapCaptureTargetForReport(
   target: CaptureTarget,
-  repoRoot: string,
 ): MappedCaptureTarget {
   return {
     slug: String(target.slug),
     node_id: String(target.nodeId),
     kind: String(target.kind),
     page_name: target.pageName ? String(target.pageName) : null,
-    markdown_path: path.relative(repoRoot, String(target.markdownPath)),
-    spec_path: path.relative(repoRoot, String(target.specPath)),
     spec_exists: Boolean(target.specExists),
     figma_url: target.nodeUrl ? String(target.nodeUrl) : '',
     spec_exhibits: target.specExhibits
@@ -96,7 +89,6 @@ export function createCaptureReport(params: {
   sourceCandidates: SourceCandidate[];
   targets: CaptureTarget[];
   skipped: unknown[];
-  repoRoot: string;
 }): CaptureReport {
   const {
     dryRun,
@@ -107,7 +99,6 @@ export function createCaptureReport(params: {
     sourceCandidates,
     targets,
     skipped,
-    repoRoot,
   } = params;
 
   return {
@@ -123,7 +114,7 @@ export function createCaptureReport(params: {
     tokens_compile: tokenCompile,
     total_candidates: sourceCandidates.length,
     targets_total: targets.length,
-    targets: targets.map((target) => mapCaptureTargetForReport(target, repoRoot)),
+    targets: targets.map((target) => mapCaptureTargetForReport(target)),
     captured: [],
     failed: [],
     skipped,

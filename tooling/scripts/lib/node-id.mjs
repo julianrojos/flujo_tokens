@@ -4,9 +4,9 @@ const require = createRequire(import.meta.url);
 const TYPE_MAP = require("../../lib/property-type-map.json");
 
 /**
- * Canonical regex for Figma node IDs in YAML/frontmatter (colon-separated integers).
+ * Canonical regex for Figma node IDs in spec metadata (colon-separated integers).
  * Pattern is sourced from tooling/lib/property-type-map.json → figma_node_id.pattern.
- * See component-figma-traceability.mdc § "Node ID format contract".
+ * See the node ID format contract in the design system rules.
  */
 export const FIGMA_NODE_ID_RE = new RegExp(TYPE_MAP.figma_node_id.pattern);
 

@@ -32,7 +32,7 @@ const CLI_CONFIG = {
     },
     {
       name: '--status',
-      description: 'Frontmatter doc_status for generated pages.',
+      description: 'Doc status for generated pages.',
       defaultValue: 'draft',
     },
     {

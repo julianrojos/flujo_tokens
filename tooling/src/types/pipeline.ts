@@ -24,11 +24,9 @@ export interface PipelineFlags {
     componentSlugOverride: string;
     componentKind: string;
     includeVariants: boolean;
-    requireExistingDoc: boolean;
     continueOnError: boolean;
     refreshIndices: boolean;
     dryRun: boolean;
-    injectDocSpecs: boolean;
     includeSpecExhibits: boolean;
     variantLimit: number;
     scale: number;

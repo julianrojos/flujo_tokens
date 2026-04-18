@@ -29,11 +29,6 @@ export const REQUIRED_CANONICAL_H2: string[] = CANONICAL_H2_ORDER.slice(0, SECTI
 export const OPTIONAL_CANONICAL_H2: string[] = CANONICAL_H2_ORDER.slice(SECTIONS.required_count);
 
 /**
- * Traceability contract version for component docs.
- */
-export const TRACEABILITY_CONTRACT_VERSION = '1';
-
-/**
  * Valid token collection prefixes for token path validation.
  */
 export const TOKEN_COLLECTION_PREFIXES = new Set([
@@ -44,24 +39,9 @@ export const TOKEN_COLLECTION_PREFIXES = new Set([
 ]);
 
 /**
- * Allowed values for doc_status frontmatter field.
- */
-export const ALLOWED_DOC_STATUS = new Set(['draft', 'ready', 'needs-review']);
-
-/**
  * Allowed values for spec status field.
  */
 export const SPEC_ALLOWED_STATUS = new Set(['draft', 'ready']);
-
-/**
- * Required Figma frontmatter fields for component docs.
- */
-export const COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS = [
-  'file_url',
-  'page',
-  'component',
-  'last_verified',
-];
 
 /**
  * Required top-level fields for spec YAML files.

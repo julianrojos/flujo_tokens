@@ -1,3 +1,8 @@
+/**
+ * Figma Spec Metadata Snapshot
+ *
+ * Derives stable spec metadata (component hash, node ID, counts) from spec objects.
+ */
 import crypto from "node:crypto";
 
 import { isPlainObject } from "./is-plain-object.mjs";
@@ -89,7 +94,7 @@ function getNormalizedComponentSetNodeId(spec) {
   return FIGMA_NODE_ID_RE.test(normalizedNodeId) ? normalizedNodeId : "";
 }
 
-export function deriveFigmaFrontmatterTraceability(spec) {
+export function deriveFigmaSpecMetadataSnapshot(spec) {
   const safeSpec = isPlainObject(spec) ? spec : {};
   const properties = parseProperties(safeSpec);
   const normalizedProperties = properties.map((property) =>

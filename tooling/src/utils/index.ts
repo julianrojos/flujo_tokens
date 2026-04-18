@@ -96,12 +96,7 @@ export { runTokenHealth } from '../runners/token-health-runner.js';
 // Registry runners
 export { runRegistrySync } from '../runners/registry-sync-runner.js';
 
-// Spec runners
-export { runSortSpec } from '../runners/sort-spec-runner.js';
-
 // Governance runners
-export { runMarkNeedsReview } from '../runners/mark-needs-review-runner.js';
-
 // Registry runners (additional)
 export { runRegistryOverview } from '../runners/registry-overview-runner.js';
 export { runRegistryRefresh } from '../runners/registry-refresh-runner.js';
@@ -131,9 +126,6 @@ export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js
 
 // Migrate markdown zones runners
 export { runMigrateMarkdownZones } from '../runners/migrate-markdown-zones-runner.js';
-
-// Compute traceability runners
-export { runComputeTraceability } from '../runners/compute-traceability-runner.js';
 
 // Command execution utilities
 export { parseJsonFromText, runJsonCommand, runOrThrow } from './exec.js';
@@ -312,13 +304,6 @@ export type {
   FileChange,
 } from '../services/scoped-write-guard.js';
 
-// Spec writer
-export {
-  formatYamlFile,
-  writeNormalizedSpec,
-  writeSpecWithSnapshotGuard,
-} from '../services/spec-writer.js';
-
 // Pipeline context
 export { createPipelineContext } from '../services/pipeline-context.js';
 
@@ -345,12 +330,7 @@ export type { LogLevel } from './logger-types.js';
 export { isTbdMarker } from './tbd.js';
 
 // Frontmatter parsing utilities
-export {
-  parseYamlDocument,
-  parseMarkdownFrontmatter,
-} from './parse-frontmatter.js';
-
-export type { ParsedFrontmatter } from './parse-frontmatter.js';
+export { parseYamlDocument } from './parse-frontmatter.js';
 
 // Cache utilities
 export {
@@ -419,7 +399,6 @@ export type {
 export {
   validateAgentOutputContract,
   writeAgentOutputErrorReport,
-  ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
   REQUIRED_CANONICAL_H2,
 } from './agent-output-contract.js';

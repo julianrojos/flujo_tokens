@@ -47,17 +47,7 @@ function sanitizeComponentName(rawName: unknown): string {
  */
 function buildComponentMarkdownSkeleton(componentName: string): string {
   const safeName = sanitizeComponentName(componentName);
-  return `---
-doc_type: component
-doc_status: draft
-figma:
-  file_url: TBD
-  page: TBD
-  component: ${safeName}
-  last_verified: TBD
----
-
-# ${safeName}
+  return `# ${safeName}
 
 A concise summary of what the component does.
 
