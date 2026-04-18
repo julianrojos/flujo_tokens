@@ -393,7 +393,7 @@ describe('token-usage-index', () => {
       const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
       const refs = extractSpecReferences(specRoot, registry);
 
-      assert.ok(refs.some((ref) => ref.owner === 'alert'), 'Must include owner from variant spec file');
+      assert.ok(refs.some((ref) => ref.owner === 'alert'), 'Must include owner from variant component spec');
       assert.ok(
         refs.some((ref) => String(ref.property || '').includes('variants[0].token')),
         'Must index variants token reference',

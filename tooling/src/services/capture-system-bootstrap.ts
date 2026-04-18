@@ -52,13 +52,30 @@ export function inferCollectionsFromInputDir(repoRoot: string, inputDir?: string
 // NOTE: For long-running servers, consider adding a cleanup mechanism or LRU eviction.
 const _systemRepositories = new Map<string, ReturnType<typeof createDesignSystemRepository>>();
 
+type SystemRepositoryFactory = (options: { repoRoot: string }) => ReturnType<typeof createDesignSystemRepository>;
+
+let _systemRepositoryFactory: SystemRepositoryFactory = ({ repoRoot }) =>
+  createDesignSystemRepository({ repoRoot });
+
+/**
+ * Override the system repository factory.
+ *
+ * Intended for tests that need to avoid a live database connection.
+ */
+export function setSystemRepositoryFactory(
+  factory: SystemRepositoryFactory | null,
+): void {
+  _systemRepositoryFactory = factory ?? (({ repoRoot }) => createDesignSystemRepository({ repoRoot }));
+  _systemRepositories.clear();
+}
+
 /**
  * Get or create system repository for repo root.
  */
 export function getSystemRepository(repoRoot: string): ReturnType<typeof createDesignSystemRepository> {
   const key = path.resolve(repoRoot || PROJECT_ROOT);
   if (!_systemRepositories.has(key)) {
-    _systemRepositories.set(key, createDesignSystemRepository({ repoRoot: key }));
+    _systemRepositories.set(key, _systemRepositoryFactory({ repoRoot: key }));
   }
   return _systemRepositories.get(key)!;
 }

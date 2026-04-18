@@ -177,7 +177,26 @@ function toComparableTargetEntries(
 async function toComparableCurrentEntries(
   databaseUrl: string,
   systemId: string,
+  currentEntries?: DbComponentRegistryEntry[] | null,
 ): Promise<ComparableRegistryEntry[]> {
+  if (Array.isArray(currentEntries)) {
+    return currentEntries
+      .filter((entry) => entry.status !== 'missing')
+      .map((entry) =>
+        toComparableEntry({
+          slug: entry.slug,
+          name: entry.name,
+          status: entry.status,
+          docType: entry.docType,
+          figmaFileUrl: entry.figma?.fileUrl,
+          figmaComponentSetNodeId: entry.figma?.componentSetNodeId,
+          specs: entry.specs,
+        }),
+      )
+      .sort((a, b) =>
+        a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }),
+      );
+  }
   const db = await bootstrapDatabase(databaseUrl);
   try {
     const repo = new ComponentRepository(db);
@@ -206,9 +225,14 @@ async function hasRegistryDrift(options: {
   databaseUrl: string;
   systemId: string;
   nextEntries: DbComponentRegistryEntry[];
+  currentEntries?: DbComponentRegistryEntry[] | null;
 }): Promise<boolean> {
-  const { databaseUrl, systemId, nextEntries } = options;
-  const current = await toComparableCurrentEntries(databaseUrl, systemId);
+  const { databaseUrl, systemId, nextEntries, currentEntries } = options;
+  const current = await toComparableCurrentEntries(
+    databaseUrl,
+    systemId,
+    currentEntries,
+  );
   const next = toComparableTargetEntries(nextEntries);
   return JSON.stringify(current) !== JSON.stringify(next);
 }
@@ -216,8 +240,12 @@ async function hasRegistryDrift(options: {
 async function isDesignSystemImported(options: {
   databaseUrl: string;
   systemId: string;
+  imported?: boolean;
 }): Promise<boolean> {
-  const { databaseUrl, systemId } = options;
+  const { databaseUrl, systemId, imported } = options;
+  if (typeof imported === 'boolean') {
+    return imported;
+  }
   const db = await bootstrapDatabase(databaseUrl);
   try {
     const [row] =
@@ -232,10 +260,11 @@ async function resolveOverviewListState(options: {
   databaseUrl: string;
   systemId: string;
   componentCount: number;
+  imported?: boolean;
 }): Promise<ComponentOverviewListState> {
-  const { databaseUrl, systemId, componentCount } = options;
+  const { databaseUrl, systemId, componentCount, imported } = options;
   if (componentCount > 0) return 'ready';
-  return (await isDesignSystemImported({ databaseUrl, systemId }))
+  return (await isDesignSystemImported({ databaseUrl, systemId, imported }))
     ? 'empty'
     : 'not-imported';
 }
@@ -254,25 +283,45 @@ async function persistRegistryToDb(options: {
   entries: ComponentRegistryEntry[];
   dryRun: boolean;
   databaseUrl?: string;
+  currentEntries?: DbComponentRegistryEntry[] | null;
+  setCurrentEntries?: (entries: DbComponentRegistryEntry[]) => void | Promise<void>;
 }): Promise<{
   upserted: number;
   changed: boolean;
   written: boolean;
   databaseUrl: string;
 }> {
-  const { projectRoot, systemId, entries, dryRun } = options;
+  const {
+    projectRoot,
+    systemId,
+    entries,
+    dryRun,
+    currentEntries,
+    setCurrentEntries,
+  } = options;
   const dbEntries = toDbEntries(entries);
   const databaseUrl = resolveDatabaseUrl(options.databaseUrl);
   const changed = await hasRegistryDrift({
     databaseUrl,
     systemId,
     nextEntries: dbEntries,
+    currentEntries,
   });
   if (dryRun) {
     return {
       upserted: dbEntries.length,
       changed,
       written: false,
+      databaseUrl,
+    };
+  }
+
+  if (setCurrentEntries) {
+    await setCurrentEntries(dbEntries);
+    return {
+      upserted: dbEntries.length,
+      changed,
+      written: changed,
       databaseUrl,
     };
   }
@@ -309,6 +358,8 @@ function summarizeError(error: unknown): string {
  *
  * `skipOverview` is useful for DB-only maintenance flows (e.g. `/ops`) where
  * we want registry persistence without generating human-readable overview files.
+ * `currentEntries`, `imported`, and `setCurrentEntries` let callers/tests reuse
+ * precomputed state instead of hitting the database when the data is already available.
  */
 export async function syncDocumentationState(
   options: {
@@ -321,6 +372,9 @@ export async function syncDocumentationState(
     skipOverview?: boolean;
     systemId?: string;
     projectRoot?: string;
+    currentEntries?: DbComponentRegistryEntry[] | null;
+    imported?: boolean;
+    setCurrentEntries?: (entries: DbComponentRegistryEntry[]) => void | Promise<void>;
   } = {},
 ): Promise<SyncIndicesResult> {
   const {
@@ -367,6 +421,7 @@ export async function syncDocumentationState(
       databaseUrl: resolvedDatabaseUrl,
       systemId: resolvedSystemId,
       componentCount: registry.components.length,
+      imported: options.imported,
     });
 
     const overview = skipOverview
@@ -393,6 +448,8 @@ export async function syncDocumentationState(
       entries: registry.components,
       dryRun,
       databaseUrl: resolvedDatabaseUrl,
+      currentEntries: options.currentEntries,
+      setCurrentEntries: options.setCurrentEntries,
     });
 
     const registryResult = {

@@ -27,7 +27,6 @@ function createReport(): DocsValidationReport {
     },
     summary: {
       filesChecked: 0,
-      specFilesChecked: 0,
       tokenRefsChecked: 0,
       tokenRefsInvalid: 0,
       errors: 0,

@@ -37,7 +37,7 @@ test("buildComponentUsageIndex keeps empty graph when db:// row has no relations
   assert.deepEqual(index.by_slug.beta.used_in, []);
 });
 
-test("buildComponentUsageIndex resolves anatomy component_ref relations from YAML specs", () => {
+test("buildComponentUsageIndex resolves anatomy component_ref relations from component specs", () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "usage-index-"));
   try {
     const specPath = path.join(

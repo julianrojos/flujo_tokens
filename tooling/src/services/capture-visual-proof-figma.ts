@@ -31,7 +31,7 @@ export function parseFigmaFileKeyFromUrl(figmaUrl: string): string {
 }
 
 /**
- * Load Figma config from spec file.
+ * Load Figma config from the component spec.
  */
 export function loadSpecFigma(
   specPath: string,
@@ -40,7 +40,7 @@ export function loadSpecFigma(
   if (!fs.existsSync(specPath)) return {};
   const spec = parseYamlDocumentFn(
     fs.readFileSync(specPath, 'utf8'),
-    `spec YAML (${path.basename(specPath)})`,
+    `component spec (${path.basename(specPath)})`,
   );
   const figma = (spec as Record<string, unknown>).figma;
   return figma && typeof figma === 'object' && !Array.isArray(figma)

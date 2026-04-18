@@ -82,12 +82,7 @@ interface McpChildPidRecordV1 {
   timestamp: number;
 }
 
-interface McpChildPidLegacyRecord {
-  version: 0;
-  childPid: number;
-}
-
-type McpChildPidState = McpChildPidRecordV1 | McpChildPidLegacyRecord;
+type McpChildPidState = McpChildPidRecordV1;
 
 function parsePositiveInteger(value: unknown): number | null {
   const parsed = Number(value);
@@ -100,13 +95,6 @@ function parsePositiveInteger(value: unknown): number | null {
 function parseMcpChildPidState(raw: string): McpChildPidState | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-
-  // Backward compatibility: previous format stored only the child PID as plain text.
-  if (!trimmed.startsWith('{')) {
-    const childPid = parsePositiveInteger(Number.parseInt(trimmed, 10));
-    if (childPid == null) return null;
-    return { version: 0, childPid };
-  }
 
   try {
     const parsed = JSON.parse(trimmed);
@@ -1382,20 +1370,6 @@ export async function getOrCreateSharedMcpClient(
           childPid: staleChildPid,
         });
       }
-    }
-  } else if (staleState?.version === 0) {
-    // Legacy migration path: previous versions persisted only child PID.
-    // Best-effort cleanup on first run after upgrade, with identity check
-    // to avoid killing unrelated recycled PIDs.
-    const legacyChildPid = staleState.childPid;
-    try {
-      if (isFigmaMcpProcessPid(legacyChildPid)) {
-        process.kill(legacyChildPid, 'SIGTERM');
-      }
-    } catch {
-      // PID already dead or permission error — both are safe to ignore.
-    } finally {
-      clearMcpChildPidFile({ childPid: legacyChildPid });
     }
   }
 

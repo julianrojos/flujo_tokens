@@ -260,7 +260,7 @@ export function renderVariantRows(
 
   return variants
     .map((variant) => {
-      // Prefer manual data if available (from YAML spec)
+      // Prefer manual data if available (from the component spec)
       if (variant._manual) {
         const token = variant._manual.token || '`TBD`';
         const fallback = variant._manual.fallback || '`TBD`';

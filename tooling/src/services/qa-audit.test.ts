@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 const TEST_FIXTURES_DIR = path.join(__dirname, '__fixtures__');
 
 /**
- * Load and parse a YAML file (simple parser for spec files).
+ * Load and parse a component spec (simple YAML parser).
  * Returns null if the YAML is not a plain object (arrays, primitives, invalid syntax).
  * Local helper for tests - mirrors the old loadYamlFile behavior.
  */

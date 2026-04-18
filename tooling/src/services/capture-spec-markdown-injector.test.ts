@@ -251,7 +251,7 @@ Missing the end tag...
       // @ts-expect-error - testing invalid input
       assert.throws(() => injectSpecZones(null, {}, 'alert'), /Markdown content must be a string/);
       // @ts-expect-error - testing invalid input
-      assert.throws(() => injectSpecZones('', null, 'alert'), /YAML spec must be a valid object/);
+      assert.throws(() => injectSpecZones('', null, 'alert'), /Component spec must be a valid object/);
     });
   });
 });

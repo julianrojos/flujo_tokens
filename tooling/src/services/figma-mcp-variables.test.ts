@@ -1140,150 +1140,21 @@ process.stdin.on('data', (chunk) => {
     }
   });
 
-  it('cleans up legacy pid-file child (version 0) during first upgraded startup', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-legacy-cleanup-'));
-    const scriptPath = path.join(tempRoot, 'mock-mcp-legacy-cleanup.js');
-    const scope = (() => {
-      try {
-        return fs.realpathSync(process.cwd());
-      } catch {
-        return process.cwd();
-      }
-    })();
-    const pidHash = createHash('sha1').update(scope).digest('hex').slice(0, 12);
-    const pidFile = path.join(os.tmpdir(), `ds-dashboard-mcp-child-${pidHash}.pid`);
-
-    const legacyMcpChild = spawn(
-      process.execPath,
-      ['-e', 'setInterval(() => {}, 1000);', LEGACY_STDIO_MCP_CLI],
-      { stdio: 'ignore' },
-    );
-
-    const script = `
-let buffer = '';
-function send(payload) {
-  process.stdout.write(JSON.stringify(payload) + '\\n');
-}
-function handleMessage(message) {
-  if (message.method === 'initialize') {
-    send({
-      jsonrpc: '2.0',
-      id: message.id,
-      result: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        serverInfo: { name: 'mock', version: '1.0.0' },
-      },
-    });
-    return;
-  }
-  if (message.method === 'tools/call') {
-    const tool = String(message.params?.name || '');
-    if (tool === 'figma_get_status') {
-      send({
-        jsonrpc: '2.0',
-        id: message.id,
-        result: {
-          connected: true,
-          content: [{ type: 'text', text: 'connected' }],
-        },
-      });
-      return;
-    }
-    send({
-      jsonrpc: '2.0',
-      id: message.id,
-      result: {
-        content: [{ type: 'text', text: '{}' }],
-      },
-    });
-  }
-}
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
-  buffer += chunk;
-  while (true) {
-    const idx = buffer.indexOf('\\n');
-    if (idx < 0) return;
-    const line = buffer.slice(0, idx).trim();
-    buffer = buffer.slice(idx + 1);
-    if (!line) continue;
-    const parsed = JSON.parse(line);
-    handleMessage(parsed);
-  }
-});
-`;
-    fs.writeFileSync(scriptPath, script, 'utf8');
-
-    const waitUntilDead = async (pid: number, timeoutMs: number): Promise<boolean> => {
-      const deadline = Date.now() + timeoutMs;
-      while (Date.now() < deadline) {
-        try {
-          process.kill(pid, 0);
-        } catch {
-          return true;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-      return false;
-    };
-
-    try {
-      const legacyChildPid = legacyMcpChild.pid;
-      assert.ok(legacyChildPid && legacyChildPid > 0);
-
-      // Legacy format: plain child PID text (pre-v1 file schema).
-      fs.writeFileSync(pidFile, String(legacyChildPid), 'utf8');
-
-      const ping = await pingSharedFigmaMcp({
-        command: process.execPath,
-        args: [scriptPath],
-        timeoutMs: 1_000,
-      });
-      assert.equal(ping.ok, true);
-      assert.equal(ping.connected, true);
-
-      const dead = await waitUntilDead(legacyChildPid, 1_000);
-      assert.equal(dead, true);
-    } finally {
-      disposeSharedFigmaMcpClient();
-      if (legacyMcpChild.pid) {
-        try {
-          process.kill(legacyMcpChild.pid, 'SIGTERM');
-        } catch {
-          // no-op
-        }
-      }
-      try {
-        fs.rmSync(pidFile, { force: true });
-      } catch {
-        // no-op
-      }
-      fs.rmSync(tempRoot, { recursive: true, force: true });
-    }
-  });
-
   it('proxies through dashboard when DS_DASHBOARD_INTERNAL_URL is set', async () => {
-    // Start a minimal HTTP server that mimics /api/figma-mcp-variables
-    const { createServer } = await import('node:http');
-    const server = createServer((req, res) => {
-      // Verify correct endpoint
-      assert.equal(req.url, '/api/figma-mcp-variables');
-      assert.equal(req.method, 'POST');
-
-      let body = '';
-      req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-      req.on('end', () => {
-        const parsed = JSON.parse(body);
-        void parsed;
-        // Verify the token header is forwarded
-        assert.equal(
-          req.headers['x-ds-dashboard-internal-token'],
-          'test-token-123',
-        );
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+    const originalFetch = globalThis.fetch;
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      requests.push({ url: String(url), init });
+      assert.equal(String(url), 'http://dashboard.local/api/figma-mcp-variables');
+      assert.equal(init?.method, 'POST');
+      assert.equal(
+        (init?.headers as Record<string, string> | undefined)?.['x-ds-dashboard-internal-token'],
+        'test-token-123',
+      );
+      assert.equal((init?.headers as Record<string, string> | undefined)?.['Content-Type'], 'application/json');
+      assert.deepEqual(JSON.parse(String(init?.body || '{}')), { figmaUrl: 'https://www.figma.com/design/abc123/Test' });
+      return new Response(
+        JSON.stringify({
           ok: true,
           meta: {
             variableCollections: {
@@ -1303,24 +1174,16 @@ process.stdin.on('data', (chunk) => {
               },
             },
           },
-        }));
-      });
-    });
-
-    await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', () => resolve());
-    });
-
-    const addr = server.address();
-    assert.ok(addr && typeof addr === 'object');
-    const port = (addr as { port: number }).port;
-    const baseUrl = `http://127.0.0.1:${port}`;
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }) as typeof globalThis.fetch;
 
     try {
       const result = await fetchFigmaLocalVariablesViaMcp({
         fileUrl: 'https://www.figma.com/design/abc123/Test',
         env: {
-          DS_DASHBOARD_INTERNAL_URL: baseUrl,
+          DS_DASHBOARD_INTERNAL_URL: 'http://dashboard.local',
           DS_DASHBOARD_INTERNAL_TOKEN: 'test-token-123',
         } as unknown as NodeJS.ProcessEnv,
       });
@@ -1331,7 +1194,8 @@ process.stdin.on('data', (chunk) => {
       assert.equal(result.meta.variables['VariableID:1'].name, 'color/primary');
       assert.ok(result.meta.variableCollections['Collection:1']);
     } finally {
-      server.close();
+      globalThis.fetch = originalFetch;
+      assert.equal(requests.length, 1);
     }
   });
 

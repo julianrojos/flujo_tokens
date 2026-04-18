@@ -4,12 +4,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-
-import {
-  bootstrapDatabase,
-  resolveDashboardDbUrl,
-} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
-import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 import { createPlan } from './pipeline-plan.js';
 
 function createTempDir(prefix: string): string {
@@ -40,36 +34,26 @@ describe('pipeline-plan', () => {
 
   it('keeps markdown step unblocked when --from-step=markdown and spec is skipped intentionally', async () => {
     const tmpDir = createTempDir('pipeline-plan-from-step-');
-    void tmpDir;
     const systemId = uniqueId('sys');
     const componentSlug = uniqueId('alert');
-    const db = await bootstrapDatabase(resolveDashboardDbUrl(process.env));
-    try {
-      await db`
-        INSERT INTO design_systems (id, name)
-        VALUES (${systemId}, 'System 01')
-        ON CONFLICT (id) DO NOTHING
-      `;
-      const repo = new ComponentRepository(db);
-      await repo.upsertFromRegistry(systemId, [
-        {
-          slug: componentSlug,
-          name: 'Alert',
-          status: 'draft',
-          docType: 'component',
-          figma: { componentSetNodeId: '12:34' },
-        },
-      ]);
-    } finally {
-      await db.end();
-    }
 
     const plan = await createPlan({
       'from-step': 'markdown',
+      loadRegistryEntries: async () => [
+        {
+          slug: componentSlug,
+          spec: { exists: false },
+          doc: { exists: false, status: 'draft' },
+          figma: { component_set_node_id: '12:34' },
+          visual_proof: { exists: false },
+        },
+      ],
       dsContext: {
         id: systemId,
+        docsDir: tmpDir,
         paths: {
-          registry: resolveDashboardDbUrl(process.env),
+          registry: path.join(tmpDir, 'registry.db'),
+          databaseUrl: 'postgres://ignored:ignored@localhost:5432/ignored',
         },
       } as any,
     });

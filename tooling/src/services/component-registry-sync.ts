@@ -325,6 +325,9 @@ export function buildExpectedComponentRegistry(
 
 /**
  * Compare DB-backed registry with expected state from sources.
+ *
+ * `currentRegistry` lets tests or higher-level callers compare against a preloaded
+ * registry snapshot without paying the DB round-trip.
  */
 export async function compareComponentRegistryToSources(
   options: {
@@ -333,9 +336,10 @@ export async function compareComponentRegistryToSources(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
+    currentRegistry?: ComponentRegistry | null;
   } = {},
 ): Promise<CompareRegistryResult> {
-  const { databaseUrl, systemId, specsDir, docsDir, proofsDir } = options;
+  const { databaseUrl, systemId, specsDir, docsDir, proofsDir, currentRegistry } = options;
   const resolvedSpecsDir = requireNonEmptyPathOption(specsDir, 'specsDir');
   const resolvedDocsDir = requireNonEmptyPathOption(docsDir, 'docsDir');
   const resolvedProofsDir =
@@ -355,13 +359,19 @@ export async function compareComponentRegistryToSources(
       resolvedDocsDir,
       resolvedProofsDir,
     ]);
-  const currentResult = await readComponentRegistry({
-    allowMissing: true,
-    databaseUrl: resolvedDatabaseUrl,
-    systemId: resolvedSystemId,
-    specsDir: resolvedSpecsDir,
-    docsDir: resolvedDocsDir,
-  });
+  const currentResult = currentRegistry
+    ? {
+        exists: true,
+        registry: currentRegistry,
+        validation: { ok: true, errors: [] },
+      }
+    : await readComponentRegistry({
+        allowMissing: true,
+        databaseUrl: resolvedDatabaseUrl,
+        systemId: resolvedSystemId,
+        specsDir: resolvedSpecsDir,
+        docsDir: resolvedDocsDir,
+      });
   const current = currentResult.registry;
 
   const normalizeRegistry = (registry: ComponentRegistry | null): string => {
@@ -403,8 +413,8 @@ export async function compareComponentRegistryToSources(
   const currentJson = normalizeRegistry(current);
 
   return {
-    exists: currentResult.exists,
-    matches: currentResult.exists && currentJson === expectedJson,
+    exists: Boolean(current),
+    matches: Boolean(current) && currentJson === expectedJson,
     expected,
     current,
     expectedJson,
@@ -414,6 +424,9 @@ export async function compareComponentRegistryToSources(
 
 /**
  * Sync component registry from source files into DB + overview markdown.
+ *
+ * `currentEntries` and `imported` are optional precomputed hints that let
+ * callers bypass DB reads when they already know the current state.
  */
 export async function syncComponentRegistry(
   options: SyncRegistryOptions & {
@@ -423,6 +436,8 @@ export async function syncComponentRegistry(
     docsDir?: string;
     proofsDir?: string;
     overviewPath?: string;
+    currentEntries?: Parameters<typeof syncDocumentationState>[0]['currentEntries'];
+    imported?: boolean;
   } = {},
 ): Promise<SyncRegistryResult> {
   const {
@@ -432,6 +447,8 @@ export async function syncComponentRegistry(
     docsDir,
     proofsDir,
     overviewPath,
+    currentEntries,
+    imported,
     dryRun = false,
   } = options;
   const resolvedSpecsDir = requireNonEmptyPathOption(specsDir, 'specsDir');
@@ -454,6 +471,8 @@ export async function syncComponentRegistry(
     proofsDir: resolvedProofsDir,
     dryRun,
     systemId: resolvedSystemId,
+    currentEntries,
+    imported,
   });
 
   return {

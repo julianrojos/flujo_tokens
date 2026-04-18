@@ -100,9 +100,9 @@ Options:
   --stale-threshold <N>   Days threshold for stale file detection (default: 30)
 
 Audit Categories:
-  COVERAGE    Spec YAMLs vs. markdown files, overview links, token paths
-  FRESHNESS   Draft specs, needs-review status, last_verified dates
-  COMPLETENESS TBD fields in specs, gaps sections in markdown
+  COVERAGE    Component specs vs. markdown files, overview links, token paths
+  FRESHNESS   Draft component specs, needs-review status, last_verified dates
+  COMPLETENESS TBD fields in component specs, gaps sections in markdown
   INTEGRITY   Missing token refs, broken overview links
 
 Examples:

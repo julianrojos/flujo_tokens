@@ -44,7 +44,7 @@ export const TOKEN_COLLECTION_PREFIXES = new Set([
 export const SPEC_ALLOWED_STATUS = new Set(['draft', 'ready']);
 
 /**
- * Required top-level fields for spec YAML files.
+ * Required top-level fields for component specs.
  */
 export const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   'name',

@@ -29,7 +29,7 @@ export function buildFindings(
 ): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
-  // COV-01: Spec YAMLs vs. markdown files
+  // COV-01: Component specs vs. markdown files
   for (const spec of coverage.specVsMarkdown.specsWithoutMarkdown) {
     findings.push({
       id: 'COV-01',
@@ -37,7 +37,7 @@ export function buildFindings(
       severity: 'error',
       title: 'Spec without markdown',
       location: `<active-system-docs>/docs/_spec/components/${spec}.yml`,
-      message: `Spec YAML exists but no corresponding markdown file`,
+      message: `Component spec exists but no corresponding markdown file`,
       suggestion: `Create or update the component docs entry in the dashboard`,
     });
   }
@@ -49,8 +49,8 @@ export function buildFindings(
       severity: 'warning',
       title: 'Markdown without spec',
       location: `<active-system-docs>/docs/components/${md}.md`,
-      message: `Markdown file exists but no corresponding spec YAML`,
-      suggestion: `Create spec YAML or regenerate markdown from Figma`,
+      message: `Markdown file exists but no corresponding component spec`,
+      suggestion: `Create a component spec or regenerate markdown from Figma`,
     });
   }
 
@@ -119,7 +119,7 @@ export function buildFindings(
     });
   }
 
-  // COM-01: Spec YAMLs with TBD values
+  // COM-01: Component specs with TBD values
   for (const { path: filePath, tbdFields, tbdCount } of completeness.specsWithTbd) {
     findings.push({
       id: 'COM-01',

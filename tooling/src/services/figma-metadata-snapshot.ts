@@ -135,7 +135,7 @@ function getNormalizedComponentSetNodeId(spec: Record<string, unknown>): string 
 /**
  * Derive stable Figma spec metadata from a spec object.
  *
- * @param spec - Parsed spec YAML object
+ * @param spec - Parsed component spec object
  * @returns Stable metadata including component hash, node ID, and counts
  */
 export function deriveFigmaSpecMetadataSnapshot(

@@ -165,7 +165,7 @@ async function buildUsageRowsFromDb(args: {
  * Reconciles component registry rows using DB as the only source of truth.
  *
  * Notes:
- * - Intentionally does not scan docs/spec files from filesystem.
+ * - Intentionally does not scan component specs from the filesystem.
  * - Re-upserts current component rows to normalize persisted shapes.
  */
 export async function refreshRegistryDbOnly(args: {

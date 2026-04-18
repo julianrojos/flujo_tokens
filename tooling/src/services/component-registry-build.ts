@@ -62,7 +62,7 @@ function listSpecSlugs(specsDir: string): string[] {
     .filter((slug) => {
       if (slug === '_template') return false;
       if (!SLUG_REGEX.test(slug)) {
-        throw new Error(`Invalid spec filename: ${slug}.yml must be snake_case (lowercase with underscores)`);
+        throw new Error(`Invalid component spec filename: ${slug}.yml must be snake_case (lowercase with underscores)`);
       }
       return true;
     });

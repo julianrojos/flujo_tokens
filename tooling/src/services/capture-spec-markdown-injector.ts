@@ -1,7 +1,7 @@
 /**
  * Spec to Markdown Injector
  *
- * Inject auto-generated zones from spec YAML into markdown documentation.
+ * Inject auto-generated zones from component specs into markdown documentation.
  */
 import {
   renderAnatomyMarkdown,
@@ -271,7 +271,7 @@ export function injectSpecZones(
     throw new Error('Markdown content must be a string.');
   }
   if (!spec || typeof spec !== 'object') {
-    throw new Error('YAML spec must be a valid object.');
+    throw new Error('Component spec must be a valid object.');
   }
 
   let result = markdown;

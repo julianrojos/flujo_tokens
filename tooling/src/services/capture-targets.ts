@@ -41,7 +41,7 @@ export function buildSlugLookupFromRegistry(
 }
 
 /**
- * Build slug lookup map from spec file contents.
+ * Build slug lookup map from component spec contents.
  */
 export function buildSlugLookupFromSpecContents(
   specFiles: Array<{ slug: string; content: string }>,

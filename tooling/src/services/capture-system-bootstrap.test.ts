@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   bootstrapInputJsonFromFigmaVariables,
   ensureCollectionsConfigured,
   getSystemRepository,
+  setSystemRepositoryFactory,
   runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import type { SyncFigmaTokensToInputOptions } from './figma-token-sync.js';
@@ -17,7 +18,85 @@ function uniqueSystemId(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
 
+function createInMemorySystemRepository(repoRoot: string) {
+  const systems = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      collections: string[];
+      compileVariablesOnCapture?: boolean;
+    }
+  >();
+  let defaultSystemId: string | undefined;
+
+  const resolvePaths = (systemId: string) => ({
+    input: path.join(repoRoot, 'design-systems', systemId, 'input'),
+    docs: path.join(repoRoot, 'design-systems', systemId, 'docs'),
+    output: path.join(repoRoot, 'design-systems', systemId, 'output'),
+  });
+
+  return {
+    async create(system: {
+      id: string;
+      name: string;
+      collections?: string[];
+      compileVariablesOnCapture?: boolean;
+    }) {
+      const entry = {
+        id: system.id,
+        name: system.name,
+        collections: [...(system.collections ?? [])],
+        compileVariablesOnCapture: system.compileVariablesOnCapture,
+      };
+      systems.set(system.id, entry);
+      return entry;
+    },
+    async getById(systemId: string) {
+      const entry = systems.get(systemId);
+      return entry ? { ...entry } : null;
+    },
+    async setDefaultSystemId(systemId: string) {
+      defaultSystemId = systemId;
+      return { defaultSystemId };
+    },
+    async resolveSystemContext(systemId: string) {
+      const entry = systems.get(systemId);
+      if (!entry) return null;
+      return {
+        ...entry,
+        id: entry.id,
+        name: entry.name,
+        paths: resolvePaths(systemId),
+      };
+    },
+    async update(systemId: string, patch: { collections?: string[]; name?: string }) {
+      const entry = systems.get(systemId);
+      if (!entry) return null;
+      const updated = {
+        ...entry,
+        ...patch,
+        collections: patch.collections ? [...patch.collections] : [...entry.collections],
+      };
+      systems.set(systemId, updated);
+      return { ...updated };
+    },
+    async dispose() {
+      void defaultSystemId;
+      systems.clear();
+    },
+  };
+}
+
 describe('capture-system-bootstrap', () => {
+  beforeEach(() => {
+    setSystemRepositoryFactory(({ repoRoot }) => createInMemorySystemRepository(repoRoot));
+  });
+
+  afterEach(() => {
+    setSystemRepositoryFactory(null);
+  });
+
   it('bootstraps input JSON even when empty token-registry seed exists', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-seed-'));
     try {

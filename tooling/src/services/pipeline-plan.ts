@@ -63,11 +63,12 @@ export interface PipelinePlanOptions {
   component?: string;
   allowMissingRegistry?: boolean;
   dsContext?: ReturnType<typeof resolveSystemContextSafe>;
+  loadRegistryEntries?: () => Promise<RegistryEntry[]>;
   [key: string]: unknown;
 }
 
 const PIPELINE_STEPS: Array<{ id: string; role: string; desc: string }> = [
-  { id: 'spec', role: 'metadata', desc: 'Generate/Update Spec YAML' },
+  { id: 'spec', role: 'metadata', desc: 'Generate/Update component spec' },
   {
     id: 'markdown',
     role: 'documentation',
@@ -150,36 +151,57 @@ export async function createPlan(
     summary: {},
   };
 
-  await loadDesignSystemsConfigAsync();
+  let ctx = options.dsContext;
+  if (!ctx) {
+    try {
+      await loadDesignSystemsConfigAsync();
+      ctx = resolveSystemContextSafe({});
+    } catch (err) {
+      if (options.allowMissingRegistry) {
+        plan.summary = {
+          warning:
+            'Component registry unavailable in DB. Returning empty plan (dry-run/status-only fallback).',
+        };
+        return plan;
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `[Plan] Fatal: Cannot load design systems config: ${reason}`,
+      );
+    }
+  }
 
-  const ctx = options.dsContext || resolveSystemContextSafe({});
   const databaseUrl = ctx.paths.databaseUrl;
   const systemId = ctx.id;
   let allComponents: RegistryEntry[] = [];
 
   try {
-    const db = await bootstrapDatabase(databaseUrl);
-    try {
-      const repo = new ComponentRepository(db);
-      const rows = await repo.getAll(systemId);
-      allComponents = rows.map((row) => {
-        const spec = row.specs?.[0];
-        const proof = row.visualProofs?.[0];
-        const hasSpec = Boolean(spec?.markdownPath);
-        const hasDoc = hasExistingMarkdown(spec?.markdownPath, ctx.docsDir);
-        const hasVisualProof = Boolean(
-          proof?.imagePath || proof?.screenshotUrl,
-        );
-        return {
-          slug: row.slug,
-          spec: { exists: hasSpec },
-          doc: { exists: hasDoc, status: spec?.docStatus || 'draft' },
-          figma: { component_set_node_id: row.figmaComponentSetNodeId || '' },
-          visual_proof: { exists: hasVisualProof },
-        };
-      });
-    } finally {
-      await db.end();
+    if (options.loadRegistryEntries) {
+      allComponents = await options.loadRegistryEntries();
+    } else {
+      const db = await bootstrapDatabase(databaseUrl);
+      try {
+        const repo = new ComponentRepository(db);
+        const rows = await repo.getAll(systemId);
+        allComponents = rows.map((row) => {
+          const spec = row.specs?.[0];
+          const proof = row.visualProofs?.[0];
+          const hasSpec = Boolean(spec?.markdownPath);
+          const hasDoc = hasExistingMarkdown(spec?.markdownPath, ctx.docsDir);
+          const hasVisualProof = Boolean(
+            proof?.imagePath || proof?.screenshotUrl,
+          );
+          return {
+            slug: row.slug,
+            spec: { exists: hasSpec },
+            doc: { exists: hasDoc, status: spec?.docStatus || 'draft' },
+            figma: { component_set_node_id: row.figmaComponentSetNodeId || '' },
+            visual_proof: { exists: hasVisualProof },
+          };
+        });
+      } finally {
+        await db.end();
+      }
     }
   } catch (err) {
     if (options.allowMissingRegistry) {

@@ -106,7 +106,7 @@ function getSlug(filePath: string): string {
 }
 
 /**
- * Audit: Spec YAMLs vs. markdown files (COV-01).
+ * Audit: component specs vs. markdown files (COV-01).
  */
 function auditSpecVsMarkdown(
   specsDir: string,
@@ -177,7 +177,7 @@ function auditTokenPaths(
   const validTokens = loadTokenPaths(tokenRegistryPath);
   const missingTokens: Array<{ tokenPath: string; referencedIn: string }> = [];
 
-  // Scan spec files
+  // Scan component specs
   for (const file of fs.readdirSync(specsDir)) {
     if (!file.endsWith('.yml')) continue;
 
@@ -241,7 +241,7 @@ function auditFreshness(
   const now = Date.now();
   const msPerDay = 24 * 60 * 60 * 1000;
 
-  // Check spec files for draft status
+  // Check component specs for draft status
   for (const file of fs.readdirSync(specsDir)) {
     if (!file.endsWith('.yml')) continue;
 
@@ -286,7 +286,7 @@ function auditCompleteness(specsDir: string, componentsDir: string): Completenes
   const specsWithTbd: Array<{ path: string; tbdFields: string[]; tbdCount: number }> = [];
   const markdownsWithGaps: string[] = [];
 
-  // Check spec files for TBD values
+  // Check component specs for TBD values
   for (const file of fs.readdirSync(specsDir)) {
     if (!file.endsWith('.yml')) continue;
 
