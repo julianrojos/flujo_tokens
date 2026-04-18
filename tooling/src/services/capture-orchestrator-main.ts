@@ -57,7 +57,7 @@ import {
   isKindAllowed,
   resolveSpecExhibitNodeIds,
 } from './figma-component-discovery.js';
-import { injectSpecZones } from './spec-to-markdown-injector.js';
+import { injectSpecZones } from './capture-spec-markdown-injector.js';
 import { buildCaptureTargets } from './capture-target-builder.js';
 import { createCaptureReport } from './capture-report.js';
 import { executeCaptureBatchAndRefresh } from './capture-batch-execution.js';
