@@ -247,21 +247,7 @@ All portals go through `ui/overlay/modal.tsx`. Zero exceptions.
 
 ---
 
-## Automation guard
-
-Run this quick guard whenever a UI task touches `components/**`, `features/**`, `index.css`, or `tailwind.config.ts`:
-
-```bash
-npm run ds:ui:guard
-```
-
-What it enforces today:
-
-- No raw status color classes (`text-red-*`, `bg-emerald-*`, etc.) inside `features/**`.
-- No `dark:` prefix inside `features/**` (dark-first contract).
-- No `createPortal` outside `components/ui/overlay/modal.tsx`.
-
-Use this before final verification to catch regressions early.
+Use the UI style and governance rules in `.agents/rules/ui-style-contract.mdc` and `.agents/rules/ui-component-governance.mdc` after any UI task touches `components/**`, `features/**`, `index.css`, or `tailwind.config.ts`.
 
 ---
 

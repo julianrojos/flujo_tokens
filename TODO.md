@@ -103,7 +103,7 @@ JSON report to stdout + `docs/_generated/qa-report.json`
 
 #### Files to modify
 
-- `package.json` — add script `"ds:qa"`
+- `package.json` — add a documentation audit script
 
 ---
 

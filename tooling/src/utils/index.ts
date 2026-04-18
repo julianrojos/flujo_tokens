@@ -5,45 +5,7 @@
  * enabling consistent imports across the codebase.
  */
 
-// Services (explicit exports to avoid name collisions)
-export {
-  createCheck,
-  sortUniqueStrings,
-  normalizeRuleId,
-  collectRequiresRuleIds,
-  hasValidSkillContext,
-  collectManifestRuleFiles,
-  collectDeprecatedRulesFromManifest,
-  collectAllowedContextValues,
-  validateSkillVersioning,
-  validateDeprecatedRuleReferences,
-  computeSummary,
-  buildDoctorReport,
-  validateRuleCoverage,
-} from '../services/doctor.js';
-
-export type {
-  CheckStatus,
-  DoctorCheck,
-  DoctorReport,
-  DoctorSummary,
-  ManifestDocument,
-  ManifestRuleEntry,
-  SkillFrontmatter,
-  SkillVersioningResult,
-  SkillVersioningIssue,
-  ValidateSkillVersioningOptions,
-  AllowedContextValues,
-  DeprecatedRulesMap,
-  CreateCheckOptions,
-  DoctorConfig,
-  ComponentRegistryComparison,
-  DocsValidationResult,
-  AgentInfo,
-} from '../services/doctor-types.js';
-
 // Runners
-export { runDoctor } from '../runners/doctor-runner.js';
 
 // Token services (types)
 export type {
@@ -115,12 +77,6 @@ export { runTokensSync } from '../runners/tokens-sync-runner.js';
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 
-// Validate docs runners
-export { runValidateDocs } from '../runners/validate-docs-runner.js';
-
-// Audit consistency runners
-export { runAuditConsistency } from '../runners/audit-consistency-runner.js';
-
 // Detect missing zones runners
 export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js';
 
@@ -184,16 +140,6 @@ export type {
   PipelineFlags,
   PipelineContext,
 } from '../types/pipeline.js';
-
-// Validation services
-export { validateDocs } from '../services/docs-validator.js';
-
-export type {
-  DocsValidatorIssue,
-  DocsValidationSummary,
-  DocsValidationReport,
-  DocsValidatorOptions,
-} from '../services/docs-validator-types.js';
 
 // Evidence-gated mutations
 export {

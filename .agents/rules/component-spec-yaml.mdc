@@ -8,13 +8,7 @@ globs:
 
 Canonical source: `tooling/schemas/component-spec.schema.json` (JSON Schema draft-07).
 
-Validate with:
-
-```bash
-npm run validate:docs
-```
-
-Note: `validate:docs` does not validate the component-spec JSON schema. That schema/`ready` validation path has been retired permanently; this command now owns only the docs/token pipeline.
+The docs validation checks do not validate the component-spec JSON schema. That schema/`ready` validation path has been retired permanently; this rule now owns only the docs/token contract.
 
 Additional machine-readable contracts:
 

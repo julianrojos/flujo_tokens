@@ -24,18 +24,6 @@ This rule emits `TOK01`, `TOK02`, `TOK03` for markdown token-reference violation
 The standalone token-ref report (see below) maps these to four buckets:
 `unresolved_tokens`, `wrong_format_tokens`, `case_mismatch_tokens`, `deprecated_tokens`.
 
-## Validation commands
+## Validation
 
-**Full docs validation** (structural + token + all other rules):
-
-```bash
-npm run validate:docs
-```
-
-**Consistency audit** (useful as a targeted follow-up when you need an explicit token report):
-
-```bash
-npm run ds:audit-consistency
-```
-
-Use `npm run validate:docs` and inspect the emitted TOK* findings for token-reference validation.
+Use the docs validation checks and inspect the emitted TOK* findings for token-reference validation.

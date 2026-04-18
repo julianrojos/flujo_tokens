@@ -7,7 +7,7 @@
  * - Validation rules: section presence, checkbox format, content matching
  * - Gap type ordering: SCHEMA_TBD, TOKEN_INVALID, CONTENT_UNKNOWN, A11Y_TBD
  *
- * Used by: docs-validator.mjs (validate gaps section contract)
+ * Used by the docs validation helpers (validate gaps section contract)
  */
 
 export const GAP_TYPE = Object.freeze({

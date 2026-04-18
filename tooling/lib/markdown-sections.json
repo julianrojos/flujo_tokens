@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "markdown-sections",
-  "description": "Canonical H2 section order for component documentation pages. Single source of truth shared by scripts (docs-config.mjs), validators (validate-docs-runner.ts), and agents. Mirrors component-doc.mdc section list.",
+  "description": "Canonical H2 section order for component documentation pages. Single source of truth shared by scripts (docs-config.mjs) and agents. Mirrors component-doc.mdc section list.",
   "version": "1.0.0",
   "source_of_truth_for": [
     "component-doc.mdc (Required sections in order)",

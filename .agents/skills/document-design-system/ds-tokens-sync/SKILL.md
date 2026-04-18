@@ -114,4 +114,4 @@ npm run ds:token-graph
 - Mode used (`split` or `single`)
 - Input directory and JSON file count
 - Output files generated (or skipped due to cache)
-- Suggested next step (`validate:docs` or the dashboard docs editor)
+- Suggested next step (the docs editor or the relevant governance checks)

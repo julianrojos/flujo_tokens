@@ -62,7 +62,7 @@
   "invalid_type_behavior": {
     "ordering_group":  5,
     "action":          "Stop; report an invalid type value and do not render the property.",
-    "applies_to":      ["generating skills", "validate:docs"],
+    "applies_to":      ["generating skills", "docs validation"],
     "invalid_examples": [null, "", "variant_group", "color", "number"]
   },
   "ready_spec_constraints": {

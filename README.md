@@ -56,7 +56,7 @@ Bootstrap checklist:
 4. Verify context health:
 
 ```bash
-npm run ds:doctor -- --system <id>
+npm run ds:registry:validate -- --system <id>
 ```
 
 If you get `Cannot load design systems from DB` or `No systems configured`, complete steps 2-3 first.
@@ -338,8 +338,6 @@ This workflow documents Design System components from Figma.
 Component docs are edited directly in the dashboard and through dedicated commands. There is no single monolithic orchestrator.
 
 - Use the dashboard to update component specs and markdown pages.
-- Use `npm run validate:docs` to check docs/token/overview integrity.
-- Use `npm run ds:audit-consistency` to compare spec, markdown, token registry, and Figma data.
 - Use `npm run ds:capture-visual-proof` to update screenshot evidence for a single component.
 
 ### Documentation Scripts
@@ -361,14 +359,9 @@ System context (DB-backed):
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
 - **`npm run ds:registry:report`**: Generates read-only registry projections in active system docs (`design-systems/<id>/docs/_generated/components-index.md` and `design-systems/<id>/docs/_generated/components-health.json`) without scanning specs/docs again.
-- **`npm run ds:doctor`**: Runs component docs precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
-- **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
-- **`npm run validate:docs`**: Validates component docs against project rules and `docs/_generated/token-registry.json` (section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, overview links, canonical `snake_case` file naming, unresolved editorial placeholders, and internal markdown link integrity). It does not validate the component-spec JSON schema; that validation path has been retired permanently.
-  - Validation findings are annotated with rule IDs using `.agents/rules/_manifest.yml`.
-  - Enforces canonical docs structure, token-reference hygiene, and deterministic content checks.
 
 ### Documentation folders
 
@@ -481,8 +474,8 @@ Component pages are governed by rules in `.agents/rules/` and must include:
     - values must be `snake_case` slugs, unique, and must not self-reference
     - in `ready` specs, every entry must resolve to an existing component spec
   - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
-  - validation is a gate after spec and markdown updates
-  - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
+  - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
+  - keep spec and markdown aligned 1:1 by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
 - `## Gaps / TBD` contract is enforced:
   - include only when linked spec has unresolved gaps
   - omit when linked spec has no unresolved gaps
@@ -635,24 +628,4 @@ Recommended sequence before rendering:
 ```bash
 npm run generate:registry
 npm run ds:registry:validate
-npm run validate:docs
 ```
-
-Validation command options:
-
-- `npm run validate:docs` -> full docs + registry + overview checks
-- `npm run validate:docs -- --check token-registry` -> focused token-registry check (codes: `TOKEN_MISSING` / `TOKEN_AMBIGUOUS` / `TOKEN_DEPRECATED`, mapped from validator findings)
-- `npm run validate:docs -- --system my-system --file design-systems/my-system/docs/components/alert.md --no-overview true` -> validate one markdown file only
-- `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
-- validation output includes `rule_ids` per finding when mapped in `.agents/rules/_manifest.yml`
-
-Doctor command examples:
-
-- `npm run ds:doctor` -> full component docs health checks + `validate:docs`
-- `npm run ds:doctor -- --component-name Button` -> include pair check for one component slug
-- `npm run ds:doctor -- --skip-validate true` -> quick preflight without full validation gate
-
-Consistency audit examples:
-
-- `npm run ds:audit-consistency` -> audit all detected component pairs
-- `npm run ds:audit-consistency -- --component-name Button` -> audit one component pair

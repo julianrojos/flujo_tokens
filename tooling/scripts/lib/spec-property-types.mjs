@@ -44,7 +44,7 @@ export function getSpecPropertyTypeInfo(rawType) {
 /**
  * Canonical field order within each property object in a component spec.
  * Sourced from component-spec-properties-order.mdc § "Canonical field order".
- * Used by validate:docs (DET01).
+ * Used by docs validation (DET01).
  */
 export const PROPERTY_FIELD_ORDER = Object.freeze([
   "name", "type", "values", "default", "required", "description",

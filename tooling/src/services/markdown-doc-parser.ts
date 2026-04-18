@@ -2,7 +2,7 @@
  * Markdown Document Parser
  *
  * Utilities for parsing markdown documentation structure.
- * Extracted from figma.ts to enable sharing with qa-audit.ts and other modules.
+ * Extracted from figma.ts to share parsing helpers with other modules.
  */
 
 import { extractSectionBody } from './markdown-sections.js';

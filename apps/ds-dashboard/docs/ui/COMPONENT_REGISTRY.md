@@ -10,11 +10,7 @@ This file is the single source of truth for UI tiers and component registration.
 
 ## Governance Check
 
-Run `npm run ds:ui:guard` after any UI change to enforce core UI contract checks:
-
-- no raw status colors in `src/features/**`
-- no `dark:` variants in `src/features/**`
-- no `createPortal` outside `src/components/ui/overlay/modal.tsx`
+Follow the UI governance rules in `.agents/rules/ui-component-governance.mdc` and `.agents/rules/ui-style-contract.mdc` when changing dashboard components.
 
 ---
 

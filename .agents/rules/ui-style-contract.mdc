@@ -133,10 +133,4 @@ The app runs in permanent dark mode (`class="dark"` on `<html>`).
 
 ### Verification
 
-```bash
-npm run ds:ui:guard
-
-# Should all return 0:
-grep -rn "text-red-[0-9]\|text-amber-[0-9]\|bg-red-[0-9]\|bg-emerald-[0-9]" apps/ds-dashboard/src/features/ --include="*.tsx" | wc -l
-grep -rn "createPortal" apps/ds-dashboard/src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l
-```
+Use the style contract and related UI governance rules when reviewing dashboard changes.

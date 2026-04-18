@@ -39,7 +39,7 @@ Use **Title Case** for all H2 and H3 headings — capitalise every major word. A
 | `### When to Use` | `### When to use` |
 | `## Gaps / TBD` | `## Gaps / tbd` |
 
-> **Why:** The canonical H2 names (`CANONICAL_H2_ORDER` in `tooling/lib/markdown-sections.json`) are defined in Title Case. Sentence-case variants create duplicate-section detection failures in `validate:docs`.
+> **Why:** The canonical H2 names (`CANONICAL_H2_ORDER` in `tooling/lib/markdown-sections.json`) are defined in Title Case. Sentence-case variants create duplicate-section detection failures in the docs validation checks.
 
 ### Body text
 
