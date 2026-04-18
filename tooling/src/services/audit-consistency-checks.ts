@@ -5,6 +5,8 @@
  * Pure functions - no I/O, no CLI dependencies, testable in isolation.
  */
 
+import * as fs from 'node:fs';
+
 import { normalizeNodeId } from '../utils/node-id.js';
 import { extractSectionBody } from '../utils/markdown-sections.js';
 import { TOKEN_COLLECTION_PREFIXES } from '../utils/docs-config.js';
@@ -39,9 +41,8 @@ export interface FigmaConsistencyCheckParams {
 
 export interface TokenValidityCheckParams {
   markdownPath: string;
-  specPath: string;
+  specPath?: string;
   docsRoot: string;
-  specRoot: string;
   registryPath: string;
 }
 
@@ -179,11 +180,65 @@ const TOKEN_CODES = new Set([
   'TOK01',
   'TOK02',
   'TOK03',
-  'SPEC01',
   'TOKEN_MISSING',
   'TOKEN_AMBIGUOUS',
   'TOKEN_DEPRECATED',
 ]);
+
+function loadTokenPathLookups(registryPath: string): {
+  dotted: Set<string>;
+  slash: Set<string>;
+} {
+  try {
+    const raw = fs.readFileSync(registryPath, 'utf8');
+    const parsed = JSON.parse(raw) as {
+      entries?: Array<{ path?: string; slashPath?: string }>;
+    };
+    const dotted = new Set<string>();
+    const slash = new Set<string>();
+    for (const entry of parsed.entries || []) {
+      const dottedPath = String(entry.path || '').trim();
+      const slashPath = String(entry.slashPath || '').trim();
+      if (dottedPath) dotted.add(dottedPath);
+      if (slashPath) slash.add(slashPath);
+    }
+    return { dotted, slash };
+  } catch {
+    return { dotted: new Set(), slash: new Set() };
+  }
+}
+
+function extractSpecTokenCandidates(text: string): string[] {
+  const matches = String(text || '').match(
+    /[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+/g,
+  );
+  if (!matches) return [];
+  return [...new Set(matches.map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function collectSpecTokenFindings(
+  filePath: string,
+  registryPath: string,
+): Array<{ code: string; file: string; message: string; token: string; severity: 'error' }> {
+  const { dotted, slash } = loadTokenPathLookups(registryPath);
+  const content = fs.readFileSync(filePath, 'utf8');
+  const tokens = extractSpecTokenCandidates(content);
+  const findings: Array<{ code: string; file: string; message: string; token: string; severity: 'error' }> = [];
+
+  for (const token of tokens) {
+    const exists = token.includes('/') ? slash.has(token) : dotted.has(token);
+    if (exists) continue;
+    findings.push({
+      code: 'TOK01',
+      file: filePath,
+      token,
+      severity: 'error',
+      message: `Unresolved token reference in component spec: \`${token}\`.`,
+    });
+  }
+
+  return findings;
+}
 
 /**
  * Check spec ↔ markdown consistency.
@@ -287,27 +342,39 @@ export function checkMarkdownFigmaConsistency(
  * Check token validity using docs-validator.
  *
  * Filters validation results to token-related errors only (TOK01, TOK02, TOK03, etc).
+ * Pass `specPath` when the caller has a paired spec file and wants the spec checked too.
  */
 export function checkTokenValidity(
   params: TokenValidityCheckParams,
 ): TokenValidityResult {
-  const { markdownPath, specPath, docsRoot, specRoot, registryPath } = params;
-  const report = validateDocs({
-    docsRoot,
-    specRoot,
-    registryPath,
-    filePath: markdownPath,
-    specFilePath: specPath,
-    checkOverview: false,
-    checkSpecs: true,
-  });
+  const { markdownPath, specPath, docsRoot, registryPath } = params;
+  const tokenErrors = [];
+  const tokenWarnings = [];
 
-  const tokenErrors = report.errors.filter((finding) =>
-    TOKEN_CODES.has(String(finding.code || '')),
-  );
-  const tokenWarnings = report.warnings.filter((finding) =>
-    TOKEN_CODES.has(String(finding.code || '')),
-  );
+  const collectTokenFindings = (filePath: string): void => {
+    const report = validateDocs({
+      docsRoot,
+      registryPath,
+      filePath,
+      checkOverview: false,
+    });
+
+    tokenErrors.push(
+      ...report.errors.filter((finding) =>
+        TOKEN_CODES.has(String(finding.code || '')),
+      ),
+    );
+    tokenWarnings.push(
+      ...report.warnings.filter((finding) =>
+        TOKEN_CODES.has(String(finding.code || '')),
+      ),
+    );
+  };
+
+  collectTokenFindings(markdownPath);
+  if (specPath && specPath !== markdownPath) {
+    tokenErrors.push(...collectSpecTokenFindings(specPath, registryPath));
+  }
 
   return {
     ok: tokenErrors.length === 0,

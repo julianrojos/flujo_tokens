@@ -174,9 +174,9 @@ function buildSuggestedCommands(params: {
   specPath: string;
   registryPath: string;
 }) {
-  const { markdownPath, specPath, registryPath } = params;
+  const { markdownPath, registryPath } = params;
   return [
-    `npm run validate:docs -- --check token-registry --file "${markdownPath}" --spec-file "${specPath}" --no-overview true`,
+    `npm run validate:docs -- --check token-registry --file "${markdownPath}" --no-overview true`,
     `Update the component docs entry in the dashboard for "${markdownPath}" if the docs content is stale.`,
     'npm run generate:registry',
   ];
@@ -261,7 +261,7 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     }
     if (!pair.specPath || !fs.existsSync(pair.specPath)) {
       problems.push(
-        `Missing spec file: ${pair.specPath || `<design-systems/<id>/docs/_spec/components/${pair.slug}.yml>`}`,
+        `Missing component spec file: ${pair.specPath || `<design-systems/<id>/docs/_spec/components/${pair.slug}.yml>`}`,
       );
     }
 
@@ -293,7 +293,7 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     try {
       spec = parseYamlDocument(
         fs.readFileSync(pair.specPath, 'utf8'),
-        `spec YAML (${path.basename(pair.specPath)})`,
+        `component spec (${path.basename(pair.specPath)})`,
       );
       markdown = fs.readFileSync(pair.markdownPath, 'utf8');
     } catch (error) {
@@ -331,7 +331,6 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
       markdownPath: pair.markdownPath,
       specPath: pair.specPath,
       docsRoot,
-      specRoot,
       registryPath,
     });
 
