@@ -143,7 +143,7 @@ describe('ai-jobs-store-with-persistence', () => {
             assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
         });
 
-        it('reuses persisted job when same key is already queued', async () => {
+        it('rehydrates persisted job when same key is already queued', async () => {
             const now = Date.now();
             const jobsRepo = (store as any).jobsRepo;
 
@@ -157,14 +157,14 @@ describe('ai-jobs-store-with-persistence', () => {
                 updatedAt: now,
             });
 
-            const job = store.enqueue(createTestInput({ idempotencyKey: 'queued-key' }));
+            const job = await store.getOrRehydrateActiveJobByIdempotencyKeyPersistent('queued-key');
 
-            assert.strictEqual(job.id, 'queued-job');
-            assert.strictEqual(job.status, 'queued');
+            assert.strictEqual(job?.id, 'queued-job');
+            assert.strictEqual(job?.status, 'queued');
             assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
         });
 
-        it('reuses persisted job when same key is already running', async () => {
+        it('rehydrates persisted job when same key is already running', async () => {
             const now = Date.now();
             const jobsRepo = (store as any).jobsRepo;
 
@@ -181,10 +181,10 @@ describe('ai-jobs-store-with-persistence', () => {
                 updatedAt: now,
             });
 
-            const job = store.enqueue(createTestInput({ idempotencyKey: 'running-key' }));
+            const job = await store.getOrRehydrateActiveJobByIdempotencyKeyPersistent('running-key');
 
-            assert.strictEqual(job.id, 'running-job');
-            assert.strictEqual(job.status, 'running');
+            assert.strictEqual(job?.id, 'running-job');
+            assert.strictEqual(job?.status, 'running');
             assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 0, running: 1 });
         });
     });
@@ -217,6 +217,28 @@ describe('ai-jobs-store-with-persistence', () => {
                 events.map((event: { seq: number }) => event.seq),
                 [1, 2, 3]
             );
+        });
+
+        it('rehydrates duplicate active idempotency without crashing', async () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            await jobsRepo.upsertJob({
+                id: 'persisted-job',
+                idempotencyKey: 'dup-key',
+                input: createTestInput({ idempotencyKey: 'dup-key' }),
+                status: 'queued',
+                events: [{ seq: 1, ts: now, event: 'job.queued' }],
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const job = await store.getOrRehydrateActiveJobByIdempotencyKeyPersistent('dup-key');
+            await drainWrites();
+
+            assert.equal(job?.id, 'persisted-job');
+            assert.equal(store.findById('persisted-job')?.status, 'queued');
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 1, running: 0 });
         });
     });
 

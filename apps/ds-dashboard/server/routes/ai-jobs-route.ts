@@ -20,7 +20,11 @@ import {
   createComponentSlug,
   renderComponentDoc,
 } from '../services/ai-component-doc-renderer.js';
-import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
+import {
+  AI_ERROR_CODES,
+  type AiJobInput,
+  type AiJobState,
+} from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 import { computeDocStatusesDb } from '../services/ai-doc-status-service.js';
 import { computeInMemoryDiff } from '../services/ai-diff-utils.js';
@@ -72,6 +76,15 @@ interface AiJobsRouteDeps {
   internalToken?: string;
   getSystemContext: (systemHeader: string) => unknown | Promise<unknown>;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+}
+
+interface AiJobsPersistenceStore {
+  computeIdempotencyKey(input: AiJobInput): string;
+  enqueue(input: AiJobInput): AiJobState;
+  getOrRehydrateActiveJobByIdempotencyKeyPersistent(
+    idempotencyKey: string,
+  ): Promise<AiJobState | null>;
+  isIdempotencyUniqueConstraintError(error: unknown): boolean;
 }
 const PROVIDER_ORDER: readonly AiProviderName[] = [
   'anthropic',
@@ -490,7 +503,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
           // Keep preview markdown aligned with latest Figma descriptions for this run.
           // Fail-open: generation must continue even if DB sync fails.
           try {
-            const component = deps.componentRepo!.getComponentByFigmaNodeId(
+            const component = await deps.componentRepo!.getComponentByFigmaNodeId(
               job.input.componentId,
               job.input.systemId,
             );
@@ -569,12 +582,12 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
           try {
             const figmaNodeId = job.input.componentId;
             if (!figmaNodeId) return null;
-            const component = deps.componentRepo!.getComponentByFigmaNodeId(
+            const component = await deps.componentRepo!.getComponentByFigmaNodeId(
               figmaNodeId,
               job.input.systemId,
             );
             if (!component) return null;
-            const editorial = deps.componentRepo!.getEditorial(component.id);
+            const editorial = await deps.componentRepo!.getEditorial(component.id);
             if (!editorial) return null;
             return editorialToPromptContext(editorial);
           } catch (error) {
@@ -1055,25 +1068,34 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       }
     }
 
-    let job;
-    try {
-      job = store.enqueue({
-        type: body.type,
-        provider: body.provider,
-        ...(docsContext.systemId ? { systemId: docsContext.systemId } : {}),
-        componentId: body.componentId,
-        fileKey,
-        figmaUrl,
-        model: body.model,
-        systemPrompt:
-          typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
-        userPrompt:
-          typeof body.userPrompt === 'string' ? body.userPrompt : undefined,
-        dryRun: body.dryRun,
-        runValidation: body.runValidation === true,
-        idempotencyKey: body.idempotencyKey,
-      });
-    } catch (error) {
+    const jobInput: AiJobInput = {
+      type: body.type,
+      provider: body.provider,
+      ...(docsContext.systemId ? { systemId: docsContext.systemId } : {}),
+      componentId: body.componentId,
+      fileKey,
+      figmaUrl,
+      model: body.model,
+      systemPrompt:
+        typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
+      userPrompt:
+        typeof body.userPrompt === 'string' ? body.userPrompt : undefined,
+      dryRun: body.dryRun,
+      runValidation: body.runValidation === true,
+      idempotencyKey: body.idempotencyKey,
+    };
+    const persistenceStore = store as unknown as Partial<AiJobsPersistenceStore> &
+      Pick<AiJobsPersistenceStore, 'computeIdempotencyKey' | 'enqueue'>;
+    const getActiveJob =
+      persistenceStore.getOrRehydrateActiveJobByIdempotencyKeyPersistent?.bind(
+        persistenceStore,
+      );
+    const isIdempotencyUniqueConstraintError =
+      persistenceStore.isIdempotencyUniqueConstraintError?.bind(
+        persistenceStore,
+      );
+    const idempotencyKey = persistenceStore.computeIdempotencyKey(jobInput);
+    const respondWithCreateJobError = (error: unknown) => {
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as {
           code: string;
@@ -1110,6 +1132,43 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
           statusCode,
         );
       }
+      return c.json(
+        errorResponse('ai.input.invalid', 'Failed to create job'),
+        500,
+      );
+    };
+
+    let job = getActiveJob ? await getActiveJob(idempotencyKey) : null;
+    if (!job) {
+      try {
+        job = persistenceStore.enqueue(jobInput);
+      } catch (error) {
+        if (!isIdempotencyUniqueConstraintError?.(error)) {
+          return respondWithCreateJobError(error);
+        }
+
+        job = getActiveJob ? await getActiveJob(idempotencyKey) : null;
+        if (!job) {
+          try {
+            job = persistenceStore.enqueue(jobInput);
+          } catch (retryError) {
+            if (isIdempotencyUniqueConstraintError?.(retryError)) {
+              job = getActiveJob ? await getActiveJob(idempotencyKey) : null;
+              if (!job) {
+                return c.json(
+                  errorResponse('ai.input.invalid', 'Failed to create job'),
+                  500,
+                );
+              }
+            } else {
+              return respondWithCreateJobError(retryError);
+            }
+          }
+        }
+      }
+    }
+
+    if (!job) {
       return c.json(
         errorResponse('ai.input.invalid', 'Failed to create job'),
         500,

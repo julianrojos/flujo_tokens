@@ -358,6 +358,97 @@ describe('ai-jobs-route', () => {
             assert.notEqual(job1.id, job2.id, 'Failed job should allow new enqueue');
         });
 
+        it('should retry enqueue once when active lookup misses after unique conflict', async () => {
+            cleanupStore();
+            const prevApiKey = process.env.ANTHROPIC_API_KEY;
+            process.env.ANTHROPIC_API_KEY = 'fake-key-for-test';
+
+            const duplicateError = Object.assign(
+                new Error(
+                    'duplicate key value violates unique constraint "ai_jobs_idempotency_key_active_uniq"',
+                ),
+                {
+                    code: '23505',
+                    constraint_name: 'ai_jobs_idempotency_key_active_uniq',
+                    retryable: true,
+                },
+            );
+
+            let enqueueCalls = 0;
+            initializeAiJobsStore({
+                computeIdempotencyKey: () => 'retry-key-123',
+                enqueue: () => {
+                    enqueueCalls += 1;
+                    if (enqueueCalls === 1) {
+                        throw duplicateError;
+                    }
+                    return {
+                        id: 'retry-job',
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'anthropic',
+                        componentId: '68:4097',
+                        dryRun: true,
+                        input: {
+                            type: 'GENERATE_COMPONENT_DOC',
+                            provider: 'anthropic',
+                            componentId: '68:4097',
+                            dryRun: true,
+                            idempotencyKey: 'retry-key-123',
+                        },
+                        status: 'queued',
+                        idempotencyKey: 'retry-key-123',
+                        events: [],
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                    } as any;
+                },
+                getOrRehydrateActiveJobByIdempotencyKeyPersistent: async () => null,
+                isIdempotencyUniqueConstraintError: (error: unknown) =>
+                    error === duplicateError ||
+                    (typeof error === 'object' &&
+                        error !== null &&
+                        'code' in error &&
+                        (error as { code?: string }).code === '23505' &&
+                        'constraint_name' in error &&
+                        (error as { constraint_name?: string }).constraint_name ===
+                            'ai_jobs_idempotency_key_active_uniq'),
+                tryDequeue: () => undefined,
+                startCleanup: () => undefined,
+                stopCleanup: () => undefined,
+                setOnJobStarted: () => undefined,
+            } as any);
+
+            try {
+                const app = createTestApp();
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-forwarded-for': '127.0.0.1',
+                    },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'anthropic',
+                        componentId: '68:4097',
+                        dryRun: true,
+                        idempotencyKey: 'retry-key-123',
+                    }),
+                });
+
+                assert.equal(res.status, 202);
+                const json = await res.json();
+                assert.equal(json.jobId, 'retry-job');
+                assert.equal(enqueueCalls, 2);
+            } finally {
+                if (prevApiKey === undefined) {
+                    delete process.env.ANTHROPIC_API_KEY;
+                } else {
+                    process.env.ANTHROPIC_API_KEY = prevApiKey;
+                }
+                cleanupStore();
+            }
+        });
+
         it('should still create job when immediate dequeue throws', async () => {
             cleanupStore();
             const app = createTestApp();

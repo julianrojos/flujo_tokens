@@ -108,6 +108,32 @@ describe('jobs-repository', () => {
     });
   });
 
+  describe('getActiveJobByIdempotencyKey()', () => {
+    it('returns the active job when terminal rows share the same key', async () => {
+      const now = Date.now();
+      const terminal = createTestJob({
+        id: 'job-terminal',
+        idempotencyKey: 'shared-key',
+        status: 'completed',
+        updatedAt: now - 1000,
+      });
+      const active = createTestJob({
+        id: 'job-active',
+        idempotencyKey: 'shared-key',
+        status: 'queued',
+        updatedAt: now,
+      });
+
+      await repo.upsertJob(terminal);
+      await repo.upsertJob(active);
+
+      const retrieved = await repo.getActiveJobByIdempotencyKey('shared-key');
+      assert.ok(retrieved);
+      assert.equal(retrieved.id, 'job-active');
+      assert.equal(retrieved.status, 'queued');
+    });
+  });
+
   describe('listJobs()', () => {
     it('lists jobs sorted by created_at desc', async () => {
       const job1 = createTestJob({ id: 'job-1', idempotencyKey: 'idem-1', createdAt: 1000 });

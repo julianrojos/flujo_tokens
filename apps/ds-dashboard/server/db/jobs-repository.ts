@@ -108,6 +108,21 @@ export class JobsRepository {
     return this.rowToJob(rows[0]);
   }
 
+  async getActiveJobByIdempotencyKey(
+    idempotencyKey: string,
+  ): Promise<AiJobState | null> {
+    const rows = (await this.sql`
+      SELECT *
+      FROM ai_jobs
+      WHERE idempotency_key = ${idempotencyKey}
+        AND status IN ('queued', 'running')
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `) as Array<AiJobRow>;
+    if (rows.length === 0) return null;
+    return this.rowToJob(rows[0]);
+  }
+
   async listJobs(provider?: string, status?: string): Promise<AiJobState[]> {
     const rows = (await this.sql`
       SELECT * FROM ai_jobs
@@ -175,7 +190,6 @@ export class JobsRepository {
                     ${new Date(job.createdAt)}, ${new Date(job.updatedAt)}
                 )
                 ON CONFLICT(id) DO UPDATE SET
-                    idempotency_key = EXCLUDED.idempotency_key,
                     status = EXCLUDED.status,
                     provider = EXCLUDED.provider,
                     input_json = EXCLUDED.input_json,

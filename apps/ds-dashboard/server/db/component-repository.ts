@@ -637,6 +637,10 @@ export class ComponentRepository {
   }
 
   async getEditorial(componentId: number): Promise<EditorialEntry | null> {
+    if (!Number.isFinite(componentId) || componentId <= 0) {
+      return null;
+    }
+
     const rows = (await this.sql`
       SELECT component_id, summary_json, behaviour_json, accessibility_json,
              content_guidelines_json, qa_json,

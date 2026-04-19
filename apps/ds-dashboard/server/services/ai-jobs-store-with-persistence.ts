@@ -5,14 +5,14 @@
  * DB is required for all operations.
  */
 
-import { randomBytes } from 'node:crypto';
-
 import type { Sql } from 'postgres';
 
 import { AiJobsStore } from './ai-jobs-store.js';
 import type { AiJobInput, AiJobState } from './ai-component-doc-schema.js';
 import type { AiProviderName } from './ai-provider.js';
 import { JobsRepository } from '../db/jobs-repository.js';
+
+const IDENTITY_ACTIVE_UNIQUE_CONSTRAINT = 'ai_jobs_idempotency_key_active_uniq';
 
 export interface AiJobsStoreWithPersistenceOptions {
   sql: Sql;
@@ -44,9 +44,19 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
       });
   }
 
-  private isIdempotencyUniqueConstraintError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    return message.includes('duplicate key');
+  isIdempotencyUniqueConstraintError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const record = error as {
+      code?: unknown;
+      constraint_name?: unknown;
+      message?: unknown;
+    };
+    const code = String(record.code ?? '');
+    const constraintName = String(record.constraint_name ?? '');
+    if (code !== '23505') return false;
+    if (constraintName === IDENTITY_ACTIVE_UNIQUE_CONSTRAINT) return true;
+    const message = String(record.message ?? '');
+    return message.includes(IDENTITY_ACTIVE_UNIQUE_CONSTRAINT);
   }
 
   private rehydratePersistentJobIfMissing(job: AiJobState): AiJobState {
@@ -76,32 +86,7 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
   }
 
   override enqueue(input: AiJobInput): AiJobState {
-    const idempotencyKey = this.computeIdempotencyKey(input);
-
-    try {
-      return super.enqueue(input);
-    } catch (error) {
-      if (!this.isIdempotencyUniqueConstraintError(error)) {
-        throw error;
-      }
-
-      const persistent = this.getJobByIdempotencyKeyPersistent(idempotencyKey);
-      if (!persistent) {
-        throw error;
-      }
-
-      const orphan = this.findByIdempotencyKey(idempotencyKey);
-      if (orphan && orphan.id !== persistent.id) {
-        this.removeJobFromMemory(orphan.id);
-      }
-
-      if (persistent.status === 'queued' || persistent.status === 'running') {
-        return this.rehydratePersistentJobIfMissing(persistent);
-      }
-
-      const rerunKey = `${idempotencyKey}:rerun:${Date.now()}:${randomBytes(4).toString('hex')}`;
-      return super.enqueue(input, rerunKey);
-    }
+    return super.enqueue(input);
   }
 
   override async pushEvent(
@@ -114,12 +99,53 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     const job = this.getJobById(jobId);
     if (job && job.events.length > 0) {
       const lastEvent = job.events[job.events.length - 1];
-      if (this.shouldPersistSnapshot(job, lastEvent.event)) {
-        await this.jobsRepo.persistTransition(job, lastEvent);
-        return;
-      }
+      try {
+        if (this.shouldPersistSnapshot(job, lastEvent.event)) {
+          await this.jobsRepo.persistTransition(job, lastEvent);
+          return;
+        }
 
-      await this.jobsRepo.appendJobEvent(jobId, lastEvent);
+        await this.jobsRepo.appendJobEvent(jobId, lastEvent);
+      } catch (error) {
+        if (!this.isIdempotencyUniqueConstraintError(error)) {
+          throw error;
+        }
+
+        const persistent = await this.getActiveJobByIdempotencyKeyPersistent(
+          job.idempotencyKey,
+        ).catch((lookupError) => {
+          console.error(
+            `[AiJobsStore] Error resolving persistent job for idempotency key ${job.idempotencyKey}:`,
+            lookupError instanceof Error
+              ? lookupError.message
+              : String(lookupError),
+          );
+          return null;
+        });
+
+        if (!persistent) {
+          console.warn(
+            `[AiJobsStore] Ignored duplicate active job persistence for ${job.idempotencyKey} because the existing row could not be resolved.`,
+          );
+          return;
+        }
+
+        if (persistent.id !== job.id) {
+          this.removeJobFromMemory(job.id);
+          this.loadJobIntoMemory(persistent);
+          const maxSeq = await this.jobsRepo.getMaxEventSeq(persistent.id);
+          this.setNextEventSeq(persistent.id, maxSeq + 1);
+          if (persistent.status === 'queued') {
+            this.addToQueue(persistent.input.provider, persistent.id);
+          } else if (persistent.status === 'running') {
+            this.incrementRunningCount(persistent.input.provider);
+          }
+        }
+
+        console.warn(
+          `[AiJobsStore] Ignored duplicate active job persistence for idempotency key ${job.idempotencyKey}; reusing persistent job ${persistent.id}.`,
+        );
+      }
     }
   }
 
@@ -139,10 +165,23 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     return this.jobsRepo.getJob(jobId);
   }
 
-  async getJobByIdempotencyKeyPersistent(
+  async getActiveJobByIdempotencyKeyPersistent(
     idempotencyKey: string,
   ): Promise<AiJobState | null> {
-    return this.jobsRepo.getJobByIdempotencyKey(idempotencyKey);
+    return this.jobsRepo.getActiveJobByIdempotencyKey(idempotencyKey);
+  }
+
+  async getOrRehydrateActiveJobByIdempotencyKeyPersistent(
+    idempotencyKey: string,
+  ): Promise<AiJobState | null> {
+    const persistent = await this.getActiveJobByIdempotencyKeyPersistent(
+      idempotencyKey,
+    );
+    if (!persistent) {
+      return null;
+    }
+
+    return this.rehydratePersistentJobIfMissing(persistent);
   }
 
   async listJobsPersistent(
