@@ -296,72 +296,6 @@ function uniqueSlug(baseSlug: string, used: Set<string>): string {
   return next;
 }
 
-function buildComponentDocTemplate(args: {
-  componentName: string;
-  componentNodeId: string;
-}): string {
-  const { componentName, componentNodeId } = args;
-  const safeName = String(componentName || 'Component').trim() || 'Component';
-  return [
-    `# ${safeName}`,
-    '',
-    '## Overview',
-    '',
-    '_TBD_',
-    '',
-    '### Visual Proof',
-    '',
-    '- Screenshot: _TBD_',
-    `- Source node: \`${componentNodeId || 'TBD'}\``,
-    '- Metadata source: component catalog (database-backed)',
-    '',
-    '## Structure',
-    '',
-    '_TBD_',
-    '',
-    '## Component API',
-    '',
-    '### Properties',
-    '',
-    '_TBD_',
-    '',
-    '## Usage Guidelines',
-    '',
-    '_TBD_',
-    '',
-    '## Accessibility',
-    '',
-    '_TBD_',
-    '',
-  ].join('\n');
-}
-
-function ensureComponentDocTemplates(options: {
-  entries: SyncComponentEntry[];
-  repoRoot: string;
-  dsId: string;
-}): void {
-  const { entries, repoRoot, dsId } = options;
-  const paths = resolveSystemPaths(dsId, repoRoot);
-  fs.mkdirSync(paths.componentsDir, { recursive: true });
-  for (const entry of entries) {
-    const targetPath = path.join(paths.componentsDir, `${entry.slug}.md`);
-    if (fs.existsSync(targetPath)) continue;
-    const markdown = buildComponentDocTemplate({
-      componentName: entry.name,
-      componentNodeId: entry.figma.componentSetNodeId,
-    });
-    try {
-      fs.writeFileSync(targetPath, markdown, 'utf8');
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      console.warn(
-        `[ensureComponentDocTemplates] Failed writing template for slug=${entry.slug} path=${targetPath}: ${reason}`,
-      );
-    }
-  }
-}
-
 type FullComponentSpecResult = {
   success: true;
   nodeId: string;
@@ -2001,14 +1935,6 @@ export async function syncDesignSystemFromPlugin(
         : 0;
 
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
-      // Keep writing doc skeletons as a compatibility artifact for local tooling
-      // even though DB-first consumers do not require these files at runtime.
-      ensureComponentDocTemplates({
-        entries: componentEntries,
-        repoRoot,
-        dsId,
-      });
-
       if (captureComponentProofs) {
         try {
           await captureComponentMainProofImages({
