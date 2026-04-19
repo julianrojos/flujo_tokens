@@ -396,7 +396,7 @@ export function TokensPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tokens & Custom Properties"
+        title="Tokens"
         description="Local inventory of your design tokens, with filters by collection and type."
         actions={
           <div className="flex flex-wrap gap-2">
@@ -552,7 +552,7 @@ export function TokensPage() {
                   onSort={() => toggleSort("resolvedValue")}
                 />
                 <SortableTableHead
-                  label="Used In"
+                  label="Instances"
                   ariaLabel="Sort by usage count"
                   onSort={() => toggleSort("usageCount")}
                 />
@@ -635,7 +635,7 @@ export function TokensPage() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <Badge variant="neutral">{usageCount} refs</Badge>
+                            <div className="text-xs">{usageCount}</div>
                             {usageOwners.length > 0 ? (
                               <div className="font-mono text-xs text-muted-foreground">
                                 {usageOwners.join(", ")}

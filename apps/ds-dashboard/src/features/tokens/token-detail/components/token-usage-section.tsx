@@ -94,7 +94,7 @@ export function TokenUsageSection({
               <TableRow>
                 <SortableTableHead label="Component" onSort={() => toggleSort("component")} ariaLabel="Sort by component" />
                 <SortableTableHead label="Mode" onSort={() => toggleSort("mode")} ariaLabel="Sort by mode" />
-                <SortableTableHead label="Bindings" onSort={() => toggleSort("occurrences")} ariaLabel="Sort by bindings" />
+                <SortableTableHead label="Instances" onSort={() => toggleSort("occurrences")} ariaLabel="Sort by instances" />
               </TableRow>
             </TableHeader>
             <TableBody>

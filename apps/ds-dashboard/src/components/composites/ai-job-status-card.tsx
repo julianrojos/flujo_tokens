@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
 import { MarkdownViewer } from '@/components/ui/markdown-viewer';
 import { StatusAlert } from '@/components/ui/status-alert';
+import { ApiErrorMessage } from '@/components/api-error-message';
 import { useAiJobStatus } from '@/hooks/use-ai-job-status';
 import { useJobProgress } from '@/hooks/use-job-progress';
 import { cancelAiJob } from '@/lib/ai-jobs-api';
+import { toApiErrorDisplay } from '@/lib/api-error-ux';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import type { AiJobStatus, AiJobResponse, AiJobInput, AiSuggestionPayload, ValidationReport, ValidationSeverity } from '@/types/ai-jobs';
 
@@ -361,12 +363,16 @@ export function AiJobStatusCard({
     }
 
     if (error) {
+        const errorDisplay = toApiErrorDisplay(error, {
+            fallbackTitle: 'Unable to load job status',
+            fallbackMessage: 'Unable to load job status.',
+        });
         return (
-            <StatusAlert
-                variant="error"
-                title="Unable to load job status"
-                description={error.message}
-            />
+            <Card>
+                <CardContent className="pt-6">
+                    <ApiErrorMessage error={errorDisplay} />
+                </CardContent>
+            </Card>
         );
     }
 
