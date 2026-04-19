@@ -8,7 +8,6 @@ import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
-import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
@@ -33,8 +32,6 @@ export function ComponentDetailPage() {
     hasEditorialSpec,
     isEditorialSpecStatusUnknown,
     tokenCatalog,
-    captureModalOpen,
-    captureSummary,
     canOpenDocs,
     previousItem,
     nextItem,
@@ -43,9 +40,6 @@ export function ComponentDetailPage() {
     downloadError,
     downloadWarnings,
     isDownloadingMarkdown,
-    setCaptureModalOpen,
-    setCaptureSummary,
-    handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,
@@ -59,8 +53,6 @@ export function ComponentDetailPage() {
   const descriptionsData = figmaDesc ?? {
     componentSetDescription: null,
     variantDescriptions: [],
-    syncedAt: null,
-    stale: true,
   };
 
   const isInitialLoading = loading && !item;
@@ -108,8 +100,6 @@ export function ComponentDetailPage() {
 
       <ComponentVisualProofSection
         item={item}
-        captureSummary={captureSummary}
-        onOpenCapture={() => setCaptureModalOpen(true)}
         variantVisuals={spec?.variant_visuals}
       />
 
@@ -124,7 +114,6 @@ export function ComponentDetailPage() {
         onOpenEditorial={() => navigate(toComponentEditDocs(slug ?? ""))}
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
-        figmaSyncedAt={descriptionsData.syncedAt}
       />
 
       <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenCatalog={tokenCatalog} />
@@ -132,21 +121,6 @@ export function ComponentDetailPage() {
       <ComponentGraphSection usage={usage} allItems={allItems} />
 
       {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
-
-      {captureModalOpen && (
-        <FigmaCaptureModal
-          open={captureModalOpen}
-          onClose={() => setCaptureModalOpen(false)}
-          defaultFigmaUrl={item.figma.file_url || ""}
-          componentSlug={slug!}
-          onCaptured={(summary) => {
-            setCaptureSummary(
-              `Captured ${summary.capturedCount}, failed ${summary.failedCount}, skipped ${summary.skippedCount}.`,
-            );
-            handleReload();
-          }}
-        />
-      )}
     </div>
   );
 }

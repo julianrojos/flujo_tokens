@@ -10,16 +10,12 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 interface FigmaDescriptionsData {
   componentSetDescription: string | null;
   variantDescriptions: Array<{ canonicalKey: string; description: string | null }>;
-  syncedAt: number | null;
-  stale: boolean;
 }
 
 interface DocsResponse {
   ok: true;
   markdown: string;
   source: 'fresh' | 'cache';
-  syncedAt: number | null;
-  stale: boolean;
   descriptions: {
     componentSet: string | null;
     variants: Array<{ canonicalKey: string; description: string | null }>;
@@ -30,8 +26,6 @@ const QUERY_KEY = 'figmaDescriptions';
 const EMPTY_DESCRIPTIONS: FigmaDescriptionsData = {
   componentSetDescription: null,
   variantDescriptions: [],
-  syncedAt: null,
-  stale: true,
 };
 
 async function fetchFigmaDescriptions(slug: string): Promise<FigmaDescriptionsData> {
@@ -46,8 +40,6 @@ async function fetchFigmaDescriptions(slug: string): Promise<FigmaDescriptionsDa
   return {
     componentSetDescription: data.descriptions?.componentSet ?? null,
     variantDescriptions: data.descriptions?.variants ?? [],
-    syncedAt: data.syncedAt ?? null,
-    stale: data.stale ?? true,
   };
 }
 

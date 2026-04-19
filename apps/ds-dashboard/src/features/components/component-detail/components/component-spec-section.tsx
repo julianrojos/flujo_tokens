@@ -21,7 +21,6 @@ interface ComponentSpecSectionProps {
   onOpenEditorial: () => void;
   figmaComponentSetDescription?: string | null;
   figmaVariantDescriptions?: Array<{ canonicalKey: string; description: string | null }>;
-  figmaSyncedAt?: number | null;
 }
 
 export function ComponentSpecSection({
@@ -35,7 +34,6 @@ export function ComponentSpecSection({
   onOpenEditorial,
   figmaComponentSetDescription = null,
   figmaVariantDescriptions = [],
-  figmaSyncedAt = null,
 }: ComponentSpecSectionProps) {
   return (
     <Card>
@@ -96,7 +94,6 @@ export function ComponentSpecSection({
         <FigmaDescriptionSection
           componentSetDescription={figmaComponentSetDescription}
           variantDescriptions={figmaVariantDescriptions}
-          syncedAt={figmaSyncedAt}
         />
         {spec && (
           <div className="border-t border-border my-4" />

@@ -4,19 +4,16 @@
  * S-07: Displays Figma descriptions (component set + variants) on the component
  * detail page. Feature-local (Tier 2).
  */
-
-import { Badge } from "@/components/ui/badge";
+import React from "react";
 
 interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;
   variantDescriptions: Array<{ canonicalKey: string; description: string | null }>;
-  syncedAt: number | null;
 }
 
 export function FigmaDescriptionSection({
   componentSetDescription,
   variantDescriptions,
-  syncedAt,
 }: FigmaDescriptionSectionProps) {
   const componentDescription = String(componentSetDescription ?? "").trim();
   const variantEntries = variantDescriptions
@@ -32,9 +29,6 @@ export function FigmaDescriptionSection({
         <h4 className="text-muted-foreground text-sm font-titles font-semibold">
           Figma descriptions
         </h4>
-        {syncedAt == null ? (
-          <Badge variant="neutral">Not synced</Badge>
-        ) : null}
       </div>
 
       <div className="space-y-4">

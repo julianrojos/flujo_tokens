@@ -31,8 +31,6 @@ interface ComponentDetailViewModel {
   downloadWarnings: string[];
 
   // UI state
-  captureModalOpen: boolean;
-  captureSummary: string | null;
   canOpenDocs: boolean;
   isDownloadingMarkdown: boolean;
 
@@ -43,9 +41,6 @@ interface ComponentDetailViewModel {
   totalItems: number;
 
   // Handlers
-  setCaptureModalOpen: (open: boolean) => void;
-  setCaptureSummary: (summary: string | null) => void;
-  handleReload: () => void;
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
   downloadMarkdown: () => Promise<void>;
@@ -62,9 +57,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [hasEditorialSpec, setHasEditorialSpec] = useState(false);
   const [isEditorialSpecStatusUnknown, setIsEditorialSpecStatusUnknown] = useState(false);
   const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
-  const [captureModalOpen, setCaptureModalOpen] = useState(false);
-  const [captureSummary, setCaptureSummary] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDownloadingMarkdown, setIsDownloadingMarkdown] = useState(false);
@@ -72,7 +64,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [downloadWarnings, setDownloadWarnings] = useState<string[]>([]);
 
   useEffect(() => {
-    setCaptureSummary(null);
     setDownloadError(null);
     setDownloadWarnings([]);
     setIsDownloadingMarkdown(false);
@@ -133,7 +124,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     return () => {
       cancelled = true;
     };
-  }, [slug, reloadNonce]);
+  }, [slug]);
 
   const { previousItem, nextItem, currentIndex, totalItems } = useMemo(() => {
     const idx = allItems.findIndex((i) => i.slug === slug);
@@ -144,10 +135,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
       totalItems: allItems.length,
     };
   }, [allItems, slug]);
-
-  const handleReload = useCallback(() => {
-    setReloadNonce((n) => n + 1);
-  }, []);
 
   const handleNavigate = useCallback((targetSlug: string) => {
     navigate(`/components/${encodeURIComponent(targetSlug)}`);
@@ -214,17 +201,12 @@ export function useComponentDetail(): ComponentDetailViewModel {
     tokenCatalog,
     downloadError,
     downloadWarnings,
-    captureModalOpen,
-    captureSummary,
     canOpenDocs: Boolean(item),
     isDownloadingMarkdown,
     previousItem,
     nextItem,
     currentIndex,
     totalItems,
-    setCaptureModalOpen,
-    setCaptureSummary,
-    handleReload,
     handleNavigate,
     handleBack,
     downloadMarkdown,

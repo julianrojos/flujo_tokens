@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { SpecVariantVisual } from "ds-types";
 
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,10 @@ import { normalizeVariantName } from "../lib/spec-viewer-utils";
 
 interface ComponentVisualProofSectionProps {
   item: ComponentCatalogItem | null;
-  captureSummary: string | null;
-  onOpenCapture: () => void;
   variantVisuals?: SpecVariantVisual[];
 }
 
-export function ComponentVisualProofSection({ item, captureSummary, onOpenCapture, variantVisuals }: ComponentVisualProofSectionProps) {
+export function ComponentVisualProofSection({ item, variantVisuals }: ComponentVisualProofSectionProps) {
   const proof = item?.visual_proof;
   const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
   const [mainImageFailed, setMainImageFailed] = useState(false);
@@ -152,9 +150,6 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
             <CardTitle>Visual Proof</CardTitle>
             <CardDescription>Screenshot and artwork</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={onOpenCapture}>
-            <Camera className="mr-2 h-4 w-4" /> Capture
-          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -244,12 +239,6 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
                 </div>
               </div>
             )}
-          </div>
-        )}
-        {captureSummary && (
-          <div className="rounded border border-border bg-muted p-3 text-sm">
-            <h4 className="mb-1 text-sm font-titles font-semibold">Last capture</h4>
-            <pre className="whitespace-pre-wrap text-xs">{captureSummary}</pre>
           </div>
         )}
         {!hasScreenshot && !hasVariantPreviews && (

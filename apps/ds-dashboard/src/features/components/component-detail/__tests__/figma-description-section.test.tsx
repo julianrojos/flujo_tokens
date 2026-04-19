@@ -5,12 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FigmaDescriptionSection } from "../components/figma-description-section";
 
 describe("FigmaDescriptionSection", () => {
-  it("renders even when syncedAt is null", () => {
+  it("renders descriptions even when there is no sync metadata", () => {
     const html = renderToStaticMarkup(
       <FigmaDescriptionSection
         componentSetDescription={null}
         variantDescriptions={[]}
-        syncedAt={null}
       />,
     );
     assert.match(html, /Figma descriptions/);
@@ -25,7 +24,6 @@ describe("FigmaDescriptionSection", () => {
         variantDescriptions={[
           { canonicalKey: "Variant=Accent", description: "Used for high-emphasis actions." },
         ]}
-        syncedAt={Math.floor(Date.now() / 1000)}
       />,
     );
 
@@ -36,28 +34,15 @@ describe("FigmaDescriptionSection", () => {
     assert.match(html, /Used for high-emphasis actions\./);
   });
 
-  it("does not show stale indicator", () => {
+  it("does not show sync status badges", () => {
     const html = renderToStaticMarkup(
       <FigmaDescriptionSection
         componentSetDescription="Old text"
         variantDescriptions={[]}
-        syncedAt={Math.floor(Date.now() / 1000)}
       />,
     );
 
-    assert.doesNotMatch(html, /Stale/);
-  });
-
-  it("shows not synced status when syncedAt is null", () => {
-    const html = renderToStaticMarkup(
-      <FigmaDescriptionSection
-        componentSetDescription={null}
-        variantDescriptions={[]}
-        syncedAt={null}
-      />,
-    );
-
-    assert.match(html, /Not synced/);
+    assert.doesNotMatch(html, /Not synced/);
     assert.doesNotMatch(html, /Stale/);
   });
 });
