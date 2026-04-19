@@ -373,6 +373,7 @@ test('e2e: /api/component-catalog exposes structured Figma data (pageName, layou
     );
     assert.equal(button.figma.token_bindings[0].variable_id, 'var-123');
     assert.equal(button.figma.token_bindings[0].token_path, 'blue.500');
+    assert.equal(button.figma.token_bindings[0].status, 'resolved');
 
     assert.ok(Array.isArray(button.figma.layout), 'layout should be an array');
     assert.equal(button.figma.layout.length, 1, 'should have 1 layout row');

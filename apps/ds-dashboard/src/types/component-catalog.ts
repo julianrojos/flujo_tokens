@@ -23,6 +23,7 @@ export interface ComponentCatalogItem {
       variable_id: string;
       token_path?: string;
       mode?: string;
+      status?: "resolved" | "unresolved";
     }>;
     layout?: Array<{
       node_id: string;

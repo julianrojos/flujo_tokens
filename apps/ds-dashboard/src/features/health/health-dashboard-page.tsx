@@ -11,6 +11,7 @@ import { useParams } from 'react-router-dom';
 import { useHealthDashboard } from './hooks/use-health-dashboard';
 import { HealthActiveIssues } from './components/health-active-issues';
 import { ComponentEditorialCoverageCard } from './components/component-editorial-coverage-card';
+import { ComponentTokenDebtCard } from './components/component-token-debt-card';
 
 export function HealthDashboardPage() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -57,8 +58,9 @@ export function HealthDashboardPage() {
         ]}
       />
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2 items-start">
         <ComponentEditorialCoverageCard />
+        <ComponentTokenDebtCard />
       </section>
 
       <HealthActiveIssues

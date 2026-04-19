@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { arc, easeCubicOut, interpolateNumber } from "d3";
-import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
-import { fetchComponentCatalog } from "@/lib/api";
-import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
-import type { ComponentCatalog } from "@/types/component-catalog";
+import { useComponentCatalogQuery } from "../use-health-queries";
 
 const RADIUS = 78;
 const INNER_RADIUS = 58;
@@ -26,11 +23,7 @@ function formatPercentage(value: number): string {
 export function ComponentEditorialCoverageCard() {
   const { systemId } = useParams<{ systemId: string }>();
   const resolvedSystemId = String(systemId || "").trim();
-  const { data, isLoading, isError } = useQuery<ComponentCatalog>({
-    queryKey: ["health", "component-docs-coverage", resolvedSystemId],
-    queryFn: () => fetchComponentCatalog(resolvedSystemId || undefined),
-    ...QUERY_DEFAULTS,
-  });
+  const { data, isLoading, isError } = useComponentCatalogQuery(resolvedSystemId);
 
   const totalComponents = data?.summary.total_components ?? 0;
   const docsCreated = data?.summary.with_editorial ?? 0;
