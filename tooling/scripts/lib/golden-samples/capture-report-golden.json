@@ -36,7 +36,7 @@
       "nodeId": "100:200",
       "kind": "component_set",
       "pageName": "Components",
-      "markdownPath": "/mock/repo/docs/components/example-button.md",
+      "docPath": "/mock/repo/docs/components/example-button.md",
       "specPath": "/mock/repo/docs/_spec/components/example-button.yml",
       "specExists": true,
       "nodeUrl": "https://www.figma.com/design/example-file/Components?node-id=100-200",

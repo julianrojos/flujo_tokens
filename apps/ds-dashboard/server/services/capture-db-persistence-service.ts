@@ -9,13 +9,13 @@ type CapturePayloadObject = Record<string, unknown>;
 type CaptureTargetPayload = {
   slug?: unknown;
   node_id?: unknown;
-  markdown_path?: unknown;
+  doc_path?: unknown;
 };
 
 type CaptureRowPayload = {
   slug?: unknown;
   node_id?: unknown;
-  markdown_path?: unknown;
+  doc_path?: unknown;
   local_image_path?: unknown;
   screenshot_url?: unknown;
   variants_count?: unknown;
@@ -88,8 +88,8 @@ function validateCapturePayloadShape(payloadObj: CapturePayloadObject): void {
       if (entry.node_id !== undefined && typeof entry.node_id !== 'string') {
         errors.push(`targets[${i}].node_id must be a string when present.`);
       }
-      if (entry.markdown_path !== undefined && typeof entry.markdown_path !== 'string') {
-        errors.push(`targets[${i}].markdown_path must be a string when present.`);
+      if (entry.doc_path !== undefined && typeof entry.doc_path !== 'string') {
+        errors.push(`targets[${i}].doc_path must be a string when present.`);
       }
     }
   }
@@ -107,8 +107,8 @@ function validateCapturePayloadShape(payloadObj: CapturePayloadObject): void {
       if (entry.node_id !== undefined && typeof entry.node_id !== 'string') {
         errors.push(`captured[${i}].node_id must be a string when present.`);
       }
-      if (entry.markdown_path !== undefined && typeof entry.markdown_path !== 'string') {
-        errors.push(`captured[${i}].markdown_path must be a string when present.`);
+      if (entry.doc_path !== undefined && typeof entry.doc_path !== 'string') {
+        errors.push(`captured[${i}].doc_path must be a string when present.`);
       }
       if (entry.local_image_path !== undefined && typeof entry.local_image_path !== 'string') {
         errors.push(`captured[${i}].local_image_path must be a string when present.`);
@@ -433,15 +433,15 @@ export async function persistCapturePayloadToComponentRepo(
     const existing = existingBySlug.get(slug) || null;
     const existingSpec = existing?.specs?.[0];
     const nodeId = firstNonEmptyString(row.node_id, target?.node_id, existing?.figmaComponentSetNodeId);
-    const markdownPathRaw = firstNonEmptyString(
-      row.markdown_path,
-      target?.markdown_path,
-      existingSpec?.markdownPath,
+    const docPathRaw = firstNonEmptyString(
+      row.doc_path,
+      target?.doc_path,
+      existingSpec?.docPath,
     );
-    const markdownPath =
-      (markdownPathRaw
-        ? toRepoRelativePathOrEmpty(root, markdownPathRaw, 'captured[].markdown_path')
-        : '') || existingSpec?.markdownPath || '';
+    const docPath =
+      (docPathRaw
+        ? toRepoRelativePathOrEmpty(root, docPathRaw, 'captured[].doc_path')
+        : '') || existingSpec?.docPath || '';
     const screenshotUrl = firstNonEmptyString(row.screenshot_url);
     const variantsCountFromPayload = toNonNegativeInteger(
       row.variants_count,
@@ -486,10 +486,10 @@ export async function persistCapturePayloadToComponentRepo(
       ],
     };
 
-    if (markdownPath) {
+    if (docPath) {
       entry.specs = [
         {
-          markdownPath,
+          docPath,
           docStatus: existingSpec?.docStatus ?? 'draft',
           coverage: existingSpec?.coverage ?? 0,
         },

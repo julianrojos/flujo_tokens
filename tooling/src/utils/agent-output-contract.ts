@@ -201,7 +201,7 @@ export function validateAgentOutputContract(
 export function writeAgentOutputErrorReport(options: {
   outputPath?: string;  // Optional: defaults to docs/_generated/agent_output_errors/
   componentSlug?: string;
-  markdownPath?: string;  // Optional: actual markdown file path
+  docPath?: string;  // Optional: actual markdown file path
   scriptName?: string;  // Optional: defaults to "agent-output-contract"
   errors: AgentOutputError[];
   rawOutput?: string;
@@ -209,7 +209,7 @@ export function writeAgentOutputErrorReport(options: {
   const {
     outputPath,
     componentSlug,
-    markdownPath,
+    docPath,
     scriptName = "agent-output-contract",
     errors,
     rawOutput
@@ -223,7 +223,7 @@ export function writeAgentOutputErrorReport(options: {
   const report = {
     componentSlug: safeSlug,
     scriptName,
-    markdownPath: markdownPath || `${safeSlug}.md`,
+    docPath: docPath || `${safeSlug}.md`,
     errors,
     rawOutput: rawOutput || "",
   };

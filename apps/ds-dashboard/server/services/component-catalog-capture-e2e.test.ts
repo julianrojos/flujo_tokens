@@ -69,13 +69,13 @@ test('e2e: capture payload upserts DB and /api/component-catalog exposes spec-ce
       payload: {
         source: { file_key: 'ABC123' },
         targets: [
-          { slug: 'button', node_id: '1:2', markdown_path: docPathAbs },
+          { slug: 'button', node_id: '1:2', doc_path: docPathAbs },
         ],
         captured: [
           {
             slug: 'button',
             node_id: '1:2',
-            markdown_path: docPathAbs,
+            doc_path: docPathAbs,
             local_image_path: imagePathAbs,
             screenshot_url: 'https://cdn.example.com/button.png',
             variants_count: 1,
@@ -192,7 +192,7 @@ test('e2e: component-catalog returns spec.exists=false when no editorial row', a
           {
             slug: 'chip',
             node_id: '7:7',
-            markdown_path: docPathAbs,
+            doc_path: docPathAbs,
             local_image_path: path.join(
               tmpRoot,
               `design-systems/${systemId}/docs/_generated/visual-proofs/images/chip.png`,

@@ -78,7 +78,7 @@ function normalizeFigmaLayoutForApi(layoutRows) {
 
 function toSpecPathForUsageIndex(row, systemId) {
   const firstSpecPath = Array.isArray(row?.specs) && row.specs.length > 0
-    ? String(row.specs[0]?.markdownPath || "").trim()
+    ? String(row.specs[0]?.docPath || "").trim()
     : "";
 
   if (firstSpecPath) {

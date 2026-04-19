@@ -57,7 +57,7 @@ test("catalog-routes: /api/component-usage-index returns empty graph for db-back
   assert.deepEqual(payload.by_slug.icon.used_in, []);
 });
 
-test("catalog-routes: /api/component-usage-index resolves YAML relationships derived from markdownPath", async () => {
+test("catalog-routes: /api/component-usage-index resolves YAML relationships derived from docPath", async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "registry-usage-route-"));
   try {
     const specPath = path.join(
@@ -89,12 +89,12 @@ test("catalog-routes: /api/component-usage-index resolves YAML relationships der
           {
             id: 1,
             slug: "button",
-            specs: [{ markdownPath: "design-systems/sys-01/docs/components/button.md" }],
+            specs: [{ docPath: "design-systems/sys-01/docs/components/button.md" }],
           },
           {
             id: 2,
             slug: "icon",
-            specs: [{ markdownPath: "design-systems/sys-01/docs/components/icon.md" }],
+            specs: [{ docPath: "design-systems/sys-01/docs/components/icon.md" }],
           },
         ],
       },

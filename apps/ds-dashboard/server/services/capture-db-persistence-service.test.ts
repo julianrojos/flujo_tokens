@@ -21,7 +21,7 @@ describe('capture-db-persistence-service', () => {
           figmaComponentSetNodeId: '1:99',
           specs: [
             {
-              markdownPath: 'design-systems/sys-01/docs/components/button.md',
+              docPath: 'design-systems/sys-01/docs/components/button.md',
               docStatus: 'ready',
               coverage: 100,
             },
@@ -32,7 +32,7 @@ describe('capture-db-persistence-service', () => {
         name: 'Button',
         figmaFileUrl: 'https://www.figma.com/design/OLD_FILE',
         figmaComponentSetNodeId: '1:99',
-        specs: [{ markdownPath: 'design-systems/sys-01/docs/components/button.md', docStatus: 'ready', coverage: 100 }],
+        specs: [{ docPath: 'design-systems/sys-01/docs/components/button.md', docStatus: 'ready', coverage: 100 }],
       }),
       upsertFromRegistry: (_dsId: string, entries: unknown[]) => {
         upsertCalls.push(entries);
@@ -49,14 +49,14 @@ describe('capture-db-persistence-service', () => {
           {
             slug: 'button',
             node_id: '1:2',
-            markdown_path: 'design-systems/sys-01/docs/components/button.md',
+            doc_path: 'design-systems/sys-01/docs/components/button.md',
           },
         ],
         captured: [
           {
             slug: 'button',
             node_id: '1:2',
-            markdown_path: 'design-systems/sys-01/docs/components/button.md',
+            doc_path: 'design-systems/sys-01/docs/components/button.md',
             local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',
             screenshot_url: 'https://cdn.example.com/button.png',
             variants_count: 3,
@@ -92,7 +92,7 @@ describe('capture-db-persistence-service', () => {
     assert.equal(entries[0].name, 'Button');
     assert.equal(entries[0].figma.fileUrl, 'https://www.figma.com/design/ABC123');
     assert.equal(entries[0].figma.componentSetNodeId, '1:2');
-    assert.equal(entries[0].specs[0].markdownPath, 'design-systems/sys-01/docs/components/button.md');
+    assert.equal(entries[0].specs[0].docPath, 'design-systems/sys-01/docs/components/button.md');
     assert.equal(
       entries[0].visualProofs[0].imagePath,
       'design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',

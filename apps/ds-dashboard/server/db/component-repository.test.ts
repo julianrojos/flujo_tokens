@@ -39,7 +39,7 @@ describe('ComponentRepository', () => {
                     docType: 'component',
                     specs: [
                         {
-                            markdownPath: 'components/button.md',
+                            docPath: 'components/button.md',
                             docStatus: 'ready',
                             coverage: 85,
                         },
@@ -70,7 +70,7 @@ describe('ComponentRepository', () => {
             assert.strictEqual(button.status, 'ready');
             assert.ok(button.specs);
             assert.strictEqual(button.specs.length, 1);
-            assert.strictEqual(button.specs[0].markdownPath, 'components/button.md');
+            assert.strictEqual(button.specs[0].docPath, 'components/button.md');
             assert.strictEqual(button.specs[0].coverage, 85);
             assert.ok(button.visualProofs);
             assert.strictEqual(button.visualProofs.length, 1);
@@ -90,7 +90,7 @@ describe('ComponentRepository', () => {
                     status: 'needs-review',
                     specs: [
                         {
-                            markdownPath: 'components/button.md',
+                            docPath: 'components/button.md',
                             docStatus: 'ready',
                             coverage: 90,
                         },
@@ -313,7 +313,7 @@ describe('ComponentRepository', () => {
                 {
                     slug: 'cascade-test',
                     name: 'Cascade Test',
-                    specs: [{ markdownPath: 'cascade.md' }],
+                    specs: [{ docPath: 'cascade.md' }],
                     visualProofs: [{ imagePath: 'cascade.png' }],
                 },
             ]);
@@ -403,6 +403,13 @@ describe('ComponentRepository', () => {
             assert.deepStrictEqual(editorial.summary, editorialFields.summary);
         });
 
+        it('accepts stringified component ids when reading editorial rows', async () => {
+            const editorial = await repo.getEditorial(String(testComponentId) as unknown as number);
+
+            assert.ok(editorial, 'Editorial row should be readable from a string id');
+            assert.strictEqual(editorial?.componentId, testComponentId);
+        });
+
         it('round-trips JSONB editorial fields through the database', async () => {
             const editorialFields = {
                 summary: {
@@ -487,6 +494,35 @@ describe('ComponentRepository', () => {
                     ),
                 /NaN\/Infinity are not allowed/,
             );
+        });
+
+        it('sanitizes null bytes in editorial payload before persisting', async () => {
+            const existing = await repo.getEditorial(testComponentId);
+            const editorial = await repo.upsertEditorial(
+                testComponentId,
+                {
+                    summary: { purpose: 'Avatar\u0000 component' },
+                },
+                existing?.updatedAt ?? null,
+            );
+
+            assert.strictEqual(
+                (editorial.summary as Record<string, unknown>)?.purpose,
+                'Avatar component',
+            );
+        });
+
+        it('treats non-serializable top-level values as null instead of crashing postgres', async () => {
+            const existing = await repo.getEditorial(testComponentId);
+            const editorial = await repo.upsertEditorial(
+                testComponentId,
+                {
+                    summary: (() => 'not-serializable') as unknown as Record<string, unknown>,
+                },
+                existing?.updatedAt ?? null,
+            );
+
+            assert.strictEqual(editorial.summary, null);
         });
     });
 

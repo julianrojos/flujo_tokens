@@ -1326,11 +1326,11 @@ function discoverComponentSpecsFromFilesystem(options: {
     const slug = slugifyComponentName(fileStem);
     if (!knownSlugs.has(slug)) continue;
     const absolutePath = path.join(componentsDir, file.name);
-    const markdownPath = toRepoRelativePath(repoRoot, absolutePath);
-    if (!markdownPath) continue;
+    const docPath = toRepoRelativePath(repoRoot, absolutePath);
+    if (!docPath) continue;
     bySlug.set(slug, [
       {
-        markdownPath,
+        docPath,
         docStatus: 'draft',
         coverage: 0,
       },
@@ -1527,7 +1527,7 @@ type SyncComponentEntry = {
     }>;
   };
   specs?: Array<{
-    markdownPath: string;
+    docPath: string;
     docStatus?: 'draft' | 'ready' | 'needs-review';
     coverage?: number;
   }>;

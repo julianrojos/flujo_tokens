@@ -88,7 +88,7 @@ export interface ComponentEntry {
 export interface ComponentSpecEntry {
   id: number;
   componentId: number;
-  markdownPath: string;
+  docPath: string;
   docStatus: 'draft' | 'ready' | 'needs-review';
   coverage: number;
 }
@@ -128,7 +128,7 @@ export interface ComponentCatalogEntry {
   status?: 'draft' | 'ready' | 'needs-review' | 'missing';
   docType?: 'component' | 'pattern' | 'guideline';
   specs?: Array<{
-    markdownPath: string;
+    docPath: string;
     docStatus?: 'draft' | 'ready' | 'needs-review';
     coverage?: number;
   }>;
@@ -246,10 +246,15 @@ export class ComponentRepository {
   private sql: Sql;
   private static readonly IN_BATCH_SIZE = 500;
 
+  private static normalizeComponentId(componentId: number | string): number | null {
+    const normalized = Number(componentId);
+    return Number.isInteger(normalized) && normalized > 0 ? normalized : null;
+  }
+
   private static toJsonColumnValue(value: unknown): string | null {
     if (value === undefined || value === null) return null;
     try {
-      return JSON.stringify(value, (_key, currentValue) => {
+      const serialized = JSON.stringify(value, (_key, currentValue) => {
         if (
           typeof currentValue === 'number' &&
           !Number.isFinite(currentValue)
@@ -258,8 +263,16 @@ export class ComponentRepository {
             'Invalid numeric value in editorial payload: NaN/Infinity are not allowed',
           );
         }
+        if (typeof currentValue === 'string') {
+          // PostgreSQL rejects null bytes in text/json payloads.
+          return currentValue.replace(/\u0000/g, '');
+        }
         return currentValue;
       });
+      if (serialized === undefined) {
+        return null;
+      }
+      return serialized;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new Error(
@@ -637,7 +650,10 @@ export class ComponentRepository {
   }
 
   async getEditorial(componentId: number): Promise<EditorialEntry | null> {
-    if (!Number.isFinite(componentId) || componentId <= 0) {
+    const normalizedComponentId = ComponentRepository.normalizeComponentId(
+      componentId,
+    );
+    if (normalizedComponentId === null) {
       return null;
     }
 
@@ -646,7 +662,7 @@ export class ComponentRepository {
              content_guidelines_json, qa_json,
              accessibility_notes_json, variants_json, updated_at
       FROM component_editorial
-      WHERE component_id = ${componentId}
+      WHERE component_id = ${normalizedComponentId}
     `) as Array<{
       component_id: number;
       summary_json: unknown;
@@ -663,7 +679,7 @@ export class ComponentRepository {
 
     const row = rows[0];
     return {
-      componentId: row.component_id,
+      componentId: Number(row.component_id),
       summary: ComponentRepository.parseJsonColumnValue<
         Record<string, unknown>
       >(row.summary_json, 'component_editorial.summary_json'),
@@ -700,13 +716,17 @@ export class ComponentRepository {
   ): Promise<Map<number, EditorialEntry>> {
     const out = new Map<number, EditorialEntry>();
     if (!Array.isArray(componentIds) || componentIds.length === 0) return out;
+    const normalizedComponentIds = componentIds
+      .map((componentId) => ComponentRepository.normalizeComponentId(componentId))
+      .filter((componentId): componentId is number => componentId !== null);
+    if (normalizedComponentIds.length === 0) return out;
 
     const rows = (await this.sql`
       SELECT component_id, summary_json, behaviour_json, accessibility_json,
              content_guidelines_json, qa_json,
              variants_json, updated_at
       FROM component_editorial
-      WHERE component_id = ANY(${componentIds})
+      WHERE component_id = ANY(${normalizedComponentIds})
     `) as Array<{
       component_id: number;
       summary_json: unknown;
@@ -719,8 +739,8 @@ export class ComponentRepository {
     }>;
 
     for (const row of rows) {
-      out.set(row.component_id, {
-        componentId: row.component_id,
+      out.set(Number(row.component_id), {
+        componentId: Number(row.component_id),
         summary: ComponentRepository.parseJsonColumnValue<
           Record<string, unknown>
         >(row.summary_json, 'component_editorial.summary_json'),
@@ -756,7 +776,11 @@ export class ComponentRepository {
     fields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>>,
     expectedUpdatedAt?: Date | number | null,
   ): Promise<EditorialEntry> {
-    const existing = await this.getEditorial(componentId);
+    const normalizedComponentId = ComponentRepository.normalizeComponentId(
+      componentId,
+    );
+    const persistedComponentId = normalizedComponentId ?? componentId;
+    const existing = await this.getEditorial(persistedComponentId);
     const now = new Date();
 
     if (!existing) {
@@ -774,7 +798,7 @@ export class ComponentRepository {
           content_guidelines_json, qa_json,
           accessibility_notes_json, variants_json, updated_at
         ) VALUES (
-          ${componentId},
+          ${persistedComponentId},
           ${ComponentRepository.toJsonColumnValue(fields.summary)},
           ${ComponentRepository.toJsonColumnValue(fields.behaviour)},
           ${ComponentRepository.toJsonColumnValue(fields.accessibility)},
@@ -786,7 +810,11 @@ export class ComponentRepository {
         )
       `;
 
-      return { componentId, ...fields, updatedAt: now };
+      const created = await this.getEditorial(persistedComponentId);
+      if (!created) {
+        return { componentId: Number(persistedComponentId), ...fields, updatedAt: now };
+      }
+      return created;
     }
 
     if (expectedUpdatedAt === undefined || expectedUpdatedAt === null) {
@@ -863,7 +891,7 @@ export class ComponentRepository {
 
     updates.push(`updated_at = $${values.length + 1}`);
     values.push(now);
-    values.push(componentId);
+    values.push(persistedComponentId);
 
     // NOTE: The updates array is built from EDITORIAL_ALLOWED_KEYS (line 230), which contains
     // only hardcoded column names controlled internally by the codebase. Values are passed as
@@ -874,7 +902,8 @@ export class ComponentRepository {
       values,
     );
 
-    return { ...existing, ...fields, updatedAt: now };
+    const updated = await this.getEditorial(persistedComponentId);
+    return updated ?? { ...existing, ...fields, updatedAt: now };
   }
 
   async getAll(dsId: string): Promise<ComponentEntry[]> {
@@ -894,7 +923,7 @@ export class ComponentRepository {
       figma_file_url: string | null;
       figma_component_set_node_id: string | null;
       figma_page_name: string | null;
-      has_editoral: unknown;
+      has_editorial: unknown;
     }>;
 
     if (rows.length === 0) {
@@ -903,13 +932,13 @@ export class ComponentRepository {
 
     const componentIds = rows.map((row) => row.id);
     const specRows = (await this.sql`
-      SELECT id, component_id, markdown_path, doc_status, coverage
+      SELECT id, component_id, doc_path, doc_status, coverage
       FROM component_specs
       WHERE component_id = ANY(${componentIds})
     `) as Array<{
       id: number;
       component_id: number;
-      markdown_path: string;
+      doc_path: string;
       doc_status: string;
       coverage: number;
     }>;
@@ -943,7 +972,7 @@ export class ComponentRepository {
       prev.push({
         id: row.id,
         componentId: row.component_id,
-        markdownPath: row.markdown_path,
+        docPath: row.doc_path,
         docStatus: row.doc_status as ComponentSpecEntry['docStatus'],
         coverage: row.coverage,
       });
@@ -981,7 +1010,7 @@ export class ComponentRepository {
       await this.loadStructuredFigmaByComponentIds(componentIds);
 
     return rows.map((row) => ({
-      id: row.id,
+      id: Number(row.id),
       dsId: row.ds_id,
       slug: row.slug,
       name: row.name,
@@ -995,7 +1024,7 @@ export class ComponentRepository {
       ),
       specs: specsByComponentId.get(row.id) || [],
       visualProofs: proofsByComponentId.get(row.id) || [],
-      editorialExists: Boolean(row.has_editoral),
+      editorialExists: Boolean(row.has_editorial),
     }));
   }
 
@@ -1015,7 +1044,7 @@ export class ComponentRepository {
       figma_file_url: string | null;
       figma_component_set_node_id: string | null;
       figma_page_name: string | null;
-      has_editoral: unknown;
+      has_editorial: unknown;
     }>;
 
     if (rows.length === 0) return null;
@@ -1026,7 +1055,7 @@ export class ComponentRepository {
     ).get(row.id);
 
     return {
-      id: row.id,
+      id: Number(row.id),
       dsId: row.ds_id,
       slug: row.slug,
       name: row.name,
@@ -1040,19 +1069,19 @@ export class ComponentRepository {
       ),
       specs: await this.getSpecs(row.id),
       visualProofs: await this.getVisualProofs(row.id),
-      editorialExists: Boolean(row.has_editoral),
+      editorialExists: Boolean(row.has_editorial),
     };
   }
 
   private async getSpecs(componentId: number): Promise<ComponentSpecEntry[]> {
     const rows = (await this.sql`
-      SELECT id, component_id, markdown_path, doc_status, coverage
+      SELECT id, component_id, doc_path, doc_status, coverage
       FROM component_specs
       WHERE component_id = ${componentId}
     `) as Array<{
       id: number;
       component_id: number;
-      markdown_path: string;
+      doc_path: string;
       doc_status: string;
       coverage: number;
     }>;
@@ -1060,7 +1089,7 @@ export class ComponentRepository {
     return rows.map((row) => ({
       id: row.id,
       componentId: row.component_id,
-      markdownPath: row.markdown_path,
+      docPath: row.doc_path,
       docStatus: row.doc_status as ComponentSpecEntry['docStatus'],
       coverage: row.coverage,
     }));
@@ -1153,9 +1182,9 @@ export class ComponentRepository {
         if (entry.specs.length > 0) {
           for (const spec of entry.specs) {
             await this.sql`
-              INSERT INTO component_specs (component_id, markdown_path, doc_status, coverage, created_at, updated_at)
-              VALUES (${componentId}, ${spec.markdownPath}, ${spec.docStatus ?? 'draft'}, ${spec.coverage ?? 0}, ${now}, ${now})
-              ON CONFLICT(component_id, markdown_path) DO UPDATE SET
+              INSERT INTO component_specs (component_id, doc_path, doc_status, coverage, created_at, updated_at)
+              VALUES (${componentId}, ${spec.docPath}, ${spec.docStatus ?? 'draft'}, ${spec.coverage ?? 0}, ${now}, ${now})
+              ON CONFLICT(component_id, doc_path) DO UPDATE SET
                 doc_status = EXCLUDED.doc_status,
                 coverage = EXCLUDED.coverage,
                 updated_at = EXCLUDED.updated_at
@@ -1465,6 +1494,13 @@ export class ComponentRepository {
     editorialUpdatedAt: Date | null;
     capturedAt: Date | null;
   }> {
+    const normalizedComponentId = ComponentRepository.normalizeComponentId(
+      componentId,
+    );
+    if (normalizedComponentId === null) {
+      return { status: 'missing', editorialUpdatedAt: null, capturedAt: null };
+    }
+
     const rows = (await this.sql`
       SELECT
         e.updated_at AS editorial_updated_at,
@@ -1476,7 +1512,7 @@ export class ComponentRepository {
         FROM component_figma_variants
         GROUP BY component_id
       ) v ON v.component_id = c.id
-      WHERE c.id = ${componentId}
+      WHERE c.id = ${normalizedComponentId}
     `) as Array<{
       editorial_updated_at: Date | null;
       captured_at: Date | null;
@@ -1574,8 +1610,12 @@ export class ComponentRepository {
   async getFigmaComponentSetNodeId(
     componentId: number,
   ): Promise<string | null> {
+    const normalizedComponentId = ComponentRepository.normalizeComponentId(
+      componentId,
+    );
+    if (normalizedComponentId === null) return null;
     const rows = (await this.sql`
-      SELECT figma_component_set_node_id FROM components WHERE id = ${componentId}
+      SELECT figma_component_set_node_id FROM components WHERE id = ${normalizedComponentId}
     `) as Array<{ figma_component_set_node_id: string | null }>;
     return rows.length > 0
       ? (rows[0].figma_component_set_node_id ?? null)

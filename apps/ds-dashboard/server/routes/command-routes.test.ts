@@ -250,7 +250,7 @@ describe('command-routes', () => {
           name: 'Button',
           figmaFileUrl: 'https://www.figma.com/design/OLD',
           figmaComponentSetNodeId: '1:1',
-          specs: [{ markdownPath: 'design-systems/core/docs/components/button.md', docStatus: 'draft', coverage: 0 }],
+          specs: [{ docPath: 'design-systems/core/docs/components/button.md', docStatus: 'draft', coverage: 0 }],
         }),
         upsertFromRegistry: (dsId: string, entries: unknown[]) => {
           upsertCalls.push({ dsId, entries });
@@ -280,7 +280,7 @@ describe('command-routes', () => {
             {
               slug: 'button',
               node_id: '1:2',
-              markdown_path: 'design-systems/core/docs/components/button.md',
+              doc_path: 'design-systems/core/docs/components/button.md',
               local_image_path: '/repo/design-systems/core/docs/_generated/visual-proofs/images/button.png',
               screenshot_url: 'https://cdn.example.com/button.png',
               variants_count: 2,

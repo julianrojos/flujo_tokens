@@ -46,7 +46,7 @@ export interface DriftDetectionResult {
  * Options for updateAgentDriftBaseline.
  */
 export interface UpdateAgentDriftBaselineOptions {
-  markdownPath: string;
+  docPath: string;
   componentSlug?: string;
   scriptName?: string;
   outputDir?: string;
@@ -165,9 +165,9 @@ export function computeOutputContractHash(markdown: string): HashResult {
 export function updateAgentDriftBaseline(
   options: UpdateAgentDriftBaselineOptions,
 ): DriftDetectionResult {
-  const { markdownPath, componentSlug, scriptName, outputDir } = options;
+  const { docPath, componentSlug, scriptName, outputDir } = options;
   
-  const filePath = path.resolve(markdownPath);
+  const filePath = path.resolve(docPath);
   const markdown = fs.readFileSync(filePath, "utf8");
   const { hash, contract } = computeOutputContractHash(markdown);
   const baseDir = path.resolve(
@@ -193,7 +193,7 @@ export function updateAgentDriftBaseline(
   const driftDetected = previousHash.length > 0 && previousHash !== hash;
   const payload = {
     component: slug,
-    markdownPath: filePath,
+    docPath: filePath,
     script: String(scriptName || ""),
     updatedAt: new Date().toISOString(),
     hash,

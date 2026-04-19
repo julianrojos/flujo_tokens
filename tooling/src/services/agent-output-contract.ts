@@ -199,7 +199,7 @@ export function validateAgentOutputContract(
 export function writeAgentOutputErrorReport(params: {
   componentSlug?: string;
   scriptName?: string;
-  markdownPath?: string;
+  docPath?: string;
   errors: ContractError[];
   rawOutput?: string;
   outputDir?: string;
@@ -207,7 +207,7 @@ export function writeAgentOutputErrorReport(params: {
   const {
     componentSlug,
     scriptName,
-    markdownPath,
+    docPath,
     errors,
     rawOutput,
     outputDir,
@@ -219,13 +219,13 @@ export function writeAgentOutputErrorReport(params: {
   fs.mkdirSync(baseDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const slug = sanitizeComponentSlug(
-    componentSlug || path.basename(markdownPath || "", ".md"),
+    componentSlug || path.basename(docPath || "", ".md"),
   );
   const reportPath = path.join(baseDir, `${timestamp}_${slug}.json`);
   const payload = {
     ok: false,
     script: String(scriptName || ""),
-    markdownPath: markdownPath ? path.resolve(markdownPath) : "",
+    docPath: docPath ? path.resolve(docPath) : "",
     errors: Array.isArray(errors) ? errors : [],
     rawOutput: String(rawOutput || ""),
   };

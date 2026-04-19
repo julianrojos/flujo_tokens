@@ -914,7 +914,7 @@ export interface CaptureFigmaScreenshotResult {
     node_id: string;
     kind?: string;
     page_name?: string | null;
-    markdown_path: string;
+    doc_path: string;
     spec_path?: string;
     spec_exists?: boolean;
     figma_url?: string;
@@ -922,7 +922,7 @@ export interface CaptureFigmaScreenshotResult {
   captured?: Array<{
     slug: string;
     node_id: string;
-    markdown_path: string;
+    doc_path: string;
     proof_file_path?: string | null;
     screenshot_url?: string | null;
     local_image_path?: string | null;
@@ -931,7 +931,7 @@ export interface CaptureFigmaScreenshotResult {
   failed?: Array<{
     slug: string;
     node_id: string;
-    markdown_path: string;
+    doc_path: string;
     error: string;
   }>;
   skipped?: Array<Record<string, unknown>>;

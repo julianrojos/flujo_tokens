@@ -729,7 +729,7 @@ describe('figma-db-sync-service', () => {
       assert.equal(receivedEntries.length, 1);
       const button = receivedEntries[0] as Record<string, unknown>;
       const specs = button.specs as Array<{
-        markdownPath: string;
+        docPath: string;
         docStatus?: string;
         coverage?: number;
       }>;
@@ -741,7 +741,7 @@ describe('figma-db-sync-service', () => {
       assert.ok(Array.isArray(specs));
       assert.equal(specs.length, 1);
       assert.equal(
-        specs[0].markdownPath,
+        specs[0].docPath,
         'design-systems/sys-01/docs/components/button.md',
       );
       assert.equal(specs[0].docStatus, 'draft');
@@ -842,23 +842,23 @@ describe('figma-db-sync-service', () => {
       });
 
       const paths = resolveSystemPaths('sys-01', repoRoot);
-      const markdownPath = path.join(paths.componentsDir, 'button-primary.md');
+      const docPath = path.join(paths.componentsDir, 'button-primary.md');
       const proofPath = path.join(
         paths.generatedDir,
         'visual-proofs',
         'images',
         'button-primary.png',
       );
-      assert.equal(fs.existsSync(markdownPath), true);
+      assert.equal(fs.existsSync(docPath), true);
       assert.equal(fs.existsSync(proofPath), true);
 
       assert.equal(receivedEntries.length, 1);
       const button = receivedEntries[0] as Record<string, unknown>;
-      const specs = button.specs as Array<{ markdownPath: string }>;
+      const specs = button.specs as Array<{ docPath: string }>;
       const visualProofs = button.visualProofs as Array<{ imagePath: string }>;
       assert.ok(Array.isArray(specs));
       assert.equal(
-        specs[0].markdownPath,
+        specs[0].docPath,
         'design-systems/sys-01/docs/components/button-primary.md',
       );
       assert.ok(Array.isArray(visualProofs));
@@ -925,11 +925,11 @@ describe('figma-db-sync-service', () => {
       });
 
       const paths = resolveSystemPaths('sys-01', repoRoot);
-      const markdownPath = path.join(
+      const docPath = path.join(
         paths.componentsDir,
         'button-primary-v2.md',
       );
-      const markdown = fs.readFileSync(markdownPath, 'utf8');
+      const markdown = fs.readFileSync(docPath, 'utf8');
       assert.ok(markdown.startsWith('# Button: Primary [v2]'));
       assert.equal(markdown.includes('---'), false);
     } finally {

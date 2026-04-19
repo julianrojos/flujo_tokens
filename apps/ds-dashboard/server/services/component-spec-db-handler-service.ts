@@ -379,7 +379,9 @@ export async function handlePatchEditorialSpecRoute(
     );
     return failJson(c, 500, {
       code: 'internal.editorial_upsert_failed',
-      userMessage: 'Failed to persist editorial spec data',
+      userMessage: reason
+        ? `Failed to persist editorial spec data: ${reason}`
+        : 'Failed to persist editorial spec data',
     });
   }
 
