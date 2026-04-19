@@ -5,6 +5,7 @@ import {
   classifyApiPort,
   resolveApiRuntimeConfig,
 } from "./dev-with-api.mjs";
+import { resolveDashboardDatabaseUrl } from "./dev-db.mjs";
 
 test("resolveApiRuntimeConfig uses fixed default port", () => {
   const config = resolveApiRuntimeConfig({});
@@ -72,4 +73,12 @@ test("classifyApiPort returns occupied for non-dashboard service", async () => {
     }),
   });
   assert.equal(status.kind, "occupied");
+});
+
+test("resolveDashboardDatabaseUrl prioritizes DATABASE_URL for dev runtime", () => {
+  const url = resolveDashboardDatabaseUrl({
+    DATABASE_URL: "postgres://dev:dev@localhost:5432/dev_db",
+    TEST_DATABASE_URL: "postgres://test:test@localhost:5432/test_db",
+  });
+  assert.equal(url, "postgres://dev:dev@localhost:5432/dev_db");
 });

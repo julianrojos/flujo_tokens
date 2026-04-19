@@ -1,34 +1,18 @@
 import { execFile, spawn } from "node:child_process";
 import net from "node:net";
+import {
+  ensureLocalDatabaseReady,
+  resolveDashboardDatabaseUrl,
+} from "./dev-db.mjs";
 
 const processes = [];
 let shuttingDown = false;
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = 8787;
-const DEFAULT_RESTART_EXISTING_API = true;
-const DEFAULT_DATABASE_URL = "postgres://ds:local@localhost:5432/ds_dashboard";
-
+const DEFAULT_RESTART_EXISTING_API = false;
 function parsePort(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   return Number.isFinite(parsed) && parsed > 0 && parsed <= 65_535 ? parsed : fallback;
-}
-
-function parseDatabaseUrl(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  try {
-    const parsed = new URL(raw);
-    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
-      return null;
-    }
-    return {
-      url: raw,
-      host: parsed.hostname || "127.0.0.1",
-      port: parsePort(parsed.port, 5432),
-    };
-  } catch {
-    return null;
-  }
 }
 
 export function resolveApiRuntimeConfig(env = process.env) {
@@ -64,68 +48,6 @@ export function resolveApiRuntimeConfig(env = process.env) {
     host,
     port,
     explicitUrl: false,
-  };
-}
-
-function resolveDashboardDatabaseUrl(env = process.env) {
-  const testDbUrl = String(env.TEST_DATABASE_URL || "").trim();
-  if (testDbUrl) return testDbUrl;
-
-  const dbUrl = String(env.DATABASE_URL || "").trim();
-  if (dbUrl) return dbUrl;
-
-  return DEFAULT_DATABASE_URL;
-}
-
-function isDatabasePortReachable(host, port, timeoutMs = 1_500) {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ host, port });
-    const finish = (result) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(result);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once("connect", () =>
-      finish({
-        ok: true,
-        code: null,
-        message: null,
-      }),
-    );
-    socket.once("timeout", () =>
-      finish({
-        ok: false,
-        code: "TIMEOUT",
-        message: `Connection timeout after ${timeoutMs}ms`,
-      }),
-    );
-    socket.once("error", (error) =>
-      finish({
-        ok: false,
-        code: error?.code || "UNKNOWN",
-        message: error instanceof Error ? error.message : String(error || ""),
-      }),
-    );
-  });
-}
-
-async function preflightDatabaseUrl(databaseUrl) {
-  const parsed = parseDatabaseUrl(databaseUrl);
-  if (!parsed) {
-    return {
-      ok: true,
-      code: null,
-      message: null,
-      host: null,
-      port: null,
-    };
-  }
-  const probe = await isDatabasePortReachable(parsed.host, parsed.port);
-  return {
-    ...probe,
-    host: parsed.host,
-    port: parsed.port,
   };
 }
 
@@ -288,7 +210,12 @@ async function terminatePids(pids, signal, waitMs = 0) {
 async function restartExistingDashboardApiIfNeeded(runtimeConfig) {
   if (!shouldRestartExistingApi(process.env)) return true;
   const pids = await listListeningPids(runtimeConfig.port);
-  if (pids.length === 0) return true;
+  if (pids.length === 0) {
+    console.warn(
+      `[dev-with-api] Dashboard API already running at ${runtimeConfig.apiBaseUrl}, but no PID could be resolved to restart it. Reusing the running API.`,
+    );
+    return null;
+  }
 
   console.log(
     `[dev-with-api] Restarting existing dashboard API on port ${runtimeConfig.port} (PIDs: ${pids.join(", ")}).`,
@@ -337,16 +264,29 @@ async function main() {
         `[dev-with-api] DATABASE_URL was not set; using local default ${databaseUrl}.`,
       );
     }
-    const databaseProbe = await preflightDatabaseUrl(databaseUrl);
-    if (!databaseProbe.ok) {
-      if (databaseProbe.code === "EPERM") {
+    const dbReady = await ensureLocalDatabaseReady({
+      databaseUrl,
+      logger: console,
+    });
+    if (!dbReady.ok) {
+      if (dbReady.error) {
         console.error(
-          `[dev-with-api] PostgreSQL connection blocked by local permissions (EPERM) at ${databaseProbe.host}:${databaseProbe.port}. Allow local network/socket access for this terminal session or run the command in a regular system terminal.`,
+          `[dev-with-api] Could not prepare the local PostgreSQL database: ${
+            dbReady.error instanceof Error
+              ? dbReady.error.message
+              : String(dbReady.error)
+          }`,
+        );
+      }
+      const { probe } = dbReady;
+      if (probe.code === "EPERM") {
+        console.error(
+          `[dev-with-api] PostgreSQL connection blocked by local permissions (EPERM) at ${probe.host}:${probe.port}. Allow local network/socket access for this terminal session or run the command in a regular system terminal.`,
         );
         process.exit(1);
       }
       console.error(
-        `[dev-with-api] PostgreSQL is not reachable at ${databaseUrl} (${databaseProbe.code || "UNKNOWN"}). Start it with npm run db:up, or set DATABASE_URL to a reachable database before running npm run dashboard:dev.`,
+        `[dev-with-api] PostgreSQL is not reachable at ${databaseUrl} (${probe.code || "UNKNOWN"}). Start it with npm run db:up, or set DATABASE_URL to a reachable database before running npm run dashboard:dev.`,
       );
       process.exit(1);
     }
@@ -362,6 +302,10 @@ async function main() {
         return;
       }
       const restarted = await restartExistingDashboardApiIfNeeded(runtimeConfig);
+      if (restarted === null) {
+        startScript("dev:vite", runtimeConfig);
+        return;
+      }
       if (!restarted) {
         process.exit(1);
       }
