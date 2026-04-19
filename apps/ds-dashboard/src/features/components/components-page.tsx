@@ -176,7 +176,7 @@ export function ComponentsPage() {
         gridClassName="md:grid-cols-2"
         items={[
           { id: "components-total", label: "Total componentes", value: stats.total },
-          { id: "components-with-spec", label: "Con spec", value: stats.withSpec },
+          { id: "components-with-spec", label: "Docs", value: stats.withSpec },
         ]}
       />
 
@@ -211,9 +211,9 @@ export function ComponentsPage() {
               value={specFilter}
               onChange={(event) => setSpecFilter(event.target.value)}
             >
-              <option value="all">Spec: All</option>
-              <option value="with-spec">With spec</option>
-              <option value="without-spec">Without spec</option>
+              <option value="all">Docs: All</option>
+              <option value="with-spec">Docs</option>
+              <option value="without-spec">No docs</option>
             </Select>
           </FilterBar>
 
@@ -314,7 +314,7 @@ export function ComponentsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={specBadgeVariant(item.spec.exists)}>
-                          {item.spec.exists ? "With spec" : "Without spec"}
+                          {item.spec.exists ? "Docs" : "No docs"}
                         </Badge>
                       </TableCell>
                       <TableCell>
