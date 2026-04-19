@@ -7,6 +7,7 @@ export function createEmptyComponentCatalog() {
     summary: {
       total_components: 0,
       with_spec: 0,
+      with_editorial: 0,
     },
     fingerprint_sha256: "",
   };

@@ -11,7 +11,7 @@ interface DashboardIssue {
   to: string;
 }
 
-export function useHealthDashboard() {
+export function useHealthDashboard(systemId: string) {
   const {
     tokenHealth,
     loading,
@@ -20,7 +20,7 @@ export function useHealthDashboard() {
     tokenError,
     reloadAll,
     captureSnapshotAndReload,
-  } = useHealthDashboardData();
+  } = useHealthDashboardData(systemId);
 
   const tokensTotal = useMemo(
     () => (tokenHealth ? Math.max(tokenHealth.summary.tokens_total, 1) : 0),

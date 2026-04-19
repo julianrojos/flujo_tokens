@@ -204,8 +204,10 @@ export async function requestJson<T>(
   return getJson<T>(url, init);
 }
 
-export function fetchComponentCatalog() {
-  return getJson<ComponentCatalog>('/api/component-catalog');
+export function fetchComponentCatalog(systemId?: string) {
+  return getJson<ComponentCatalog>('/api/component-catalog', {
+    headers: systemId ? { 'x-ds-system': systemId } : undefined,
+  });
 }
 
 export interface CreateDesignSystemPayload {
@@ -391,11 +393,15 @@ export function fetchTokenGraphQuery(args: {
   );
 }
 
-export function fetchTokenHealth() {
-  return getJson<TokenHealthReport>('/api/token-health');
+export function fetchTokenHealth(systemId?: string) {
+  const normalizedSystemId = String(systemId || '').trim();
+  return getJson<TokenHealthReport>('/api/token-health', {
+    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
+  });
 }
 
 export function fetchHealthHistory(args?: {
+  systemId?: string;
   range?: HealthHistoryRange;
   bucket?: HealthHistoryBucket;
 }) {
@@ -403,7 +409,10 @@ export function fetchHealthHistory(args?: {
   if (args?.range) params.set('range', args.range);
   if (args?.bucket) params.set('bucket', args.bucket);
   const suffix = params.size ? `?${params.toString()}` : '';
-  return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
+  const normalizedSystemId = String(args?.systemId || '').trim();
+  return getJson<HealthHistoryReport>(`/api/health-history${suffix}`, {
+    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
+  });
 }
 
 export interface ComponentSpecPayload {
@@ -808,17 +817,22 @@ export function restartApiServer() {
 }
 
 export async function captureHealthSnapshot(args?: {
+  systemId?: string;
   beforeRef?: string;
   retentionDays?: number;
   // DB-only mode keeps this flag for request compatibility, but does not compute token diff yet.
   skipDiff?: boolean;
 }) {
+  const normalizedSystemId = String(args?.systemId || '').trim();
   return getJson<CaptureHealthSnapshotResult>('/api/capture-health-snapshot', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : {}),
     },
-    body: JSON.stringify(args || {}),
+    body: JSON.stringify(
+      args ? { ...args, systemId: undefined } : {},
+    ),
   });
 }
 

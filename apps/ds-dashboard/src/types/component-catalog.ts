@@ -70,6 +70,7 @@ export interface ComponentCatalog {
   summary: {
     total_components: number;
     with_spec: number;
+    with_editorial: number;
   };
   fingerprint_sha256: string;
 }

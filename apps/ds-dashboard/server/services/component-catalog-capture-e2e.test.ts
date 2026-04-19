@@ -137,6 +137,7 @@ test('e2e: capture payload upserts DB and /api/component-catalog exposes spec-ce
     );
     assert.equal(payload.summary.total_components, 1);
     assert.equal(payload.summary.with_spec, 1);
+    assert.equal(payload.summary.with_editorial, 1);
   } finally {
     await cleanup();
     fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -237,7 +238,8 @@ test('e2e: component-catalog returns spec.exists=false when no editorial row', a
       ),
     );
     assert.equal(chip.visual_proof.variants_count, 0);
-    assert.equal(payload.summary.with_spec, 0);
+    assert.equal(payload.summary.with_spec, 1);
+    assert.equal(payload.summary.with_editorial, 0);
   } finally {
     await cleanup();
     fs.rmSync(tmpRoot, { recursive: true, force: true });

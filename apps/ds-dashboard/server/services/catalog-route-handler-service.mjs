@@ -142,10 +142,17 @@ export async function handleComponentCatalogRoute(c, deps) {
   const summary = {
     total_components: 0,
     with_spec: 0,
+    with_editorial: 0,
   };
-  for (const item of components) {
+  for (const [index, item] of components.entries()) {
     summary.total_components++;
-    if (item.spec.exists) summary.with_spec++;
+    const sourceRow = rows[index];
+    if (Array.isArray(sourceRow?.specs) && sourceRow.specs.length > 0) {
+      summary.with_spec++;
+    }
+    if (item.spec.exists) {
+      summary.with_editorial++;
+    }
   }
   const responseBase = {
     schema_version: COMPONENT_CATALOG_SCHEMA_VERSION,

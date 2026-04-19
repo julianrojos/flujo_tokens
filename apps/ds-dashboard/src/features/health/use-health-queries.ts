@@ -9,26 +9,30 @@ import type {
 import type { TokenHealthReport } from '@/types/token-health';
 
 export const healthQueryKeys = {
-  token: ['health', 'token'] as const,
-  history: (range: HealthHistoryRange, bucket: HealthHistoryBucket) =>
-    ['health', 'history', range, bucket] as const,
+  token: (systemId: string) => ['health', systemId, 'token'] as const,
+  history: (
+    systemId: string,
+    range: HealthHistoryRange,
+    bucket: HealthHistoryBucket,
+  ) => ['health', systemId, 'history', range, bucket] as const,
 };
 
-export function useTokenHealthQuery() {
+export function useTokenHealthQuery(systemId: string) {
   return useQuery<TokenHealthReport>({
-    queryKey: healthQueryKeys.token,
-    queryFn: () => fetchTokenHealth(),
+    queryKey: healthQueryKeys.token(systemId),
+    queryFn: () => fetchTokenHealth(systemId),
     ...QUERY_DEFAULTS,
   });
 }
 
 export function useHealthHistoryQuery(
+  systemId: string,
   range: HealthHistoryRange,
   bucket: HealthHistoryBucket,
 ) {
   return useQuery<HealthHistoryReport>({
-    queryKey: healthQueryKeys.history(range, bucket),
-    queryFn: () => fetchHealthHistory({ range, bucket }),
+    queryKey: healthQueryKeys.history(systemId, range, bucket),
+    queryFn: () => fetchHealthHistory({ systemId, range, bucket }),
     ...QUERY_DEFAULTS,
   });
 }

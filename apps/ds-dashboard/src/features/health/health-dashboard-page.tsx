@@ -7,10 +7,14 @@ import {
   StatsOverview,
   SystemTabsNav,
 } from '@/components/composites';
+import { useParams } from 'react-router-dom';
 import { useHealthDashboard } from './hooks/use-health-dashboard';
 import { HealthActiveIssues } from './components/health-active-issues';
+import { ComponentEditorialCoverageCard } from './components/component-editorial-coverage-card';
 
 export function HealthDashboardPage() {
+  const { systemId } = useParams<{ systemId: string }>();
+  const resolvedSystemId = String(systemId || '').trim();
   const {
     loading,
     tokensTotal,
@@ -18,7 +22,7 @@ export function HealthDashboardPage() {
     overallScore,
     activeIssues,
     handleIssueViewClick,
-  } = useHealthDashboard();
+  } = useHealthDashboard(resolvedSystemId);
 
   if (loading) {
     return (
@@ -52,6 +56,10 @@ export function HealthDashboardPage() {
           },
         ]}
       />
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <ComponentEditorialCoverageCard />
+      </section>
 
       <HealthActiveIssues
         issues={activeIssues}

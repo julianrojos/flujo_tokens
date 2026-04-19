@@ -5,10 +5,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toApiErrorDisplay } from '@/lib/api-error-ux';
 import { healthQueryKeys, useTokenHealthQuery } from './use-health-queries';
 
-export function useHealthDashboardData() {
+export function useHealthDashboardData(systemId: string) {
   const queryClient = useQueryClient();
 
-  const tokenHealthQuery = useTokenHealthQuery();
+  const tokenHealthQuery = useTokenHealthQuery(systemId);
 
   const tokenHealth = tokenHealthQuery.data ?? null;
   const loading = tokenHealthQuery.isLoading;
@@ -28,8 +28,8 @@ export function useHealthDashboardData() {
 
   const snapshotMutation = useMutation({
     mutationFn: async () => {
-      await captureHealthSnapshot();
-      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
+      await captureHealthSnapshot({ systemId });
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token(systemId) });
       await reloadAll();
     },
   });
