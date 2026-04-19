@@ -169,6 +169,36 @@ function fetchComponentSpec(slug: string) {
   });
 }
 
+class SaveEditorialError extends Error {
+  status: number;
+  code: string | null;
+
+  constructor(message: string, status: number, code: string | null = null) {
+    super(message);
+    this.name = 'SaveEditorialError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export function isOptimisticSaveError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    status?: unknown;
+    code?: unknown;
+    message?: unknown;
+  };
+  const status = Number(candidate.status);
+  const code = String(candidate.code ?? '').trim();
+  const message = String(candidate.message ?? '').toLowerCase();
+  return (
+    status === 409 ||
+    code === 'optimistic_lock_failed' ||
+    message.includes('optimistic lock failed') ||
+    message.includes('expectedupdatedat')
+  );
+}
+
 async function patchEditorial(
   slug: string,
   expectedUpdatedAt: number | null,
@@ -180,8 +210,24 @@ async function patchEditorial(
     body: JSON.stringify({ expectedUpdatedAt, fields }),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ userMessage: 'Save failed' }));
-    throw new Error(error.userMessage ?? 'Save failed');
+    const bodyText = await res.text().catch(() => '');
+    let payload: Record<string, unknown> = {};
+    if (bodyText.trim()) {
+      try {
+        const parsed = JSON.parse(bodyText) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          payload = parsed as Record<string, unknown>;
+        } else {
+          payload = { userMessage: bodyText.trim() };
+        }
+      } catch {
+        payload = { userMessage: bodyText.trim() || 'Save failed' };
+      }
+    }
+    const error = payload;
+    const message = String(error.userMessage ?? error.message ?? 'Save failed');
+    const code = typeof error.code === 'string' ? error.code : null;
+    throw new SaveEditorialError(message, res.status, code);
   }
   return res.json() as Promise<{ ok: boolean; updatedAt: number }>;
 }
@@ -535,12 +581,34 @@ export function EditComponentDocsPage() {
         return;
       }
 
-      await patchEditorial(slug, expectedUpdatedAtRef.current, fields);
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          await patchEditorial(slug, expectedUpdatedAtRef.current, fields);
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt === 0 && isOptimisticSaveError(error)) {
+            const refreshed = await fetchComponentSpec(slug);
+            expectedUpdatedAtRef.current = refreshed.updatedAt ?? null;
+            continue;
+          }
+          throw error;
+        }
+      }
+
       clearSuggestion();
       clearDraft();
       navigate(-1);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed');
+      setSaveError(
+        err instanceof SaveEditorialError
+          ? `${err.message}${err.code ? ` (${err.code})` : ''}`
+          : err instanceof Error
+            ? err.message
+            : 'Save failed',
+      );
     }
   }, [slug, formData, clearSuggestion, clearDraft, navigate]);
 

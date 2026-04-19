@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFormDataFromDraft, normalizeAccessibilityForSave } from '../edit-component-docs-page';
+import {
+  buildFormDataFromDraft,
+  isOptimisticSaveError,
+  normalizeAccessibilityForSave,
+} from '../edit-component-docs-page';
 
 describe('edit-component-docs-page draft restoration', () => {
   it('preserves an explicitly cleared accessibility guidance draft', () => {
@@ -44,5 +48,22 @@ describe('edit-component-docs-page accessibility serialization', () => {
       labeling: { rules: ['Provide an accessible name'] },
       notes: null,
     });
+  });
+});
+
+describe('edit-component-docs-page save error handling', () => {
+  it('detects optimistic lock save errors by status or code', () => {
+    assert.equal(
+      isOptimisticSaveError({ status: 409, message: 'Conflict' }),
+      true,
+    );
+    assert.equal(
+      isOptimisticSaveError({ code: 'optimistic_lock_failed', message: 'Conflict' }),
+      true,
+    );
+    assert.equal(
+      isOptimisticSaveError({ status: 500, code: 'internal.editorial_upsert_failed' }),
+      false,
+    );
   });
 });

@@ -7,6 +7,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
@@ -62,7 +63,9 @@ export function ComponentDetailPage() {
     stale: true,
   };
 
-  if (loading) {
+  const isInitialLoading = loading && !item;
+
+  if (isInitialLoading) {
     return (
       <div className="space-y-5">
         <PageHeader title="Loading…" description="Loading component details" />
@@ -83,6 +86,13 @@ export function ComponentDetailPage() {
 
   return (
     <div className="space-y-5">
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
+          <Loader size="sm" />
+          <span>Loading component details…</span>
+        </div>
+      ) : null}
+
       <PageHeader
         title={item.display_name}
         description={item.slug}

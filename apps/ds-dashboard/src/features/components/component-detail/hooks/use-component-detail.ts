@@ -81,6 +81,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -95,33 +96,43 @@ export function useComponentDetail(): ComponentDetailViewModel {
             fetchTokenCatalog().catch(() => null),
           ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
+        if (cancelled) return;
         setItem(found);
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
 
         // Spec comes complete from API (DB-first, no merge needed)
         if (specResult.ok && specResult.payload?.ok) {
+          if (cancelled) return;
           setSpec(specResult.payload.spec ?? null);
           setHasEditorialSpec(specResult.payload.exists === true);
           setIsEditorialSpecStatusUnknown(false);
         } else if (specResult.ok) {
+          if (cancelled) return;
           setSpec(null);
           setHasEditorialSpec(false);
           setIsEditorialSpecStatusUnknown(false);
         } else {
+          if (cancelled) return;
           setSpec(null);
           // Preserve markdown access when spec availability cannot be verified.
           setIsEditorialSpecStatusUnknown(true);
         }
 
+        if (cancelled) return;
         setTokenCatalog(tokenCatalogPayload);
       } catch (cause) {
+        if (cancelled) return;
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [slug, reloadNonce]);
 
   const { previousItem, nextItem, currentIndex, totalItems } = useMemo(() => {

@@ -34,7 +34,7 @@ interface LayerTokenMappingSectionProps {
   tokenCatalog?: TokenCatalog | null;
 }
 
-type SortField = "token" | "property" | "collection" | "variant";
+type SortField = "token" | "property" | "collection" | "variant" | "instances";
 type SortDirection = "asc" | "desc";
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -87,6 +87,9 @@ function stableIdentity(item: BindingWithCollection): string {
 }
 
 function compareBindingRows(left: BindingWithCollection, right: BindingWithCollection, sort: { field: SortField; dir: SortDirection }): number {
+  if (sort.field === "instances") {
+    return 0;
+  }
   const a = sortValue(left, sort.field);
   const b = sortValue(right, sort.field);
   const comparison = a < b ? -1 : a > b ? 1 : 0;
@@ -201,13 +204,32 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     return Array.from(byVisibleRow.values());
   }, [sortedFilteredEntries]);
 
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? groupedSortedFilteredEntries.length : Number(pageSize);
+  const displayedEntries = useMemo(() => {
+    if (sort.field !== "instances") {
+      return groupedSortedFilteredEntries;
+    }
+
+    const sorted = [...groupedSortedFilteredEntries];
+    sorted.sort((left, right) => {
+      const comparison = left.refsCount - right.refsCount;
+      if (comparison !== 0) {
+        return sort.dir === "asc" ? comparison : comparison * -1;
+      }
+
+      const leftIdentity = stableIdentity(left);
+      const rightIdentity = stableIdentity(right);
+      return leftIdentity < rightIdentity ? -1 : leftIdentity > rightIdentity ? 1 : 0;
+    });
+    return sorted;
+  }, [groupedSortedFilteredEntries, sort]);
+
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? displayedEntries.length : Number(pageSize);
   const shouldPaginate =
     pageSize !== PAGE_SIZE_ALL &&
     Number.isFinite(pageSizeValue) &&
     pageSizeValue > 0 &&
-    groupedSortedFilteredEntries.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(groupedSortedFilteredEntries.length / pageSizeValue)) : 1;
+    displayedEntries.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(displayedEntries.length / pageSizeValue)) : 1;
   useEffect(() => {
     if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
       setPageSize("25");
@@ -227,14 +249,14 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
   const pagedEntries = useMemo(() => {
-    if (!shouldPaginate) return groupedSortedFilteredEntries;
+    if (!shouldPaginate) return displayedEntries;
     const start = (currentPage - 1) * pageSizeValue;
-    return groupedSortedFilteredEntries.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, groupedSortedFilteredEntries]);
-  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : groupedSortedFilteredEntries.length === 0 ? 0 : 1;
-  const pageEnd = shouldPaginate ? Math.min(groupedSortedFilteredEntries.length, currentPage * pageSizeValue) : groupedSortedFilteredEntries.length;
+    return displayedEntries.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, displayedEntries]);
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : displayedEntries.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(displayedEntries.length, currentPage * pageSizeValue) : displayedEntries.length;
 
-  const hasFilteredEntries = groupedSortedFilteredEntries.length > 0;
+  const hasFilteredEntries = displayedEntries.length > 0;
 
   const toggleSort = useCallback((field: SortField) => {
     setSort((current) =>
@@ -315,7 +337,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           {shouldPaginate ? (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {groupedSortedFilteredEntries.length}
+                Showing {pageStart}-{pageEnd} of {displayedEntries.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -347,7 +369,11 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                 <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
                 <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
                 <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
-                <TableHead className="normal-case">Instances</TableHead>
+                <SortableTableHead
+                  label="Instances"
+                  onSort={() => toggleSort("instances")}
+                  ariaLabel="Sort by instances"
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -405,7 +431,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           {shouldPaginate ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {groupedSortedFilteredEntries.length}
+                Showing {pageStart}-{pageEnd} of {displayedEntries.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
