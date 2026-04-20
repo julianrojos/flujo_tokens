@@ -117,8 +117,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
             {isManagement ? (
               <Button
                 size="sm"
-                variant="outline"
-                className="text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                variant="destructive"
                 disabled={syncing || removing}
                 onClick={() => props.onRemove(consumer.id)}
               >
@@ -128,8 +127,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
             {!isManagement && props.onRemove ? (
               <Button
                 size="sm"
-                variant="outline"
-                className="text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                variant="destructive"
                 disabled={syncing || removing}
                 onClick={() => props.onRemove?.(consumer.id)}
               >

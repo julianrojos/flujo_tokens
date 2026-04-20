@@ -396,21 +396,19 @@ export function DesignSystemsAdminPage() {
         <ModalContent size="md">
           {deleteModalTarget ? (
             <>
-              <ModalHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <h2 className="text-lg font-titles font-semibold tracking-tight">
-                    Confirm deletion
-                  </h2>
-                  <ModalCloseButton
-                    onClick={() => {
-                      setDeleteModalTarget(null);
-                      setDeleteConfirmed(false);
-                      setDeletePreview(null);
-                      setDeletePreviewLoading(false);
-                    }}
-                    label="Close deletion confirmation dialog"
-                  />
-                </div>
+              <ModalHeader className="items-start gap-4">
+                <h2 className="text-lg font-titles font-semibold tracking-tight">
+                  Confirm deletion
+                </h2>
+                <ModalCloseButton
+                  onClick={() => {
+                    setDeleteModalTarget(null);
+                    setDeleteConfirmed(false);
+                    setDeletePreview(null);
+                    setDeletePreviewLoading(false);
+                  }}
+                  label="Close deletion confirmation dialog"
+                />
               </ModalHeader>
               <div className="p-5 pt-4">
                 {deletePreviewLoading ? (
@@ -502,8 +500,7 @@ export function DesignSystemsAdminPage() {
                     Cancel
                   </Button>
                   <Button
-                    variant="outline"
-                    className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                    variant="destructive"
                     disabled={
                       !deleteConfirmed ||
                       !!busyIds[deleteModalTarget.id] ||

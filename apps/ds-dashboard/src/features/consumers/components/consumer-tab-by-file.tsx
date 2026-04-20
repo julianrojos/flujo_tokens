@@ -550,9 +550,9 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
               Cancel
             </Button>
             <Button
+              variant="destructive"
               onClick={() => void handleConfirmRemove()}
               disabled={!removeConfirmed || !!removingConsumerId}
-              className="bg-status-error text-status-error-foreground hover:bg-status-error/90"
             >
               {removingConsumerId ? "Removing..." : "Remove consumer"}
             </Button>
