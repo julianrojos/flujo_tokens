@@ -46,13 +46,47 @@ function createVariablesPayload(): FigmaVariablesResponse {
 describe('figma-token-sync', () => {
   describe('buildTokenNodeFromFigmaVariable()', () => {
     it('FLOAT variables are emitted as dimension tokens', () => {
-      const variableRecord = { id: 'VariableID:1:2', resolvedType: 'FLOAT' };
+      const variableRecord = {
+        id: 'VariableID:1:2',
+        name: 'Blur/100',
+        resolvedType: 'FLOAT',
+      };
       const token = buildTokenNodeFromFigmaVariable(variableRecord, 8);
 
       assert.deepStrictEqual(token, {
         $id: 'VariableID:1:2',
         $value: 8,
         $type: 'dimension',
+      });
+    });
+
+    it('FLOAT font-weight variables are emitted as fontWeight tokens', () => {
+      const variableRecord = {
+        id: 'VariableID:1:3',
+        name: 'Body/Font Weight Regular',
+        resolvedType: 'FLOAT',
+      };
+      const token = buildTokenNodeFromFigmaVariable(variableRecord, 400);
+
+      assert.deepStrictEqual(token, {
+        $id: 'VariableID:1:3',
+        $value: 400,
+        $type: 'fontWeight',
+      });
+    });
+
+    it('STRING font-family variables are emitted as fontFamily tokens', () => {
+      const variableRecord = {
+        id: 'VariableID:1:4',
+        name: 'Body/Font Family',
+        resolvedType: 'STRING',
+      };
+      const token = buildTokenNodeFromFigmaVariable(variableRecord, 'IBM Plex Sans');
+
+      assert.deepStrictEqual(token, {
+        $id: 'VariableID:1:4',
+        $value: 'IBM Plex Sans',
+        $type: 'fontFamily',
       });
     });
   });

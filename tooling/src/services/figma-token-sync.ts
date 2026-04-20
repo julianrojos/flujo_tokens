@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
+import { normalizeTokenTypeFromFigma } from '@flujo/shared';
 import { stripDiacritics } from '../utils/strip-diacritics.js';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
@@ -161,13 +162,14 @@ export function pickAllModeValues(
 /**
  * Normalize Figma resolved type to DTCG type.
  */
-function normalizeFigmaResolvedType(rawType: string): string {
-  const type = String(rawType || '').trim().toUpperCase();
-  if (type === 'COLOR') return 'color';
-  if (type === 'FLOAT') return 'dimension';
-  if (type === 'STRING') return 'string';
-  if (type === 'BOOLEAN') return 'boolean';
-  return 'string';
+function normalizeFigmaResolvedType(args: {
+  rawType: string;
+  variableName?: string;
+}): string {
+  return normalizeTokenTypeFromFigma({
+    resolvedType: args.rawType,
+    variableName: args.variableName,
+  });
 }
 
 /**
@@ -206,7 +208,10 @@ export function buildTokenNodeFromFigmaVariable(
   variableRecord: Record<string, unknown>,
   rawValue: unknown
 ): TokenNode | null {
-  const resolvedType = normalizeFigmaResolvedType(variableRecord?.resolvedType as string);
+  const resolvedType = normalizeFigmaResolvedType({
+    rawType: variableRecord?.resolvedType as string,
+    variableName: String(variableRecord?.name || ''),
+  });
   let normalizedValue = rawValue;
   if (resolvedType === 'color') {
     if (
@@ -239,7 +244,15 @@ export function buildTokenNodeFromFigmaVariable(
 
   if (resolvedType === 'color' && typeof normalizedValue !== 'string') return null;
   if (resolvedType === 'dimension' && typeof normalizedValue !== 'number') return null;
+  if (
+    resolvedType === 'fontWeight' &&
+    typeof normalizedValue !== 'number' &&
+    typeof normalizedValue !== 'string'
+  ) {
+    return null;
+  }
   if (resolvedType === 'string' && typeof normalizedValue !== 'string') return null;
+  if (resolvedType === 'fontFamily' && typeof normalizedValue !== 'string') return null;
   if (resolvedType === 'boolean' && typeof normalizedValue !== 'boolean') return null;
 
   const tokenNode: TokenNode = {
