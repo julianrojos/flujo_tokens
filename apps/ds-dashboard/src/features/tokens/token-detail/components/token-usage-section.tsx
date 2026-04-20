@@ -103,10 +103,10 @@ export function TokenUsageSection({
             <TableBody>
               {sortedComponentUsages.map((usage) => (
                 <TableRow key={usage.slug}>
-                  <TableCell className="font-medium">
+                  <TableCell className="!font-normal">
                     <Link
                       to={toComponentDetail(usage.slug)}
-                      className="hover:text-primary hover:underline"
+                      className="text-foreground hover:text-primary hover:underline"
                       aria-label={`Open ${usage.displayName} component detail`}
                     >
                       {usage.displayName}

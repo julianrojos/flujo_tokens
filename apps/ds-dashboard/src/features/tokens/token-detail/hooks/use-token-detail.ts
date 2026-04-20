@@ -11,6 +11,7 @@ import {
   resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
+  deriveTokenDisplayType,
 } from "../lib/token-detail-transforms";
 import {
   buildComponentTokenUsageRows,
@@ -31,6 +32,7 @@ interface TokenDetailViewModel {
   token: TokenCatalogEntry | null;
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
+  displayType: string;
   tokenAliasChain: TokenCatalogEntry[];
   aliasBrokenRef: string | null;
   aliasHasCycle: boolean;
@@ -63,21 +65,31 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   } = useTokenDetailData(decoded);
 
   // Derived data
-  const swatch = useMemo(
-    () => (token ? resolveColorSwatch(token.resolvedValue) : null),
-    [token],
-  );
-
-  const dimensionPreview = useMemo(
-    () => (token?.type === "dimension" ? parseDimensionPreview(token.resolvedValue) : null),
-    [token?.resolvedValue, token?.type],
-  );
-
   const aliasChain = useMemo(() => buildAliasChain(registry, token), [registry, token]);
   const tokenAliasChain = aliasChain.chain;
   const aliasBrokenRef = aliasChain.brokenRef;
   const aliasHasCycle = aliasChain.hasCycle;
   const aliasFinal = tokenAliasChain.length > 0 ? tokenAliasChain[tokenAliasChain.length - 1] : null;
+  const resolvedVisualValue = aliasFinal?.resolvedValue || token?.resolvedValue || "";
+
+  const swatch = useMemo(
+    () => resolveColorSwatch(resolvedVisualValue),
+    [resolvedVisualValue],
+  );
+
+  const dimensionPreview = useMemo(
+    () => parseDimensionPreview(resolvedVisualValue),
+    [resolvedVisualValue],
+  );
+
+  const displayType = useMemo(
+    () =>
+      deriveTokenDisplayType({
+        token,
+        resolvedValue: resolvedVisualValue,
+      }),
+    [resolvedVisualValue, token],
+  );
 
   // Filter params
   const fromCollection = searchParams.get("fromCollection") || "all";
@@ -219,6 +231,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     token,
     swatch,
     dimensionPreview,
+    displayType,
     tokenAliasChain,
     aliasBrokenRef,
     aliasHasCycle,

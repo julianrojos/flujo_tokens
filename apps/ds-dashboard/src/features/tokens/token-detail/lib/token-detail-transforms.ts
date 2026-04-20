@@ -57,6 +57,22 @@ export function parseDimensionPreview(value: string) {
 }
 
 /**
+ * Derive the visual token type shown in the detail page from the resolved value.
+ * This prefers the actual rendered value over the stored catalog type when they diverge.
+ */
+export function deriveTokenDisplayType(args: {
+  token: TokenCatalogEntry | null;
+  resolvedValue?: string;
+}): string {
+  const tokenType = String(args.token?.type || "").trim().toLowerCase();
+  const resolvedValue = String(args.resolvedValue ?? args.token?.resolvedValue ?? "").trim();
+  if (resolveColorSwatch(resolvedValue)) return "color";
+  if (parseDimensionPreview(resolvedValue)) return "dimension";
+  if (tokenType) return tokenType;
+  return "string";
+}
+
+/**
  * Check if a token matches a reference value
  */
 export function tokenMatchesRef(token: TokenCatalogEntry, value: string): boolean {

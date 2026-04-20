@@ -4,6 +4,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Hash, Ruler, ToggleLeft, Type } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { TokenCatalogEntry } from "@/types/token-catalog";
 import { toTokenDetail } from "@/lib/routes";
@@ -11,6 +12,7 @@ import { resolveColorSwatch } from "../lib/token-detail-transforms";
 
 interface TokenIdentitySectionProps {
   token: TokenCatalogEntry;
+  displayType: string;
   tokenAliasChain: TokenCatalogEntry[];
   aliasFinal: TokenCatalogEntry | null;
   swatch: string | null;
@@ -19,6 +21,7 @@ interface TokenIdentitySectionProps {
 
 export function TokenIdentitySection({
   token,
+  displayType,
   tokenAliasChain,
   aliasFinal,
   swatch,
@@ -27,13 +30,14 @@ export function TokenIdentitySection({
   const aliasLine = tokenAliasChain.length > 0 ? tokenAliasChain : [token];
   const finalValue = aliasFinal?.resolvedValue || token.resolvedValue;
   const finalSwatch = resolveColorSwatch(finalValue);
+  const iconClassName = "h-8 w-8 text-primary";
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="mt-1 flex h-12 min-w-12 items-center justify-center rounded border border-border bg-muted/20 px-2">
+            <div className="mt-1 flex h-[63px] w-[63px] items-center justify-center rounded border border-border bg-muted/20 px-2 py-2">
               {swatch ? (
                 <span
                   className="h-8 w-8 rounded-md border border-border shadow-sm"
@@ -41,22 +45,32 @@ export function TokenIdentitySection({
                   style={{ backgroundColor: swatch }}
                   aria-label={`Color swatch ${swatch}`}
                 />
-              ) : token.type === "dimension" ? (
-                <span className="flex h-8 w-20 items-center">
-                  <span
-                    className="h-2 rounded bg-primary/80"
-                    // Dynamic preview width is calculated from token value (allowed dynamic style).
-                    style={{ width: `${dimensionPreview?.width ?? 16}px` }}
-                  />
-                </span>
+              ) : displayType === "dimension" ? (
+                dimensionPreview ? (
+                  <span className="flex h-8 w-20 items-center">
+                    <span
+                      className="h-2 rounded bg-primary/80"
+                      // Dynamic preview width is calculated from token value (allowed dynamic style).
+                      style={{ width: `${dimensionPreview.width}px` }}
+                    />
+                  </span>
+                ) : (
+                  <Ruler className="h-8 w-8 text-primary" aria-label="Dimension token" />
+                )
+              ) : displayType === "string" ? (
+                <Type className={iconClassName} aria-label="String token" />
+              ) : displayType === "boolean" ? (
+                <ToggleLeft className={iconClassName} aria-label="Boolean token" />
+              ) : displayType === "number" ? (
+                <Hash className={iconClassName} aria-label="Number token" />
               ) : (
-                <span className="font-semibold text-muted-foreground">Aa</span>
+                <span className="text-sm font-semibold tracking-tight text-muted-foreground">Aa</span>
               )}
             </div>
             <div className="min-w-0">
               <CardTitle className="break-all font-mono text-base">{token.path}</CardTitle>
               <CardDescription className="mt-1">
-                <span className="font-medium">{token.collection}</span> · {token.type}
+                <span className="font-medium">{token.collection}</span> · {displayType}
               </CardDescription>
               <CardDescription className="mt-1 font-mono text-xs">
                 {token.slashPath}

@@ -22,6 +22,7 @@ export function TokenDetailPage() {
     token,
     swatch,
     dimensionPreview,
+    displayType,
     tokenAliasChain,
     aliasFinal,
     aliasDescendantChains,
@@ -59,7 +60,7 @@ export function TokenDetailPage() {
     <div className="space-y-5">
       <PageHeader
         title={token.path}
-        description={`${token.collection} · ${token.type}`}
+        description={`${token.collection} · ${displayType}`}
       />
 
       <PrevNextNav
@@ -73,6 +74,7 @@ export function TokenDetailPage() {
 
       <TokenIdentitySection
         token={token}
+        displayType={displayType}
         tokenAliasChain={tokenAliasChain}
         aliasFinal={aliasFinal}
         swatch={swatch}
