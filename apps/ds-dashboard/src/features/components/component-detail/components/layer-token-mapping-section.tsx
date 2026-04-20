@@ -384,21 +384,21 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                   >
                     <TableCell className="max-w-[200px]">
                       {entry.token_path ? (
-                        <div className="font-medium">
-                          <Link
-                            to={`/tokens/${encodeURIComponent(entry.token_path)}`}
-                            className="hover:text-primary hover:underline"
-                            aria-label={`Open ${entry.token_path} detail`}
-                          >
-                            {entry.token_path}
-                          </Link>
-                        </div>
+                        <Link
+                          to={`/tokens/${encodeURIComponent(entry.token_path)}`}
+                          className="text-foreground hover:text-primary hover:underline"
+                          aria-label={`Open ${entry.token_path} detail`}
+                        >
+                          {entry.token_path}
+                        </Link>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <code className="text-xs">{entry.property_path}</code>
+                      <span className="text-xs !font-normal text-foreground">
+                        {entry.property_path}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {entry.token_path ? (
@@ -410,7 +410,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                       )}
                     </TableCell>
                     <TableCell className="max-w-[200px]">
-                      <span className="block truncate text-sm" title={entry.variant_signature || "(no variant)"}>
+                      <span className="block truncate text-sm !font-normal" title={entry.variant_signature || "(no variant)"}>
                         {entry.variant_signature || <span className="text-muted-foreground">—</span>}
                       </span>
                     </TableCell>

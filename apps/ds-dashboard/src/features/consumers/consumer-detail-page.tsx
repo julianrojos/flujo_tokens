@@ -300,7 +300,7 @@ export function ConsumerDetailPage() {
     return (
       <div className="space-y-5">
         <PageHeader title="Loading..." description="Loading consumer details" />
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">Loading consumer details...</p>
         </div>
       </div>
@@ -341,7 +341,7 @@ export function ConsumerDetailPage() {
       {error ? <ApiErrorMessage error={error} /> : null}
 
       {/* Overview */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-base font-titles font-semibold">Overview</h3>
@@ -355,12 +355,12 @@ export function ConsumerDetailPage() {
           <div className="mt-4 space-y-4">
             {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
             <div className="grid grid-cols-4 gap-4">
-              <div className="rounded border border-border bg-muted/50 p-3 text-center">
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
                 <p className="text-xs text-muted-foreground">DS components</p>
               </div>
               <div
-                className="rounded border border-border bg-muted/50 p-3 text-center"
+                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
                 title="Includes local and other-library components not matched to the tracked DS during the last sync"
               >
                 <p className="text-2xl font-bold">
@@ -372,12 +372,12 @@ export function ConsumerDetailPage() {
                   the last sync.
                 </p>
               </div>
-              <div className="rounded border border-border bg-muted/50 p-3 text-center">
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
                 <p className="text-2xl font-bold">{consumer.latestSync.variableCount}</p>
                 <p className="text-xs text-muted-foreground">DS variables</p>
               </div>
               <div
-                className="rounded border border-border bg-muted/50 p-3 text-center"
+                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
                 title="Includes local and other-library variable bindings not matched to the tracked DS during the last sync"
               >
                 <p className="text-2xl font-bold">
@@ -427,7 +427,7 @@ export function ConsumerDetailPage() {
       </div>
 
       {/* Component Usage */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 text-base font-titles font-semibold">Component Usage</h3>
         {componentGroups.length === 0 ? (
           <div className="text-sm text-muted-foreground">
@@ -464,15 +464,15 @@ export function ConsumerDetailPage() {
                         <td className="px-3 py-2">
                           <div className="space-y-0.5">
                             {resolvedComponentSlug ? (
-                              <Link
-                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                                className="font-medium text-app-accent hover:underline"
-                              >
-                                {displayParentName}
-                              </Link>
-                            ) : (
-                              <span className="font-medium">{displayParentName}</span>
-                            )}
+                            <Link
+                              to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                              className="text-app-accent hover:underline"
+                            >
+                              <span className="font-normal">{displayParentName}</span>
+                            </Link>
+                          ) : (
+                            <span className="font-normal">{displayParentName}</span>
+                          )}
                             {variant.variantLabel && (
                               <span className="block text-xs text-muted-foreground">
                                 {variant.variantLabel}
@@ -530,15 +530,15 @@ export function ConsumerDetailPage() {
                               )}
                             </button>
                             {resolvedComponentSlug ? (
-                              <Link
-                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                                className="font-medium text-app-accent hover:underline"
-                              >
-                                {displayParentName}
-                              </Link>
-                            ) : (
-                              <span className="font-medium">{displayParentName}</span>
-                            )}
+                            <Link
+                              to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                              className="text-app-accent hover:underline"
+                            >
+                              <span className="font-normal">{displayParentName}</span>
+                            </Link>
+                          ) : (
+                            <span className="font-normal">{displayParentName}</span>
+                          )}
                             <Badge variant="neutral" className="text-[10px]">
                               {group.variants.length} variants
                             </Badge>
@@ -620,7 +620,7 @@ export function ConsumerDetailPage() {
       </div>
 
       {/* Variable Usage */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="mb-3 text-base font-titles font-semibold">Variable Usage</h3>
         {sortedVariables.length === 0 ? (
           <div className="text-sm text-muted-foreground">
@@ -654,16 +654,16 @@ export function ConsumerDetailPage() {
                   return (
                   <tr key={v.variableKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
-                      <p className="font-medium">
+                      <p className="font-normal">
                         {tokenEntry ? (
                           <Link
                             to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
                             className="text-app-accent hover:underline"
                           >
-                            {displayTokenName}
+                            <span className="font-normal">{displayTokenName}</span>
                           </Link>
                         ) : (
-                          displayTokenName
+                          <span className="font-normal">{displayTokenName}</span>
                         )}
                       </p>
                     </td>
@@ -705,7 +705,7 @@ export function ConsumerDetailPage() {
       </div>
 
       {/* Sync Run Log */}
-      <section className="rounded-xl border border-border bg-card">
+      <section className="rounded-lg border border-border bg-card">
         <button
           type="button"
           className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"

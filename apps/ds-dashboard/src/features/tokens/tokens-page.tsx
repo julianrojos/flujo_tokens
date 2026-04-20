@@ -22,6 +22,7 @@ import type { VariableUsageReport } from "@/types/consumers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
+import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -431,7 +432,7 @@ export function TokensPage() {
         ]}
       />
 
-      <div className="rounded-xl border border-border/70 bg-card/85 p-5 text-card-foreground backdrop-blur-sm">
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
@@ -598,15 +599,13 @@ export function TokensPage() {
                     return (
                       <TableRow key={entry.path}>
                         <TableCell>
-                          <div className="font-medium">
-                            <Link
-                              to={detailHref}
-                              className="hover:text-primary hover:underline"
-                              aria-label={`Open ${entry.slashPath} detail`}
-                            >
-                              {entry.slashPath}
-                            </Link>
-                          </div>
+                          <Link
+                            to={detailHref}
+                            className="text-foreground hover:text-primary hover:underline"
+                            aria-label={`Open ${entry.slashPath} detail`}
+                          >
+                            {entry.slashPath}
+                          </Link>
                         </TableCell>
                         <TableCell>
                           <Badge variant="neutral">{entry.collection}</Badge>
@@ -668,7 +667,7 @@ export function TokensPage() {
               </div>
             </div>
           ) : null}
-      </div>
+      </Card>
 
       <ContrastCheckerModal
         open={contrastChecker.isOpen}

@@ -117,7 +117,7 @@ export function TokenGraphViewer(props: {
     <div className="relative">
       <svg
         ref={svgRef}
-        className="h-[560px] w-full touch-none select-none rounded-xl border border-border bg-card/60"
+        className="h-[560px] w-full touch-none select-none rounded-lg border border-border bg-card/60"
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

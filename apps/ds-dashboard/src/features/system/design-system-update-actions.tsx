@@ -96,7 +96,7 @@ export function DesignSystemUpdateActions({
     (!hasBlockingVariablesContextIssue || allowVariablesWithContextIssues);
 
   return (
-    <div className="mt-4 rounded border border-border/70 bg-muted/20 p-3">
+    <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3">
       <div className="mb-3">
         <h3 className="text-base font-titles font-semibold">Update from Figma</h3>
       </div>
@@ -141,7 +141,7 @@ export function DesignSystemUpdateActions({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <section className="rounded-md border border-border bg-card p-3">
+        <section className="rounded-lg border border-border bg-card p-3">
           <h4 className="text-sm font-titles font-semibold">Update components</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             Re-capture component specs and docs from a Figma URL.
@@ -166,7 +166,7 @@ export function DesignSystemUpdateActions({
           </div>
 
           <LogTerminal
-            className="mt-3 rounded-md border border-border/70"
+            className="mt-3 rounded-lg border border-border/70"
             logLines={componentsState.logLines}
             summary={componentsState.summary}
             status={componentsState.status}
@@ -175,7 +175,7 @@ export function DesignSystemUpdateActions({
           />
         </section>
 
-        <section className="rounded-md border border-border bg-card p-3">
+        <section className="rounded-lg border border-border bg-card p-3">
           <h4 className="text-sm font-titles font-semibold">Update Figma variables</h4>
           <p className="mt-1 text-xs text-muted-foreground">
             Sync variables (and optional components) from the plugin into the database.
@@ -223,7 +223,7 @@ export function DesignSystemUpdateActions({
           </div>
 
           <LogTerminal
-            className="mt-3 rounded-md border border-border/70"
+            className="mt-3 rounded-lg border border-border/70"
             logLines={variablesState.logLines}
             summary={variablesState.summary}
             status={variablesState.status}

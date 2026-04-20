@@ -61,7 +61,7 @@ export function ComponentTokenDebtCard() {
                   <div className="min-w-0">
                     <Link
                       to={toComponentDetail(row.slug)}
-                      className="truncate text-sm font-medium text-foreground hover:text-primary hover:underline"
+                      className="truncate text-sm text-foreground hover:text-primary hover:underline"
                       title={`Open ${row.displayName} detail`}
                     >
                       {row.displayName}

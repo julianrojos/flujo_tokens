@@ -79,9 +79,9 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
                       const { variantLabel } = splitComponentName(report.componentName);
                       const variantConsumerCount = report.consumers.length;
                       return (
-                        <tr key={report.componentKey} className="border-t">
+                      <tr key={report.componentKey} className="border-t">
                           <td className="px-3 py-2">
-                            {variantLabel || "(base)"}
+                            <span className="font-normal">{variantLabel || "(base)"}</span>
                           </td>
                           <td className="px-3 py-2 text-right">
                             {report.totalInstances}
@@ -134,7 +134,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
                             to={toConsumerDetail(consumer.id)}
                             className="text-app-accent hover:underline"
                           >
-                            {consumer.name}
+                            <span className="font-normal">{consumer.name}</span>
                           </Link>
                         </td>
                         <td className="px-3 py-2 text-right">

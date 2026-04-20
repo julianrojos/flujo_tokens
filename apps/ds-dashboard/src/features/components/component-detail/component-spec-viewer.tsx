@@ -63,7 +63,7 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
   const displayType = TYPE_DISPLAY[prop.type.toLowerCase()] ?? prop.type.toUpperCase();
   return (
     <TableRow>
-      <TableCell className="font-medium">{prop.name}</TableCell>
+      <TableCell className="!font-normal">{prop.name}</TableCell>
       <TableCell>
         <Badge variant={typeBadgeVariant(prop.type.toLowerCase())}>{displayType}</Badge>
       </TableCell>

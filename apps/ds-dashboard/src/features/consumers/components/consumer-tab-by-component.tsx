@@ -54,7 +54,7 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6">
+      <div className="rounded-lg border border-border bg-card p-6">
         <p className="text-sm text-muted-foreground">Loading component usage...</p>
       </div>
     );
@@ -111,7 +111,7 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
           {filteredReports.map((report) => (
             <div
               key={report.componentKey}
-              className="rounded-xl border border-border bg-card p-4"
+              className="rounded-lg border border-border bg-card p-4"
             >
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">

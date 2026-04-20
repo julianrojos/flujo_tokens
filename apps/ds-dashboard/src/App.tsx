@@ -467,7 +467,7 @@ export default function App() {
 
   return (
     <>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen text-foreground">
         <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px]">
           <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
@@ -546,7 +546,7 @@ export default function App() {
           </Sidebar>
 
           <SidebarInset>
-            <main className="w-full bg-white p-4 md:p-6 lg:p-8">
+            <main className="w-full p-4 md:p-6 lg:p-8">
               <header className="mb-5 rounded-xl border border-border/70 bg-card/75 p-4 shadow-panel backdrop-blur-lg lg:hidden">
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                   Menu
@@ -590,7 +590,7 @@ export default function App() {
                   ))}
                   <button
                     type="button"
-                    className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
                     onClick={() => setSearchOpen(true)}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -607,7 +607,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                  className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-card/70 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
+                className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
                   onClick={() => setSearchOpen(true)}
                 >
                   <span className="inline-flex items-center gap-2">

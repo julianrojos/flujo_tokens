@@ -325,7 +325,7 @@
    ========================================================================== */
 :root {
   /* Backgrounds */
-  --app-bg: var(--color-white);
+  --app-bg: var(--color-neutral-100);
   --app-surface-1: var(--color-white);
   --app-surface-2: var(--color-slate-100);
   --app-surface-3: var(--color-slate-200);

@@ -57,7 +57,7 @@ export function ConsumersPage() {
           title="Consumer Files"
           description="Cross-file usage tracking for design system tokens"
         />
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">
             Loading consumer context...
           </p>

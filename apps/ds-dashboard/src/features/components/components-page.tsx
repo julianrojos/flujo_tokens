@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Select } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
@@ -26,6 +27,7 @@ import {
 
 type SortField =
   | "display_name"
+  | "variants_count"
   | "spec_exists"
   | "usage_count";
 
@@ -34,6 +36,12 @@ const PAGE_SIZE_ALL = "all";
 
 function specBadgeVariant(exists: boolean) {
   return exists ? ("success" as const) : ("neutral" as const);
+}
+
+function getVariantCount(item: ComponentCatalogItem) {
+  const figmaVariants = Array.isArray(item.figma.variants) ? item.figma.variants.length : null;
+  if (figmaVariants !== null) return figmaVariants;
+  return Number(item.visual_proof?.variants_count ?? 0) || 0;
 }
 
 export function ComponentsPage() {
@@ -95,6 +103,7 @@ export function ComponentsPage() {
     next.sort((a, b) => {
       const valueFor = (row: ComponentCatalogItem): string | number => {
         if (sort.field === "display_name") return row.display_name.toLowerCase();
+        if (sort.field === "variants_count") return getVariantCount(row);
         if (sort.field === "spec_exists") return row.spec.exists ? 1 : 0;
         if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
         return 0;
@@ -115,9 +124,8 @@ export function ComponentsPage() {
     return { total, withSpec };
   }, [rows]);
 
-  const allowShowAll = filtered.length >= 175;
   const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filtered.length)),
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= filtered.length),
     [filtered.length],
   );
   const pageSizeValue = pageSize === PAGE_SIZE_ALL ? filtered.length : Number(pageSize);
@@ -129,20 +137,16 @@ export function ComponentsPage() {
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
 
   useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
-      setPageSize("25");
-      return;
-    }
     if (pageSize !== PAGE_SIZE_ALL) {
       const numericValue = Number(pageSize);
       if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
-        setPageSize(String(fallback));
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1];
+        setPageSize(fallback !== undefined ? String(fallback) : PAGE_SIZE_ALL);
         return;
       }
     }
     setCurrentPage(1);
-  }, [allowShowAll, pageSize, pageSizeOptions, search, specFilter]);
+  }, [pageSize, pageSizeOptions, search, specFilter]);
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
@@ -180,7 +184,7 @@ export function ComponentsPage() {
         ]}
       />
 
-      <div className="rounded-xl border border-border/70 bg-card/85 p-5 text-card-foreground backdrop-blur-sm">
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
@@ -200,9 +204,7 @@ export function ComponentsPage() {
                       {size}
                     </option>
                   ))}
-                  {allowShowAll ? (
-                    <option value={PAGE_SIZE_ALL}>All</option>
-                  ) : null}
+                  <option value={PAGE_SIZE_ALL}>All</option>
                 </Select>
               </div>
             )}
@@ -254,6 +256,7 @@ export function ComponentsPage() {
             <TableHeader>
               <TableRow>
                 <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
+                <SortableTableHead label="Variants" onSort={() => toggleSort("variants_count")} />
                 <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
                 <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
               </TableRow>
@@ -262,7 +265,7 @@ export function ComponentsPage() {
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={4}
                     className="text-center text-muted-foreground"
                   >
                     No components match your filters.
@@ -273,7 +276,7 @@ export function ComponentsPage() {
               {loading
                 ? Array.from({ length: 4 }).map((_, index) => (
                     <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={3} className="text-muted-foreground">
+                      <TableCell colSpan={4} className="text-muted-foreground">
                         Loading components...
                       </TableCell>
                     </TableRow>
@@ -296,7 +299,7 @@ export function ComponentsPage() {
                           ) : null}
                           <Link
                             to={`/components/${item.slug}`}
-                            className="font-medium text-foreground hover:text-primary hover:underline"
+                            className="text-foreground hover:text-primary hover:underline"
                             aria-label={`Open ${item.display_name} detail`}
                           >
                             {item.display_name}
@@ -312,6 +315,7 @@ export function ComponentsPage() {
                           </Link>
                         </div>
                       </TableCell>
+                      <TableCell>{getVariantCount(item)}</TableCell>
                       <TableCell>
                         <Badge variant={specBadgeVariant(item.spec.exists)}>
                           {item.spec.exists ? "Docs" : "No docs"}
@@ -360,7 +364,7 @@ export function ComponentsPage() {
               </div>
             </div>
           ) : null}
-      </div>
+      </Card>
     </div>
   );
 }

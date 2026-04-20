@@ -34,7 +34,7 @@ export const sidebarMenuButtonVariants = cva(
   },
 );
 export const sidebarTriggerVariants = cva(
-  "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground",
+  "inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-white transition hover:bg-transparent hover:text-white",
 );
 
 export const SidebarProvider = React.forwardRef<

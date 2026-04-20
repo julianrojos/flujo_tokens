@@ -301,7 +301,7 @@ export function DesignSystemsAdminPage() {
         <p className="text-sm text-muted-foreground">Loading system...</p>
       ) : targetSystem ? (
         <div className="space-y-4">
-          <section className="rounded-xl border border-border bg-card p-4">
+          <section className="rounded-lg border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-titles font-semibold tracking-tight">{targetSystem.name}</h2>

@@ -285,7 +285,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6">
+      <div className="rounded-lg border border-border bg-card p-6">
         <p className="text-sm text-muted-foreground">Loading consumer files...</p>
       </div>
     );
@@ -310,19 +310,19 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     <div className="space-y-4">
       {/* KPI Bar */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.total}</p>
           <p className="text-xs text-muted-foreground">Total files</p>
         </div>
-        <div className="rounded border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.syncedToday}</p>
           <p className="text-xs text-muted-foreground">Synced today</p>
         </div>
-        <div className="rounded border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.withWarnings}</p>
           <p className="text-xs text-muted-foreground">With warnings</p>
         </div>
-        <div className="rounded border border-border bg-card p-3 text-center">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
           <p className="text-2xl font-bold">{kpis.neverSynced}</p>
           <p className="text-xs text-muted-foreground">Never synced</p>
         </div>
@@ -392,7 +392,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
           Try adjusting your search or filter criteria.
         </StatusAlert>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
