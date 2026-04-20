@@ -3,12 +3,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
 import type { SpecVariantVisual } from "ds-types";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Modal, ModalContent } from "@/components/ui/overlay";
+import { Modal, ModalCloseButton, ModalContent } from "@/components/ui/overlay";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 import { buildAssetUrl } from "../lib/component-detail-transforms";
@@ -27,7 +26,6 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const [lightboxImageFailed, setLightboxImageFailed] = useState(false);
   const lightboxContainerRef = useRef<HTMLDivElement | null>(null);
-  const lightboxCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const lightboxTriggerRef = useRef<HTMLElement | null>(null);
   const variantPreviews = useMemo(
     () =>
@@ -90,14 +88,6 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
     setLightboxImageFailed(false);
     setLightboxImage(image);
   }, []);
-
-  useEffect(() => {
-    if (!lightboxImage) return;
-    const closeButton = lightboxCloseButtonRef.current;
-    if (closeButton) {
-      window.requestAnimationFrame(() => closeButton.focus());
-    }
-  }, [lightboxImage]);
 
   useEffect(() => {
     if (!lightboxImage) return;
@@ -254,16 +244,11 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
         <ModalContent className="relative w-[min(96vw,1400px)] bg-surface-subtle p-4">
           <div ref={lightboxContainerRef} tabIndex={-1} className="outline-none">
           <h3 id="visual-proof-lightbox-title" className="sr-only text-base font-titles font-semibold">Visual proof full size</h3>
-          <Button
-            ref={lightboxCloseButtonRef}
-            variant="ghost"
-            size="sm"
+          <ModalCloseButton
             onClick={closeLightbox}
-            aria-label="Close image preview"
+            label="Close image preview"
             className="absolute right-2 top-2 z-10"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          />
           {lightboxImage && !lightboxImageFailed ? (
             <img
               src={lightboxImage.src}

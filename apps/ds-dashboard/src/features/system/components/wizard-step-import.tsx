@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
+import { ModalCloseButton } from "@/components/ui/overlay";
 import type {
   CaptureFigmaErrorDetail,
   CaptureFigmaProgress,
@@ -135,9 +136,7 @@ export function WizardStepImport({
             <Button variant="outline" onClick={onReset}>
               Create another system
             </Button>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
+            <ModalCloseButton onClick={onClose} label="Close import dialog" />
           </div>
         </CardContent>
       </Card>

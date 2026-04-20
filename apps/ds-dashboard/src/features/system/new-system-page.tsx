@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
-import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
+import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
@@ -443,9 +443,17 @@ export function NewSystemPage() {
       >
         <ModalContent size="sm">
           <ModalHeader>
-            <div>
-              <h3 className="text-base font-titles font-semibold">{scanErrorMeta.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{scanErrorMeta.hint}</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-titles font-semibold">{scanErrorMeta.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{scanErrorMeta.hint}</p>
+              </div>
+              <ModalCloseButton
+                onClick={() => {
+                  setScanErrorModalOpen(false);
+                }}
+                label="Close scan error dialog"
+              />
             </div>
           </ModalHeader>
           <div className="space-y-2 p-5 pt-4 text-sm text-foreground">
@@ -458,14 +466,6 @@ export function NewSystemPage() {
             )}
           </div>
           <ModalFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setScanErrorModalOpen(false);
-              }}
-            >
-              Close
-            </Button>
             <Button
               onClick={() => {
                 setScanErrorModalOpen(false);

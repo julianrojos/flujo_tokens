@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
+import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
@@ -519,9 +519,12 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
         <ModalContent size="md">
           <ModalHeader>
-            <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
-              Remove consumer file
-            </h2>
+            <div className="flex items-start justify-between gap-4">
+              <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
+                Remove consumer file
+              </h2>
+              <ModalCloseButton onClick={closeRemoveModal} label="Close remove consumer dialog" />
+            </div>
           </ModalHeader>
 
           <div className="px-5 pb-2">

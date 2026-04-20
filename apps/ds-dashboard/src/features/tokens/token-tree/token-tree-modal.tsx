@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
+  ModalCloseButton,
 } from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import type { ApiErrorDisplay } from "@/lib/api-error-ux";
@@ -110,9 +111,7 @@ export function TokenTreeModal({
               Estructura jerárquica derivada del inventario de tokens por colección.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
-            <X className="h-4 w-4" />
-          </Button>
+          <ModalCloseButton onClick={onClose} />
         </ModalHeader>
 
         <div className="border-b border-border/70 p-4">

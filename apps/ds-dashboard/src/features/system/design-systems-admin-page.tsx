@@ -4,7 +4,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PageHeader, SystemTabsNav } from '@/components/composites';
 import { Input } from '@/components/ui/input';
-import { Modal, ModalContent } from '@/components/ui/overlay/modal';
+import { Modal, ModalCloseButton, ModalContent, ModalHeader } from '@/components/ui/overlay/modal';
 import { ApiErrorMessage } from '@/components/api-error-message';
 import {
   deleteDesignSystem,
@@ -395,115 +395,129 @@ export function DesignSystemsAdminPage() {
       >
         <ModalContent size="md">
           {deleteModalTarget ? (
-            <div className="p-5">
-              <h2 className="mb-2 text-lg font-titles font-semibold tracking-tight">
-                Confirm deletion
-              </h2>
+            <>
+              <ModalHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <h2 className="text-lg font-titles font-semibold tracking-tight">
+                    Confirm deletion
+                  </h2>
+                  <ModalCloseButton
+                    onClick={() => {
+                      setDeleteModalTarget(null);
+                      setDeleteConfirmed(false);
+                      setDeletePreview(null);
+                      setDeletePreviewLoading(false);
+                    }}
+                    label="Close deletion confirmation dialog"
+                  />
+                </div>
+              </ModalHeader>
+              <div className="p-5 pt-4">
+                {deletePreviewLoading ? (
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    Loading preview...
+                  </p>
+                ) : deletePreview ? (
+                  <div className="mb-4">
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      Are you sure you want to delete{' '}
+                      <strong>{deleteModalTarget.name}</strong>? This will
+                      permanently remove this design system and its connected
+                      consumer files and information.
+                    </p>
 
-              {deletePreviewLoading ? (
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Loading preview...
-                </p>
-              ) : deletePreview ? (
-                <div className="mb-4">
-                  <p className="mb-3 text-sm text-muted-foreground">
+                    {deletePreview && deletePreview.totalConsumerCount > 0 ? (
+                      <div className="mb-3 rounded border border-border bg-muted/30 p-3">
+                        <p className="mb-2 text-sm font-medium text-foreground">
+                          This will delete {deletePreview.totalConsumerCount}{' '}
+                          consumer file(s):
+                        </p>
+                        <div className="max-h-32 space-y-1 overflow-y-auto">
+                          {deletePreview.consumers
+                            .slice(0, 20)
+                            .map((consumer) => (
+                              <div
+                                key={consumer.id}
+                                className="text-xs text-muted-foreground"
+                              >
+                                • {consumer.name} ({consumer.fileKey})
+                              </div>
+                            ))}
+                          {deletePreview.totalConsumerCount > 20 && (
+                            <div className="text-xs text-muted-foreground italic">
+                              ...and {deletePreview.totalConsumerCount - 20} more
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          This also clears {deletePreview.counts.syncRuns}
+                          related usage tracking (
+                          {deletePreview.counts.componentUsage} component records
+                          and {deletePreview.counts.variableUsage} variable
+                          records).
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mb-3 text-sm text-muted-foreground">
+                        No linked consumer files found.
+                      </p>
+                    )}
+
+                    <p className="text-xs text-status-error">
+                      ⚠️ This action cannot be undone.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mb-4 text-sm text-muted-foreground">
                     Are you sure you want to delete{' '}
                     <strong>{deleteModalTarget.name}</strong>? This will
                     permanently remove this design system and its connected
-                    consumer files and information.
+                    consumer files. This action cannot be undone.
                   </p>
+                )}
 
-                  {deletePreview && deletePreview.totalConsumerCount > 0 ? (
-                    <div className="mb-3 rounded border border-border bg-muted/30 p-3">
-                      <p className="mb-2 text-sm font-medium text-foreground">
-                        This will delete {deletePreview.totalConsumerCount}{' '}
-                        consumer file(s):
-                      </p>
-                      <div className="max-h-32 space-y-1 overflow-y-auto">
-                        {deletePreview.consumers
-                          .slice(0, 20)
-                          .map((consumer) => (
-                            <div
-                              key={consumer.id}
-                              className="text-xs text-muted-foreground"
-                            >
-                              • {consumer.name} ({consumer.fileKey})
-                            </div>
-                          ))}
-                        {deletePreview.totalConsumerCount > 20 && (
-                          <div className="text-xs text-muted-foreground italic">
-                            ...and {deletePreview.totalConsumerCount - 20} more
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        This also clears {deletePreview.counts.syncRuns}
-                        related usage tracking (
-                        {deletePreview.counts.componentUsage} component records
-                        and {deletePreview.counts.variableUsage} variable
-                        records).
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mb-3 text-sm text-muted-foreground">
-                      No linked consumer files found.
-                    </p>
-                  )}
+                <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmed}
+                    onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span>
+                    I understand this will permanently remove this design system
+                    and its connected consumer data
+                  </span>
+                </label>
 
-                  <p className="text-xs text-status-error">
-                    ⚠️ This action cannot be undone.
-                  </p>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDeleteModalTarget(null);
+                      setDeleteConfirmed(false);
+                      setDeletePreview(null);
+                      setDeletePreviewLoading(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                    disabled={
+                      !deleteConfirmed ||
+                      !!busyIds[deleteModalTarget.id] ||
+                      deletePreviewLoading
+                    }
+                    onClick={() => void handleDelete(deleteModalTarget.id)}
+                  >
+                    {deletePreview && deletePreview.totalConsumerCount > 0
+                      ? `Delete system and ${deletePreview.totalConsumerCount} consumers`
+                      : 'Delete system'}
+                  </Button>
                 </div>
-              ) : (
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Are you sure you want to delete{' '}
-                  <strong>{deleteModalTarget.name}</strong>? This will
-                  permanently remove this design system and its connected
-                  consumer files. This action cannot be undone.
-                </p>
-              )}
-
-              <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={deleteConfirmed}
-                  onChange={(e) => setDeleteConfirmed(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>
-                  I understand this will permanently remove this design system
-                  and its connected consumer data
-                </span>
-              </label>
-
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDeleteModalTarget(null);
-                    setDeleteConfirmed(false);
-                    setDeletePreview(null);
-                    setDeletePreviewLoading(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
-                  disabled={
-                    !deleteConfirmed ||
-                    !!busyIds[deleteModalTarget.id] ||
-                    deletePreviewLoading
-                  }
-                  onClick={() => void handleDelete(deleteModalTarget.id)}
-                >
-                  {deletePreview && deletePreview.totalConsumerCount > 0
-                    ? `Delete system and ${deletePreview.totalConsumerCount} consumers`
-                    : 'Delete system'}
-                </Button>
               </div>
-            </div>
+            </>
           ) : null}
         </ModalContent>
       </Modal>

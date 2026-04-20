@@ -7,12 +7,12 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
+  ModalCloseButton,
 } from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { simulateVariableChange } from "@/lib/api";
-import { X } from "lucide-react";
 import type { SimulationResult } from "@/types/consumers";
 import { runSimulateChange } from "../lib/simulate-change-logic";
 
@@ -66,15 +66,7 @@ export function SimulateChangePanel({
       <ModalContent size="md">
         <ModalHeader>
           <h2 className="text-lg font-titles font-semibold tracking-tight">Simulate Change</h2>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0"
-            onClick={onClose}
-            aria-label="Close dialog"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <ModalCloseButton onClick={onClose} />
         </ModalHeader>
 
         <div className="overflow-y-auto p-4">

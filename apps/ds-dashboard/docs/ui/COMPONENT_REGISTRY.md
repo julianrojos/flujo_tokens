@@ -278,7 +278,7 @@ Rules:
 
 **Path:** `src/components/ui/overlay/modal.tsx`
 
-**Sub-components:** `Modal`, `ModalContent`, `ModalHeader`, `ModalFooter`
+**Sub-components:** `Modal`, `ModalContent`, `ModalHeader`, `ModalFooter`, `ModalCloseButton`
 
 **Sizes:** `sm`, `md`, `lg`, `full`
 
@@ -287,6 +287,7 @@ Rules:
   <ModalContent size="lg">
     <ModalHeader>
       <h3>Title</h3>
+      <ModalCloseButton onClick={() => setIsOpen(false)} />
     </ModalHeader>
     <div>Content</div>
     <ModalFooter>

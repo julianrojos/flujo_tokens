@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Modal,
+  ModalCloseButton,
   ModalContent,
   ModalHeader,
   ModalFooter,
@@ -79,12 +80,15 @@ export function AddConsumerModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose}>
-      <ModalContent size="md">
-        <form onSubmit={handleSubmit}>
-          <ModalHeader>
-            <h2 className="text-lg font-titles font-semibold tracking-tight">Add Consumer File</h2>
-          </ModalHeader>
+      <Modal open={open} onClose={handleClose}>
+        <ModalContent size="md">
+          <form onSubmit={handleSubmit}>
+            <ModalHeader>
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-lg font-titles font-semibold tracking-tight">Add Consumer File</h2>
+                <ModalCloseButton onClick={handleClose} label="Close add consumer dialog" />
+              </div>
+            </ModalHeader>
           <div className="space-y-4 p-5">
             {error ? <ApiErrorMessage error={error} /> : null}
 

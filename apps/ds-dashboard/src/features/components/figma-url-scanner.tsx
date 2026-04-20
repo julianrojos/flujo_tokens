@@ -3,7 +3,7 @@ import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } f
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Modal, ModalContent } from "@/components/ui/overlay/modal";
+import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
@@ -558,12 +558,18 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       </CardContent>
 
       <Modal open={!!confirmModal} onClose={() => setConfirmModal(null)} aria-labelledby="figma-scanner-confirm-title">
-        <ModalContent size="md">
+        <ModalContent size="md" className="relative">
           {confirmModal ? (
-            <div className="p-5">
-              <h2 id="figma-scanner-confirm-title" className="mb-2 text-lg font-titles font-semibold tracking-tight">
-                Overwrite existing component data?
-              </h2>
+            <>
+              <ModalHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <h2 id="figma-scanner-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
+                    Overwrite existing component data?
+                  </h2>
+                  <ModalCloseButton onClick={() => setConfirmModal(null)} label="Close overwrite confirmation dialog" />
+                </div>
+              </ModalHeader>
+              <div className="p-5 pt-4">
               <p className="mb-3 text-sm text-muted-foreground">
                 This scan targets {confirmModal.totalTargets} component
                 {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing
@@ -598,7 +604,8 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
                   )}
                 </Button>
               </div>
-            </div>
+              </div>
+            </>
           ) : null}
         </ModalContent>
       </Modal>

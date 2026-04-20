@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Modal, ModalContent, ModalHeader, ModalFooter } from "@/components/ui/overlay";
+import { Modal, ModalCloseButton, ModalContent, ModalHeader, ModalFooter } from "@/components/ui/overlay";
 import {
   ApiError,
   getFigmaMcpDesignContextCompact,
@@ -671,12 +671,21 @@ export function FigmaMcpConnectionTestButton({
       >
         <ModalContent size="md">
           <ModalHeader>
-            <h2
-              id="figma-mcp-reset-confirm-title"
-              className="text-lg font-titles font-semibold tracking-tight"
-            >
-              Resolve connection
-            </h2>
+            <div className="flex items-start justify-between gap-4">
+              <h2
+                id="figma-mcp-reset-confirm-title"
+                className="text-lg font-titles font-semibold tracking-tight"
+              >
+                Resolve connection
+              </h2>
+              <ModalCloseButton
+                onClick={() => {
+                  setIsResolveModalOpen(false);
+                  setResolveConfirmed(false);
+                }}
+                label="Close resolve connection dialog"
+              />
+            </div>
           </ModalHeader>
 
           <div className="px-5 pb-2">

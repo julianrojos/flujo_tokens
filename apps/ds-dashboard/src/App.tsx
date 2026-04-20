@@ -23,7 +23,6 @@ import {
   Boxes,
   Layers3,
   Search,
-  X,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -47,9 +46,9 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { useDesignSystem } from '@/lib/design-system-context';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Modal, ModalContent } from '@/components/ui/overlay/modal';
+import { Button } from '@/components/ui/button';
+import { Modal, ModalCloseButton, ModalContent } from '@/components/ui/overlay';
 import { fetchComponentCatalog, fetchTokenCatalog } from '@/lib/api';
 import {
   ROUTE_PATTERNS,
@@ -716,17 +715,13 @@ export default function App() {
               className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
               autoFocus
             />
-            <Button
-              variant="ghost"
-              size="sm"
+            <ModalCloseButton
               onClick={() => {
                 setSearchOpen(false);
                 setSearchQuery('');
               }}
-              aria-label="Close search"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+              label="Close search"
+            />
           </div>
           <div className="max-h-[50vh] overflow-y-auto p-2">
             {searchIndexLoading ? (

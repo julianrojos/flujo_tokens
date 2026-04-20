@@ -2,7 +2,9 @@ import * as React from "react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
+import { X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const modalVariants = cva(
@@ -154,3 +156,32 @@ export function ModalFooter({
     </div>
   );
 }
+
+export interface ModalCloseButtonProps
+  extends Omit<React.ComponentPropsWithoutRef<typeof Button>, "children" | "variant"> {
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+  label?: string;
+}
+
+const ModalCloseButton = React.forwardRef<HTMLButtonElement, ModalCloseButtonProps>(
+  ({ onClick, label = "Close dialog", className, ...props }, ref) => {
+    return (
+      <Button
+        ref={ref}
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onClick}
+        aria-label={label}
+        title="Close"
+        className={cn("h-8 w-8 rounded-full p-0", className)}
+        {...props}
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    );
+  },
+);
+ModalCloseButton.displayName = "ModalCloseButton";
+
+export { ModalCloseButton };

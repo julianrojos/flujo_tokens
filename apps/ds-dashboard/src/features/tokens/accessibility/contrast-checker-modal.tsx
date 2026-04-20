@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -7,6 +6,7 @@ import {
   ModalContent,
   ModalHeader,
   ModalFooter,
+  ModalCloseButton,
 } from "@/components/ui/overlay";
 import type {
   ContrastCheckResult,
@@ -92,9 +92,7 @@ export function ContrastCheckerModal({
               Check color contrast between a background and a foreground.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
-            <X className="h-4 w-4" />
-          </Button>
+          <ModalCloseButton onClick={onClose} />
         </ModalHeader>
 
         <div className="grid gap-4 p-5 md:grid-cols-2">
