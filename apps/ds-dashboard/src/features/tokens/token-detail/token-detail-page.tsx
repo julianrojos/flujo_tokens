@@ -10,10 +10,8 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { PageHeader, PrevNextNav } from "@/components/composites";
 import { useTokenDetail } from "./hooks/use-token-detail";
 import { TokenIdentitySection } from "./components/token-identity-section";
-import { TokenAliasSection } from "./components/token-alias-section";
 import { TokenRelationsSection } from "./components/token-relations-section";
 import { TokenUsageSection } from "./components/token-usage-section";
-import { TokenHealthSection } from "./components/token-health-section";
 
 export function TokenDetailPage() {
   const { tokenPath } = useParams<{ tokenPath: string }>();
@@ -29,15 +27,12 @@ export function TokenDetailPage() {
     aliasDescendantChains,
     filteredComponentUsages,
     componentUsageSummary,
-    healthIssues,
     scopedTokens,
     currentTokenIndex,
     previousToken,
     nextToken,
     componentMode,
     componentQuery,
-    copiedField,
-    handleCopyValue,
     setComponentFilter,
     handleNavigate,
   } = useTokenDetail(tokenPath);
@@ -78,10 +73,10 @@ export function TokenDetailPage() {
 
       <TokenIdentitySection
         token={token}
+        tokenAliasChain={tokenAliasChain}
+        aliasFinal={aliasFinal}
         swatch={swatch}
         dimensionPreview={dimensionPreview}
-        onCopyField={handleCopyValue}
-        copiedField={copiedField}
       />
 
       <TokenRelationsSection
@@ -89,17 +84,6 @@ export function TokenDetailPage() {
         aliasOf={token.aliasOf ?? null}
         hasDescendantAliases={aliasDescendantChains.size > 0}
       />
-
-      {tokenAliasChain.length > 0 && (
-        <TokenAliasSection
-          token={token}
-          tokenAliasChain={tokenAliasChain}
-          aliasFinal={aliasFinal}
-          aliasDescendantChains={aliasDescendantChains}
-          onCopyField={handleCopyValue}
-          copiedField={copiedField}
-        />
-      )}
 
       <TokenUsageSection
         filteredComponentUsages={filteredComponentUsages}
@@ -113,7 +97,6 @@ export function TokenDetailPage() {
         }}
       />
 
-      <TokenHealthSection healthIssues={healthIssues} />
     </div>
   );
 }

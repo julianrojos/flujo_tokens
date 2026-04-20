@@ -2,7 +2,7 @@
  * Hook for token-detail page - encapsulates state, derived data, and handlers.
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTokenDetailData } from "../use-token-detail-data";
 import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
@@ -11,21 +11,13 @@ import {
   resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
-  tokenMatchesRef,
 } from "../lib/token-detail-transforms";
-
-export interface ComponentTokenUsage {
-  slug: string;
-  displayName: string;
-  mode: "direct" | "via_alias" | "both";
-  occurrences: number;
-  directOccurrences: number;
-  viaAliasOccurrences: number;
-}
+import {
+  buildComponentTokenUsageRows,
+  type ComponentTokenUsage,
+} from "../lib/token-detail-usage-derivation";
 
 interface TokenDetailViewModel {
-  // State
-  copiedField: string | null;
   fromCollection: string;
   fromType: string;
   fromSearch: string;
@@ -51,10 +43,8 @@ interface TokenDetailViewModel {
   aliasDescendantChains: Map<string, TokenCatalogEntry[]>;
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
-  healthIssues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }>;
 
   // Handlers
-  handleCopyValue: (key: string, value: string) => Promise<void>;
   setComponentFilter: (key: "cmode" | "cq", value: string) => void;
   handleNavigate: (token: TokenCatalogEntry) => void;
 }
@@ -64,13 +54,11 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   const [searchParams, setSearchParams] = useSearchParams();
   const decoded = tokenPath ? decodeURIComponent(tokenPath) : "";
 
-  const [copiedField, setCopiedField] = useState<string | null>(null);
   const {
     loading,
     error,
     registry,
     token,
-    tokenHealth,
     components,
   } = useTokenDetailData(decoded);
 
@@ -164,63 +152,15 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   }, [reverseAliasMap, token]);
 
   // Component usages
-  const componentUsages = useMemo<ComponentTokenUsage[]>(() => {
-    if (!token || components.length === 0) return [] as ComponentTokenUsage[];
-
-    const aliasTokens = Array.from(aliasDescendantChains.keys()).map((aliasPath) => ({
-      aliasPath,
-      token: registry?.byPath?.[aliasPath] ?? registry?.bySlashPath?.[aliasPath] ?? null,
-    }));
-
-    const aliasPathByRef = new Map<string, string>();
-    for (const entry of aliasTokens) {
-      if (!entry.token) continue;
-      aliasPathByRef.set(entry.token.path, entry.aliasPath);
-      aliasPathByRef.set(entry.token.slashPath, entry.aliasPath);
-      aliasPathByRef.set(entry.token.cssVar, entry.aliasPath);
-    }
-
-    return components
-      .map((component): ComponentTokenUsage | null => {
-        const bindings = Array.isArray(component.figma?.token_bindings) ? component.figma.token_bindings : [];
-        if (bindings.length === 0) return null;
-
-        let directOccurrences = 0;
-        let viaAliasOccurrences = 0;
-
-        for (const binding of bindings) {
-          const tokenRef = String(binding.token_path || "").trim();
-          if (!tokenRef) continue;
-
-          if (tokenMatchesRef(token, tokenRef)) {
-            directOccurrences += 1;
-            continue;
-          }
-
-          const aliasPath = aliasPathByRef.get(tokenRef) ?? null;
-          if (!aliasPath) continue;
-          viaAliasOccurrences += 1;
-        }
-
-        const occurrences = directOccurrences + viaAliasOccurrences;
-        if (occurrences === 0) return null;
-        const mode: ComponentTokenUsage["mode"] = directOccurrences > 0 && viaAliasOccurrences > 0
-          ? "both"
-          : viaAliasOccurrences > 0
-            ? "via_alias"
-            : "direct";
-        return {
-          slug: component.slug,
-          displayName: component.display_name || component.slug,
-          mode,
-          occurrences,
-          directOccurrences,
-          viaAliasOccurrences,
-        };
-      })
-      .filter((entry): entry is ComponentTokenUsage => Boolean(entry))
-      .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  }, [aliasDescendantChains, components, registry, token]);
+  const componentUsages = useMemo<ComponentTokenUsage[]>(
+    () =>
+      buildComponentTokenUsageRows({
+        tokenPath: decoded,
+        registry,
+        components,
+      }),
+    [components, decoded, registry],
+  );
 
   const filteredComponentUsages = useMemo(() => {
     return componentUsages.filter((entry) => {
@@ -251,65 +191,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     };
   }, [componentUsages]);
 
-  // Health issues
-  const healthIssues = useMemo(() => {
-    if (!token || !tokenHealth) return [];
-    const issues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }> = [];
-    if (tokenHealth.unused_tokens.items.some((item) => item.path === token.path)) {
-      issues.push({
-        key: "unused",
-        severity: "warning",
-        label: "Unused token",
-        detail: "No references found in the usage index.",
-      });
-    }
-    if (tokenHealth.high_coupling_tokens.items.some((item) => item.path === token.path)) {
-      issues.push({
-        key: "high-coupling",
-        severity: "warning",
-        label: "High coupling",
-        detail: "Token has many downstream references and change risk is elevated.",
-      });
-    }
-    if (
-      tokenHealth.broken_aliases.items.some(
-        (item) => tokenMatchesRef(token, item.token) || tokenMatchesRef(token, item.aliasCssVar),
-      )
-    ) {
-      issues.push({
-        key: "broken-alias",
-        severity: "error",
-        label: "Broken alias",
-        detail: "Alias reference cannot be resolved to an existing token.",
-      });
-    }
-    if (
-      tokenHealth.broken_css_var_refs.items.some(
-        (item) => tokenMatchesRef(token, item.from) || tokenMatchesRef(token, item.cssVar),
-      )
-    ) {
-      issues.push({
-        key: "broken-css-ref",
-        severity: "error",
-        label: "Broken CSS var reference",
-        detail: "Resolved value references an unknown CSS variable.",
-      });
-    }
-    if (
-      tokenHealth.wcag_failures.items.some(
-        (item) => tokenMatchesRef(token, item.foreground) || tokenMatchesRef(token, item.background),
-      )
-    ) {
-      issues.push({
-        key: "wcag",
-        severity: "error",
-        label: "WCAG contrast failure",
-        detail: "Token participates in at least one failing contrast pair.",
-      });
-    }
-    return issues;
-  }, [token, tokenHealth]);
-
   // Handlers
   const setComponentFilter = useCallback((key: "cmode" | "cq", value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -318,20 +199,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const handleCopyValue = useCallback(async (key: string, value: string) => {
-    const content = String(value || "").trim();
-    if (!content) return;
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedField(key);
-      window.setTimeout(() => {
-        setCopiedField((current) => (current === key ? null : current));
-      }, 1500);
-    } catch {
-      setCopiedField(null);
-    }
-  }, []);
-
   const handleNavigate = useCallback((token: TokenCatalogEntry) => {
     navigate({
       pathname: `/tokens/${encodeURIComponent(token.path)}`,
@@ -339,8 +206,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   }, [navigate]);
 
   return {
-    // State
-    copiedField,
     fromCollection,
     fromType,
     fromSearch,
@@ -366,10 +231,8 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     aliasDescendantChains,
     filteredComponentUsages,
     componentUsageSummary,
-    healthIssues,
 
     // Handlers
-    handleCopyValue,
     setComponentFilter,
     handleNavigate,
   };

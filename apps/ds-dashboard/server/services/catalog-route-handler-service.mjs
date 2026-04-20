@@ -47,6 +47,7 @@ function normalizeFigmaTokenBindingsForApi(tokenBindings) {
       token_path: String(binding?.tokenPath || "").trim() || undefined,
       mode: String(binding?.mode || "").trim() || undefined,
       status: String(binding?.status || "").trim() || undefined,
+      property_path: String(binding?.propertyPath || "").trim() || undefined,
     }))
     .filter((binding) => binding.node_id && binding.node_name && binding.field && binding.variable_id);
 }

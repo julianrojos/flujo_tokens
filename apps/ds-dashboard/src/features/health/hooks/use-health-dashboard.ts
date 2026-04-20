@@ -13,6 +13,7 @@ interface DashboardIssue {
 
 export function useHealthDashboard(systemId: string) {
   const {
+    componentCatalog,
     tokenHealth,
     loading,
     reloadingAll,
@@ -22,47 +23,14 @@ export function useHealthDashboard(systemId: string) {
     captureSnapshotAndReload,
   } = useHealthDashboardData(systemId);
 
+  const totalComponents = useMemo(
+    () => componentCatalog?.summary.total_components ?? 0,
+    [componentCatalog],
+  );
   const tokensTotal = useMemo(
-    () => (tokenHealth ? Math.max(tokenHealth.summary.tokens_total, 1) : 0),
+    () => tokenHealth?.summary.tokens_total ?? 0,
     [tokenHealth],
   );
-  const tokenScore = useMemo(
-    () =>
-      tokenHealth?.summary
-        ? Math.max(
-            0,
-            Math.round(
-              100 -
-                Math.min(
-                  30,
-                  (tokenHealth.summary.unused_tokens_total /
-                    Math.max(1, tokenHealth.summary.tokens_total)) *
-                    35,
-                ) -
-                Math.min(
-                  20,
-                  (tokenHealth.summary.high_coupling_tokens_total /
-                    Math.max(1, tokenHealth.summary.tokens_total)) *
-                    25,
-                ) -
-                Math.min(
-                  20,
-                  (tokenHealth.summary.broken_css_var_refs_total /
-                    Math.max(1, tokenHealth.summary.tokens_total)) *
-                    120,
-                ) -
-                Math.min(
-                  20,
-                  (tokenHealth.summary.wcag_failures_total /
-                    Math.max(1, tokenHealth.summary.tokens_total)) *
-                    140,
-                ),
-            ),
-          )
-        : 0,
-    [tokenHealth],
-  );
-  const overallScore = useMemo(() => Math.round(tokenScore), [tokenScore]);
 
   const activeIssues = useMemo<DashboardIssue[]>(() => {
     if (!tokenHealth) return [];
@@ -111,8 +79,7 @@ export function useHealthDashboard(systemId: string) {
     reloadAll,
     captureSnapshotAndReload,
     tokensTotal,
-    tokenScore,
-    overallScore,
+    totalComponents,
     activeIssues,
     handleIssueViewClick,
   };

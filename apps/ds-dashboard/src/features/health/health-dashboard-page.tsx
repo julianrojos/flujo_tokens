@@ -18,9 +18,8 @@ export function HealthDashboardPage() {
   const resolvedSystemId = String(systemId || '').trim();
   const {
     loading,
+    totalComponents,
     tokensTotal,
-    tokenScore,
-    overallScore,
     activeIssues,
     handleIssueViewClick,
   } = useHealthDashboard(resolvedSystemId);
@@ -47,13 +46,13 @@ export function HealthDashboardPage() {
         items={[
           {
             id: 'overall-system',
-            label: 'Overall System',
-            value: `${overallScore} / 100`,
+            label: 'Components',
+            value: String(totalComponents),
           },
           {
             id: 'tokens',
             label: 'Tokens',
-            value: `${tokensTotal} (${tokenScore}/100)`,
+            value: String(tokensTotal),
           },
         ]}
       />

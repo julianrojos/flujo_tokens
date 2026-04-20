@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { toComponentDetail } from "@/lib/routes";
-import type { ComponentTokenUsage } from "../hooks/use-token-detail";
+import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
 
 interface TokenUsageFilters {
   componentMode: string;
@@ -29,7 +29,7 @@ interface TokenUsageSectionProps {
   actions: TokenUsageActions;
 }
 
-type ComponentSortField = "component" | "mode" | "occurrences";
+type ComponentSortField = "component" | "property" | "mode" | "occurrences";
 type ComponentSortDirection = "asc" | "desc";
 
 export function TokenUsageSection({
@@ -49,6 +49,8 @@ export function TokenUsageSection({
       let comparison = 0;
       if (sort.field === "component") {
         comparison = left.displayName.localeCompare(right.displayName);
+      } else if (sort.field === "property") {
+        comparison = left.properties.join(", ").localeCompare(right.properties.join(", "));
       } else if (sort.field === "mode") {
         comparison = left.mode.localeCompare(right.mode);
       } else {
@@ -93,6 +95,7 @@ export function TokenUsageSection({
             <TableHeader>
               <TableRow>
                 <SortableTableHead label="Component" onSort={() => toggleSort("component")} ariaLabel="Sort by component" />
+                <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
                 <SortableTableHead label="Mode" onSort={() => toggleSort("mode")} ariaLabel="Sort by mode" />
                 <SortableTableHead label="Instances" onSort={() => toggleSort("occurrences")} ariaLabel="Sort by instances" />
               </TableRow>
@@ -108,6 +111,19 @@ export function TokenUsageSection({
                     >
                       {usage.displayName}
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    {usage.properties.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {usage.properties.map((property) => (
+                          <Badge key={property} variant="neutral" className="font-mono text-xs">
+                            {property}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">

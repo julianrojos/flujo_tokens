@@ -1,10 +1,12 @@
 import type { VariableUsageReport } from "@/types/consumers";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { TokenCatalog } from "@/types/token-catalog";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   buildTokenUsageTargets,
   normalizeUsageKeyForMatch,
   resolveAliasTarget,
+  tokenMatchesRef,
   variableReportMatchesTokenTargets,
 } from "./token-detail-transforms";
 
@@ -70,6 +72,10 @@ function buildAliasPathByTargetIndex(aliasTargetsByPath: Map<string, Set<string>
     }
   }
   return byTarget;
+}
+
+function normalizePropertyLabel(value: string): string {
+  return String(value || "").trim();
 }
 
 function resolveReportMatchMode(args: {
@@ -181,4 +187,92 @@ export function buildFigmaConsumerUsageOccurrences(args: {
     directTargets,
     aliasTargetsByPath,
   });
+}
+
+export interface ComponentTokenUsage {
+  slug: string;
+  displayName: string;
+  mode: "direct" | "via_alias" | "both";
+  occurrences: number;
+  directOccurrences: number;
+  viaAliasOccurrences: number;
+  properties: string[];
+}
+
+export function buildComponentTokenUsageRows(args: {
+  tokenPath: string;
+  registry: TokenCatalog | null;
+  components: ComponentCatalogItem[];
+}): ComponentTokenUsage[] {
+  const token = args.registry?.byPath?.[args.tokenPath] ?? null;
+  if (!token || !Array.isArray(args.components) || args.components.length === 0) {
+    return [];
+  }
+
+  const aliasPaths = collectAliasDescendantPaths(args.registry, token.path);
+  const aliasPathByRef = new Map<string, string>();
+
+  for (const aliasPath of aliasPaths) {
+    const aliasToken =
+      args.registry?.byPath?.[aliasPath] ?? args.registry?.bySlashPath?.[aliasPath] ?? null;
+    if (!aliasToken) continue;
+    for (const target of buildTokenUsageTargets(aliasToken)) {
+      const normalized = String(target || "").trim();
+      if (!normalized || aliasPathByRef.has(normalized)) continue;
+      aliasPathByRef.set(normalized, aliasPath);
+    }
+  }
+
+  return args.components
+    .map((component): ComponentTokenUsage | null => {
+      const bindings = Array.isArray(component.figma?.token_bindings)
+        ? component.figma.token_bindings
+        : [];
+      if (bindings.length === 0) return null;
+
+      let directOccurrences = 0;
+      let viaAliasOccurrences = 0;
+      const properties = new Set<string>();
+
+      for (const binding of bindings) {
+        const tokenRef = String(binding.token_path || "").trim();
+        if (!tokenRef) continue;
+
+        const property = normalizePropertyLabel(
+          String(binding.property_path || binding.field || ""),
+        );
+
+        if (tokenMatchesRef(token, tokenRef)) {
+          directOccurrences += 1;
+          if (property) properties.add(property);
+          continue;
+        }
+
+        const aliasPath = aliasPathByRef.get(tokenRef) ?? null;
+        if (!aliasPath) continue;
+        viaAliasOccurrences += 1;
+        if (property) properties.add(property);
+      }
+
+      const occurrences = directOccurrences + viaAliasOccurrences;
+      if (occurrences === 0) return null;
+      const mode: ComponentTokenUsage["mode"] =
+        directOccurrences > 0 && viaAliasOccurrences > 0
+          ? "both"
+          : viaAliasOccurrences > 0
+            ? "via_alias"
+            : "direct";
+
+      return {
+        slug: component.slug,
+        displayName: component.display_name || component.slug,
+        mode,
+        occurrences,
+        directOccurrences,
+        viaAliasOccurrences,
+        properties: Array.from(properties.values()).sort((left, right) => left.localeCompare(right)),
+      };
+    })
+    .filter((entry): entry is ComponentTokenUsage => Boolean(entry))
+    .sort((left, right) => left.displayName.localeCompare(right.displayName));
 }

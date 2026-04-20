@@ -2,28 +2,32 @@
  * Token Identity Section - displays token header, swatch, type, collection.
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Copy } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import type { TokenCatalogEntry } from "@/types/token-catalog";
+import { toTokenDetail } from "@/lib/routes";
+import { resolveColorSwatch } from "../lib/token-detail-transforms";
 
 interface TokenIdentitySectionProps {
   token: TokenCatalogEntry;
+  tokenAliasChain: TokenCatalogEntry[];
+  aliasFinal: TokenCatalogEntry | null;
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
-  onCopyField: (field: string, value: string) => void;
-  copiedField: string | null;
 }
 
 export function TokenIdentitySection({
   token,
+  tokenAliasChain,
+  aliasFinal,
   swatch,
   dimensionPreview,
-  onCopyField,
-  copiedField,
 }: TokenIdentitySectionProps) {
+  const aliasLine = tokenAliasChain.length > 0 ? tokenAliasChain : [token];
+  const finalValue = aliasFinal?.resolvedValue || token.resolvedValue;
+  const finalSwatch = resolveColorSwatch(finalValue);
+
   return (
     <Card>
       <CardHeader>
@@ -62,61 +66,52 @@ export function TokenIdentitySection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Resolved value</label>
-            <div className="mt-1 flex items-center gap-2">
-              <Input
-                readOnly
-                value={token.resolvedValue}
-                className="font-mono text-xs"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0"
-                onClick={() => onCopyField("resolvedValue", token.resolvedValue)}
-              >
-                {copiedField === "resolvedValue" ? (
-                  <span className="h-4 w-4 text-status-success">✓</span>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Alias chain</label>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {aliasLine.map((entry, index) => (
+              <div key={entry.path} className="flex items-center gap-2">
+                {index === 0 ? (
+                  <Badge
+                    variant={index === aliasLine.length - 1 ? "success" : "neutral"}
+                    className="font-mono text-xs"
+                  >
+                    {entry.path}
+                  </Badge>
                 ) : (
-                  <Copy className="h-4 w-4" />
+                  <Link
+                    to={toTokenDetail(entry.path)}
+                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    title={`Open ${entry.path} detail`}
+                  >
+                    <Badge
+                      variant={index === aliasLine.length - 1 ? "success" : "neutral"}
+                      className="font-mono text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {entry.path}
+                    </Badge>
+                  </Link>
                 )}
-              </Button>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">CSS variable</label>
-            <div className="mt-1 flex items-center gap-2">
-              <Input
-                readOnly
-                value={token.cssVar}
-                className="font-mono text-xs"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0"
-                onClick={() => onCopyField("cssVar", token.cssVar)}
-              >
-                {copiedField === "cssVar" ? (
-                  <span className="h-4 w-4 text-status-success">✓</span>
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+                {index < aliasLine.length - 1 ? (
+                  <span className="text-muted-foreground">→</span>
+                ) : null}
+              </div>
+            ))}
+            <span className="text-muted-foreground">→</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="neutral" className="font-mono text-xs">
+                {finalValue}
+              </Badge>
+              {finalSwatch ? (
+                <span
+                  className="h-3.5 w-3.5 rounded border border-border shadow-sm"
+                  style={{ backgroundColor: finalSwatch }}
+                  aria-label={`Color swatch ${finalSwatch}`}
+                />
+              ) : null}
             </div>
           </div>
         </div>
-
-        {token.aliasOf ? (
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Aliases</label>
-            <div className="mt-1 flex items-center gap-2">
-              <Badge variant="neutral">alias of: {token.aliasOf}</Badge>
-            </div>
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );

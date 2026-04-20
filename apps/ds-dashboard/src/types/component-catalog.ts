@@ -24,6 +24,7 @@ export interface ComponentCatalogItem {
       token_path?: string;
       mode?: string;
       status?: "resolved" | "unresolved";
+      property_path?: string;
     }>;
     layout?: Array<{
       node_id: string;

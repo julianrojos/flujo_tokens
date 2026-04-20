@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
+import { toComponentDetail } from "@/lib/routes";
 import { useComponentCatalogQuery } from "../use-health-queries";
 import { getTopComponentTokenDebt } from "../lib/component-token-debt";
 
@@ -49,9 +50,6 @@ export function ComponentTokenDebtCard() {
     <Card>
       <CardHeader>
         <CardTitle>Componentes con deuda de tokens</CardTitle>
-        <CardDescription>
-          Top {TOP_COMPONENTS_LIMIT} components with at least one unresolved layer.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {rows.length > 0 ? (
@@ -61,8 +59,13 @@ export function ComponentTokenDebtCard() {
               return (
                 <div key={row.slug} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_auto] items-center gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">{row.displayName}</div>
-                    <div className="truncate text-xs text-muted-foreground">{row.slug}</div>
+                    <Link
+                      to={toComponentDetail(row.slug)}
+                      className="truncate text-sm font-medium text-foreground hover:text-primary hover:underline"
+                      title={`Open ${row.displayName} detail`}
+                    >
+                      {row.displayName}
+                    </Link>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-muted/70">
                     <div

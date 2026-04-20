@@ -602,16 +602,7 @@ export function TokensPage() {
                             <Link
                               to={detailHref}
                               className="hover:text-primary hover:underline"
-                              aria-label={`Open ${entry.path} detail`}
-                            >
-                              {entry.path}
-                            </Link>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            <Link
-                              to={detailHref}
-                              className="font-mono hover:text-primary hover:underline"
-                              aria-label={`Open ${entry.path} detail`}
+                              aria-label={`Open ${entry.slashPath} detail`}
                             >
                               {entry.slashPath}
                             </Link>

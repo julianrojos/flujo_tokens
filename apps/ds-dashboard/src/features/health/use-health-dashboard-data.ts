@@ -3,16 +3,22 @@ import { useCallback, useMemo } from 'react';
 import { captureHealthSnapshot } from '@/lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toApiErrorDisplay } from '@/lib/api-error-ux';
-import { healthQueryKeys, useTokenHealthQuery } from './use-health-queries';
+import {
+  healthQueryKeys,
+  useComponentCatalogQuery,
+  useTokenHealthQuery,
+} from './use-health-queries';
 
 export function useHealthDashboardData(systemId: string) {
   const queryClient = useQueryClient();
 
+  const componentCatalogQuery = useComponentCatalogQuery(systemId);
   const tokenHealthQuery = useTokenHealthQuery(systemId);
 
+  const componentCatalog = componentCatalogQuery.data ?? null;
   const tokenHealth = tokenHealthQuery.data ?? null;
-  const loading = tokenHealthQuery.isLoading;
-  const reloadingAll = tokenHealthQuery.isFetching;
+  const loading = tokenHealthQuery.isLoading || componentCatalogQuery.isLoading;
+  const reloadingAll = tokenHealthQuery.isFetching || componentCatalogQuery.isFetching;
 
   const queryTokenError = useMemo(() => {
     if (!tokenHealthQuery.error) return null;
@@ -46,6 +52,7 @@ export function useHealthDashboardData(systemId: string) {
   }, [snapshotMutation]);
 
   return {
+    componentCatalog,
     tokenHealth,
     loading,
     reloadingAll,

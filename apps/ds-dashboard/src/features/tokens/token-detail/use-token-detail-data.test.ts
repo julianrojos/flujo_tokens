@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { VariableUsageReport } from "@/types/consumers";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 import {
+  buildComponentTokenUsageRows,
   buildFigmaConsumerUsageOccurrences,
   collectAliasDescendantPaths,
 } from "./lib/token-detail-usage-derivation";
@@ -28,6 +30,25 @@ function buildRegistry(entries: TokenCatalogEntry[]): TokenCatalog {
     bySlashPath[entry.slashPath] = entry;
   }
   return { entries, byPath, bySlashPath, byVariableId };
+}
+
+function makeComponent(
+  slug: string,
+  displayName: string,
+  tokenBindings: NonNullable<ComponentCatalogItem["figma"]>["token_bindings"],
+): ComponentCatalogItem {
+  return {
+    slug,
+    display_name: displayName,
+    paths: { spec: `db://component_editorial/${slug}` },
+    spec: { exists: true },
+    figma: {
+      file_url: null,
+      component_set_node_id: null,
+      token_bindings: tokenBindings,
+    },
+    fingerprint_sha256: `fingerprint-${slug}`,
+  };
 }
 
 function makeReport(variableName: string, nodeCount = 1): VariableUsageReport {
@@ -136,5 +157,53 @@ describe("token detail alias traversal", () => {
     assert.ok(descendants.length > 0);
     assert.ok(descendants.length <= 3);
     assert.equal(descendants.includes(a.path), false);
+  });
+
+  it("collects component properties for matching token usages", () => {
+    const base = makeToken({
+      path: "color.background.accent",
+      slashPath: "color/background/accent",
+      cssVar: "--color-background-accent",
+    });
+    const alias = makeToken({
+      path: "color.background.accent.hover",
+      slashPath: "color/background/accent/hover",
+      cssVar: "--color-background-accent-hover",
+      aliasOf: base.path,
+    });
+    const registry = buildRegistry([base, alias]);
+
+    const rows = buildComponentTokenUsageRows({
+      tokenPath: base.path,
+      registry,
+      components: [
+        makeComponent("button", "Button", [
+          {
+            node_id: "1",
+            node_name: "Button/Default",
+            field: "fills",
+            variable_id: "var:1",
+            token_path: base.path,
+            property_path: "fills",
+            status: "resolved",
+          },
+          {
+            node_id: "2",
+            node_name: "Button/Hover",
+            field: "strokes",
+            variable_id: "var:2",
+            token_path: alias.path,
+            property_path: "strokes",
+            status: "resolved",
+          },
+        ]),
+      ],
+    });
+
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0].properties, ["fills", "strokes"]);
+    assert.equal(rows[0].mode, "both");
+    assert.equal(rows[0].directOccurrences, 1);
+    assert.equal(rows[0].viaAliasOccurrences, 1);
   });
 });

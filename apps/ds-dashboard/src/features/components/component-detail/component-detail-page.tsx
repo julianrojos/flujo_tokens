@@ -4,10 +4,10 @@
 
 import { useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
-import { Loader } from "@/components/ui/loader";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
@@ -17,6 +17,26 @@ import { LayerTokenMappingSection } from "./components/layer-token-mapping-secti
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
 import { toComponentEditDocs } from "@/lib/routes";
+
+function buildFigmaNodeUrl(fileUrl: string | null | undefined, nodeId: string | null | undefined) {
+  const normalizedFileUrl = String(fileUrl || "").trim();
+  if (!normalizedFileUrl) return null;
+
+  const normalizedNodeId = String(nodeId || "").trim();
+  if (!normalizedNodeId) return normalizedFileUrl;
+
+  if (typeof URL.canParse === "function" && !URL.canParse(normalizedFileUrl)) {
+    return normalizedFileUrl;
+  }
+
+  try {
+    const parsed = new URL(normalizedFileUrl);
+    parsed.searchParams.set("node-id", normalizedNodeId);
+    return parsed.toString();
+  } catch {
+    return normalizedFileUrl;
+  }
+}
 
 export function ComponentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -55,39 +75,45 @@ export function ComponentDetailPage() {
     variantDescriptions: [],
   };
 
-  const isInitialLoading = loading && !item;
-
-  if (isInitialLoading) {
-    return (
-      <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading component details" />
-        <div className="h-64 animate-pulse rounded-xl bg-muted" />
-      </div>
-    );
-  }
-
-  if (error || !item) {
+  if (error || (!loading && !item)) {
     return (
       <div className="space-y-5">
         <PageHeader title="Component not found" description={slug} />
-        <StatusAlert variant="error" description={error || `Component "${slug}" not found`} />
+        <StatusAlert
+          variant="error"
+          description={error || `Component "${slug}" not found`}
+        />
         <Button variant="outline" onClick={handleBack}>← Back</Button>
       </div>
     );
   }
 
+  const pageTitle = item?.display_name || slug || "Component";
+  const pageDescription = item?.slug || slug || "";
+  const figmaUrl = buildFigmaNodeUrl(
+    item?.figma.file_url,
+    item?.figma.component_set_node_id,
+  );
+
   return (
     <div className="space-y-5">
-      {loading ? (
-        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-4 py-2 text-sm text-muted-foreground">
-          <Loader size="sm" />
-          <span>Loading component details…</span>
-        </div>
-      ) : null}
-
       <PageHeader
-        title={item.display_name}
-        description={item.slug}
+        title={pageTitle}
+        description={pageDescription}
+        actions={
+          figmaUrl ? (
+            <a
+              href={figmaUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-2 rounded border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              aria-label={`Open ${pageTitle} in Figma`}
+            >
+              <span>Open in Figma</span>
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : null
+        }
       />
 
       <ComponentNavBar

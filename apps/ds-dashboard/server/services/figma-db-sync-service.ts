@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Sql } from 'postgres';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
+import { normalizeTokenTypeFromFigma } from '@flujo/shared';
 import type {
   FigmaVariable,
   FigmaVariableCollection,
@@ -68,15 +69,14 @@ function toTokenPaths(rawName: string): {
   return { path, slashPath, cssVar };
 }
 
-function normalizeType(resolvedType: string): string {
-  const type = String(resolvedType || '')
-    .trim()
-    .toUpperCase();
-  if (type === 'COLOR') return 'color';
-  if (type === 'FLOAT') return 'dimension';
-  if (type === 'STRING') return 'string';
-  if (type === 'BOOLEAN') return 'boolean';
-  return 'string';
+function normalizeType(args: {
+  resolvedType: string;
+  variableName?: string;
+}): string {
+  return normalizeTokenTypeFromFigma({
+    resolvedType: args.resolvedType,
+    variableName: args.variableName,
+  });
 }
 
 function toHexByte(value: number): string {
@@ -182,7 +182,10 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
     const collection = collections[String(variable.variableCollectionId || '')];
     const collectionName =
       String(collection?.name || 'default').trim() || 'default';
-    const type = normalizeType(String(variable.resolvedType || ''));
+    const type = normalizeType({
+      resolvedType: String(variable.resolvedType || ''),
+      variableName: String(variable.name || ''),
+    });
     const modeNameMap =
       modeNameMapByCollectionId.get(
         String(variable.variableCollectionId || ''),
