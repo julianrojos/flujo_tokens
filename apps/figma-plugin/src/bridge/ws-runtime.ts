@@ -888,6 +888,13 @@ export class WebSocketRuntime {
           console.warn('[WS Runtime] Could not fetch variables during handshake:', error);
         }
 
+        try {
+          const selectionData = await this.requestFromCode('GET_CURRENT_SELECTION', {});
+          this.broadcastEvent(BRIDGE_EVENTS.SELECTION_CHANGE, selectionData);
+        } catch (error) {
+          console.warn('[WS Runtime] Could not fetch current selection during handshake:', error);
+        }
+
         // Only mark as connected if we still have active connections
         const hasActiveConnection = Array.from(this.connections.values()).some(
           (conn) => conn.ws.readyState === WebSocket.OPEN

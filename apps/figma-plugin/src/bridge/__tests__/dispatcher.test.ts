@@ -63,6 +63,43 @@ describe('Dispatcher', () => {
       clearMockFigma();
     });
 
+    it('should handle GET_CURRENT_SELECTION method', async () => {
+      setMockFigma({
+        currentPage: {
+          name: 'Page 1',
+          selection: [
+            { id: 'node-1', name: 'Button', type: 'COMPONENT', width: 100, height: 40 },
+          ],
+        },
+      });
+
+      const response = await dispatchRequest({
+        id: 'test_124',
+        method: BRIDGE_METHODS.GET_CURRENT_SELECTION,
+        params: {},
+      });
+
+      expect('result' in response).toBe(true);
+      if ('result' in response) {
+        expect(response.result).toEqual({
+          nodes: [
+            {
+              id: 'node-1',
+              name: 'Button',
+              type: 'COMPONENT',
+              width: 100,
+              height: 40,
+            },
+          ],
+          count: 1,
+          page: 'Page 1',
+          timestamp: expect.any(Number),
+        });
+      }
+
+      clearMockFigma();
+    });
+
     it('should route GET_LOCAL_COMPONENTS to component handlers', async () => {
       const page = { id: '1:1', type: 'PAGE', name: 'Page 1', children: [] };
 

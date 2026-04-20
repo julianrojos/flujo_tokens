@@ -92,6 +92,24 @@ function forwardSelectionChange(eventData: SelectionChangeEventData): void {
   });
 }
 
+function publishCurrentSelection(): void {
+  const selection = figma.currentPage.selection;
+  const selectedNodes = selection.slice(0, 50).map((node) => ({
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    width: node.width,
+    height: node.height,
+  }));
+
+  forwardSelectionChange({
+    nodes: selectedNodes,
+    count: selection.length,
+    page: figma.currentPage.name,
+    timestamp: Date.now(),
+  });
+}
+
 /**
  * Forward page change event to UI.
  */
@@ -127,25 +145,12 @@ function asRecord(value: unknown): Record<string, unknown> {
 figma.loadAllPagesAsync().then(() => {
   // Selection change listener - tracks user selection
   figma.on('selectionchange', () => {
-    const selection = figma.currentPage.selection;
-    const selectedNodes = selection.slice(0, 50).map((node) => ({
-      id: node.id,
-      name: node.name,
-      type: node.type,
-      width: node.width,
-      height: node.height,
-    }));
-
-    forwardSelectionChange({
-      nodes: selectedNodes,
-      count: selection.length,
-      page: figma.currentPage.name,
-      timestamp: Date.now(),
-    });
+    publishCurrentSelection();
   });
 
   // Page change listener - tracks current page
   figma.on('currentpagechange', () => {
+    publishCurrentSelection();
     forwardPageChange({
       pageId: figma.currentPage.id,
       pageName: figma.currentPage.name,
@@ -153,6 +158,7 @@ figma.loadAllPagesAsync().then(() => {
     });
   });
 
+  publishCurrentSelection();
   console.log('[Plugin] Selection and page listeners registered');
 }).catch((err) => {
   console.warn('[Plugin] Could not register event listeners:', err);

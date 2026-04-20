@@ -48,6 +48,8 @@ export type WSResponse = WSResponseSuccess | WSResponseError;
 export const BRIDGE_METHODS = {
   // File info
   GET_FILE_INFO: 'GET_FILE_INFO',
+  // Current selection snapshot
+  GET_CURRENT_SELECTION: 'GET_CURRENT_SELECTION',
   // Code execution
   EXECUTE_CODE: 'EXECUTE_CODE',
   // Variables - read
@@ -182,6 +184,11 @@ export interface GetFileInfoResult {
   currentPage: string;
   currentPageId: string;
   selectionCount: number;
+}
+
+// --- GET_CURRENT_SELECTION ---
+export interface GetCurrentSelectionParams {
+  // No params required
 }
 
 // --- EXECUTE_CODE ---

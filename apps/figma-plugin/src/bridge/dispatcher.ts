@@ -22,6 +22,7 @@ import {
 
 // Import all handlers
 import { handleGetFileInfo } from './handlers/get-file-info';
+import { handleGetCurrentSelection } from './handlers/get-current-selection';
 import { handleExecuteCode } from './handlers/execute-code';
 import {
   handleGetVariablesData,
@@ -107,6 +108,7 @@ type HandlerFunction = (params: Record<string, unknown>) => Promise<unknown>;
  */
 const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.GET_FILE_INFO]: handleGetFileInfo as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_CURRENT_SELECTION]: handleGetCurrentSelection as unknown as HandlerFunction,
   [BRIDGE_METHODS.EXECUTE_CODE]: handleExecuteCode as unknown as HandlerFunction,
   [BRIDGE_METHODS.GET_VARIABLES_DATA]: handleGetVariablesData as unknown as HandlerFunction,
   [BRIDGE_METHODS.GET_LOCAL_STYLES]: handleGetLocalStyles as unknown as HandlerFunction,
