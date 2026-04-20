@@ -218,6 +218,42 @@ describe('ComponentRepository', () => {
             assert.strictEqual(component.figma?.layout?.[0]?.itemSpacing, 8);
         });
 
+        it('keeps variant description rows out of the structural variant list', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('variant-split-sys', 'Variant Split Test')`;
+            await sql`
+              INSERT INTO components (ds_id, slug, name, status, doc_type, figma_file_url, figma_component_set_node_id, figma_page_name)
+              VALUES ('variant-split-sys', 'button', 'Button', 'ready', 'component', 'https://figma.com/file/test', '10:2', 'Components')
+            `;
+            const [componentRow] = await sql`
+              SELECT id FROM components WHERE ds_id = 'variant-split-sys' AND slug = 'button'
+            `;
+            await sql`
+              INSERT INTO component_figma_variants (
+                component_id, variant_name, node_id, properties_json, canonical_key, description
+              )
+              VALUES (
+                ${componentRow.id}, 'default', '10:2', ${JSON.stringify({ state: 'default' })}, null, null
+              )
+            `;
+            await sql`
+              INSERT INTO component_figma_variants (
+                component_id, variant_name, node_id, properties_json, canonical_key, description
+              )
+              VALUES (
+                ${componentRow.id}, 'State=Default', '10:2', ${JSON.stringify({})}, 'State=Default', 'Default state'
+              )
+            `;
+
+            const component = await repo.getBySlug('variant-split-sys', 'button');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.variants?.length, 1);
+            assert.strictEqual(component.figma?.variants?.[0]?.name, 'default');
+
+            const figmaDescriptions = await repo.getFigmaDescriptions(Number(componentRow.id));
+            assert.ok(figmaDescriptions);
+            assert.strictEqual(figmaDescriptions?.variants.length, 2);
+          });
+
         it('handles missing structured Figma data gracefully', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('no-structured-sys', 'No Structured Data Test')`;
             await repo.upsertFromRegistry('no-structured-sys', [

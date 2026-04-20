@@ -9,6 +9,7 @@ import type { Sql } from 'postgres';
 import type { PropertyType } from 'ds-types';
 
 import { normalizeVisualProofVariants } from '../lib/visual-proof-normalizer.js';
+import { isStructuralFigmaVariantRow } from '../lib/figma-variant-classification.js';
 
 export interface FigmaVariantEntry {
   name: string;
@@ -457,21 +458,23 @@ export class ComponentRepository {
       for (const row of variantRows) {
         const current = out.get(row.component_id) || {};
         const variants = current.variants || [];
-        variants.push({
-          name: String(row.variant_name || '').trim() || 'Variant',
-          properties: ComponentRepository.parsePropertiesJson(
-            row.properties_json,
-            row.component_id,
-            String(row.variant_name || ''),
-          ),
-          nodeId: String(row.node_id || '').trim() || undefined,
-          runId: String(row.run_id || '').trim() || undefined,
-          capturedAtEpoch: row.captured_at?.getTime(),
-          schemaVersion: Number.isFinite(Number(row.schema_version))
-            ? Number(row.schema_version)
-            : undefined,
-        });
-        current.variants = variants;
+        if (isStructuralFigmaVariantRow(row)) {
+          variants.push({
+            name: String(row.variant_name || '').trim() || 'Variant',
+            properties: ComponentRepository.parsePropertiesJson(
+              row.properties_json,
+              row.component_id,
+              String(row.variant_name || ''),
+            ),
+            nodeId: String(row.node_id || '').trim() || undefined,
+            runId: String(row.run_id || '').trim() || undefined,
+            capturedAtEpoch: row.captured_at?.getTime(),
+            schemaVersion: Number.isFinite(Number(row.schema_version))
+              ? Number(row.schema_version)
+              : undefined,
+          });
+          current.variants = variants;
+        }
         out.set(row.component_id, current);
       }
 
