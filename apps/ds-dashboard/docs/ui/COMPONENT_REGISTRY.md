@@ -98,8 +98,16 @@ Location: `apps/ds-dashboard/src/components/ui/`
 </Button>
 ```
 
-**When to use:** Interactive actions, form submissions, triggers.
-**When NOT to use:** Text links (use plain `<Link>`), toggles (use `<Switch>` or `<Checkbox>`).
+**When to use:** Interactive actions, form submissions, triggers. Use `destructive` for the final confirm action in irreversible or high-impact flows such as delete, revoke, or permanent removal operations.
+**When NOT to use:** Text links (use plain `<Link>`), toggles (use `<Switch>` or `<Checkbox>`), generic emphasis that is not destructive.
+
+#### Destructive Button Rule
+
+- Use `Button variant="destructive"` for the confirm action when the user is about to lose data, access, or a relationship.
+- Keep the cancel or close action neutral with a non-destructive variant such as `outline` or `ghost`.
+- Keep the label explicit: `Delete system`, `Remove consumer`, `Revoke access`.
+- Do not create local red button styles outside `Button`.
+- Do not use `destructive` for actions that are only important or attention-grabbing.
 
 #### Button-like Links (Navigation CTA Pattern)
 

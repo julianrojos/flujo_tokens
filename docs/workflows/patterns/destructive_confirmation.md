@@ -43,11 +43,18 @@ A reusable pattern for confirming irreversible or high-impact actions before exe
 - [Button](../../components/button.md): confirm/cancel actions.
 - [Text Input](../../components/text_input.md): optional typed confirmation for critical actions.
 
+## Button Contract
+
+- Use the canonical `Button` `destructive` variant for the confirm action.
+- Keep the cancel or close action neutral.
+- Keep the destructive label explicit so the outcome stays visible in dense layouts.
+- Do not introduce local red button styles inside pattern-specific dialogs.
+
 ## Behavior
 
 - Interaction:
   - Default focus should land on safe action when risk is high.
-  - Confirm action must require explicit user intent.
+  - Confirm action must require explicit user intent and use the canonical destructive button treatment from the component registry.
 - Responsive:
   - Use a vertically stacked confirmation layout on compact viewports with clear action separation.
   - Keep both cancel and confirm actions visible without horizontal scrolling.
