@@ -16,6 +16,7 @@ import {
 import { hasApiKey, resolveProviderConfig } from '../services/ai-provider.js';
 import type { AiProviderName } from '../services/ai-provider.js';
 import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
+import { getOpenRouterTopModelSlug } from '../services/openrouter-rankings-service.js';
 import {
   createComponentSlug,
   renderComponentDoc,
@@ -91,14 +92,14 @@ const PROVIDER_ORDER: readonly AiProviderName[] = [
   'gemini',
   'ollama',
   'openai',
-  'opencode',
+  'openrouter',
 ];
 const VALID_PROVIDERS: readonly AiProviderName[] = [
   'anthropic',
   'openai',
+  'openrouter',
   'ollama',
   'gemini',
-  'opencode',
 ];
 const SSE_POLL_INTERVAL_MS = 1000;
 const SSE_KEEPALIVE_INTERVAL_MS = 15000;
@@ -333,7 +334,7 @@ async function resolveDocsContext(
  */
 interface CreateJobRequest {
   type: 'GENERATE_COMPONENT_DOC';
-  provider: 'anthropic' | 'openai' | 'ollama' | 'gemini' | 'opencode';
+  provider: 'anthropic' | 'openai' | 'openrouter' | 'ollama' | 'gemini';
   componentId: string;
   figmaUrl?: string;
   model?: string;
@@ -380,14 +381,14 @@ function hasExplicitProviderEnv(
   if (provider === 'openai') {
     return String(process.env.OPENAI_API_KEY || '').trim().length > 0;
   }
+  if (provider === 'openrouter') {
+    return String(process.env.OPENROUTER_API_KEY || '').trim().length > 0;
+  }
   if (provider === 'gemini') {
     return (
       String(process.env.GEMINI_API_KEY || '').trim().length > 0 ||
       String(process.env.GOOGLE_API_KEY || '').trim().length > 0
     );
-  }
-  if (provider === 'opencode') {
-    return String(process.env.OPENCODE_API_KEY || '').trim().length > 0;
   }
   return (
     String(process.env.OLLAMA_BASE_URL || '').trim().length > 0 ||
@@ -400,8 +401,8 @@ function formatProviderEnvHint(provider: CreateJobRequest['provider']): string {
   if (provider === 'ollama')
     return 'OLLAMA_BASE_URL (and optionally AI_OLLAMA_MODEL)';
   if (provider === 'gemini') return 'GEMINI_API_KEY (or GOOGLE_API_KEY)';
-  if (provider === 'opencode')
-    return 'OPENCODE_API_KEY (and optionally OPENCODE_BASE_URL)';
+  if (provider === 'openrouter')
+    return 'OPENROUTER_API_KEY (and optionally OPENROUTER_BASE_URL)';
   return 'OPENAI_API_KEY';
 }
 
@@ -409,8 +410,8 @@ function resolveDefaultModel(provider: CreateJobRequest['provider']): string {
   const config = resolveProviderConfig();
   if (provider === 'anthropic') return config.anthropicModel;
   if (provider === 'openai') return config.openaiModel;
+  if (provider === 'openrouter') return config.openrouterModel;
   if (provider === 'gemini') return config.geminiModel;
-  if (provider === 'opencode') return config.opencodeModel;
   return config.ollamaModel;
 }
 
@@ -421,7 +422,6 @@ function resolveAllowedModels(
   if (provider === 'anthropic') return config.anthropicAllowlist;
   if (provider === 'openai') return config.openaiAllowlist;
   if (provider === 'gemini') return config.geminiAllowlist;
-  if (provider === 'opencode') return config.opencodeAllowlist;
   return [];
 }
 
@@ -634,6 +634,20 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     });
   });
 
+  // GET /api/ai/providers/openrouter/default-model - Current OpenRouter daily-ranked model
+  app.get('/api/ai/providers/openrouter/default-model', async (c) => {
+    if (!checkAuth(c, deps.internalToken)) {
+      return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+    }
+
+    const { model, source } = await getOpenRouterTopModelSlug();
+    return c.json({
+      ok: true,
+      model,
+      source,
+    });
+  });
+
   // GET /api/ai/providers/health - Preflight checks for Figma/plugin + provider + model
   app.get('/api/ai/providers/health', async (c) => {
     if (!checkAuth(c, deps.internalToken)) {
@@ -649,7 +663,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       return c.json(
         errorResponse(
           'ai.input.invalid',
-          'provider must be anthropic, openai, ollama, gemini, or opencode',
+          'provider must be anthropic, openai, openrouter, ollama, or gemini',
         ),
         400,
       );
@@ -773,7 +787,11 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         };
       } else {
         const allowlist = resolveAllowedModels(provider);
-        if (modelOverride && !allowlist.includes(modelOverride)) {
+        if (
+          provider !== 'openrouter' &&
+          modelOverride &&
+          !allowlist.includes(modelOverride)
+        ) {
           modelCheck = {
             status: 'warning',
             ready: false,
@@ -966,7 +984,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       return c.json(
         errorResponse(
           'ai.input.invalid',
-          'provider must be anthropic, openai, ollama, gemini, or opencode',
+          'provider must be anthropic, openai, openrouter, ollama, or gemini',
         ),
         400,
       );
@@ -995,13 +1013,7 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       return c.json(
         errorResponse(
           'ai.input.missing_provider_key',
-          `API key not set for ${body.provider}. Set ${
-            body.provider === 'anthropic'
-              ? 'ANTHROPIC_API_KEY'
-              : body.provider === 'gemini'
-                ? 'GEMINI_API_KEY (or GOOGLE_API_KEY)'
-                : 'OPENAI_API_KEY'
-          } environment variable.`,
+          `API key not set for ${body.provider}. Set ${formatProviderEnvHint(body.provider)}.`,
         ),
         400,
       );

@@ -1,6 +1,6 @@
 /**
  * AI Provider Interface and Shared Types
- * Defines the common interface for AI providers (Anthropic, OpenAI, Ollama, Gemini, OpenCode)
+ * Defines the common interface for AI providers (Anthropic, OpenAI, OpenRouter, Ollama, Gemini)
  */
 
 import type { AiUsageMetrics } from './ai-component-doc-schema.js';
@@ -11,9 +11,9 @@ import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 export type AiProviderName =
   | 'anthropic'
   | 'openai'
+  | 'openrouter'
   | 'ollama'
-  | 'gemini'
-  | 'opencode';
+  | 'gemini';
 
 /**
  * Input for AI provider generation
@@ -66,24 +66,22 @@ export interface AiProviderConfig {
   anthropicModel: string;
   /** Default OpenAI model */
   openaiModel: string;
+  /** Default OpenRouter model */
+  openrouterModel: string;
   /** Default Ollama model */
   ollamaModel: string;
   /** Default Gemini model */
   geminiModel: string;
-  /** Default OpenCode model */
-  opencodeModel: string;
   /** Ollama base URL */
   ollamaBaseUrl: string;
-  /** OpenCode base URL */
-  opencodeBaseUrl: string;
+  /** OpenRouter base URL */
+  openrouterBaseUrl: string;
   /** Allowed Anthropic models */
   anthropicAllowlist: string[];
   /** Allowed OpenAI models */
   openaiAllowlist: string[];
   /** Allowed Gemini models */
   geminiAllowlist: string[];
-  /** Allowed OpenCode models */
-  opencodeAllowlist: string[];
 }
 
 /**
@@ -92,11 +90,11 @@ export interface AiProviderConfig {
 const DEFAULT_CONFIG: AiProviderConfig = {
   anthropicModel: 'claude-sonnet-4-20250514',
   openaiModel: 'gpt-4o-mini-2024-07-18',
+  openrouterModel: 'deepseek/deepseek-chat',
   ollamaModel: 'qwen2.5:7b-instruct',
   geminiModel: 'gemini-2.0-flash',
-  opencodeModel: 'qwen2.5-coder:7b',
   ollamaBaseUrl: 'http://127.0.0.1:11434',
-  opencodeBaseUrl: 'https://opencode.ai/v1',
+  openrouterBaseUrl: 'https://openrouter.ai/api/v1',
   anthropicAllowlist: [
     'claude-sonnet-4-20250514',
     'claude-sonnet-4-6',
@@ -117,12 +115,6 @@ const DEFAULT_CONFIG: AiProviderConfig = {
     'gemini-1.5-pro',
     'gemini-1.5-flash',
   ],
-  opencodeAllowlist: [
-    'qwen2.5-coder:7b',
-    'qwen2.5:7b',
-    'qwen2.5:14b',
-    'qwen2.5:32b',
-  ],
 };
 
 /**
@@ -133,14 +125,14 @@ export function resolveProviderConfig(): AiProviderConfig {
   const anthropicModel =
     process.env.AI_ANTHROPIC_MODEL || DEFAULT_CONFIG.anthropicModel;
   const openaiModel = process.env.AI_OPENAI_MODEL || DEFAULT_CONFIG.openaiModel;
+  const openrouterModel =
+    process.env.AI_OPENROUTER_MODEL || DEFAULT_CONFIG.openrouterModel;
   const ollamaModel = process.env.AI_OLLAMA_MODEL || DEFAULT_CONFIG.ollamaModel;
   const geminiModel = process.env.AI_GEMINI_MODEL || DEFAULT_CONFIG.geminiModel;
-  const opencodeModel =
-    process.env.AI_OPENCODE_MODEL || DEFAULT_CONFIG.opencodeModel;
   const ollamaBaseUrl =
     process.env.OLLAMA_BASE_URL || DEFAULT_CONFIG.ollamaBaseUrl;
-  const opencodeBaseUrl =
-    process.env.OPENCODE_BASE_URL || DEFAULT_CONFIG.opencodeBaseUrl;
+  const openrouterBaseUrl =
+    process.env.OPENROUTER_BASE_URL || DEFAULT_CONFIG.openrouterBaseUrl;
 
   const validatedAnthropicModel = DEFAULT_CONFIG.anthropicAllowlist.includes(
     anthropicModel,
@@ -153,29 +145,24 @@ export function resolveProviderConfig(): AiProviderConfig {
   )
     ? openaiModel
     : DEFAULT_CONFIG.openaiModel;
+  const validatedOpenrouterModel =
+    openrouterModel || DEFAULT_CONFIG.openrouterModel;
   const validatedGeminiModel = DEFAULT_CONFIG.geminiAllowlist.includes(
     geminiModel,
   )
     ? geminiModel
     : DEFAULT_CONFIG.geminiModel;
-  const validatedOpencodeModel = DEFAULT_CONFIG.opencodeAllowlist.includes(
-    opencodeModel,
-  )
-    ? opencodeModel
-    : DEFAULT_CONFIG.opencodeModel;
-
   return {
     anthropicModel: validatedAnthropicModel,
     openaiModel: validatedOpenaiModel,
+    openrouterModel: validatedOpenrouterModel,
     ollamaModel,
     geminiModel: validatedGeminiModel,
-    opencodeModel: validatedOpencodeModel,
     ollamaBaseUrl,
-    opencodeBaseUrl,
+    openrouterBaseUrl,
     anthropicAllowlist: DEFAULT_CONFIG.anthropicAllowlist,
     openaiAllowlist: DEFAULT_CONFIG.openaiAllowlist,
     geminiAllowlist: DEFAULT_CONFIG.geminiAllowlist,
-    opencodeAllowlist: DEFAULT_CONFIG.opencodeAllowlist,
   };
 }
 
@@ -195,15 +182,16 @@ export function resolveModel(
     if (provider === 'ollama') {
       return explicitModel;
     }
+    if (provider === 'openrouter') {
+      return explicitModel;
+    }
 
     const allowlist =
       provider === 'anthropic'
         ? config.anthropicAllowlist
         : provider === 'gemini'
           ? config.geminiAllowlist
-          : provider === 'opencode'
-            ? config.opencodeAllowlist
-            : config.openaiAllowlist;
+          : config.openaiAllowlist;
     if (allowlist.includes(explicitModel)) {
       return explicitModel;
     }
@@ -218,10 +206,9 @@ export function resolveModel(
   if (provider === 'gemini') {
     return config.geminiModel;
   }
-  if (provider === 'opencode') {
-    return config.opencodeModel;
+  if (provider === 'openrouter') {
+    return config.openrouterModel;
   }
-
   return provider === 'anthropic' ? config.anthropicModel : config.openaiModel;
 }
 
@@ -240,8 +227,8 @@ export function hasApiKey(provider: AiProviderName): boolean {
   if (provider === 'gemini') {
     return !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   }
-  if (provider === 'opencode') {
-    return !!process.env.OPENCODE_API_KEY;
+  if (provider === 'openrouter') {
+    return !!process.env.OPENROUTER_API_KEY;
   }
   return !!process.env.OPENAI_API_KEY;
 }
@@ -272,14 +259,13 @@ export function getApiKey(provider: AiProviderName): string {
     }
     return key;
   }
-  if (provider === 'opencode') {
-    const key = process.env.OPENCODE_API_KEY;
+  if (provider === 'openrouter') {
+    const key = process.env.OPENROUTER_API_KEY;
     if (!key) {
-      throw new Error('OPENCODE_API_KEY environment variable is not set');
+      throw new Error('OPENROUTER_API_KEY environment variable is not set');
     }
     return key;
   }
-
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     throw new Error('OPENAI_API_KEY environment variable is not set');

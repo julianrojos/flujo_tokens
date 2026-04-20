@@ -1,8 +1,8 @@
 /**
  * OpenAI Adapter
  * Implements AiProvider using OpenAI SDK with strict json_schema response format
- * Supports custom baseUrl for OpenAI-compatible APIs (e.g., OpenCode, LiteLLM)
- * Note: OpenCode (and similar Ollama-compatible backends) may not support json_schema strict mode
+ * Supports custom baseUrl for OpenAI-compatible APIs (e.g., OpenRouter, LiteLLM)
+ * Note: Ollama-compatible backends may not support json_schema strict mode
  */
 
 import OpenAI from 'openai';
@@ -16,6 +16,21 @@ import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 import { getApiKey, resolveModel } from './ai-provider.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
 
+function resolveOpenRouterHeaders():
+  | Record<string, string>
+  | undefined {
+  const headers: Record<string, string> = {};
+  const referer = String(process.env.OPENROUTER_HTTP_REFERER || '').trim();
+  const title = String(process.env.OPENROUTER_TITLE || '').trim();
+  if (referer) {
+    headers['HTTP-Referer'] = referer;
+  }
+  if (title) {
+    headers['X-Title'] = title;
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
 /**
  * OpenAI Adapter implementing the AiProvider interface
  */
@@ -25,15 +40,20 @@ export class OpenAiAdapter implements AiProvider {
   private client: OpenAI | null = null;
   private apiKey: string;
   private baseUrl: string;
+  private defaultHeaders?: Record<string, string>;
 
   constructor(
     providerName: AiProviderName = 'openai',
     apiKey?: string,
     baseUrl?: string,
+    defaultHeaders?: Record<string, string>,
   ) {
     this.name = providerName;
     this.apiKey = apiKey || getApiKey(providerName);
     this.baseUrl = baseUrl || 'https://api.openai.com/v1';
+    this.defaultHeaders =
+      defaultHeaders ||
+      (providerName === 'openrouter' ? resolveOpenRouterHeaders() : undefined);
   }
 
   /**
@@ -41,9 +61,15 @@ export class OpenAiAdapter implements AiProvider {
    */
   private getClient(): OpenAI {
     if (!this.client) {
-      this.client = new OpenAI({
+      const clientOptions: ConstructorParameters<typeof OpenAI>[0] = {
         apiKey: this.apiKey,
         baseURL: this.baseUrl,
+      };
+      if (this.defaultHeaders && Object.keys(this.defaultHeaders).length > 0) {
+        clientOptions.defaultHeaders = this.defaultHeaders;
+      }
+      this.client = new OpenAI({
+        ...clientOptions,
       });
     }
     return this.client;
@@ -51,10 +77,86 @@ export class OpenAiAdapter implements AiProvider {
 
   /**
    * Check if provider supports strict json_schema structured outputs
-   * OpenCode and Ollama-compatible backends typically don't support json_schema
+   * Ollama-compatible backends typically don't support json_schema.
+   * OpenRouter is best-effort and may fall back per model.
    */
-  private supportsJsonSchema(): boolean {
-    return this.name !== 'opencode' && this.name !== 'ollama';
+  private shouldAttemptJsonSchema(): boolean {
+    return this.name !== 'ollama';
+  }
+
+  private shouldFallbackToJsonObject(error: unknown): boolean {
+    if (this.name !== 'openrouter') {
+      return false;
+    }
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+    const record = error as { status?: unknown; message?: unknown; code?: unknown };
+    const status = Number(record.status);
+    if (status !== 400 && status !== 422) {
+      return false;
+    }
+    const message = String(record.message || record.code || '').toLowerCase();
+    const code = String(record.code || '').toLowerCase();
+    return (
+      /response[_ -]?format|json[_ -]?schema|structured output|strict mode|schema.*support|unsupported/.test(
+        message,
+      ) ||
+      /response[_ -]?format|unsupported[_ -]?response[_ -]?format|invalid[_ -]?json[_ -]?schema/.test(
+        code,
+      )
+    );
+  }
+
+  private async runCompletion(
+    client: OpenAI,
+    model: string,
+    input: AiProviderInput,
+    responseFormat:
+      | OpenAI.Chat.ChatCompletionCreateParamsNonStreaming['response_format']
+      | undefined,
+    startTime: number,
+  ): Promise<AiProviderResult> {
+    const createOptions: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: input.systemPrompt,
+        },
+        {
+          role: 'user',
+          content: input.userPrompt,
+        },
+      ],
+      max_tokens: 4096,
+    };
+
+    if (responseFormat) {
+      createOptions.response_format = responseFormat;
+    }
+
+    const response = await client.chat.completions.create(createOptions);
+    const durationMs = Date.now() - startTime;
+
+    const choice = response.choices[0];
+    if (!choice || !choice.message.content) {
+      throw new Error('No content in OpenAI response');
+    }
+
+    const parsedJson = JSON.parse(choice.message.content);
+
+    const usage: AiUsageMetrics = {
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      durationMs,
+    };
+
+    return {
+      rawText: choice.message.content,
+      parsedJson,
+      usage,
+    };
   }
 
   /**
@@ -66,69 +168,65 @@ export class OpenAiAdapter implements AiProvider {
     const client = this.getClient();
     const model = resolveModel(this.name, input.model);
     const startTime = Date.now();
+    const shouldAttemptJsonSchema = this.shouldAttemptJsonSchema();
 
     try {
-      const createOptions: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming =
-        {
+      // Use json_schema for providers that usually support it.
+      // OpenRouter is handled best-effort with a fallback to json_object.
+      if (shouldAttemptJsonSchema) {
+        return await this.runCompletion(
+          client,
           model,
-          messages: [
-            {
-              role: 'system',
-              content: input.systemPrompt,
+          input,
+          {
+            type: 'json_schema',
+            json_schema: {
+              name: 'component_doc',
+              strict: true,
+              schema: input.jsonSchema,
             },
-            {
-              role: 'user',
-              content: input.userPrompt,
-            },
-          ],
-          max_tokens: 4096,
-        };
-
-      // Use json_schema only for providers that support it (openai, anthropic, gemini)
-      // For opencode and ollama-compatible, use json_object and parse manually
-      if (this.supportsJsonSchema()) {
-        createOptions.response_format = {
-          type: 'json_schema',
-          json_schema: {
-            name: 'component_doc',
-            strict: true,
-            schema: input.jsonSchema,
           },
-        };
-      } else {
-        createOptions.response_format = { type: 'json_object' };
+          startTime,
+        );
       }
 
-      const response = await client.chat.completions.create(createOptions);
-
-      const durationMs = Date.now() - startTime;
-
-      const choice = response.choices[0];
-      if (!choice || !choice.message.content) {
-        throw new Error('No content in OpenAI response');
-      }
-
-      const parsedJson = JSON.parse(choice.message.content);
-
-      const usage: AiUsageMetrics = {
-        promptTokens: response.usage?.prompt_tokens || 0,
-        completionTokens: response.usage?.completion_tokens || 0,
-        durationMs,
-      };
-
-      return {
-        rawText: choice.message.content,
-        parsedJson,
-        usage,
-      };
+      return await this.runCompletion(
+        client,
+        model,
+        input,
+        { type: 'json_object' },
+        startTime,
+      );
     } catch (error) {
+      let normalizedError: unknown = error;
+      if (shouldAttemptJsonSchema && this.shouldFallbackToJsonObject(error)) {
+        console.warn(
+          '[ai-openai-adapter] json_schema rejected, falling back to json_object',
+          {
+            provider: this.name,
+            model,
+          },
+        );
+        try {
+          return await this.runCompletion(
+            client,
+            model,
+            input,
+            { type: 'json_object' },
+            startTime,
+          );
+        } catch (fallbackError) {
+          normalizedError = fallbackError;
+        }
+      }
+
       if (
-        error &&
-        typeof error === 'object' &&
-        'status' in error &&
-        'message' in error
+        normalizedError &&
+        typeof normalizedError === 'object' &&
+        'status' in normalizedError &&
+        'message' in normalizedError
       ) {
-        const err = error as {
+        const err = normalizedError as {
           status?: number;
           message?: string;
           code?: string;
@@ -161,7 +259,7 @@ export class OpenAiAdapter implements AiProvider {
         };
       }
 
-      if (error instanceof SyntaxError) {
+      if (normalizedError instanceof SyntaxError) {
         throw {
           code: AI_ERROR_CODES.SCHEMA_INVALID.code,
           message: 'Failed to parse OpenAI response as JSON',
@@ -169,13 +267,16 @@ export class OpenAiAdapter implements AiProvider {
         };
       }
 
-      if (error && typeof error === 'object' && 'code' in error) {
-        throw error;
+      if (normalizedError && typeof normalizedError === 'object' && 'code' in normalizedError) {
+        throw normalizedError;
       }
 
       throw {
         code: AI_ERROR_CODES.LLM_API_ERROR.code,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message:
+          normalizedError instanceof Error
+            ? normalizedError.message
+            : 'Unknown error',
         retryable: false,
       };
     }
@@ -184,15 +285,16 @@ export class OpenAiAdapter implements AiProvider {
 
 /**
  * Create an OpenAI adapter instance
- * @param providerName - Provider name (openai, opencode, etc.)
+ * @param providerName - Provider name (openai, openrouter, etc.)
  * @param apiKey - Optional API key override
- * @param baseUrl - Optional base URL override (e.g., for OpenCode)
+ * @param baseUrl - Optional base URL override
  * @returns OpenAiAdapter instance
  */
 export function createOpenAiAdapter(
   providerName: AiProviderName = 'openai',
   apiKey?: string,
   baseUrl?: string,
+  defaultHeaders?: Record<string, string>,
 ): OpenAiAdapter {
-  return new OpenAiAdapter(providerName, apiKey, baseUrl);
+  return new OpenAiAdapter(providerName, apiKey, baseUrl, defaultHeaders);
 }

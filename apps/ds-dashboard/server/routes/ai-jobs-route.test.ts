@@ -12,6 +12,7 @@ import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
 import { EDITORIAL_PATCH_SCHEMA_VERSION } from '../services/ai-editorial-patch-schema.js';
 import { AI_PROVIDER_ORDER } from '../../src/types/ai-provider-catalog.ts';
+import { clearOpenRouterTopModelCache } from '../services/openrouter-rankings-service.js';
 
 // Helper to create test app
 function createTestApp(options?: {
@@ -42,6 +43,7 @@ const REPO_ROOT = path.resolve(TEST_DIR, '../../../..');
 // Helper to cleanup store between tests
 function cleanupStore() {
     initializeAiJobsStore(new AiJobsStore());
+    clearOpenRouterTopModelCache();
 }
 
 // Helper to track and cleanup test files
@@ -237,11 +239,11 @@ describe('ai-jobs-route', () => {
             assert.ok(json.jobId);
         });
 
-        it('should accept opencode provider when API key is configured', async () => {
+        it('should accept openrouter provider when API key is configured', async () => {
             cleanupStore();
             const app = createTestApp();
-            const prevOpenCode = process.env.OPENCODE_API_KEY;
-            process.env.OPENCODE_API_KEY = 'opencode-key';
+            const prevOpenRouter = process.env.OPENROUTER_API_KEY;
+            process.env.OPENROUTER_API_KEY = 'openrouter-key';
 
             try {
                 const res = await app.request('/api/ai/jobs', {
@@ -249,7 +251,7 @@ describe('ai-jobs-route', () => {
                     headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
                     body: JSON.stringify({
                         type: 'GENERATE_COMPONENT_DOC',
-                        provider: 'opencode',
+                        provider: 'openrouter',
                         componentId: '68:4097',
                         dryRun: true,
                     }),
@@ -260,10 +262,10 @@ describe('ai-jobs-route', () => {
                 assert.equal(json.ok, true);
                 assert.ok(json.jobId);
             } finally {
-                if (prevOpenCode === undefined) {
-                    delete process.env.OPENCODE_API_KEY;
+                if (prevOpenRouter === undefined) {
+                    delete process.env.OPENROUTER_API_KEY;
                 } else {
-                    process.env.OPENCODE_API_KEY = prevOpenCode;
+                    process.env.OPENROUTER_API_KEY = prevOpenRouter;
                 }
             }
         });
@@ -1406,7 +1408,7 @@ describe('ai-jobs-route', () => {
             }
         });
 
-        it('prioritizes first configured provider in alphabetical UI order', async () => {
+        it('prioritizes first configured provider in provider order', async () => {
             cleanupStore();
             const app = createTestApp();
             const prevGemini = process.env.GEMINI_API_KEY;
@@ -1463,19 +1465,19 @@ describe('ai-jobs-route', () => {
             const app = createTestApp();
             const prevAnthropic = process.env.ANTHROPIC_API_KEY;
             const prevOpenAi = process.env.OPENAI_API_KEY;
+            const prevOpenRouter = process.env.OPENROUTER_API_KEY;
             const prevGemini = process.env.GEMINI_API_KEY;
             const prevGoogle = process.env.GOOGLE_API_KEY;
             const prevOllamaUrl = process.env.OLLAMA_BASE_URL;
             const prevOllamaModel = process.env.AI_OLLAMA_MODEL;
-            const prevOpenCode = process.env.OPENCODE_API_KEY;
 
             process.env.ANTHROPIC_API_KEY = 'anthropic-key';
             process.env.OPENAI_API_KEY = 'openai-key';
+            process.env.OPENROUTER_API_KEY = 'openrouter-key';
             process.env.GEMINI_API_KEY = 'gemini-key';
             delete process.env.GOOGLE_API_KEY;
             process.env.OLLAMA_BASE_URL = 'http://localhost:11434';
             process.env.AI_OLLAMA_MODEL = 'llama3.2';
-            process.env.OPENCODE_API_KEY = 'opencode-key';
 
             try {
                 const res = await app.request('/api/ai/providers/configured', {
@@ -1491,11 +1493,84 @@ describe('ai-jobs-route', () => {
             } finally {
                 if (prevAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = prevAnthropic;
                 if (prevOpenAi === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prevOpenAi;
+                if (prevOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = prevOpenRouter;
                 if (prevGemini === undefined) delete process.env.GEMINI_API_KEY; else process.env.GEMINI_API_KEY = prevGemini;
                 if (prevGoogle === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = prevGoogle;
                 if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
                 if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
-                if (prevOpenCode === undefined) delete process.env.OPENCODE_API_KEY; else process.env.OPENCODE_API_KEY = prevOpenCode;
+            }
+        });
+    });
+
+    describe('GET /api/ai/providers/openrouter/default-model', () => {
+        it('returns the current daily OpenRouter model when available', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const originalFetch = global.fetch;
+            global.fetch = (async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url === 'https://openrouter.ai/rankings?view=day') {
+                    return new Response(
+                        '<a href="/models/anthropic/claude-opus-4.6">Claude Opus 4.6</a><a href="/models/openrouter/hunter-alpha">Hunter</a>',
+                        {
+                            status: 200,
+                            headers: { 'content-type': 'text/html' },
+                        },
+                    );
+                }
+                return new Response('not found', { status: 404 });
+            }) as typeof fetch;
+
+            try {
+                const res = await app.request('/api/ai/providers/openrouter/default-model', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.model, 'anthropic/claude-opus-4.6');
+                assert.equal(json.source, 'openrouter/rankings?view=day');
+            } finally {
+                global.fetch = originalFetch;
+            }
+        });
+
+        it('falls back to the weekly ranking when the daily view is unavailable', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const originalFetch = global.fetch;
+            global.fetch = (async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url === 'https://openrouter.ai/rankings?view=day') {
+                    return new Response('not found', { status: 404 });
+                }
+                if (url === 'https://openrouter.ai/rankings?view=week') {
+                    return new Response(
+                        '<a href="/models/deepseek/deepseek-chat">DeepSeek Chat</a><a href="/models/openrouter/hunter-alpha">Hunter</a>',
+                        {
+                            status: 200,
+                            headers: { 'content-type': 'text/html' },
+                        },
+                    );
+                }
+                return new Response('not found', { status: 404 });
+            }) as typeof fetch;
+
+            try {
+                const res = await app.request('/api/ai/providers/openrouter/default-model', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.model, 'deepseek/deepseek-chat');
+                assert.equal(json.source, 'openrouter/rankings?view=week');
+            } finally {
+                global.fetch = originalFetch;
             }
         });
     });

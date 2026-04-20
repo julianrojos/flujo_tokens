@@ -17,9 +17,9 @@ import type {
 export type AiProviderName =
   | 'anthropic'
   | 'openai'
+  | 'openrouter'
   | 'ollama'
-  | 'gemini'
-  | 'opencode';
+  | 'gemini';
 
 /**
  * Job status types

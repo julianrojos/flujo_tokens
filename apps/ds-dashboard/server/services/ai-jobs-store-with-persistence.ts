@@ -238,9 +238,9 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     const providers: AiProviderName[] = [
       'anthropic',
       'openai',
+      'openrouter',
       'ollama',
       'gemini',
-      'opencode',
     ];
     const maxConcurrent = this.getMaxConcurrentPerProvider();
 

@@ -180,7 +180,7 @@ export interface AiJobInput {
     /** Job type */
     type: 'GENERATE_COMPONENT_DOC';
     /** AI provider to use */
-    provider: 'anthropic' | 'openai' | 'ollama' | 'gemini' | 'opencode';
+    provider: 'anthropic' | 'openai' | 'openrouter' | 'ollama' | 'gemini';
     /** Optional design system identifier used to resolve system-scoped docs paths */
     systemId?: string;
     /** Figma component ID */

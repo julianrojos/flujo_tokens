@@ -124,11 +124,11 @@ function getJobTimeout(provider: AiProviderName): number {
     return DEFAULT_OLLAMA_TIMEOUT_MS;
   }
 
-  // OpenCode uses longer timeout like Ollama (remote backend, similar latency profile)
-  if (provider === 'opencode') {
-    const opencodeTimeout = process.env.AI_OPENCODE_TIMEOUT_MS;
-    if (opencodeTimeout) {
-      const parsed = parseInt(opencodeTimeout, 10);
+  // Remote OpenAI-compatible backends use longer timeouts like Ollama.
+  if (provider === 'openrouter') {
+    const openrouterTimeout = process.env.AI_OPENROUTER_TIMEOUT_MS;
+    if (openrouterTimeout) {
+      const parsed = parseInt(openrouterTimeout, 10);
       if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     const globalTimeout = process.env.AI_JOB_TIMEOUT_MS;
@@ -428,12 +428,12 @@ export function resolveAdapter(provider: AiProviderName): AiProvider {
   if (provider === 'gemini') {
     return createGeminiAdapter();
   }
-  if (provider === 'opencode') {
+  if (provider === 'openrouter') {
     const config = resolveProviderConfig();
     return createOpenAiAdapter(
-      'opencode',
-      getApiKey('opencode'),
-      config.opencodeBaseUrl,
+      'openrouter',
+      getApiKey('openrouter'),
+      config.openrouterBaseUrl,
     );
   }
   return createOpenAiAdapter();

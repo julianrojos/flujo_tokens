@@ -106,6 +106,30 @@ describe('command-routes', () => {
       assert.equal((payload as any).code, 'validation.missing_script_name');
     });
 
+    it('accepts openrouter model suggestion sync as a run script', async () => {
+      const queued: any[] = [];
+      const app = createTestApp({
+        enqueueQueueJob: (args: any) => {
+          queued.push(args);
+          return { id: 'run_job_1' };
+        },
+      });
+
+      const res = await app.request('/api/run/openrouter:sync-model-suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-ds-system': 'core' },
+        body: JSON.stringify({}),
+      });
+
+      assert.equal(res.status, 202);
+      const payload = await res.json();
+      assert.deepEqual(payload, { ok: true, jobId: 'run_job_1' });
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].operationName, 'run:openrouter:sync-model-suggestions');
+      assert.equal(queued[0].systemId, 'core');
+      assert.equal(queued[0].label, 'npm run openrouter:sync-model-suggestions -- --system core');
+    });
+
   });
 
   describe('/api/admin/restart-api', () => {

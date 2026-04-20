@@ -5,7 +5,7 @@ export const AI_PROVIDER_ORDER: readonly AiProviderName[] = [
   'gemini',
   'ollama',
   'openai',
-  'opencode',
+  'openrouter',
 ];
 
 export const AI_PROVIDER_LABELS: Readonly<Record<AiProviderName, string>> = {
@@ -13,5 +13,5 @@ export const AI_PROVIDER_LABELS: Readonly<Record<AiProviderName, string>> = {
   gemini: 'Google (Gemini)',
   ollama: 'Ollama (Local)',
   openai: 'OpenAI',
-  opencode: 'OpenCode',
+  openrouter: 'OpenRouter',
 };
