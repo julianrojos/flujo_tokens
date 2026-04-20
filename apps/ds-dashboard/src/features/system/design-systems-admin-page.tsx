@@ -10,23 +10,16 @@ import {
   deleteDesignSystem,
   fetchDeletePreview,
   fetchDesignSystemsConfig,
-  listConsumers,
   updateDesignSystem,
   type DesignSystemConfigEntry,
 } from '@/lib/api';
 import type { DeletePreviewResponse } from '@/lib/api';
 import { type ApiErrorDisplay, toApiErrorDisplay } from '@/lib/api-error-ux';
 import { useDesignSystem } from '@/lib/design-system-context';
-import {
-  ROUTE_PATTERNS,
-  toConsumerDetail,
-  toSystemOperations,
-} from '@/lib/routes';
-import { cn } from '@/lib/utils';
+import { ROUTE_PATTERNS } from '@/lib/routes';
 import { NewSystemPage } from '@/features/system/new-system-page';
 import { DesignSystemUpdateActions } from '@/features/system/design-system-update-actions';
 import { buildUpdateActionsProps } from '@/features/system/design-systems-admin-page-logic';
-import type { DsConsumer } from '@/types/consumers';
 
 type RowDraft = {
   name: string;
@@ -106,9 +99,6 @@ export function DesignSystemsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
-  const [consumersBySystemId, setConsumersBySystemId] = useState<
-    Record<string, DsConsumer[]>
-  >({});
   const [deleteModalTarget, setDeleteModalTarget] = useState<{
     id: string;
     name: string;
@@ -148,24 +138,6 @@ export function DesignSystemsAdminPage() {
           name: String(system.name || ''),
         })),
       );
-      const consumersEntries = await Promise.all(
-        systemsList.map(async (system) => {
-          const systemId = String(system.id || '');
-          const dsFileKey = String(system.figmaFileId || '').trim();
-          if (!dsFileKey) return [systemId, []] as const;
-          try {
-            const consumersResponse = await listConsumers(dsFileKey);
-            return [systemId, consumersResponse.data] as const;
-          } catch (cause) {
-            console.warn(
-              `[design-systems-admin] Consumer list fetch failed for system "${system.name || systemId}"`,
-              cause,
-            );
-            return [systemId, []] as const;
-          }
-        }),
-      );
-      setConsumersBySystemId(Object.fromEntries(consumersEntries));
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -283,7 +255,6 @@ export function DesignSystemsAdminPage() {
     <div className="space-y-5">
       <PageHeader
         title="Design Systems Admin"
-        description="Edit fields and save, or delete this design system."
         actions={
           <Link
             to={ROUTE_PATTERNS.newSystem}
@@ -329,12 +300,6 @@ export function DesignSystemsAdminPage() {
                     Save
                   </Button>
                 )}
-                <Link
-                  to={toSystemOperations(targetSystem.id)}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  Operations
-                </Link>
                 <Button
                   size="sm"
                   variant="outline"
@@ -385,7 +350,7 @@ export function DesignSystemsAdminPage() {
                   disabled={!!busyIds[targetSystem.id]}
                 />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
+              <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
                 <input
                   type="checkbox"
                   checked={
@@ -415,46 +380,6 @@ export function DesignSystemsAdminPage() {
               })}
             />
 
-            <div className="mt-4 rounded-md border border-border/70 bg-muted/20 p-3">
-              <h3 className="text-base font-titles font-semibold">Consumer files</h3>
-              {(consumersBySystemId[targetSystem.id] || []).length > 0 ? (
-                <ul className="mt-2 space-y-1">
-                  {[...(consumersBySystemId[targetSystem.id] || [])]
-                    .sort((a, b) =>
-                      String(a.consumerName || '').localeCompare(
-                        String(b.consumerName || ''),
-                        'en',
-                        { sensitivity: 'base' },
-                      ),
-                    )
-                    .map((consumer) => (
-                      <li key={consumer.id}>
-                        <Link
-                          to={toConsumerDetail(consumer.id)}
-                          className="text-sm text-app-accent hover:underline"
-                        >
-                          {consumer.consumerName ||
-                            consumer.consumerFileKey ||
-                            'Unnamed Consumer'}
-                        </Link>
-                      </li>
-                    ))}
-                </ul>
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  No consumer files registered for this design system yet.
-                </p>
-              )}
-              <Link
-                to={ROUTE_PATTERNS.consumers}
-                className={cn(
-                  buttonVariants({ variant: 'outline', size: 'sm' }),
-                  'mt-3 inline-flex',
-                )}
-              >
-                Open Consumers
-              </Link>
-            </div>
           </section>
         </div>
       ) : null}

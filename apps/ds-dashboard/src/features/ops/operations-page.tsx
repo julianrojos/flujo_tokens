@@ -19,7 +19,6 @@ export function OperationsPage() {
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHeader
         title="Operations"
-        description="Centro de control para ejecutar operaciones de diagnóstico y mantenimiento."
       />
       <SystemTabsNav />
 

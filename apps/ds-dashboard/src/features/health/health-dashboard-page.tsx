@@ -38,7 +38,6 @@ export function HealthDashboardPage() {
     <div className="space-y-5">
       <PageHeader
         title="System Dashboard"
-        description="Token system overview"
       />
       <SystemTabsNav />
 

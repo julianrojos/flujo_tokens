@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 export const sidebarProviderVariants = cva("group/sidebar-wrapper flex min-h-screen w-full");
 export const sidebarVariants = cva(
-  "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-sidebar text-sidebar-foreground lg:flex",
+  "sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border/70 bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:flex",
 );
 export const sidebarInsetVariants = cva("min-w-0 flex-1");
 export const sidebarHeaderVariants = cva("p-5");

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
@@ -293,16 +294,20 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
 
   if (reports.length === 0) {
     return (
-      <EmptyState
-        icon={Network}
-        title="No consumer files yet"
-        description="Register Figma files that consume this design system to track cross-file impact."
-        action={
-          <EmptyStateAction onClick={onAddConsumer}>
-            Add first consumer
-          </EmptyStateAction>
-        }
-      />
+      <Card>
+        <CardContent className="p-6">
+          <EmptyState
+            icon={Network}
+            title="No consumer files yet"
+            description="Register Figma files that consume this design system to track cross-file impact."
+            action={
+              <EmptyStateAction onClick={onAddConsumer}>
+                Add first consumer
+              </EmptyStateAction>
+            }
+          />
+        </CardContent>
+      </Card>
     );
   }
 

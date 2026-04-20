@@ -5,6 +5,7 @@ import {
   ROUTE_PATTERNS,
   toSystemOverview,
   toSystemAdmin,
+  toSystemConsumers,
   toSystemOperations,
 } from './routes';
 import { resolveSystemTab } from './resolve-system-tab';
@@ -20,6 +21,10 @@ describe('ROUTE_PATTERNS', () => {
 
   it('defines system admin pattern with :systemId', () => {
     assert.equal(ROUTE_PATTERNS.systemAdmin, '/system/:systemId/admin');
+  });
+
+  it('defines system consumers pattern with :systemId', () => {
+    assert.equal(ROUTE_PATTERNS.systemConsumers, '/system/:systemId/consumers');
   });
 
   it('defines system operations pattern with :systemId', () => {
@@ -75,6 +80,19 @@ describe('toSystemAdmin', () => {
   });
 });
 
+describe('toSystemConsumers', () => {
+  it('builds consumers URL for a given systemId', () => {
+    assert.equal(toSystemConsumers('xyz-789'), '/system/xyz-789/consumers');
+  });
+
+  it('URL-encodes the systemId', () => {
+    assert.equal(
+      toSystemConsumers('my system/id'),
+      '/system/my%20system%2Fid/consumers',
+    );
+  });
+});
+
 describe('toSystemOperations', () => {
   it('builds operations URL for a given systemId', () => {
     assert.equal(toSystemOperations('ops-456'), '/system/ops-456/operations');
@@ -95,6 +113,10 @@ describe('resolveSystemTab', () => {
 
   it('resolves admin tab', () => {
     assert.equal(resolveSystemTab('/system/abc/admin'), 'admin');
+  });
+
+  it('resolves consumers tab', () => {
+    assert.equal(resolveSystemTab('/system/abc/consumers'), 'consumers');
   });
 
   it('resolves operations tab', () => {

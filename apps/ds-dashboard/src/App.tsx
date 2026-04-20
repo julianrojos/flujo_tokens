@@ -25,7 +25,6 @@ import {
   Search,
   X,
   type LucideIcon,
-  Network,
 } from 'lucide-react';
 
 import { HealthDashboardPage } from '@/features/health/health-dashboard-page';
@@ -56,6 +55,7 @@ import {
   ROUTE_PATTERNS,
   toComponentDetail,
   toSystemOverview,
+  toSystemConsumers,
   toTokenDetail,
 } from '@/lib/routes';
 
@@ -211,11 +211,6 @@ const navSections: NavSection[] = [
         icon: Activity,
         isSystemPrimary: true,
       },
-      {
-        to: ROUTE_PATTERNS.consumers,
-        label: 'Consumer Files',
-        icon: Network,
-      },
     ],
   },
   {
@@ -265,6 +260,18 @@ function SystemEntryRedirect() {
   );
   const targetId = activeSystemExists ? activeSystem : systems[0].id;
   return <Navigate to={toSystemOverview(targetId)} replace />;
+}
+
+function SystemConsumersRedirect() {
+  const { systems, activeSystem } = useDesignSystem();
+  if (!systems.length) {
+    return <Navigate to={ROUTE_PATTERNS.newSystem} replace />;
+  }
+  const activeSystemExists = systems.some(
+    (system) => system.id === activeSystem,
+  );
+  const targetId = activeSystemExists ? activeSystem : systems[0].id;
+  return <Navigate to={toSystemConsumers(targetId)} replace />;
 }
 
 export default function App() {
@@ -461,7 +468,7 @@ export default function App() {
   }, [routeSearchItems, searchItems, searchQuery]);
 
   const isSystemSectionActive = useMemo(
-    () => /^\/system\/[^/]+(?:\/(overview|admin|operations))?(?:\/|$)/.test(location.pathname),
+    () => /^\/system\/[^/]+(?:\/(overview|admin|consumers|operations))?(?:\/|$)/.test(location.pathname),
     [location.pathname],
   );
 
@@ -471,7 +478,7 @@ export default function App() {
         <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px]">
           <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-3">
                 <SidebarTrigger
                   collapsed={sidebarCollapsed}
                   onClick={() => setSidebarCollapsed((value) => !value)}
@@ -638,9 +645,14 @@ export default function App() {
                         path="admin"
                         element={<DesignSystemsAdminPage />}
                       />
+                      <Route
+                        path="consumers"
+                        element={<ConsumersPage />}
+                      />
                       <Route path="operations" element={<OperationsPage />} />
                     </Route>
                     <Route path="/system" element={<SystemEntryRedirect />} />
+                    <Route path={ROUTE_PATTERNS.consumers} element={<SystemConsumersRedirect />} />
                     <Route
                       path={ROUTE_PATTERNS.root}
                       element={<SystemEntryRedirect />}
@@ -672,10 +684,6 @@ export default function App() {
                     <Route
                       path={ROUTE_PATTERNS.fileViewer}
                       element={<FileViewerPage />}
-                    />
-                    <Route
-                      path={ROUTE_PATTERNS.consumers}
-                      element={<ConsumersPage />}
                     />
                     <Route
                       path={ROUTE_PATTERNS.consumerDetail}

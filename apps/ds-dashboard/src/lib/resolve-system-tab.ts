@@ -1,4 +1,4 @@
-const VALID_SYSTEM_TABS = ['overview', 'admin', 'operations'] as const;
+const VALID_SYSTEM_TABS = ['overview', 'admin', 'consumers', 'operations'] as const;
 export type SystemTab = (typeof VALID_SYSTEM_TABS)[number];
 
 /**

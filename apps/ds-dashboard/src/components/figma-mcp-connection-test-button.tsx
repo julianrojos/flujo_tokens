@@ -174,13 +174,25 @@ export function FigmaMcpConnectionTestButton({
     contextGenerationRef.current = generation;
     setIsLoadingContext(true);
     try {
-      const payload = await getFigmaMcpDesignContextCompact(
-        {
-          fileUrl: normalizedUrl || undefined,
-        },
+      const payload = await getFigmaMcpDesignContextCompact({
+        fileUrl: normalizedUrl || undefined,
+      });
+      const warningList = Array.isArray(payload?.warnings) ? payload.warnings : [];
+      const hasNoSelectionWarning = warningList.some((warning) =>
+        String(warning).includes("No node selected."),
       );
+      const hasEmptySelection = Number(payload?.selection?.count ?? 0) === 0;
+      const shouldRetryWithoutFileUrl =
+        normalizedUrl.length > 0 &&
+        payload?.ok === true &&
+        hasNoSelectionWarning &&
+        hasEmptySelection;
+
+      const resolvedPayload = shouldRetryWithoutFileUrl
+        ? await getFigmaMcpDesignContextCompact()
+        : payload;
       if (generation !== contextGenerationRef.current) return;
-      setDesignContextResult(payload);
+      setDesignContextResult(resolvedPayload);
     } catch (error) {
       if (generation !== contextGenerationRef.current) return;
       if (error instanceof ApiError) {
@@ -415,8 +427,8 @@ export function FigmaMcpConnectionTestButton({
   );
 
   return (
-    <div className={cn("min-w-0 w-full space-y-2", className)}>
-      <div className="flex w-full flex-wrap items-start justify-start gap-2">
+    <div className={cn("min-w-0 w-full space-y-1", className)}>
+      <div className="mt-4 flex w-full flex-wrap items-start justify-start gap-2">
         <Button
           type="button"
           variant="outline"

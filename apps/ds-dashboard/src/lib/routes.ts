@@ -3,6 +3,7 @@ export const ROUTE_PATTERNS = {
   newSystem: '/new',
   systemOverview: '/system/:systemId/overview',
   systemAdmin: '/system/:systemId/admin',
+  systemConsumers: '/system/:systemId/consumers',
   systemOperations: '/system/:systemId/operations',
   tokens: '/tokens',
   tokenDetail: '/tokens/:tokenPath',
@@ -20,6 +21,9 @@ export const toSystemOverview = (systemId: string): string =>
 
 export const toSystemAdmin = (systemId: string): string =>
   `/system/${encodeURIComponent(String(systemId || ''))}/admin`;
+
+export const toSystemConsumers = (systemId: string): string =>
+  `/system/${encodeURIComponent(String(systemId || ''))}/consumers`;
 
 export const toSystemOperations = (systemId: string): string =>
   `/system/${encodeURIComponent(String(systemId || ''))}/operations`;

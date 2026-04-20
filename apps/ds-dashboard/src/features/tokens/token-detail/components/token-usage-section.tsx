@@ -2,16 +2,20 @@
  * Token Usage Section - displays usage by component.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { toComponentDetail } from "@/lib/routes";
 import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 interface TokenUsageFilters {
   componentMode: string;
@@ -42,6 +46,8 @@ export function TokenUsageSection({
     field: "component",
     dir: "asc",
   });
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const sortedComponentUsages = useMemo(() => {
     const rows = [...filteredComponentUsages];
@@ -63,6 +69,49 @@ export function TokenUsageSection({
     });
     return rows;
   }, [filteredComponentUsages, sort]);
+
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedComponentUsages.length)),
+    [sortedComponentUsages.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedComponentUsages.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    sortedComponentUsages.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedComponentUsages.length / pageSizeValue)) : 1;
+
+  useEffect(() => {
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [pageSize, pageSizeOptions, sortedComponentUsages.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedComponentUsages = useMemo(() => {
+    if (!shouldPaginate) return sortedComponentUsages;
+    const start = (currentPage - 1) * pageSizeValue;
+    return sortedComponentUsages.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedComponentUsages]);
+
+  const pageStart = shouldPaginate
+    ? (currentPage - 1) * pageSizeValue + 1
+    : sortedComponentUsages.length === 0
+      ? 0
+      : 1;
+  const pageEnd = shouldPaginate
+    ? Math.min(sortedComponentUsages.length, currentPage * pageSizeValue)
+    : sortedComponentUsages.length;
 
   const toggleSort = (field: ComponentSortField) => {
     setSort((current) =>
@@ -88,9 +137,56 @@ export function TokenUsageSection({
             <option value="via_alias">Via alias</option>
           </Select>
           <Input placeholder="Filter by component…" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-80" />
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Rows</span>
+            <Select
+              value={pageSize}
+              onChange={(event) => setPageSize(event.target.value)}
+              className="w-[132px]"
+              aria-label="Rows per page"
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={String(size)}>
+                  {size}
+                </option>
+              ))}
+              <option value={PAGE_SIZE_ALL}>All</option>
+            </Select>
+          </div>
         </div>
 
-        {filteredComponentUsages.length > 0 ? (
+        {sortedComponentUsages.length > 0 ? (
+          shouldPaginate ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedComponentUsages.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null
+        ) : null}
+
+        {pagedComponentUsages.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -101,7 +197,7 @@ export function TokenUsageSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedComponentUsages.map((usage) => (
+              {pagedComponentUsages.map((usage) => (
                 <TableRow key={usage.slug}>
                   <TableCell className="!font-normal">
                     <Link
@@ -143,6 +239,35 @@ export function TokenUsageSection({
         ) : (
           <div className="text-sm text-muted-foreground">No component usages match the filters.</div>
         )}
+
+        {shouldPaginate ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+            <p className="text-xs text-muted-foreground">
+              Showing {pageStart}-{pageEnd} of {sortedComponentUsages.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage <= 1}
+              >
+                Prev
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

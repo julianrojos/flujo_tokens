@@ -11,6 +11,7 @@ import {
   toTokenDetail,
   toSystemOverview,
   toSystemAdmin,
+  toSystemConsumers,
 } from '@/lib/routes';
 import {
   onCachedConsumerLabelUpdate,
@@ -55,6 +56,7 @@ function buildCrumbs(
 
   const systemOverviewMatch = matchPath('/system/:systemId/overview', pathname);
   const systemAdminMatch = matchPath('/system/:systemId/admin', pathname);
+  const systemConsumersMatch = matchPath('/system/:systemId/consumers', pathname);
   const systemOpsMatch = matchPath(ROUTE_PATTERNS.systemOperations, pathname);
 
   if (systemOverviewMatch?.params.systemId) {
@@ -74,6 +76,18 @@ function buildCrumbs(
       { label: 'System' },
       { label: systemLabel },
       { label: 'Design Systems Admin' },
+    ];
+  }
+
+  if (systemConsumersMatch?.params.systemId) {
+    const systemId = systemConsumersMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      { label: 'System' },
+      { label: systemLabel },
+      { label: 'Consumer Files' },
     ];
   }
 
@@ -152,7 +166,12 @@ function buildCrumbs(
   if (consumerMatch?.params.consumerId) {
     const rawConsumerId = decodeSafe(consumerMatch.params.consumerId);
     return [
-      { label: 'Consumer Files', to: ROUTE_PATTERNS.consumers },
+      {
+        label: 'Consumer Files',
+        to: options?.activeSystemId
+          ? toSystemConsumers(options.activeSystemId)
+          : ROUTE_PATTERNS.consumers,
+      },
       { label: options?.consumerDetailLabel || rawConsumerId },
     ];
   }

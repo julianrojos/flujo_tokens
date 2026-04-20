@@ -6,6 +6,7 @@ import {
   ROUTE_PATTERNS,
   toSystemOverview,
   toSystemAdmin,
+  toSystemConsumers,
   toSystemOperations,
 } from '@/lib/routes';
 import { resolveSystemTab } from '@/lib/resolve-system-tab';
@@ -36,6 +37,8 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
     const currentTab = resolveSystemTab(location.pathname);
     if (currentTab === 'admin') {
       navigate(toSystemAdmin(value));
+    } else if (currentTab === 'consumers') {
+      navigate(toSystemConsumers(value));
     } else if (currentTab === 'operations') {
       navigate(toSystemOperations(value));
     } else {
@@ -45,7 +48,15 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
 
   return (
     <div className={cn('mt-2 flex flex-col gap-2', collapsed && 'sr-only')}>
-      <h1 className="text-2xl font-titles font-semibold tracking-tight">{APP_TITLE}</h1>
+      <h1 className="flex w-full flex-nowrap items-center justify-center gap-2 whitespace-nowrap text-center text-2xl font-titles font-semibold tracking-tight">
+        <img
+          src="/branding/logo_DS_Graph.svg"
+          alt=""
+          aria-hidden="true"
+          className="block h-7 w-7 shrink-0"
+        />
+        <span>{APP_TITLE}</span>
+      </h1>
 
       <div className="mt-1">
         <Select
