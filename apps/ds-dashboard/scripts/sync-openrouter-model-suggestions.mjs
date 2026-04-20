@@ -117,7 +117,7 @@ export async function main() {
     MAX_OPENROUTER_SUGGESTIONS,
   );
 
-  const content = `import type { OpenRouterModelSuggestion } from '../../server/lib/openrouter-model-slug-utils.mjs';
+  const content = `import type { OpenRouterModelSuggestion } from '../../shared/openrouter-types';
 
 /**
  * Generated from OpenRouter rankings.

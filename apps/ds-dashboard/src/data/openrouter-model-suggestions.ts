@@ -1,4 +1,4 @@
-import type { OpenRouterModelSuggestion } from '../../server/lib/openrouter-model-slug-utils.mjs';
+import type { OpenRouterModelSuggestion } from '../../shared/openrouter-types';
 
 /**
  * Generated from OpenRouter rankings.
