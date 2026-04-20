@@ -13,6 +13,8 @@ The DS Dashboard has its own visual identity — Dark SaaS, professional, decoup
 
 All colors, surfaces, borders, shadows, and motion values **MUST** come from the token system. Never use raw values.
 
+Default form fields should use `bg-surface-2` for their resting surface. That includes text inputs, selects, and textareas; buttons and cards keep their own component surfaces.
+
 ### DO
 
 ```tsx

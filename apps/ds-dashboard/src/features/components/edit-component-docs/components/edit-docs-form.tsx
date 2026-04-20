@@ -208,7 +208,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                   <label htmlFor={`${variantsIdBase}-name-${i}`} className="sr-only">Variant name</label>
                   <input
                     id={`${variantsIdBase}-name-${i}`}
-                    className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-sm font-medium"
+                    className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm font-medium"
                     value={v.name}
                     onChange={(e) => updateVariant(i, 'name', e.target.value)}
                     placeholder="Variant name"
@@ -225,7 +225,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                 <label htmlFor={`${variantsIdBase}-desc-${i}`} className="sr-only">Description</label>
                 <input
                   id={`${variantsIdBase}-desc-${i}`}
-                  className="mb-2 w-full rounded border border-border bg-surface-1 px-2 py-1 text-sm"
+                  className="mb-2 w-full rounded border border-border bg-surface-2 px-2 py-1 text-sm"
                   value={v.description}
                   onChange={(e) => updateVariant(i, 'description', e.target.value)}
                   placeholder="Description"
@@ -236,7 +236,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                       <label htmlFor={`${variantsIdBase}-pk-${i}-${k}`} className="sr-only">Property key</label>
                       <input
                         id={`${variantsIdBase}-pk-${i}-${k}`}
-                        className="w-24 rounded border border-border bg-surface-1 px-2 py-0.5 font-mono text-xs"
+                        className="w-24 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-xs"
                         value={k}
                         onChange={(e) => renameVariantProperty(i, k, e.target.value)}
                         placeholder="Key"
@@ -244,7 +244,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                       <label htmlFor={`${variantsIdBase}-pv-${i}-${k}`} className="sr-only">Property value</label>
                       <input
                         id={`${variantsIdBase}-pv-${i}-${k}`}
-                        className="flex-1 rounded border border-border bg-surface-1 px-2 py-0.5 font-mono text-xs"
+                        className="flex-1 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-xs"
                         value={val}
                         onChange={(e) => updateVariantProperty(i, k, e.target.value)}
                         placeholder="Value"
@@ -480,7 +480,7 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
           <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
           <select
             id="accessibility-role"
-            className="h-10 w-full rounded border border-border bg-surface-1 px-3 text-sm"
+            className="h-10 w-full rounded border border-border bg-surface-2 px-3 text-sm"
             value={value.role}
             onChange={(e) => onChange({ ...value, role: e.target.value })}
           >

@@ -728,7 +728,7 @@ export function EditComponentDocsPage() {
               ? getOnApplyForSection(sectionId as SectionId)
               : null;
             const hasSectionSuggestion = hasSuggestion && Boolean(onApplyFn);
-            let sectionClassName = 'max-w-3xl';
+            let sectionClassName = 'w-full';
             if (hasSectionSuggestion) {
               sectionClassName = 'grid grid-cols-2 gap-6 items-start';
             } else if (hasSuggestion) {

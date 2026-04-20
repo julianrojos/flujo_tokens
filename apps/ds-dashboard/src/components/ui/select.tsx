@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {}
 
 export const selectVariants = cva(
-  "h-9 rounded border border-border bg-card px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  "h-9 rounded border border-border bg-surface-2 px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 );
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(

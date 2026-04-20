@@ -62,7 +62,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
         <Select
           value={selectValue}
           onChange={handleSystemChange}
-          className="w-full text-sm font-medium h-9"
+          className="w-full h-9 bg-surface-2 text-sm font-medium"
         >
           {!hasSystems ? (
             <>

@@ -341,7 +341,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             placeholder="Search by name or file key..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-w-0 rounded border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
+            className="w-full min-w-0 rounded border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
           />
           <div className="flex flex-shrink-0 gap-1">
             {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (

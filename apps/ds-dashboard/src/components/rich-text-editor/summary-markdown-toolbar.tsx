@@ -191,7 +191,7 @@ export function SummaryMarkdownToolbar({ editor, onLinkPopoverOpen }: SummaryMar
               }
             }}
             placeholder="Enter URL or relative path..."
-            className="w-48 rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-48 rounded border border-border bg-surface-2 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             autoFocus
           />
           {linkError && (
