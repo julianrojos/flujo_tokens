@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import type { AiJobStatus, AiSuggestionPayload } from '@/types/ai-jobs';
-import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
+import { Modal, ModalContent, ModalHeader, ModalCloseButton } from '@/components/ui/overlay';
 import { Button } from '@/components/ui/button';
 import { AiJobCreateForm } from '@/components/composites/ai-job-create-form';
 import { AiJobStatusCard } from '@/components/composites/ai-job-status-card';
@@ -93,9 +93,7 @@ export function AiSuggestionsModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleClose}>
-              Close
-            </Button>
+            <ModalCloseButton onClick={handleClose} />
           </div>
         </ModalHeader>
 
@@ -116,16 +114,17 @@ export function AiSuggestionsModal({
                 onJobComplete={handleJobComplete}
                 hideHeader
                 hidePreviewButton
+                className="rounded-none border-0 shadow-none backdrop-blur-none"
               />
             ) : (
-              <div className="rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <div className="bg-muted/20 p-4 text-sm text-muted-foreground">
                 Progress information will appear here after you start generation.
               </div>
             )}
           </div>
           <div className="mt-6 flex justify-end gap-2 border-t border-border/70 pt-4">
             <Button type="submit" form={formId} disabled={submitState.disabled}>
-              {submitState.pending ? 'Creating Job...' : canViewSuggestions ? 'Generate again' : 'Generate documentation'}
+              {submitState.pending ? 'Creating Job...' : canViewSuggestions ? 'Generate again' : 'Create suggestions'}
             </Button>
             {canViewSuggestions && (
               <Button onClick={handleViewSuggestions}>View suggestions</Button>

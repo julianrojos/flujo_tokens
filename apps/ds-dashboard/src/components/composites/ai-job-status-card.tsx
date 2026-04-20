@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
+import { Modal, ModalContent, ModalHeader, ModalCloseButton } from '@/components/ui/overlay';
 import { MarkdownViewer } from '@/components/ui/markdown-viewer';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { ApiErrorMessage } from '@/components/api-error-message';
@@ -41,6 +41,8 @@ interface AiJobStatusCardProps {
     hideHeader?: boolean;
     /** Hide "Show Preview" action button while preserving preview modal support elsewhere */
     hidePreviewButton?: boolean;
+    /** Optional wrapper className for the root card */
+    className?: string;
 }
 
 const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'warning' | 'neutral'; label: string }> = {
@@ -216,6 +218,7 @@ export function AiJobStatusCard({
     componentNamesById,
     hideHeader = false,
     hidePreviewButton = false,
+    className,
 }: AiJobStatusCardProps) {
     const { job, isLoading, error } = useAiJobStatus({
         jobId,
@@ -399,7 +402,7 @@ export function AiJobStatusCard({
         || 'Component';
 
     return (
-        <Card>
+        <Card className={className}>
             {!hideHeader && (
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -560,13 +563,7 @@ export function AiJobStatusCard({
                                     Generated markdown preview for this job.
                                 </p>
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowPreview(false)}
-                            >
-                                Close
-                            </Button>
+                            <ModalCloseButton onClick={() => setShowPreview(false)} />
                         </ModalHeader>
                         <div className="min-h-0 flex-1 overflow-y-auto p-5">
                             <AiDocPreview markdown={resolvedPreviewMarkdown} />
