@@ -399,13 +399,13 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="titles-color">
               <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Consumer</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Last sync</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Usage</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Warnings</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                <th className="px-3 py-2 text-left font-medium titles-color">Consumer</th>
+                <th className="px-3 py-2 text-left font-medium titles-color">Last sync</th>
+                <th className="px-3 py-2 text-left font-medium titles-color">Usage</th>
+                <th className="px-3 py-2 text-right font-medium titles-color">Warnings</th>
+                <th className="px-3 py-2 text-right font-medium titles-color">
                   <span
                     className="inline-flex items-center justify-end gap-1"
                     title="Adoption = DS usage ÷ (DS + Non-DS usage). Non-DS includes local and other-library items not matched to the tracked DS during the last sync. The table shows an aggregate adoption value (components + variables)."
@@ -422,9 +422,9 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                     </span>
                   </span>
                 </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Locally defined</th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
+                <th className="px-3 py-2 text-right font-medium titles-color">Locally defined</th>
+                <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
+                <th className="px-3 py-2 text-right font-medium titles-color">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -520,7 +520,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
         <ModalContent size="md">
           <ModalHeader>
             <div className="flex items-start justify-between gap-4">
-              <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
+              <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight titles-color">
                 Remove consumer file
               </h2>
               <ModalCloseButton onClick={closeRemoveModal} label="Close remove consumer dialog" />

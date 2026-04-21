@@ -13,7 +13,7 @@ export const tableRowVariants = cva(
   "transition-colors hover:bg-muted/40",
 );
 export const tableHeadVariants = cva(
-  "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+  "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide",
 );
 export const tableHeadContentVariants = cva("flex w-full items-center gap-2", {
   variants: {
@@ -46,7 +46,11 @@ export const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn(tableHeaderVariants(), className)} {...props} />
+  <thead
+    ref={ref}
+    className={cn(tableHeaderVariants(), "titles-color", className)}
+    {...props}
+  />
 ));
 TableHeader.displayName = "TableHeader";
 

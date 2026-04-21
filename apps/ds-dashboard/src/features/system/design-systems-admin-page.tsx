@@ -275,7 +275,7 @@ export function DesignSystemsAdminPage() {
           <section className="rounded-lg border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-titles font-semibold tracking-tight">{targetSystem.name}</h2>
+                <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">{targetSystem.name}</h2>
                 {targetSystem.id === defaultSystem ? (
                   <span className="rounded bg-status-success-bg/15 px-2 py-0.5 text-[11px] font-medium text-status-success">
                     DEFAULT
@@ -397,7 +397,7 @@ export function DesignSystemsAdminPage() {
           {deleteModalTarget ? (
             <>
               <ModalHeader className="items-start gap-4">
-                <h2 className="text-lg font-titles font-semibold tracking-tight">
+                <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
                   Confirm deletion
                 </h2>
                 <ModalCloseButton
@@ -489,6 +489,7 @@ export function DesignSystemsAdminPage() {
 
                 <div className="flex items-center justify-end gap-2">
                   <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => {
                       setDeleteModalTarget(null);
@@ -500,6 +501,7 @@ export function DesignSystemsAdminPage() {
                     Cancel
                   </Button>
                   <Button
+                    size="sm"
                     variant="destructive"
                     disabled={
                       !deleteConfirmed ||

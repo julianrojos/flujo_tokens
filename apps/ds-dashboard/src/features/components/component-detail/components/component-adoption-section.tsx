@@ -62,16 +62,16 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Variants table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold">Variants Used</h4>
+              <h4 className="text-sm font-titles font-semibold titles-color">Variants Used</h4>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted">
+                  <thead className="bg-muted titles-color">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Variant</th>
-                      <th className="px-3 py-2 text-right font-medium">Instances</th>
-                      <th className="px-3 py-2 text-left font-medium">Consumers</th>
-                      <th className="px-3 py-2 text-left font-medium">Impact</th>
-                      <th className="px-3 py-2 text-left font-medium">Sample Links</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Variant</th>
+                      <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Consumers</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -116,14 +116,14 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Consumers table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold">Consumers</h4>
+              <h4 className="text-sm font-titles font-semibold titles-color">Consumers</h4>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted">
+                  <thead className="bg-muted titles-color">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Consumer</th>
-                      <th className="px-3 py-2 text-right font-medium">Instances</th>
-                      <th className="px-3 py-2 text-left font-medium">Last Synced</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Consumer</th>
+                      <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Last Synced</th>
                     </tr>
                   </thead>
                   <tbody>

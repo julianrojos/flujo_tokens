@@ -26,7 +26,7 @@ export function FigmaDescriptionSection({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-muted-foreground text-sm font-titles font-semibold">
+        <h4 className="text-sm font-titles font-semibold titles-color">
           Figma descriptions
         </h4>
       </div>
@@ -45,7 +45,7 @@ export function FigmaDescriptionSection({
 
         {/* Variant descriptions */}
         <div className="space-y-2">
-          <h5 className="text-xs font-titles font-semibold">Variant descriptions</h5>
+          <h5 className="text-xs font-titles font-semibold titles-color">Variant descriptions</h5>
           {variantEntries.length > 0 ? (
             <ul className="space-y-1.5 text-sm text-muted-foreground">
               {variantEntries.map((variant) => (

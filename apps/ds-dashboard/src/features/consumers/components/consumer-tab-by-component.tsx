@@ -74,7 +74,7 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-titles font-semibold">Component Usage</h3>
+          <h3 className="text-base font-titles font-semibold titles-color">Component Usage</h3>
           <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
             {filteredReports.length} of {reports.length} components
           </span>
@@ -116,7 +116,7 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="truncate text-sm font-titles font-semibold">
+                    <h4 className="truncate text-sm font-titles font-semibold titles-color">
                       {report.componentName}
                     </h4>
                     <ImpactLevelBadge level={report.impactLevel.level} />

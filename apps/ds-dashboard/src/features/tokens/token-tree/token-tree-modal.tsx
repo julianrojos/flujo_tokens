@@ -104,7 +104,7 @@ export function TokenTreeModal({
       <ModalContent className="max-h-[92vh] w-[min(980px,96vw)] overflow-hidden">
         <ModalHeader>
           <div>
-            <h3 id="token-collection-tree-title" className="text-base font-titles font-semibold">
+            <h3 id="token-collection-tree-title" className="text-base font-titles font-semibold titles-color">
               Token Collections Tree
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">

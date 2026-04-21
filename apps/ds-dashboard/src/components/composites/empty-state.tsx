@@ -32,7 +32,7 @@ export function EmptyState({
         </div>
       ) : null}
       <div className="max-w-md space-y-1">
-        <h3 className="text-base font-titles font-semibold">{title}</h3>
+        <h3 className="text-base font-titles font-semibold titles-color">{title}</h3>
         {description ? (
           <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}

@@ -161,7 +161,7 @@ class RouteErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div className="rounded-xl border border-destructive/70 bg-destructive/10 p-6">
-          <h3 className="text-destructive text-base font-titles font-semibold">
+          <h3 className="text-base font-titles font-semibold titles-color">
             Failed to load view
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -596,7 +596,7 @@ export default function App() {
                   ))}
                   <button
                     type="button"
-                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
                     onClick={() => setSearchOpen(true)}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -613,7 +613,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
+                  className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-white lg:flex"
                   onClick={() => setSearchOpen(true)}
                 >
                   <span className="inline-flex items-center gap-2">

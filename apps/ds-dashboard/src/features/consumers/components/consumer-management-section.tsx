@@ -120,7 +120,7 @@ export function ConsumerManagementSection({ dsFileKey }: ConsumerManagementSecti
   return (
     <section className="mt-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-titles font-semibold tracking-tight">Consumer Files</h2>
+        <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">Consumer Files</h2>
         <div className="flex gap-2">
           <Button
             size="sm"

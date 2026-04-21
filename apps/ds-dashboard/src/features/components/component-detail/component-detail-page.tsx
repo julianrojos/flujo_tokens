@@ -7,7 +7,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
@@ -106,7 +107,7 @@ export function ComponentDetailPage() {
               href={figmaUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-9 items-center gap-2 rounded border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
               aria-label={`Open ${pageTitle} in Figma`}
             >
               <span>Open in Figma</span>

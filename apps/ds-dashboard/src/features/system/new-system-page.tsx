@@ -445,7 +445,7 @@ export function NewSystemPage() {
           <ModalHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-base font-titles font-semibold">{scanErrorMeta.title}</h3>
+                <h3 className="text-base font-titles font-semibold titles-color">{scanErrorMeta.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{scanErrorMeta.hint}</p>
               </div>
               <ModalCloseButton

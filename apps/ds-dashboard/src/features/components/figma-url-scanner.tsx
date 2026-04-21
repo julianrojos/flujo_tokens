@@ -563,7 +563,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
             <>
               <ModalHeader>
                 <div className="flex items-start justify-between gap-4">
-                  <h2 id="figma-scanner-confirm-title" className="text-lg font-titles font-semibold tracking-tight">
+                  <h2 id="figma-scanner-confirm-title" className="text-lg font-titles font-semibold tracking-tight titles-color">
                     Overwrite existing component data?
                   </h2>
                   <ModalCloseButton onClick={() => setConfirmModal(null)} label="Close overwrite confirmation dialog" />

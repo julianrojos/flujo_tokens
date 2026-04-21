@@ -147,7 +147,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
           <div className={splitVisualColumns ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
             {hasScreenshot && (
               <div>
-                <h4 className="mb-2 text-muted-foreground text-sm font-titles font-semibold">Screenshot</h4>
+                <h4 className="mb-2 text-sm font-titles font-semibold titles-color">Screenshot</h4>
                 <button
                   type="button"
                   className="block"
@@ -171,7 +171,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
             )}
             {hasVariantPreviews && (
               <div className="space-y-2">
-                <h4 className="text-muted-foreground text-sm font-titles font-semibold">Variants</h4>
+                <h4 className="text-sm font-titles font-semibold titles-color">Variants</h4>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleVariantPreviews.map((variant) => {
                     const matched = variantVisualMap.get(normalizeVariantName(variant.name));
@@ -243,7 +243,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
       >
         <ModalContent className="relative w-[min(96vw,1400px)] bg-surface-subtle p-4">
           <div ref={lightboxContainerRef} tabIndex={-1} className="outline-none">
-          <h3 id="visual-proof-lightbox-title" className="sr-only text-base font-titles font-semibold">Visual proof full size</h3>
+          <h3 id="visual-proof-lightbox-title" className="sr-only text-base font-titles font-semibold titles-color">Visual proof full size</h3>
           <ModalCloseButton
             onClick={closeLightbox}
             label="Close image preview"

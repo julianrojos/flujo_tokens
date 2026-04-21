@@ -674,7 +674,7 @@ export function FigmaMcpConnectionTestButton({
             <div className="flex items-start justify-between gap-4">
               <h2
                 id="figma-mcp-reset-confirm-title"
-                className="text-lg font-titles font-semibold tracking-tight"
+                className="text-lg font-titles font-semibold tracking-tight titles-color"
               >
                 Resolve connection
               </h2>

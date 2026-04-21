@@ -85,7 +85,7 @@ export function AddConsumerModal({
           <form onSubmit={handleSubmit}>
             <ModalHeader>
               <div className="flex items-start justify-between gap-4">
-                <h2 className="text-lg font-titles font-semibold tracking-tight">Add Consumer File</h2>
+                <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">Add Consumer File</h2>
                 <ModalCloseButton onClick={handleClose} label="Close add consumer dialog" />
               </div>
             </ModalHeader>

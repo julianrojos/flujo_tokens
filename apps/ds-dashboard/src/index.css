@@ -342,6 +342,7 @@
   --app-accent: var(--color-sky-500);
   --app-accent-hover: var(--color-sky-600);
   --app-accent-fg: var(--color-white);
+  --app-accent-deep: var(--color-blue-950);
   --app-destructive: var(--color-red-600);
   --app-destructive-fg: var(--color-white);
 
@@ -381,7 +382,7 @@
   /* Layout: structural */
   --app-sidebar-width: 18rem;
   --app-sidebar-width-collapsed: 4.5rem;
-  --app-sidebar-bg: #152259;
+  --app-sidebar-bg: var(--app-accent-deep);
   --app-sidebar-fg: var(--color-white);
   --app-sidebar-active-bg: var(--app-accent);
   --app-sidebar-active-border: var(--app-accent);
@@ -406,6 +407,10 @@ h4,
 h5,
 h6 {
   font-family: var(--font-body);
+}
+
+.titles-color {
+  color: var(--app-accent-deep);
 }
 
 body {

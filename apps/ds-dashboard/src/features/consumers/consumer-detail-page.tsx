@@ -344,7 +344,7 @@ export function ConsumerDetailPage() {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-titles font-semibold">Overview</h3>
+            <h3 className="text-base font-titles font-semibold titles-color">Overview</h3>
             <p className="text-sm text-muted-foreground">
               Last synced: {consumer.latestSync ? formatSyncedAt(consumer.latestSync.syncedAt) : "Never"}
             </p>
@@ -428,7 +428,7 @@ export function ConsumerDetailPage() {
 
       {/* Component Usage */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-3 text-base font-titles font-semibold">Component Usage</h3>
+        <h3 className="mb-3 text-base font-titles font-semibold titles-color">Component Usage</h3>
         {componentGroups.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {consumer.latestSync
@@ -438,12 +438,12 @@ export function ConsumerDetailPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="titles-color">
                 <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Component</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Instances</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Impact</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sample Links</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
+                  <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
                 </tr>
               </thead>
               <tbody>
@@ -621,7 +621,7 @@ export function ConsumerDetailPage() {
 
       {/* Variable Usage */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-3 text-base font-titles font-semibold">Variable Usage</h3>
+        <h3 className="mb-3 text-base font-titles font-semibold titles-color">Variable Usage</h3>
         {sortedVariables.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {consumer.latestSync
@@ -631,13 +631,13 @@ export function ConsumerDetailPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="titles-color">
                 <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Variable</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Nodes</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Type</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Impact</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sample Links</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
+                  <th className="px-3 py-2 text-right font-medium titles-color">Nodes</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
+                  <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
                 </tr>
               </thead>
               <tbody>
@@ -713,7 +713,7 @@ export function ConsumerDetailPage() {
           aria-expanded={isSyncLogOpen}
           aria-controls="sync-run-log-content"
         >
-          <h3 className="text-base font-titles font-semibold">Sync Run Log</h3>
+          <h3 className="text-base font-titles font-semibold titles-color">Sync Run Log</h3>
           {isSyncLogOpen ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
@@ -727,13 +727,13 @@ export function ConsumerDetailPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
+                  <thead className="titles-color">
                     <tr className="border-b border-border">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Duration</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
+                      <th className="px-3 py-2 text-left font-medium titles-color">Timestamp</th>
+                      <th className="px-3 py-2 text-right font-medium titles-color">Components</th>
+                      <th className="px-3 py-2 text-right font-medium titles-color">Variables</th>
+                      <th className="px-3 py-2 text-right font-medium titles-color">Duration</th>
                     </tr>
                   </thead>
                   <tbody>

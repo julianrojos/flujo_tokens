@@ -77,7 +77,7 @@ export function DesignSystemUpdateActions({
   return (
     <div className="mt-3 py-3">
       <div className="mb-3">
-        <h3 className="text-base font-titles font-semibold">Update from Figma</h3>
+        <h3 className="text-base font-titles font-semibold titles-color">Update from Figma</h3>
       </div>
 
       <div className="mt-3 space-y-2">

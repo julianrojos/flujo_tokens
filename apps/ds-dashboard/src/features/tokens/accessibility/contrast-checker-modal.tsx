@@ -84,7 +84,7 @@ export function ContrastCheckerModal({
           <div>
             <h3
               id="color-accessibility-checker-title"
-              className="text-base font-titles font-semibold"
+              className="text-base font-titles font-semibold titles-color"
             >
               Color Accessibility Checker
             </h3>
