@@ -4,7 +4,6 @@
 
 import {
   PageHeader,
-  StatsOverview,
   SystemTabsNav,
 } from '@/components/composites';
 import { useParams } from 'react-router-dom';
@@ -16,14 +15,7 @@ import { TokenValueCirclePackingCard } from './components/token-value-circle-pac
 export function HealthDashboardPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const resolvedSystemId = String(systemId || '').trim();
-  const {
-    loading,
-    tokensTotal,
-    tokensWithoutUse,
-    componentsWithoutDocsPercent,
-    importedComponentsCount,
-    scannedComponentsCount,
-  } = useHealthDashboard(resolvedSystemId);
+  const { loading } = useHealthDashboard(resolvedSystemId);
 
   if (loading) {
     return (
@@ -41,31 +33,6 @@ export function HealthDashboardPage() {
         title="System Dashboard"
       />
       <SystemTabsNav />
-
-      <StatsOverview
-        items={[
-          {
-            id: 'overall-system',
-            label: 'Imported / scanned components',
-            value: `${importedComponentsCount} / ${scannedComponentsCount}`,
-          },
-          {
-            id: 'tokens',
-            label: 'Tokens',
-            value: String(tokensTotal),
-          },
-          {
-            id: 'tokens-without-use',
-            label: 'Unused tokens',
-            value: String(tokensWithoutUse),
-          },
-          {
-            id: 'components-without-docs',
-            label: 'Undocumented components',
-            value: `${componentsWithoutDocsPercent}%`,
-          },
-        ]}
-      />
 
       <section className="overview-widgets-masonry">
         <ComponentTokenDebtCard />

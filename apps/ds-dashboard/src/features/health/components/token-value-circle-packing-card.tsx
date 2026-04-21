@@ -4,12 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { useTokenCatalogQuery } from "../use-health-queries";
 import {
   buildSharedValueClusters,
   summarizeSharedValues,
   type SharedValueCluster,
 } from "../lib/token-shared-value-clusters";
+import { useTokenCatalogQuery } from "../use-health-queries";
 
 const VIEWBOX_SIZE = 720;
 const PACK_PADDING = 8;

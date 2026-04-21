@@ -1,6 +1,5 @@
 import {
   fetchComponentCatalog,
-  fetchDesignSystemsConfig,
   fetchHealthHistory,
   fetchTokenCatalog,
   fetchTokenHealth,
@@ -15,11 +14,11 @@ import type {
 } from '@/types/health-history';
 import type { TokenCatalog } from '@/types/token-catalog';
 import type { TokenHealthReport } from '@/types/token-health';
-import type { DesignSystemsConfigResponse } from '@/lib/api';
 
 export const healthQueryKeys = {
   componentCatalog: (systemId: string) => ['health', systemId, 'component-catalog'] as const,
   token: (systemId: string) => ['health', systemId, 'token'] as const,
+  tokenCatalog: (systemId: string) => ['health', systemId, 'token-catalog'] as const,
   history: (
     systemId: string,
     range: HealthHistoryRange,
@@ -45,16 +44,8 @@ export function useTokenHealthQuery(systemId: string) {
 
 export function useTokenCatalogQuery(systemId: string) {
   return useQuery<TokenCatalog>({
-    queryKey: ['health', systemId, 'token-catalog'] as const,
+    queryKey: healthQueryKeys.tokenCatalog(systemId),
     queryFn: () => fetchTokenCatalog(systemId || undefined),
-    ...QUERY_DEFAULTS,
-  });
-}
-
-export function useDesignSystemsConfigQuery() {
-  return useQuery<DesignSystemsConfigResponse>({
-    queryKey: ['health', 'design-systems-config'] as const,
-    queryFn: () => fetchDesignSystemsConfig(),
     ...QUERY_DEFAULTS,
   });
 }
