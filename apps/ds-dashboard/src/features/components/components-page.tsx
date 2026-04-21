@@ -32,6 +32,7 @@ type SortField =
   | "display_name"
   | "variants_count"
   | "spec_exists"
+  | "token_coverage"
   | "usage_count";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
@@ -45,6 +46,32 @@ function getVariantCount(item: ComponentCatalogItem) {
   const figmaVariants = Array.isArray(item.figma.variants) ? item.figma.variants.length : null;
   if (figmaVariants !== null) return figmaVariants;
   return Number(item.visual_proof?.variants_count ?? 0) || 0;
+}
+
+function getTokenBindingCoverage(item: ComponentCatalogItem): {
+  resolved: number;
+  total: number;
+} {
+  const bindings = Array.isArray(item.figma.token_bindings) ? item.figma.token_bindings : [];
+  const total = bindings.length;
+  const resolved = bindings.filter((binding) => binding.status === "resolved").length;
+  return { resolved, total };
+}
+
+function buildTokenCoverage(item: ComponentCatalogItem) {
+  const { resolved, total } = getTokenBindingCoverage(item);
+  const variant =
+    total <= 0
+      ? ("neutral" as const)
+      : resolved >= total
+        ? ("success" as const)
+        : resolved === 0
+          ? ("warning" as const)
+          : ("default" as const);
+  const className = total > 0 ? "border-status-success-border/30" : "";
+  const percent = total > 0 ? Math.round((resolved / total) * 100) : null;
+  const label = percent === null ? "—" : `${percent}%`;
+  return { resolved, total, variant, className, label };
 }
 
 export function ComponentsPage() {
@@ -129,6 +156,30 @@ export function ComponentsPage() {
     void loadData();
   }, []);
 
+  const tokenCoverageBySlug = useMemo(() => {
+    const map: Record<string, ReturnType<typeof buildTokenCoverage>> = {};
+    for (const row of rows) {
+      map[row.slug] = buildTokenCoverage(row);
+    }
+    return map;
+  }, [rows]);
+
+  const variantCountBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of rows) {
+      map[row.slug] = getVariantCount(row);
+    }
+    return map;
+  }, [rows]);
+
+  const usedInCountBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of rows) {
+      map[row.slug] = usageBySlug[row.slug]?.used_in.length ?? 0;
+    }
+    return map;
+  }, [rows, usageBySlug]);
+
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
     const next = rows.filter((item) => {
@@ -146,9 +197,14 @@ export function ComponentsPage() {
     next.sort((a, b) => {
       const valueFor = (row: ComponentCatalogItem): string | number => {
         if (sort.field === "display_name") return row.display_name.toLowerCase();
-        if (sort.field === "variants_count") return getVariantCount(row);
+        if (sort.field === "variants_count") return variantCountBySlug[row.slug] ?? getVariantCount(row);
         if (sort.field === "spec_exists") return row.spec.exists ? 1 : 0;
-        if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
+        if (sort.field === "token_coverage") {
+          const coverage = tokenCoverageBySlug[row.slug];
+          if (!coverage || coverage.total <= 0) return 0;
+          return coverage.resolved / coverage.total;
+        }
+        if (sort.field === "usage_count") return usedInCountBySlug[row.slug] ?? 0;
         return 0;
       };
 
@@ -159,7 +215,7 @@ export function ComponentsPage() {
     });
 
     return next;
-  }, [rows, search, specFilter, sort, usageBySlug]);
+  }, [rows, search, specFilter, sort, usedInCountBySlug, tokenCoverageBySlug, variantCountBySlug]);
 
   const pageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= filtered.length),
@@ -206,20 +262,28 @@ export function ComponentsPage() {
     return map;
   }, [rows]);
 
+  const usedInLabelsBySlug = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const usedInSlugs = usageBySlug[row.slug]?.used_in ?? [];
+      map[row.slug] = usedInSlugs.map((slug) => displayNameBySlug[slug] || slug);
+    }
+    return map;
+  }, [rows, usageBySlug, displayNameBySlug]);
+
   const multiVariantPercent = useMemo(() => {
     const total = rows.length;
     if (total <= 0) return 0;
-    const multiVariant = rows.filter((item) => getVariantCount(item) >= 2).length;
+    const multiVariant = rows.filter((item) => (variantCountBySlug[item.slug] ?? getVariantCount(item)) >= 2).length;
     return Math.round((multiVariant / total) * 100);
-  }, [rows]);
+  }, [rows, variantCountBySlug]);
 
   const formatCount = (value: number | null) => (value === null ? "—" : String(value));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Componentes"
-        description="Filtra y ordena con datos locales del registry generado."
+        title="Components"
       />
 
       <StatsOverview
@@ -314,6 +378,7 @@ export function ComponentsPage() {
                 <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
                 <SortableTableHead label="Variants" onSort={() => toggleSort("variants_count")} />
                 <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
+                <SortableTableHead label="Tokens coverage" onSort={() => toggleSort("token_coverage")} />
                 <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
               </TableRow>
             </TableHeader>
@@ -321,7 +386,7 @@ export function ComponentsPage() {
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="text-center text-muted-foreground"
                   >
                     No components match your filters.
@@ -332,12 +397,14 @@ export function ComponentsPage() {
               {loading
                 ? Array.from({ length: 4 }).map((_, index) => (
                     <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={4} className="text-muted-foreground">
+                      <TableCell colSpan={5} className="text-muted-foreground">
                         Loading components...
                       </TableCell>
                     </TableRow>
                   ))
-                : pagedComponents.map((item) => (
+                : pagedComponents.map((item) => {
+                    const coverage = tokenCoverageBySlug[item.slug] ?? buildTokenCoverage(item);
+                    return (
                     <TableRow key={item.slug}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -361,34 +428,31 @@ export function ComponentsPage() {
                             {item.display_name}
                           </Link>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          <Link
-                            to={`/components/${item.slug}`}
-                            className="font-mono hover:text-primary hover:underline"
-                            aria-label={`Open ${item.slug} detail`}
-                          >
-                            {item.slug}
-                          </Link>
-                        </div>
                       </TableCell>
-                      <TableCell>{getVariantCount(item)}</TableCell>
+                      <TableCell>{variantCountBySlug[item.slug] ?? getVariantCount(item)}</TableCell>
                       <TableCell>
                         <Badge variant={specBadgeVariant(item.spec.exists)}>
                           {item.spec.exists ? "Docs" : "No docs"}
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <Badge
+                          variant={coverage.variant}
+                          className={coverage.className}
+                        >
+                          {coverage.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         {(() => {
-                          const usedInSlugs = usageBySlug[item.slug]?.used_in ?? [];
-                          if (usedInSlugs.length === 0) return "-";
-                          const labels = usedInSlugs.map(
-                            (slug) => displayNameBySlug[slug] || slug,
-                          );
+                          const labels = usedInLabelsBySlug[item.slug] ?? [];
+                          if (labels.length === 0) return "-";
                           return labels.join(", ");
                         })()}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
             </TableBody>
           </Table>
 
