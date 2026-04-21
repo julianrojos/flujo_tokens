@@ -137,8 +137,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Visual Proof</CardTitle>
-            <CardDescription>Screenshot and artwork</CardDescription>
+            <CardTitle>Screenshots</CardTitle>
           </div>
         </div>
       </CardHeader>
@@ -147,7 +146,6 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
           <div className={splitVisualColumns ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
             {hasScreenshot && (
               <div>
-                <h4 className="mb-2 text-sm font-titles font-semibold titles-color">Screenshot</h4>
                 <button
                   type="button"
                   className="block"

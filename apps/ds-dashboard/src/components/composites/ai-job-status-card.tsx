@@ -453,6 +453,11 @@ export function AiJobStatusCard({
                 {isProgressActive && (
                     <JobProgressBar percent={percent} label={label} />
                 )}
+                {job.status === 'completed' && job.output && (
+                    <div className="inline-flex items-center rounded-full border border-status-success-border/30 bg-status-success-bg/15 px-2.5 py-0.5 text-xs font-semibold text-status-success transition-colors">
+                        success
+                    </div>
+                )}
 
                 {/* Events timeline — collapsed by default while running */}
                 {events.length > 0 && (
@@ -511,7 +516,7 @@ export function AiJobStatusCard({
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex justify-end gap-2">
                     {canCancel && (
                         <Button
                             variant="outline"

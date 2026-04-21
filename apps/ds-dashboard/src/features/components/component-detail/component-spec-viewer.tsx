@@ -59,6 +59,38 @@ function normalizeStringItems(items: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
+type ViewerVariant = {
+  id: string;
+  name: string;
+  description: string;
+  properties: Record<string, string>;
+};
+
+function normalizeVariants(items: unknown): ViewerVariant[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      const record = item as Record<string, unknown>;
+      const name = String(record.name ?? "").trim();
+      if (!name) return null;
+      const id = String(record.id ?? `variant-${index + 1}`).trim() || `variant-${index + 1}`;
+      const description = String(record.description ?? "").trim();
+      const properties: Record<string, string> = {};
+      const rawProperties = record.properties;
+      if (rawProperties && typeof rawProperties === "object" && !Array.isArray(rawProperties)) {
+        for (const [key, value] of Object.entries(rawProperties)) {
+          const normalizedKey = String(key ?? "").trim();
+          const normalizedValue = String(value ?? "").trim();
+          if (!normalizedKey || !normalizedValue) continue;
+          properties[normalizedKey] = normalizedValue;
+        }
+      }
+      return { id, name, description, properties };
+    })
+    .filter((variant): variant is ViewerVariant => Boolean(variant));
+}
+
 function PropertyRow({ prop }: { prop: SpecProperty }) {
   const displayType = TYPE_DISPLAY[prop.type.toLowerCase()] ?? prop.type.toUpperCase();
   return (
@@ -71,7 +103,7 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
         {prop.values ? (
           <div className="flex flex-wrap gap-1">
             {prop.values.map((v) => (
-              <code key={v} className="rounded bg-muted px-1 py-0.5 text-xs">
+              <code key={v} className="rounded px-1 py-0.5 text-xs">
                 {v}
               </code>
             ))}
@@ -117,6 +149,10 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
   const contentGuidelineRules = useMemo(
     () => normalizeStringItems(spec.content_guidelines?.rules),
     [spec.content_guidelines?.rules],
+  );
+  const variants = useMemo(
+    () => normalizeVariants(spec.variants),
+    [spec.variants],
   );
 
   const [propertySort, setPropertySort] = useState<{
@@ -290,6 +326,38 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
               <li key={i}>{rule}</li>
             ))}
           </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </section>
+
+      {/* Variants */}
+      <section>
+        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+          Variants
+        </h4>
+        {variants.length > 0 ? (
+          <div className="space-y-3 text-sm">
+            {variants.map((variant) => (
+              <article key={variant.id} className="space-y-1">
+                <h5 className="text-xs font-titles font-semibold titles-color">
+                  {variant.name}
+                </h5>
+                {variant.description ? (
+                  <p className="text-muted-foreground">{variant.description}</p>
+                ) : null}
+                {Object.keys(variant.properties).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(variant.properties).map(([key, value]) => (
+                      <code key={`${variant.id}-${key}`} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                        {key}: {value}
+                      </code>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">—</p>
         )}

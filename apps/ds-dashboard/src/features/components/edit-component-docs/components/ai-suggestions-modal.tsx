@@ -7,7 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import type { AiJobStatus, AiSuggestionPayload } from '@/types/ai-jobs';
-import { Modal, ModalContent, ModalHeader, ModalCloseButton } from '@/components/ui/overlay';
+import { Modal, ModalContent, ModalHeader, ModalCloseButton, ModalFooter } from '@/components/ui/overlay';
 import { Button } from '@/components/ui/button';
 import { AiJobCreateForm } from '@/components/composites/ai-job-create-form';
 import { AiJobStatusCard } from '@/components/composites/ai-job-status-card';
@@ -111,8 +111,6 @@ export function AiSuggestionsModal({
               formId={formId}
               hideSubmitButton
               initialProvider="openrouter"
-              initialModel="google/gemma-4-26b-a4b-it"
-              showOpenRouterModelSuggestions={false}
               lockedComponentId={figmaComponentId}
               onSubmitStateChange={handleSubmitStateChange}
               onJobCreated={handleJobCreated}
@@ -131,19 +129,28 @@ export function AiSuggestionsModal({
                 )}
               />
             ) : (
-              <div className="bg-muted/20 p-4 text-sm text-muted-foreground">
-                Progress information will appear here after you start generation.
+              <div className="space-y-3">
+                <div className="bg-muted/20 p-4 text-sm text-muted-foreground">
+                  Progress information will appear here after you start generation.
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={handleClose}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
           </div>
-          <div className="mt-6 flex justify-end gap-2 border-t border-border/70 pt-4">
-            <Button type="submit" form={formId} disabled={submitState.disabled}>
+          <ModalFooter className="mt-6">
+            {canViewSuggestions && (
+              <Button variant="outline" size="sm" onClick={handleViewSuggestions}>
+                View suggestions
+              </Button>
+            )}
+            <Button type="submit" form={formId} size="sm" disabled={submitState.disabled}>
               {submitState.pending ? 'Creating Job...' : canViewSuggestions ? 'Generate again' : 'Create suggestions'}
             </Button>
-            {canViewSuggestions && (
-              <Button onClick={handleViewSuggestions}>View suggestions</Button>
-            )}
-          </div>
+          </ModalFooter>
         </div>
       </ModalContent>
     </Modal>
