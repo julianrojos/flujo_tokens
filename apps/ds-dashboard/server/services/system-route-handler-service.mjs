@@ -149,6 +149,11 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     name: updated.name,
     appName: updated.appName,
     compileVariablesOnCapture: updated.compileVariablesOnCapture,
+    detectedComponentsCount: updated.detectedComponentsCount,
+    importedComponentsCount: updated.importedComponentsCount,
+    pendingComponentsCount: updated.pendingComponentsCount,
+    importedComponentNames: updated.importedComponentNames,
+    pendingComponentNames: updated.pendingComponentNames,
   });
   await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(

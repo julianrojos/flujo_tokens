@@ -226,6 +226,42 @@ test("system-route-service: update mutation tolerates mirrored read-only fields 
   assert.deepEqual(mutation.updated?.collections, ["primitives", "semantic"]);
 });
 
+test("system-route-service: update mutation applies import snapshot fields when provided", () => {
+  const mutation = buildUpdateDesignSystemConfigMutation({
+    config: {
+      defaultSystem: "alpha",
+      systems: [
+        {
+          id: "alpha",
+          name: "Alpha",
+          appName: "Alpha App",
+          detectedComponentsCount: null,
+          importedComponentsCount: null,
+          pendingComponentsCount: null,
+          importedComponentNames: [],
+          pendingComponentNames: [],
+        },
+      ],
+    },
+    routeSystemId: "alpha",
+    body: {
+      detectedComponentsCount: 10,
+      importedComponentsCount: 7,
+      pendingComponentsCount: 3,
+      importedComponentNames: ["Core / Button", "Core / Input"],
+      pendingComponentNames: ["Forms / Select"],
+    },
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+  });
+
+  assert.ok(!mutation.error);
+  assert.equal(mutation.updated?.detectedComponentsCount, 10);
+  assert.equal(mutation.updated?.importedComponentsCount, 7);
+  assert.equal(mutation.updated?.pendingComponentsCount, 3);
+  assert.deepEqual(mutation.updated?.importedComponentNames, ["Core / Button", "Core / Input"]);
+  assert.deepEqual(mutation.updated?.pendingComponentNames, ["Forms / Select"]);
+});
+
 test("system-route-service: update mutation treats read-only collections as case-sensitive", () => {
   const mutation = buildUpdateDesignSystemConfigMutation({
     config: {

@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
+import { FormField } from '@/components/common';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PageHeader, SystemTabsNav } from '@/components/composites';
 import { Input } from '@/components/ui/input';
-import { Modal, ModalCloseButton, ModalContent, ModalHeader } from '@/components/ui/overlay/modal';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+} from '@/components/ui/overlay/modal';
 import { ApiErrorMessage } from '@/components/api-error-message';
 import {
   deleteDesignSystem,
@@ -299,142 +305,193 @@ export function DesignSystemsAdminPage() {
       ) : targetSystem ? (
         <div className="space-y-4">
           <section className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">{targetSystem.name}</h2>
-                {targetSystem.id === defaultSystem ? (
-                  <span className="rounded bg-status-success-bg/15 px-2 py-0.5 text-[11px] font-medium text-status-success">
-                    DEFAULT
-                  </span>
-                ) : null}
-                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                  {targetSystem.id}
-                </code>
-              </div>
-              <div className="flex items-center gap-2">
-                {hasDraftChanges(
-                  targetSystem,
-                  drafts[targetSystem.id] ||
-                    toDraft(targetSystem, defaultSystem),
-                  defaultSystem,
-                ) && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+                    {targetSystem.name}
+                  </h2>
+                  {targetSystem.id === defaultSystem ? (
+                    <span className="rounded bg-status-success-bg/15 px-2 py-0.5 text-[11px] font-medium text-status-success">
+                      DEFAULT
+                    </span>
+                  ) : null}
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                    {targetSystem.id}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasDraftChanges(
+                    targetSystem,
+                    drafts[targetSystem.id] ||
+                      toDraft(targetSystem, defaultSystem),
+                    defaultSystem,
+                  ) && (
+                    <Button
+                      size="sm"
+                      onClick={() => void handleSave(targetSystem.id)}
+                      disabled={!!busyIds[targetSystem.id]}
+                    >
+                      Save
+                    </Button>
+                  )}
                   <Button
                     size="sm"
-                    onClick={() => void handleSave(targetSystem.id)}
+                    variant="outline"
+                    onClick={async () => {
+                      setDeleteModalTarget({
+                        id: targetSystem.id,
+                        name: String(targetSystem.name || targetSystem.id),
+                      });
+                      setDeleteConfirmed(false);
+                      setDeletePreview(null);
+                      setDeletePreviewLoading(true);
+                      try {
+                        const preview = await fetchDeletePreview(
+                          targetSystem.id,
+                        );
+                        setDeletePreview(preview.data);
+                      } catch (error) {
+                        console.error('Failed to load delete preview:', error);
+                      } finally {
+                        setDeletePreviewLoading(false);
+                      }
+                    }}
                     disabled={!!busyIds[targetSystem.id]}
                   >
-                    Save
+                    Delete
                   </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    setDeleteModalTarget({
-                      id: targetSystem.id,
-                      name: String(targetSystem.name || targetSystem.id),
-                    });
-                    setDeleteConfirmed(false);
-                    setDeletePreview(null);
-                    setDeletePreviewLoading(true);
-                    try {
-                      const preview = await fetchDeletePreview(targetSystem.id);
-                      setDeletePreview(preview.data);
-                    } catch (error) {
-                      console.error('Failed to load delete preview:', error);
-                    } finally {
-                      setDeletePreviewLoading(false);
-                    }
-                  }}
-                  disabled={!!busyIds[targetSystem.id]}
-                >
-                  Delete
-                </Button>
+                </div>
               </div>
-            </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label
-                  htmlFor={buildFieldId(targetSystem.id, 'name')}
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Name
-                </label>
-                <Input
+              <div className="grid gap-3 md:grid-cols-2">
+                <FormField
                   id={buildFieldId(targetSystem.id, 'name')}
-                  value={
-                    (
-                      drafts[targetSystem.id] ||
-                      toDraft(targetSystem, defaultSystem)
-                    ).name
-                  }
-                  onChange={(e) =>
-                    handleFieldChange(targetSystem.id, 'name', e.target.value)
-                  }
-                  placeholder="Name"
-                  disabled={!!busyIds[targetSystem.id]}
-                />
-                {componentImportSnapshot ? (
-                  <div className="rounded-md border border-border/70 bg-surface-2 px-3 py-2 text-xs text-muted-foreground">
-                    <p>
-                      Detected: <span className="text-foreground">{componentImportSnapshot.detected ?? "—"}</span> · Imported:{" "}
-                      <span className="text-foreground">{componentImportSnapshot.imported ?? "—"}</span> · Pending:{" "}
-                      <span className="text-foreground">{componentImportSnapshot.pending ?? "—"}</span>
-                    </p>
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-foreground">Imported components</summary>
-                      {componentImportSnapshot.importedNames.length > 0 ? (
-                        <ul className="mt-1 space-y-0.5">
-                          {componentImportSnapshot.importedNames.map((name, index) => (
-                            <li key={`imported-${index}-${name}`}>• {name}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1">No imported components.</p>
-                      )}
-                    </details>
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-foreground">Pending components</summary>
-                      {componentImportSnapshot.pendingNames.length > 0 ? (
-                        <ul className="mt-1 space-y-0.5">
-                          {componentImportSnapshot.pendingNames.map((name, index) => (
-                            <li key={`pending-${index}-${name}`}>• {name}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-1">No pending components.</p>
-                      )}
-                    </details>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No component import snapshot available yet.
-                  </p>
-                )}
+                  label="Name"
+                >
+                  <Input
+                    id={buildFieldId(targetSystem.id, 'name')}
+                    value={
+                      (
+                        drafts[targetSystem.id] ||
+                        toDraft(targetSystem, defaultSystem)
+                      ).name
+                    }
+                    onChange={(e) =>
+                      handleFieldChange(targetSystem.id, 'name', e.target.value)
+                    }
+                    placeholder="Name"
+                    disabled={!!busyIds[targetSystem.id]}
+                  />
+                </FormField>
+                <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={
+                      (
+                        drafts[targetSystem.id] ||
+                        toDraft(targetSystem, defaultSystem)
+                      ).makeDefault
+                    }
+                    onChange={(e) =>
+                      handleMakeDefaultDraftChange(
+                        targetSystem.id,
+                        e.target.checked,
+                      )
+                    }
+                    className="h-4 w-4"
+                    disabled={!!busyIds[targetSystem.id]}
+                  />
+                  <span>Make this the default system</span>
+                </label>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={
-                    (
-                      drafts[targetSystem.id] ||
-                      toDraft(targetSystem, defaultSystem)
-                    ).makeDefault
-                  }
-                  onChange={(e) =>
-                    handleMakeDefaultDraftChange(
-                      targetSystem.id,
-                      e.target.checked,
-                    )
-                  }
-                  className="h-4 w-4"
-                  disabled={!!busyIds[targetSystem.id]}
-                />
-                <span>Make this the default system</span>
-              </label>
-            </div>
 
+              {componentImportSnapshot ? (
+                <section className="space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <h3 className="text-base font-titles font-semibold titles-color">
+                        Import Coverage
+                      </h3>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-[var(--app-surface-1)] px-2.5 py-1 text-xs text-foreground">
+                        <span className="text-muted-foreground">Detected</span>
+                        <strong className="font-semibold text-foreground">
+                          {componentImportSnapshot.detected ?? '—'}
+                        </strong>
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-status-success-border/40 bg-status-success-bg/15 px-2.5 py-1 text-xs text-status-success">
+                        <span>Imported</span>
+                        <strong className="font-semibold text-status-success">
+                          {componentImportSnapshot.imported ?? '—'}
+                        </strong>
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-status-warning/40 bg-status-warning/10 px-2.5 py-1 text-xs text-status-warning">
+                        <span>Pending</span>
+                        <strong className="font-semibold text-status-warning">
+                          {componentImportSnapshot.pending ?? '—'}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                        Imported Components
+                      </h4>
+                      {componentImportSnapshot.importedNames.length > 0 ? (
+                        <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
+                          {componentImportSnapshot.importedNames.map(
+                            (name, index) => (
+                              <li
+                                key={`imported-${index}-${name}`}
+                                className="leading-relaxed"
+                              >
+                                • {name}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          No imported components.
+                        </p>
+                      )}
+                    </section>
+                    <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                        Pending Components
+                      </h4>
+                      {componentImportSnapshot.pendingNames.length > 0 ? (
+                        <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
+                          {componentImportSnapshot.pendingNames.map(
+                            (name, index) => (
+                              <li
+                                key={`pending-${index}-${name}`}
+                                className="leading-relaxed"
+                              >
+                                • {name}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          No pending components.
+                        </p>
+                      )}
+                    </section>
+                  </div>
+                </section>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No component import snapshot available yet.
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="rounded-lg border border-border bg-card p-4">
             <DesignSystemUpdateActions
               {...buildUpdateActionsProps({
                 systemId: targetSystem.id,
@@ -442,7 +499,6 @@ export function DesignSystemsAdminPage() {
                 disabled: !!busyIds[targetSystem.id],
               })}
             />
-
           </section>
         </div>
       ) : null}
@@ -506,16 +562,17 @@ export function DesignSystemsAdminPage() {
                             ))}
                           {deletePreview.totalConsumerCount > 20 && (
                             <div className="text-xs text-muted-foreground italic">
-                              ...and {deletePreview.totalConsumerCount - 20} more
+                              ...and {deletePreview.totalConsumerCount - 20}{' '}
+                              more
                             </div>
                           )}
                         </div>
                         <div className="mt-2 text-xs text-muted-foreground">
                           This also clears {deletePreview.counts.syncRuns}
                           related usage tracking (
-                          {deletePreview.counts.componentUsage} component records
-                          and {deletePreview.counts.variableUsage} variable
-                          records).
+                          {deletePreview.counts.componentUsage} component
+                          records and {deletePreview.counts.variableUsage}{' '}
+                          variable records).
                         </div>
                       </div>
                     ) : (

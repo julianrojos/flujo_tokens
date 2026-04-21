@@ -200,6 +200,22 @@ export function buildUpdateDesignSystemConfigMutation({
     });
   }
 
+  const detectedComponentsCount = Object.prototype.hasOwnProperty.call(body || {}, "detectedComponentsCount")
+    ? normalizeImportCount(body.detectedComponentsCount, null)
+    : normalizeImportCount(current.detectedComponentsCount, null);
+  const importedComponentsCount = Object.prototype.hasOwnProperty.call(body || {}, "importedComponentsCount")
+    ? normalizeImportCount(body.importedComponentsCount, null)
+    : normalizeImportCount(current.importedComponentsCount, null);
+  const pendingComponentsCount = Object.prototype.hasOwnProperty.call(body || {}, "pendingComponentsCount")
+    ? normalizeImportCount(body.pendingComponentsCount, null)
+    : normalizeImportCount(current.pendingComponentsCount, null);
+  const importedComponentNames = Object.prototype.hasOwnProperty.call(body || {}, "importedComponentNames")
+    ? normalizeImportComponentNames(body.importedComponentNames)
+    : normalizeImportComponentNames(current.importedComponentNames);
+  const pendingComponentNames = Object.prototype.hasOwnProperty.call(body || {}, "pendingComponentNames")
+    ? normalizeImportComponentNames(body.pendingComponentNames)
+    : normalizeImportComponentNames(current.pendingComponentNames);
+
   const updated = {
     ...current,
     id: routeSystemId,
@@ -217,6 +233,11 @@ export function buildUpdateDesignSystemConfigMutation({
       body.compileVariablesOnCapture !== undefined
         ? body.compileVariablesOnCapture === true
         : current.compileVariablesOnCapture !== false,
+    detectedComponentsCount,
+    importedComponentsCount,
+    pendingComponentsCount,
+    importedComponentNames,
+    pendingComponentNames,
   };
 
   nextSystems[targetIndex] = updated;

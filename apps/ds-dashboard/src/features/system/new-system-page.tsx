@@ -13,6 +13,7 @@ import {
   refreshTokenGraph,
   syncFigmaTokens,
   syncConsumers,
+  updateDesignSystem,
   type CaptureFigmaErrorDetail,
 } from "@/lib/api";
 import { useNewSystemWizard } from "./hooks/use-new-system-wizard";
@@ -300,6 +301,30 @@ export function NewSystemPage() {
           console.warn('[NewSystemPage] Component list truncated during sync; reconciliation may be partial.');
         }
         if (stopped) return;
+        const scanComponents = Array.isArray(scan.components) ? scan.components : [];
+        const selectedIds = new Set(importState.selectedComponentNodeIds);
+        const isPartialImport = importState.importMode === "partial";
+        const importedComponentNames = scanComponents
+          .filter((component) => !isPartialImport || selectedIds.has(component.nodeId))
+          .map((component) => `${component.pageName} / ${component.name}`);
+        const pendingComponentNames = scanComponents
+          .filter((component) => isPartialImport && !selectedIds.has(component.nodeId))
+          .map((component) => `${component.pageName} / ${component.name}`);
+        const detectedComponentsCount = Math.max(
+          detectedComponents,
+          importedComponentNames.length + pendingComponentNames.length,
+        );
+        await updateDesignSystem(systemId, {
+          detectedComponentsCount,
+          importedComponentsCount: importedComponentNames.length || importedComponents,
+          pendingComponentsCount: pendingComponentNames.length || importedNotSelectedCount,
+          importedComponentNames,
+          pendingComponentNames,
+        }).catch((err) => {
+          // Snapshot write is best-effort; import completion should not fail on this step.
+          console.warn("[NewSystemPage] Snapshot update failed:", err);
+        });
+        if (stopped) return;
         const sourceFileKey = importState.sourceFileKey;
         if (sourceFileKey) {
           if (stopped) return;
@@ -361,9 +386,11 @@ export function NewSystemPage() {
     failImport,
     form.figmaAccessToken,
     importState.jobId,
+    importState.importMode,
     importState.sourceFileKey,
     importState.sourceUrl,
     importState.selectedComponentNodeIds,
+    scan.components,
     scan.truncated,
     step,
     updateImportProgress,

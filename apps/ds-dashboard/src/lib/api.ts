@@ -277,6 +277,11 @@ export interface UpdateDesignSystemPayload {
   appName?: string;
   compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export function createDesignSystem(args: CreateDesignSystemPayload) {
