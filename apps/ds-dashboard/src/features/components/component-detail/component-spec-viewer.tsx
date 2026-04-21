@@ -1,35 +1,11 @@
-import { lazy, Suspense, useMemo, useState } from "react";
-import type { PartialComponentSpec, SpecProperty } from "ds-types";
-import { Badge } from "@/components/ui/badge";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { lazy, Suspense, useMemo } from "react";
+import type { PartialComponentSpec } from "ds-types";
 
 const SummaryMarkdownPreview = lazy(() =>
   import("@/components/markdown/markdown-preview").then((module) => ({
     default: module.MarkdownPreview,
   })),
 );
-
-const TYPE_DISPLAY: Record<string, string> = {
-  enum: "VARIANT",
-  text: "TEXT",
-  boolean: "BOOLEAN",
-  instance_swap: "INSTANCE_SWAP",
-  slot: "SLOT",
-};
-
-function typeBadgeVariant(type: string): "neutral" | "success" | "warning" {
-  if (type === "enum") return "success";
-  if (type === "boolean") return "warning";
-  return "neutral";
-}
 
 function extractGuidanceItems(spec: PartialComponentSpec, candidateKeys: string[]): string[] {
   const looseSpec = spec as Record<string, unknown>;
@@ -91,42 +67,9 @@ function normalizeVariants(items: unknown): ViewerVariant[] {
     .filter((variant): variant is ViewerVariant => Boolean(variant));
 }
 
-function PropertyRow({ prop }: { prop: SpecProperty }) {
-  const displayType = TYPE_DISPLAY[prop.type.toLowerCase()] ?? prop.type.toUpperCase();
-  return (
-    <TableRow>
-      <TableCell className="!font-normal">{prop.name}</TableCell>
-      <TableCell>
-        <Badge variant={typeBadgeVariant(prop.type.toLowerCase())}>{displayType}</Badge>
-      </TableCell>
-      <TableCell>
-        {prop.values ? (
-          <div className="flex flex-wrap gap-1">
-            {prop.values.map((v) => (
-              <code key={v} className="rounded px-1 py-0.5 text-xs">
-                {v}
-              </code>
-            ))}
-          </div>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-    </TableRow>
-  );
-}
-
 interface ComponentSpecViewerProps {
   spec: PartialComponentSpec;
 }
-
-type PropertySortField = "name" | "type" | "values";
-
-const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> = [
-  { field: "name", label: "Name" },
-  { field: "type", label: "Type" },
-  { field: "values", label: "Values" },
-];
 
 export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
   const summary = spec.summary ?? {
@@ -134,7 +77,6 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
     when_to_use: "",
     when_not_to_use: "",
   };
-  const propertyItems = spec.properties ?? [];
   const behaviourItems = useMemo(
     () => extractGuidanceItems(spec, ["behaviour", "behavior"]),
     [spec.behaviour, (spec as Record<string, unknown>).behavior],
@@ -154,35 +96,6 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
     () => normalizeVariants(spec.variants),
     [spec.variants],
   );
-
-  const [propertySort, setPropertySort] = useState<{
-    field: PropertySortField;
-    dir: "asc" | "desc";
-  }>({ field: "name", dir: "asc" });
-
-  const sortedProperties = useMemo(() => {
-    const rows = propertyItems.slice();
-    rows.sort((left, right) => {
-      const valueFor = (prop: SpecProperty) => {
-        if (propertySort.field === "name") return prop.name.toLowerCase();
-        if (propertySort.field === "type") return prop.type.toLowerCase();
-        return (prop.values || []).join("|").toLowerCase();
-      };
-      const aValue = valueFor(left);
-      const bValue = valueFor(right);
-      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      return propertySort.dir === "asc" ? comparison : comparison * -1;
-    });
-    return rows;
-  }, [propertyItems, propertySort]);
-
-  const togglePropertySort = (field: PropertySortField) => {
-    setPropertySort((current) =>
-      current.field === field
-        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" },
-    );
-  };
 
   const renderSummaryMarkdown = (value: string) => {
     const content = String(value || "").trim();
@@ -220,41 +133,6 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* Properties */}
-      <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
-          Properties
-        </h4>
-        {spec.properties === null ? (
-          <p className="text-sm text-muted-foreground">
-            Properties available after Figma capture.
-          </p>
-        ) : propertyItems.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {PROPERTY_SORT_COLUMNS.map((column) => (
-                  <SortableTableHead
-                    key={column.field}
-                    label={column.label}
-                    onSort={() => togglePropertySort(column.field)}
-                  />
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedProperties.map((prop) => (
-                <PropertyRow key={prop.name} prop={prop} />
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No properties defined for this component.
-          </p>
-        )}
       </section>
 
       {/* Behaviour */}

@@ -2,7 +2,7 @@
  * Component Spec Section
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { FilePenLine } from "lucide-react";
@@ -42,7 +42,6 @@ export function ComponentSpecSection({
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Specification</CardTitle>
-              <CardDescription>Component documentation</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               {canOpenDocs && showDownloadMarkdown && (

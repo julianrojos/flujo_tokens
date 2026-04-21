@@ -5,6 +5,7 @@
  * detail page. Feature-local (Tier 2).
  */
 import React from "react";
+import { MarkdownPreview } from "@/components/markdown/markdown-preview";
 
 interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;
@@ -35,9 +36,7 @@ export function FigmaDescriptionSection({
         {/* Component set description */}
         <div>
           {componentDescription ? (
-            <p className="text-sm text-foreground whitespace-pre-wrap">
-              {componentDescription}
-            </p>
+            <MarkdownPreview content={componentDescription} />
           ) : (
             <p className="text-sm text-muted-foreground">—</p>
           )}
@@ -47,13 +46,13 @@ export function FigmaDescriptionSection({
         <div className="space-y-2">
           <h5 className="text-xs font-titles font-semibold titles-color">Variant descriptions</h5>
           {variantEntries.length > 0 ? (
-            <ul className="space-y-1.5 text-sm text-muted-foreground">
+            <ul className="space-y-2">
               {variantEntries.map((variant) => (
-                <li key={variant.canonicalKey} className="flex items-start gap-2">
+                <li key={variant.canonicalKey} className="space-y-1.5">
                   <code className="rounded bg-surface-3 px-1.5 py-0.5 text-xs font-mono shrink-0">
                     {variant.canonicalKey}
                   </code>
-                  <span className="text-foreground">{variant.description}</span>
+                  <MarkdownPreview content={variant.description} />
                 </li>
               ))}
             </ul>

@@ -14,6 +14,7 @@ import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
+import { ComponentPropertiesSection } from "./components/component-properties-section";
 import { LayerTokenMappingSection } from "./components/layer-token-mapping-section";
 import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
@@ -142,6 +143,8 @@ export function ComponentDetailPage() {
         figmaComponentSetDescription={descriptionsData.componentSetDescription}
         figmaVariantDescriptions={descriptionsData.variantDescriptions}
       />
+
+      <ComponentPropertiesSection spec={spec} />
 
       <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenCatalog={tokenCatalog} />
 
