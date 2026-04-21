@@ -21,7 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { buildCaptureFromFigmaPayload } from "@/features/system/design-system-update-actions-logic";
+import { buildCaptureFromFigmaPayload } from "@/lib/figma-capture-payload";
 
 interface FigmaUrlScannerProps {
   /** Called after a successful scan to trigger a data refresh in the parent. */
