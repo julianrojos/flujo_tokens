@@ -107,6 +107,15 @@ import { createPortal } from "react-dom";
 - **MUST** use semantic heading levels (`<h1>` page, `<h2>` section, `<h3>` subsection).
 - **SHOULD** apply title hierarchy to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
 
+## Form labels
+
+- **MUST** use `FormField` for standard label/control stacks in inputs, textareas, and selects.
+- **MUST** keep primary form labels in `text-sm text-foreground`.
+- **MUST** keep form hints in `text-xs text-muted-foreground` and errors in `text-xs text-status-error`.
+- **MUST** preserve `htmlFor` + `id` association for labelable controls.
+- **SHOULD** use `hideLabel` only when the label must remain accessible but visually hidden.
+- **SHOULD NOT** use `text-xs` or muted text for primary field labels; reserve that treatment for captions and metadata.
+
 ## Dark mode
 
 The app runs in permanent dark mode (`class="dark"` on `<html>`).

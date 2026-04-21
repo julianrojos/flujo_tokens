@@ -1,22 +1,19 @@
-import { useState } from "react";
+import { useState } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/common';
 import {
   Modal,
   ModalCloseButton,
   ModalContent,
   ModalHeader,
   ModalFooter,
-} from "@/components/ui/overlay/modal";
-import { StatusAlert } from "@/components/ui/status-alert";
-import {
-  addConsumer,
-  type AddConsumerPayload,
-  syncConsumers,
-} from "@/lib/api";
-import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { ApiErrorMessage } from "@/components/api-error-message";
+} from '@/components/ui/overlay/modal';
+import { StatusAlert } from '@/components/ui/status-alert';
+import { addConsumer, type AddConsumerPayload, syncConsumers } from '@/lib/api';
+import { toApiErrorDisplay } from '@/lib/api-error-ux';
+import { ApiErrorMessage } from '@/components/api-error-message';
 
 interface AddConsumerModalProps {
   open: boolean;
@@ -31,11 +28,13 @@ export function AddConsumerModal({
   dsFileKey,
   onSuccess,
 }: AddConsumerModalProps) {
-  const [consumerName, setConsumerName] = useState("");
-  const [consumerFileUrl, setConsumerFileUrl] = useState("");
+  const [consumerName, setConsumerName] = useState('');
+  const [consumerFileUrl, setConsumerFileUrl] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
+  const [error, setError] = useState<ReturnType<
+    typeof toApiErrorDisplay
+  > | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +50,7 @@ export function AddConsumerModal({
       };
 
       const created = await addConsumer(payload);
-      const consumerId = String(created?.data?.id || "").trim();
+      const consumerId = String(created?.data?.id || '').trim();
       await syncConsumers({
         dsFileKey,
         consumerIds: consumerId ? [consumerId] : undefined,
@@ -62,43 +61,44 @@ export function AddConsumerModal({
       onSuccess?.();
       handleClose();
     } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Add or sync failed",
-        fallbackMessage: "Unable to add and sync consumer file.",
-      }));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: 'Add or sync failed',
+          fallbackMessage: 'Unable to add and sync consumer file.',
+        }),
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    setConsumerName("");
-    setConsumerFileUrl("");
+    setConsumerName('');
+    setConsumerFileUrl('');
     setEnabled(true);
     setError(null);
     onClose();
   };
 
   return (
-      <Modal open={open} onClose={handleClose}>
-        <ModalContent size="md">
-          <form onSubmit={handleSubmit}>
-            <ModalHeader>
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">Add Consumer File</h2>
-                <ModalCloseButton onClick={handleClose} label="Close add consumer dialog" />
-              </div>
-            </ModalHeader>
+    <Modal open={open} onClose={handleClose}>
+      <ModalContent size="md">
+        <form onSubmit={handleSubmit}>
+          <ModalHeader>
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+                Add Consumer File
+              </h2>
+              <ModalCloseButton
+                onClick={handleClose}
+                label="Close add consumer dialog"
+              />
+            </div>
+          </ModalHeader>
           <div className="space-y-4 p-5">
             {error ? <ApiErrorMessage error={error} /> : null}
 
-            <div className="space-y-1">
-              <label
-                htmlFor="consumer-name"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Consumer name
-              </label>
+            <FormField id="consumer-name" label="Consumer name" required>
               <Input
                 id="consumer-name"
                 value={consumerName}
@@ -107,15 +107,9 @@ export function AddConsumerModal({
                 disabled={submitting}
                 required
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label
-                htmlFor="consumer-file-url"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Figma file URL
-              </label>
+            <FormField id="consumer-file-url" label="Figma file URL" required>
               <Input
                 id="consumer-file-url"
                 value={consumerFileUrl}
@@ -124,7 +118,7 @@ export function AddConsumerModal({
                 disabled={submitting}
                 required
               />
-            </div>
+            </FormField>
 
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm">
               <input
@@ -138,17 +132,26 @@ export function AddConsumerModal({
             </label>
 
             <StatusAlert variant="info" title="How it works">
-              Consumer files will be scanned for design system token usage.
-              Sync extracts component and variable references from the Figma
-              file.
+              Consumer files will be scanned for design system token usage. Sync
+              extracts component and variable references from the Figma file.
             </StatusAlert>
           </div>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={submitting}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || !consumerName.trim() || !consumerFileUrl.trim()}>
-              {submitting ? "Adding and syncing..." : "Add Consumer"}
+            <Button
+              type="submit"
+              disabled={
+                submitting || !consumerName.trim() || !consumerFileUrl.trim()
+              }
+            >
+              {submitting ? 'Adding and syncing...' : 'Add Consumer'}
             </Button>
           </ModalFooter>
         </form>

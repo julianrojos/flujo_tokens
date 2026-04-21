@@ -2,15 +2,31 @@
  * Wizard Step Basics - form for Figma URL, token, system name + scan results.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
-import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay";
-import type { ScanState, ScannedComponent } from "../hooks/use-new-system-wizard";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/common';
+import { FigmaMcpConnectionTestButton } from '@/components/figma-mcp-connection-test-button';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@/components/ui/overlay';
+import type {
+  ScanState,
+  ScannedComponent,
+} from '../hooks/use-new-system-wizard';
 
 interface WizardFormValues {
   systemName: string;
@@ -39,7 +55,10 @@ interface WizardBasicsDerived {
 }
 
 interface WizardBasicsActions {
-  onFieldChange: (field: keyof WizardFormValues, value: string | boolean) => void;
+  onFieldChange: (
+    field: keyof WizardFormValues,
+    value: string | boolean,
+  ) => void;
   onFigmaFileUrlBlur: () => void | Promise<void>;
   onScan: () => void;
   onImport: () => void;
@@ -54,7 +73,9 @@ interface WizardStepBasicsProps {
   actions: WizardBasicsActions;
 }
 
-function groupByPageName(components: ScannedComponent[]): Map<string, ScannedComponent[]> {
+function groupByPageName(
+  components: ScannedComponent[],
+): Map<string, ScannedComponent[]> {
   const groups = new Map<string, ScannedComponent[]>();
   for (const c of components) {
     const existing = groups.get(c.pageName) || [];
@@ -81,9 +102,13 @@ function FigmaComponentGlyph() {
   );
 }
 
-export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsProps) {
+export function WizardStepBasics({
+  form,
+  derived,
+  actions,
+}: WizardStepBasicsProps) {
   const [autoTriggerToken, setAutoTriggerToken] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
   const [isScanResultsOpen, setIsScanResultsOpen] = useState(false);
   const previousScanState = useRef<ScanState>(derived.scanState);
@@ -93,41 +118,56 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
     if (!searchQuery.trim()) return derived.scanComponents;
     const q = searchQuery.toLowerCase();
     return derived.scanComponents.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.pageName.toLowerCase().includes(q),
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.pageName.toLowerCase().includes(q),
     );
   }, [searchQuery, derived.scanComponents]);
 
-  const grouped = useMemo(() => groupByPageName(filteredComponents), [filteredComponents]);
+  const grouped = useMemo(
+    () => groupByPageName(filteredComponents),
+    [filteredComponents],
+  );
   const groupedPageNames = useMemo(() => Array.from(grouped.keys()), [grouped]);
   const [openPages, setOpenPages] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
-    if (derived.scanState !== "loading") {
+    if (derived.scanState !== 'loading') {
       setScanElapsedSeconds(0);
       return;
     }
 
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
-      setScanElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+      setScanElapsedSeconds(
+        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      );
     }, 1000);
 
     return () => window.clearInterval(timer);
   }, [derived.scanState]);
 
   useEffect(() => {
-    if (derived.scanState === "loading") {
-      setSearchQuery("");
+    if (derived.scanState === 'loading') {
+      setSearchQuery('');
     }
   }, [derived.scanState]);
 
   useEffect(() => {
     const previousState = previousScanState.current;
     previousScanState.current = derived.scanState;
-    if (previousState !== "ready" && derived.scanState === "ready" && derived.scanComponents.length > 0) {
+    if (
+      previousState !== 'ready' &&
+      derived.scanState === 'ready' &&
+      derived.scanComponents.length > 0
+    ) {
       setIsScanResultsOpen(true);
     }
-    if (derived.scanState === "idle" || derived.scanState === "error" || derived.scanState === "empty") {
+    if (
+      derived.scanState === 'idle' ||
+      derived.scanState === 'error' ||
+      derived.scanState === 'empty'
+    ) {
       setIsScanResultsOpen(false);
     }
   }, [derived.scanComponents.length, derived.scanState]);
@@ -161,7 +201,9 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
 
   const togglePageSelection = (components: ScannedComponent[]) => {
     if (components.length === 0) return;
-    const pageHasAllSelected = components.every((component) => derived.selectedIds.has(component.nodeId));
+    const pageHasAllSelected = components.every((component) =>
+      derived.selectedIds.has(component.nodeId),
+    );
     for (const component of components) {
       const isSelected = derived.selectedIds.has(component.nodeId);
       if (pageHasAllSelected && isSelected) {
@@ -189,65 +231,65 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
         <CardDescription>Enter your design system information</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <label htmlFor="figma-file-url" className="text-sm font-medium">Figma file URL *</label>
+        <FormField id="figma-file-url" label="Figma file URL" required>
           <Input
             id="figma-file-url"
             value={form.figmaFileUrl}
-            onChange={(e) => actions.onFieldChange("figmaFileUrl", e.target.value)}
+            onChange={(e) =>
+              actions.onFieldChange('figmaFileUrl', e.target.value)
+            }
             onBlur={() => {
               void actions.onFigmaFileUrlBlur();
             }}
             placeholder="https://www.figma.com/file/..."
           />
-        </div>
+        </FormField>
 
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="figma-access-token" className="text-sm font-medium">Figma access token</label>
-            <div className="mt-1 space-y-2">
-              <Input
-                id="figma-access-token"
-                value={form.figmaAccessToken}
-                onChange={(e) => actions.onFieldChange("figmaAccessToken", e.target.value)}
-                placeholder="env:FIGMA_TOKEN"
-                onBlur={() => {
-                  if (form.figmaFileUrl.trim() && form.figmaAccessToken.trim()) {
-                    setAutoTriggerToken((n) => n + 1);
-                  }
-                }}
-              />
-              <FigmaMcpConnectionTestButton
-                figmaUrl={form.figmaFileUrl}
-                figmaToken={form.figmaAccessToken}
-                autoTriggerToken={autoTriggerToken}
-                className="w-full"
-              />
-            </div>
-          </div>
+          <FormField id="figma-access-token" label="Figma access token">
+            <Input
+              id="figma-access-token"
+              value={form.figmaAccessToken}
+              onChange={(e) =>
+                actions.onFieldChange('figmaAccessToken', e.target.value)
+              }
+              placeholder="env:FIGMA_TOKEN"
+              onBlur={() => {
+                if (form.figmaFileUrl.trim() && form.figmaAccessToken.trim()) {
+                  setAutoTriggerToken((n) => n + 1);
+                }
+              }}
+            />
+            <FigmaMcpConnectionTestButton
+              figmaUrl={form.figmaFileUrl}
+              figmaToken={form.figmaAccessToken}
+              autoTriggerToken={autoTriggerToken}
+              className="w-full"
+            />
+          </FormField>
 
-          <div>
-            <label htmlFor="system-name" className="text-sm font-medium">System name *</label>
+          <FormField id="system-name" label="System name" required>
             <Input
               id="system-name"
               value={form.systemName}
-              onChange={(e) => actions.onFieldChange("systemName", e.target.value)}
+              onChange={(e) =>
+                actions.onFieldChange('systemName', e.target.value)
+              }
               placeholder="e.g., My Design System"
-              className="mt-1"
             />
-          </div>
+          </FormField>
         </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.makeDefault}
-              onChange={(e) => actions.onFieldChange("makeDefault", e.target.checked)}
-            />
-            <span className="text-sm">Set as default system</span>
-          </label>
-        </div>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={form.makeDefault}
+            onChange={(e) =>
+              actions.onFieldChange('makeDefault', e.target.checked)
+            }
+          />
+          <span className="text-sm">Set as default system</span>
+        </label>
 
         {/* Scan section */}
         <div className="flex items-center gap-2">
@@ -255,21 +297,26 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
             variant="outline"
             size="sm"
             onClick={actions.onScan}
-            disabled={derived.saving || derived.scanState === "loading"}
+            disabled={derived.saving || derived.scanState === 'loading'}
           >
-            {derived.scanState === "loading" ? "Scanning…" : "Scan file"}
+            {derived.scanState === 'loading' ? 'Scanning…' : 'Scan file'}
           </Button>
-          {derived.scanState === "loading" ? (
+          {derived.scanState === 'loading' ? (
             <span className="text-xs text-muted-foreground">
               Scanning components… ({scanElapsedSeconds}s)
             </span>
           ) : null}
-          {derived.scanState === "ready" && (
+          {derived.scanState === 'ready' && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>
-                {derived.scanComponents.length} component{derived.scanComponents.length === 1 ? "" : "s"} found
+                {derived.scanComponents.length} component
+                {derived.scanComponents.length === 1 ? '' : 's'} found
               </span>
-              <Button variant="outline" size="sm" onClick={() => setIsScanResultsOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsScanResultsOpen(true)}
+              >
                 View components
               </Button>
             </div>
@@ -277,38 +324,58 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
         </div>
 
         {/* Scan error */}
-        {derived.scanState === "error" && derived.scanError && (
+        {derived.scanState === 'error' && derived.scanError && (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             <p>{derived.scanError}</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={actions.onScan}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={actions.onScan}
+            >
               Try again
             </Button>
           </div>
         )}
 
         {/* Empty state */}
-        {derived.scanState === "empty" && (
-          <p className="text-sm text-muted-foreground">No components found in this Figma file.</p>
+        {derived.scanState === 'empty' && (
+          <p className="text-sm text-muted-foreground">
+            No components found in this Figma file.
+          </p>
         )}
 
         <Modal
-          open={isScanResultsOpen && derived.scanState === "ready" && derived.scanComponents.length > 0}
+          open={
+            isScanResultsOpen &&
+            derived.scanState === 'ready' &&
+            derived.scanComponents.length > 0
+          }
           onClose={() => setIsScanResultsOpen(false)}
           aria-labelledby="scan-results-title"
         >
-          <ModalContent size="md" className="flex max-h-[85vh] flex-col overflow-hidden">
+          <ModalContent
+            size="md"
+            className="flex max-h-[85vh] flex-col overflow-hidden"
+          >
             <ModalHeader className="items-start gap-4">
               <div className="space-y-1">
-                <h3 id="scan-results-title" className="text-lg font-titles font-semibold titles-color">
+                <h3
+                  id="scan-results-title"
+                  className="text-lg font-titles font-semibold titles-color"
+                >
                   Scanned components
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {derived.scanTruncated
                     ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (scan limited at ${derived.scanLimit})`
-                    : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? "" : "s"} found`}
+                    : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? '' : 's'} found`}
                 </p>
               </div>
-              <ModalCloseButton onClick={() => setIsScanResultsOpen(false)} label="Close scanned components" />
+              <ModalCloseButton
+                onClick={() => setIsScanResultsOpen(false)}
+                label="Close scanned components"
+              />
             </ModalHeader>
 
             <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
@@ -319,7 +386,8 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                     aria-label="Select all detected components"
                     checked={selectAllChecked}
                     ref={(el) => {
-                      if (el) el.indeterminate = someSelected && !selectAllChecked;
+                      if (el)
+                        el.indeterminate = someSelected && !selectAllChecked;
                     }}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -332,7 +400,9 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                   />
                   Select all
                   {!derived.canSelectAll && (
-                    <Badge variant="neutral" className="ml-1 text-[10px]">disabled — truncated</Badge>
+                    <Badge variant="neutral" className="ml-1 text-[10px]">
+                      disabled — truncated
+                    </Badge>
                   )}
                 </label>
                 <div className="relative">
@@ -353,7 +423,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                       className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 text-muted-foreground hover:text-foreground"
                       aria-label="Clear filter"
                       onClick={() => {
-                        setSearchQuery("");
+                        setSearchQuery('');
                         filterInputRef.current?.focus();
                       }}
                       disabled={derived.saving}
@@ -366,7 +436,9 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
 
               <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border p-3">
                 {filteredComponents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No matches for current filter.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No matches for current filter.
+                  </p>
                 ) : (
                   <div className="space-y-3">
                     {Array.from(grouped.entries()).map(([pageName, comps]) => (
@@ -375,13 +447,25 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                           <input
                             type="checkbox"
                             aria-label={`Select all components in ${pageName}`}
-                            checked={comps.length > 0 && comps.every((component) => derived.selectedIds.has(component.nodeId))}
+                            checked={
+                              comps.length > 0 &&
+                              comps.every((component) =>
+                                derived.selectedIds.has(component.nodeId),
+                              )
+                            }
                             ref={(el) => {
                               if (!el) return;
-                              const pageHasSomeSelected = comps.some((component) => derived.selectedIds.has(component.nodeId));
+                              const pageHasSomeSelected = comps.some(
+                                (component) =>
+                                  derived.selectedIds.has(component.nodeId),
+                              );
                               const pageHasAllSelected =
-                                comps.length > 0 && comps.every((component) => derived.selectedIds.has(component.nodeId));
-                              el.indeterminate = pageHasSomeSelected && !pageHasAllSelected;
+                                comps.length > 0 &&
+                                comps.every((component) =>
+                                  derived.selectedIds.has(component.nodeId),
+                                );
+                              el.indeterminate =
+                                pageHasSomeSelected && !pageHasAllSelected;
                             }}
                             onChange={() => togglePageSelection(comps)}
                             disabled={derived.saving}
@@ -405,18 +489,27 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                         </div>
                         {openPages.has(pageName) &&
                           comps.map((comp) => {
-                            const checked = derived.selectedIds.has(comp.nodeId);
+                            const checked = derived.selectedIds.has(
+                              comp.nodeId,
+                            );
                             return (
-                              <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
+                              <label
+                                key={comp.nodeId}
+                                className="flex items-center gap-2 py-0.5 text-sm"
+                              >
                                 <FigmaComponentGlyph />
                                 <input
                                   type="checkbox"
                                   aria-label={`Select component ${comp.name}`}
                                   checked={checked}
-                                  onChange={() => actions.onToggleComponent(comp.nodeId)}
+                                  onChange={() =>
+                                    actions.onToggleComponent(comp.nodeId)
+                                  }
                                   disabled={derived.saving}
                                 />
-                                <span className="min-w-0 flex-1">{comp.name}</span>
+                                <span className="min-w-0 flex-1">
+                                  {comp.name}
+                                </span>
                               </label>
                             );
                           })}
@@ -428,15 +521,22 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
 
               {derived.hasSelection && (
                 <p className="text-xs text-muted-foreground">
-                  {derived.selectedIds.size} of {derived.scanComponents.length} selected
+                  {derived.selectedIds.size} of {derived.scanComponents.length}{' '}
+                  selected
                 </p>
               )}
             </div>
             <ModalFooter className="justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsScanResultsOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsScanResultsOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleConfirmImport} disabled={!derived.hasSelection || derived.saving}>
+              <Button
+                onClick={handleConfirmImport}
+                disabled={!derived.hasSelection || derived.saving}
+              >
                 Import
               </Button>
             </ModalFooter>
@@ -447,9 +547,14 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
         <div className="flex justify-end">
           <Button
             onClick={actions.onImport}
-            disabled={!derived.isFormValid || derived.saving || derived.scanState !== "ready" || !derived.hasSelection}
+            disabled={
+              !derived.isFormValid ||
+              derived.saving ||
+              derived.scanState !== 'ready' ||
+              !derived.hasSelection
+            }
           >
-            {derived.saving ? "Creating…" : "Import Design System"}
+            {derived.saving ? 'Creating…' : 'Import Design System'}
           </Button>
         </div>
       </CardContent>

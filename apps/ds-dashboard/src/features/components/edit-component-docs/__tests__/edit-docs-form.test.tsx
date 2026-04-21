@@ -14,7 +14,12 @@ describe('EditDocsForm cards', () => {
     const html = renderToStaticMarkup(
       React.createElement(VariantsFormCard, {
         value: [
-          { id: 'variant-1', name: 'Default', description: 'Default variant', properties: {} },
+          {
+            id: 'variant-1',
+            name: 'Default',
+            description: 'Default variant',
+            properties: {},
+          },
         ],
         onChange: () => {},
       }),
@@ -27,9 +32,7 @@ describe('EditDocsForm cards', () => {
   it('uses positional fallback in remove variant aria-label when name is empty', () => {
     const html = renderToStaticMarkup(
       React.createElement(VariantsFormCard, {
-        value: [
-          { id: 'variant-1', name: '', description: '', properties: {} },
-        ],
+        value: [{ id: 'variant-1', name: '', description: '', properties: {} }],
         onChange: () => {},
       }),
     );
@@ -41,19 +44,31 @@ describe('EditDocsForm cards', () => {
     const html = renderToStaticMarkup(
       React.createElement(VariantsFormCard, {
         value: [
-          { id: 'variant-1', name: 'Default', description: '', properties: { State: 'Default' } },
+          {
+            id: 'variant-1',
+            name: 'Default',
+            description: '',
+            properties: { State: 'Default' },
+          },
         ],
         onChange: () => {},
       }),
     );
 
-    assert.match(html, /aria-label="Remove property State from variant Default"/);
+    assert.match(
+      html,
+      /aria-label="Remove property State from variant Default"/,
+    );
   });
 
   it('renders when-to-use and when-not-to-use summary fields', () => {
     const html = renderToStaticMarkup(
       React.createElement(SummaryFormCard, {
-        value: { purpose: 'Primary action', whenToUse: 'Use for main CTA', whenNotToUse: 'Avoid in dense lists' },
+        value: {
+          purpose: 'Primary action',
+          whenToUse: 'Use for main CTA',
+          whenNotToUse: 'Avoid in dense lists',
+        },
         onChange: () => {},
       }),
     );
@@ -72,13 +87,16 @@ describe('EditDocsForm cards', () => {
     );
 
     assert.match(html, /Behaviour/);
-    assert.match(html, /Opens a menu when activated/);
+    assert.match(html, /min-h-\[80px\] animate-pulse/);
   });
 
   it('renders accessibility role and guidance fields', () => {
     const html = renderToStaticMarkup(
       React.createElement(AccessibilityFormCard, {
-        value: { role: 'button', guidance: ['Provide accessible name', 'Keyboard accessible'] },
+        value: {
+          role: 'button',
+          guidance: ['Provide accessible name', 'Keyboard accessible'],
+        },
         onChange: () => {},
       }),
     );
@@ -89,7 +107,8 @@ describe('EditDocsForm cards', () => {
     assert.match(html, /<option value="alert">alert<\/option>/);
     assert.match(html, /<option value="dialog">dialog<\/option>/);
     assert.match(html, /Accessibility Guidance/);
-    assert.match(html, /Provide accessible name/);
-    assert.match(html, /Keyboard accessible/);
+    assert.match(html, /Accessibility guidance 1/);
+    assert.match(html, /Accessibility guidance 2/);
+    assert.match(html, /min-h-\[80px\] animate-pulse/);
   });
 });

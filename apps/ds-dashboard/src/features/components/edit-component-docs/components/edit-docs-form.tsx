@@ -7,15 +7,25 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import type { ComponentDocVariant } from '@/types/ai-jobs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X } from 'lucide-react';
+import { FormField } from '@/components/common';
 import { SummaryMarkdownEditor } from '@/components/rich-text-editor/summary-markdown-editor';
 import { normalizeStringList } from '../normalizers';
 
 function createRowId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
     return crypto.randomUUID();
   }
   return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -43,7 +53,7 @@ function MarkdownField({
     <div className="space-y-1">
       <label
         htmlFor={editorId}
-        className={hideLabel ? 'sr-only' : 'text-sm font-medium'}
+        className={hideLabel ? 'sr-only' : 'text-sm text-foreground'}
         onClick={() => {
           const editorElement = document.getElementById(editorId);
           editorElement?.focus();
@@ -92,7 +102,9 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Summary</CardTitle>
-        <CardDescription>Core purpose and decision guidance for the component</CardDescription>
+        <CardDescription>
+          Core purpose and decision guidance for the component
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <MarkdownField
@@ -133,7 +145,9 @@ export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Behaviour</CardTitle>
-        <CardDescription>What the component does when people interact with it</CardDescription>
+        <CardDescription>
+          What the component does when people interact with it
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-1">
         <MarkdownField
@@ -153,65 +167,91 @@ export interface VariantsFormCardProps {
   onChange: (v: ComponentDocVariant[]) => void;
 }
 
-export function VariantsFormCard({ value: variants, onChange }: VariantsFormCardProps) {
+export function VariantsFormCard({
+  value: variants,
+  onChange,
+}: VariantsFormCardProps) {
   const variantsIdBase = useId();
-  const [variantRowIds, setVariantRowIds] = useState<string[]>(() => variants.map(() => createRowId()));
+  const [variantRowIds, setVariantRowIds] = useState<string[]>(() =>
+    variants.map(() => createRowId()),
+  );
 
   useEffect(() => {
     setVariantRowIds((prev) => {
       if (prev.length === variants.length) return prev;
       if (prev.length > variants.length) return prev.slice(0, variants.length);
-      return [...prev, ...Array.from({ length: variants.length - prev.length }, createRowId)];
+      return [
+        ...prev,
+        ...Array.from({ length: variants.length - prev.length }, createRowId),
+      ];
     });
   }, [variants.length]);
 
   const addVariant = useCallback(() => {
-    onChange([...variants, { id: createRowId(), name: '', description: '', properties: {} }]);
+    onChange([
+      ...variants,
+      { id: createRowId(), name: '', description: '', properties: {} },
+    ]);
     setVariantRowIds((prev) => [...prev, createRowId()]);
   }, [variants, onChange]);
 
-  const updateVariant = useCallback((index: number, field: keyof ComponentDocVariant, fieldValue: unknown) => {
-    const next = [...variants];
-    next[index] = { ...next[index], [field]: fieldValue };
-    onChange(next);
-  }, [variants, onChange]);
+  const updateVariant = useCallback(
+    (index: number, field: keyof ComponentDocVariant, fieldValue: unknown) => {
+      const next = [...variants];
+      next[index] = { ...next[index], [field]: fieldValue };
+      onChange(next);
+    },
+    [variants, onChange],
+  );
 
-  const updateVariantProperty = useCallback((variantIndex: number, propKey: string, propValue: string) => {
-    const next = [...variants];
-    const props = { ...next[variantIndex].properties };
-    props[propKey] = propValue;
-    next[variantIndex] = { ...next[variantIndex], properties: props };
-    onChange(next);
-  }, [variants, onChange]);
+  const updateVariantProperty = useCallback(
+    (variantIndex: number, propKey: string, propValue: string) => {
+      const next = [...variants];
+      const props = { ...next[variantIndex].properties };
+      props[propKey] = propValue;
+      next[variantIndex] = { ...next[variantIndex], properties: props };
+      onChange(next);
+    },
+    [variants, onChange],
+  );
 
-  const renameVariantProperty = useCallback((variantIndex: number, currentKey: string, nextKeyRaw: string) => {
-    const nextKey = nextKeyRaw.trim();
-    if (!nextKey || nextKey === currentKey) return;
+  const renameVariantProperty = useCallback(
+    (variantIndex: number, currentKey: string, nextKeyRaw: string) => {
+      const nextKey = nextKeyRaw.trim();
+      if (!nextKey || nextKey === currentKey) return;
 
-    const next = [...variants];
-    const props = { ...next[variantIndex].properties };
-    if (nextKey in props) return;
+      const next = [...variants];
+      const props = { ...next[variantIndex].properties };
+      if (nextKey in props) return;
 
-    const currentValue = props[currentKey];
-    delete props[currentKey];
-    props[nextKey] = currentValue;
-    next[variantIndex] = { ...next[variantIndex], properties: props };
-    onChange(next);
-  }, [variants, onChange]);
+      const currentValue = props[currentKey];
+      delete props[currentKey];
+      props[nextKey] = currentValue;
+      next[variantIndex] = { ...next[variantIndex], properties: props };
+      onChange(next);
+    },
+    [variants, onChange],
+  );
 
-  const removeVariantProperty = useCallback((variantIndex: number, propKey: string) => {
-    const next = [...variants];
-    const props = { ...next[variantIndex].properties };
-    delete props[propKey];
-    next[variantIndex] = { ...next[variantIndex], properties: props };
-    onChange(next);
-  }, [variants, onChange]);
+  const removeVariantProperty = useCallback(
+    (variantIndex: number, propKey: string) => {
+      const next = [...variants];
+      const props = { ...next[variantIndex].properties };
+      delete props[propKey];
+      next[variantIndex] = { ...next[variantIndex], properties: props };
+      onChange(next);
+    },
+    [variants, onChange],
+  );
 
-  const removeVariant = useCallback((index: number) => {
-    const next = variants.filter((_, i) => i !== index);
-    onChange(next);
-    setVariantRowIds((prev) => prev.filter((_, i) => i !== index));
-  }, [variants, onChange]);
+  const removeVariant = useCallback(
+    (index: number) => {
+      const next = variants.filter((_, i) => i !== index);
+      onChange(next);
+      setVariantRowIds((prev) => prev.filter((_, i) => i !== index));
+    },
+    [variants, onChange],
+  );
 
   return (
     <Card>
@@ -222,24 +262,33 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
             <Plus className="mr-1 h-4 w-4" /> Add variant
           </Button>
         </div>
-        <CardDescription>{variants.length} variant{variants.length !== 1 ? 's' : ''}</CardDescription>
+        <CardDescription>
+          {variants.length} variant{variants.length !== 1 ? 's' : ''}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {variants.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No variants yet.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No variants yet.
+          </p>
         ) : (
           <ul className="space-y-3">
             {variants.map((v, i) => (
               <li key={variantRowIds[i]}>
                 <div className="mb-2 flex items-center justify-between">
-                  <label htmlFor={`${variantsIdBase}-name-${i}`} className="sr-only">Variant name</label>
-                  <input
+                  <FormField
                     id={`${variantsIdBase}-name-${i}`}
-                    className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm font-medium"
-                    value={v.name}
-                    onChange={(e) => updateVariant(i, 'name', e.target.value)}
-                    placeholder="Variant name"
-                  />
+                    label="Variant name"
+                    hideLabel
+                    className="flex-1"
+                  >
+                    <Input
+                      id={`${variantsIdBase}-name-${i}`}
+                      value={v.name}
+                      onChange={(e) => updateVariant(i, 'name', e.target.value)}
+                      placeholder="Variant name"
+                    />
+                  </FormField>
                   <button
                     type="button"
                     className="ml-2 rounded p-1 text-muted-foreground hover:text-foreground"
@@ -260,22 +309,38 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                 <div className="space-y-1">
                   {Object.entries(v.properties).map(([k, val]) => (
                     <div key={k} className="flex gap-2">
-                      <label htmlFor={`${variantsIdBase}-pk-${i}-${k}`} className="sr-only">Property key</label>
-                      <input
+                      <FormField
                         id={`${variantsIdBase}-pk-${i}-${k}`}
-                        className="w-24 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-xs"
-                        value={k}
-                        onChange={(e) => renameVariantProperty(i, k, e.target.value)}
-                        placeholder="Key"
-                      />
-                      <label htmlFor={`${variantsIdBase}-pv-${i}-${k}`} className="sr-only">Property value</label>
-                      <input
+                        label="Property key"
+                        hideLabel
+                        className="w-24"
+                      >
+                        <Input
+                          id={`${variantsIdBase}-pk-${i}-${k}`}
+                          className="font-mono text-xs"
+                          value={k}
+                          onChange={(e) =>
+                            renameVariantProperty(i, k, e.target.value)
+                          }
+                          placeholder="Key"
+                        />
+                      </FormField>
+                      <FormField
                         id={`${variantsIdBase}-pv-${i}-${k}`}
-                        className="flex-1 rounded border border-border bg-surface-2 px-2 py-0.5 font-mono text-xs"
-                        value={val}
-                        onChange={(e) => updateVariantProperty(i, k, e.target.value)}
-                        placeholder="Value"
-                      />
+                        label="Property value"
+                        hideLabel
+                        className="flex-1"
+                      >
+                        <Input
+                          id={`${variantsIdBase}-pv-${i}-${k}`}
+                          className="font-mono text-xs"
+                          value={val}
+                          onChange={(e) =>
+                            updateVariantProperty(i, k, e.target.value)
+                          }
+                          placeholder="Value"
+                        />
+                      </FormField>
                       <button
                         type="button"
                         className="rounded p-1 text-muted-foreground hover:text-foreground"
@@ -309,13 +374,18 @@ interface StringListCardProps {
 
 function useStringListRows(value: string[], onChange: (v: string[]) => void) {
   const idBase = useId();
-  const [rowIds, setRowIds] = useState<string[]>(() => value.map(() => createRowId()));
+  const [rowIds, setRowIds] = useState<string[]>(() =>
+    value.map(() => createRowId()),
+  );
 
   useEffect(() => {
     setRowIds((prev) => {
       if (prev.length === value.length) return prev;
       if (prev.length > value.length) return prev.slice(0, value.length);
-      return [...prev, ...Array.from({ length: value.length - prev.length }, createRowId)];
+      return [
+        ...prev,
+        ...Array.from({ length: value.length - prev.length }, createRowId),
+      ];
     });
   }, [value.length]);
 
@@ -324,17 +394,23 @@ function useStringListRows(value: string[], onChange: (v: string[]) => void) {
     setRowIds((prev) => [...prev, createRowId()]);
   }, [value, onChange]);
 
-  const updateItem = useCallback((index: number, fieldValue: string) => {
-    const next = [...value];
-    next[index] = fieldValue;
-    onChange(next);
-  }, [value, onChange]);
+  const updateItem = useCallback(
+    (index: number, fieldValue: string) => {
+      const next = [...value];
+      next[index] = fieldValue;
+      onChange(next);
+    },
+    [value, onChange],
+  );
 
-  const removeItem = useCallback((index: number) => {
-    const next = value.filter((_, i) => i !== index);
-    onChange(next);
-    setRowIds((prev) => prev.filter((_, i) => i !== index));
-  }, [value, onChange]);
+  const removeItem = useCallback(
+    (index: number) => {
+      const next = value.filter((_, i) => i !== index);
+      onChange(next);
+      setRowIds((prev) => prev.filter((_, i) => i !== index));
+    },
+    [value, onChange],
+  );
 
   return { idBase, rowIds, addItem, updateItem, removeItem };
 }
@@ -349,14 +425,19 @@ function StringListEditor({
   placeholder,
   itemLabel,
 }: StringListCardProps) {
-  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(
+    value,
+    onChange,
+  );
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-medium">{title}</p>
-          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+          {description ? (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          ) : null}
         </div>
         <Button variant="outline" size="sm" onClick={addItem}>
           <Plus className="mr-1 h-4 w-4" /> {addLabel}
@@ -404,7 +485,10 @@ function StringListCard({
   placeholder,
   itemLabel,
 }: StringListCardProps) {
-  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(
+    value,
+    onChange,
+  );
 
   return (
     <Card>
@@ -419,7 +503,9 @@ function StringListCard({
       </CardHeader>
       <CardContent>
         {value.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{emptyLabel}</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {emptyLabel}
+          </p>
         ) : (
           <ul className="space-y-2">
             {value.map((item, i) => (
@@ -456,7 +542,10 @@ export interface ContentGuidelinesFormCardProps {
   onChange: (v: string[]) => void;
 }
 
-export function ContentGuidelinesFormCard({ value, onChange }: ContentGuidelinesFormCardProps) {
+export function ContentGuidelinesFormCard({
+  value,
+  onChange,
+}: ContentGuidelinesFormCardProps) {
   return (
     <StringListCard
       title="Content Guidelines"
@@ -478,35 +567,102 @@ export interface AccessibilityFormCardProps {
 
 const ARIA_ROLE_OPTIONS = {
   widget: [
-    'button', 'checkbox', 'combobox', 'gridcell', 'link', 'menuitem', 'menuitemcheckbox',
-    'menuitemradio', 'option', 'progressbar', 'radio', 'scrollbar', 'searchbox', 'separator',
-    'slider', 'spinbutton', 'switch', 'tab', 'tabpanel', 'textbox', 'treeitem',
+    'button',
+    'checkbox',
+    'combobox',
+    'gridcell',
+    'link',
+    'menuitem',
+    'menuitemcheckbox',
+    'menuitemradio',
+    'option',
+    'progressbar',
+    'radio',
+    'scrollbar',
+    'searchbox',
+    'separator',
+    'slider',
+    'spinbutton',
+    'switch',
+    'tab',
+    'tabpanel',
+    'textbox',
+    'treeitem',
   ],
   composite: [
-    'combobox', 'grid', 'listbox', 'menu', 'menubar', 'radiogroup', 'tablist', 'tree', 'treegrid',
+    'combobox',
+    'grid',
+    'listbox',
+    'menu',
+    'menubar',
+    'radiogroup',
+    'tablist',
+    'tree',
+    'treegrid',
   ],
   document: [
-    'article', 'cell', 'code', 'columnheader', 'definition', 'deletion', 'directory', 'document',
-    'emphasis', 'feed', 'figure', 'generic', 'group', 'heading', 'img', 'insertion', 'list',
-    'listitem', 'math', 'meter', 'none', 'note', 'paragraph', 'presentation', 'row', 'rowgroup',
-    'rowheader', 'separator', 'strong', 'subscript', 'superscript', 'table', 'term', 'time', 'toolbar',
+    'article',
+    'cell',
+    'code',
+    'columnheader',
+    'definition',
+    'deletion',
+    'directory',
+    'document',
+    'emphasis',
+    'feed',
+    'figure',
+    'generic',
+    'group',
+    'heading',
+    'img',
+    'insertion',
+    'list',
+    'listitem',
+    'math',
+    'meter',
+    'none',
+    'note',
+    'paragraph',
+    'presentation',
+    'row',
+    'rowgroup',
+    'rowheader',
+    'separator',
+    'strong',
+    'subscript',
+    'superscript',
+    'table',
+    'term',
+    'time',
+    'toolbar',
   ],
   landmark: [
-    'application', 'banner', 'complementary', 'contentinfo', 'form', 'main', 'navigation', 'region', 'search',
+    'application',
+    'banner',
+    'complementary',
+    'contentinfo',
+    'form',
+    'main',
+    'navigation',
+    'region',
+    'search',
   ],
   liveRegion: ['alert', 'log', 'marquee', 'status', 'timer'],
   window: ['alertdialog', 'dialog', 'tooltip'],
 } as const;
 
-export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCardProps) {
+export function AccessibilityFormCard({
+  value,
+  onChange,
+}: AccessibilityFormCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Accessibility</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <label htmlFor="accessibility-role" className="text-sm font-medium">Role</label>
+        <FormField id="accessibility-role" label="Role">
           <select
             id="accessibility-role"
             className="h-10 w-full rounded border border-border bg-surface-2 px-3 text-sm"
@@ -516,36 +672,48 @@ export function AccessibilityFormCard({ value, onChange }: AccessibilityFormCard
             <option value="">Select a role</option>
             <optgroup label="Widget roles">
               {ARIA_ROLE_OPTIONS.widget.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
             <optgroup label="Composite roles">
               {ARIA_ROLE_OPTIONS.composite.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
             <optgroup label="Document structure roles">
               {ARIA_ROLE_OPTIONS.document.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
             <optgroup label="Landmark roles">
               {ARIA_ROLE_OPTIONS.landmark.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
             <optgroup label="Live region roles">
               {ARIA_ROLE_OPTIONS.liveRegion.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
             <optgroup label="Window roles">
               {ARIA_ROLE_OPTIONS.window.map((role) => (
-                <option key={role} value={role}>{role}</option>
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </optgroup>
           </select>
-        </div>
+        </FormField>
 
         <StringListEditor
           title="Accessibility Guidance"
@@ -580,16 +748,20 @@ export function EditDocsForm({ value, onChange }: EditDocsFormProps) {
       />
       <AccessibilityFormCard
         value={value.accessibility}
-        onChange={(v) => onChange({
-          accessibility: {
-            role: v.role,
-            guidance: normalizeStringList(v.guidance),
-          },
-        })}
+        onChange={(v) =>
+          onChange({
+            accessibility: {
+              role: v.role,
+              guidance: normalizeStringList(v.guidance),
+            },
+          })
+        }
       />
       <ContentGuidelinesFormCard
         value={value.contentGuidelines}
-        onChange={(v) => onChange({ contentGuidelines: normalizeStringList(v) })}
+        onChange={(v) =>
+          onChange({ contentGuidelines: normalizeStringList(v) })
+        }
       />
       <VariantsFormCard
         value={value.variants}

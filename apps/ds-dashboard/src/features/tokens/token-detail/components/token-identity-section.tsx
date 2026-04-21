@@ -2,13 +2,19 @@
  * Token Identity Section - displays token header, swatch, type, collection.
  */
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Hash, Ruler, ToggleLeft, Type } from "lucide-react";
-import { Link } from "react-router-dom";
-import type { TokenCatalogEntry } from "@/types/token-catalog";
-import { toTokenDetail } from "@/lib/routes";
-import { resolveColorSwatch } from "../lib/token-detail-transforms";
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Hash, Ruler, ToggleLeft, Type } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import type { TokenCatalogEntry } from '@/types/token-catalog';
+import { toTokenDetail } from '@/lib/routes';
+import { resolveColorSwatch } from '../lib/token-detail-transforms';
 
 interface TokenIdentitySectionProps {
   token: TokenCatalogEntry;
@@ -30,7 +36,7 @@ export function TokenIdentitySection({
   const aliasLine = tokenAliasChain.length > 0 ? tokenAliasChain : [token];
   const finalValue = aliasFinal?.resolvedValue || token.resolvedValue;
   const finalSwatch = resolveColorSwatch(finalValue);
-  const iconClassName = "h-8 w-8 text-primary";
+  const iconClassName = 'h-8 w-8 text-primary';
 
   return (
     <Card>
@@ -45,7 +51,7 @@ export function TokenIdentitySection({
                   style={{ backgroundColor: swatch }}
                   aria-label={`Color swatch ${swatch}`}
                 />
-              ) : displayType === "dimension" ? (
+              ) : displayType === 'dimension' ? (
                 dimensionPreview ? (
                   <span className="flex h-8 w-20 items-center">
                     <span
@@ -55,22 +61,33 @@ export function TokenIdentitySection({
                     />
                   </span>
                 ) : (
-                  <Ruler className="h-8 w-8 text-primary" aria-label="Dimension token" />
+                  <Ruler
+                    className="h-8 w-8 text-primary"
+                    aria-label="Dimension token"
+                  />
                 )
-              ) : displayType === "string" ? (
+              ) : displayType === 'string' ? (
                 <Type className={iconClassName} aria-label="String token" />
-              ) : displayType === "boolean" ? (
-                <ToggleLeft className={iconClassName} aria-label="Boolean token" />
-              ) : displayType === "number" ? (
+              ) : displayType === 'boolean' ? (
+                <ToggleLeft
+                  className={iconClassName}
+                  aria-label="Boolean token"
+                />
+              ) : displayType === 'number' ? (
                 <Hash className={iconClassName} aria-label="Number token" />
               ) : (
-                <span className="text-sm font-semibold tracking-tight text-muted-foreground">Aa</span>
+                <span className="text-sm font-semibold tracking-tight text-muted-foreground">
+                  Aa
+                </span>
               )}
             </div>
             <div className="min-w-0">
-              <CardTitle className="break-all font-mono text-base">{token.path}</CardTitle>
+              <CardTitle className="break-all font-mono text-base">
+                {token.path}
+              </CardTitle>
               <CardDescription className="mt-1">
-                <span className="font-medium">{token.collection}</span> · {displayType}
+                <span className="font-medium">{token.collection}</span> ·{' '}
+                {displayType}
               </CardDescription>
               <CardDescription className="mt-1 font-mono text-xs">
                 {token.slashPath}
@@ -81,13 +98,15 @@ export function TokenIdentitySection({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <label className="text-xs font-medium text-muted-foreground">Alias chain</label>
+          <label className="text-xs text-muted-foreground">Alias chain</label>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {aliasLine.map((entry, index) => (
               <div key={entry.path} className="flex items-center gap-2">
                 {index === 0 ? (
                   <Badge
-                    variant={index === aliasLine.length - 1 ? "success" : "neutral"}
+                    variant={
+                      index === aliasLine.length - 1 ? 'success' : 'neutral'
+                    }
                     className="font-mono text-xs"
                   >
                     {entry.path}
@@ -99,7 +118,9 @@ export function TokenIdentitySection({
                     title={`Open ${entry.path} detail`}
                   >
                     <Badge
-                      variant={index === aliasLine.length - 1 ? "success" : "neutral"}
+                      variant={
+                        index === aliasLine.length - 1 ? 'success' : 'neutral'
+                      }
                       className="font-mono text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
                       {entry.path}

@@ -7,12 +7,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { FormField } from '@/components/common';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
-import {
-  getAiConfiguredProviders,
-} from '@/lib/ai-jobs-api';
+import { getAiConfiguredProviders } from '@/lib/ai-jobs-api';
 import { useAiJobCreate } from '@/hooks/use-ai-job-create';
 import { useAiProviderHealth } from '@/hooks/use-ai-provider-health';
 import type {
@@ -114,13 +113,10 @@ export function AiJobCreateForm({
   const [providerTouched, setProviderTouched] = useState(false);
   const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
 
-  const handleProviderChange = useCallback(
-    (nextProvider: AiProviderName) => {
-      setProviderTouched(true);
-      setProvider(nextProvider);
-    },
-    [],
-  );
+  const handleProviderChange = useCallback((nextProvider: AiProviderName) => {
+    setProviderTouched(true);
+    setProvider(nextProvider);
+  }, []);
 
   const { data: configuredProviders, isFetched: configuredProvidersLoaded } =
     useQuery({
@@ -243,10 +239,7 @@ export function AiJobCreateForm({
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       {/* Provider Selection */}
-      <div className="space-y-2">
-        <label htmlFor="provider" className="text-sm font-medium">
-          AI Provider
-        </label>
+      <FormField id="provider" label="AI Provider" className="space-y-2">
         <Select
           id="provider"
           value={provider}
@@ -262,13 +255,10 @@ export function AiJobCreateForm({
             </option>
           ))}
         </Select>
-      </div>
+      </FormField>
 
       {/* Model (optional) */}
-      <div className="space-y-2">
-        <label htmlFor="model" className="text-sm font-medium">
-          Model (optional)
-        </label>
+      <FormField id="model" label="Model (optional)" className="space-y-2">
         <Input
           id="model"
           type="text"
@@ -279,14 +269,16 @@ export function AiJobCreateForm({
           }}
           disabled={isPending}
         />
-      </div>
+      </FormField>
 
       {/* Component ID */}
       {!lockedComponentId && (
-        <div className="space-y-2">
-          <label htmlFor="componentId" className="text-sm font-medium">
-            Component <span className="text-destructive">*</span>
-          </label>
+        <FormField
+          id="componentId"
+          label="Component"
+          required
+          className="space-y-2"
+        >
           <Select
             id="componentId"
             value={componentId}
@@ -315,7 +307,7 @@ export function AiJobCreateForm({
               </option>
             ))}
           </Select>
-        </div>
+        </FormField>
       )}
 
       <div className="flex items-start gap-2">
@@ -328,7 +320,7 @@ export function AiJobCreateForm({
           className="mt-0.5 rounded border-border"
         />
         <div className="space-y-1">
-          <label htmlFor="runValidation" className="text-sm font-medium">
+          <label htmlFor="runValidation" className="text-sm text-foreground">
             Run quality validation (slower)
           </label>
           <p className="text-xs text-muted-foreground">
@@ -463,7 +455,10 @@ export function AiJobCreateForm({
                   disabled={isPending}
                   className="rounded border-border"
                 />
-                <label htmlFor="overwriteAck" className="text-sm">
+                <label
+                  htmlFor="overwriteAck"
+                  className="text-sm text-foreground"
+                >
                   Confirmar sobrescritura de documentación existente
                 </label>
               </div>

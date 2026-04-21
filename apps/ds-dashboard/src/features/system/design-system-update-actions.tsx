@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useOperationRunner } from "@/hooks/use-operation-runner";
+import { FigmaMcpConnectionTestButton } from '@/components/figma-mcp-connection-test-button';
+import { FormField } from '@/components/common';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useOperationRunner } from '@/hooks/use-operation-runner';
 import {
   buildUpdateComponentsPayload,
   buildUpdateVariablesPayload,
   resolveUpdateButtonLabel,
-} from "@/features/system/design-system-update-actions-logic";
+} from '@/features/system/design-system-update-actions-logic';
 
 function toSuggestedFigmaUrl(figmaFileId: string | null | undefined): string {
-  const trimmed = String(figmaFileId || "").trim();
-  if (!trimmed) return "";
+  const trimmed = String(figmaFileId || '').trim();
+  if (!trimmed) return '';
   return `https://www.figma.com/design/${encodeURIComponent(trimmed)}`;
 }
 
@@ -29,28 +30,33 @@ export function DesignSystemUpdateActions({
   disabled = false,
   onRunSuccess,
 }: DesignSystemUpdateActionsProps) {
-  const suggestedUrl = useMemo(() => toSuggestedFigmaUrl(figmaFileId), [figmaFileId]);
+  const suggestedUrl = useMemo(
+    () => toSuggestedFigmaUrl(figmaFileId),
+    [figmaFileId],
+  );
 
   const [sharedFigmaUrl, setSharedFigmaUrl] = useState(suggestedUrl);
-  const [sharedToken, setSharedToken] = useState("");
+  const [sharedToken, setSharedToken] = useState('');
   const [autoTriggerToken, setAutoTriggerToken] = useState(0);
 
   const [componentsState, componentsActions] = useOperationRunner(
     `ds-admin-components-${systemId}`,
-    "/api/capture-figma-screenshot",
+    '/api/capture-figma-screenshot',
     onRunSuccess,
     { systemId },
   );
   const [variablesState, variablesActions] = useOperationRunner(
     `ds-admin-variables-${systemId}`,
-    "/api/sync-figma-tokens",
+    '/api/sync-figma-tokens',
     onRunSuccess,
     { systemId },
   );
 
   useEffect(() => {
     if (!suggestedUrl) return;
-    setSharedFigmaUrl((current) => (String(current || "").trim() ? current : suggestedUrl));
+    setSharedFigmaUrl((current) =>
+      String(current || '').trim() ? current : suggestedUrl,
+    );
   }, [suggestedUrl]);
 
   const handleUpdateComponents = useCallback(async () => {
@@ -75,32 +81,42 @@ export function DesignSystemUpdateActions({
   const canRunVariablesUpdate = !disabled && !variablesState.isRunning;
 
   return (
-    <div className="mt-3 py-3">
-      <div className="mb-3">
-        <h3 className="text-base font-titles font-semibold titles-color">Update from Figma</h3>
-      </div>
+    <div>
+      <h3 className="mb-3 text-base font-titles font-semibold titles-color">
+        Update from Figma
+      </h3>
 
-      <div className="mt-3 space-y-2">
-        <div className="min-w-0 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">Figma URL</label>
+      <div className="space-y-2">
+        <FormField
+          id="design-system-update-figma-url"
+          label="Figma URL"
+          className="min-w-0"
+        >
           <Input
+            id="design-system-update-figma-url"
             value={sharedFigmaUrl}
             onChange={(event) => setSharedFigmaUrl(event.target.value)}
             placeholder="https://www.figma.com/design/…"
-            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+            disabled={
+              disabled || componentsState.isRunning || variablesState.isRunning
+            }
           />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Figma token override
-          </label>
+        </FormField>
+        <FormField
+          id="design-system-update-figma-token"
+          label="Figma token override"
+          className="min-w-0"
+        >
           <Input
+            id="design-system-update-figma-token"
             type="password"
             value={sharedToken}
             onChange={(event) => setSharedToken(event.target.value)}
             placeholder="Figma token (optional)"
             autoComplete="off"
-            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+            disabled={
+              disabled || componentsState.isRunning || variablesState.isRunning
+            }
             onBlur={() => {
               if (sharedFigmaUrl.trim() && sharedToken.trim()) {
                 setAutoTriggerToken((n) => n + 1);
@@ -112,10 +128,12 @@ export function DesignSystemUpdateActions({
             figmaToken={sharedToken}
             autoTriggerToken={autoTriggerToken}
             className="w-full"
-            disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+            disabled={
+              disabled || componentsState.isRunning || variablesState.isRunning
+            }
             showDesignContextCompact
           />
-        </div>
+        </FormField>
       </div>
 
       <div className="mt-4">
@@ -126,7 +144,7 @@ export function DesignSystemUpdateActions({
             disabled={disabled || componentsState.isRunning}
           >
             {resolveUpdateButtonLabel({
-              type: "components",
+              type: 'components',
               isRunning: componentsState.isRunning,
             })}
           </Button>
@@ -136,7 +154,7 @@ export function DesignSystemUpdateActions({
             disabled={!canRunVariablesUpdate}
           >
             {resolveUpdateButtonLabel({
-              type: "variables",
+              type: 'variables',
               isRunning: variablesState.isRunning,
             })}
           </Button>

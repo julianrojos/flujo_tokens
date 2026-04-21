@@ -73,11 +73,11 @@ All UI components consume CSS custom properties defined in `apps/ds-dashboard/sr
 
 #### Typography Tokens
 
-| Token          | Value      | Usage    |
-| -------------- | ---------- | -------- |
+| Token           | Value      | Usage    |
+| --------------- | ---------- | -------- |
 | `--font-titles` | Geist      | Headings |
-| `--font-body`  | Geist      | UI text  |
-| `--font-mono`  | Geist Mono | Code     |
+| `--font-body`   | Geist      | UI text  |
+| `--font-mono`   | Geist Mono | Code     |
 
 ---
 
@@ -117,9 +117,12 @@ Use this pattern only when a navigation link must look like a button.
 import { Link } from 'react-router-dom';
 import { buttonVariants } from '@/components/ui/button';
 
-<Link to="/target" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+<Link
+  to="/target"
+  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+>
   Open target
-</Link>
+</Link>;
 ```
 
 Rules:
@@ -354,6 +357,23 @@ Rules:
 
 **When to use:** Rendering markdown content, documentation, README files.
 **When NOT to use:** User input without sanitization, plain text.
+
+---
+
+### FormField
+
+**Path:** `src/components/common/form-field.tsx`
+
+**Props:** `label?`, `hint?`, `error?`, `required?`, `hideLabel?`, `id?`
+
+```tsx
+<FormField id="name" label="Name" required>
+  <Input id="name" />
+</FormField>
+```
+
+**When to use:** Standard label/control stacks for inputs, textareas, and selects, especially when a hint or error message sits below the control.
+**When NOT to use:** Read-only metadata, captions, or custom layouts that do not map to a single labelable control.
 
 ---
 

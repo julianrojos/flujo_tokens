@@ -123,6 +123,13 @@ These are non-negotiable for a tool built for designers:
 - **SHOULD** announce dynamic content changes with `aria-live` regions.
 - **SHOULD** test overlay components with keyboard-only navigation (Tab, Escape, Enter).
 
+### FormField contract
+
+- Use `FormField` as the default wrapper for labels tied to inputs, textareas, and selects.
+- Keep the label text consistent with the style contract: `text-sm text-foreground`.
+- Use `hideLabel` only when the label must stay semantically available but visually hidden.
+- Do not reimplement the standard label/hint/error stack ad hoc when `FormField` fits.
+
 ## Enforcement
 
 - New components without registry entry → **MUST** fix before task completion.

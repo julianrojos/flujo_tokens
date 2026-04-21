@@ -1,6 +1,8 @@
-import { Select } from "@/components/ui/select";
-import { TEXT_SIZE_OPTIONS } from "./wcag-constants";
-import type { TextSize } from "./types";
+import { useId } from 'react';
+import { FormField } from '@/components/common';
+import { Select } from '@/components/ui/select';
+import { TEXT_SIZE_OPTIONS } from './wcag-constants';
+import type { TextSize } from './types';
 
 interface TextSizeSelectorProps {
   value: TextSize;
@@ -8,13 +10,27 @@ interface TextSizeSelectorProps {
   disabled: boolean;
 }
 
-export function TextSizeSelector({ value, onChange, disabled }: TextSizeSelectorProps) {
+export function TextSizeSelector({
+  value,
+  onChange,
+  disabled,
+}: TextSizeSelectorProps) {
+  const selectId = useId();
+  const selectedOption = TEXT_SIZE_OPTIONS.find((item) => item.value === value);
+
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold">Text Size</label>
+    <FormField
+      id={selectId}
+      label="Text Size"
+      hint={selectedOption?.description}
+      className="space-y-2"
+    >
       <Select
+        id={selectId}
         value={value}
-        onChange={(event) => onChange(event.target.value === "large" ? "large" : "normal")}
+        onChange={(event) =>
+          onChange(event.target.value === 'large' ? 'large' : 'normal')
+        }
         disabled={disabled}
       >
         {TEXT_SIZE_OPTIONS.map((option) => (
@@ -23,9 +39,6 @@ export function TextSizeSelector({ value, onChange, disabled }: TextSizeSelector
           </option>
         ))}
       </Select>
-      <p className="text-xs text-muted-foreground">
-        {TEXT_SIZE_OPTIONS.find((item) => item.value === value)?.description}
-      </p>
-    </div>
+    </FormField>
   );
 }

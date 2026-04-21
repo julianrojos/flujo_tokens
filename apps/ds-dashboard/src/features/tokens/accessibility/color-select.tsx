@@ -1,5 +1,7 @@
-import { Select } from "@/components/ui/select";
-import type { SemanticColorOption } from "./types";
+import { useId } from 'react';
+import { FormField } from '@/components/common';
+import { Select } from '@/components/ui/select';
+import type { SemanticColorOption } from './types';
 
 interface ColorSelectProps {
   label: string;
@@ -8,13 +10,22 @@ interface ColorSelectProps {
   onChange: (value: string) => void;
 }
 
-export function ColorSelect({ label, options, value, onChange }: ColorSelectProps) {
+export function ColorSelect({
+  label,
+  options,
+  value,
+  onChange,
+}: ColorSelectProps) {
+  const selectId = useId();
   const selected = options.find((option) => option.tokenPath === value) || null;
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold">{label}</label>
-      <Select value={value} onChange={(event) => onChange(event.target.value)}>
+    <FormField id={selectId} label={label} className="space-y-2">
+      <Select
+        id={selectId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
         {options.map((option) => (
           <option key={option.tokenPath} value={option.tokenPath}>
             {option.label}
@@ -31,6 +42,6 @@ export function ColorSelect({ label, options, value, onChange }: ColorSelectProp
           <span>{selected.hexValue}</span>
         </div>
       ) : null}
-    </div>
+    </FormField>
   );
 }

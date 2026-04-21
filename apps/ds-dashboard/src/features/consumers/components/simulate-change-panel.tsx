@@ -1,20 +1,21 @@
-import { useState } from "react";
+import { useState } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { StatusAlert } from "@/components/ui/status-alert";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/common';
+import { StatusAlert } from '@/components/ui/status-alert';
 import {
   Modal,
   ModalContent,
   ModalHeader,
   ModalCloseButton,
-} from "@/components/ui/overlay";
-import { ApiErrorMessage } from "@/components/api-error-message";
-import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { simulateVariableChange } from "@/lib/api";
-import type { SimulationResult } from "@/types/consumers";
-import { runSimulateChange } from "../lib/simulate-change-logic";
+} from '@/components/ui/overlay';
+import { ApiErrorMessage } from '@/components/api-error-message';
+import { ImpactLevelBadge } from '@/components/ui/impact-level-badge';
+import { toApiErrorDisplay } from '@/lib/api-error-ux';
+import { simulateVariableChange } from '@/lib/api';
+import type { SimulationResult } from '@/types/consumers';
+import { runSimulateChange } from '../lib/simulate-change-logic';
 
 interface SimulateChangePanelProps {
   variableKey: string;
@@ -27,10 +28,12 @@ export function SimulateChangePanel({
   dsFileKey,
   onClose,
 }: SimulateChangePanelProps) {
-  const [proposedValue, setProposedValue] = useState("");
+  const [proposedValue, setProposedValue] = useState('');
   const [simulating, setSimulating] = useState(false);
   const [result, setResult] = useState<SimulationResult | null>(null);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
+  const [error, setError] = useState<ReturnType<
+    typeof toApiErrorDisplay
+  > | null>(null);
 
   const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,15 +50,19 @@ export function SimulateChangePanel({
         setResult(response.data);
         return;
       }
-      setError(toApiErrorDisplay(response.error, {
-        fallbackTitle: "Simulation failed",
-        fallbackMessage: "Unable to simulate variable change.",
-      }));
+      setError(
+        toApiErrorDisplay(response.error, {
+          fallbackTitle: 'Simulation failed',
+          fallbackMessage: 'Unable to simulate variable change.',
+        }),
+      );
     } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Simulation failed",
-        fallbackMessage: "Unable to simulate variable change.",
-      }));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: 'Simulation failed',
+          fallbackMessage: 'Unable to simulate variable change.',
+        }),
+      );
     } finally {
       setSimulating(false);
     }
@@ -65,7 +72,9 @@ export function SimulateChangePanel({
     <Modal open={true} onClose={onClose}>
       <ModalContent size="md">
         <ModalHeader>
-          <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">Simulate Change</h2>
+          <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+            Simulate Change
+          </h2>
           <ModalCloseButton onClick={onClose} />
         </ModalHeader>
 
@@ -73,7 +82,7 @@ export function SimulateChangePanel({
           {!result ? (
             <form onSubmit={handleSimulate} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-xs text-muted-foreground">
                   Variable
                 </label>
                 <p className="rounded-md bg-muted px-3 py-2 text-sm font-mono">
@@ -81,13 +90,7 @@ export function SimulateChangePanel({
                 </p>
               </div>
 
-              <div className="space-y-1">
-                <label
-                  htmlFor="proposed-value"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Proposed value
-                </label>
+              <FormField id="proposed-value" label="Proposed value">
                 <Input
                   id="proposed-value"
                   value={proposedValue}
@@ -95,7 +98,7 @@ export function SimulateChangePanel({
                   placeholder="Enter new value..."
                   disabled={simulating}
                 />
-              </div>
+              </FormField>
 
               <StatusAlert variant="info" title="What this does">
                 Simulates changing this variable's value and shows which
@@ -104,12 +107,8 @@ export function SimulateChangePanel({
 
               {error ? <ApiErrorMessage error={error} /> : null}
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={simulating}
-              >
-                {simulating ? "Simulating..." : "Simulate Change"}
+              <Button type="submit" className="w-full" disabled={simulating}>
+                {simulating ? 'Simulating...' : 'Simulate Change'}
               </Button>
             </form>
           ) : (
@@ -143,7 +142,9 @@ export function SimulateChangePanel({
               )}
 
               <div className="space-y-2">
-                <h3 className="text-base font-titles font-semibold titles-color">Affected Consumers</h3>
+                <h3 className="text-base font-titles font-semibold titles-color">
+                  Affected Consumers
+                </h3>
                 <div className="space-y-2">
                   {result.affectedConsumers.map((consumer) => (
                     <div
@@ -187,7 +188,7 @@ export function SimulateChangePanel({
                 className="w-full"
                 onClick={() => {
                   setResult(null);
-                  setProposedValue("");
+                  setProposedValue('');
                 }}
               >
                 Simulate Another Value
