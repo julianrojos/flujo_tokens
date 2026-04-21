@@ -34,15 +34,6 @@ export interface ComponentSpecDeps extends SharedSystemContextDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
 
-export interface FileDeps extends SharedSystemContextDeps {
-  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
-  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
-  findLineForQuery: (content: string, query: string) => number | null;
-  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
-  guessContentType: (filePath: string) => string;
-  MAX_FILE_BYTES: number;
-}
-
 export interface JobDeps {
   failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
   queueJobs: Map<string, unknown>;
@@ -89,7 +80,6 @@ export interface AllRouteDeps {
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
   componentSpecDeps: ComponentSpecDeps;
-  fileDeps: FileDeps;
   jobDeps: JobDeps;
   commandDeps: CommandDeps;
   figmaMcpPingDeps: FigmaMcpPingDeps;
@@ -180,15 +170,6 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       sha256Text: deps.sha256Text,
       tokenRepo: deps.tokenRepo,
       componentRepo: deps.componentRepo,
-    },
-    fileDeps: {
-      ...sharedSystemContextDeps,
-      resolveRepoFilePath: deps.resolveRepoFilePath,
-      readTextFileLimited: deps.readTextFileLimited,
-      findLineForQuery: deps.findLineForQuery,
-      buildSnippet: deps.buildSnippet,
-      guessContentType: deps.guessContentType,
-      MAX_FILE_BYTES: deps.MAX_FILE_BYTES,
     },
     jobDeps: {
       failJson: deps.failJson,

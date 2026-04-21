@@ -11,7 +11,6 @@ import { registerCatalogRoutes } from './catalog-routes.mjs';
 import { registerTokenGraphRoutes } from './token-graph-routes.ts';
 import { registerHealthRoutes } from './health-routes.mjs';
 import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
-import { registerFileRoutes } from './file-routes.mjs';
 import { registerJobRoutes } from './job-routes.mjs';
 import { registerCommandRoutes } from './command-routes.mjs';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
@@ -162,7 +161,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerTokenGraphRoutes(app, { ...routeDeps.tokenGraphDeps, tokenRepo: routeDeps.tokenRepo });
   registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);
-  registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
   registerCommandRoutes(app, ensureCommandRoutesDeps(routeDeps.commandDeps));
   registerFigmaMcpVariablesRoute(app, {

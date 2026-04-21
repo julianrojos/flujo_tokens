@@ -25,11 +25,6 @@ function createDeps(): ServerDeps {
     isDevRuntime: () => true,
     resolveRepoFilePath: () => '/repo/file',
     sha256Text: () => 'hash',
-    readTextFileLimited: async () => ({ content: '', truncated: false }),
-    findLineForQuery: () => 1,
-    buildSnippet: () => ({ targetLine: 1, startLine: 1, endLine: 1, snippet: '' }),
-    guessContentType: () => 'text/plain',
-    MAX_FILE_BYTES: 1_000_000,
     queueJobs: new Map(),
     listQueueJobEvents: () => [],
     queueJobSnapshot: () => ({}),
@@ -60,7 +55,6 @@ test('register-all-routes-service: buildAllRouteDeps returns grouped route contr
   const grouped = buildAllRouteDeps(deps);
 
   assert.equal(grouped.registryDeps.failJson, deps.failJson);
-  assert.equal(grouped.fileDeps.MAX_FILE_BYTES, deps.MAX_FILE_BYTES);
   assert.equal(grouped.jobDeps.MAX_RETAINED_EVENTS, deps.MAX_RETAINED_EVENTS);
   assert.equal(grouped.commandDeps.validateGitRef, deps.validateGitRef);
   assert.equal(grouped.figmaMcpPingDeps.failJson, deps.failJson);

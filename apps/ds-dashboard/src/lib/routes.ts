@@ -1,32 +1,31 @@
 export const ROUTE_PATTERNS = {
   root: '/',
   newSystem: '/new',
-  systemOverview: '/system/:systemId/overview',
-  systemAdmin: '/system/:systemId/admin',
-  systemConsumers: '/system/:systemId/consumers',
-  systemOperations: '/system/:systemId/operations',
+  systemOverview: '/:systemId/overview',
+  systemAdmin: '/:systemId/admin',
+  systemConsumers: '/:systemId/consumers',
+  systemOperations: '/:systemId/operations',
   tokens: '/tokens',
   tokenDetail: '/tokens/:tokenPath',
   tokenGraph: '/tokens/:tokenPath/graph',
   components: '/components',
   componentDetail: '/components/:slug',
   componentEditDocs: '/components/:slug/edit-docs',
-  fileViewer: '/file',
   consumers: '/consumers',
   consumerDetail: '/consumers/:consumerId',
 } as const;
 
 export const toSystemOverview = (systemId: string): string =>
-  `/system/${encodeURIComponent(String(systemId || ''))}/overview`;
+  `/${encodeURIComponent(String(systemId || ''))}/overview`;
 
 export const toSystemAdmin = (systemId: string): string =>
-  `/system/${encodeURIComponent(String(systemId || ''))}/admin`;
+  `/${encodeURIComponent(String(systemId || ''))}/admin`;
 
 export const toSystemConsumers = (systemId: string): string =>
-  `/system/${encodeURIComponent(String(systemId || ''))}/consumers`;
+  `/${encodeURIComponent(String(systemId || ''))}/consumers`;
 
 export const toSystemOperations = (systemId: string): string =>
-  `/system/${encodeURIComponent(String(systemId || ''))}/operations`;
+  `/${encodeURIComponent(String(systemId || ''))}/operations`;
 
 export const toTokenDetail = (tokenPath: string): string =>
   `/tokens/${encodeURIComponent(String(tokenPath || ''))}`;

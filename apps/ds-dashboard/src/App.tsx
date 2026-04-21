@@ -116,12 +116,6 @@ const TokenGraphPage = lazy(() =>
   })),
 );
 
-const FileViewerPage = lazy(() =>
-  import('@/features/files/file-viewer-page').then((module) => ({
-    default: module.FileViewerPage,
-  })),
-);
-
 const ConsumersPage = lazy(() =>
   import('@/features/consumers/consumers-page').then((module) => ({
     default: module.ConsumersPage,
@@ -466,10 +460,15 @@ export default function App() {
       .slice(0, 120);
   }, [routeSearchItems, searchItems, searchQuery]);
 
-  const isSystemSectionActive = useMemo(
-    () => /^\/system\/[^/]+(?:\/(overview|admin|consumers|operations))?(?:\/|$)/.test(location.pathname),
-    [location.pathname],
-  );
+  const isSystemSectionActive = useMemo(() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    const systemId = segments[0];
+    if (!systemId) return false;
+    const systemExists = systems.some((system) => system.id === systemId);
+    if (!systemExists) return false;
+    if (segments.length === 1) return true;
+    return ['overview', 'admin', 'consumers', 'operations'].includes(segments[1] || '');
+  }, [location.pathname, systems]);
 
   return (
     <>
@@ -632,10 +631,7 @@ export default function App() {
                       path={ROUTE_PATTERNS.newSystem}
                       element={<NewSystemPage />}
                     />
-                    <Route
-                      path="/system/:systemId"
-                      element={<SystemTabsLayout />}
-                    >
+                    <Route path="/:systemId" element={<SystemTabsLayout />}>
                       <Route
                         path="overview"
                         element={<HealthDashboardPage />}
@@ -650,7 +646,6 @@ export default function App() {
                       />
                       <Route path="operations" element={<OperationsPage />} />
                     </Route>
-                    <Route path="/system" element={<SystemEntryRedirect />} />
                     <Route path={ROUTE_PATTERNS.consumers} element={<SystemConsumersRedirect />} />
                     <Route
                       path={ROUTE_PATTERNS.root}
@@ -679,10 +674,6 @@ export default function App() {
                     <Route
                       path={ROUTE_PATTERNS.tokenGraph}
                       element={<TokenGraphPage />}
-                    />
-                    <Route
-                      path={ROUTE_PATTERNS.fileViewer}
-                      element={<FileViewerPage />}
                     />
                     <Route
                       path={ROUTE_PATTERNS.consumerDetail}

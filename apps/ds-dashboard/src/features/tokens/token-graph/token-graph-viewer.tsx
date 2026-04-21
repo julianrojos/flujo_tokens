@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 
 import type { PositionedGraph, PositionedNode } from "./graph-utils";
 import { cn } from "@/lib/utils";
@@ -192,19 +191,6 @@ export function TokenGraphViewer(props: {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span>Wheel to zoom · drag to pan · dblclick to reset</span>
-          {props.graphFilePath && (
-            <Link
-              to={{
-                pathname: "/file",
-                search: new URLSearchParams({
-                  path: props.graphFilePath,
-                }).toString(),
-              }}
-              className="hover:text-primary hover:underline"
-            >
-              Open JSON
-            </Link>
-          )}
         </div>
       </div>
 

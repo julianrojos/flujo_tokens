@@ -854,23 +854,6 @@ export async function captureHealthSnapshot(args?: {
   });
 }
 
-export interface FilePayload {
-  ok: boolean;
-  file: string;
-  truncated?: boolean;
-  content: string;
-}
-
-export interface FileSnippetPayload {
-  ok: boolean;
-  file: string;
-  line: number;
-  startLine: number;
-  endLine: number;
-  matchedBy: 'line' | 'query';
-  snippet: string;
-}
-
 export interface CaptureFigmaScreenshotArgs {
   figmaUrl: string;
   figmaToken?: string;
@@ -1507,26 +1490,6 @@ function parseCaptureProgressChunks(args: {
   }
 
   return { buffer, snapshots };
-}
-
-export function fetchFile(filePath: string) {
-  const params = new URLSearchParams({ path: filePath });
-  return getJson<FilePayload>(`/api/file?${params.toString()}`);
-}
-
-export function fetchFileSnippet(args: {
-  file: string;
-  line?: number;
-  q?: string;
-  before?: number;
-  after?: number;
-}) {
-  const params = new URLSearchParams({ file: args.file });
-  if (args.line) params.set('line', String(args.line));
-  if (args.q) params.set('q', args.q);
-  if (args.before !== undefined) params.set('before', String(args.before));
-  if (args.after !== undefined) params.set('after', String(args.after));
-  return getJson<FileSnippetPayload>(`/api/file-snippet?${params.toString()}`);
 }
 
 export async function captureFigmaScreenshot(

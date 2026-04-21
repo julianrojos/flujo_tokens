@@ -16,21 +16,21 @@ describe('ROUTE_PATTERNS', () => {
   });
 
   it('defines system overview pattern with :systemId', () => {
-    assert.equal(ROUTE_PATTERNS.systemOverview, '/system/:systemId/overview');
+    assert.equal(ROUTE_PATTERNS.systemOverview, '/:systemId/overview');
   });
 
   it('defines system admin pattern with :systemId', () => {
-    assert.equal(ROUTE_PATTERNS.systemAdmin, '/system/:systemId/admin');
+    assert.equal(ROUTE_PATTERNS.systemAdmin, '/:systemId/admin');
   });
 
   it('defines system consumers pattern with :systemId', () => {
-    assert.equal(ROUTE_PATTERNS.systemConsumers, '/system/:systemId/consumers');
+    assert.equal(ROUTE_PATTERNS.systemConsumers, '/:systemId/consumers');
   });
 
   it('defines system operations pattern with :systemId', () => {
     assert.equal(
       ROUTE_PATTERNS.systemOperations,
-      '/system/:systemId/operations',
+      '/:systemId/operations',
     );
   });
 
@@ -48,87 +48,84 @@ describe('ROUTE_PATTERNS', () => {
 
 describe('toSystemOverview', () => {
   it('builds overview URL for a given systemId', () => {
-    assert.equal(toSystemOverview('abc-123'), '/system/abc-123/overview');
+    assert.equal(toSystemOverview('abc-123'), '/abc-123/overview');
   });
 
   it('URL-encodes the systemId', () => {
     assert.equal(
       toSystemOverview('my system/id'),
-      '/system/my%20system%2Fid/overview',
+      '/my%20system%2Fid/overview',
     );
   });
 
   it('handles empty systemId gracefully', () => {
-    assert.equal(toSystemOverview(''), '/system//overview');
-    assert.equal(
-      toSystemOverview(null as unknown as string),
-      '/system//overview',
-    );
+    assert.equal(toSystemOverview(''), '/overview');
+    assert.equal(toSystemOverview(null as unknown as string), '/overview');
   });
 });
 
 describe('toSystemAdmin', () => {
   it('builds admin URL for a given systemId', () => {
-    assert.equal(toSystemAdmin('xyz-789'), '/system/xyz-789/admin');
+    assert.equal(toSystemAdmin('xyz-789'), '/xyz-789/admin');
   });
 
   it('URL-encodes the systemId', () => {
     assert.equal(
       toSystemAdmin('my system/id'),
-      '/system/my%20system%2Fid/admin',
+      '/my%20system%2Fid/admin',
     );
   });
 });
 
 describe('toSystemConsumers', () => {
   it('builds consumers URL for a given systemId', () => {
-    assert.equal(toSystemConsumers('xyz-789'), '/system/xyz-789/consumers');
+    assert.equal(toSystemConsumers('xyz-789'), '/xyz-789/consumers');
   });
 
   it('URL-encodes the systemId', () => {
     assert.equal(
       toSystemConsumers('my system/id'),
-      '/system/my%20system%2Fid/consumers',
+      '/my%20system%2Fid/consumers',
     );
   });
 });
 
 describe('toSystemOperations', () => {
   it('builds operations URL for a given systemId', () => {
-    assert.equal(toSystemOperations('ops-456'), '/system/ops-456/operations');
+    assert.equal(toSystemOperations('ops-456'), '/ops-456/operations');
   });
 
   it('URL-encodes the systemId', () => {
     assert.equal(
       toSystemOperations('my system/id'),
-      '/system/my%20system%2Fid/operations',
+      '/my%20system%2Fid/operations',
     );
   });
 });
 
 describe('resolveSystemTab', () => {
   it('resolves overview tab', () => {
-    assert.equal(resolveSystemTab('/system/abc/overview'), 'overview');
+    assert.equal(resolveSystemTab('/abc/overview'), 'overview');
   });
 
   it('resolves admin tab', () => {
-    assert.equal(resolveSystemTab('/system/abc/admin'), 'admin');
+    assert.equal(resolveSystemTab('/abc/admin'), 'admin');
   });
 
   it('resolves consumers tab', () => {
-    assert.equal(resolveSystemTab('/system/abc/consumers'), 'consumers');
+    assert.equal(resolveSystemTab('/abc/consumers'), 'consumers');
   });
 
   it('resolves operations tab', () => {
-    assert.equal(resolveSystemTab('/system/abc/operations'), 'operations');
+    assert.equal(resolveSystemTab('/abc/operations'), 'operations');
   });
 
   it('falls back to overview for bare system path', () => {
-    assert.equal(resolveSystemTab('/system/abc'), 'overview');
+    assert.equal(resolveSystemTab('/abc'), 'overview');
   });
 
   it('falls back to overview for unknown tab', () => {
-    assert.equal(resolveSystemTab('/system/abc/settings'), 'overview');
+    assert.equal(resolveSystemTab('/abc/settings'), 'overview');
   });
 
   it('falls back to overview for root path', () => {

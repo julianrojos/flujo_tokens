@@ -542,9 +542,9 @@ Location: `apps/ds-dashboard/src/components/composites/`
 <SystemTabsNav />
 ```
 
-**When to use:** System area tab navigation (`Overview`, `Admin`, `Operations`) directly under `PageHeader` in system-scoped pages.
+**When to use:** System area tab navigation (`Overview`, `Admin`, `Consumers`, `Operations`) directly under `PageHeader` in system-scoped pages.
 **When NOT to use:** Generic page tabs outside the system domain, multi-tenant navigation, or non-route-driven tab UIs.
-**Required in system tab routes:** Any page mounted under `/system/:systemId/overview`, `/system/:systemId/admin`, or `/system/:systemId/operations` must render `<SystemTabsNav />` right after `<PageHeader />`.
+**Required in system tab routes:** Any page mounted under `/:systemId/overview`, `/:systemId/admin`, `/:systemId/consumers`, or `/:systemId/operations` must render `<SystemTabsNav />` right after `<PageHeader />`.
 
 ---
 
@@ -753,12 +753,6 @@ Location: `apps/ds-dashboard/src/features/`
 | `WizardStepImport`       | `src/features/system/components/wizard-step-import.tsx` | New-system wizard import step       |
 | `NewSystemPage`          | `src/features/system/new-system-page.tsx`               | New design-system orchestrator page |
 | `DesignSystemsAdminPage` | `src/features/system/design-systems-admin-page.tsx`     | Design systems admin page           |
-
-### Files Feature
-
-| Component        | Path                                      | Description                    |
-| ---------------- | ----------------------------------------- | ------------------------------ |
-| `FileViewerPage` | `src/features/files/file-viewer-page.tsx` | Local file browser/viewer page |
 
 ### Ops Feature
 

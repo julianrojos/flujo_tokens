@@ -19,12 +19,12 @@ import {
  * - The URL :systemId is the single source of truth.
  * - This layout synchronizes activeSystem one-way: URL → context/localStorage.
  * - Callers (e.g. SystemSwitcher) must navigate only; they must not call setActiveSystem directly.
- * - This layout is a guard/sync shell only. Child routes under /system/:systemId/*
+ * - This layout is a guard/sync shell only. Child routes under /:systemId/*
  *   must render <SystemTabsNav /> directly below their <PageHeader />.
  */
 export function SystemTabsLayout() {
   const { systemId } = useParams<{ systemId: string }>();
-  const bareSystemMatch = useMatch('/system/:systemId');
+  const bareSystemMatch = useMatch('/:systemId');
   const { systems, activeSystem, setActiveSystem } = useDesignSystem();
 
   const normalizedSystemId = String(systemId || '').trim();
@@ -53,7 +53,7 @@ export function SystemTabsLayout() {
     return <Navigate to={ROUTE_PATTERNS.newSystem} replace />;
   }
 
-  // Bare /system/:systemId (no tab) → redirect to overview
+  // Bare /:systemId (no tab) → redirect to overview
   if (bareSystemMatch?.params.systemId === normalizedSystemId) {
     return <Navigate to={toSystemOverview(normalizedSystemId)} replace />;
   }

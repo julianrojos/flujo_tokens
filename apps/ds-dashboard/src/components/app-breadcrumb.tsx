@@ -34,6 +34,26 @@ function decodeSafe(value: string) {
 
 type DesignSystemEntry = { id: string; name: string };
 
+function resolveActiveSystemLabel(
+  activeSystemId?: string,
+  systems?: DesignSystemEntry[],
+): string | null {
+  const normalizedSystemId = String(activeSystemId || '').trim();
+  if (!normalizedSystemId) return null;
+  return systems?.find((system) => system.id === normalizedSystemId)?.name ?? normalizedSystemId;
+}
+
+function buildSystemRootCrumb(
+  activeSystemId?: string,
+  systems?: DesignSystemEntry[],
+): Crumb {
+  const label = resolveActiveSystemLabel(activeSystemId, systems) || 'System';
+  return {
+    label,
+    to: activeSystemId ? toSystemOverview(activeSystemId) : undefined,
+  };
+}
+
 function buildCrumbs(
   pathname: string,
   options?: {
@@ -43,20 +63,12 @@ function buildCrumbs(
   },
 ): Crumb[] {
   if (pathname === ROUTE_PATTERNS.newSystem) {
-    return [
-      {
-        label: 'System',
-        to: options?.activeSystemId
-          ? toSystemAdmin(options.activeSystemId)
-          : undefined,
-      },
-      { label: 'New System' },
-    ];
+    return [{ label: 'New System' }];
   }
 
-  const systemOverviewMatch = matchPath('/system/:systemId/overview', pathname);
-  const systemAdminMatch = matchPath('/system/:systemId/admin', pathname);
-  const systemConsumersMatch = matchPath('/system/:systemId/consumers', pathname);
+  const systemOverviewMatch = matchPath(ROUTE_PATTERNS.systemOverview, pathname);
+  const systemAdminMatch = matchPath(ROUTE_PATTERNS.systemAdmin, pathname);
+  const systemConsumersMatch = matchPath(ROUTE_PATTERNS.systemConsumers, pathname);
   const systemOpsMatch = matchPath(ROUTE_PATTERNS.systemOperations, pathname);
 
   if (systemOverviewMatch?.params.systemId) {
@@ -64,7 +76,13 @@ function buildCrumbs(
     const systems = options?.systems ?? [];
     const system = systems.find((s) => s.id === systemId);
     const systemLabel = system?.name ?? systemId;
-    return [{ label: 'System' }, { label: systemLabel }, { label: 'Overview' }];
+    return [
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      { label: 'Overview' },
+    ];
   }
 
   if (systemAdminMatch?.params.systemId) {
@@ -73,8 +91,10 @@ function buildCrumbs(
     const system = systems.find((s) => s.id === systemId);
     const systemLabel = system?.name ?? systemId;
     return [
-      { label: 'System' },
-      { label: systemLabel },
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
       { label: 'Design Systems Admin' },
     ];
   }
@@ -85,9 +105,11 @@ function buildCrumbs(
     const system = systems.find((s) => s.id === systemId);
     const systemLabel = system?.name ?? systemId;
     return [
-      { label: 'System' },
-      { label: systemLabel },
-      { label: 'Consumer Files' },
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      { label: 'Consumers' },
     ];
   }
 
@@ -97,19 +119,30 @@ function buildCrumbs(
     const system = systems.find((s) => s.id === systemId);
     const systemLabel = system?.name ?? systemId;
     return [
-      { label: 'System' },
-      { label: systemLabel },
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
       { label: 'Operations' },
     ];
   }
 
   if (pathname === ROUTE_PATTERNS.tokens) {
-    return [{ label: 'Tokens' }];
+    return [
+      {
+        label: resolveActiveSystemLabel(options?.activeSystemId, options?.systems) || 'System',
+        to: options?.activeSystemId
+          ? toSystemOverview(options.activeSystemId)
+          : undefined,
+      },
+      { label: 'Tokens' },
+    ];
   }
 
   const tokenGraphMatch = matchPath(ROUTE_PATTERNS.tokenGraph, pathname);
   if (tokenGraphMatch?.params.tokenPath) {
     return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       { label: 'Tokens', to: ROUTE_PATTERNS.tokens },
       {
         label: decodeSafe(tokenGraphMatch.params.tokenPath),
@@ -122,13 +155,22 @@ function buildCrumbs(
   const tokenMatch = matchPath(ROUTE_PATTERNS.tokenDetail, pathname);
   if (tokenMatch?.params.tokenPath) {
     return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       { label: 'Tokens', to: ROUTE_PATTERNS.tokens },
       { label: decodeSafe(tokenMatch.params.tokenPath) },
     ];
   }
 
   if (pathname === ROUTE_PATTERNS.components) {
-    return [{ label: 'Components' }];
+    return [
+      {
+        label: resolveActiveSystemLabel(options?.activeSystemId, options?.systems) || 'System',
+        to: options?.activeSystemId
+          ? toSystemOverview(options.activeSystemId)
+          : undefined,
+      },
+      { label: 'Components' },
+    ];
   }
 
   const componentEditDocsMatch = matchPath(
@@ -137,6 +179,7 @@ function buildCrumbs(
   );
   if (componentEditDocsMatch?.params.slug) {
     return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       { label: 'Components', to: ROUTE_PATTERNS.components },
       {
         label: decodeSafe(componentEditDocsMatch.params.slug),
@@ -149,25 +192,26 @@ function buildCrumbs(
   const componentMatch = matchPath(ROUTE_PATTERNS.componentDetail, pathname);
   if (componentMatch?.params.slug) {
     return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       { label: 'Components', to: ROUTE_PATTERNS.components },
       { label: decodeSafe(componentMatch.params.slug) },
     ];
   }
 
-  if (pathname === ROUTE_PATTERNS.fileViewer) {
-    return [{ label: 'File Viewer' }];
-  }
-
   if (pathname === ROUTE_PATTERNS.consumers) {
-    return [{ label: 'Consumer Files' }];
+    return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      { label: 'Consumers' },
+    ];
   }
 
   const consumerMatch = matchPath(ROUTE_PATTERNS.consumerDetail, pathname);
   if (consumerMatch?.params.consumerId) {
     const rawConsumerId = decodeSafe(consumerMatch.params.consumerId);
     return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       {
-        label: 'Consumer Files',
+        label: 'Consumers',
         to: options?.activeSystemId
           ? toSystemConsumers(options.activeSystemId)
           : ROUTE_PATTERNS.consumers,

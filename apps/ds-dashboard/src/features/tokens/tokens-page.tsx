@@ -459,7 +459,7 @@ export function TokensPage() {
         description={
           resolvedValueFilter
             ? `Local inventory filtered by resolved value: ${resolvedValueFilterLabel || resolvedValueFilter}`
-            : "Local inventory of your design tokens, with filters by collection and type."
+            : undefined
         }
         actions={
           <div className="flex flex-wrap gap-2">
