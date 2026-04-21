@@ -339,26 +339,25 @@ export function TokensPage() {
 
   const metrics = useMemo(() => {
     const totalTokens = entries.length;
-    let tokensInUse = 0;
-    let totalRefs = 0;
+    let tokensWithUse = 0;
+    let aliasesTotal = 0;
 
     for (const entry of entries) {
       const usageCount = Number(usageByPath[entry.path]?.usageCount ?? 0);
-      if (usageCount > 0) tokensInUse += 1;
-      totalRefs += Math.max(0, usageCount);
+      if (usageCount > 0) tokensWithUse += 1;
+      if (entry.aliasOf !== null) aliasesTotal += 1;
     }
 
-    const tokensWithoutUse = Math.max(0, totalTokens - tokensInUse);
-    const usagePercent = totalTokens > 0 ? Math.round((tokensInUse / totalTokens) * 100) : 0;
+    const tokensWithoutUse = Math.max(0, totalTokens - tokensWithUse);
+    const aliasesPercent = totalTokens > 0 ? Math.round((aliasesTotal / totalTokens) * 100) : 0;
     const unusedPercent = totalTokens > 0 ? Math.round((tokensWithoutUse / totalTokens) * 100) : 0;
 
     return {
       totalTokens,
-      tokensInUse,
+      aliasesTotal,
       tokensWithoutUse,
-      usagePercent,
+      aliasesPercent,
       unusedPercent,
-      totalRefs,
     };
   }, [entries, usageByPath]);
 
@@ -483,16 +482,15 @@ export function TokensPage() {
           items={[
             { id: "tokens-total", label: "Total tokens", value: metrics.totalTokens },
             {
-              id: "tokens-in-use",
-              label: "Tokens en uso",
-              value: `${metrics.tokensInUse} (${metrics.usagePercent}%)`,
+              id: "aliases",
+              label: "Aliases",
+              value: `${metrics.aliasesTotal} (${metrics.aliasesPercent}%)`,
             },
             {
               id: "tokens-unused",
-              label: "Tokens sin uso",
+              label: "Unused tokens",
               value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
             },
-            { id: "tokens-total-uses", label: "Total uses", value: metrics.totalRefs },
           ]}
         />
       )}
