@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X } from 'lucide-react';
+import { SummaryMarkdownEditor } from '@/components/rich-text-editor/summary-markdown-editor';
 import { normalizeStringList } from '../normalizers';
 
 function createRowId(): string {
@@ -18,6 +19,48 @@ function createRowId(): string {
     return crypto.randomUUID();
   }
   return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+interface MarkdownFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  hideLabel?: boolean;
+  editorClassName?: string;
+}
+
+function MarkdownField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  hideLabel = false,
+  editorClassName,
+}: MarkdownFieldProps) {
+  const editorId = useId();
+  return (
+    <div className="space-y-1">
+      <label
+        htmlFor={editorId}
+        className={hideLabel ? 'sr-only' : 'text-sm font-medium'}
+        onClick={() => {
+          const editorElement = document.getElementById(editorId);
+          editorElement?.focus();
+        }}
+      >
+        {label}
+      </label>
+      <SummaryMarkdownEditor
+        id={editorId}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        ariaLabel={label}
+        editorClassName={editorClassName}
+      />
+    </div>
+  );
 }
 
 export interface EditDocsSummaryValue {
@@ -45,10 +88,6 @@ export interface SummaryFormCardProps {
 }
 
 export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
-  const purposeId = useId();
-  const whenToUseId = useId();
-  const whenNotToUseId = useId();
-
   return (
     <Card>
       <CardHeader>
@@ -56,37 +95,28 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
         <CardDescription>Core purpose and decision guidance for the component</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1">
-          <label htmlFor={purposeId} className="text-sm font-medium">Purpose</label>
-          <textarea
-            id={purposeId}
-            className="min-h-[100px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
-            value={value.purpose}
-            onChange={(e) => onChange({ ...value, purpose: e.target.value })}
-            rows={4}
-          />
-        </div>
+        <MarkdownField
+          label="Purpose"
+          value={value.purpose}
+          onChange={(next) => onChange({ ...value, purpose: next })}
+          placeholder="Describe the component purpose..."
+          editorClassName="min-h-[120px]"
+        />
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor={whenToUseId} className="text-sm font-medium">When to use</label>
-            <textarea
-              id={whenToUseId}
-              className="min-h-[90px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
-              value={value.whenToUse}
-              onChange={(e) => onChange({ ...value, whenToUse: e.target.value })}
-              rows={3}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor={whenNotToUseId} className="text-sm font-medium">When not to use</label>
-            <textarea
-              id={whenNotToUseId}
-              className="min-h-[90px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
-              value={value.whenNotToUse}
-              onChange={(e) => onChange({ ...value, whenNotToUse: e.target.value })}
-              rows={3}
-            />
-          </div>
+          <MarkdownField
+            label="When to use"
+            value={value.whenToUse}
+            onChange={(next) => onChange({ ...value, whenToUse: next })}
+            placeholder="Describe when the component should be used..."
+            editorClassName="min-h-[108px]"
+          />
+          <MarkdownField
+            label="When not to use"
+            value={value.whenNotToUse}
+            onChange={(next) => onChange({ ...value, whenNotToUse: next })}
+            placeholder="Describe when the component should not be used..."
+            editorClassName="min-h-[108px]"
+          />
         </div>
       </CardContent>
     </Card>
@@ -99,8 +129,6 @@ export interface BehaviourFormCardProps {
 }
 
 export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
-  const behaviourId = useId();
-
   return (
     <Card>
       <CardHeader>
@@ -108,13 +136,12 @@ export function BehaviourFormCard({ value, onChange }: BehaviourFormCardProps) {
         <CardDescription>What the component does when people interact with it</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1">
-        <label htmlFor={behaviourId} className="text-sm font-medium">Behaviour</label>
-        <textarea
-          id={behaviourId}
-          className="min-h-[100px] w-full rounded border border-border bg-surface-2 px-3 py-2 text-sm"
+        <MarkdownField
+          label="Behaviour"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={4}
+          onChange={onChange}
+          placeholder="Describe how the component behaves..."
+          editorClassName="min-h-[120px]"
         />
       </CardContent>
     </Card>
@@ -222,14 +249,13 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <label htmlFor={`${variantsIdBase}-desc-${i}`} className="sr-only">Description</label>
-                <textarea
-                  id={`${variantsIdBase}-desc-${i}`}
-                  className="w-full resize-none rounded border border-border bg-surface-2 px-2 py-1 text-sm"
+                <MarkdownField
+                  label="Description"
                   value={v.description}
-                  onChange={(e) => updateVariant(i, 'description', e.target.value)}
-                  rows={2}
+                  onChange={(next) => updateVariant(i, 'description', next)}
                   placeholder="Description"
+                  hideLabel
+                  editorClassName="min-h-[72px]"
                 />
                 <div className="space-y-1">
                   {Object.entries(v.properties).map(([k, val]) => (
@@ -323,7 +349,7 @@ function StringListEditor({
   placeholder,
   itemLabel,
 }: StringListCardProps) {
-  const { idBase, rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
 
   return (
     <div className="space-y-3">
@@ -342,15 +368,16 @@ function StringListEditor({
         <ul className="space-y-2">
           {value.map((item, i) => (
             <li key={rowIds[i]} className="flex items-start gap-2">
-              <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
-              <textarea
-                id={`${idBase}-${i}`}
-                className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm"
-                value={item}
-                onChange={(e) => updateItem(i, e.target.value)}
-                rows={2}
-                placeholder={placeholder}
-              />
+              <div className="flex-1">
+                <MarkdownField
+                  label={itemLabel(i)}
+                  value={item}
+                  onChange={(next) => updateItem(i, next)}
+                  placeholder={placeholder}
+                  hideLabel
+                  editorClassName="min-h-[72px]"
+                />
+              </div>
               <button
                 type="button"
                 className="mt-1 rounded p-1 text-muted-foreground hover:text-foreground"
@@ -377,7 +404,7 @@ function StringListCard({
   placeholder,
   itemLabel,
 }: StringListCardProps) {
-  const { idBase, rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
+  const { rowIds, addItem, updateItem, removeItem } = useStringListRows(value, onChange);
 
   return (
     <Card>
@@ -397,15 +424,16 @@ function StringListCard({
           <ul className="space-y-2">
             {value.map((item, i) => (
               <li key={rowIds[i]} className="flex items-start gap-2">
-                <label htmlFor={`${idBase}-${i}`} className="sr-only">{itemLabel(i)}</label>
-                <textarea
-                  id={`${idBase}-${i}`}
-                  className="flex-1 rounded border border-border bg-surface-2 px-2 py-1 text-sm"
-                  value={item}
-                  onChange={(e) => updateItem(i, e.target.value)}
-                  rows={2}
-                  placeholder={placeholder}
-                />
+                <div className="flex-1">
+                  <MarkdownField
+                    label={itemLabel(i)}
+                    value={item}
+                    onChange={(next) => updateItem(i, next)}
+                    placeholder={placeholder}
+                    hideLabel
+                    editorClassName="min-h-[72px]"
+                  />
+                </div>
                 <button
                   type="button"
                   className="mt-1 rounded p-1 text-muted-foreground hover:text-foreground"
