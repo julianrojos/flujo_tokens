@@ -81,8 +81,7 @@ describe("WizardStepBasics", () => {
       }),
     );
 
-    assert.match(html, /disabled/);
-    assert.match(html, /Scan first/);
+    assert.match(html, /disabled="">Import Design System<\/button>/);
   });
 
   it("shows empty state when scan returns no components", () => {
@@ -133,7 +132,9 @@ describe("WizardStepBasics", () => {
       }),
     );
 
-    assert.match(html, /disabled.*truncated/);
+    assert.match(html, /1 component found/);
+    assert.match(html, /View components/);
+    assert.doesNotMatch(html, /disabled.*truncated/);
   });
 
   it("enables Import Design System when scanState is ready", () => {
@@ -177,7 +178,7 @@ describe("WizardStepBasics", () => {
     assert.match(html, /disabled/);
   });
 
-  it("groups components by pageName", () => {
+  it("shows a modal trigger when scanState is ready", () => {
     const html = renderToStaticMarkup(
       React.createElement(WizardStepBasics, {
         ...defaultProps,
@@ -193,11 +194,10 @@ describe("WizardStepBasics", () => {
       }),
     );
 
-    assert.match(html, /Components/);
-    assert.match(html, /Overlays/);
+    assert.match(html, /View components/);
   });
 
-  it("keeps page groups collapsed by default after scan results are ready", () => {
+  it("does not render the scanned component list inline", () => {
     const html = renderToStaticMarkup(
       React.createElement(WizardStepBasics, {
         ...defaultProps,
@@ -213,7 +213,9 @@ describe("WizardStepBasics", () => {
       }),
     );
 
-    assert.match(html, /aria-expanded="false"/);
+    assert.doesNotMatch(html, /aria-expanded="false"/);
+    assert.doesNotMatch(html, /Button/);
+    assert.doesNotMatch(html, /Overlays/);
   });
 
   it("enables Select all when truncated=false even with >200 components", () => {
