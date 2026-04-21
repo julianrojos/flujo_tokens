@@ -4,7 +4,9 @@ import { ExternalLink } from "lucide-react";
 
 import {
   fetchComponentCatalog,
+  fetchDesignSystemsConfig,
   fetchComponentUsageIndex,
+  getActiveSystemId,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
@@ -16,6 +18,7 @@ import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
@@ -49,6 +52,10 @@ export function ComponentsPage() {
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
   >({});
+  const [importedComponentsCount, setImportedComponentsCount] = useState<number | null>(null);
+  const [scannedComponentsCount, setScannedComponentsCount] = useState<number | null>(null);
+  const [docsEditedPercent, setDocsEditedPercent] = useState(0);
+  const [hasPartialData, setHasPartialData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
@@ -64,12 +71,48 @@ export function ComponentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [registryPayload, usagePayload] = await Promise.all([
+      const [registryResult, designSystemsResult, usageResult] = await Promise.allSettled([
         fetchComponentCatalog(),
-        fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
+        fetchDesignSystemsConfig(),
+        fetchComponentUsageIndex(),
       ]);
+      if (registryResult.status !== "fulfilled") {
+        throw registryResult.reason;
+      }
+      const registryPayload = registryResult.value;
+      const designSystemsConfig =
+        designSystemsResult.status === "fulfilled" ? designSystemsResult.value : null;
+      const usagePayload =
+        usageResult.status === "fulfilled" ? usageResult.value : { by_slug: {} };
+      const activeSystemId = String(getActiveSystemId() || "").trim();
+      const activeSystem =
+        designSystemsConfig?.systems.find((entry) => entry.id === activeSystemId) ?? null;
+      const totalComponents = Number(registryPayload.summary?.total_components ?? 0);
+      const withEditorial = Number(registryPayload.summary?.with_editorial ?? 0);
+      const importedComponents =
+        activeSystem && typeof activeSystem.importedComponentsCount === "number" &&
+          Number.isFinite(activeSystem.importedComponentsCount)
+          ? activeSystem.importedComponentsCount
+          : null;
+      const scannedComponents =
+        activeSystem && typeof activeSystem.detectedComponentsCount === "number" &&
+          Number.isFinite(activeSystem.detectedComponentsCount)
+          ? activeSystem.detectedComponentsCount
+          : null;
       setRows(registryPayload.components ?? []);
       setUsageBySlug(usagePayload.by_slug ?? {});
+      setImportedComponentsCount(importedComponents);
+      setScannedComponentsCount(scannedComponents);
+      setHasPartialData(
+        designSystemsResult.status !== "fulfilled" ||
+          usageResult.status !== "fulfilled" ||
+          activeSystem === null ||
+          importedComponents === null ||
+          scannedComponents === null,
+      );
+      setDocsEditedPercent(
+        totalComponents > 0 ? Math.round((withEditorial / totalComponents) * 100) : 0,
+      );
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -118,12 +161,6 @@ export function ComponentsPage() {
     return next;
   }, [rows, search, specFilter, sort, usageBySlug]);
 
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const withSpec = rows.filter((item) => item.spec.exists).length;
-    return { total, withSpec };
-  }, [rows]);
-
   const pageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= filtered.length),
     [filtered.length],
@@ -169,6 +206,15 @@ export function ComponentsPage() {
     return map;
   }, [rows]);
 
+  const multiVariantPercent = useMemo(() => {
+    const total = rows.length;
+    if (total <= 0) return 0;
+    const multiVariant = rows.filter((item) => getVariantCount(item) >= 2).length;
+    return Math.round((multiVariant / total) * 100);
+  }, [rows]);
+
+  const formatCount = (value: number | null) => (value === null ? "—" : String(value));
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -177,12 +223,22 @@ export function ComponentsPage() {
       />
 
       <StatsOverview
-        gridClassName="md:grid-cols-2"
         items={[
-          { id: "components-total", label: "Total componentes", value: stats.total },
-          { id: "components-with-spec", label: "Docs", value: stats.withSpec },
+          {
+            id: "components-imported-scanned",
+            label: "Imported / scanned components",
+            value: `${formatCount(importedComponentsCount)} / ${formatCount(scannedComponentsCount)}`,
+          },
+          { id: "components-docs-edited", label: "Documentation coverage", value: `${docsEditedPercent}%` },
+          { id: "components-multi-variant-rate", label: "Multi-variant rate", value: `${multiVariantPercent}%` },
         ]}
       />
+
+      {hasPartialData ? (
+        <StatusAlert variant="warning" title="Partial component data">
+          Some KPI values are unavailable because the design system config or usage index could not be loaded.
+        </StatusAlert>
+      ) : null}
 
       <Card className="p-5 text-card-foreground backdrop-blur-sm">
           <FilterBar
