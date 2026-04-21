@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { AiJobCreateForm } from '@/components/composites/ai-job-create-form';
 import { AiJobStatusCard } from '@/components/composites/ai-job-status-card';
 import { cancelAiJob } from '@/lib/ai-jobs-api';
+import { cn } from '@/lib/utils';
 
 interface AiSuggestionsModalProps {
   open: boolean;
@@ -77,6 +78,13 @@ export function AiSuggestionsModal({
     onClose();
   }, [activeJobId, activeJobStatus, onClose]);
 
+  const statusToneClass =
+    activeJobStatus === 'completed'
+      ? 'text-status-success'
+      : activeJobStatus === 'failed'
+        ? 'text-status-error'
+        : '';
+
   return (
     <Modal open={open} onClose={handleClose} aria-labelledby="ai-suggestions-modal-title" zIndex={1200}>
       <ModalContent
@@ -85,7 +93,7 @@ export function AiSuggestionsModal({
       >
         <ModalHeader>
           <div>
-            <h3 id="ai-suggestions-modal-title" className="text-base font-titles font-semibold">
+            <h3 id="ai-suggestions-modal-title" className="text-base font-titles font-semibold titles-color">
               AI Suggestions
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -102,6 +110,9 @@ export function AiSuggestionsModal({
             <AiJobCreateForm
               formId={formId}
               hideSubmitButton
+              initialProvider="openrouter"
+              initialModel="google/gemma-4-26b-a4b-it"
+              showOpenRouterModelSuggestions={false}
               lockedComponentId={figmaComponentId}
               onSubmitStateChange={handleSubmitStateChange}
               onJobCreated={handleJobCreated}
@@ -114,7 +125,10 @@ export function AiSuggestionsModal({
                 onJobComplete={handleJobComplete}
                 hideHeader
                 hidePreviewButton
-                className="rounded-none border-0 shadow-none backdrop-blur-none"
+                className={cn(
+                  'rounded-none border-0 shadow-none backdrop-blur-none',
+                  statusToneClass,
+                )}
               />
             ) : (
               <div className="bg-muted/20 p-4 text-sm text-muted-foreground">

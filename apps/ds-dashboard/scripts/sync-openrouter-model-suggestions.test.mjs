@@ -27,7 +27,7 @@ describe('sync-openrouter-model-suggestions smoke test', () => {
 
     global.fetch = (async (input) => {
       const url = String(input);
-      if (url === 'https://openrouter.ai/rankings') {
+      if (url === 'https://openrouter.ai/rankings?view=day') {
         return new Response(
           '<a href="/models/anthropic/claude-opus-4.6">Claude Opus 4.6</a><a href="/models/qwen/qwen3.6-plus%3Afree">Qwen</a>',
           {

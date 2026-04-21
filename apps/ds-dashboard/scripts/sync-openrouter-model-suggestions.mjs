@@ -8,21 +8,10 @@ import {
 } from '../server/lib/openrouter-model-slug-utils.mjs';
 
 const RANKINGS_URL =
-  process.env.OPENROUTER_RANKINGS_URL ?? 'https://openrouter.ai/rankings';
+  process.env.OPENROUTER_RANKINGS_URL ??
+  'https://openrouter.ai/rankings?view=day';
 const MODELS_URL =
   process.env.OPENROUTER_MODELS_URL ?? 'https://openrouter.ai/api/v1/models';
-const EXTRA_MODEL_SUGGESTIONS = [
-  'stepfun/step-3.5-flash',
-  'nvidia/nemotron-3-super-120b-a12b',
-  'google/gemini-3.1-pro-preview',
-  'qwen/qwen3.6-plus',
-  'qwen/qwen3.6-plus:free',
-  'openrouter/hunter-alpha',
-  'openrouter/healer-alpha',
-  'openrouter/elephant-alpha',
-  'openrouter/aurora-alpha',
-  'openrouter/pony-alpha',
-];
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const outputFile = path.resolve(
@@ -97,25 +86,7 @@ export async function main() {
     };
   });
 
-  const rankedValues = new Set(suggestions.map((item) => item.value));
-  const extraSuggestions = EXTRA_MODEL_SUGGESTIONS
-    .filter((slug) => !rankedValues.has(slug))
-    .map((slug, index) => {
-      const model = modelById.get(slug);
-      const label = typeof model?.name === 'string'
-        ? model.name
-        : fallbackLabelFromSlug(slug) ?? slug;
-
-      return {
-        value: slug,
-        label,
-        hint: `OpenRouter suggestion #${index + 11}`,
-      };
-    });
-  const mergedSuggestions = [...suggestions, ...extraSuggestions].slice(
-    0,
-    MAX_OPENROUTER_SUGGESTIONS,
-  );
+  const mergedSuggestions = suggestions.slice(0, MAX_OPENROUTER_SUGGESTIONS);
 
   const content = `import type { OpenRouterModelSuggestion } from '../../shared/openrouter-types';
 

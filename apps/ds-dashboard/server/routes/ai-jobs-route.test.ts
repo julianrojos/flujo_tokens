@@ -1573,6 +1573,28 @@ describe('ai-jobs-route', () => {
                 global.fetch = originalFetch;
             }
         });
+
+        it('falls back to the configured OpenRouter model when no rankings are available', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const originalFetch = global.fetch;
+            global.fetch = (async () => new Response('not found', { status: 404 })) as typeof fetch;
+
+            try {
+                const res = await app.request('/api/ai/providers/openrouter/default-model', {
+                    method: 'GET',
+                    headers: { 'x-forwarded-for': '127.0.0.1' },
+                });
+
+                assert.equal(res.status, 200);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.equal(json.model, 'google/gemma-4-26b-a4b-it');
+                assert.equal(json.source, 'openrouter/config');
+            } finally {
+                global.fetch = originalFetch;
+            }
+        });
     });
 
     describe('GET /api/ai/prompts/defaults', () => {

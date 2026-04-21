@@ -13,9 +13,7 @@ import { StatusAlert } from '@/components/ui/status-alert';
 import { OPENROUTER_RANKED_MODEL_SUGGESTIONS } from '@/data/openrouter-model-suggestions';
 import {
   getAiConfiguredProviders,
-  getOpenRouterDefaultModel,
 } from '@/lib/ai-jobs-api';
-import { createOpenRouterDefaultModelGate } from '@/lib/openrouter-default-model-gate';
 import { useAiJobCreate } from '@/hooks/use-ai-job-create';
 import { useAiProviderHealth } from '@/hooks/use-ai-provider-health';
 import type {
@@ -65,6 +63,8 @@ interface AiJobCreateFormProps {
     disabled: boolean;
     pending: boolean;
   }) => void;
+  /** Whether to show OpenRouter model suggestions UI */
+  showOpenRouterModelSuggestions?: boolean;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] =
@@ -76,7 +76,7 @@ const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] =
 const DEFAULT_MODELS: Record<AiProviderName, string> = {
   anthropic: 'claude-sonnet-4-20250514',
   openai: 'gpt-4o-mini-2024-07-18',
-  openrouter: 'deepseek/deepseek-chat',
+  openrouter: 'google/gemma-4-26b-a4b-it',
   gemini: 'gemini-2.0-flash',
   ollama: 'llama3.2',
 };
@@ -107,6 +107,7 @@ export function AiJobCreateForm({
   formId,
   hideSubmitButton = false,
   onSubmitStateChange,
+  showOpenRouterModelSuggestions = true,
 }: AiJobCreateFormProps) {
   const [provider, setProvider] = useState<AiProviderName>(
     initialProvider || 'ollama',
@@ -115,43 +116,28 @@ export function AiJobCreateForm({
     lockedComponentId || initialComponentId,
   );
   const [model, setModel] = useState(initialModel || '');
+  const [modelTouched, setModelTouched] = useState(
+    Boolean(String(initialModel || '').trim()),
+  );
   const [runValidation, setRunValidation] = useState(false);
   const [providerTouched, setProviderTouched] = useState(false);
   const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
-  const openRouterModelGateRef = useRef(
-    createOpenRouterDefaultModelGate(initialModel),
-  );
   const openRouterModelSuggestions = OPENROUTER_RANKED_MODEL_SUGGESTIONS;
 
   const markOpenRouterModelTouched = useCallback(() => {
-    openRouterModelGateRef.current.markTouched();
+    setModelTouched(true);
   }, []);
 
   const handleProviderChange = useCallback(
     (nextProvider: AiProviderName) => {
       setProviderTouched(true);
       setProvider(nextProvider);
-      openRouterModelGateRef.current.cancelPendingRequest();
+      if (nextProvider === 'openrouter' && !modelTouched) {
+        setModel(DEFAULT_MODELS.openrouter);
+      }
     },
-    [],
+    [modelTouched],
   );
-
-  const applyOpenRouterDefaultModel = useCallback(async () => {
-    if (provider !== 'openrouter') return;
-    const requestSeq = openRouterModelGateRef.current.beginRequest();
-    if (requestSeq === null) return;
-    try {
-      const response = await getOpenRouterDefaultModel();
-      const nextModel = String(response.model || '').trim();
-      if (!nextModel) return;
-      const canApplyDefaultModel =
-        openRouterModelGateRef.current.canApply(requestSeq);
-      if (!canApplyDefaultModel) return;
-      setModel(nextModel);
-    } catch {
-      // Keep the input usable even if the remote ranking lookup fails.
-    }
-  }, [provider]);
 
   const { data: configuredProviders, isFetched: configuredProvidersLoaded } =
     useQuery({
@@ -179,17 +165,20 @@ export function AiJobCreateForm({
   useEffect(() => {
     if (initialModel !== undefined) {
       setModel(initialModel);
-      openRouterModelGateRef.current.syncInitialModel(initialModel);
+      setModelTouched(Boolean(String(initialModel || '').trim()));
     }
   }, [initialModel]);
 
   useEffect(() => {
-    void applyOpenRouterDefaultModel();
-  }, [applyOpenRouterDefaultModel]);
+    if (provider !== 'openrouter') return;
+    if (modelTouched) return;
+    if (model === DEFAULT_MODELS.openrouter) return;
+    setModel(DEFAULT_MODELS.openrouter);
+  }, [model, modelTouched, provider]);
 
   useEffect(() => {
-    setOpenRouterVisibleCount(5);
-  }, [provider]);
+    setOpenRouterVisibleCount(Math.min(5, openRouterModelSuggestions.length));
+  }, [provider, openRouterModelSuggestions.length]);
 
   // Reset acknowledgement when selected component changes
   useEffect(() => {
@@ -260,13 +249,17 @@ export function AiJobCreateForm({
   );
   const shouldShowFallbackOption =
     componentId.trim().length > 0 && !selectedComponentIsKnown;
-  const isOpenRouterProvider = provider === 'openrouter';
+  const isOpenRouterProvider =
+    provider === 'openrouter' && showOpenRouterModelSuggestions;
   const selectedOpenRouterModel = model.trim();
   const [openRouterVisibleCount, setOpenRouterVisibleCount] = useState(5);
   const openRouterVisibleSuggestions = openRouterModelSuggestions.slice(
     0,
     MAX_OPENROUTER_SUGGESTIONS,
   );
+  const maxVisibleOpenRouterSuggestions = openRouterVisibleSuggestions.length;
+  const hasMoreOpenRouterSuggestions =
+    openRouterVisibleCount < maxVisibleOpenRouterSuggestions;
   const lastSubmitStateRef = useRef<{
     disabled: boolean;
     pending: boolean;
@@ -339,22 +332,13 @@ export function AiJobCreateForm({
                 size="sm"
                 onClick={() =>
                   setOpenRouterVisibleCount((count) =>
-                    Math.min(
-                      count + 5,
-                      openRouterVisibleSuggestions.length,
-                    ),
+                    Math.min(count + 5, maxVisibleOpenRouterSuggestions),
                   )
                 }
                 className="h-auto min-h-0 px-0 text-xs text-muted-foreground"
-                disabled={
-                  openRouterVisibleCount >=
-                  openRouterVisibleSuggestions.length
-                }
+                disabled={!hasMoreOpenRouterSuggestions}
               >
-                {openRouterVisibleCount >=
-                openRouterVisibleSuggestions.length
-                  ? 'All loaded'
-                  : 'Load more'}
+                {hasMoreOpenRouterSuggestions ? 'Load more' : 'All loaded'}
               </Button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">

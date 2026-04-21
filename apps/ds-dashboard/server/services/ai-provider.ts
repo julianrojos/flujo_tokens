@@ -90,7 +90,7 @@ export interface AiProviderConfig {
 const DEFAULT_CONFIG: AiProviderConfig = {
   anthropicModel: 'claude-sonnet-4-20250514',
   openaiModel: 'gpt-4o-mini-2024-07-18',
-  openrouterModel: 'deepseek/deepseek-chat',
+  openrouterModel: 'google/gemma-4-26b-a4b-it',
   ollamaModel: 'qwen2.5:7b-instruct',
   geminiModel: 'gemini-2.0-flash',
   ollamaBaseUrl: 'http://127.0.0.1:11434',

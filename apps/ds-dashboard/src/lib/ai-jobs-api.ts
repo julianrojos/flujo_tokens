@@ -18,12 +18,6 @@ import type {
     AiPromptPreviewResponse,
 } from '@/types/ai-jobs';
 
-export interface OpenRouterDefaultModelResponse {
-    ok?: boolean;
-    model?: string;
-    source?: string;
-}
-
 /**
  * Create a new AI documentation job
  */
@@ -81,12 +75,6 @@ export async function getAiProviderHealth(params: {
 
 export async function getAiConfiguredProviders(): Promise<AiProviderConfiguredResponse> {
     return requestJson<AiProviderConfiguredResponse>('/api/ai/providers/configured');
-}
-
-export async function getOpenRouterDefaultModel(): Promise<OpenRouterDefaultModelResponse> {
-    return requestJson<OpenRouterDefaultModelResponse>(
-        '/api/ai/providers/openrouter/default-model',
-    );
 }
 
 export async function getAiPromptDefaults(): Promise<AiPromptDefaultsResponse> {
