@@ -98,7 +98,7 @@ export function VariantsSuggestionCard({ value, onApply }: VariantsSuggestionCar
         ) : (
           <ul className="space-y-2">
             {value.map((variant) => (
-              <li key={variant.id} className="rounded-md border border-border bg-surface-2 p-3">
+              <li key={variant.id}>
                 <p className="text-sm font-medium">{variant.name}</p>
                 <p className="text-xs text-muted-foreground">{variant.description}</p>
                 {Object.keys(variant.properties).length > 0 && (

@@ -203,7 +203,7 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
         ) : (
           <ul className="space-y-3">
             {variants.map((v, i) => (
-              <li key={variantRowIds[i]} className="rounded-md border border-border bg-surface-2 p-3">
+              <li key={variantRowIds[i]}>
                 <div className="mb-2 flex items-center justify-between">
                   <label htmlFor={`${variantsIdBase}-name-${i}`} className="sr-only">Variant name</label>
                   <input
@@ -223,11 +223,12 @@ export function VariantsFormCard({ value: variants, onChange }: VariantsFormCard
                   </button>
                 </div>
                 <label htmlFor={`${variantsIdBase}-desc-${i}`} className="sr-only">Description</label>
-                <input
+                <textarea
                   id={`${variantsIdBase}-desc-${i}`}
-                  className="mb-2 w-full rounded border border-border bg-surface-2 px-2 py-1 text-sm"
+                  className="w-full resize-none rounded border border-border bg-surface-2 px-2 py-1 text-sm"
                   value={v.description}
                   onChange={(e) => updateVariant(i, 'description', e.target.value)}
+                  rows={2}
                   placeholder="Description"
                 />
                 <div className="space-y-1">
