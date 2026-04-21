@@ -16,6 +16,11 @@ export interface DesignSystemRow {
   figma_api_token: string | null;
   collections: unknown;
   compile_variables_on_capture: boolean;
+  detected_components_count: number | null;
+  imported_components_count: number | null;
+  pending_components_count: number | null;
+  imported_component_names: unknown;
+  pending_component_names: unknown;
   created_at: Date;
   updated_at: Date;
 }
@@ -28,6 +33,11 @@ export interface DesignSystemEntry {
   figmaApiToken?: string;
   collections?: string[];
   compileVariablesOnCapture?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export interface SystemPaths {
@@ -96,6 +106,8 @@ export function resolveSystemPaths(
 
 function rowToEntry(row: DesignSystemRow): DesignSystemEntry {
   const collections = normalizeCollections(row.collections);
+  const importedComponentNames = normalizeNameList(row.imported_component_names);
+  const pendingComponentNames = normalizeNameList(row.pending_component_names);
   return {
     id: row.id,
     name: row.name,
@@ -104,6 +116,11 @@ function rowToEntry(row: DesignSystemRow): DesignSystemEntry {
     figmaApiToken: row.figma_api_token ?? undefined,
     collections,
     compileVariablesOnCapture: row.compile_variables_on_capture,
+    detectedComponentsCount: typeof row.detected_components_count === 'number' ? row.detected_components_count : undefined,
+    importedComponentsCount: typeof row.imported_components_count === 'number' ? row.imported_components_count : undefined,
+    pendingComponentsCount: typeof row.pending_components_count === 'number' ? row.pending_components_count : undefined,
+    importedComponentNames,
+    pendingComponentNames,
   };
 }
 
@@ -131,6 +148,37 @@ function normalizeCollections(value: unknown): string[] | undefined {
 function serializeCollections(value: string[] | undefined): string | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   const normalized = value.map((item) => String(item || '').trim()).filter(Boolean);
+  if (normalized.length === 0) return null;
+  return JSON.stringify(normalized);
+}
+
+function normalizeNameList(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+    return normalized.length > 0 ? normalized : undefined;
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return undefined;
+    const normalized = parsed
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean);
+    return normalized.length > 0 ? normalized : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function serializeNameList(value: string[] | undefined): string | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const normalized = value
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
   if (normalized.length === 0) return null;
   return JSON.stringify(normalized);
 }
@@ -164,7 +212,9 @@ export class DesignSystemRepository {
 
   async getAll(): Promise<DesignSystemEntry[]> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture, created_at, updated_at
+            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+                   detected_components_count, imported_components_count, pending_components_count,
+                   imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
             ORDER BY name
         `) as Array<DesignSystemRow>;
@@ -173,7 +223,9 @@ export class DesignSystemRepository {
 
   async getById(id: string): Promise<DesignSystemEntry | null> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture, created_at, updated_at
+            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+                   detected_components_count, imported_components_count, pending_components_count,
+                   imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
             WHERE id = ${id}
         `) as Array<DesignSystemRow>;
@@ -184,9 +236,20 @@ export class DesignSystemRepository {
   async create(entry: DesignSystemEntry): Promise<DesignSystemEntry> {
     const now = new Date();
     const collections = serializeCollections(entry.collections);
+    const importedComponentNames = serializeNameList(entry.importedComponentNames);
+    const pendingComponentNames = serializeNameList(entry.pendingComponentNames);
     await this.sql`
-            INSERT INTO design_systems (id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture, created_at, updated_at)
-            VALUES (${entry.id}, ${entry.name}, ${entry.appName ?? null}, ${entry.figmaFileId ?? null}, ${entry.figmaApiToken ?? null}, ${collections}, ${entry.compileVariablesOnCapture !== false}, ${now}, ${now})
+            INSERT INTO design_systems (
+              id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+              detected_components_count, imported_components_count, pending_components_count,
+              imported_component_names, pending_component_names, created_at, updated_at
+            )
+            VALUES (
+              ${entry.id}, ${entry.name}, ${entry.appName ?? null}, ${entry.figmaFileId ?? null}, ${entry.figmaApiToken ?? null},
+              ${collections}, ${entry.compileVariablesOnCapture !== false},
+              ${entry.detectedComponentsCount ?? null}, ${entry.importedComponentsCount ?? null}, ${entry.pendingComponentsCount ?? null},
+              ${importedComponentNames}, ${pendingComponentNames}, ${now}, ${now}
+            )
         `;
     return { ...entry };
   }
@@ -206,9 +269,22 @@ export class DesignSystemRepository {
 
     const now = new Date();
     const collections = serializeCollections(updated.collections);
+    const importedComponentNames = serializeNameList(updated.importedComponentNames);
+    const pendingComponentNames = serializeNameList(updated.pendingComponentNames);
     await this.sql`
             UPDATE design_systems
-            SET name = ${updated.name}, app_name = ${updated.appName ?? null}, figma_file_id = ${updated.figmaFileId ?? null}, figma_api_token = ${updated.figmaApiToken ?? null}, collections = ${collections}, compile_variables_on_capture = ${updated.compileVariablesOnCapture !== false}, updated_at = ${now}
+            SET name = ${updated.name},
+                app_name = ${updated.appName ?? null},
+                figma_file_id = ${updated.figmaFileId ?? null},
+                figma_api_token = ${updated.figmaApiToken ?? null},
+                collections = ${collections},
+                compile_variables_on_capture = ${updated.compileVariablesOnCapture !== false},
+                detected_components_count = ${updated.detectedComponentsCount ?? null},
+                imported_components_count = ${updated.importedComponentsCount ?? null},
+                pending_components_count = ${updated.pendingComponentsCount ?? null},
+                imported_component_names = ${importedComponentNames},
+                pending_component_names = ${pendingComponentNames},
+                updated_at = ${now}
             WHERE id = ${id}
         `;
 

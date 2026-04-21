@@ -428,6 +428,7 @@ export function NewSystemPage() {
             importedCount={resultImportedCount ?? importState.selectedCount}
             notSelectedCount={resultNotSelectedCount ?? importState.notSelectedCount}
             showTokensLink={canShowTokensLink}
+            systemId={importState.jobId}
             statusText={importStatusText}
             showDetails={showImportErrorDetails}
             isCancelling={effectiveIsCancelling}

@@ -112,9 +112,8 @@ const emptyScan: ScanResult = {
   errorNonce: 0,
 };
 
-const initialState: WizardState = {
-  step: "basics",
-  form: {
+function createInitialFormState(): WizardFormState {
+  return {
     systemName: "",
     appName: "",
     figmaFileUrl: "",
@@ -122,8 +121,11 @@ const initialState: WizardState = {
     compileVariablesOnCapture: true,
     makeDefault: false,
     systemIdOverride: "",
-  },
-  import: {
+  };
+}
+
+function createInitialImportState(): WizardImportState {
+  return {
     jobId: "",
     makeDefault: false,
     systemsSnapshot: [],
@@ -138,10 +140,26 @@ const initialState: WizardState = {
     selectedCount: 0,
     notSelectedCount: 0,
     selectedComponentNodeIds: [],
-  },
-  scan: emptyScan,
-  selectedComponentNodeIds: new Set(),
-};
+  };
+}
+
+function createEmptyScanState(): ScanResult {
+  return {
+    ...emptyScan,
+    components: [],
+  };
+}
+
+export function createInitialWizardState(options: { restorePersistedScan?: boolean } = {}): WizardState {
+  const { restorePersistedScan: _restorePersistedScan = true } = options;
+  return {
+    step: "basics",
+    form: createInitialFormState(),
+    import: createInitialImportState(),
+    scan: createEmptyScanState(),
+    selectedComponentNodeIds: new Set(),
+  };
+}
 
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
@@ -209,7 +227,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         ...state,
         step: "importing",
         import: {
-          ...initialState.import,
+          ...createInitialImportState(),
           jobId: action.payload.jobId,
           makeDefault: action.payload.makeDefault,
           systemsSnapshot: action.payload.systemsSnapshot,
@@ -241,9 +259,15 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         },
       };
     case "CANCEL_IMPORT":
-      return { ...state, step: "basics", import: initialState.import, scan: emptyScan, selectedComponentNodeIds: new Set() };
+      return {
+        ...state,
+        step: "basics",
+        import: createInitialImportState(),
+        scan: createEmptyScanState(),
+        selectedComponentNodeIds: new Set(),
+      };
     case "RESET":
-      return { ...initialState, scan: emptyScan, selectedComponentNodeIds: new Set() };
+      return createInitialWizardState({ restorePersistedScan: false });
     default:
       return state;
   }
@@ -283,7 +307,7 @@ interface NewSystemWizardViewModel {
 
 export function useNewSystemWizard(): NewSystemWizardViewModel {
   const { replaceSystems, systems, activeSystem } = useDesignSystem();
-  const [state, dispatch] = useReducer(wizardReducer, initialState);
+  const [state, dispatch] = useReducer(wizardReducer, undefined, createInitialWizardState);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
@@ -460,7 +484,12 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
       const message = cause instanceof Error ? cause.message : String(cause);
       dispatch({ type: "SCAN_ERROR", payload: message });
     }
-  }, [isSystemNameTaken, state.form.figmaAccessToken, state.form.figmaFileUrl, state.form.systemName]);
+  }, [
+    isSystemNameTaken,
+    state.form.figmaAccessToken,
+    state.form.figmaFileUrl,
+    state.form.systemName,
+  ]);
 
   const handleImportDesignSystem = useCallback(async () => {
     if (!isFormValid) return;
@@ -484,6 +513,20 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         capturedScan.components.length > 0 &&
         capturedSelection.size < capturedScan.components.length;
       const isPartial = hasSelection && isSelectionSubset;
+      const scanComponents = capturedScan.components;
+      const importedComponentSet = isPartial
+        ? new Set(
+            scanComponents
+              .filter((component) => capturedSelection.has(component.nodeId))
+              .map((component) => component.nodeId),
+          )
+        : new Set(scanComponents.map((component) => component.nodeId));
+      const importedComponentNames = scanComponents
+        .filter((component) => importedComponentSet.has(component.nodeId))
+        .map((component) => `${component.pageName} / ${component.name}`);
+      const pendingComponentNames = scanComponents
+        .filter((component) => !importedComponentSet.has(component.nodeId))
+        .map((component) => `${component.pageName} / ${component.name}`);
 
       const result = await createDesignSystem({
         id: systemId,
@@ -491,8 +534,13 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         appName: state.form.appName.trim() || undefined,
         figmaFileId: sourceFileKey,
         figmaApiToken: state.form.figmaAccessToken.trim() || undefined,
-        compileVariablesOnCapture: state.form.compileVariablesOnCapture,
+        compileVariablesOnCapture: true,
         makeDefault: state.form.makeDefault,
+        detectedComponentsCount: scanComponents.length,
+        importedComponentsCount: importedComponentNames.length,
+        pendingComponentsCount: pendingComponentNames.length,
+        importedComponentNames,
+        pendingComponentNames,
       });
 
       if (!result.ok || !result.system || !result.config) {

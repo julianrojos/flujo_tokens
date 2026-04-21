@@ -343,6 +343,7 @@
   --app-accent-hover: var(--color-sky-600);
   --app-accent-fg: var(--color-white);
   --app-accent-deep: var(--color-blue-950);
+  --app-brand-figma: #a259ff;
   --app-destructive: var(--color-red-600);
   --app-destructive-fg: var(--color-white);
 

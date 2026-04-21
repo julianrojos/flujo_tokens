@@ -45,6 +45,11 @@ test("system-route-service: create mutation returns normalized next system", () 
       name: "Beta",
       figmaApiToken: "FIGMA_BETA",
       collections: ["primitives", "semantic"],
+      detectedComponentsCount: 10,
+      importedComponentsCount: 7,
+      pendingComponentsCount: 3,
+      importedComponentNames: ["Core / Button", "Core / Input"],
+      pendingComponentNames: ["Forms / Select"],
       makeDefault: true,
     },
     normalizeSystemId: (value) => String(value || "").toLowerCase().replace(/\s+/g, "-"),
@@ -59,8 +64,35 @@ test("system-route-service: create mutation returns normalized next system", () 
   assert.equal(mutation.nextSystem?.outputDir, "design-systems/beta-design/output");
   assert.equal(mutation.nextSystem?.docsDir, "design-systems/beta-design/docs");
   assert.equal(mutation.nextSystem?.figmaApiToken, "FIGMA_BETA");
+  assert.equal(mutation.nextSystem?.detectedComponentsCount, 10);
+  assert.equal(mutation.nextSystem?.importedComponentsCount, 7);
+  assert.equal(mutation.nextSystem?.pendingComponentsCount, 3);
+  assert.deepEqual(mutation.nextSystem?.importedComponentNames, ["Core / Button", "Core / Input"]);
+  assert.deepEqual(mutation.nextSystem?.pendingComponentNames, ["Forms / Select"]);
   assert.equal(mutation.nextConfig?.defaultSystem, "beta-design");
   assert.equal(mutation.nextConfig?.systems.length, 2);
+});
+
+test("system-route-service: create mutation uses FIGMA_TOKEN fallback key", () => {
+  let receivedFallback = "";
+  const mutation = buildCreateDesignSystemConfigMutation({
+    config: createConfig(),
+    body: {
+      id: "Gamma Design",
+      name: "Gamma",
+    },
+    normalizeSystemId: (value) => String(value || "").toLowerCase().replace(/\s+/g, "-"),
+    ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
+    normalizeFigmaApiTokenRef: (_value, fallback) => {
+      receivedFallback = String(fallback || "");
+      return String(fallback || "");
+    },
+    normalizeCollectionList: (value) => (Array.isArray(value) ? value : []),
+  });
+
+  assert.ok(!mutation.error);
+  assert.equal(receivedFallback, "FIGMA_TOKEN");
+  assert.equal(mutation.nextSystem?.figmaApiToken, "FIGMA_TOKEN");
 });
 
 test("system-route-service: update mutation rejects unknown system", () => {

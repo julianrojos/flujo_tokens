@@ -105,6 +105,11 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     figmaApiToken: nextSystem.figmaApiToken,
     collections: nextSystem.collections,
     compileVariablesOnCapture: nextSystem.compileVariablesOnCapture,
+    detectedComponentsCount: nextSystem.detectedComponentsCount,
+    importedComponentsCount: nextSystem.importedComponentsCount,
+    pendingComponentsCount: nextSystem.pendingComponentsCount,
+    importedComponentNames: nextSystem.importedComponentNames,
+    pendingComponentNames: nextSystem.pendingComponentNames,
   });
   await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(

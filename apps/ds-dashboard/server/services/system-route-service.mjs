@@ -36,6 +36,20 @@ function areStringArraysEqual(left, right) {
   return true;
 }
 
+function normalizeImportComponentNames(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => String(entry ?? "").trim())
+    .filter(Boolean);
+}
+
+function normalizeImportCount(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return fallback;
+  return Math.floor(numeric);
+}
+
 const CANONICAL_SYSTEMS_PREFIX = "design-systems";
 
 /**
@@ -94,13 +108,18 @@ export function buildCreateDesignSystemConfigMutation({
     figmaFileId: String(body.figmaFileId || "").trim(),
     figmaApiToken: normalizeFigmaApiTokenRef(
       body.figmaApiToken,
-      `FIGMA_TOKEN_${systemId.toUpperCase().replace(/-/g, "_")}`,
+      "FIGMA_TOKEN",
     ),
     inputDir,
     outputDir,
     docsDir,
     collections: normalizeCollectionList(body.collections),
     compileVariablesOnCapture: body.compileVariablesOnCapture !== false,
+    detectedComponentsCount: normalizeImportCount(body.detectedComponentsCount, null),
+    importedComponentsCount: normalizeImportCount(body.importedComponentsCount, null),
+    pendingComponentsCount: normalizeImportCount(body.pendingComponentsCount, null),
+    importedComponentNames: normalizeImportComponentNames(body.importedComponentNames),
+    pendingComponentNames: normalizeImportComponentNames(body.pendingComponentNames),
   };
 
   const nextConfig = {

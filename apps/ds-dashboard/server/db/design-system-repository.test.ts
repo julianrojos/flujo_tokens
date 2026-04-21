@@ -57,6 +57,11 @@ describe('DesignSystemRepository', () => {
                 appName: 'Test App',
                 collections: ['primitives', 'semantic'],
                 compileVariablesOnCapture: true,
+                detectedComponentsCount: 12,
+                importedComponentsCount: 9,
+                pendingComponentsCount: 3,
+                importedComponentNames: ['Core / Button', 'Core / Input'],
+                pendingComponentNames: ['Forms / Select'],
             });
 
             assert.strictEqual(entry.id, 'test-sys-01');
@@ -64,6 +69,11 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(entry.appName, 'Test App');
             assert.deepStrictEqual(entry.collections, ['primitives', 'semantic']);
             assert.strictEqual(entry.compileVariablesOnCapture, true);
+            assert.strictEqual(entry.detectedComponentsCount, 12);
+            assert.strictEqual(entry.importedComponentsCount, 9);
+            assert.strictEqual(entry.pendingComponentsCount, 3);
+            assert.deepStrictEqual(entry.importedComponentNames, ['Core / Button', 'Core / Input']);
+            assert.deepStrictEqual(entry.pendingComponentNames, ['Forms / Select']);
         });
 
         it('gets all design systems', async () => {
@@ -79,6 +89,11 @@ describe('DesignSystemRepository', () => {
             assert.ok(entry);
             assert.strictEqual(entry?.id, 'test-sys-01');
             assert.strictEqual(entry?.name, 'Test System 01');
+            assert.strictEqual(entry?.detectedComponentsCount, 12);
+            assert.strictEqual(entry?.importedComponentsCount, 9);
+            assert.strictEqual(entry?.pendingComponentsCount, 3);
+            assert.deepStrictEqual(entry?.importedComponentNames, ['Core / Button', 'Core / Input']);
+            assert.deepStrictEqual(entry?.pendingComponentNames, ['Forms / Select']);
         });
 
         it('returns null for non-existent ID', async () => {

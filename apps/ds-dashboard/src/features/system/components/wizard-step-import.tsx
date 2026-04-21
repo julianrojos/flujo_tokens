@@ -14,6 +14,7 @@ import type {
 import type { ImportSuccessSummary } from "../new-system-import-summary";
 import { ImportSuccessNotice } from "../import-success-notice";
 import { cn } from "@/lib/utils";
+import { toSystemOverview } from "@/lib/routes";
 
 interface WizardStepImportProps {
   progress: CaptureFigmaProgress | null;
@@ -30,6 +31,7 @@ interface WizardStepImportProps {
   importedCount?: number;
   notSelectedCount?: number;
   showTokensLink?: boolean;
+  systemId?: string;
   statusText?: string;
   showDetails: boolean;
   isCancelling: boolean;
@@ -55,6 +57,7 @@ export function WizardStepImport({
   importedCount,
   notSelectedCount,
   showTokensLink = true,
+  systemId,
   statusText,
   showDetails,
   isCancelling,
@@ -111,6 +114,8 @@ export function WizardStepImport({
   );
 
   if (importCompleted) {
+    const safeSystemId = String(systemId || "").trim();
+    const overviewHref = safeSystemId ? toSystemOverview(safeSystemId) : "";
     return (
       <Card>
         <CardHeader>
@@ -124,10 +129,20 @@ export function WizardStepImport({
         <CardContent className="space-y-4">
           {(showComponentsStats || showVariableStats) ? renderImportStats() : null}
           {successSummary ? <ImportSuccessNotice summary={successSummary} /> : null}
+          <StatusAlert
+            variant="info"
+            title="Next steps"
+            description="Your design system import has finished. You can now review the system overview, inspect tokens, or explore imported components."
+          />
           <div className="flex flex-wrap gap-2">
+            {overviewHref ? (
+              <Link to={overviewHref} className={cn(buttonVariants({ variant: "default" }))}>
+                Go to System overview
+              </Link>
+            ) : null}
             {showTokensLink ? (
-              <Link to="/tokens" className={cn(buttonVariants({ variant: "default" }))}>
-                View Design Tokens
+              <Link to="/tokens" className={cn(buttonVariants({ variant: "outline" }))}>
+                View tokens
               </Link>
             ) : null}
             <Link to="/components" className={cn(buttonVariants({ variant: "outline" }))}>

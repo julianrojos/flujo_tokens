@@ -2,13 +2,14 @@
  * Wizard Step Basics - form for Figma URL, token, system name + scan results.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
+import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay";
 import type { ScanState, ScannedComponent } from "../hooks/use-new-system-wizard";
 
 interface WizardFormValues {
@@ -63,10 +64,30 @@ function groupByPageName(components: ScannedComponent[]): Map<string, ScannedCom
   return groups;
 }
 
+function FigmaComponentGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 18 18"
+      className="block h-4 w-4 shrink-0 text-[var(--app-brand-figma)]"
+      fill="currentColor"
+    >
+      <path d="M9 1.75 12.25 5 9 8.25 5.75 5 9 1.75Z" />
+      <path d="M13 5.75 16.25 9 13 12.25 9.75 9 13 5.75Z" />
+      <path d="M9 9.75 12.25 13 9 16.25 5.75 13 9 9.75Z" />
+      <path d="M1.75 9 5 5.75 8.25 9 5 12.25 1.75 9Z" />
+    </svg>
+  );
+}
+
 export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsProps) {
   const [autoTriggerToken, setAutoTriggerToken] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
+  const [isScanResultsOpen, setIsScanResultsOpen] = useState(false);
+  const previousScanState = useRef<ScanState>(derived.scanState);
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredComponents = useMemo(() => {
     if (!searchQuery.trim()) return derived.scanComponents;
@@ -101,6 +122,17 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
   }, [derived.scanState]);
 
   useEffect(() => {
+    const previousState = previousScanState.current;
+    previousScanState.current = derived.scanState;
+    if (previousState !== "ready" && derived.scanState === "ready" && derived.scanComponents.length > 0) {
+      setIsScanResultsOpen(true);
+    }
+    if (derived.scanState === "idle" || derived.scanState === "error" || derived.scanState === "empty") {
+      setIsScanResultsOpen(false);
+    }
+  }, [derived.scanComponents.length, derived.scanState]);
+
+  useEffect(() => {
     if (groupedPageNames.length === 0) {
       setOpenPages(new Set());
       return;
@@ -127,10 +159,28 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
     });
   };
 
+  const togglePageSelection = (components: ScannedComponent[]) => {
+    if (components.length === 0) return;
+    const pageHasAllSelected = components.every((component) => derived.selectedIds.has(component.nodeId));
+    for (const component of components) {
+      const isSelected = derived.selectedIds.has(component.nodeId);
+      if (pageHasAllSelected && isSelected) {
+        actions.onToggleComponent(component.nodeId);
+      }
+      if (!pageHasAllSelected && !isSelected) {
+        actions.onToggleComponent(component.nodeId);
+      }
+    }
+  };
+
   const selectAllChecked =
     derived.scanComponents.length > 0 &&
     derived.selectedIds.size === derived.scanComponents.length;
   const someSelected = derived.selectedIds.size > 0;
+  const handleConfirmImport = () => {
+    if (!derived.hasSelection || derived.saving) return;
+    actions.onImport();
+  };
 
   return (
     <Card>
@@ -150,7 +200,6 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
             }}
             placeholder="https://www.figma.com/file/..."
           />
-          {derived.figmaFileId && <p className="mt-1 text-xs text-muted-foreground">File key: {derived.figmaFileId}</p>}
         </div>
 
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
@@ -186,19 +235,10 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
               placeholder="e.g., My Design System"
               className="mt-1"
             />
-            <p className="mt-1 text-xs text-muted-foreground">Generated ID: {derived.generatedSystemId || "—"}</p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form.compileVariablesOnCapture}
-              onChange={(e) => actions.onFieldChange("compileVariablesOnCapture", e.target.checked)}
-            />
-            <span className="text-sm">Compile variables on capture</span>
-          </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -211,7 +251,12 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
 
         {/* Scan section */}
         <div className="flex items-center gap-2">
-          <Button onClick={actions.onScan} disabled={derived.saving || derived.scanState === "loading"}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={actions.onScan}
+            disabled={derived.saving || derived.scanState === "loading"}
+          >
             {derived.scanState === "loading" ? "Scanning…" : "Scan file"}
           </Button>
           {derived.scanState === "loading" ? (
@@ -220,11 +265,14 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
             </span>
           ) : null}
           {derived.scanState === "ready" && (
-            <span className="text-xs text-muted-foreground">
-              {derived.scanTruncated
-                ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (scan limited at ${derived.scanLimit})`
-                : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? "" : "s"} found`}
-            </span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {derived.scanComponents.length} component{derived.scanComponents.length === 1 ? "" : "s"} found
+              </span>
+              <Button variant="outline" size="sm" onClick={() => setIsScanResultsOpen(true)}>
+                View components
+              </Button>
+            </div>
           )}
         </div>
 
@@ -243,104 +291,167 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
           <p className="text-sm text-muted-foreground">No components found in this Figma file.</p>
         )}
 
-        {/* Scan results with selection */}
-        {derived.scanState === "ready" && derived.scanComponents.length > 0 && (
-          <div className="space-y-3">
-            {/* Select all + search */}
-            <div className="flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  aria-label="Select all detected components"
-                  checked={selectAllChecked}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected && !selectAllChecked;
-                  }}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      actions.onSelectAll();
-                    } else {
-                      actions.onDeselectAll();
-                    }
-                  }}
-                  disabled={!derived.canSelectAll || derived.saving}
-                />
-                Select all
-                {!derived.canSelectAll && (
-                  <Badge variant="neutral" className="ml-1 text-[10px]">disabled — truncated</Badge>
-                )}
-              </label>
-              <Input
-                aria-label="Filter detected components"
-                placeholder="Filter by name or page…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="max-w-xs text-sm"
-                disabled={derived.saving}
-              />
-            </div>
+        <Modal
+          open={isScanResultsOpen && derived.scanState === "ready" && derived.scanComponents.length > 0}
+          onClose={() => setIsScanResultsOpen(false)}
+          aria-labelledby="scan-results-title"
+        >
+          <ModalContent size="md" className="flex max-h-[85vh] flex-col overflow-hidden">
+            <ModalHeader className="items-start gap-4">
+              <div className="space-y-1">
+                <h3 id="scan-results-title" className="text-lg font-titles font-semibold titles-color">
+                  Scanned components
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {derived.scanTruncated
+                    ? `Showing ${derived.scanComponents.length} of ${derived.scanTotal} components (scan limited at ${derived.scanLimit})`
+                    : `${derived.scanComponents.length} component${derived.scanComponents.length === 1 ? "" : "s"} found`}
+                </p>
+              </div>
+              <ModalCloseButton onClick={() => setIsScanResultsOpen(false)} label="Close scanned components" />
+            </ModalHeader>
 
-            {/* Grouped component list */}
-            <div className="max-h-64 overflow-y-auto space-y-3 rounded-md border border-border p-3">
-              {filteredComponents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No matches for current filter.</p>
-              ) : (
-                Array.from(grouped.entries()).map(([pageName, comps]) => (
-                  <div key={pageName} className="space-y-1">
-                    <button
+            <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all detected components"
+                    checked={selectAllChecked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected && !selectAllChecked;
+                    }}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        actions.onSelectAll();
+                      } else {
+                        actions.onDeselectAll();
+                      }
+                    }}
+                    disabled={!derived.canSelectAll || derived.saving}
+                  />
+                  Select all
+                  {!derived.canSelectAll && (
+                    <Badge variant="neutral" className="ml-1 text-[10px]">disabled — truncated</Badge>
+                  )}
+                </label>
+                <div className="relative">
+                  <Input
+                    ref={filterInputRef}
+                    aria-label="Filter detected components"
+                    placeholder="Filter by name or page…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-xs pr-9 text-sm"
+                    disabled={derived.saving}
+                  />
+                  {searchQuery.trim() ? (
+                    <Button
                       type="button"
-                      className="flex w-full items-center justify-between text-left text-xs font-medium text-muted-foreground"
-                      aria-expanded={openPages.has(pageName)}
-                      onClick={() => togglePage(pageName)}
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear filter"
+                      onClick={() => {
+                        setSearchQuery("");
+                        filterInputRef.current?.focus();
+                      }}
+                      disabled={derived.saving}
                     >
-                      <span>{pageName}</span>
-                      <span className="flex items-center gap-1 text-[10px]">
-                        {openPages.has(pageName) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                        {comps.length}
-                      </span>
-                    </button>
-                    {openPages.has(pageName) &&
-                      comps.map((comp) => {
-                        const checked = derived.selectedIds.has(comp.nodeId);
-                        return (
-                          <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select component ${comp.name}`}
-                              checked={checked}
-                              onChange={() => actions.onToggleComponent(comp.nodeId)}
-                              disabled={derived.saving}
-                            />
-                            <span>{comp.name}</span>
-                          </label>
-                        );
-                      })}
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border p-3">
+                {filteredComponents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No matches for current filter.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.from(grouped.entries()).map(([pageName, comps]) => (
+                      <div key={pageName} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select all components in ${pageName}`}
+                            checked={comps.length > 0 && comps.every((component) => derived.selectedIds.has(component.nodeId))}
+                            ref={(el) => {
+                              if (!el) return;
+                              const pageHasSomeSelected = comps.some((component) => derived.selectedIds.has(component.nodeId));
+                              const pageHasAllSelected =
+                                comps.length > 0 && comps.every((component) => derived.selectedIds.has(component.nodeId));
+                              el.indeterminate = pageHasSomeSelected && !pageHasAllSelected;
+                            }}
+                            onChange={() => togglePageSelection(comps)}
+                            disabled={derived.saving}
+                          />
+                          <button
+                            type="button"
+                            className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-medium text-foreground"
+                            aria-expanded={openPages.has(pageName)}
+                            onClick={() => togglePage(pageName)}
+                          >
+                            <span>{pageName}</span>
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              {openPages.has(pageName) ? (
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              )}
+                              {comps.length}
+                            </span>
+                          </button>
+                        </div>
+                        {openPages.has(pageName) &&
+                          comps.map((comp) => {
+                            const checked = derived.selectedIds.has(comp.nodeId);
+                            return (
+                              <label key={comp.nodeId} className="flex items-center gap-2 py-0.5 text-sm">
+                                <FigmaComponentGlyph />
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select component ${comp.name}`}
+                                  checked={checked}
+                                  onChange={() => actions.onToggleComponent(comp.nodeId)}
+                                  disabled={derived.saving}
+                                />
+                                <span className="min-w-0 flex-1">{comp.name}</span>
+                              </label>
+                            );
+                          })}
+                      </div>
+                    ))}
                   </div>
-                ))
+                )}
+              </div>
+
+              {derived.hasSelection && (
+                <p className="text-xs text-muted-foreground">
+                  {derived.selectedIds.size} of {derived.scanComponents.length} selected
+                </p>
               )}
             </div>
-
-            {/* Selection summary */}
-            {derived.hasSelection && (
-              <p className="text-xs text-muted-foreground">
-                {derived.selectedIds.size} of {derived.scanComponents.length} selected
-              </p>
-            )}
-          </div>
-        )}
+            <ModalFooter className="justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsScanResultsOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmImport} disabled={!derived.hasSelection || derived.saving}>
+                Import
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         {/* Import button */}
-        <Button
-          onClick={actions.onImport}
-          disabled={!derived.isFormValid || derived.saving || derived.scanState !== "ready" || !derived.hasSelection}
-        >
-          {derived.saving ? "Creating…" : "Import Design System"}
-        </Button>
-        {derived.scanState !== "ready" && (
-          <p className="text-xs text-muted-foreground">
-            Scan first to see available components before importing.
-          </p>
-        )}
+        <div className="flex justify-end">
+          <Button
+            onClick={actions.onImport}
+            disabled={!derived.isFormValid || derived.saving || derived.scanState !== "ready" || !derived.hasSelection}
+          >
+            {derived.saving ? "Creating…" : "Import Design System"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

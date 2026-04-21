@@ -219,6 +219,11 @@ export interface CreateDesignSystemPayload {
   collections?: string[];
   compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export interface CreateDesignSystemResponse {
@@ -241,6 +246,11 @@ export interface DesignSystemConfigEntry {
   figmaApiToken?: string;
   collections?: string[];
   compileVariablesOnCapture?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export interface DesignSystemsConfigResponse {

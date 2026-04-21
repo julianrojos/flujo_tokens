@@ -1,7 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveSafeSystemPathsForDeletion } from "./system-utils.js";
+import {
+  normalizeFigmaApiTokenRef,
+  resolveSafeSystemPathsForDeletion,
+} from "./system-utils.js";
 
 describe("resolveSafeSystemPathsForDeletion", () => {
   it("includes design-systems/<id> root path so delete can remove empty system directory", () => {
@@ -20,3 +23,16 @@ describe("resolveSafeSystemPathsForDeletion", () => {
   });
 });
 
+describe("normalizeFigmaApiTokenRef", () => {
+  it("normalizes env:VAR into ${VAR} reference", () => {
+    assert.equal(normalizeFigmaApiTokenRef("env:FIGMA_TOKEN"), "${FIGMA_TOKEN}");
+  });
+
+  it("keeps literal tokens untouched", () => {
+    assert.equal(normalizeFigmaApiTokenRef("figd_literal_token"), "figd_literal_token");
+  });
+
+  it("uses fallback env key as canonical reference", () => {
+    assert.equal(normalizeFigmaApiTokenRef("", "FIGMA_TOKEN"), "${FIGMA_TOKEN}");
+  });
+});

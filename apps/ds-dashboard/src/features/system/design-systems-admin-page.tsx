@@ -17,9 +17,9 @@ import type { DeletePreviewResponse } from '@/lib/api';
 import { type ApiErrorDisplay, toApiErrorDisplay } from '@/lib/api-error-ux';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { ROUTE_PATTERNS } from '@/lib/routes';
-import { NewSystemPage } from '@/features/system/new-system-page';
-import { DesignSystemUpdateActions } from '@/features/system/design-system-update-actions';
-import { buildUpdateActionsProps } from '@/features/system/design-systems-admin-page-logic';
+import { NewSystemPage } from './new-system-page';
+import { DesignSystemUpdateActions } from './design-system-update-actions';
+import { buildUpdateActionsProps } from './design-systems-admin-page-logic';
 
 type RowDraft = {
   name: string;
@@ -114,6 +114,32 @@ export function DesignSystemsAdminPage() {
     () => systems.find((s) => s.id === normalizedRouteSystemId) || null,
     [systems, normalizedRouteSystemId],
   );
+  const componentImportSnapshot = useMemo(() => {
+    if (!targetSystem) return null;
+    const detected = targetSystem.detectedComponentsCount;
+    const imported = targetSystem.importedComponentsCount;
+    const pending = targetSystem.pendingComponentsCount;
+    const importedNames = Array.isArray(targetSystem.importedComponentNames)
+      ? targetSystem.importedComponentNames
+      : [];
+    const pendingNames = Array.isArray(targetSystem.pendingComponentNames)
+      ? targetSystem.pendingComponentNames
+      : [];
+    const hasSnapshot =
+      typeof detected === 'number' ||
+      typeof imported === 'number' ||
+      typeof pending === 'number' ||
+      importedNames.length > 0 ||
+      pendingNames.length > 0;
+    if (!hasSnapshot) return null;
+    return {
+      detected,
+      imported,
+      pending,
+      importedNames,
+      pendingNames,
+    };
+  }, [targetSystem]);
 
   const load = async () => {
     setLoading(true);
@@ -349,6 +375,43 @@ export function DesignSystemsAdminPage() {
                   placeholder="Name"
                   disabled={!!busyIds[targetSystem.id]}
                 />
+                {componentImportSnapshot ? (
+                  <div className="rounded-md border border-border/70 bg-surface-2 px-3 py-2 text-xs text-muted-foreground">
+                    <p>
+                      Detected: <span className="text-foreground">{componentImportSnapshot.detected ?? "—"}</span> · Imported:{" "}
+                      <span className="text-foreground">{componentImportSnapshot.imported ?? "—"}</span> · Pending:{" "}
+                      <span className="text-foreground">{componentImportSnapshot.pending ?? "—"}</span>
+                    </p>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-foreground">Imported components</summary>
+                      {componentImportSnapshot.importedNames.length > 0 ? (
+                        <ul className="mt-1 space-y-0.5">
+                          {componentImportSnapshot.importedNames.map((name, index) => (
+                            <li key={`imported-${index}-${name}`}>• {name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1">No imported components.</p>
+                      )}
+                    </details>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-foreground">Pending components</summary>
+                      {componentImportSnapshot.pendingNames.length > 0 ? (
+                        <ul className="mt-1 space-y-0.5">
+                          {componentImportSnapshot.pendingNames.map((name, index) => (
+                            <li key={`pending-${index}-${name}`}>• {name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1">No pending components.</p>
+                      )}
+                    </details>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No component import snapshot available yet.
+                  </p>
+                )}
               </div>
               <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
                 <input

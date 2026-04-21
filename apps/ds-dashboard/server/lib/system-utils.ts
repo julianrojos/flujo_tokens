@@ -43,12 +43,15 @@ export function ensureRelativeDir(raw: unknown, fallback: string): string {
  */
 export function normalizeFigmaApiTokenRef(raw: unknown, fallback = ''): string {
   const value = String(raw || '').trim();
-  if (value.startsWith('env:')) {
-    const envVar = value.slice(4);
-    const envValue = process.env[envVar];
-    return envValue || fallback;
-  }
-  return value || fallback;
+  const source = value || String(fallback || '').trim();
+  if (!source) return '';
+  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(source)) return source;
+  const envPrefix = source.match(/^env:([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (envPrefix) return `\${${envPrefix[1]}}`;
+  const dollarVar = source.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (dollarVar) return `\${${dollarVar[1]}}`;
+  if (/^[A-Z_][A-Z0-9_]*$/.test(source)) return `\${${source}}`;
+  return source;
 }
 
 /**
