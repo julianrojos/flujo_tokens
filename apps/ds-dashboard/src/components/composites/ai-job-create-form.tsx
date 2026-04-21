@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
-import { OPENROUTER_RANKED_MODEL_SUGGESTIONS } from '@/data/openrouter-model-suggestions';
 import {
   getAiConfiguredProviders,
 } from '@/lib/ai-jobs-api';
@@ -63,8 +62,6 @@ interface AiJobCreateFormProps {
     disabled: boolean;
     pending: boolean;
   }) => void;
-  /** Whether to show OpenRouter model suggestions UI */
-  showOpenRouterModelSuggestions?: boolean;
 }
 
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] =
@@ -80,8 +77,6 @@ const DEFAULT_MODELS: Record<AiProviderName, string> = {
   gemini: 'gemini-2.0-flash',
   ollama: 'llama3.2',
 };
-
-const MAX_OPENROUTER_SUGGESTIONS = 20;
 
 function toneToVariant(
   tone: AiHealthStatus | undefined,
@@ -107,7 +102,6 @@ export function AiJobCreateForm({
   formId,
   hideSubmitButton = false,
   onSubmitStateChange,
-  showOpenRouterModelSuggestions = true,
 }: AiJobCreateFormProps) {
   const [provider, setProvider] = useState<AiProviderName>(
     initialProvider || 'ollama',
@@ -116,27 +110,16 @@ export function AiJobCreateForm({
     lockedComponentId || initialComponentId,
   );
   const [model, setModel] = useState(initialModel || '');
-  const [modelTouched, setModelTouched] = useState(
-    Boolean(String(initialModel || '').trim()),
-  );
   const [runValidation, setRunValidation] = useState(false);
   const [providerTouched, setProviderTouched] = useState(false);
   const [overwriteAcknowledged, setOverwriteAcknowledged] = useState(false);
-  const openRouterModelSuggestions = OPENROUTER_RANKED_MODEL_SUGGESTIONS;
-
-  const markOpenRouterModelTouched = useCallback(() => {
-    setModelTouched(true);
-  }, []);
 
   const handleProviderChange = useCallback(
     (nextProvider: AiProviderName) => {
       setProviderTouched(true);
       setProvider(nextProvider);
-      if (nextProvider === 'openrouter' && !modelTouched) {
-        setModel(DEFAULT_MODELS.openrouter);
-      }
     },
-    [modelTouched],
+    [],
   );
 
   const { data: configuredProviders, isFetched: configuredProvidersLoaded } =
@@ -165,20 +148,8 @@ export function AiJobCreateForm({
   useEffect(() => {
     if (initialModel !== undefined) {
       setModel(initialModel);
-      setModelTouched(Boolean(String(initialModel || '').trim()));
     }
   }, [initialModel]);
-
-  useEffect(() => {
-    if (provider !== 'openrouter') return;
-    if (modelTouched) return;
-    if (model === DEFAULT_MODELS.openrouter) return;
-    setModel(DEFAULT_MODELS.openrouter);
-  }, [model, modelTouched, provider]);
-
-  useEffect(() => {
-    setOpenRouterVisibleCount(Math.min(5, openRouterModelSuggestions.length));
-  }, [provider, openRouterModelSuggestions.length]);
 
   // Reset acknowledgement when selected component changes
   useEffect(() => {
@@ -249,17 +220,6 @@ export function AiJobCreateForm({
   );
   const shouldShowFallbackOption =
     componentId.trim().length > 0 && !selectedComponentIsKnown;
-  const isOpenRouterProvider =
-    provider === 'openrouter' && showOpenRouterModelSuggestions;
-  const selectedOpenRouterModel = model.trim();
-  const [openRouterVisibleCount, setOpenRouterVisibleCount] = useState(5);
-  const openRouterVisibleSuggestions = openRouterModelSuggestions.slice(
-    0,
-    MAX_OPENROUTER_SUGGESTIONS,
-  );
-  const maxVisibleOpenRouterSuggestions = openRouterVisibleSuggestions.length;
-  const hasMoreOpenRouterSuggestions =
-    openRouterVisibleCount < maxVisibleOpenRouterSuggestions;
   const lastSubmitStateRef = useRef<{
     disabled: boolean;
     pending: boolean;
@@ -315,77 +275,10 @@ export function AiJobCreateForm({
           placeholder={`Default: ${DEFAULT_MODELS[provider]}`}
           value={model}
           onChange={(e) => {
-            markOpenRouterModelTouched();
             setModel(e.target.value);
           }}
           disabled={isPending}
         />
-        {isOpenRouterProvider ? (
-          <div className="rounded-md bg-muted/20 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Suggested OpenRouter models
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setOpenRouterVisibleCount((count) =>
-                    Math.min(count + 5, maxVisibleOpenRouterSuggestions),
-                  )
-                }
-                className="h-auto min-h-0 px-0 text-xs text-muted-foreground"
-                disabled={!hasMoreOpenRouterSuggestions}
-              >
-                {hasMoreOpenRouterSuggestions ? 'Load more' : 'All loaded'}
-              </Button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {openRouterVisibleSuggestions
-                .slice(0, openRouterVisibleCount)
-                .map((suggestion) => {
-                  const isSelected =
-                    selectedOpenRouterModel === suggestion.value;
-                  return (
-                    <Button
-                      key={suggestion.value}
-                      type="button"
-                      variant={isSelected ? 'default' : 'outline'}
-                      size="sm"
-                      aria-pressed={isSelected}
-                      title={suggestion.hint}
-                      aria-label={`${suggestion.label}. ${suggestion.hint}`}
-                      onClick={() => {
-                        markOpenRouterModelTouched();
-                        setModel(suggestion.value);
-                      }}
-                      className="h-auto min-h-0 rounded-full px-3.5 py-1.5 text-xs font-medium whitespace-nowrap shadow-none"
-                    >
-                      <span className="leading-none">
-                        {suggestion.label}
-                      </span>
-                    </Button>
-                  );
-                })}
-            </div>
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  markOpenRouterModelTouched();
-                  setModel('');
-                }}
-                className="h-auto min-h-0 px-0 text-xs text-muted-foreground hover:text-foreground"
-                disabled={!selectedOpenRouterModel}
-              >
-                Clear model
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {/* Component ID */}

@@ -12,7 +12,6 @@ import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
 import { EDITORIAL_PATCH_SCHEMA_VERSION } from '../services/ai-editorial-patch-schema.js';
 import { AI_PROVIDER_ORDER } from '../../src/types/ai-provider-catalog.ts';
-import { clearOpenRouterTopModelCache } from '../services/openrouter-rankings-service.js';
 
 // Helper to create test app
 function createTestApp(options?: {
@@ -43,7 +42,6 @@ const REPO_ROOT = path.resolve(TEST_DIR, '../../../..');
 // Helper to cleanup store between tests
 function cleanupStore() {
     initializeAiJobsStore(new AiJobsStore());
-    clearOpenRouterTopModelCache();
 }
 
 // Helper to track and cleanup test files
@@ -1498,101 +1496,6 @@ describe('ai-jobs-route', () => {
                 if (prevGoogle === undefined) delete process.env.GOOGLE_API_KEY; else process.env.GOOGLE_API_KEY = prevGoogle;
                 if (prevOllamaUrl === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = prevOllamaUrl;
                 if (prevOllamaModel === undefined) delete process.env.AI_OLLAMA_MODEL; else process.env.AI_OLLAMA_MODEL = prevOllamaModel;
-            }
-        });
-    });
-
-    describe('GET /api/ai/providers/openrouter/default-model', () => {
-        it('returns the current daily OpenRouter model when available', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const originalFetch = global.fetch;
-            global.fetch = (async (input: RequestInfo | URL) => {
-                const url = String(input);
-                if (url === 'https://openrouter.ai/rankings?view=day') {
-                    return new Response(
-                        '<a href="/models/anthropic/claude-opus-4.6">Claude Opus 4.6</a><a href="/models/openrouter/hunter-alpha">Hunter</a>',
-                        {
-                            status: 200,
-                            headers: { 'content-type': 'text/html' },
-                        },
-                    );
-                }
-                return new Response('not found', { status: 404 });
-            }) as typeof fetch;
-
-            try {
-                const res = await app.request('/api/ai/providers/openrouter/default-model', {
-                    method: 'GET',
-                    headers: { 'x-forwarded-for': '127.0.0.1' },
-                });
-
-                assert.equal(res.status, 200);
-                const json = await res.json();
-                assert.equal(json.ok, true);
-                assert.equal(json.model, 'anthropic/claude-opus-4.6');
-                assert.equal(json.source, 'openrouter/rankings?view=day');
-            } finally {
-                global.fetch = originalFetch;
-            }
-        });
-
-        it('falls back to the weekly ranking when the daily view is unavailable', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const originalFetch = global.fetch;
-            global.fetch = (async (input: RequestInfo | URL) => {
-                const url = String(input);
-                if (url === 'https://openrouter.ai/rankings?view=day') {
-                    return new Response('not found', { status: 404 });
-                }
-                if (url === 'https://openrouter.ai/rankings?view=week') {
-                    return new Response(
-                        '<a href="/models/deepseek/deepseek-chat">DeepSeek Chat</a><a href="/models/openrouter/hunter-alpha">Hunter</a>',
-                        {
-                            status: 200,
-                            headers: { 'content-type': 'text/html' },
-                        },
-                    );
-                }
-                return new Response('not found', { status: 404 });
-            }) as typeof fetch;
-
-            try {
-                const res = await app.request('/api/ai/providers/openrouter/default-model', {
-                    method: 'GET',
-                    headers: { 'x-forwarded-for': '127.0.0.1' },
-                });
-
-                assert.equal(res.status, 200);
-                const json = await res.json();
-                assert.equal(json.ok, true);
-                assert.equal(json.model, 'deepseek/deepseek-chat');
-                assert.equal(json.source, 'openrouter/rankings?view=week');
-            } finally {
-                global.fetch = originalFetch;
-            }
-        });
-
-        it('falls back to the configured OpenRouter model when no rankings are available', async () => {
-            cleanupStore();
-            const app = createTestApp();
-            const originalFetch = global.fetch;
-            global.fetch = (async () => new Response('not found', { status: 404 })) as typeof fetch;
-
-            try {
-                const res = await app.request('/api/ai/providers/openrouter/default-model', {
-                    method: 'GET',
-                    headers: { 'x-forwarded-for': '127.0.0.1' },
-                });
-
-                assert.equal(res.status, 200);
-                const json = await res.json();
-                assert.equal(json.ok, true);
-                assert.equal(json.model, 'google/gemma-4-26b-a4b-it');
-                assert.equal(json.source, 'openrouter/config');
-            } finally {
-                global.fetch = originalFetch;
             }
         });
     });

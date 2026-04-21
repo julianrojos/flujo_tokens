@@ -16,7 +16,6 @@ import {
 import { hasApiKey, resolveProviderConfig } from '../services/ai-provider.js';
 import type { AiProviderName } from '../services/ai-provider.js';
 import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
-import { getOpenRouterTopModelSlug } from '../services/openrouter-rankings-service.js';
 import {
   createComponentSlug,
   renderComponentDoc,
@@ -631,20 +630,6 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
       ok: true,
       configuredProviders,
       defaultProvider,
-    });
-  });
-
-  // GET /api/ai/providers/openrouter/default-model - Current OpenRouter daily-ranked model
-  app.get('/api/ai/providers/openrouter/default-model', async (c) => {
-    if (!checkAuth(c, deps.internalToken)) {
-      return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
-    }
-
-    const { model, source } = await getOpenRouterTopModelSlug();
-    return c.json({
-      ok: true,
-      model,
-      source,
     });
   });
 

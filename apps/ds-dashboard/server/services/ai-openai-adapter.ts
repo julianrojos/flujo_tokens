@@ -1,7 +1,7 @@
 /**
  * OpenAI Adapter
  * Implements AiProvider using OpenAI SDK with strict json_schema response format
- * Supports custom baseUrl for OpenAI-compatible APIs (e.g., OpenRouter, LiteLLM)
+ * Supports custom baseUrl for OpenAI-compatible APIs
  * Note: Ollama-compatible backends may not support json_schema strict mode
  */
 
@@ -15,21 +15,6 @@ import type {
 import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 import { getApiKey, resolveModel } from './ai-provider.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
-
-function resolveOpenRouterHeaders():
-  | Record<string, string>
-  | undefined {
-  const headers: Record<string, string> = {};
-  const referer = String(process.env.OPENROUTER_HTTP_REFERER || '').trim();
-  const title = String(process.env.OPENROUTER_TITLE || '').trim();
-  if (referer) {
-    headers['HTTP-Referer'] = referer;
-  }
-  if (title) {
-    headers['X-Title'] = title;
-  }
-  return Object.keys(headers).length > 0 ? headers : undefined;
-}
 
 /**
  * OpenAI Adapter implementing the AiProvider interface
@@ -51,9 +36,7 @@ export class OpenAiAdapter implements AiProvider {
     this.name = providerName;
     this.apiKey = apiKey || getApiKey(providerName);
     this.baseUrl = baseUrl || 'https://api.openai.com/v1';
-    this.defaultHeaders =
-      defaultHeaders ||
-      (providerName === 'openrouter' ? resolveOpenRouterHeaders() : undefined);
+    this.defaultHeaders = defaultHeaders;
   }
 
   /**
@@ -82,30 +65,6 @@ export class OpenAiAdapter implements AiProvider {
    */
   private shouldAttemptJsonSchema(): boolean {
     return this.name !== 'ollama';
-  }
-
-  private shouldFallbackToJsonObject(error: unknown): boolean {
-    if (this.name !== 'openrouter') {
-      return false;
-    }
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-    const record = error as { status?: unknown; message?: unknown; code?: unknown };
-    const status = Number(record.status);
-    if (status !== 400 && status !== 422) {
-      return false;
-    }
-    const message = String(record.message || record.code || '').toLowerCase();
-    const code = String(record.code || '').toLowerCase();
-    return (
-      /response[_ -]?format|json[_ -]?schema|structured output|strict mode|schema.*support|unsupported/.test(
-        message,
-      ) ||
-      /response[_ -]?format|unsupported[_ -]?response[_ -]?format|invalid[_ -]?json[_ -]?schema/.test(
-        code,
-      )
-    );
   }
 
   private async runCompletion(
@@ -172,7 +131,6 @@ export class OpenAiAdapter implements AiProvider {
 
     try {
       // Use json_schema for providers that usually support it.
-      // OpenRouter is handled best-effort with a fallback to json_object.
       if (shouldAttemptJsonSchema) {
         return await this.runCompletion(
           client,
@@ -198,27 +156,7 @@ export class OpenAiAdapter implements AiProvider {
         startTime,
       );
     } catch (error) {
-      let normalizedError: unknown = error;
-      if (shouldAttemptJsonSchema && this.shouldFallbackToJsonObject(error)) {
-        console.warn(
-          '[ai-openai-adapter] json_schema rejected, falling back to json_object',
-          {
-            provider: this.name,
-            model,
-          },
-        );
-        try {
-          return await this.runCompletion(
-            client,
-            model,
-            input,
-            { type: 'json_object' },
-            startTime,
-          );
-        } catch (fallbackError) {
-          normalizedError = fallbackError;
-        }
-      }
+      const normalizedError: unknown = error;
 
       if (
         normalizedError &&

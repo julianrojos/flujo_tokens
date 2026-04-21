@@ -12,6 +12,6 @@ export const AI_PROVIDER_LABELS: Readonly<Record<AiProviderName, string>> = {
   anthropic: 'Anthropic (Claude)',
   gemini: 'Google (Gemini)',
   ollama: 'Ollama (Local)',
-  openai: 'OpenAI',
+  openai: 'OpenAI (ChatGPT)',
   openrouter: 'OpenRouter',
 };

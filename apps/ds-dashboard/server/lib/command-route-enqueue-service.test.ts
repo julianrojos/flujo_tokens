@@ -33,6 +33,19 @@ describe('command-route-enqueue-service', () => {
       assert.equal(invalid.statusCode, 400);
       assert.equal((invalid as any).errorArgs.code, 'validation.missing_script_name');
     });
+
+    it('rejects unsupported scripts', () => {
+      const invalid = parseScriptNameFromRoute(
+        'openrouter:sync-model-suggestions',
+        'req_2',
+      );
+      assert.equal(invalid.ok, false);
+      assert.equal(invalid.statusCode, 400);
+      assert.equal(
+        (invalid as any).errorArgs.code,
+        'validation.unsupported_script_name',
+      );
+    });
   });
 
   describe('buildRefreshScriptQueueArgs()', () => {

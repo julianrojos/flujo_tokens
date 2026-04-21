@@ -29,6 +29,12 @@ type ParseScriptNameFailure = {
 
 export type ParseScriptNameResult = ParseScriptNameSuccess | ParseScriptNameFailure;
 
+const ALLOWED_RUN_SCRIPTS = new Set<string>([
+  'ds:token-usage-index',
+  'ds:token-graph',
+  'ds:token-health',
+]);
+
 export interface RefreshScriptQueueArgs {
   repoRoot: string;
   script: string;
@@ -85,17 +91,31 @@ export interface ParsedNodeJsonCommandConfig {
  */
 export function parseScriptNameFromRoute(rawScriptName: unknown, requestId: string): ParseScriptNameResult {
   const scriptName = String(rawScriptName || '').trim();
-  if (scriptName) return { ok: true, scriptName };
-  return {
-    ok: false,
-    statusCode: 400,
-    errorArgs: {
-      code: 'validation.missing_script_name',
-      userMessage: 'Missing script name in URL.',
-      recoverable: true,
-      requestId,
-    },
-  };
+  if (!scriptName) {
+    return {
+      ok: false,
+      statusCode: 400,
+      errorArgs: {
+        code: 'validation.missing_script_name',
+        userMessage: 'Missing script name in URL.',
+        recoverable: true,
+        requestId,
+      },
+    };
+  }
+  if (!ALLOWED_RUN_SCRIPTS.has(scriptName)) {
+    return {
+      ok: false,
+      statusCode: 400,
+      errorArgs: {
+        code: 'validation.unsupported_script_name',
+        userMessage: `Unsupported script "${scriptName}".`,
+        recoverable: true,
+        requestId,
+      },
+    };
+  }
+  return { ok: true, scriptName };
 }
 
 /**
