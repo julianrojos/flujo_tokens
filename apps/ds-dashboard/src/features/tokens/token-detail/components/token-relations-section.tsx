@@ -1,47 +1,22 @@
-import { useCallback, useRef } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toTokenGraph } from "@/lib/routes";
 
 interface TokenRelationsSectionProps {
-  tokenPath: string;
   aliasOf: string | null;
   hasDescendantAliases: boolean;
 }
 
-let graphPrefetched = false;
-
-function useGraphPrefetch() {
-  const prefetching = useRef(false);
-  return useCallback(() => {
-    if (graphPrefetched || prefetching.current) return;
-    prefetching.current = true;
-    void import("@/features/tokens/token-graph/token-graph-page")
-      .then(() => {
-        graphPrefetched = true;
-      })
-      .finally(() => {
-        prefetching.current = false;
-      });
-  }, []);
-}
-
 export function TokenRelationsSection({
-  tokenPath,
   aliasOf,
   hasDescendantAliases,
 }: TokenRelationsSectionProps) {
-  const graphPath = toTokenGraph(tokenPath);
-  const prefetch = useGraphPrefetch();
-
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Relations</CardTitle>
-            <CardDescription>Alias chain and dependency graph</CardDescription>
+            <CardDescription>Alias chain and downstream aliases</CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -55,16 +30,6 @@ export function TokenRelationsSection({
           {hasDescendantAliases && (
             <Badge variant="neutral">has downstream aliases</Badge>
           )}
-        </div>
-        <div className="mt-3">
-          <Link
-            to={graphPath}
-            className="text-sm font-semibold text-primary hover:underline"
-            onMouseEnter={prefetch}
-            onFocus={prefetch}
-          >
-            Open dependency graph →
-          </Link>
         </div>
       </CardContent>
     </Card>

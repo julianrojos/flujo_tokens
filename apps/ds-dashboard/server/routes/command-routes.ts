@@ -189,9 +189,6 @@ export function registerCommandRoutes(
   app.post('/api/refresh-token-usage-index', (c: Context) =>
     enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps),
   );
-  app.post('/api/refresh-token-graph', (c: Context) =>
-    enqueueRefreshScriptJob(c, 'ds:token-graph', commandDeps),
-  );
   app.post('/api/refresh-token-health', (c: Context) =>
     enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps),
   );

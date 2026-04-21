@@ -30,7 +30,6 @@ import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import {
   captureHealthSnapshotDbOnly,
-  refreshTokenGraphDbOnly,
   refreshTokenHealthSnapshotDbOnly,
   refreshUsageIndexDbOnly,
 } from './ops-db-maintenance-service.ts';
@@ -218,19 +217,6 @@ export async function enqueueRefreshScriptJob(
           emitChunk,
           sql: db as NonNullable<typeof db>,
           tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
-        }),
-    },
-    'ds:token-graph': {
-      deps: ['db', 'tokenRepo'],
-      label: 'refresh token graph (db-only)',
-      operationName: 'refresh:token-graph',
-      build: (emitChunk) =>
-        refreshTokenGraphDbOnly({
-          systemId: sysCtx.systemId,
-          emitChunk,
-          sql: db as NonNullable<typeof db>,
-          tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
-          sha256Text,
         }),
     },
     'ds:token-health': {

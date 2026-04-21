@@ -3,11 +3,6 @@ import type { ComponentUsageIndex } from '@/types/component-usage-index';
 import type { TokenCatalog } from '@/types/token-catalog';
 import type { TokenCollectionTreeIndex } from '@/types/token-tree';
 import type { TokenUsageIndex } from '@/types/token-usage-index';
-import type {
-  TokenGraphQueryDirection,
-  TokenGraphQueryResult,
-  TokenGraphViz,
-} from '@/types/token-graph';
 import type { TokenHealthReport } from '@/types/token-health';
 import type {
   CaptureHealthSnapshotResult,
@@ -390,25 +385,6 @@ export function fetchTokenUsageIndex(systemId?: string) {
       ? { 'x-ds-system': normalizedSystemId }
       : undefined,
   });
-}
-
-export function fetchTokenGraph() {
-  return getJson<TokenGraphViz>('/api/token-graph');
-}
-
-export function fetchTokenGraphQuery(args: {
-  tokenPath: string;
-  direction?: TokenGraphQueryDirection;
-  depth?: number;
-}) {
-  const params = new URLSearchParams({ token: args.tokenPath });
-  if (args.direction) params.set('direction', args.direction);
-  if (typeof args.depth === 'number' && Number.isFinite(args.depth)) {
-    params.set('depth', String(args.depth));
-  }
-  return getJson<TokenGraphQueryResult>(
-    `/api/token-graph-query?${params.toString()}`,
-  );
 }
 
 export function fetchTokenHealth(systemId?: string) {
@@ -797,25 +773,6 @@ async function runQueuedRefresh(
 
 export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
   return runQueuedRefresh('/api/refresh-token-usage-index', options);
-}
-
-/**
- * Refresh token graph artifacts.
- * When `systemId` is provided we scope refresh via `x-ds-system`, which is
- * supported by the backend refresh route and consistent with other scoped APIs.
- */
-export async function refreshTokenGraph(
-  options?: QueueWaitOptions,
-  systemId?: string,
-) {
-  const normalizedSystemId = String(systemId || '').trim();
-  return runQueuedRefresh(
-    '/api/refresh-token-graph',
-    options,
-    normalizedSystemId
-      ? { headers: { 'x-ds-system': normalizedSystemId } }
-      : undefined,
-  );
 }
 
 export async function refreshTokenHealth(options?: QueueWaitOptions) {

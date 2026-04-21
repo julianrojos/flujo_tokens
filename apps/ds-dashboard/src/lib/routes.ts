@@ -7,7 +7,6 @@ export const ROUTE_PATTERNS = {
   systemOperations: '/:systemId/operations',
   tokens: '/tokens',
   tokenDetail: '/tokens/:tokenPath',
-  tokenGraph: '/tokens/:tokenPath/graph',
   components: '/components',
   componentDetail: '/components/:slug',
   componentEditDocs: '/components/:slug/edit-docs',
@@ -16,7 +15,9 @@ export const ROUTE_PATTERNS = {
 } as const;
 
 export const toSystemOverview = (systemId: string): string =>
-  `/${encodeURIComponent(String(systemId || ''))}/overview`;
+  String(systemId || '').trim()
+    ? `/${encodeURIComponent(String(systemId || ''))}/overview`
+    : '/overview';
 
 export const toSystemAdmin = (systemId: string): string =>
   `/${encodeURIComponent(String(systemId || ''))}/admin`;
@@ -29,9 +30,6 @@ export const toSystemOperations = (systemId: string): string =>
 
 export const toTokenDetail = (tokenPath: string): string =>
   `/tokens/${encodeURIComponent(String(tokenPath || ''))}`;
-
-export const toTokenGraph = (tokenPath: string): string =>
-  `${toTokenDetail(tokenPath)}/graph`;
 
 export const toComponentDetail = (slug: string): string =>
   `/components/${encodeURIComponent(String(slug || ''))}`;

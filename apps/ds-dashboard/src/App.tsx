@@ -110,12 +110,6 @@ const TokenDetailPage = lazy(() =>
   })),
 );
 
-const TokenGraphPage = lazy(() =>
-  import('@/features/tokens/token-graph/token-graph-page').then((module) => ({
-    default: module.TokenGraphPage,
-  })),
-);
-
 const ConsumersPage = lazy(() =>
   import('@/features/consumers/consumers-page').then((module) => ({
     default: module.ConsumersPage,
@@ -670,10 +664,6 @@ export default function App() {
                     <Route
                       path={ROUTE_PATTERNS.tokenDetail}
                       element={<TokenDetailPage />}
-                    />
-                    <Route
-                      path={ROUTE_PATTERNS.tokenGraph}
-                      element={<TokenGraphPage />}
                     />
                     <Route
                       path={ROUTE_PATTERNS.consumerDetail}

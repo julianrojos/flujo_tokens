@@ -24,9 +24,9 @@ function createSysCtx() {
 describe('command-route-enqueue-service', () => {
   describe('parseScriptNameFromRoute()', () => {
     it('validates empties', () => {
-      const ok = parseScriptNameFromRoute('ds:token-graph', 'req_1');
+      const ok = parseScriptNameFromRoute('ds:token-usage-index', 'req_1');
       assert.equal(ok.ok, true);
-      assert.equal(ok.scriptName, 'ds:token-graph');
+      assert.equal(ok.scriptName, 'ds:token-usage-index');
 
       const invalid = parseScriptNameFromRoute('   ', 'req_1');
       assert.equal(invalid.ok, false);
@@ -53,29 +53,29 @@ describe('command-route-enqueue-service', () => {
       const queueArgs = buildRefreshScriptQueueArgs({
         sysCtx: createSysCtx(),
         requestId: 'req_1',
-        script: 'ds:token-graph',
+        script: 'ds:token-usage-index',
       });
       assert.equal(queueArgs.repoRoot, '/repo');
       assert.equal(queueArgs.systemId, 'core');
-      assert.equal(queueArgs.script, 'ds:token-graph');
+      assert.equal(queueArgs.script, 'ds:token-usage-index');
     });
   });
 
   describe('buildRunScriptQueueConfig()', () => {
     it('returns queue args and run command', () => {
       const config = buildRunScriptQueueConfig({
-        scriptName: 'ds:token-graph',
+        scriptName: 'ds:token-usage-index',
         body: { all: true },
         sysCtx: createSysCtx(),
         requestId: 'req_1',
-        buildRunScriptCommandArgsFn: () => ({ args: ['run', 'ds:token-graph', '--', '--system', 'core'] }),
+        buildRunScriptCommandArgsFn: () => ({ args: ['run', 'ds:token-usage-index', '--', '--system', 'core'] }),
         sha256TextFn: (value: string) => `hash:${value.length}`,
       });
 
-      assert.equal(config.commandLabel, 'npm run ds:token-graph -- --system core');
-      assert.equal(config.queueArgs.operationName, 'run:ds:token-graph');
+      assert.equal(config.commandLabel, 'npm run ds:token-usage-index -- --system core');
+      assert.equal(config.queueArgs.operationName, 'run:ds:token-usage-index');
       assert.equal(config.runCommand.command, 'npm');
-      assert.deepEqual(config.runCommand.commandArgs, ['run', 'ds:token-graph', '--', '--system', 'core']);
+      assert.deepEqual(config.runCommand.commandArgs, ['run', 'ds:token-usage-index', '--', '--system', 'core']);
       assert.match(config.queueArgs.inputHash, /^hash:/);
     });
   });

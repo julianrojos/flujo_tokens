@@ -44,15 +44,15 @@ test("queue-job-factory: queueNpmScript enqueues npm command with system arg", (
   const { service, enqueued } = createFactory();
   const job = service.queueNpmScript({
     repoRoot: "/repo",
-    script: "ds:token-graph",
+    script: "ds:token-usage-index",
     systemId: "core",
     requestId: "req_1",
   });
 
   assert.deepEqual(job, { id: "job_1" });
   assert.equal(enqueued.length, 1);
-  assert.equal(enqueued[0].operationName, "script:ds:token-graph");
-  assert.match(enqueued[0].label, /npm run ds:token-graph/);
+  assert.equal(enqueued[0].operationName, "script:ds:token-usage-index");
+  assert.match(enqueued[0].label, /npm run ds:token-usage-index/);
 });
 
 test("queue-job-factory: queueNodeJsonCommand adds tsx loader for TypeScript runners", async () => {

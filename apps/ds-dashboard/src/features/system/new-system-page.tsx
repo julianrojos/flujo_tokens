@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   ApiError,
   cancelQueueJob,
-  refreshTokenGraph,
   syncFigmaTokens,
   syncConsumers,
   updateDesignSystem,
@@ -339,12 +338,6 @@ export function NewSystemPage() {
         }
 
         if (stopped) return;
-        // Best-effort and non-blocking: trigger graph refresh in background so
-        // successful import completion is not delayed by queued refresh latency.
-        void refreshTokenGraph(undefined, systemId).catch((err) => {
-          console.warn('[NewSystemPage] Token graph refresh failed:', err);
-        });
-
         if (stopped) return;
         completeImport({
           elementsImported: importedComponents,

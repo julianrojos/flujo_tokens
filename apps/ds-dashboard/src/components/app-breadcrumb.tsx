@@ -139,19 +139,6 @@ function buildCrumbs(
     ];
   }
 
-  const tokenGraphMatch = matchPath(ROUTE_PATTERNS.tokenGraph, pathname);
-  if (tokenGraphMatch?.params.tokenPath) {
-    return [
-      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
-      { label: 'Tokens', to: ROUTE_PATTERNS.tokens },
-      {
-        label: decodeSafe(tokenGraphMatch.params.tokenPath),
-        to: toTokenDetail(tokenGraphMatch.params.tokenPath),
-      },
-      { label: 'Graph' },
-    ];
-  }
-
   const tokenMatch = matchPath(ROUTE_PATTERNS.tokenDetail, pathname);
   if (tokenMatch?.params.tokenPath) {
     return [

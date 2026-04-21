@@ -692,7 +692,6 @@ Location: `apps/ds-dashboard/src/features/`
 | `ContrastCheckerModal` | `src/features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker       |
 | `ColorPreview`         | `src/features/tokens/accessibility/color-preview.tsx`          | Color contrast preview      |
 | `TokenTreeModal`       | `src/features/tokens/token-tree/token-tree-modal.tsx`          | Token dependency tree modal |
-| `TokenGraphPage`       | `src/features/tokens/token-graph/token-graph-page.tsx`         | Token graph explorer        |
 | `TokenDetailPage`      | `src/features/tokens/token-detail/token-detail-page.tsx`       | Token detail orchestrator   |
 
 #### Token Detail Sections
@@ -700,7 +699,7 @@ Location: `apps/ds-dashboard/src/features/`
 | Component               | Path                                                                      | Description                   |
 | ----------------------- | ------------------------------------------------------------------------- | ----------------------------- |
 | `TokenIdentitySection`  | `src/features/tokens/token-detail/components/token-identity-section.tsx`  | Identity/value overview       |
-| `TokenRelationsSection` | `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias/graph relation summary  |
+| `TokenRelationsSection` | `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias relation summary         |
 | `TokenAliasSection`     | `src/features/tokens/token-detail/components/token-alias-section.tsx`     | Alias chains and descendants  |
 | `TokenUsageSection`     | `src/features/tokens/token-detail/components/token-usage-section.tsx`     | Usage table across components |
 | `TokenHealthSection`    | `src/features/tokens/token-detail/components/token-health-section.tsx`    | Health issues and diagnostics |
@@ -790,7 +789,7 @@ None as of v1.
 
 | Version | Date       | Changes                                                                                                                                                       |
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `token-graph`, `edit-component-docs`)             |
+| 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `edit-component-docs`)             |
 | 1.2     | 2026-04-14 | Added missing `ui/composites` entries (`ImpactLevelBadge`, `AiJobCreateForm`, `AiJobStatusCard`) and expanded Tier 2 coverage for decomposed feature sections |
 | 1.1     | 2026-04-14 | Consolidated content from `docs/ui/COMPONENT_REGISTRY.md`, normalized paths to `src/...`, and refreshed Tier 2 routes                                         |
 | 1.0     | 2026-03-20 | Initial registry                                                                                                                                              |

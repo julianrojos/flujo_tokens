@@ -1,10 +1,5 @@
 import type { Sql } from 'postgres';
 
-import {
-  buildTokenGraph,
-  findIdentityCollisions,
-  findUnresolvedAliases,
-} from '../../../../tooling/src/services/token-graph.js';
 import { generateHealthReport } from '../../../../tooling/src/services/token-health.js';
 import type { HealthRepository } from '../db/health-repository.js';
 import type { TokenRepository } from '../db/token-repository.js';
@@ -227,145 +222,6 @@ export async function refreshUsageIndexDbOnly(args: {
   };
 }
 
-function toCyclePayload(args: {
-  cycles: string[][];
-  tokenPathById: Map<string, string>;
-}) {
-  const { cycles, tokenPathById } = args;
-  return cycles.map((cycle) => {
-    const nodeIds = uniqueSorted(
-      cycle.map((id) => asString(id)).filter(Boolean),
-    );
-    return {
-      kind: nodeIds.length <= 1 ? 'self_loop' : 'strongly_connected_component',
-      size: nodeIds.length,
-      nodes: nodeIds.map((id) => tokenPathById.get(id) || id),
-      node_ids: nodeIds,
-    };
-  });
-}
-
-/**
- * Recomputes token dependency graph from DB token registry + alias edges.
- * Persists result into `token_graph.graph_json`.
- */
-export async function refreshTokenGraphDbOnly(args: {
-  systemId: string;
-  emitChunk: EmitChunk;
-  sql: Sql;
-  tokenRepo: TokenRepository;
-  sha256Text: (value: string) => string;
-}) {
-  const { systemId, emitChunk, sql, tokenRepo, sha256Text } = args;
-
-  const { registry, tokenCatalog } = await buildTokenCatalogFromDb({
-    systemId,
-    tokenRepo,
-    sql,
-  });
-
-  if (registry.entries.length === 0) {
-    throw new Error(
-      `Cannot rebuild token graph for "${systemId}": token registry is empty in DB.`,
-    );
-  }
-
-  const graph = buildTokenGraph(registry);
-  const unresolvedAliases = findUnresolvedAliases(registry, graph);
-  const collisions = findIdentityCollisions(registry);
-  const tokenPathById = new Map(
-    registry.entries.map((entry) => [entry.id, entry.path]),
-  );
-  const tokenByPath = new Map(
-    tokenCatalog.entries.map((entry) => [entry.path, entry]),
-  );
-  const cyclePayload = toCyclePayload({
-    cycles: graph.cycles,
-    tokenPathById,
-  });
-  const cycleNodeIds = uniqueSorted(
-    cyclePayload.flatMap((cycle) => cycle.node_ids),
-  );
-
-  const nodes = graph.nodes.map((node) => {
-    const base = tokenByPath.get(node.id);
-    const collection = asString(
-      base?.collection || node.path.split('.')[0] || '',
-    );
-    const displayKey =
-      collection && node.path.startsWith(`${collection}.`)
-        ? node.path.slice(collection.length + 1).replace(/\./g, '/')
-        : node.path.replace(/\./g, '/');
-    return {
-      id: node.id,
-      path: node.path,
-      slashPath: node.path.replace(/\./g, '/'),
-      cssVar: asString(base?.cssVar || node.cssVar || ''),
-      type: asString(base?.type || node.type || ''),
-      collection,
-      resolvedValue: asString(base?.resolvedValue || ''),
-      displayKey,
-      inDegree: asInt(node.inDegree, 0),
-      outDegree: asInt(node.outDegree, 0),
-      isCycleMember: cycleNodeIds.includes(node.id),
-    };
-  });
-
-  const edges = graph.edges.map((edge) => ({
-    source: edge.from,
-    target: edge.to,
-  }));
-
-  const payload = {
-    ok: true,
-    generated_at: new Date().toISOString(),
-    source: {
-      registry_path: `db://tokens/${systemId}`,
-      graph_viz_path: `db://token_graph/${systemId}`,
-    },
-    summary: {
-      nodes: nodes.length,
-      edges: edges.length,
-      cycles: cyclePayload.length,
-      cycle_nodes: cycleNodeIds.length,
-      unresolved_css_var_refs_total: unresolvedAliases.length,
-      ambiguous_css_vars_total: collisions.length,
-      graph_collisions: collisions.length,
-    },
-    nodes,
-    edges,
-    cycles: cyclePayload,
-    cycle_node_ids: cycleNodeIds,
-    fingerprint: sha256Text(
-      JSON.stringify({
-        nodes,
-        edges,
-        cycles: cyclePayload,
-      }),
-    ),
-  };
-
-  await sql`
-    INSERT INTO token_graph (ds_id, graph_json, generated_at)
-    VALUES (${systemId}, ${JSON.stringify(payload)}, now())
-    ON CONFLICT (ds_id) DO UPDATE SET
-      graph_json = EXCLUDED.graph_json,
-      generated_at = EXCLUDED.generated_at
-  `;
-
-  emitChunk(
-    'result',
-    `Token graph rebuilt in DB (${payload.summary.nodes} nodes, ${payload.summary.edges} edges).`,
-  );
-
-  return {
-    ok: true,
-    code: 0,
-    summary: 'Token graph rebuilt in DB-only mode.',
-    payload,
-  };
-}
-
 /**
  * Reads WCAG pair config from app_settings (`wcag_pairs`) in DB.
  * Returns an empty array when setting is absent or malformed.
@@ -463,7 +319,7 @@ function collectHighCouplingRows(args: {
  *
  * Prerequisites:
  * - token registry exists in DB
- * - token graph exists in DB
+ * - token dependency graph artifact exists in DB, written by the Figma sync pipeline
  */
 export async function refreshTokenHealthSnapshotDbOnly(args: {
   systemId: string;
@@ -490,7 +346,7 @@ export async function refreshTokenHealthSnapshotDbOnly(args: {
   const graph = await tokenRepo.getTokenGraph(systemId);
   if (!graph || typeof graph !== 'object') {
     throw new Error(
-      `Cannot refresh token health for "${systemId}": token graph is missing in DB. Run refresh-token-graph first.`,
+      `Cannot refresh token health for "${systemId}": token graph is missing in DB.`,
     );
   }
 

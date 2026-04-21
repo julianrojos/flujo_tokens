@@ -74,7 +74,7 @@ export interface FigmaMcpPingDeps {
 export interface AllRouteDeps {
   systemDeps: SystemDeps;
   registryDeps: SharedSystemContextDeps;
-  tokenGraphDeps: SharedSystemContextDeps;
+  tokenUsageIndexDeps: SharedSystemContextDeps;
   healthDeps: SharedSystemContextDeps;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
@@ -157,7 +157,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       fsSync: deps.fsSync,
     },
     registryDeps: sharedSystemContextDeps,
-    tokenGraphDeps: sharedSystemContextDeps,
+    tokenUsageIndexDeps: sharedSystemContextDeps,
     healthDeps: sharedSystemContextDeps,
     componentRepo: deps.componentRepo,
     tokenRepo: deps.tokenRepo,

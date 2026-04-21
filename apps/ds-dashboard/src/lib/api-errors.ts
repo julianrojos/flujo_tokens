@@ -19,7 +19,6 @@ export const API_ERROR_CODES = {
   QUEUE_STREAM_TIMEOUT: "queue.stream_timeout",
   SYSTEM_INVALID_OR_MISSING: "system.invalid_or_missing",
   SYNC_COMPONENT_PROOFS_REQUIRED_FAILED: "sync.component_proofs_required_failed",
-  TOKEN_GRAPH_TOKEN_NOT_FOUND: "token_graph.token_not_found",
   VALIDATION_FIGMA_URL_REQUIRED: "validation.figma_url_required",
   VALIDATION_INVALID_COMPONENT_SLUG: "validation.invalid_component_slug",
   VALIDATION_INVALID_DATE_FORMAT: "validation.invalid_date_format",
@@ -186,13 +185,6 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     recoverable: true,
     description: "Import failed because required screenshots are missing.",
     fix: "Re-open the Figma plugin, capture missing screenshots, and retry.",
-  },
-  [API_ERROR_CODES.TOKEN_GRAPH_TOKEN_NOT_FOUND]: {
-    code: API_ERROR_CODES.TOKEN_GRAPH_TOKEN_NOT_FOUND,
-    httpStatus: 404,
-    recoverable: true,
-    description: "Token was not found in the token graph.",
-    fix: "Verify token path and rebuild graph artifacts.",
   },
   [API_ERROR_CODES.VALIDATION_FIGMA_URL_REQUIRED]: {
     code: API_ERROR_CODES.VALIDATION_FIGMA_URL_REQUIRED,

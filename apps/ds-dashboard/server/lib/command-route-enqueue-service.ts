@@ -31,7 +31,6 @@ export type ParseScriptNameResult = ParseScriptNameSuccess | ParseScriptNameFail
 
 const ALLOWED_RUN_SCRIPTS = new Set<string>([
   'ds:token-usage-index',
-  'ds:token-graph',
   'ds:token-health',
 ]);
 
