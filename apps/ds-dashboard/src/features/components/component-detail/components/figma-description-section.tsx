@@ -7,6 +7,8 @@
 import React from "react";
 import { MarkdownPreview } from "@/components/markdown/markdown-preview";
 
+const subsectionLabelClass = "text-[11px] font-titles font-medium uppercase tracking-wider";
+
 interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;
   variantDescriptions: Array<{ canonicalKey: string; description: string | null }>;
@@ -44,7 +46,7 @@ export function FigmaDescriptionSection({
 
         {/* Variant descriptions */}
         <div className="space-y-2">
-          <h5 className="text-xs font-titles font-semibold titles-color">Variant descriptions</h5>
+          <h5 className={subsectionLabelClass}>Variant descriptions</h5>
           {variantEntries.length > 0 ? (
             <ul className="space-y-2">
               {variantEntries.map((variant) => (

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { PartialComponentSpec, SpecProperty } from "ds-types";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -91,12 +91,11 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
     <Card>
       <CardHeader>
         <CardTitle>Properties</CardTitle>
-        <CardDescription>Available property definitions for this component.</CardDescription>
       </CardHeader>
       <CardContent>
         {!spec || spec.properties === null ? (
           <p className="text-sm text-muted-foreground">
-            Properties available after Figma capture.
+            No properties defined for this component.
           </p>
         ) : propertyItems.length > 0 ? (
           <Table>

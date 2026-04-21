@@ -56,6 +56,11 @@ function toImportErrorDetails(error: unknown): string {
   return String(error);
 }
 
+function isDuplicateSystemNameError(error: unknown): boolean {
+  const message = toImportErrorMessage(error).toLowerCase();
+  return message.includes("already in use");
+}
+
 function extractPipelinePhase(error: unknown): string {
   if (!(error instanceof ApiError)) return "";
   const payload = toRecord(error.payload);
@@ -371,7 +376,7 @@ export function NewSystemPage() {
         description="Import from Figma"
       />
 
-      {saveError && <ApiErrorMessage error={saveError} />}
+      {saveError && !isDuplicateSystemNameError(saveError) ? <ApiErrorMessage error={saveError} /> : null}
 
       {step === "basics" && (
         <WizardStepBasics

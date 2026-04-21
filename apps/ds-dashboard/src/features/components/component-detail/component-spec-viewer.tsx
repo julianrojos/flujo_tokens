@@ -7,6 +7,8 @@ const SummaryMarkdownPreview = lazy(() =>
   })),
 );
 
+const subsectionLabelClass = "text-[11px] font-titles font-medium uppercase tracking-wider";
+
 function extractGuidanceItems(spec: PartialComponentSpec, candidateKeys: string[]): string[] {
   const looseSpec = spec as Record<string, unknown>;
   const collected: string[] = [];
@@ -107,7 +109,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
     );
   };
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-prose">
       {/* Summary */}
       <section>
         <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
@@ -115,18 +117,18 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
         </h4>
         <div className="space-y-3 text-sm">
           <div>
-            <h5 className="text-xs font-titles font-semibold titles-color">Purpose</h5>
+            <h5 className={`mb-1 ${subsectionLabelClass}`}>Purpose</h5>
             <div>{renderSummaryMarkdown(summary.purpose)}</div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-3">
             <div>
-              <h5 className="mb-2 text-xs font-titles font-semibold titles-color">
+              <h5 className={`mb-1 ${subsectionLabelClass}`}>
                 When to use
               </h5>
               <div>{renderSummaryMarkdown(summary.when_to_use)}</div>
             </div>
             <div>
-              <h5 className="mb-2 text-xs font-titles font-semibold titles-color">
+              <h5 className={`mb-1 ${subsectionLabelClass}`}>
                 When not to use
               </h5>
               <div>{renderSummaryMarkdown(summary.when_not_to_use)}</div>
@@ -156,9 +158,9 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
         <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
           Accessibility
         </h4>
-        <div className="space-y-2 text-sm">
+        <div className="space-y-3 text-sm">
           <div>
-            <h5 className="text-xs font-titles font-semibold titles-color">Role</h5>
+            <h5 className={`mb-1 ${subsectionLabelClass}`}>Role</h5>
             <p className="font-mono text-xs">
               {String(spec.accessibility?.role ?? "").trim() || (
                 <span className="text-muted-foreground">—</span>
@@ -167,7 +169,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
           </div>
           {spec.accessibility?.focus?.tokens ? (
             <div>
-              <h5 className="text-xs font-titles font-semibold titles-color">Focus tokens</h5>
+              <h5 className={`mb-1 ${subsectionLabelClass}`}>Focus tokens</h5>
               <div className="space-y-0.5 font-mono text-xs text-muted-foreground">
                 {spec.accessibility.focus.tokens.inner ? (
                   <div>inner: {spec.accessibility.focus.tokens.inner}</div>
@@ -180,9 +182,9 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
           ) : null}
           {accessibilityGuidance.length > 0 ? (
             <div>
-              <h5 className="text-xs font-titles font-semibold titles-color">Guidance</h5>
+              <h5 className={`mb-1 ${subsectionLabelClass}`}>Guidance</h5>
               <div>
-                <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
                   {accessibilityGuidance.map((item, i) => (
                     <li key={i}>{item}</li>
                   ))}
@@ -218,7 +220,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
           <div className="space-y-3 text-sm">
             {variants.map((variant) => (
               <article key={variant.id} className="space-y-1">
-                <h5 className="text-xs font-titles font-semibold titles-color">
+                <h5 className={subsectionLabelClass}>
                   {variant.name}
                 </h5>
                 {variant.description ? (
