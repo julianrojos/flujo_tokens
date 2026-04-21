@@ -372,8 +372,11 @@ export function fetchComponentUsageIndex() {
   return getJson<ComponentUsageIndex>('/api/component-usage-index');
 }
 
-export function fetchTokenCatalog() {
-  return getJson<TokenCatalog>('/api/token-catalog');
+export function fetchTokenCatalog(systemId?: string) {
+  const normalizedSystemId = String(systemId || '').trim();
+  return getJson<TokenCatalog>('/api/token-catalog', {
+    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
+  });
 }
 
 export function fetchTokenCollectionTrees() {

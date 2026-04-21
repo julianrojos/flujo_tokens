@@ -6,19 +6,33 @@ import { toApiErrorDisplay } from '@/lib/api-error-ux';
 import {
   healthQueryKeys,
   useComponentCatalogQuery,
+  useDesignSystemsConfigQuery,
+  useTokenCatalogQuery,
   useTokenHealthQuery,
 } from './use-health-queries';
 
 export function useHealthDashboardData(systemId: string) {
   const queryClient = useQueryClient();
 
+  const designSystemsConfigQuery = useDesignSystemsConfigQuery();
   const componentCatalogQuery = useComponentCatalogQuery(systemId);
+  const tokenCatalogQuery = useTokenCatalogQuery(systemId);
   const tokenHealthQuery = useTokenHealthQuery(systemId);
 
+  const designSystemsConfig = designSystemsConfigQuery.data ?? null;
   const componentCatalog = componentCatalogQuery.data ?? null;
+  const tokenCatalog = tokenCatalogQuery.data ?? null;
   const tokenHealth = tokenHealthQuery.data ?? null;
-  const loading = tokenHealthQuery.isLoading || componentCatalogQuery.isLoading;
-  const reloadingAll = tokenHealthQuery.isFetching || componentCatalogQuery.isFetching;
+  const loading =
+    designSystemsConfigQuery.isLoading ||
+    tokenHealthQuery.isLoading ||
+    componentCatalogQuery.isLoading ||
+    tokenCatalogQuery.isLoading;
+  const reloadingAll =
+    designSystemsConfigQuery.isFetching ||
+    tokenHealthQuery.isFetching ||
+    componentCatalogQuery.isFetching ||
+    tokenCatalogQuery.isFetching;
 
   const queryTokenError = useMemo(() => {
     if (!tokenHealthQuery.error) return null;
@@ -52,7 +66,9 @@ export function useHealthDashboardData(systemId: string) {
   }, [snapshotMutation]);
 
   return {
+    designSystemsConfig,
     componentCatalog,
+    tokenCatalog,
     tokenHealth,
     loading,
     reloadingAll,

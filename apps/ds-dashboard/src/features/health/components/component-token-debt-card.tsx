@@ -40,9 +40,17 @@ export function ComponentTokenDebtCard() {
 
   if (isError || !data) {
     return (
-      <StatusAlert variant="warning" title="Token debt chart unavailable">
-        Could not load unresolved bindings for the current system.
-      </StatusAlert>
+      <Card>
+        <CardHeader>
+          <CardTitle>Componentes con deuda de tokens</CardTitle>
+          <CardDescription>Token debt chart unavailable.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StatusAlert variant="warning" title="Token debt chart unavailable">
+            Could not load unresolved bindings for the current system.
+          </StatusAlert>
+        </CardContent>
+      </Card>
     );
   }
 

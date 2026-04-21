@@ -94,9 +94,17 @@ export function ComponentEditorialCoverageCard() {
 
   if (isError || !data) {
     return (
-      <StatusAlert variant="warning" title="Documentation coverage unavailable">
-        Could not load the component docs summary.
-      </StatusAlert>
+      <Card>
+        <CardHeader>
+          <CardTitle>Componentes documentados</CardTitle>
+          <CardDescription>Documentation coverage unavailable.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StatusAlert variant="warning" title="Documentation coverage unavailable">
+            Could not load the component docs summary.
+          </StatusAlert>
+        </CardContent>
+      </Card>
     );
   }
 

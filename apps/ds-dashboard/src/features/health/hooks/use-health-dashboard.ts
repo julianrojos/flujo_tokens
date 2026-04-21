@@ -1,19 +1,12 @@
-import { useCallback, useMemo, type MouseEvent } from 'react';
+import { useMemo } from 'react';
 
 import { useHealthDashboardData } from '@/features/health/use-health-dashboard-data';
 
-interface DashboardIssue {
-  id: string;
-  label: string;
-  description: string;
-  count: number;
-  severity: 'critical' | 'warning';
-  to: string;
-}
-
 export function useHealthDashboard(systemId: string) {
   const {
+    designSystemsConfig,
     componentCatalog,
+    tokenCatalog,
     tokenHealth,
     loading,
     reloadingAll,
@@ -27,48 +20,37 @@ export function useHealthDashboard(systemId: string) {
     () => componentCatalog?.summary.total_components ?? 0,
     [componentCatalog],
   );
+  const componentsWithEditorial = useMemo(
+    () => componentCatalog?.summary.with_editorial ?? 0,
+    [componentCatalog],
+  );
+  const componentsWithoutDocsPercent = useMemo(() => {
+    if (totalComponents <= 0) return 0;
+    const withoutDocs = Math.max(0, totalComponents - componentsWithEditorial);
+    return Math.round((withoutDocs / totalComponents) * 100);
+  }, [componentsWithEditorial, totalComponents]);
   const tokensTotal = useMemo(
-    () => tokenHealth?.summary.tokens_total ?? 0,
+    () =>
+      tokenCatalog?.entries.length ??
+      tokenHealth?.summary.tokens_total ??
+      0,
+    [tokenCatalog, tokenHealth],
+  );
+  const tokensWithoutUse = useMemo(
+    () => tokenHealth?.summary.unused_tokens_total ?? 0,
     [tokenHealth],
   );
-
-  const activeIssues = useMemo<DashboardIssue[]>(() => {
-    if (!tokenHealth) return [];
-    const issues: DashboardIssue[] = [];
-    if (tokenHealth.summary.wcag_failures_total > 0) {
-      issues.push({
-        id: 'wcag-failures',
-        label: 'WCAG failures',
-        description: `${tokenHealth.summary.wcag_failures_total} color contrast failures`,
-        count: tokenHealth.summary.wcag_failures_total,
-        severity: 'critical',
-        to: '/tokens',
-      });
-    }
-    if (tokenHealth.summary.unused_tokens_total > 0) {
-      issues.push({
-        id: 'unused-tokens',
-        label: 'Unused tokens',
-        description: `${tokenHealth.summary.unused_tokens_total} tokens are not referenced`,
-        count: tokenHealth.summary.unused_tokens_total,
-        severity: 'warning',
-        to: '/tokens',
-      });
-    }
-    return issues;
-  }, [tokenHealth]);
-  const handleIssueViewClick = useCallback(
-    (event: MouseEvent<HTMLAnchorElement>, to: string) => {
-      if (!to.startsWith('#')) return;
-      event.preventDefault();
-      const hash = to.split('#')[1];
-      if (!hash) return;
-      const target = document.getElementById(hash);
-      if (!target) return;
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    },
-    [],
-  );
+  const importedComponentsCount = useMemo(() => {
+    const system = designSystemsConfig?.systems.find((entry) => entry.id === systemId);
+    return Number(system?.importedComponentsCount ?? 0);
+  }, [designSystemsConfig, systemId]);
+  const scannedComponentsCount = useMemo(() => {
+    const system = designSystemsConfig?.systems.find((entry) => entry.id === systemId);
+    const detected = system?.detectedComponentsCount;
+    return typeof detected === 'number' && Number.isFinite(detected)
+      ? detected
+      : totalComponents;
+  }, [designSystemsConfig, systemId, totalComponents]);
 
   return {
     tokenHealth,
@@ -80,7 +62,9 @@ export function useHealthDashboard(systemId: string) {
     captureSnapshotAndReload,
     tokensTotal,
     totalComponents,
-    activeIssues,
-    handleIssueViewClick,
+    tokensWithoutUse,
+    componentsWithoutDocsPercent,
+    importedComponentsCount,
+    scannedComponentsCount,
   };
 }

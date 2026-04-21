@@ -9,19 +9,20 @@ import {
 } from '@/components/composites';
 import { useParams } from 'react-router-dom';
 import { useHealthDashboard } from './hooks/use-health-dashboard';
-import { HealthActiveIssues } from './components/health-active-issues';
 import { ComponentEditorialCoverageCard } from './components/component-editorial-coverage-card';
 import { ComponentTokenDebtCard } from './components/component-token-debt-card';
+import { TokenValueCirclePackingCard } from './components/token-value-circle-packing-card';
 
 export function HealthDashboardPage() {
   const { systemId } = useParams<{ systemId: string }>();
   const resolvedSystemId = String(systemId || '').trim();
   const {
     loading,
-    totalComponents,
     tokensTotal,
-    activeIssues,
-    handleIssueViewClick,
+    tokensWithoutUse,
+    componentsWithoutDocsPercent,
+    importedComponentsCount,
+    scannedComponentsCount,
   } = useHealthDashboard(resolvedSystemId);
 
   if (loading) {
@@ -45,26 +46,32 @@ export function HealthDashboardPage() {
         items={[
           {
             id: 'overall-system',
-            label: 'Components',
-            value: String(totalComponents),
+            label: 'Imported / scanned components',
+            value: `${importedComponentsCount} / ${scannedComponentsCount}`,
           },
           {
             id: 'tokens',
             label: 'Tokens',
             value: String(tokensTotal),
           },
+          {
+            id: 'tokens-without-use',
+            label: 'Unused tokens',
+            value: String(tokensWithoutUse),
+          },
+          {
+            id: 'components-without-docs',
+            label: 'Undocumented components',
+            value: `${componentsWithoutDocsPercent}%`,
+          },
         ]}
       />
 
-      <section className="grid gap-4 md:grid-cols-2 items-start">
-        <ComponentEditorialCoverageCard />
+      <section className="overview-widgets-masonry">
         <ComponentTokenDebtCard />
+        <TokenValueCirclePackingCard />
+        <ComponentEditorialCoverageCard />
       </section>
-
-      <HealthActiveIssues
-        issues={activeIssues}
-        onIssueClick={handleIssueViewClick}
-      />
     </div>
   );
 }
