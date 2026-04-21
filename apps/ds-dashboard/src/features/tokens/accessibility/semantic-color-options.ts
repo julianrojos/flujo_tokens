@@ -96,7 +96,7 @@ export function buildSemanticColorOptions(entries: TokenCatalogEntry[]): {
   const indexes = buildIndexes(entries);
   const semanticColorEntries = entries.filter(
     (entry) =>
-      String(entry.type || "").toLowerCase() === "color" &&
+      String(entry.type || "").toUpperCase() === "COLOR" &&
       String(entry.collection || "").toLowerCase() === "semantic",
   );
 
@@ -128,7 +128,7 @@ export function buildSemanticColorOptions(entries: TokenCatalogEntry[]): {
 
   const primitiveColorEntries = entries.filter(
     (entry) =>
-      String(entry.type || "").toLowerCase() === "color" &&
+      String(entry.type || "").toUpperCase() === "COLOR" &&
       String(entry.collection || "").toLowerCase() === "primitives",
   );
 

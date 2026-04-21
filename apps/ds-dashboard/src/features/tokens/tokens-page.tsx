@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Accessibility,
   FolderTree,
@@ -41,17 +41,13 @@ import {
   buildTokenUsageTargets,
   variableReportMatchesTokenTargets,
 } from "./token-detail/lib/token-detail-transforms";
+import {
+  normalizeResolvedValueFilter,
+  resolveColorSwatch as normalizeColorSwatch,
+} from "@/lib/token-value-normalize";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
-
-function resolveColorSwatch(value: string): string | null {
-  const raw = String(value || "").trim();
-  if (/^#[0-9a-fA-F]{6}$/.test(raw) || /^#[0-9a-fA-F]{8}$/.test(raw)) {
-    return raw;
-  }
-  return null;
-}
 
 function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): T[] {
   const map = new Map<string, T>();
@@ -136,6 +132,7 @@ type SortField =
   | "usageCount";
 
 export function TokensPage() {
+  const [searchParams] = useSearchParams();
   const [entries, setEntries] = useState<TokenCatalogEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [search, setSearch] = useState("");
@@ -151,6 +148,13 @@ export function TokensPage() {
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
   const contrastChecker = useContrastChecker();
+  const userAdjustedFiltersRef = useRef(false);
+  const lastResolvedValueFilterRef = useRef("");
+  const resolvedValueFilter =
+    searchParams.get("group") === "resolvedValue"
+      ? normalizeResolvedValueFilter(searchParams.get("value") ?? "")
+      : "";
+  const resolvedValueFilterLabel = String(searchParams.get("value") ?? "").trim();
 
   useEffect(() => {
     const load = async () => {
@@ -205,8 +209,31 @@ export function TokensPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
+  const resolvedValuePreset = useMemo(() => {
+    if (!resolvedValueFilter || entries.length === 0) {
+      return { collection: "", type: "" };
+    }
+
+    const matchingEntries = entries.filter(
+      (entry) =>
+        normalizeResolvedValueFilter(entry.resolvedValue) === resolvedValueFilter,
+    );
+    if (matchingEntries.length === 0) {
+      return { collection: "", type: "" };
+    }
+
+    const collectionSet = new Set(matchingEntries.map((entry) => entry.collection));
+    const typeSet = new Set(matchingEntries.map((entry) => entry.type));
+
+    return {
+      collection: collectionSet.size === 1 ? matchingEntries[0]?.collection ?? "" : "",
+      type: typeSet.size === 1 ? matchingEntries[0]?.type ?? "" : "",
+    };
+  }, [entries, resolvedValueFilter]);
+
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
+    const normalizedResolvedValueFilter = resolvedValueFilter;
     const next = entries.filter((entry) => {
       const matchesSearch =
         !lowered ||
@@ -215,7 +242,10 @@ export function TokensPage() {
       const matchesCollection =
         collection === "all" || entry.collection === collection;
       const matchesType = type === "all" || entry.type === type;
-      return matchesSearch && matchesCollection && matchesType;
+      const matchesResolvedValue =
+        !normalizedResolvedValueFilter ||
+        normalizeResolvedValueFilter(entry.resolvedValue) === normalizedResolvedValueFilter;
+      return matchesSearch && matchesCollection && matchesType && matchesResolvedValue;
     });
 
     next.sort((a, b) => {
@@ -234,7 +264,7 @@ export function TokensPage() {
     });
 
     return next;
-  }, [entries, search, collection, type, sort, usageByPath]);
+  }, [entries, search, collection, type, sort, usageByPath, resolvedValueFilter]);
 
   const allowShowAll = filtered.length >= 175;
   const pageSizeOptions = useMemo(
@@ -264,6 +294,35 @@ export function TokensPage() {
     }
     setCurrentPage(1);
   }, [allowShowAll, collection, pageSize, pageSizeOptions, search, type]);
+
+  useEffect(() => {
+    if (lastResolvedValueFilterRef.current === resolvedValueFilter) return;
+    lastResolvedValueFilterRef.current = resolvedValueFilter;
+    userAdjustedFiltersRef.current = false;
+    setCollection("all");
+    setType("all");
+    setCurrentPage(1);
+  }, [resolvedValueFilter]);
+
+  useEffect(() => {
+    if (!resolvedValueFilter || userAdjustedFiltersRef.current) return;
+
+    let applied = false;
+
+    if (collection === "all" && resolvedValuePreset.collection) {
+      setCollection(resolvedValuePreset.collection);
+      applied = true;
+    }
+
+    if (type === "all" && resolvedValuePreset.type) {
+      setType(resolvedValuePreset.type);
+      applied = true;
+    }
+
+    if (applied) {
+      userAdjustedFiltersRef.current = true;
+    }
+  }, [collection, resolvedValueFilter, resolvedValuePreset.collection, resolvedValuePreset.type, type]);
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
@@ -334,7 +393,7 @@ export function TokensPage() {
     semanticColorOptions.primitives,
   ]);
 
-  const showAccessibilityButton = type === "color";
+  const showAccessibilityButton = type === "COLOR";
 
   useEffect(() => {
     if (!showAccessibilityButton && contrastChecker.isOpen) {
@@ -398,7 +457,11 @@ export function TokensPage() {
     <div className="space-y-5">
       <PageHeader
         title="Tokens"
-        description="Local inventory of your design tokens, with filters by collection and type."
+        description={
+          resolvedValueFilter
+            ? `Local inventory filtered by resolved value: ${resolvedValueFilterLabel || resolvedValueFilter}`
+            : "Local inventory of your design tokens, with filters by collection and type."
+        }
         actions={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -415,22 +478,24 @@ export function TokensPage() {
         }
       />
 
-      <StatsOverview
-        items={[
-          { id: "tokens-total", label: "Total tokens", value: metrics.totalTokens },
-          {
-            id: "tokens-in-use",
-            label: "Tokens en uso",
-            value: `${metrics.tokensInUse} (${metrics.usagePercent}%)`,
-          },
-          {
-            id: "tokens-unused",
-            label: "Tokens sin uso",
-            value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
-          },
-          { id: "tokens-total-uses", label: "Total uses", value: metrics.totalRefs },
-        ]}
-      />
+      {resolvedValueFilter ? null : (
+        <StatsOverview
+          items={[
+            { id: "tokens-total", label: "Total tokens", value: metrics.totalTokens },
+            {
+              id: "tokens-in-use",
+              label: "Tokens en uso",
+              value: `${metrics.tokensInUse} (${metrics.usagePercent}%)`,
+            },
+            {
+              id: "tokens-unused",
+              label: "Tokens sin uso",
+              value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
+            },
+            { id: "tokens-total-uses", label: "Total uses", value: metrics.totalRefs },
+          ]}
+        />
+      )}
 
       <Card className="p-5 text-card-foreground backdrop-blur-sm">
           <FilterBar
@@ -458,10 +523,13 @@ export function TokensPage() {
               </div>
             )}
           >
-            <Select
-              value={collection}
-              onChange={(event) => setCollection(event.target.value)}
-            >
+          <Select
+            value={collection}
+            onChange={(event) => {
+              userAdjustedFiltersRef.current = true;
+              setCollection(event.target.value);
+            }}
+          >
               <option value="all">Collection: All</option>
               {collections.map((item) => (
                 <option key={item} value={item}>
@@ -469,10 +537,13 @@ export function TokensPage() {
                 </option>
               ))}
             </Select>
-            <Select
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-            >
+          <Select
+            value={type}
+            onChange={(event) => {
+              userAdjustedFiltersRef.current = true;
+              setType(event.target.value);
+            }}
+          >
               <option value="all">Type: All</option>
               {types.map((item) => (
                 <option key={item} value={item}>
@@ -580,7 +651,7 @@ export function TokensPage() {
                     </TableRow>
                   ))
                 : pagedEntries.map((entry) => {
-                    const swatch = resolveColorSwatch(entry.resolvedValue);
+                    const swatch = normalizeColorSwatch(entry.resolvedValue);
                     const usage = usageByPath[entry.path];
                     const usageCount = usage?.usageCount ?? 0;
                     const usageOwners =

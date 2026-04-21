@@ -3,7 +3,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Sql } from 'postgres';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
-import { normalizeTokenTypeFromFigma } from '@flujo/shared';
 import type {
   FigmaVariable,
   FigmaVariableCollection,
@@ -71,12 +70,8 @@ function toTokenPaths(rawName: string): {
 
 function normalizeType(args: {
   resolvedType: string;
-  variableName?: string;
 }): string {
-  return normalizeTokenTypeFromFigma({
-    resolvedType: args.resolvedType,
-    variableName: args.variableName,
-  });
+  return String(args.resolvedType || '').trim().toUpperCase();
 }
 
 function toHexByte(value: number): string {
@@ -184,7 +179,6 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
       String(collection?.name || 'default').trim() || 'default';
     const type = normalizeType({
       resolvedType: String(variable.resolvedType || ''),
-      variableName: String(variable.name || ''),
     });
     const modeNameMap =
       modeNameMapByCollectionId.get(

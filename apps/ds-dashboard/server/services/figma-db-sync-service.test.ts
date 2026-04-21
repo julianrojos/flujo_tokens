@@ -488,6 +488,13 @@ describe('figma-db-sync-service', () => {
       assert.equal(Number(legacyUsageRow.count), 1);
       assert.equal(Number(goneUsageRow.count), 0);
       assert.equal(stagedTokens, 0);
+
+      const [storedTokenRow] = await sql`
+        SELECT type
+        FROM tokens
+        WHERE ds_id = ${'sys-01'} AND id = ${'legacy.token'}
+      ` as [{ type: string }];
+      assert.equal(storedTokenRow.type, 'COLOR');
     } finally {
       await cleanup();
     }
