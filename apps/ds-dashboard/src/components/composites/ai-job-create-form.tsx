@@ -358,7 +358,7 @@ export function AiJobCreateForm({
                 void refetchProviderHealth();
               }}
               disabled={isHealthLoading || isHealthFetching}
-              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+              className="h-6 px-2 text-xs"
             >
               {isHealthFetching ? 'Checking…' : 'Recheck'}
             </Button>
