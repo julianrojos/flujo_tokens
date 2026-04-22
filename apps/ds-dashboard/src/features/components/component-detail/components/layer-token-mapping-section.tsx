@@ -6,14 +6,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Inbox } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FilterBar } from "@/components/composites";
+import { EmptyState, FilterBar } from "@/components/composites";
 import { Link } from "react-router-dom";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import type { TokenCatalog } from "@/types/token-catalog";
 
 export interface LayerTokenMappingEntry {
@@ -180,12 +182,6 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     });
   }, [collectionOptions]);
 
-  const allowShowAll = filteredEntries.length >= 175;
-  const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filteredEntries.length)),
-    [filteredEntries.length],
-  );
-
   const groupedSortedFilteredEntries = useMemo(() => {
     const byVisibleRow = new Map<string, GroupedBindingWithCollection>();
     for (const row of sortedFilteredEntries) {
@@ -224,6 +220,12 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     return sorted;
   }, [groupedSortedFilteredEntries, sort]);
 
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, displayedEntries.length)),
+    [displayedEntries.length],
+  );
+  const showPageSizeSelect = shouldShowPageSizeSelect(displayedEntries.length);
+
   const pageSizeValue = pageSize === PAGE_SIZE_ALL ? displayedEntries.length : Number(pageSize);
   const shouldPaginate =
     pageSize !== PAGE_SIZE_ALL &&
@@ -232,7 +234,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     displayedEntries.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(displayedEntries.length / pageSizeValue)) : 1;
   useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(displayedEntries.length)) {
       setPageSize("25");
       return;
     }
@@ -245,7 +247,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
       }
     }
     setCurrentPage(1);
-  }, [allowShowAll, pageSize, pageSizeOptions, search, selectedCollection, selectedVariant]);
+  }, [displayedEntries.length, pageSize, pageSizeOptions, search, selectedCollection, selectedVariant]);
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
@@ -289,24 +291,26 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
             searchValue={search}
             onSearch={setSearch}
             searchPlaceholder="Filter by token, layer, property, or variant"
-            rightSlot={(
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Rows</span>
-                <Select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(event.target.value)}
-                  className="w-[132px]"
-                  aria-label="Rows per page"
-                >
-                  {pageSizeOptions.map((size) => (
-                    <option key={size} value={String(size)}>
-                      {size}
-                    </option>
-                  ))}
-                  {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
-                </Select>
-              </div>
-            )}
+            rightSlot={
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(displayedEntries.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
+                </div>
+              ) : null
+            }
           >
             <Select
               value={selectedCollection}
@@ -336,55 +340,55 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
           </FilterBar>
         ) : null}
         {hasEntries ? (
-          <>
-          {shouldPaginate ? (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {displayedEntries.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableTableHead label="Token" onSort={() => toggleSort("token")} ariaLabel="Sort by token" />
-                <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
-                <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
-                <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
-                <SortableTableHead
-                  label="Instances"
-                  onSort={() => toggleSort("instances")}
-                  ariaLabel="Sort by instances"
-                />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {hasFilteredEntries ? (
-                pagedEntries.map(({ entry, collection, refsCount }) => (
-                  <TableRow
-                    key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
-                  >
+          hasFilteredEntries ? (
+            <>
+              {shouldPaginate ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {pageStart}-{pageEnd} of {displayedEntries.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead label="Token" onSort={() => toggleSort("token")} ariaLabel="Sort by token" />
+                    <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
+                    <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
+                    <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
+                    <SortableTableHead
+                      label="Instances"
+                      onSort={() => toggleSort("instances")}
+                      ariaLabel="Sort by instances"
+                    />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedEntries.map(({ entry, collection, refsCount }) => (
+                    <TableRow
+                      key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
+                    >
                       <TableCell className="max-w-[200px]">
                         {entry.token_path ? (
                           <Link
@@ -397,74 +401,77 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs !font-normal text-foreground">
-                        {entry.property_path}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {entry.token_path ? (
-                        <Badge variant="neutral" className="text-xs">
-                          {collection || "—"}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <span className="block truncate text-sm !font-normal" title={entry.variant_signature || "(no variant)"}>
-                        {entry.variant_signature || <span className="text-muted-foreground">—</span>}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="neutral">{refsCount} refs</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                    No token bindings match the selected variant.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          {shouldPaginate ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {displayedEntries.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
-          </>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs !font-normal text-foreground">
+                          {entry.property_path}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {entry.token_path ? (
+                          <Badge variant="neutral" className="text-xs">
+                            {collection || "—"}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <span className="block truncate text-sm !font-normal" title={entry.variant_signature || "(no variant)"}>
+                          {entry.variant_signature || <span className="text-muted-foreground">—</span>}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{refsCount} refs</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {shouldPaginate ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {pageStart}-{pageEnd} of {displayedEntries.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState
+              icon={Inbox}
+              title="No token bindings found"
+              description="No token bindings match the selected variant."
+              compact
+            />
+          )
         ) : (
-          <div className="text-sm text-muted-foreground">
-            No layer-token bindings available yet. Reimport this component from Figma to capture where variables are
-            applied (layer + property).
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No token bindings yet"
+            description="Reimport this component from Figma to capture where variables are applied."
+            compact
+          />
         )}
       </CardContent>
     </Card>

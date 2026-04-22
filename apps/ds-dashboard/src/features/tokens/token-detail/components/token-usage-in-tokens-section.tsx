@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { EmptyState } from "@/components/composites";
 import { toTokenDetail } from "@/lib/routes";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 
 import type { TokenUsageInTokensRow } from "../lib/token-detail-usage-derivation";
 
@@ -65,6 +66,7 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
     pageSizeValue > 0 &&
     sortedRows.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedRows.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedRows.length);
 
   useEffect(() => {
     if (pageSize !== PAGE_SIZE_ALL) {
@@ -130,24 +132,26 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Rows</span>
-            <Select
-              value={pageSize}
-              onChange={(event) => setPageSize(event.target.value)}
-              className="w-[132px]"
-              aria-label="Rows per page"
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={String(size)}>
-                  {size}
-                </option>
-              ))}
-              <option value={PAGE_SIZE_ALL}>All</option>
-            </Select>
+        {showPageSizeSelect ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Rows</span>
+              <Select
+                value={pageSize}
+                onChange={(event) => setPageSize(event.target.value)}
+                className="w-[132px]"
+                aria-label="Rows per page"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+                {shouldAllowShowAll(sortedRows.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+              </Select>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {shouldPaginate ? (
           <div className="flex flex-wrap items-center justify-between gap-2 pl-0">

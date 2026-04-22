@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Accessibility,
   FolderTree,
+  Inbox,
 } from "lucide-react";
 
 import {
@@ -21,11 +22,12 @@ import type { TokenUsageEntry } from "@/types/token-usage-index";
 import type { VariableUsageReport } from "@/types/consumers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
+import { EmptyState, FilterBar, PageHeader, PrevNextNav, StatsOverview } from "@/components/composites";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import {
   Table,
   TableBody,
@@ -41,6 +43,8 @@ import {
   buildTokenUsageTargets,
   variableReportMatchesTokenTargets,
 } from "./token-detail/lib/token-detail-transforms";
+import { resolveVariableRef } from "@/lib/token-reference";
+import { toTokenDetail } from "@/lib/routes";
 import {
   normalizeResolvedValueFilter,
   resolveColorSwatch as normalizeColorSwatch,
@@ -132,6 +136,7 @@ type SortField =
   | "usageCount";
 
 export function TokensPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [entries, setEntries] = useState<TokenCatalogEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
@@ -150,11 +155,17 @@ export function TokensPage() {
   const contrastChecker = useContrastChecker();
   const userAdjustedFiltersRef = useRef(false);
   const lastResolvedValueFilterRef = useRef("");
+  const filterValue = String(searchParams.get("value") ?? "").trim().toLowerCase();
   const resolvedValueFilter =
     searchParams.get("group") === "resolvedValue"
-      ? normalizeResolvedValueFilter(searchParams.get("value") ?? "")
+      ? normalizeResolvedValueFilter(filterValue)
       : "";
   const resolvedValueFilterLabel = String(searchParams.get("value") ?? "").trim();
+  const aliasFilter = searchParams.get("group") === "aliases" && filterValue === "alias" ? filterValue : "";
+  const aliasFilterLabel = String(searchParams.get("value") ?? "").trim();
+  const usageCountFilter =
+    searchParams.get("group") === "usageCount" && filterValue === "unused" ? filterValue : "";
+  const usageCountFilterLabel = String(searchParams.get("value") ?? "").trim();
 
   useEffect(() => {
     const load = async () => {
@@ -204,6 +215,16 @@ export function TokensPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
+  const tokenRegistry = useMemo(
+    () => ({
+      entries,
+      byPath: Object.fromEntries(entries.map((entry) => [entry.path, entry])),
+      bySlashPath: Object.fromEntries(entries.map((entry) => [entry.slashPath, entry])),
+      byVariableId: {},
+    }),
+    [entries],
+  );
+
   const types = useMemo(() => {
     const set = new Set(entries.map((entry) => entry.type));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
@@ -231,6 +252,44 @@ export function TokensPage() {
     };
   }, [entries, resolvedValueFilter]);
 
+  const usageCountPreset = useMemo(() => {
+    if (usageCountFilter !== "unused") {
+      return { collection: "", type: "" };
+    }
+
+    const matchingEntries = entries.filter((entry) => (usageByPath[entry.path]?.usageCount ?? 0) === 0);
+    if (matchingEntries.length === 0) {
+      return { collection: "", type: "" };
+    }
+
+    const collectionSet = new Set(matchingEntries.map((entry) => entry.collection));
+    const typeSet = new Set(matchingEntries.map((entry) => entry.type));
+
+    return {
+      collection: collectionSet.size === 1 ? matchingEntries[0]?.collection ?? "" : "",
+      type: typeSet.size === 1 ? matchingEntries[0]?.type ?? "" : "",
+    };
+  }, [entries, usageByPath, usageCountFilter]);
+
+  const aliasPreset = useMemo(() => {
+    if (aliasFilter !== "alias") {
+      return { collection: "", type: "" };
+    }
+
+    const matchingEntries = entries.filter((entry) => entry.aliasOf !== null);
+    if (matchingEntries.length === 0) {
+      return { collection: "", type: "" };
+    }
+
+    const collectionSet = new Set(matchingEntries.map((entry) => entry.collection));
+    const typeSet = new Set(matchingEntries.map((entry) => entry.type));
+
+    return {
+      collection: collectionSet.size === 1 ? matchingEntries[0]?.collection ?? "" : "",
+      type: typeSet.size === 1 ? matchingEntries[0]?.type ?? "" : "",
+    };
+  }, [aliasFilter, entries]);
+
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
     const normalizedResolvedValueFilter = resolvedValueFilter;
@@ -242,10 +301,15 @@ export function TokensPage() {
       const matchesCollection =
         collection === "all" || entry.collection === collection;
       const matchesType = type === "all" || entry.type === type;
+      const matchesAlias =
+        !aliasFilter || (aliasFilter === "alias" ? entry.aliasOf !== null : true);
+      const matchesUsageCount =
+        !usageCountFilter ||
+        (usageCountFilter === "unused" ? (usageByPath[entry.path]?.usageCount ?? 0) === 0 : true);
       const matchesResolvedValue =
         !normalizedResolvedValueFilter ||
         normalizeResolvedValueFilter(entry.resolvedValue) === normalizedResolvedValueFilter;
-      return matchesSearch && matchesCollection && matchesType && matchesResolvedValue;
+      return matchesSearch && matchesCollection && matchesType && matchesAlias && matchesUsageCount && matchesResolvedValue;
     });
 
     next.sort((a, b) => {
@@ -264,9 +328,8 @@ export function TokensPage() {
     });
 
     return next;
-  }, [entries, search, collection, type, sort, usageByPath, resolvedValueFilter]);
+  }, [aliasFilter, entries, search, collection, type, sort, usageByPath, resolvedValueFilter, usageCountFilter]);
 
-  const allowShowAll = filtered.length >= 175;
   const pageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filtered.length)),
     [filtered.length],
@@ -278,9 +341,11 @@ export function TokensPage() {
     pageSizeValue > 0 &&
     filtered.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(filtered.length);
+  const rowLinkClassName = "text-foreground hover:text-primary hover:underline";
 
   useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !allowShowAll) {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(filtered.length)) {
       setPageSize("25");
       return;
     }
@@ -293,16 +358,17 @@ export function TokensPage() {
       }
     }
     setCurrentPage(1);
-  }, [allowShowAll, collection, pageSize, pageSizeOptions, search, type]);
+  }, [collection, pageSize, pageSizeOptions, search, type, filtered.length]);
 
   useEffect(() => {
-    if (lastResolvedValueFilterRef.current === resolvedValueFilter) return;
-    lastResolvedValueFilterRef.current = resolvedValueFilter;
+    const nextFilterKey = `${resolvedValueFilter}|${usageCountFilter}|${aliasFilter}`;
+    if (lastResolvedValueFilterRef.current === nextFilterKey) return;
+    lastResolvedValueFilterRef.current = nextFilterKey;
     userAdjustedFiltersRef.current = false;
     setCollection("all");
     setType("all");
     setCurrentPage(1);
-  }, [resolvedValueFilter]);
+  }, [aliasFilter, resolvedValueFilter, usageCountFilter]);
 
   useEffect(() => {
     if (!resolvedValueFilter || userAdjustedFiltersRef.current) return;
@@ -322,7 +388,7 @@ export function TokensPage() {
     if (applied) {
       userAdjustedFiltersRef.current = true;
     }
-  }, [collection, resolvedValueFilter, resolvedValuePreset.collection, resolvedValuePreset.type, type]);
+  }, [aliasFilter, aliasPreset.collection, aliasPreset.type, collection, resolvedValueFilter, resolvedValuePreset.collection, resolvedValuePreset.type, type, usageCountFilter, usageCountPreset.collection, usageCountPreset.type]);
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
@@ -393,6 +459,7 @@ export function TokensPage() {
   ]);
 
   const showAccessibilityButton = type === "COLOR";
+  const hasKpiFilter = Boolean(resolvedValueFilter || usageCountFilter || aliasFilter);
 
   useEffect(() => {
     if (!showAccessibilityButton && contrastChecker.isOpen) {
@@ -458,7 +525,11 @@ export function TokensPage() {
         title="Tokens"
         description={
           resolvedValueFilter
-            ? `Local inventory filtered by resolved value: ${resolvedValueFilterLabel || resolvedValueFilter}`
+            ? `Token collection filtered by resolved value`
+            : usageCountFilter === "unused"
+              ? `Token collection filtered by unused tokens`
+              : aliasFilter === "alias"
+                ? `Token collection filtered by aliases`
             : undefined
         }
         actions={
@@ -477,19 +548,45 @@ export function TokensPage() {
         }
       />
 
-      {resolvedValueFilter ? null : (
+      {hasKpiFilter ? (
+        <PrevNextNav
+          hasPrevious={true}
+          hasNext={false}
+          onPrevious={() => navigate("/tokens")}
+          onNext={() => undefined}
+          currentIndex={0}
+          totalItems={1}
+          previousLabel="Back"
+        />
+      ) : null}
+
+      {hasKpiFilter ? null : (
         <StatsOverview
           items={[
             { id: "tokens-total", label: "Total tokens", value: metrics.totalTokens },
             {
               id: "aliases",
               label: "Aliases",
-              value: `${metrics.aliasesTotal} (${metrics.aliasesPercent}%)`,
+              value: (
+                <Link
+                  to="/tokens?group=aliases&value=alias"
+                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                >
+                  {metrics.aliasesTotal} ({metrics.aliasesPercent}%)
+                </Link>
+              ),
             },
             {
               id: "tokens-unused",
               label: "Unused tokens",
-              value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
+              value: (
+                <Link
+                  to="/tokens?group=usageCount&value=unused"
+                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                >
+                  {metrics.tokensWithoutUse} ({metrics.unusedPercent}%)
+                </Link>
+              ),
             },
           ]}
         />
@@ -500,26 +597,26 @@ export function TokensPage() {
             searchValue={search}
             onSearch={setSearch}
             searchPlaceholder="Buscar por token o valor"
-            rightSlot={(
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Rows</span>
-                <Select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(event.target.value)}
-                  className="w-[132px]"
-                  aria-label="Rows per page"
-                >
-                  {pageSizeOptions.map((size) => (
-                    <option key={size} value={String(size)}>
-                      {size}
-                    </option>
-                  ))}
-                  {allowShowAll ? (
-                    <option value={PAGE_SIZE_ALL}>All</option>
-                  ) : null}
-                </Select>
-              </div>
-            )}
+            rightSlot={
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(filtered.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
+                </div>
+              ) : null
+            }
           >
           <Select
             value={collection}
@@ -629,82 +726,101 @@ export function TokensPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!loading && filtered.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <TableRow key={`token-loading-${index}`}>
+                    <TableCell colSpan={5} className="text-muted-foreground">
+                      Loading tokens...
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground"
-                  >
-                    No tokens match your filters.
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={Inbox}
+                      title="No tokens found"
+                      description="Try adjusting the current filters."
+                      compact
+                    />
                   </TableCell>
                 </TableRow>
-              ) : null}
-
-              {loading
-                ? Array.from({ length: 8 }).map((_, index) => (
-                    <TableRow key={`token-loading-${index}`}>
-                      <TableCell colSpan={5} className="text-muted-foreground">
-                        Loading tokens...
+              ) : (
+                pagedEntries.map((entry) => {
+                  const swatch = normalizeColorSwatch(entry.resolvedValue);
+                  const resolvedRef = resolveVariableRef(entry.resolvedValue, tokenRegistry);
+                  const resolvedToken =
+                    tokenRegistry.byPath[resolvedRef.tokenLabel] ??
+                    tokenRegistry.bySlashPath[resolvedRef.tokenLabel] ??
+                    null;
+                  const usage = usageByPath[entry.path];
+                  const usageCount = usage?.usageCount ?? 0;
+                  const usageOwners =
+                    usage?.usedIn
+                      ?.map((item) => item.owner)
+                      .filter(Boolean)
+                      .filter((value, index, all) => all.indexOf(value) === index)
+                      .slice(0, 2) ?? [];
+                  const detailParams = new URLSearchParams();
+                  if (collection !== "all") detailParams.set("fromCollection", collection);
+                  if (type !== "all") detailParams.set("fromType", type);
+                  if (search.trim()) detailParams.set("fromSearch", search.trim());
+                  const detailHref = `/tokens/${encodeURIComponent(entry.path)}${
+                    detailParams.size ? `?${detailParams.toString()}` : ""
+                  }`;
+                  return (
+                    <TableRow key={entry.path}>
+                      <TableCell>
+                        <Link
+                          to={detailHref}
+                          className={rowLinkClassName}
+                          aria-label={`Open ${entry.slashPath} detail`}
+                        >
+                          {entry.slashPath}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{entry.collection}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs text-foreground">{entry.type}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {swatch ? (
+                            <span
+                              className="inline-block h-4 w-4 rounded-sm border border-border"
+                              style={{ backgroundColor: swatch }}
+                              aria-label={`Color swatch ${swatch}`}
+                            />
+                          ) : null}
+                          {resolvedToken && resolvedToken.path !== entry.path ? (
+                            <Link
+                              to={toTokenDetail(resolvedToken.path)}
+                              className={rowLinkClassName}
+                              aria-label={`Open ${resolvedToken.slashPath} detail from resolved value`}
+                            >
+                              {entry.resolvedValue}
+                            </Link>
+                          ) : (
+                            <span className="text-foreground">{entry.resolvedValue}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-xs">{usageCount}</div>
+                          {usageOwners.length > 0 ? (
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {usageOwners.join(", ")}
+                            </div>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ))
-                : pagedEntries.map((entry) => {
-                    const swatch = normalizeColorSwatch(entry.resolvedValue);
-                    const usage = usageByPath[entry.path];
-                    const usageCount = usage?.usageCount ?? 0;
-                    const usageOwners =
-                      usage?.usedIn
-                        ?.map((item) => item.owner)
-                        .filter(Boolean)
-                        .filter((value, index, all) => all.indexOf(value) === index)
-                        .slice(0, 2) ?? [];
-                    const detailParams = new URLSearchParams();
-                    if (collection !== "all") detailParams.set("fromCollection", collection);
-                    if (type !== "all") detailParams.set("fromType", type);
-                    if (search.trim()) detailParams.set("fromSearch", search.trim());
-                    const detailHref = `/tokens/${encodeURIComponent(entry.path)}${
-                      detailParams.size ? `?${detailParams.toString()}` : ""
-                    }`;
-                    return (
-                      <TableRow key={entry.path}>
-                        <TableCell>
-                          <Link
-                            to={detailHref}
-                            className="text-foreground hover:text-primary hover:underline"
-                            aria-label={`Open ${entry.slashPath} detail`}
-                          >
-                            {entry.slashPath}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="neutral">{entry.collection}</Badge>
-                        </TableCell>
-                        <TableCell>{entry.type}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 font-mono text-xs">
-                            {swatch ? (
-                              <span
-                                className="inline-block h-4 w-4 rounded-sm border border-border"
-                                style={{ backgroundColor: swatch }}
-                                aria-label={`Color swatch ${swatch}`}
-                              />
-                            ) : null}
-                            {entry.resolvedValue}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="text-xs">{usageCount}</div>
-                            {usageOwners.length > 0 ? (
-                              <div className="font-mono text-xs text-muted-foreground">
-                                {usageOwners.join(", ")}
-                              </div>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  );
+                })
+              )}
             </TableBody>
           </Table>
 

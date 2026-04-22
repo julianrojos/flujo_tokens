@@ -5,8 +5,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Inbox } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { EmptyState } from "@/components/composites";
 import { toComponentDetail } from "@/lib/routes";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
@@ -83,6 +84,7 @@ export function TokenUsageSection({
     pageSizeValue > 0 &&
     sortedComponentUsages.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedComponentUsages.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedComponentUsages.length);
 
   useEffect(() => {
     if (pageSize !== PAGE_SIZE_ALL) {
@@ -158,22 +160,24 @@ export function TokenUsageSection({
             <option value="via_alias">Via alias</option>
           </Select>
           <Input placeholder="Filter by component…" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-80" />
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Rows</span>
-            <Select
-              value={pageSize}
-              onChange={(event) => setPageSize(event.target.value)}
-              className="w-[132px]"
-              aria-label="Rows per page"
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={String(size)}>
-                  {size}
-                </option>
-              ))}
-              <option value={PAGE_SIZE_ALL}>All</option>
-            </Select>
-          </div>
+          {showPageSizeSelect ? (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Rows</span>
+              <Select
+                value={pageSize}
+                onChange={(event) => setPageSize(event.target.value)}
+                className="w-[132px]"
+                aria-label="Rows per page"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+                {shouldAllowShowAll(sortedComponentUsages.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+              </Select>
+            </div>
+          ) : null}
         </div>
 
         {sortedComponentUsages.length > 0 ? (
@@ -233,9 +237,9 @@ export function TokenUsageSection({
                     {usage.properties.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {usage.properties.map((property) => (
-                          <Badge key={property} variant="neutral" className="font-mono text-xs">
+                          <span key={property} className="font-mono text-xs text-foreground">
                             {property}
-                          </Badge>
+                          </span>
                         ))}
                       </div>
                     ) : (

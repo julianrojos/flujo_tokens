@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { ExternalLink, LayoutGrid } from "lucide-react";
 
 import {
   fetchComponentCatalog,
@@ -14,12 +14,19 @@ import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilterBar, PageHeader, StatsOverview } from "@/components/composites";
+import {
+  EmptyState,
+  FilterBar,
+  PageHeader,
+  PrevNextNav,
+  StatsOverview,
+} from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Select } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import {
   Table,
   TableBody,
@@ -75,6 +82,8 @@ function buildTokenCoverage(item: ComponentCatalogItem) {
 }
 
 export function ComponentsPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<ComponentCatalogItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
@@ -93,6 +102,22 @@ export function ComponentsPage() {
     field: "display_name",
     dir: "asc",
   });
+  const filterValue = String(searchParams.get("value") ?? "").trim().toLowerCase();
+  const multiVariantFilter =
+    searchParams.get("group") === "multiVariant" && filterValue === "multi"
+      ? filterValue
+      : "";
+  const docsCoverageFilter =
+    searchParams.get("group") === "docsCoverage" && filterValue === "with-spec"
+      ? filterValue
+      : "";
+  const hasActiveKpiFilter = multiVariantFilter === "multi" || docsCoverageFilter === "with-spec";
+  const pageHeaderDescription =
+    multiVariantFilter === "multi"
+      ? "Component collection filtered by multi-variant components"
+      : docsCoverageFilter === "with-spec"
+        ? "Component collection filtered by documentation coverage"
+        : undefined;
 
   const loadData = async () => {
     setLoading(true);
@@ -187,11 +212,16 @@ export function ComponentsPage() {
         !lowered ||
         item.display_name.toLowerCase().includes(lowered) ||
         item.slug.toLowerCase().includes(lowered);
+      const matchesMultiVariant =
+        !multiVariantFilter ||
+        (multiVariantFilter === "multi" && (variantCountBySlug[item.slug] ?? getVariantCount(item)) >= 2);
+      const matchesDocsCoverage =
+        !docsCoverageFilter || (docsCoverageFilter === "with-spec" && item.spec.exists);
       const matchesSpec =
         specFilter === "all"
           || (specFilter === "with-spec" && item.spec.exists)
           || (specFilter === "without-spec" && !item.spec.exists);
-      return matchesSearch && matchesSpec;
+      return matchesSearch && matchesMultiVariant && matchesDocsCoverage && matchesSpec;
     });
 
     next.sort((a, b) => {
@@ -215,7 +245,17 @@ export function ComponentsPage() {
     });
 
     return next;
-  }, [rows, search, specFilter, sort, usedInCountBySlug, tokenCoverageBySlug, variantCountBySlug]);
+  }, [
+    docsCoverageFilter,
+    multiVariantFilter,
+    rows,
+    search,
+    specFilter,
+    sort,
+    usedInCountBySlug,
+    tokenCoverageBySlug,
+    variantCountBySlug,
+  ]);
 
   const pageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= filtered.length),
@@ -228,6 +268,7 @@ export function ComponentsPage() {
     pageSizeValue > 0 &&
     filtered.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(filtered.length);
 
   useEffect(() => {
     if (pageSize !== PAGE_SIZE_ALL) {
@@ -253,6 +294,7 @@ export function ComponentsPage() {
 
   const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : filtered.length === 0 ? 0 : 1;
   const pageEnd = shouldPaginate ? Math.min(filtered.length, currentPage * pageSizeValue) : filtered.length;
+  const showFilterBar = loading || filtered.length > 0;
 
   const displayNameBySlug = useMemo(() => {
     const map: Record<string, string> = {};
@@ -277,26 +319,62 @@ export function ComponentsPage() {
     const multiVariant = rows.filter((item) => (variantCountBySlug[item.slug] ?? getVariantCount(item)) >= 2).length;
     return Math.round((multiVariant / total) * 100);
   }, [rows, variantCountBySlug]);
-
   const formatCount = (value: number | null) => (value === null ? "—" : String(value));
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Components"
+        description={pageHeaderDescription}
       />
 
-      <StatsOverview
-        items={[
-          {
-            id: "components-imported-scanned",
-            label: "Imported / scanned components",
-            value: `${formatCount(importedComponentsCount)} / ${formatCount(scannedComponentsCount)}`,
-          },
-          { id: "components-docs-edited", label: "Documentation coverage", value: `${docsEditedPercent}%` },
-          { id: "components-multi-variant-rate", label: "Multi-variant rate", value: `${multiVariantPercent}%` },
-        ]}
-      />
+      {hasActiveKpiFilter ? (
+        <PrevNextNav
+          hasPrevious={true}
+          hasNext={false}
+          onPrevious={() => navigate("/components")}
+          onNext={() => undefined}
+          currentIndex={0}
+          totalItems={1}
+          previousLabel="Back"
+        />
+      ) : null}
+
+      {hasActiveKpiFilter ? null : (
+        <StatsOverview
+          items={[
+            {
+              id: "components-imported-scanned",
+              label: "Imported / scanned components",
+              value: `${formatCount(importedComponentsCount)} / ${formatCount(scannedComponentsCount)}`,
+            },
+            {
+              id: "components-docs-edited",
+              label: "Documentation coverage",
+              value: (
+                <Link
+                  to="/components?group=docsCoverage&value=with-spec"
+                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                >
+                  {docsEditedPercent}%
+                </Link>
+              ),
+            },
+            {
+              id: "components-multi-variant-rate",
+              label: "Multi-variant rate",
+              value: (
+                <Link
+                  to="/components?group=multiVariant&value=multi"
+                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                >
+                  {multiVariantPercent}%
+                </Link>
+              ),
+            },
+          ]}
+        />
+      )}
 
       {hasPartialData ? (
         <StatusAlert variant="warning" title="Partial component data">
@@ -305,185 +383,194 @@ export function ComponentsPage() {
       ) : null}
 
       <Card className="p-5 text-card-foreground backdrop-blur-sm">
-          <FilterBar
-            searchValue={search}
-            onSearch={setSearch}
-            searchPlaceholder="Buscar por nombre o slug"
-            count={filtered.length}
-            rightSlot={(
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Rows</span>
-                <Select
-                  value={pageSize}
-                  onChange={(event) => setPageSize(event.target.value)}
-                  className="w-[132px]"
-                  aria-label="Rows per page"
-                >
-                  {pageSizeOptions.map((size) => (
-                    <option key={size} value={String(size)}>
-                      {size}
-                    </option>
-                  ))}
-                  <option value={PAGE_SIZE_ALL}>All</option>
-                </Select>
-              </div>
-            )}
-          >
-            <Select
-              value={specFilter}
-              onChange={(event) => setSpecFilter(event.target.value)}
+          {showFilterBar ? (
+            <FilterBar
+              searchValue={search}
+              onSearch={setSearch}
+              searchPlaceholder="Buscar por nombre o slug"
+              count={filtered.length}
+              rightSlot={
+                showPageSizeSelect ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Rows</span>
+                    <Select
+                      value={pageSize}
+                      onChange={(event) => setPageSize(event.target.value)}
+                      className="w-[132px]"
+                      aria-label="Rows per page"
+                    >
+                      {pageSizeOptions.map((size) => (
+                        <option key={size} value={String(size)}>
+                          {size}
+                        </option>
+                      ))}
+                      {shouldAllowShowAll(filtered.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    </Select>
+                  </div>
+                ) : null
+              }
             >
-              <option value="all">Docs: All</option>
-              <option value="with-spec">Docs</option>
-              <option value="without-spec">No docs</option>
-            </Select>
-          </FilterBar>
+              {hasActiveKpiFilter ? null : (
+                <Select
+                  value={specFilter}
+                  onChange={(event) => setSpecFilter(event.target.value)}
+                >
+                  <option value="all">Docs: All</option>
+                  <option value="with-spec">Docs</option>
+                  <option value="without-spec">No docs</option>
+                </Select>
+              )}
+            </FilterBar>
+          ) : null}
 
           {error ? (
             <ApiErrorMessage error={error} />
           ) : null}
 
-          {shouldPaginate ? (
-            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filtered.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
-                <SortableTableHead label="Variants" onSort={() => toggleSort("variants_count")} />
-                <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
-                <SortableTableHead label="Tokens coverage" onSort={() => toggleSort("token_coverage")} />
-                <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading && filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground"
-                  >
-                    No components match your filters.
-                  </TableCell>
-                </TableRow>
+          {!loading && filtered.length === 0 ? (
+            <EmptyState
+              icon={LayoutGrid}
+              title="No components found"
+              description={
+                hasActiveKpiFilter
+                  ? "No components match this coverage filter."
+                  : "No components match your filters."
+              }
+            />
+          ) : (
+            <>
+              {shouldPaginate ? (
+                <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {pageStart}-{pageEnd} of {filtered.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               ) : null}
 
-              {loading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={5} className="text-muted-foreground">
-                        Loading components...
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : pagedComponents.map((item) => {
-                    const coverage = tokenCoverageBySlug[item.slug] ?? buildTokenCoverage(item);
-                    return (
-                    <TableRow key={item.slug}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {item.figma.file_url ? (
-                            <a
-                              href={item.figma.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center text-muted-foreground hover:text-primary"
-                              title={`Open ${item.display_name} in Figma`}
-                              aria-label={`Open ${item.display_name} in Figma`}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          ) : null}
-                          <Link
-                            to={`/components/${item.slug}`}
-                            className="text-foreground hover:text-primary hover:underline"
-                            aria-label={`Open ${item.display_name} detail`}
-                          >
-                            {item.display_name}
-                          </Link>
-                        </div>
-                      </TableCell>
-                      <TableCell>{variantCountBySlug[item.slug] ?? getVariantCount(item)}</TableCell>
-                      <TableCell>
-                        <Badge variant={specBadgeVariant(item.spec.exists)}>
-                          {item.spec.exists ? "Docs" : "No docs"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={coverage.variant}
-                          className={coverage.className}
-                        >
-                          {coverage.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const labels = usedInLabelsBySlug[item.slug] ?? [];
-                          if (labels.length === 0) return "-";
-                          return labels.join(", ");
-                        })()}
-                      </TableCell>
-                    </TableRow>
-                    );
-                  })}
-            </TableBody>
-          </Table>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
+                    <SortableTableHead label="Variants" onSort={() => toggleSort("variants_count")} />
+                    <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
+                    <SortableTableHead label="Tokens coverage" onSort={() => toggleSort("token_coverage")} />
+                    <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading
+                    ? Array.from({ length: 4 }).map((_, index) => (
+                        <TableRow key={`loading-${index}`}>
+                          <TableCell colSpan={5} className="text-muted-foreground">
+                            Loading components...
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : pagedComponents.map((item) => {
+                        const coverage = tokenCoverageBySlug[item.slug] ?? buildTokenCoverage(item);
+                        return (
+                          <TableRow key={item.slug}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {item.figma.file_url ? (
+                                  <a
+                                    href={item.figma.file_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center text-muted-foreground hover:text-primary"
+                                    title={`Open ${item.display_name} in Figma`}
+                                    aria-label={`Open ${item.display_name} in Figma`}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                ) : null}
+                                <Link
+                                  to={`/components/${item.slug}`}
+                                  className="text-foreground hover:text-primary hover:underline"
+                                  aria-label={`Open ${item.display_name} detail`}
+                                >
+                                  {item.display_name}
+                                </Link>
+                              </div>
+                            </TableCell>
+                            <TableCell>{variantCountBySlug[item.slug] ?? getVariantCount(item)}</TableCell>
+                            <TableCell>
+                              <Badge variant={specBadgeVariant(item.spec.exists)}>
+                                {item.spec.exists ? "Docs" : "No docs"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={coverage.variant}
+                                className={coverage.className}
+                              >
+                                {coverage.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const labels = usedInLabelsBySlug[item.slug] ?? [];
+                                if (labels.length === 0) return "-";
+                                return labels.join(", ");
+                              })()}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                </TableBody>
+              </Table>
 
-          {shouldPaginate ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filtered.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          ) : null}
+              {shouldPaginate ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {pageStart}-{pageEnd} of {filtered.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
       </Card>
     </div>
   );
