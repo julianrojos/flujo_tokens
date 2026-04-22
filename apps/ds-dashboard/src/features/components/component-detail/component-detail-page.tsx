@@ -119,6 +119,8 @@ export function ComponentDetailPage() {
       <ComponentNavBar
         previousItem={previousItem}
         nextItem={nextItem}
+        firstItem={allItems[0] ?? null}
+        lastItem={allItems.length > 0 ? allItems[allItems.length - 1] : null}
         currentIndex={currentIndex}
         totalItems={totalItems}
         onNavigate={handleNavigate}

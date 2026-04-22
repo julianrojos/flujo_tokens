@@ -115,7 +115,7 @@ export function TokenRelationTrail({
 
   return (
     <div>
-      <div className="text-xs text-muted-foreground">{title}</div>
+      <h3 className="text-sm font-titles font-semibold titles-color">{title}</h3>
       <div
         className={cn(
           "mt-1 inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1",

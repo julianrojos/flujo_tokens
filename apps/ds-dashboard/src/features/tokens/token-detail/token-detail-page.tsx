@@ -75,6 +75,8 @@ export function TokenDetailPage() {
         hasNext={Boolean(nextToken)}
         onPrevious={() => handleNavigate(previousToken!)}
         onNext={() => handleNavigate(nextToken!)}
+        onFirst={scopedTokens[0] ? () => handleNavigate(scopedTokens[0]) : undefined}
+        onLast={scopedTokens[scopedTokens.length - 1] ? () => handleNavigate(scopedTokens[scopedTokens.length - 1]) : undefined}
         currentIndex={currentTokenIndex}
         totalItems={scopedTokens.length}
       />
