@@ -8,6 +8,7 @@ import type { SpecVariantVisual } from "ds-types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Modal, ModalCloseButton, ModalContent } from "@/components/ui/overlay";
+import { getActiveSystemId } from "@/lib/api";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 import { buildAssetUrl } from "../lib/component-detail-transforms";
@@ -20,7 +21,8 @@ interface ComponentVisualProofSectionProps {
 
 export function ComponentVisualProofSection({ item, variantVisuals }: ComponentVisualProofSectionProps) {
   const proof = item?.visual_proof;
-  const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
+  const activeSystemId = getActiveSystemId();
+  const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null, null, activeSystemId);
   const [mainImageFailed, setMainImageFailed] = useState(false);
   const [failedVariantKeys, setFailedVariantKeys] = useState<Set<string>>(new Set());
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
@@ -34,7 +36,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
             .map((variant, index) => {
               const name = String(variant.name || "").trim() || `Variant ${index + 1}`;
               const previewUrl =
-                String(variant.screenshot_url || "").trim() || buildAssetUrl(variant.image_path || null);
+                String(variant.screenshot_url || "").trim() || buildAssetUrl(variant.image_path || null, null, activeSystemId);
               return {
                 key: `${name}::${previewUrl || "no-preview"}::${index}`,
                 name,

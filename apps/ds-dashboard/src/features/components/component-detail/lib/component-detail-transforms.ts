@@ -9,6 +9,7 @@
 export function buildAssetUrl(
   projectPath: string | null | undefined,
   cacheKey?: string | null,
+  systemId?: string | null,
 ): string | null {
   const value = String(projectPath || "").trim();
   if (!value) return null;
@@ -17,6 +18,10 @@ export function buildAssetUrl(
   });
   if (cacheKey) {
     search.set("t", cacheKey);
+  }
+  const normalizedSystemId = String(systemId || "").trim();
+  if (normalizedSystemId) {
+    search.set("system", normalizedSystemId);
   }
   return `/api/asset?${search.toString()}`;
 }
