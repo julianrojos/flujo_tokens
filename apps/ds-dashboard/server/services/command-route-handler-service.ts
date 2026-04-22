@@ -29,6 +29,8 @@ import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
 
+const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
+
 function failBuildCommandConfig(
   c: Context,
   deps: {
@@ -617,6 +619,8 @@ export async function handleSyncFigmaTokensRoute(
           const rawTokenRef = String(rows[0]?.figma_api_token || '').trim();
           const resolvedToken = resolveEnvRef(rawTokenRef);
           const dependencyRepo = new DependencyRepository(db);
+          const enabledConsumers = (await dependencyRepo.listConsumers(sysCtx.systemId))
+            .filter((consumer) => consumer.enabled !== false);
           const captureParentUsageFromBindings = async (): Promise<number> => {
             const bindingRows = (await db`
               SELECT
@@ -668,30 +672,95 @@ export async function handleSyncFigmaTokensRoute(
                 'Parent token-usage snapshot skipped: unresolved Figma API token and no component bindings available for fallback.',
               );
             }
+          } else if (enabledConsumers.length === 0) {
+            const captured = await captureParentUsageFromBindings();
+            emitChunk(
+              'warning',
+              `Parent usage snapshot skipped live consumer sync because no enabled consumers are registered yet; DB fallback from captured component bindings wrote ${captured} variable entries.`,
+            );
           } else {
             const dependencySyncService = new DependencySyncService(
               dependencyRepo,
               () => ({ figmaApiToken: rawTokenRef }),
             );
+            const usageSyncAbortController = new AbortController();
+            let usageSyncTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+            const isUsageSyncAborted = (error: unknown): boolean => {
+              const detail = error instanceof Error ? error.message : String(error);
+              return detail.toLowerCase().includes('aborted');
+            };
             try {
-              const usageSyncResult = await dependencySyncService.syncConsumers({
-                dsFileKey: figmaFileId,
-                force: true,
-                captureParentUsage: true,
-                token: resolvedToken,
-              });
-              emitChunk(
-                'result',
-                `Captured parent variable usage snapshot (consumers synced: ${usageSyncResult.synced}, skipped: ${usageSyncResult.skipped}, errors: ${usageSyncResult.errored}).`,
-              );
+              const usageSyncResult = await Promise.race([
+                dependencySyncService.syncConsumers({
+                  dsFileKey: figmaFileId,
+                  force: true,
+                  captureParentUsage: true,
+                  token: resolvedToken,
+                  signal: usageSyncAbortController.signal,
+                }).then((value) => ({ kind: 'success' as const, value }))
+                  .catch((error) => ({ kind: 'error' as const, error })),
+                new Promise<{ kind: 'timeout' }>((resolve) => {
+                  usageSyncTimeoutHandle = setTimeout(() => {
+                    usageSyncAbortController.abort();
+                    resolve({ kind: 'timeout' });
+                  }, PARENT_USAGE_SYNC_TIMEOUT_MS);
+                  if (
+                    typeof usageSyncTimeoutHandle === 'object' &&
+                    usageSyncTimeoutHandle !== null &&
+                    typeof usageSyncTimeoutHandle.unref === 'function'
+                  ) {
+                    usageSyncTimeoutHandle.unref();
+                  }
+                }),
+              ]);
+              if (usageSyncResult.kind === 'timeout') {
+                const captured = await captureParentUsageFromBindings();
+                emitChunk(
+                  'warning',
+                  `Parent usage sync timed out after ${PARENT_USAGE_SYNC_TIMEOUT_MS / 1000}s; DB fallback from captured component bindings wrote ${captured} variable entries.`,
+                );
+              } else if (usageSyncResult.kind === 'error') {
+                const captured = await captureParentUsageFromBindings();
+                const reason =
+                  usageSyncResult.error instanceof Error
+                    ? usageSyncResult.error.message
+                    : String(usageSyncResult.error);
+                if (isUsageSyncAborted(usageSyncResult.error)) {
+                  emitChunk(
+                    'result',
+                    `Parent usage sync was aborted; DB fallback from captured component bindings wrote ${captured} variable entries.`,
+                  );
+                  return;
+                }
+                emitChunk(
+                  'warning',
+                  `Parent usage scan via API failed (${reason}); DB fallback from captured component bindings wrote ${captured} variable entries.`,
+                );
+              } else {
+                emitChunk(
+                  'result',
+                  `Captured parent variable usage snapshot (consumers synced: ${usageSyncResult.value.synced}, skipped: ${usageSyncResult.value.skipped}, errors: ${usageSyncResult.value.errored}).`,
+                );
+              }
             } catch (usageError) {
               const captured = await captureParentUsageFromBindings();
               const reason =
                 usageError instanceof Error ? usageError.message : String(usageError);
+              if (isUsageSyncAborted(usageError)) {
+                emitChunk(
+                  'result',
+                  `Parent usage sync was aborted; DB fallback from captured component bindings wrote ${captured} variable entries.`,
+                );
+                return;
+              }
               emitChunk(
-                'warning',
-                `Parent usage scan via API failed (${reason}); DB fallback from captured component bindings wrote ${captured} variable entries.`,
-              );
+                  'warning',
+                  `Parent usage scan via API failed (${reason}); DB fallback from captured component bindings wrote ${captured} variable entries.`,
+                );
+            } finally {
+              if (usageSyncTimeoutHandle) {
+                clearTimeout(usageSyncTimeoutHandle);
+              }
             }
           }
         } catch (error) {

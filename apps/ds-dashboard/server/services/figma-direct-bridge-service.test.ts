@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   fetchVariablesDirect,
   fetchDesignSystemKitDirect,
+  getTokenUsageDirect,
   type GetVariablesDataResult,
   type GetStylesResult,
 } from './figma-direct-bridge-service.ts';
@@ -75,6 +76,38 @@ test('figma-direct-bridge-service: fetchVariablesDirect normalizes arrays into m
   const result = await fetchVariablesDirect('FILE_1');
   assert.equal(result.meta.variables.var_1?.name, 'color/primary');
   assert.equal(result.meta.variableCollections.col_1?.name, 'Primitives');
+});
+
+test('figma-direct-bridge-service: getTokenUsageDirect respects abort signal before sending', async () => {
+  resetPluginConnectionManager();
+  const manager = getPluginConnectionManager();
+  let socketId = '';
+
+  const socket = makeSocket(() => {
+    throw new Error('send should not be called after abort');
+  });
+
+  socketId = manager.register(socket, {
+    fileKey: 'FILE_ABORT',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    () =>
+      getTokenUsageDirect('FILE_ABORT', {
+        force: true,
+        maxNodes: 1,
+      }, controller.signal),
+    /ws\.request\.aborted:GET_TOKEN_USAGE|aborted/i
+  );
+
+  assert.equal(socketId.length > 0, true);
 });
 
 test('figma-direct-bridge-service: fetchDesignSystemKitDirect aggregates variables and styles', async () => {

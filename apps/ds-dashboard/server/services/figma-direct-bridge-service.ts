@@ -118,7 +118,8 @@ function isNoSocketForFileError(error: unknown): boolean {
 async function requestDirectWithFileKeyFallback<T>(
   method: string,
   params: unknown,
-  fileKey?: string | null
+  fileKey?: string | null,
+  signal?: AbortSignal
 ): Promise<T> {
   const manager = getPluginConnectionManager();
   const requestedFileKey = resolveFileKey(fileKey);
@@ -128,7 +129,8 @@ async function requestDirectWithFileKeyFallback<T>(
       requestedFileKey,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS
+      DIRECT_REQUEST_TIMEOUT_MS,
+      signal
     );
   } catch (error) {
     if (!requestedFileKey || !isNoSocketForFileError(error)) {
@@ -152,7 +154,8 @@ async function requestDirectWithFileKeyFallback<T>(
       null,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS
+      DIRECT_REQUEST_TIMEOUT_MS,
+      signal
     );
   }
 }
@@ -477,12 +480,14 @@ export type GetTokenUsageResult = BridgeGetTokenUsageResult;
 
 export async function getTokenUsageDirect(
   fileKey: string | null,
-  params: GetTokenUsageParams
+  params: GetTokenUsageParams,
+  signal?: AbortSignal
 ): Promise<GetTokenUsageResult> {
   return await requestDirectWithFileKeyFallback<GetTokenUsageResult>(
     'GET_TOKEN_USAGE',
     params,
-    fileKey
+    fileKey,
+    signal
   );
 }
 

@@ -574,7 +574,8 @@ export class PluginConnectionManager {
         socketId: string,
         method: string,
         params: Record<string, unknown> = {},
-        timeoutMs?: number
+        timeoutMs?: number,
+        signal?: AbortSignal,
     ): Promise<T> {
         const connection = this.connections.get(socketId);
 
@@ -597,8 +598,26 @@ export class PluginConnectionManager {
             // Set up timeout
             const timeoutId = setTimeout(() => {
                 this.pendingRequests.delete(requestId);
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
                 reject(new Error(`ws.request.timeout:${method}`));
             }, timeout);
+
+            const onAbort = () => {
+                clearTimeout(timeoutId);
+                this.pendingRequests.delete(requestId);
+                reject(new Error(`ws.request.aborted:${method}`));
+            };
+
+            if (signal?.aborted) {
+                clearTimeout(timeoutId);
+                reject(new Error(`ws.request.aborted:${method}`));
+                return;
+            }
+            if (signal) {
+                signal.addEventListener('abort', onAbort, { once: true });
+            }
 
             // Track pending request with socketId
             this.pendingRequests.set(requestId, {
@@ -621,6 +640,9 @@ export class PluginConnectionManager {
             } catch (err) {
                 clearTimeout(timeoutId);
                 this.pendingRequests.delete(requestId);
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
                 reject(new Error(`ws.request.send_failed:${method}`));
             }
         });
@@ -633,13 +655,14 @@ export class PluginConnectionManager {
         fileKey: string | null | undefined,
         method: string,
         params: Record<string, unknown> = {},
-        timeoutMs?: number
+        timeoutMs?: number,
+        signal?: AbortSignal,
     ): Promise<T> {
         const socketId = this.getPreferredSocketId(fileKey ?? null);
         if (!socketId) {
             throw new Error(`ws.request.no_socket_for_file:${method}`);
         }
-        return this.request<T>(socketId, method, params, timeoutMs);
+        return this.request<T>(socketId, method, params, timeoutMs, signal);
     }
 
     /**

@@ -397,6 +397,7 @@ export interface FetchFigmaVariablesViaMcpOptions {
   command?: string;
   args?: string[];
   env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
 }
 
 function resolveTimeoutMs(options: FetchFigmaVariablesViaMcpOptions): number {
@@ -810,7 +811,7 @@ class McpStdioClient {
     }
   }
 
-  async initialize(timeoutMs?: number): Promise<void> {
+  async initialize(timeoutMs?: number, signal?: AbortSignal): Promise<void> {
     await this.sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
@@ -818,7 +819,7 @@ class McpStdioClient {
         name: 'flujo-tokens-cli',
         version: '1.0.0',
       },
-    }, timeoutMs);
+    }, timeoutMs, signal);
     this.sendNotification('notifications/initialized', {});
   }
 
@@ -826,11 +827,12 @@ class McpStdioClient {
     name: string,
     args: Record<string, unknown>,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
     const result = await this.sendRequest('tools/call', {
       name,
       arguments: args,
-    }, timeoutMs);
+    }, timeoutMs, signal);
     if (!isRecord(result)) {
       throw new Error('Invalid MCP tools/call response: expected result object.');
     }
@@ -863,6 +865,7 @@ class McpStdioClient {
     method: string,
     params: Record<string, unknown>,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     const id = this.nextId;
     this.nextId += 1;
@@ -885,10 +888,26 @@ class McpStdioClient {
         reject(new Error(`MCP request timed out (${method}).${details}`));
       }, effectiveTimeoutMs);
 
+      const onAbort = () => {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(new Error(`MCP request aborted (${method}).`));
+      };
+
       this.pending.set(id, { resolve, reject, timer });
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      if (signal) {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
       if (this.child.stdin.destroyed || this.child.stdin.writableEnded) {
         clearTimeout(timer);
         this.pending.delete(id);
+        if (signal) {
+          signal.removeEventListener('abort', onAbort);
+        }
         reject(new Error(`MCP stdin stream is closed (${method}).`));
         return;
       }
@@ -898,6 +917,9 @@ class McpStdioClient {
         if (!pending) return;
         clearTimeout(pending.timer);
         this.pending.delete(id);
+        if (signal) {
+          signal.removeEventListener('abort', onAbort);
+        }
         pending.reject(new Error(`MCP write failed (${method}): ${error.message}`));
       });
     });
@@ -964,8 +986,9 @@ class McpStdioClient {
 async function checkMcpConnectivity(
   client: McpStdioClient,
   timeoutMs?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const result = await client.callTool('figma_get_status', {}, timeoutMs);
+  const result = await client.callTool('figma_get_status', {}, timeoutMs, signal);
 
   // Try structured fields first (preferred)
   let hasStructuredSignal = false;
@@ -1115,11 +1138,18 @@ async function fetchVariablesViaDashboardProxy(
     resolveTimeoutMs(options),
     DASHBOARD_MCP_PROXY_TIMEOUT_MS,
   );
+  const externalSignal = options.signal;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, effectiveTimeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else if (externalSignal) {
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (internalToken) {
@@ -1148,6 +1178,9 @@ async function fetchVariablesViaDashboardProxy(
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
 
   if (!response.ok) {
@@ -1199,11 +1232,14 @@ export async function fetchFigmaLocalVariablesViaMcp(
   const variableCollections: Record<string, FigmaVariableCollection> = {};
 
   try {
-    await client.initialize(timeoutMs);
+    if (options.signal?.aborted) {
+      throw new Error('MCP request aborted');
+    }
+    await client.initialize(timeoutMs, options.signal);
 
     // Pre-flight connectivity check (non-fatal if tool not supported)
     try {
-      await ensureMcpConnectivity(client, connectWaitMs, timeoutMs);
+      await ensureMcpConnectivity(client, connectWaitMs, timeoutMs, options.signal);
     } catch (statusError) {
       const msg = statusError instanceof Error ? statusError.message : String(statusError);
       if (/method not found|unknown tool/i.test(msg)) {
@@ -1214,10 +1250,14 @@ export async function fetchFigmaLocalVariablesViaMcp(
     }
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
+      if (options.signal?.aborted) {
+        throw new Error('MCP request aborted');
+      }
       const toolResult = await client.callTool(
         'figma_get_variables',
         buildToolsCallParams(options.fileUrl, page),
         timeoutMs,
+        options.signal,
       );
       if (toolResult.isError === true) {
         throw new Error(`MCP figma_get_variables returned isError=true (page ${page}).`);

@@ -326,13 +326,12 @@ export function NewSystemPage() {
         if (stopped) return;
         const sourceFileKey = importState.sourceFileKey;
         if (sourceFileKey) {
-          if (stopped) return;
-          await syncConsumers({
+          void syncConsumers({
             dsFileKey: sourceFileKey,
             force: true,
             captureParentUsage: true,
           }).catch((err) => {
-            // Log warning but don't block import success
+            // Parent usage capture is best-effort; it must not block import completion.
             console.warn('[NewSystemPage] Parent usage capture failed:', err);
           });
         }

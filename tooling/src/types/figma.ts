@@ -77,6 +77,7 @@ export interface FigmaVariablesResponse {
 export interface FigmaApiOptions {
   token: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface FetchFigmaFileOptions extends FigmaApiOptions {

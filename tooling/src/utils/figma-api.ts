@@ -197,8 +197,9 @@ async function requestFigmaJson<T>(options: {
   token: string;
   query?: Record<string, unknown>;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }): Promise<T> {
-  const { endpointPath, token, query = {}, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { endpointPath, token, query = {}, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
   
   const normalizedToken = sanitizeToken(token);
   const normalizedTimeoutMs = normalizePositiveInteger(timeoutMs, DEFAULT_TIMEOUT_MS);
@@ -213,6 +214,13 @@ async function requestFigmaJson<T>(options: {
   const runtimeFetch = resolveFetch();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), normalizedTimeoutMs);
+  const onAbort = () => controller.abort();
+
+  if (signal?.aborted) {
+    controller.abort();
+  } else if (signal) {
+    signal.addEventListener('abort', onAbort, { once: true });
+  }
 
   let response: Response;
   try {
@@ -243,6 +251,9 @@ async function requestFigmaJson<T>(options: {
     });
   } finally {
     clearTimeout(timer);
+    if (signal) {
+      signal.removeEventListener('abort', onAbort);
+    }
   }
 
   if (!response.ok) {
@@ -320,7 +331,15 @@ export function buildFigmaFileEndpoint(options: {
  * Fetch Figma file with full document tree.
  */
 export async function fetchFigmaFile(options: FetchFigmaFileOptions): Promise<FigmaFileResponse> {
-  const { fileKey, token, depth, branchData = false, geometry = '', timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const {
+    fileKey,
+    token,
+    depth,
+    branchData = false,
+    geometry = '',
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    signal,
+  } = options;
   
   const endpoint = buildFigmaFileEndpoint({ fileKey, depth, branchData, geometry });
   
@@ -328,6 +347,7 @@ export async function fetchFigmaFile(options: FetchFigmaFileOptions): Promise<Fi
     endpointPath: endpoint,
     token,
     timeoutMs,
+    signal,
   });
 }
 
@@ -335,7 +355,15 @@ export async function fetchFigmaFile(options: FetchFigmaFileOptions): Promise<Fi
  * Fetch specific nodes from Figma file.
  */
 export async function fetchFigmaNodes(options: FetchFigmaNodesOptions): Promise<FigmaNodesResponse> {
-  const { fileKey, nodeIds = [], token, depth, geometry = '', timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const {
+    fileKey,
+    nodeIds = [],
+    token,
+    depth,
+    geometry = '',
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    signal,
+  } = options;
   
   const normalizedFileKey = normalizeFileKey(fileKey);
   const ids = Array.isArray(nodeIds)
@@ -362,6 +390,7 @@ export async function fetchFigmaNodes(options: FetchFigmaNodesOptions): Promise<
     token,
     query,
     timeoutMs,
+    signal,
   });
 }
 
@@ -369,13 +398,14 @@ export async function fetchFigmaNodes(options: FetchFigmaNodesOptions): Promise<
  * Fetch local variables from Figma file.
  */
 export async function fetchFigmaLocalVariables(options: FetchFigmaVariablesOptions): Promise<FigmaVariablesResponse> {
-  const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
   
   const normalizedFileKey = normalizeFileKey(fileKey);
   return requestFigmaJson<FigmaVariablesResponse>({
     endpointPath: `/v1/files/${encodeURIComponent(normalizedFileKey)}/variables/local`,
     token,
     timeoutMs,
+    signal,
   });
 }
 
@@ -385,12 +415,13 @@ export async function fetchFigmaLocalVariables(options: FetchFigmaVariablesOptio
  * includes components defined locally and can be empty for library-only files.
  */
 export async function fetchFigmaFileComponents(options: FetchFigmaFileComponentsOptions): Promise<FigmaFileComponentsResponse> {
-  const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
   const normalizedFileKey = normalizeFileKey(fileKey);
   return requestFigmaJson<FigmaFileComponentsResponse>({
     endpointPath: `/v1/files/${encodeURIComponent(normalizedFileKey)}/components`,
     token,
     timeoutMs,
+    signal,
   });
 }
 
@@ -398,7 +429,7 @@ export async function fetchFigmaFileComponents(options: FetchFigmaFileComponents
  * Fetch images for specific nodes from Figma file.
  */
 export async function fetchFigmaImages(options: FetchFigmaImagesOptions): Promise<FigmaImagesResponse> {
-  const { fileKey, nodeIds = [], token, format = 'png', scale, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { fileKey, nodeIds = [], token, format = 'png', scale, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options;
   
   const normalizedFileKey = normalizeFileKey(fileKey);
   const ids = Array.isArray(nodeIds)
@@ -426,5 +457,6 @@ export async function fetchFigmaImages(options: FetchFigmaImagesOptions): Promis
     token,
     query,
     timeoutMs,
+    signal,
   });
 }

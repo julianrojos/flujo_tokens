@@ -125,4 +125,73 @@ describe('DependencySyncService', () => {
       service.syncConsumer = originalSyncConsumer;
     }
   });
+
+  test('syncConsumers aborts before writing when the signal is aborted', async () => {
+    const consumer = await repository.addConsumer({
+      ds_file_key: 'abort-ds',
+      consumer_file_key: 'abort-consumer',
+      consumer_name: 'Abort Consumer',
+      enabled: true,
+    });
+
+    const controller = new AbortController();
+
+    const service = syncService as unknown as {
+      buildDsCatalogWithRetry: (dsFileKey: string, token: string, signal?: AbortSignal) => Promise<unknown>;
+      fetchMetadataWithRetry: (fileKey: string, token: string, signal?: AbortSignal) => Promise<{ name: string; lastModified: string }>;
+      syncConsumer: (
+        consumer: { id: string; consumer_name: string },
+        dsCatalog: unknown,
+        token: string,
+        force: boolean,
+        dsLastModified?: string,
+        signal?: AbortSignal,
+      ) => Promise<unknown>;
+    };
+
+    const originalBuildDsCatalogWithRetry = service.buildDsCatalogWithRetry;
+    const originalFetchMetadataWithRetry = service.fetchMetadataWithRetry;
+    const originalSyncConsumer = service.syncConsumer;
+
+    let syncConsumerCalled = false;
+
+    service.buildDsCatalogWithRetry = async () => {
+      controller.abort();
+      return {
+        components: new Map(),
+        variables: new Map(),
+        variableIdToKey: new Map(),
+      };
+    };
+    service.fetchMetadataWithRetry = async () => {
+      throw new Error('fetchMetadataWithRetry should not be called after abort');
+    };
+    service.syncConsumer = async () => {
+      syncConsumerCalled = true;
+      return {
+        consumerId: consumer.id,
+        consumerName: consumer.consumer_name,
+        status: 'ok',
+        durationMs: 10,
+        componentCount: 0,
+        variableCount: 0,
+        warningCount: 0,
+      };
+    };
+
+    try {
+      await assert.rejects(
+        () => syncService.syncConsumers({
+          dsFileKey: 'abort-ds',
+          signal: controller.signal,
+        }),
+        /Operation aborted/i,
+      );
+      assert.strictEqual(syncConsumerCalled, false);
+    } finally {
+      service.buildDsCatalogWithRetry = originalBuildDsCatalogWithRetry;
+      service.fetchMetadataWithRetry = originalFetchMetadataWithRetry;
+      service.syncConsumer = originalSyncConsumer;
+    }
+  });
 });

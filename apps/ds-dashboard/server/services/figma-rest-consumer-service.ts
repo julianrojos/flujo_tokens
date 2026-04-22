@@ -131,14 +131,21 @@ function shouldAttemptMcpVariableFallback(args: {
 
 async function fetchConsumerBoundVariableUsageViaMcp(
   fileKey: string,
+  signal?: AbortSignal,
 ): Promise<TokenUsageEntry[] | null> {
+  if (signal?.aborted) {
+    return null;
+  }
   try {
     const result = await getTokenUsageDirect(fileKey, {
       force: true,
       maxNodes: 15000,
-    });
+    }, signal);
     return Array.isArray(result.usage) ? result.usage : [];
   } catch (error) {
+    if (signal?.aborted) {
+      return null;
+    }
     const detail = error instanceof Error ? error.message : String(error);
     console.warn(`[scanConsumerFile] MCP token usage fallback failed: ${detail}`);
     return null;
@@ -162,6 +169,13 @@ function createCodedError(
 function buildConsumerVariablesWarning(error: unknown): { code: string; message: string } {
   const detail = error instanceof Error ? error.message : String(error);
   const normalized = detail.toLowerCase();
+
+  if (normalized.includes('aborted')) {
+    return {
+      code: 'deps.consumer.variables_aborted',
+      message: 'Variable usage skipped because the sync was aborted.',
+    };
+  }
 
   // Check for 403 status code first (canonical check)
   if (error instanceof FigmaApiError && error.status === 403) {
@@ -205,7 +219,7 @@ export async function fetchConsumerFileMetadata(
 ): Promise<FileMetadata> {
   try {
     if (signal?.aborted) throw new Error('Operation aborted');
-    const response = await fetchFigmaFile({ fileKey, token, depth: 1 });
+    const response = await fetchFigmaFile({ fileKey, token, depth: 1, signal });
     return {
       name: response.name,
       lastModified: response.lastModified,
@@ -234,7 +248,7 @@ export async function buildDsCatalog(
     if (signal?.aborted) throw new Error('Operation aborted');
     // Fetch file data
     // depth=1 is enough — we only need the file metadata and components/componentSets
-    const fileResponse = await fetchFigmaFile({ fileKey: dsFileKey, token, depth: 1 });
+    const fileResponse = await fetchFigmaFile({ fileKey: dsFileKey, token, depth: 1, signal });
 
     // Build component catalog via /files/:key/components (more reliable than fileResponse.components,
     // which can be empty for library files on non-Enterprise plans, and ALWAYS empty when depth=1).
@@ -248,7 +262,7 @@ export async function buildDsCatalog(
       componentSetNameById.set(setId, setName);
     }
     try {
-      const componentsResponse = await fetchFigmaFileComponents({ fileKey: dsFileKey, token });
+      const componentsResponse = await fetchFigmaFileComponents({ fileKey: dsFileKey, token, signal });
       for (const comp of componentsResponse.meta?.components ?? []) {
         const key = String(comp.key || '').trim();
         if (!key) continue;
@@ -359,7 +373,11 @@ async function fetchVariablesForFile(
 
   // Try MCP first
   try {
-    return await fetchFigmaLocalVariablesViaMcp({ fileUrl });
+    const response = await fetchFigmaLocalVariablesViaMcp({ fileUrl, signal });
+    if (signal?.aborted) {
+      throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted');
+    }
+    return response;
   } catch (mcpError) {
     // MCP failed. Fallback to REST where possible.
     const mcpErrorMsg = mcpError instanceof Error ? mcpError.message : String(mcpError);
@@ -373,7 +391,11 @@ async function fetchVariablesForFile(
     // Fallback to REST if token is available
     if (token && String(token).trim()) {
       try {
-        return await fetchFigmaLocalVariables({ fileKey, token });
+        const response = await fetchFigmaLocalVariables({ fileKey, token, signal });
+        if (signal?.aborted) {
+          throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted');
+        }
+        return response;
       } catch (restError) {
         // Both MCP and REST failed
         const restErrorMsg = restError instanceof Error ? restError.message : String(restError);
@@ -418,7 +440,7 @@ export async function scanConsumerFile(
   try {
     if (signal?.aborted) throw new Error('Operation aborted');
     // Fetch full file tree
-    const fileResponse = await fetchFigmaFile({ fileKey, token });
+    const fileResponse = await fetchFigmaFile({ fileKey, token, signal });
     let consumerVariablesResponse: FigmaVariablesResponse | null = null;
     const componentInstances = new Map<string, ComponentInstance>();
     const variableBindings = new Map<string, VariableBinding>();
@@ -431,8 +453,11 @@ export async function scanConsumerFile(
         contextLabel: 'scanConsumerFile',
       });
     } catch (error) {
-      warnings.push(buildConsumerVariablesWarning(error));
+      if (!signal?.aborted) {
+        warnings.push(buildConsumerVariablesWarning(error));
+      }
     }
+    if (signal?.aborted) throw new Error('Operation aborted');
 
     // Build component ID to key mapping for this file.
     // fileResponse.components may be empty on non-Enterprise plans for library-only files.
@@ -577,12 +602,13 @@ export async function scanConsumerFile(
 
     // Fallback: query live MCP token usage when we have unresolved variable bindings and
     // the REST/local catalogs are insufficient to resolve them.
+    if (signal?.aborted) throw new Error('Operation aborted');
     if (shouldAttemptMcpVariableFallback({
       unresolvedBoundVariableCount,
       variableBindingsCount: variableBindings.size,
       dsCatalogVariableCount: dsCatalog.variables.size,
     })) {
-      const mcpUsage = await fetchConsumerBoundVariableUsageViaMcp(fileKey);
+      const mcpUsage = await fetchConsumerBoundVariableUsageViaMcp(fileKey, signal);
       if (mcpUsage && mcpUsage.length > 0) {
         const resolveEntryNodeCount = (entry: TokenUsageEntry): number => {
           const byCount = Number(entry.nodeCount);
