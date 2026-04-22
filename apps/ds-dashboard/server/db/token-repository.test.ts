@@ -95,6 +95,43 @@ describe('token-repository', () => {
     assert.equal(payload.byPath['color.primary'].cssVar, '--color-primary');
   });
 
+  it('allows the same token id in multiple design systems', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [
+        { id: 'sys-01', name: 'System 01' },
+        { id: 'sys-02', name: 'System 02' },
+      ],
+    });
+    try {
+      await sql`
+        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+        VALUES ('color.primary', 'sys-01', 'color/primary', '--color-primary', 'color', 'Core', '{}')
+      `;
+      await sql`
+        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+        VALUES ('color.primary', 'sys-02', 'color/primary', '--color-primary', 'color', 'Core', '{}')
+      `;
+
+      const rows = await sql`
+        SELECT ds_id, id
+        FROM tokens
+        WHERE id = 'color.primary'
+        ORDER BY ds_id
+      `;
+
+      assert.equal(rows.length, 2);
+      assert.deepEqual(
+        rows.map((row) => ({ dsId: row.ds_id, id: row.id })),
+        [
+          { dsId: 'sys-01', id: 'color.primary' },
+          { dsId: 'sys-02', id: 'color.primary' },
+        ],
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('getTokenCatalog falls back to raw_value when mode values are missing', async () => {
     await db.prepare(
       `
