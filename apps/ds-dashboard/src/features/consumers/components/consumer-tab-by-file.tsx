@@ -299,7 +299,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
           <EmptyState
             icon={Network}
             title="No consumer files yet"
-            description="Register Figma files that consume this design system to track cross-file impact."
             action={
               <EmptyStateAction onClick={onAddConsumer}>
                 Add first consumer

@@ -1,21 +1,20 @@
 import { useMemo, useState } from "react";
 import type { PartialComponentSpec, SpecProperty } from "ds-types";
 import { SlidersHorizontal } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/composites/empty-state";
 
-const TYPE_DISPLAY: Record<string, string> = {
-  enum: "VARIANT",
-  text: "TEXT",
-  boolean: "BOOLEAN",
-  instance_swap: "INSTANCE_SWAP",
-  slot: "SLOT",
-};
-
 type PropertySortField = "name" | "type" | "values";
+
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  enum: "Variant",
+  text: "Text",
+  boolean: "Boolean",
+  instance_swap: "Instance swap",
+  slot: "Slot",
+};
 
 const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> = [
   { field: "name", label: "Name" },
@@ -23,19 +22,14 @@ const PROPERTY_SORT_COLUMNS: Array<{ field: PropertySortField; label: string }> 
   { field: "values", label: "Values" },
 ];
 
-function typeBadgeVariant(type: string): "neutral" | "success" | "warning" {
-  if (type === "enum") return "success";
-  if (type === "boolean") return "warning";
-  return "neutral";
-}
-
 function PropertyRow({ prop }: { prop: SpecProperty }) {
-  const displayType = TYPE_DISPLAY[prop.type.toLowerCase()] ?? prop.type.toUpperCase();
+  const typeLabel =
+    PROPERTY_TYPE_LABELS[prop.type.toLowerCase()] ?? prop.type;
   return (
     <TableRow>
       <TableCell className="!font-normal">{prop.name}</TableCell>
       <TableCell>
-        <Badge variant={typeBadgeVariant(prop.type.toLowerCase())}>{displayType}</Badge>
+        <span className="text-sm text-foreground">{typeLabel}</span>
       </TableCell>
       <TableCell>
         {prop.values ? (

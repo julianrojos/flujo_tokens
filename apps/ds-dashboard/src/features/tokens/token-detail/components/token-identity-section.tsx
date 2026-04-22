@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Hash, Ruler, ToggleLeft, Type } from 'lucide-react';
 import type { TokenCatalogEntry } from '@/types/token-catalog';
 import { TokenRelationTrail } from '@/components/composites';
@@ -87,13 +88,14 @@ export function TokenIdentitySection({
               <CardTitle className="break-all font-mono text-base">
                 {displayTokenPath}
               </CardTitle>
-              <CardDescription className="mt-1">
-                <span className="text-foreground">{token.collection}</span> ·{' '}
-                {displayType}
-              </CardDescription>
-              <CardDescription className="mt-1 font-mono text-xs">
-                {displayTokenPath}
-              </CardDescription>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Badge variant="neutral" className="font-medium">
+                  {token.collection}
+                </Badge>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {displayType}
+                </span>
+              </div>
             </div>
           </div>
         </div>
