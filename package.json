@@ -23,7 +23,6 @@
     "ds:tokens-from-figma:mcp": "npm run ds:tokens-from-figma -- --source mcp",
     "ds:sync-figma": "node --import tsx tooling/scripts/ds-sync-figma.ts",
     "ds:figma-mcp-status": "node --import tsx tooling/scripts/ds-figma-mcp-status.ts",
-    "ds:token-graph": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/token-graph-runner.ts",
     "ds:token-usage-index": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/token-usage-index-runner.ts",
     "ds:figma-component-map": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/figma-component-map-runner.ts",
     "ds:capture-from-url": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/capture-from-figma-url-runner.ts",

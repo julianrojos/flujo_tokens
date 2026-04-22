@@ -1,7 +1,7 @@
 /**
  * Token Services - Common Utilities
  *
- * Shared utility functions for token-usage-index and token-graph services.
+ * Shared utility functions for token-usage-index and token analysis services.
  */
 
 import * as fs from 'node:fs';

@@ -48,7 +48,6 @@ export {
 
 // Token services (runners)
 export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
-export { runTokenGraph } from '../runners/token-graph-runner.js';
 
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';

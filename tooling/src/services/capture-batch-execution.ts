@@ -361,13 +361,6 @@ export function executeCaptureBatchAndRefresh(params: {
     'runners',
     'token-usage-index-runner.ts',
   );
-  const tokenGraphScriptPath = path.join(
-    projectRoot,
-    'tooling',
-    'src',
-    'runners',
-    'token-graph-runner.ts',
-  );
 
   const captureBatch = runCaptureBatchFn({
     targets,
@@ -441,21 +434,6 @@ export function executeCaptureBatchAndRefresh(params: {
       report.token_usage_refresh = {
         ok: false,
         error: toErrorMessage(tokenUsageError),
-      };
-    }
-
-    try {
-      const tokenGraphResult = runNodeScriptJson({
-        repoRoot: projectRoot,
-        scriptPath: tokenGraphScriptPath,
-        scriptArgs: ['--system', systemId],
-        runJsonCommandFn,
-      });
-      report.token_graph_refresh = tokenGraphResult;
-    } catch (tokenGraphError) {
-      report.token_graph_refresh = {
-        ok: false,
-        error: toErrorMessage(tokenGraphError),
       };
     }
   }

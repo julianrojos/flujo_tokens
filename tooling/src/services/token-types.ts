@@ -1,7 +1,7 @@
 /**
  * Type definitions for Token Services
  *
- * Shared types for token-usage-index and token-graph services.
+ * Shared types for token-usage-index and token analysis services.
  */
 
 /**

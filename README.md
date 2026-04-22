@@ -66,7 +66,6 @@ If the command fails, fix the local tooling or test environment before continuin
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
-- **`npm run ds:token-graph`**: Builds a token dependency graph from the active system database, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 
 ### Team/CI Test Entry Points
@@ -217,25 +216,6 @@ Placement notes:
 
 Plugin execution emits structured JSON logs (`pipeline_start`, `plugin_start`, `plugin_finish`, `plugin_error`, `pipeline_complete`).
 
-Token graph examples:
-
-```bash
-# Generate JSON + markdown + mermaid graph
-npm run ds:token-graph
-
-# Print human summary only (no file writes)
-npm run ds:token-graph -- --format text --dry-run true
-
-# Fail CI when cycles exist
-npm run ds:token-graph -- --strict-cycles true
-
-# Fail CI when unresolved aliases or identity collisions exist
-npm run ds:token-graph -- --strict-unresolved true --strict-collisions true
-
-# Limit graph size in mermaid output for large registries
-npm run ds:token-graph -- --mermaid-max-edges 1000
-```
-
 Token usage index examples:
 
 ```bash
@@ -315,7 +295,7 @@ System context (DB-backed):
 
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
+- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage refresh).
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
