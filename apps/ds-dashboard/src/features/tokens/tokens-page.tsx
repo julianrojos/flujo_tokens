@@ -499,7 +499,7 @@ export function TokensPage() {
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
-            searchPlaceholder="Buscar por token path o valor"
+            searchPlaceholder="Buscar por token o valor"
             rightSlot={(
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Rows</span>
@@ -602,8 +602,8 @@ export function TokensPage() {
             <TableHeader>
               <TableRow>
                 <SortableTableHead
-                  label="Token Path"
-                  ariaLabel="Sort by token path"
+                  label="Token"
+                  ariaLabel="Sort by token"
                   onSort={() => toggleSort("path")}
                 />
                 <SortableTableHead

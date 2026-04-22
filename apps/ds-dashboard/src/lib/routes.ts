@@ -13,16 +13,21 @@ export const ROUTE_PATTERNS = {
   consumerDetail: '/consumers/:consumerId',
 } as const;
 
+function toSystemRoute(systemId: string, suffix: string): string {
+  const normalizedSystemId = String(systemId || '').trim();
+  return normalizedSystemId
+    ? `/${encodeURIComponent(normalizedSystemId)}${suffix}`
+    : suffix.replace(/^\/+/, '/');
+}
+
 export const toSystemOverview = (systemId: string): string =>
-  String(systemId || '').trim()
-    ? `/${encodeURIComponent(String(systemId || ''))}/overview`
-    : '/overview';
+  toSystemRoute(systemId, '/overview');
 
 export const toSystemAdmin = (systemId: string): string =>
-  `/${encodeURIComponent(String(systemId || ''))}/admin`;
+  toSystemRoute(systemId, '/admin');
 
 export const toSystemConsumers = (systemId: string): string =>
-  `/${encodeURIComponent(String(systemId || ''))}/consumers`;
+  toSystemRoute(systemId, '/consumers');
 
 export const toTokenDetail = (tokenPath: string): string =>
   `/tokens/${encodeURIComponent(String(tokenPath || ''))}`;

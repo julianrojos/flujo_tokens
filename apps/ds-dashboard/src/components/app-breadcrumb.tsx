@@ -32,6 +32,10 @@ function decodeSafe(value: string) {
   }
 }
 
+function displayTokenPath(value: string) {
+  return decodeSafe(String(value || "").trim()).replace(/\./g, "/");
+}
+
 type DesignSystemEntry = { id: string; name: string };
 
 function resolveActiveSystemLabel(
@@ -129,7 +133,7 @@ function buildCrumbs(
     return [
       buildSystemRootCrumb(options?.activeSystemId, options?.systems),
       { label: 'Tokens', to: ROUTE_PATTERNS.tokens },
-      { label: decodeSafe(tokenMatch.params.tokenPath) },
+      { label: displayTokenPath(tokenMatch.params.tokenPath) },
     ];
   }
 

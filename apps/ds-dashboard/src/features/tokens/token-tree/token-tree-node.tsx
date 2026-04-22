@@ -76,6 +76,7 @@ export function TokenTreeNodeItem({
   const Icon = getNodeIcon(node.type);
   const resolvedValue = String(node.tokenData?.resolvedValue || "").trim();
   const tokenPath = String(node.tokenData?.path || "").trim();
+  const displayTokenPath = String(node.tokenData?.slashPath || "").trim() || tokenPath.replace(/\./g, "/");
   const swatchColor =
     node.type === "token"
       ? resolveSwatchColor(resolvedValue, tokenValueByCssVar)
@@ -94,7 +95,7 @@ export function TokenTreeNodeItem({
           to={`/tokens/${encodeURIComponent(tokenPath)}`}
           className={rowClassName}
           style={rowStyle}
-          title={`Open token detail: ${tokenPath}`}
+          title={`Open token detail: ${displayTokenPath}`}
         >
           <span className="h-4 w-4 shrink-0" aria-hidden="true" />
 

@@ -67,6 +67,11 @@ describe('toSystemAdmin', () => {
       '/my%20system%2Fid/admin',
     );
   });
+
+  it('handles empty systemId gracefully', () => {
+    assert.equal(toSystemAdmin(''), '/admin');
+    assert.equal(toSystemAdmin(null as unknown as string), '/admin');
+  });
 });
 
 describe('toSystemConsumers', () => {
@@ -79,6 +84,11 @@ describe('toSystemConsumers', () => {
       toSystemConsumers('my system/id'),
       '/my%20system%2Fid/consumers',
     );
+  });
+
+  it('handles empty systemId gracefully', () => {
+    assert.equal(toSystemConsumers(''), '/consumers');
+    assert.equal(toSystemConsumers(null as unknown as string), '/consumers');
   });
 });
 
