@@ -1091,7 +1091,7 @@ describe('components handlers', () => {
       expect(typed.states).toContain('hover');
     });
 
-    it('marks instance dependencies unresolved when mainComponent is unavailable', async () => {
+    it('marks instance dependencies resolved when componentId is available even if mainComponent is unavailable', async () => {
       const instanceNode = {
         id: 'inst-1',
         name: 'Calendar Button Instance',
@@ -1129,7 +1129,7 @@ describe('components handlers', () => {
       expect(typed.success).toBe(true);
       expect(typed.instanceDependencies).toHaveLength(1);
       expect(typed.instanceDependencies?.[0]?.usedComponentNodeId).toBe('4333:9286');
-      expect(typed.instanceDependencies?.[0]?.status).toBe('unresolved');
+      expect(typed.instanceDependencies?.[0]?.status).toBe('resolved');
     });
 
     it('falls back to the mainComponent name when componentId is unavailable', async () => {
@@ -1138,7 +1138,7 @@ describe('components handlers', () => {
         name: 'Calendar Button Instance',
         type: 'INSTANCE' as const,
         componentId: undefined,
-        mainComponent: { name: 'Calendar Button', key: 'button-key' },
+        mainComponent: { id: '4333:9286', name: 'Calendar Button', key: 'button-key' },
         children: [],
       };
 
@@ -1170,9 +1170,9 @@ describe('components handlers', () => {
 
       expect(typed.success).toBe(true);
       expect(typed.instanceDependencies).toHaveLength(1);
-      expect(typed.instanceDependencies?.[0]?.usedComponentNodeId).toBe('Calendar Button');
+      expect(typed.instanceDependencies?.[0]?.usedComponentNodeId).toBe('4333:9286');
       expect(typed.instanceDependencies?.[0]?.usedComponentName).toBe('Calendar Button');
-      expect(typed.instanceDependencies?.[0]?.status).toBe('unresolved');
+      expect(typed.instanceDependencies?.[0]?.status).toBe('resolved');
     });
 
     it('respects depth=0 by not including children in anatomy', async () => {

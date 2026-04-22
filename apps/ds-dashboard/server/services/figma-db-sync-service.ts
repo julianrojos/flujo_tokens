@@ -403,6 +403,7 @@ function collectInstanceDependenciesFromAnatomy(anatomy: unknown): Array<{
           ? (record.mainComponent as Record<string, unknown>)
           : null;
       const usedComponentNodeId = String(
+        mainComponent?.id ||
         record.componentId || mainComponent?.name || '',
       ).trim();
       const usedComponentName = String(
@@ -420,7 +421,9 @@ function collectInstanceDependenciesFromAnatomy(anatomy: unknown): Array<{
             usedComponentName: usedComponentName || usedComponentNodeId,
             usedComponentKey: usedComponentKey || undefined,
             status:
-              mainComponent && record.componentId ? 'resolved' : 'unresolved',
+              (mainComponent?.id || record.componentId)
+                ? 'resolved'
+                : 'unresolved',
           });
         }
       }

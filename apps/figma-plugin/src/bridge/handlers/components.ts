@@ -1242,9 +1242,10 @@ function collectInstanceDependencies(
       const instanceNodeName = String(node.name || '').trim();
       const instanceRecord = node as BaseNode & {
         componentId?: string;
-        mainComponent?: { name?: string; key?: string } | null;
+        mainComponent?: { id?: string; name?: string; key?: string } | null;
       };
       const usedComponentNodeId = String(
+        instanceRecord.mainComponent?.id ||
         instanceRecord.componentId ||
           instanceRecord.mainComponent?.name ||
           '',
@@ -1268,7 +1269,7 @@ function collectInstanceDependencies(
             usedComponentName: usedComponentName || usedComponentNodeId,
             usedComponentKey: usedComponentKey || undefined,
             status:
-              instanceRecord.mainComponent && instanceRecord.componentId
+              (instanceRecord.mainComponent?.id || instanceRecord.componentId)
                 ? 'resolved'
                 : 'unresolved',
           });
