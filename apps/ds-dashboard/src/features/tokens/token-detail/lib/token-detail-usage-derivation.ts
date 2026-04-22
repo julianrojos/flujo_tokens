@@ -1,6 +1,6 @@
 import type { VariableUsageReport } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
-import type { TokenCatalog } from "@/types/token-catalog";
+import type { TokenCatalog, TokenCatalogEntry } from "@/types/token-catalog";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   buildTokenUsageTargets,
@@ -11,6 +11,21 @@ import {
 } from "./token-detail-transforms";
 
 const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
+
+function buildTokenLookupIndex(registry: TokenCatalog | null): Map<string, TokenCatalogEntry> {
+  const lookup = new Map<string, TokenCatalogEntry>();
+  if (!registry) return lookup;
+
+  for (const entry of registry.entries ?? []) {
+    for (const ref of [entry.path, entry.slashPath, entry.cssVar]) {
+      const normalized = String(ref || "").trim();
+      if (!normalized || lookup.has(normalized)) continue;
+      lookup.set(normalized, entry);
+    }
+  }
+
+  return lookup;
+}
 
 function resolveTokenTargets(tokenPath: string, registry: TokenCatalog | null): Set<string> {
   const token = registry?.byPath?.[tokenPath] ?? null;
@@ -45,6 +60,175 @@ export function collectAliasDescendantPaths(registry: TokenCatalog | null, token
     }
   }
   return out;
+}
+
+function buildReverseAliasGraph(registry: TokenCatalog | null): Map<string, string[]> {
+  const reverse = new Map<string, string[]>();
+  if (!registry) return reverse;
+  for (const entry of registry.entries ?? []) {
+    const aliasRef = String(entry.aliasOf || "").trim();
+    if (!aliasRef) continue;
+    const target = resolveAliasTarget(registry, aliasRef);
+    if (!target) continue;
+    const list = reverse.get(target.path) ?? [];
+    if (!list.includes(entry.path)) {
+      list.push(entry.path);
+    }
+    reverse.set(target.path, list);
+  }
+  for (const list of reverse.values()) {
+    list.sort((left, right) => left.localeCompare(right));
+  }
+  return reverse;
+}
+
+function collectDescendants(
+  path: string,
+  reverse: Map<string, string[]>,
+  memo: Map<string, Set<string>>,
+  visiting: Set<string>,
+): Set<string> {
+  const cached = memo.get(path);
+  if (cached) return cached;
+  if (visiting.has(path)) {
+    return new Set<string>();
+  }
+
+  visiting.add(path);
+  const descendants = new Set<string>();
+
+  for (const child of reverse.get(path) ?? []) {
+    if (!child || child === path) continue;
+    descendants.add(child);
+    const nested = collectDescendants(child, reverse, memo, visiting);
+    for (const entry of nested) {
+      descendants.add(entry);
+    }
+  }
+
+  visiting.delete(path);
+  memo.set(path, descendants);
+  return descendants;
+}
+
+export interface TokenUsageInTokensRow {
+  path: string;
+  displayPath: string;
+  collection: string;
+  type: string;
+  depth: number;
+  consumers: number;
+  properties: string[];
+}
+
+export function buildComponentUsagePropertiesIndex(args: {
+  registry: TokenCatalog | null;
+  components?: ComponentCatalogItem[];
+}): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>();
+  if (!args.registry || !Array.isArray(args.components) || args.components.length === 0) {
+    return index;
+  }
+
+  const tokenLookup = buildTokenLookupIndex(args.registry);
+
+  for (const component of args.components) {
+    const bindings = Array.isArray(component.figma?.token_bindings)
+      ? component.figma.token_bindings
+      : [];
+    if (bindings.length === 0) continue;
+
+    for (const binding of bindings) {
+      const tokenRef = String(binding.token_path || "").trim();
+      if (!tokenRef) continue;
+
+      const property = normalizePropertyLabel(
+        String(binding.property_path || binding.field || ""),
+      );
+      if (!property) continue;
+
+      const matchedToken = tokenLookup.get(tokenRef) ?? null;
+      if (!matchedToken) continue;
+
+      const visiting = new Set<string>();
+      let current: TokenCatalogEntry | null = matchedToken;
+
+      while (current && !visiting.has(current.path)) {
+        visiting.add(current.path);
+        const properties = index.get(current.path) ?? new Set<string>();
+        properties.add(property);
+        index.set(current.path, properties);
+        current = current.aliasOf ? resolveAliasTarget(args.registry, current.aliasOf) : null;
+      }
+    }
+  }
+
+  return index;
+}
+
+export function buildTokenUsageInTokensRows(args: {
+  tokenPath: string;
+  registry: TokenCatalog | null;
+  components?: ComponentCatalogItem[];
+  componentUsagePropertiesByTokenPath?: Map<string, Set<string>>;
+}): TokenUsageInTokensRow[] {
+  const token = args.registry?.byPath?.[args.tokenPath] ?? null;
+  if (!token) return [];
+
+  const componentUsagePropertiesByTokenPath =
+    args.componentUsagePropertiesByTokenPath ??
+    buildComponentUsagePropertiesIndex({
+      registry: args.registry,
+      components: args.components,
+    });
+
+  const reverse = buildReverseAliasGraph(args.registry);
+  const rowsByPath = new Map<string, { token: TokenCatalogEntry; depth: number }>();
+  const queue: Array<{ path: string; depth: number }> = [{ path: token.path, depth: 0 }];
+  const visited = new Set<string>([token.path]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    for (const childPath of reverse.get(current.path) ?? []) {
+      if (!childPath || visited.has(childPath)) continue;
+      visited.add(childPath);
+      const child =
+        args.registry?.byPath?.[childPath] ?? args.registry?.bySlashPath?.[childPath] ?? null;
+      if (!child || child.path === token.path) continue;
+      rowsByPath.set(child.path, { token: child, depth: current.depth + 1 });
+      queue.push({ path: child.path, depth: current.depth + 1 });
+    }
+  }
+
+  const downstreamMemo = new Map<string, Set<string>>();
+  return Array.from(rowsByPath.values())
+    .map((entry) => {
+      const descendants = collectDescendants(
+        entry.token.path,
+        reverse,
+        downstreamMemo,
+        new Set<string>(),
+      );
+      descendants.delete(entry.token.path);
+      return {
+        path: entry.token.path,
+        displayPath: entry.token.slashPath,
+        collection: entry.token.collection,
+        type: entry.token.type,
+        depth: entry.depth,
+        consumers: descendants.size,
+        properties: Array.from(
+          componentUsagePropertiesByTokenPath.get(entry.token.path) ?? new Set<string>(),
+        ).sort((left, right) => left.localeCompare(right)),
+      };
+    })
+    .sort((left, right) => {
+      if (left.depth !== right.depth) return left.depth - right.depth;
+      const consumersDiff = right.consumers - left.consumers;
+      if (consumersDiff !== 0) return consumersDiff;
+      return left.path.localeCompare(right.path);
+    });
 }
 
 type MatchMode = { mode: "direct" } | { mode: "via_alias"; aliasPath: string };

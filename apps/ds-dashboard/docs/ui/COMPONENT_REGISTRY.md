@@ -532,6 +532,31 @@ Location: `apps/ds-dashboard/src/components/composites/`
 
 ---
 
+### TokenRelationTrail
+
+**Path:** `src/components/composites/token-relation-trail.tsx`
+
+**Props:** `title`, `rootLabel`, `items`, `leadingConnector?`, `itemConnector?`, `terminal?`, `terminalConnector?`, `emptyText?`, `className?`
+
+```tsx
+<TokenRelationTrail
+  title="Alias chain"
+  rootLabel="Brand/800"
+  leadingConnector="left"
+  itemConnector="left"
+  terminal={{ label: '#2C2C2C' }}
+  items={[
+    { label: 'Brand/700', href: '/tokens/Brand.700' },
+    { label: 'Brand/600', href: '/tokens/Brand.600' },
+  ]}
+/>
+```
+
+**When to use:** Inline alias chains, token consumer trails, and other compact token lineage rows that need a stable root badge plus wrapped linked badges.
+**When NOT to use:** Large hierarchy trees, tables, or standalone navigation lists.
+
+---
+
 ### SystemTabsNav
 
 **Path:** `src/components/composites/system-tabs-nav.tsx`
@@ -699,7 +724,7 @@ Location: `apps/ds-dashboard/src/features/`
 | Component               | Path                                                                      | Description                   |
 | ----------------------- | ------------------------------------------------------------------------- | ----------------------------- |
 | `TokenIdentitySection`  | `src/features/tokens/token-detail/components/token-identity-section.tsx`  | Identity/value overview       |
-| `TokenRelationsSection` | `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias relation summary         |
+| `TokenUsageInTokensSection` | `src/features/tokens/token-detail/components/token-usage-in-tokens-section.tsx` | Downstream token usage table |
 | `TokenAliasSection`     | `src/features/tokens/token-detail/components/token-alias-section.tsx`     | Alias chains and descendants  |
 | `TokenUsageSection`     | `src/features/tokens/token-detail/components/token-usage-section.tsx`     | Usage table across components |
 

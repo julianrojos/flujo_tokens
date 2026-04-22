@@ -7,6 +7,7 @@ import {
   buildComponentTokenUsageRows,
   buildFigmaConsumerUsageOccurrences,
   collectAliasDescendantPaths,
+  buildTokenUsageInTokensRows,
 } from "./lib/token-detail-usage-derivation";
 
 function makeToken(overrides: Partial<TokenCatalogEntry>): TokenCatalogEntry {
@@ -205,5 +206,167 @@ describe("token detail alias traversal", () => {
     assert.equal(rows[0].mode, "both");
     assert.equal(rows[0].directOccurrences, 1);
     assert.equal(rows[0].viaAliasOccurrences, 1);
+  });
+
+  it("builds token usage rows with depth and downstream consumer counts", () => {
+    const base = makeToken({
+      path: "color.background.base",
+      slashPath: "color/background/base",
+      cssVar: "--color-background-base",
+    });
+    const alias1 = makeToken({
+      path: "color.background.base.soft",
+      slashPath: "color/background/base/soft",
+      cssVar: "--color-background-base-soft",
+      aliasOf: base.path,
+      resolvedValue: "#111111",
+    });
+    const alias2 = makeToken({
+      path: "color.background.base.soft.hover",
+      slashPath: "color/background/base/soft/hover",
+      cssVar: "--color-background-base-soft-hover",
+      aliasOf: alias1.path,
+      resolvedValue: "#222222",
+    });
+    const registry = buildRegistry([base, alias1, alias2]);
+
+    const rows = buildTokenUsageInTokensRows({
+      tokenPath: base.path,
+      registry,
+    });
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        path: row.path,
+        depth: row.depth,
+        consumers: row.consumers,
+      })),
+      [
+        {
+          path: alias1.path,
+          depth: 1,
+          consumers: 1,
+        },
+        {
+          path: alias2.path,
+          depth: 2,
+          consumers: 0,
+        },
+      ],
+    );
+  });
+
+  it("collects component properties for downstream token usage rows", () => {
+    const base = makeToken({
+      path: "color.background.base",
+      slashPath: "color/background/base",
+      cssVar: "--color-background-base",
+    });
+    const child = makeToken({
+      path: "color.background.base.soft",
+      slashPath: "color/background/base/soft",
+      cssVar: "--color-background-base-soft",
+      aliasOf: base.path,
+    });
+    const registry = buildRegistry([base, child]);
+
+    const rows = buildTokenUsageInTokensRows({
+      tokenPath: base.path,
+      registry,
+      components: [
+        makeComponent("button", "Button", [
+          {
+            node_id: "1",
+            node_name: "Button/Default",
+            field: "fills",
+            variable_id: "var:1",
+            token_path: child.path,
+            property_path: "fills",
+            status: "resolved",
+          },
+          {
+            node_id: "2",
+            node_name: "Button/Hover",
+            field: "strokes",
+            variable_id: "var:2",
+            token_path: child.path,
+            property_path: "strokes",
+            status: "resolved",
+          },
+        ]),
+      ],
+    });
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        path: row.path,
+        properties: row.properties,
+      })),
+      [
+        {
+          path: child.path,
+          properties: ["fills", "strokes"],
+        },
+      ],
+    );
+  });
+
+  it("propagates downstream component properties to ancestor token rows", () => {
+    const base = makeToken({
+      path: "color.background.base",
+      slashPath: "color/background/base",
+      cssVar: "--color-background-base",
+    });
+    const child = makeToken({
+      path: "color.background.base.soft",
+      slashPath: "color/background/base/soft",
+      cssVar: "--color-background-base-soft",
+      aliasOf: base.path,
+    });
+    const grandchild = makeToken({
+      path: "color.background.base.soft.hover",
+      slashPath: "color/background/base/soft/hover",
+      cssVar: "--color-background-base-soft-hover",
+      aliasOf: child.path,
+    });
+    const registry = buildRegistry([base, child, grandchild]);
+
+    const rows = buildTokenUsageInTokensRows({
+      tokenPath: base.path,
+      registry,
+      components: [
+        makeComponent("button", "Button", [
+          {
+            node_id: "1",
+            node_name: "Button/Hover",
+            field: "fills",
+            variable_id: "var:1",
+            token_path: grandchild.path,
+            property_path: "fills",
+            status: "resolved",
+          },
+        ]),
+      ],
+    });
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        path: row.path,
+        depth: row.depth,
+        properties: row.properties,
+      })),
+      [
+        {
+          path: child.path,
+          depth: 1,
+          properties: ["fills"],
+        },
+        {
+          path: grandchild.path,
+          depth: 2,
+          properties: ["fills"],
+        },
+      ],
+    );
   });
 });

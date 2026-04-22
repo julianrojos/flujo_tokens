@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Inbox } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { EmptyState } from "@/components/composites";
 import { toComponentDetail } from "@/lib/routes";
 import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
 
@@ -120,6 +122,25 @@ export function TokenUsageSection({
         : { field, dir: "asc" },
     );
   };
+
+  const hasUsage = componentUsageSummary.total > 0;
+
+  if (!hasUsage) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage in Components</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Inbox}
+            title="No components usage"
+            compact
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

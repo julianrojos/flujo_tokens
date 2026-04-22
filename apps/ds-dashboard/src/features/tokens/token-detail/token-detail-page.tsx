@@ -10,12 +10,21 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { PageHeader, PrevNextNav } from "@/components/composites";
 import { useTokenDetail } from "./hooks/use-token-detail";
 import { TokenIdentitySection } from "./components/token-identity-section";
-import { TokenRelationsSection } from "./components/token-relations-section";
+import { TokenUsageInTokensSection } from "./components/token-usage-in-tokens-section";
 import { TokenUsageSection } from "./components/token-usage-section";
+
+function decodeSafe(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 export function TokenDetailPage() {
   const { tokenPath } = useParams<{ tokenPath: string }>();
   const navigate = useNavigate();
+  const displayTokenPath = decodeSafe(String(tokenPath || "").trim()).replace(/\./g, "/");
   const {
     loading,
     error,
@@ -25,13 +34,14 @@ export function TokenDetailPage() {
     displayType,
     tokenAliasChain,
     aliasFinal,
-    aliasDescendantChains,
+    aliasConsumers,
     filteredComponentUsages,
     componentUsageSummary,
     scopedTokens,
     currentTokenIndex,
     previousToken,
     nextToken,
+    tokenUsageInTokensRows,
     componentMode,
     componentQuery,
     setComponentFilter,
@@ -41,7 +51,7 @@ export function TokenDetailPage() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading token details" />
+        <PageHeader title="Loading…" />
       </div>
     );
   }
@@ -49,8 +59,8 @@ export function TokenDetailPage() {
   if (error || !token) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Token not found" description={tokenPath} />
-        <StatusAlert variant="error" description={error || `Token "${tokenPath}" not found in registry.`} />
+        <PageHeader title="Token not found" />
+        <StatusAlert variant="error" description={error || `Token "${displayTokenPath}" not found in registry.`} />
         <Button variant="outline" onClick={() => navigate("/tokens")}>← Back to tokens</Button>
       </div>
     );
@@ -58,10 +68,7 @@ export function TokenDetailPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={token.path}
-        description={`${token.collection} · ${displayType}`}
-      />
+      <PageHeader title={token.slashPath} />
 
       <PrevNextNav
         hasPrevious={Boolean(previousToken)}
@@ -77,14 +84,12 @@ export function TokenDetailPage() {
         displayType={displayType}
         tokenAliasChain={tokenAliasChain}
         aliasFinal={aliasFinal}
+        aliasConsumers={aliasConsumers}
         swatch={swatch}
         dimensionPreview={dimensionPreview}
       />
 
-      <TokenRelationsSection
-        aliasOf={token.aliasOf ?? null}
-        hasDescendantAliases={aliasDescendantChains.size > 0}
-      />
+      <TokenUsageInTokensSection rows={tokenUsageInTokensRows} />
 
       <TokenUsageSection
         filteredComponentUsages={filteredComponentUsages}

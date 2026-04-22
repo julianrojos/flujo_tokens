@@ -2,7 +2,6 @@
  * Token Identity Section - displays token header, swatch, type, collection.
  */
 
-import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -11,8 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Hash, Ruler, ToggleLeft, Type } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import type { TokenCatalogEntry } from '@/types/token-catalog';
+import { TokenRelationTrail } from '@/components/composites';
 import { toTokenDetail } from '@/lib/routes';
 import { resolveColorSwatch } from '../lib/token-detail-transforms';
 
@@ -21,6 +20,7 @@ interface TokenIdentitySectionProps {
   displayType: string;
   tokenAliasChain: TokenCatalogEntry[];
   aliasFinal: TokenCatalogEntry | null;
+  aliasConsumers: TokenCatalogEntry[];
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
 }
@@ -30,12 +30,14 @@ export function TokenIdentitySection({
   displayType,
   tokenAliasChain,
   aliasFinal,
+  aliasConsumers,
   swatch,
   dimensionPreview,
 }: TokenIdentitySectionProps) {
   const aliasLine = tokenAliasChain.length > 0 ? tokenAliasChain : [token];
   const finalValue = aliasFinal?.resolvedValue || token.resolvedValue;
   const finalSwatch = resolveColorSwatch(finalValue);
+  const displayTokenPath = token.slashPath;
   const iconClassName = 'h-8 w-8 text-primary';
 
   return (
@@ -83,70 +85,50 @@ export function TokenIdentitySection({
             </div>
             <div className="min-w-0">
               <CardTitle className="break-all font-mono text-base">
-                {token.path}
+                {displayTokenPath}
               </CardTitle>
               <CardDescription className="mt-1">
-                <span className="font-medium">{token.collection}</span> ·{' '}
+                <span className="text-foreground">{token.collection}</span> ·{' '}
                 {displayType}
               </CardDescription>
               <CardDescription className="mt-1 font-mono text-xs">
-                {token.slashPath}
+                {displayTokenPath}
               </CardDescription>
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <label className="text-xs text-muted-foreground">Alias chain</label>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            {aliasLine.map((entry, index) => (
-              <div key={entry.path} className="flex items-center gap-2">
-                {index === 0 ? (
-                  <Badge
-                    variant={
-                      index === aliasLine.length - 1 ? 'success' : 'neutral'
-                    }
-                    className="font-mono text-xs"
-                  >
-                    {entry.path}
-                  </Badge>
-                ) : (
-                  <Link
-                    to={toTokenDetail(entry.path)}
-                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    title={`Open ${entry.path} detail`}
-                  >
-                    <Badge
-                      variant={
-                        index === aliasLine.length - 1 ? 'success' : 'neutral'
-                      }
-                      className="font-mono text-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      {entry.path}
-                    </Badge>
-                  </Link>
-                )}
-                {index < aliasLine.length - 1 ? (
-                  <span className="text-muted-foreground">→</span>
-                ) : null}
-              </div>
-            ))}
-            <span className="text-muted-foreground">→</span>
-            <div className="flex items-center gap-2">
-              <Badge variant="neutral" className="font-mono text-xs">
-                {finalValue}
-              </Badge>
-              {finalSwatch ? (
-                <span
-                  className="h-3.5 w-3.5 rounded border border-border shadow-sm"
-                  style={{ backgroundColor: finalSwatch }}
-                  aria-label={`Color swatch ${finalSwatch}`}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <TokenRelationTrail
+          title="Alias chain"
+          rootLabel={aliasLine[0]?.slashPath || displayTokenPath}
+          items={aliasLine.slice(1).map((entry) => ({
+            label: entry.slashPath,
+            href: toTokenDetail(entry.path),
+            title: `Open ${entry.slashPath} detail`,
+          }))}
+          leadingConnector="left"
+          itemConnector="left"
+          terminal={{ label: finalValue, swatch: finalSwatch }}
+          terminalConnector="left"
+          emptyText="No alias chain"
+        />
+        <TokenRelationTrail
+          title="Consumers"
+          rootLabel={displayTokenPath}
+          items={
+            aliasConsumers.length > 0
+              ? aliasConsumers.map((consumer) => ({
+                  label: consumer.slashPath,
+                  href: toTokenDetail(consumer.path),
+                  title: `Open ${consumer.slashPath} detail`,
+                }))
+              : []
+          }
+          leadingConnector="right"
+          itemConnector="comma"
+          emptyText="No direct consumers"
+        />
       </CardContent>
     </Card>
   );

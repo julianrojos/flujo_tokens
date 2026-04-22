@@ -8,14 +8,17 @@ import { useTokenDetailData } from "../use-token-detail-data";
 import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 import {
   resolveColorSwatch,
-  resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
   deriveTokenDisplayType,
+  resolveAliasTarget,
 } from "../lib/token-detail-transforms";
 import {
   buildComponentTokenUsageRows,
+  buildComponentUsagePropertiesIndex,
+  buildTokenUsageInTokensRows,
   type ComponentTokenUsage,
+  type TokenUsageInTokensRow,
 } from "../lib/token-detail-usage-derivation";
 
 interface TokenDetailViewModel {
@@ -37,12 +40,12 @@ interface TokenDetailViewModel {
   aliasBrokenRef: string | null;
   aliasHasCycle: boolean;
   aliasFinal: TokenCatalogEntry | null;
+  aliasConsumers: TokenCatalogEntry[];
   scopedTokens: TokenCatalogEntry[];
   currentTokenIndex: number;
   previousToken: TokenCatalogEntry | null;
   nextToken: TokenCatalogEntry | null;
-  reverseAliasMap: Map<string, TokenCatalogEntry[]>;
-  aliasDescendantChains: Map<string, TokenCatalogEntry[]>;
+  tokenUsageInTokensRows: TokenUsageInTokensRow[];
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
 
@@ -127,41 +130,17 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       ? scopedTokens[currentTokenIndex + 1]
       : null;
 
-  // Reverse alias map
-  const reverseAliasMap = useMemo(() => {
-    const map = new Map<string, TokenCatalogEntry[]>();
-    if (!registry) return map;
-    for (const entry of registry.entries ?? []) {
-      if (!entry.aliasOf) continue;
-      const target = resolveAliasTarget(registry, entry.aliasOf);
-      if (!target) continue;
-      const list = map.get(target.path) ?? [];
-      list.push(entry);
-      map.set(target.path, list);
-    }
-    return map;
-  }, [registry]);
-
-  // Descendant chains
-  const aliasDescendantChains = useMemo(() => {
-    const chains = new Map<string, TokenCatalogEntry[]>();
-    if (!token) return chains;
-    const queue: Array<{ entry: TokenCatalogEntry; chain: TokenCatalogEntry[] }> = [{ entry: token, chain: [token] }];
-    const visited = new Set<string>([token.path]);
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current) break;
-      const children = reverseAliasMap.get(current.entry.path) ?? [];
-      for (const child of children) {
-        if (visited.has(child.path)) continue;
-        const chain = [child, ...current.chain];
-        chains.set(child.path, chain);
-        visited.add(child.path);
-        queue.push({ entry: child, chain });
-      }
-    }
-    return chains;
-  }, [reverseAliasMap, token]);
+  const aliasConsumers = useMemo(() => {
+    if (!registry || !token) return [];
+    const consumers = (registry.entries ?? [])
+      .filter((entry) => {
+        if (!entry.aliasOf) return false;
+        const target = resolveAliasTarget(registry, entry.aliasOf);
+        return target?.path === token.path;
+      })
+      .sort((left, right) => left.path.localeCompare(right.path));
+    return consumers;
+  }, [registry, token]);
 
   // Component usages
   const componentUsages = useMemo<ComponentTokenUsage[]>(
@@ -172,6 +151,26 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
         components,
       }),
     [components, decoded, registry],
+  );
+
+  const componentUsagePropertiesByTokenPath = useMemo(
+    () =>
+      buildComponentUsagePropertiesIndex({
+        registry,
+        components,
+      }),
+    [components, registry],
+  );
+
+  const tokenUsageInTokensRows = useMemo<TokenUsageInTokensRow[]>(
+    () =>
+      buildTokenUsageInTokensRows({
+        tokenPath: decoded,
+        registry,
+        components,
+        componentUsagePropertiesByTokenPath,
+      }),
+    [componentUsagePropertiesByTokenPath, components, decoded, registry],
   );
 
   const filteredComponentUsages = useMemo(() => {
@@ -236,12 +235,12 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     aliasBrokenRef,
     aliasHasCycle,
     aliasFinal,
+    aliasConsumers,
     scopedTokens,
     currentTokenIndex,
     previousToken,
     nextToken,
-    reverseAliasMap,
-    aliasDescendantChains,
+    tokenUsageInTokensRows,
     filteredComponentUsages,
     componentUsageSummary,
 
