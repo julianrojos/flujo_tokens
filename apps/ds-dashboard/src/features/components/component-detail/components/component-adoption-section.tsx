@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
+import { Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { EmptyState } from "@/components/composites/empty-state";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { splitComponentName } from "@/lib/component-identity";
 import { toConsumerDetail } from "@/lib/routes";
@@ -42,9 +44,11 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
             Unable to load adoption data: {error}
           </p>
         ) : reports.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No consumer adoption data recorded for this component.
-          </p>
+          <EmptyState
+            icon={Users}
+            title="No consumer adoption data recorded"
+            compact
+          />
         ) : (
           <>
             {/* Summary row */}
@@ -62,7 +66,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Variants table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold titles-color">Variants Used</h4>
+              <h3 className="text-sm font-titles font-semibold titles-color">Variants Used</h3>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted titles-color">
@@ -116,7 +120,7 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
 
             {/* Consumers table */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold titles-color">Consumers</h4>
+              <h3 className="text-sm font-titles font-semibold titles-color">Consumers</h3>
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted titles-color">

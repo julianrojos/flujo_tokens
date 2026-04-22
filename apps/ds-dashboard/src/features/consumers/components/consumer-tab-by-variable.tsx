@@ -78,7 +78,7 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-titles font-semibold titles-color">Variable Usage</h3>
+          <h2 className="text-base font-titles font-semibold titles-color">Variable Usage</h2>
           <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
             {filteredReports.length} of {reports.length} variables
           </span>
@@ -120,9 +120,9 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="truncate text-sm font-titles font-semibold titles-color">
+                    <h3 className="truncate text-sm font-titles font-semibold titles-color">
                       {report.variableName}
-                    </h4>
+                    </h3>
                     <ImpactLevelBadge level={report.impactLevel.level} />
                     <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       {report.variableType}

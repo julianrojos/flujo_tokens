@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import type { PartialComponentSpec, SpecProperty } from "ds-types";
+import { SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/composites/empty-state";
 
 const TYPE_DISPLAY: Record<string, string> = {
   enum: "VARIANT",
@@ -90,13 +92,17 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Properties</CardTitle>
+        <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+          Properties
+        </h2>
       </CardHeader>
       <CardContent>
         {!spec || spec.properties === null ? (
-          <p className="text-sm text-muted-foreground">
-            No properties defined for this component.
-          </p>
+          <EmptyState
+            icon={SlidersHorizontal}
+            title="No properties defined"
+            compact
+          />
         ) : propertyItems.length > 0 ? (
           <Table>
             <TableHeader>
@@ -117,9 +123,11 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No properties defined for this component.
-          </p>
+          <EmptyState
+            icon={SlidersHorizontal}
+            title="No properties defined"
+            compact
+          />
         )}
       </CardContent>
     </Card>

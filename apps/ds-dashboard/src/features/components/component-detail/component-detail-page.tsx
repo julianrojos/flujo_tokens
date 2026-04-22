@@ -80,7 +80,7 @@ export function ComponentDetailPage() {
   if (error || (!loading && !item)) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Component not found" description={slug} />
+        <PageHeader title="Component not found" />
         <StatusAlert
           variant="error"
           description={error || `Component "${slug}" not found`}
@@ -91,7 +91,6 @@ export function ComponentDetailPage() {
   }
 
   const pageTitle = item?.display_name || slug || "Component";
-  const pageDescription = item?.slug || slug || "";
   const figmaUrl = buildFigmaNodeUrl(
     item?.figma.file_url,
     item?.figma.component_set_node_id,
@@ -101,7 +100,6 @@ export function ComponentDetailPage() {
     <div className="space-y-5">
       <PageHeader
         title={pageTitle}
-        description={pageDescription}
         actions={
           figmaUrl ? (
             <a

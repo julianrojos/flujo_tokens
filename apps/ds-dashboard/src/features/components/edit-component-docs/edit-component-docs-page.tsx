@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/composites';
 import { StatusAlert } from '@/components/ui/status-alert';
 import { Button } from '@/components/ui/button';
-import { getActiveSystemId } from '@/lib/api';
+import { fetchComponentCatalog, getActiveSystemId } from '@/lib/api';
 import { getEditDocsStorageScope } from '@/lib/edit-docs-storage-namespace';
 import type { ComponentDocVariant } from '@/types/ai-jobs';
 import type { PartialComponentSpec } from 'ds-types';
@@ -328,6 +328,14 @@ function extractFigmaComponentId(spec: PartialComponentSpec | null | undefined):
   return value || null;
 }
 
+function humanizeComponentSlug(rawSlug: string): string {
+  return String(rawSlug || '')
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+}
+
 export function EditComponentDocsPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -343,7 +351,15 @@ export function EditComponentDocsPage() {
     queryFn: () => fetchComponentSpec(slug!),
     enabled: !!slug,
   });
+  const { data: componentCatalog } = useQuery({
+    queryKey: ['component-catalog'],
+    queryFn: () => fetchComponentCatalog(),
+  });
   const figmaComponentId = extractFigmaComponentId(data?.spec);
+  const componentDisplayName =
+    componentCatalog?.components.find((component) => component.slug === slug)?.display_name?.trim() ||
+    humanizeComponentSlug(slug || '') ||
+    'Component';
   const { suggestion, saveSuggestion, clearSuggestion, isInMemoryOnly } = useAiSuggestion(
     slug!,
     editDocsStorageScope,
@@ -619,7 +635,7 @@ export function EditComponentDocsPage() {
   if (isLoading) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading component documentation" />
+        <PageHeader title={`Loading ${componentDisplayName} documentation`} />
         <div className="h-64 animate-pulse rounded-xl bg-muted" />
       </div>
     );
@@ -628,7 +644,7 @@ export function EditComponentDocsPage() {
   if (error || !data) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Failed to load" description={slug} />
+        <PageHeader title={`Failed to load ${componentDisplayName} documentation`} />
         <StatusAlert variant="error" description={error?.message ?? 'Component not found'} />
         <Button variant="outline" onClick={handleCancel}>← Back</Button>
       </div>
@@ -639,7 +655,7 @@ export function EditComponentDocsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Edit component documentation" description={slug} />
+      <PageHeader title={`Edit ${componentDisplayName} documentation`} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

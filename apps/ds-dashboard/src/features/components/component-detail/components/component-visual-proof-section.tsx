@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SpecVariantVisual } from "ds-types";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Modal, ModalCloseButton, ModalContent } from "@/components/ui/overlay";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
@@ -137,7 +137,9 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Screenshots</CardTitle>
+            <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+              Screenshots
+            </h2>
           </div>
         </div>
       </CardHeader>
@@ -169,7 +171,7 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
             )}
             {hasVariantPreviews && (
               <div className="space-y-2">
-                <h4 className="text-sm font-titles font-semibold titles-color">Variants</h4>
+                <h3 className="text-sm font-titles font-semibold titles-color">Variants</h3>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleVariantPreviews.map((variant) => {
                     const matched = variantVisualMap.get(normalizeVariantName(variant.name));

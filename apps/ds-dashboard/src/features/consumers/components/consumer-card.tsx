@@ -41,14 +41,14 @@ export function ConsumerCard(props: ConsumerCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-titles font-semibold titles-color">
+            <h2 className="truncate text-base font-titles font-semibold titles-color">
               <Link
                 to={toConsumerDetail(consumer.id)}
                 className="hover:underline"
               >
                 {consumer.consumerName}
               </Link>
-            </h3>
+            </h2>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {consumer.consumerFileKey}
             </p>

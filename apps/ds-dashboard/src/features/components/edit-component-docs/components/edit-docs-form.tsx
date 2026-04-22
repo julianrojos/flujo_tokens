@@ -102,9 +102,6 @@ export function SummaryFormCard({ value, onChange }: SummaryFormCardProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Summary</CardTitle>
-        <CardDescription>
-          Core purpose and decision guidance for the component
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <MarkdownField

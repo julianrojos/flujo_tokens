@@ -1,5 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Network } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/composites/empty-state";
 import type { ComponentUsageEntry } from "@/types/component-usage-index";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
@@ -22,16 +24,18 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
       </CardHeader>
       <CardContent className="space-y-4">
         {usage === null || (usage.uses.length === 0 && usage.used_in.length === 0) ? (
-          <p className="text-sm text-muted-foreground">
-            No dependency data available for this component.
-          </p>
+          <EmptyState
+            icon={Network}
+            title="No dependency data available"
+            compact
+          />
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {/* Uses column */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold titles-color">
+              <h3 className="text-sm font-titles font-semibold titles-color">
                 Uses ({usage.uses.length})
-              </h4>
+              </h3>
               {usage.uses.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No dependencies recorded
@@ -54,9 +58,9 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
 
             {/* Used by column */}
             <div className="space-y-2">
-              <h4 className="text-sm font-titles font-semibold titles-color">
+              <h3 className="text-sm font-titles font-semibold titles-color">
                 Used by ({usage.used_in.length})
-              </h4>
+              </h3>
               {usage.used_in.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Not used by any registered component

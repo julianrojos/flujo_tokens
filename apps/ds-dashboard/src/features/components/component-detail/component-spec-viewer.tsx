@@ -112,25 +112,25 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
     <div className="space-y-6 max-w-prose">
       {/* Summary */}
       <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+        <h3 className="mb-2 text-sm font-titles font-semibold titles-color">
           Summary
-        </h4>
+        </h3>
         <div className="space-y-3 text-sm">
           <div>
-            <h5 className={`mb-1 ${subsectionLabelClass}`}>Purpose</h5>
+            <h4 className={`mb-1 ${subsectionLabelClass}`}>Purpose</h4>
             <div>{renderSummaryMarkdown(summary.purpose)}</div>
           </div>
           <div className="space-y-3">
             <div>
-              <h5 className={`mb-1 ${subsectionLabelClass}`}>
+              <h4 className={`mb-1 ${subsectionLabelClass}`}>
                 When to use
-              </h5>
+              </h4>
               <div>{renderSummaryMarkdown(summary.when_to_use)}</div>
             </div>
             <div>
-              <h5 className={`mb-1 ${subsectionLabelClass}`}>
+              <h4 className={`mb-1 ${subsectionLabelClass}`}>
                 When not to use
-              </h5>
+              </h4>
               <div>{renderSummaryMarkdown(summary.when_not_to_use)}</div>
             </div>
           </div>
@@ -139,9 +139,9 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
 
       {/* Behaviour */}
       <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+        <h3 className="mb-2 text-sm font-titles font-semibold titles-color">
           Behaviour
-        </h4>
+        </h3>
         {behaviourItems.length > 0 ? (
           <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
             {behaviourItems.map((item) => (
@@ -155,12 +155,12 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
 
       {/* Accessibility */}
       <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+        <h3 className="mb-2 text-sm font-titles font-semibold titles-color">
           Accessibility
-        </h4>
+        </h3>
         <div className="space-y-3 text-sm">
           <div>
-            <h5 className={`mb-1 ${subsectionLabelClass}`}>Role</h5>
+            <h4 className={`mb-1 ${subsectionLabelClass}`}>Role</h4>
             <p className="font-mono text-xs">
               {String(spec.accessibility?.role ?? "").trim() || (
                 <span className="text-muted-foreground">—</span>
@@ -169,7 +169,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
           </div>
           {spec.accessibility?.focus?.tokens ? (
             <div>
-              <h5 className={`mb-1 ${subsectionLabelClass}`}>Focus tokens</h5>
+              <h4 className={`mb-1 ${subsectionLabelClass}`}>Focus tokens</h4>
               <div className="space-y-0.5 font-mono text-xs text-muted-foreground">
                 {spec.accessibility.focus.tokens.inner ? (
                   <div>inner: {spec.accessibility.focus.tokens.inner}</div>
@@ -182,7 +182,7 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
           ) : null}
           {accessibilityGuidance.length > 0 ? (
             <div>
-              <h5 className={`mb-1 ${subsectionLabelClass}`}>Guidance</h5>
+              <h4 className={`mb-1 ${subsectionLabelClass}`}>Guidance</h4>
               <div>
                 <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
                   {accessibilityGuidance.map((item, i) => (
@@ -197,9 +197,9 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
 
       {/* Content Guidelines */}
       <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+        <h3 className="mb-2 text-sm font-titles font-semibold titles-color">
           Content Guidelines
-        </h4>
+        </h3>
         {contentGuidelineRules.length > 0 ? (
           <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
             {contentGuidelineRules.map((rule, i) => (
@@ -213,16 +213,16 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
 
       {/* Variants */}
       <section>
-        <h4 className="mb-2 text-sm font-titles font-semibold titles-color">
+        <h3 className="mb-2 text-sm font-titles font-semibold titles-color">
           Variants
-        </h4>
+        </h3>
         {variants.length > 0 ? (
           <div className="space-y-3 text-sm">
             {variants.map((variant) => (
               <article key={variant.id} className="space-y-1">
-                <h5 className={subsectionLabelClass}>
+                <h4 className={subsectionLabelClass}>
                   {variant.name}
-                </h5>
+                </h4>
                 {variant.description ? (
                   <p className="text-muted-foreground">{variant.description}</p>
                 ) : null}

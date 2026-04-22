@@ -344,7 +344,7 @@ export function ConsumerDetailPage() {
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-titles font-semibold titles-color">Overview</h3>
+            <h2 className="text-base font-titles font-semibold titles-color">Overview</h2>
             <p className="text-sm text-muted-foreground">
               Last synced: {consumer.latestSync ? formatSyncedAt(consumer.latestSync.syncedAt) : "Never"}
             </p>
@@ -428,7 +428,7 @@ export function ConsumerDetailPage() {
 
       {/* Component Usage */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-3 text-base font-titles font-semibold titles-color">Component Usage</h3>
+        <h2 className="mb-3 text-base font-titles font-semibold titles-color">Component Usage</h2>
         {componentGroups.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {consumer.latestSync
@@ -621,7 +621,7 @@ export function ConsumerDetailPage() {
 
       {/* Variable Usage */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <h3 className="mb-3 text-base font-titles font-semibold titles-color">Variable Usage</h3>
+        <h2 className="mb-3 text-base font-titles font-semibold titles-color">Variable Usage</h2>
         {sortedVariables.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {consumer.latestSync
@@ -713,7 +713,7 @@ export function ConsumerDetailPage() {
           aria-expanded={isSyncLogOpen}
           aria-controls="sync-run-log-content"
         >
-          <h3 className="text-base font-titles font-semibold titles-color">Sync Run Log</h3>
+          <h2 className="text-base font-titles font-semibold titles-color">Sync Run Log</h2>
           {isSyncLogOpen ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (

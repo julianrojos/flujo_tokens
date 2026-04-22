@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -115,6 +115,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     field: "token",
     dir: "asc",
   });
+  const displayTokenPath = (value: string | null | undefined) => String(value || "").trim().replace(/\./g, "/");
 
   const { variantOptions, collectionOptions, filteredEntries, sortedFilteredEntries } = useMemo(() => {
     const rows = entries.map((entry) => ({
@@ -269,7 +270,9 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Tokens used</CardTitle>
+        <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
+          Tokens used
+        </h2>
         <CardDescription>
           {hasEntries
             ? (
@@ -382,18 +385,18 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                   <TableRow
                     key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
                   >
-                    <TableCell className="max-w-[200px]">
-                      {entry.token_path ? (
-                        <Link
-                          to={`/tokens/${encodeURIComponent(entry.token_path)}`}
-                          className="text-foreground hover:text-primary hover:underline"
-                          aria-label={`Open ${entry.token_path} detail`}
-                        >
-                          {entry.token_path}
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <TableCell className="max-w-[200px]">
+                        {entry.token_path ? (
+                          <Link
+                            to={`/tokens/${encodeURIComponent(entry.token_path)}`}
+                            className="text-foreground hover:text-primary hover:underline"
+                            aria-label={`Open ${displayTokenPath(entry.token_path)} detail`}
+                          >
+                            {displayTokenPath(entry.token_path)}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                     </TableCell>
                     <TableCell>
                       <span className="text-xs !font-normal text-foreground">

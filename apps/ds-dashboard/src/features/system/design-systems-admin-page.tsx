@@ -410,7 +410,7 @@ export function DesignSystemsAdminPage() {
                 <section className="space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <h3 className="text-base font-titles font-semibold titles-color">
+                      <h3 className="text-sm font-titles font-semibold titles-color">
                         Import Coverage
                       </h3>
                     </div>
@@ -437,9 +437,9 @@ export function DesignSystemsAdminPage() {
                   </div>
                   <div className="grid gap-3 lg:grid-cols-2">
                     <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
                         Imported Components
-                      </h4>
+                      </h3>
                       {componentImportSnapshot.importedNames.length > 0 ? (
                         <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
                           {componentImportSnapshot.importedNames.map(
@@ -460,9 +460,9 @@ export function DesignSystemsAdminPage() {
                       )}
                     </section>
                     <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
                         Pending Components
-                      </h4>
+                      </h3>
                       {componentImportSnapshot.pendingNames.length > 0 ? (
                         <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
                           {componentImportSnapshot.pendingNames.map(

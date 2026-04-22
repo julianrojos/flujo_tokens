@@ -82,9 +82,9 @@ export function DesignSystemUpdateActions({
 
   return (
     <div>
-      <h3 className="mb-3 text-base font-titles font-semibold titles-color">
+      <h2 className="mb-3 text-base font-titles font-semibold titles-color">
         Update from Figma
-      </h3>
+      </h2>
 
       <div className="space-y-2">
         <FormField
