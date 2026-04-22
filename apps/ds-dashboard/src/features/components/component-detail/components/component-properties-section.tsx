@@ -83,6 +83,10 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
     );
   };
 
+  if (!spec || spec.properties === null || propertyItems.length === 0) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -91,38 +95,24 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
         </h2>
       </CardHeader>
       <CardContent>
-        {!spec || spec.properties === null ? (
-          <EmptyState
-            icon={SlidersHorizontal}
-            title="No properties defined"
-            compact
-          />
-        ) : propertyItems.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {PROPERTY_SORT_COLUMNS.map((column) => (
-                  <SortableTableHead
-                    key={column.field}
-                    label={column.label}
-                    onSort={() => togglePropertySort(column.field)}
-                  />
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedProperties.map((prop) => (
-                <PropertyRow key={prop.name} prop={prop} />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {PROPERTY_SORT_COLUMNS.map((column) => (
+                <SortableTableHead
+                  key={column.field}
+                  label={column.label}
+                  onSort={() => togglePropertySort(column.field)}
+                />
               ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <EmptyState
-            icon={SlidersHorizontal}
-            title="No properties defined"
-            compact
-          />
-        )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedProperties.map((prop) => (
+              <PropertyRow key={prop.name} prop={prop} />
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

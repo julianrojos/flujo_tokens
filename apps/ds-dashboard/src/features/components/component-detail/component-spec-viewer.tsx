@@ -7,7 +7,7 @@ const SummaryMarkdownPreview = lazy(() =>
   })),
 );
 
-const subsectionLabelClass = "text-[11px] font-titles font-medium uppercase tracking-wider";
+const subsectionLabelClass = "text-[12px] font-titles font-medium uppercase tracking-wider";
 
 function extractGuidanceItems(spec: PartialComponentSpec, candidateKeys: string[]): string[] {
   const looseSpec = spec as Record<string, unknown>;

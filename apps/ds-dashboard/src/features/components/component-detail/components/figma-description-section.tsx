@@ -7,7 +7,7 @@
 import React from "react";
 import { MarkdownPreview } from "@/components/markdown/markdown-preview";
 
-const subsectionLabelClass = "text-[11px] font-titles font-medium uppercase tracking-wider";
+const subsectionLabelClass = "text-[12px] font-titles font-medium uppercase tracking-wider";
 
 interface FigmaDescriptionSectionProps {
   componentSetDescription: string | null;

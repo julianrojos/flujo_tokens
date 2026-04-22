@@ -130,7 +130,7 @@ export function TokenUsageSection({
   if (!hasUsage) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-0">
           <CardTitle>Usage in Components</CardTitle>
         </CardHeader>
         <CardContent>
@@ -227,7 +227,7 @@ export function TokenUsageSection({
                   <TableCell className="!font-normal">
                     <Link
                       to={toComponentDetail(usage.slug)}
-                      className="text-foreground hover:text-primary hover:underline"
+                      className="text-foreground hover:text-primary"
                       aria-label={`Open ${usage.displayName} component detail`}
                     >
                       {usage.displayName}

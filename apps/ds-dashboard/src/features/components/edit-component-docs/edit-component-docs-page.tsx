@@ -657,8 +657,8 @@ export function EditComponentDocsPage() {
     <div className="space-y-5">
       <PageHeader title={`Edit ${componentDisplayName} documentation`} />
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center">
+        <div className="ml-auto flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -668,7 +668,7 @@ export function EditComponentDocsPage() {
           >
             AI suggestions
           </Button>
-          {hasSuggestion && (
+          {hasSuggestion ? (
             <Button
               variant="ghost"
               size="sm"
@@ -679,30 +679,30 @@ export function EditComponentDocsPage() {
             >
               Clear AI suggestions
             </Button>
+          ) : null}
+          {isMobile && hasSuggestion && (
+            <div className="flex gap-1 rounded border border-border p-0.5">
+              <Button
+                variant={!showAiPanel ? 'outline' : 'ghost'}
+                size="sm"
+                onClick={() => setShowAiPanel(false)}
+                className={!showAiPanel ? 'bg-surface-2' : ''}
+                aria-pressed={!showAiPanel}
+              >
+                Your doc
+              </Button>
+              <Button
+                variant={showAiPanel ? 'outline' : 'ghost'}
+                size="sm"
+                onClick={() => setShowAiPanel(true)}
+                className={showAiPanel ? 'bg-surface-2' : ''}
+                aria-pressed={showAiPanel}
+              >
+                AI suggestion
+              </Button>
+            </div>
           )}
         </div>
-        {isMobile && hasSuggestion && (
-          <div className="flex gap-1 rounded border border-border p-0.5">
-            <Button
-              variant={!showAiPanel ? 'outline' : 'ghost'}
-              size="sm"
-              onClick={() => setShowAiPanel(false)}
-              className={!showAiPanel ? 'bg-surface-2' : ''}
-              aria-pressed={!showAiPanel}
-            >
-              Your doc
-            </Button>
-            <Button
-              variant={showAiPanel ? 'outline' : 'ghost'}
-              size="sm"
-              onClick={() => setShowAiPanel(true)}
-              className={showAiPanel ? 'bg-surface-2' : ''}
-              aria-pressed={showAiPanel}
-            >
-              AI suggestion
-            </Button>
-          </div>
-        )}
       </div>
 
       {saveError && (

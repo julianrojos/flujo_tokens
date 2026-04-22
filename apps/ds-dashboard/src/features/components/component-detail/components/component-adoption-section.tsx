@@ -1,9 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { EmptyState } from "@/components/composites/empty-state";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { splitComponentName } from "@/lib/component-identity";
 import { toConsumerDetail } from "@/lib/routes";
@@ -26,7 +24,10 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
     error,
   } = useComponentAdoption({ slug, allItems });
 
-  // Always render Card
+  if (!loading && !error && reports.length === 0) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -43,12 +44,6 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
           <p className="text-sm text-muted-foreground">
             Unable to load adoption data: {error}
           </p>
-        ) : reports.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No consumer adoption data recorded"
-            compact
-          />
         ) : (
           <>
             {/* Summary row */}

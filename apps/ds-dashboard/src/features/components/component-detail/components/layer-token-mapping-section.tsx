@@ -271,7 +271,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className={hasEntries && hasFilteredEntries ? undefined : "pb-0"}>
         <h2 className="text-lg font-titles font-semibold tracking-tight titles-color">
           Tokens used
         </h2>
@@ -393,7 +393,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         {entry.token_path ? (
                           <Link
                             to={`/tokens/${encodeURIComponent(entry.token_path)}`}
-                            className="text-foreground hover:text-primary hover:underline"
+                            className="text-foreground hover:text-primary"
                             aria-label={`Open ${displayTokenPath(entry.token_path)} detail`}
                           >
                             {displayTokenPath(entry.token_path)}

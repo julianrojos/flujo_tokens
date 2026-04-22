@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Accessibility,
   FolderTree,
@@ -14,6 +14,7 @@ import {
   getActiveSystemId,
 } from "@/lib/api";
 import { resolveDesignSystemContext } from "@/lib/design-system-keys";
+import { resolveCollectionPageFilter } from "@/lib/collection-page-filter";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
@@ -136,7 +137,6 @@ type SortField =
   | "usageCount";
 
 export function TokensPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [entries, setEntries] = useState<TokenCatalogEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
@@ -160,12 +160,14 @@ export function TokensPage() {
     searchParams.get("group") === "resolvedValue"
       ? normalizeResolvedValueFilter(filterValue)
       : "";
-  const resolvedValueFilterLabel = String(searchParams.get("value") ?? "").trim();
   const aliasFilter = searchParams.get("group") === "aliases" && filterValue === "alias" ? filterValue : "";
-  const aliasFilterLabel = String(searchParams.get("value") ?? "").trim();
   const usageCountFilter =
     searchParams.get("group") === "usageCount" && filterValue === "unused" ? filterValue : "";
-  const usageCountFilterLabel = String(searchParams.get("value") ?? "").trim();
+  const collectionFilter = resolveCollectionPageFilter(
+    "tokens",
+    searchParams.get("group"),
+    searchParams.get("value"),
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -342,7 +344,7 @@ export function TokensPage() {
     filtered.length > pageSizeValue;
   const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filtered.length / pageSizeValue)) : 1;
   const showPageSizeSelect = shouldShowPageSizeSelect(filtered.length);
-  const rowLinkClassName = "text-foreground hover:text-primary hover:underline";
+  const rowLinkClassName = "text-foreground hover:text-primary";
 
   useEffect(() => {
     if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(filtered.length)) {
@@ -459,7 +461,7 @@ export function TokensPage() {
   ]);
 
   const showAccessibilityButton = type === "COLOR";
-  const hasKpiFilter = Boolean(resolvedValueFilter || usageCountFilter || aliasFilter);
+  const hasKpiFilter = collectionFilter.isFiltered;
 
   useEffect(() => {
     if (!showAccessibilityButton && contrastChecker.isOpen) {
@@ -523,15 +525,7 @@ export function TokensPage() {
     <div className="space-y-5">
       <PageHeader
         title="Tokens"
-        description={
-          resolvedValueFilter
-            ? `Token collection filtered by resolved value`
-            : usageCountFilter === "unused"
-              ? `Token collection filtered by unused tokens`
-              : aliasFilter === "alias"
-                ? `Token collection filtered by aliases`
-            : undefined
-        }
+        description={collectionFilter.description}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -552,7 +546,7 @@ export function TokensPage() {
         <PrevNextNav
           hasPrevious={true}
           hasNext={false}
-          onPrevious={() => navigate("/tokens")}
+          onPrevious={() => window.history.back()}
           onNext={() => undefined}
           currentIndex={0}
           totalItems={1}
@@ -570,7 +564,7 @@ export function TokensPage() {
               value: (
                 <Link
                   to="/tokens?group=aliases&value=alias"
-                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                  className="inline-flex text-foreground hover:text-primary"
                 >
                   {metrics.aliasesTotal} ({metrics.aliasesPercent}%)
                 </Link>
@@ -582,7 +576,7 @@ export function TokensPage() {
               value: (
                 <Link
                   to="/tokens?group=usageCount&value=unused"
-                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                  className="inline-flex text-foreground hover:text-primary"
                 >
                   {metrics.tokensWithoutUse} ({metrics.unusedPercent}%)
                 </Link>

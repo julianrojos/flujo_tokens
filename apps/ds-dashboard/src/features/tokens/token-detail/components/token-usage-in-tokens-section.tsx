@@ -113,7 +113,7 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
   if (!hasUsage) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-0">
           <CardTitle>Usage in Tokens</CardTitle>
         </CardHeader>
         <CardContent>
@@ -200,7 +200,7 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
                   <TableCell className="!font-normal">
                     <Link
                       to={toTokenDetail(row.path)}
-                      className="text-foreground hover:text-primary hover:underline"
+                      className="text-foreground hover:text-primary"
                       aria-label={`Open ${row.displayPath} token detail`}
                     >
                       {row.displayPath}
@@ -222,9 +222,12 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
                     {row.properties.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {row.properties.map((property) => (
-                          <Badge key={property} variant="neutral" className="font-mono text-xs">
+                          <span
+                            key={property}
+                            className="font-mono text-xs text-foreground"
+                          >
                             {property}
-                          </Badge>
+                          </span>
                         ))}
                       </div>
                     ) : (

@@ -151,6 +151,16 @@ export function ComponentDetailPage() {
       <ComponentGraphSection usage={usage} allItems={allItems} />
 
       {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
+
+      <ComponentNavBar
+        previousItem={previousItem}
+        nextItem={nextItem}
+        firstItem={allItems[0] ?? null}
+        lastItem={allItems.length > 0 ? allItems[allItems.length - 1] : null}
+        currentIndex={currentIndex}
+        totalItems={totalItems}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 }

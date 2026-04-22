@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ExternalLink, LayoutGrid } from "lucide-react";
 
 import {
@@ -8,6 +8,7 @@ import {
   fetchComponentUsageIndex,
   getActiveSystemId,
 } from "@/lib/api";
+import { resolveCollectionPageFilter } from "@/lib/collection-page-filter";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
@@ -27,6 +28,7 @@ import { Card } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { toComponentDetail } from "@/lib/routes";
 import {
   Table,
   TableBody,
@@ -82,7 +84,6 @@ function buildTokenCoverage(item: ComponentCatalogItem) {
 }
 
 export function ComponentsPage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<ComponentCatalogItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
@@ -102,6 +103,11 @@ export function ComponentsPage() {
     field: "display_name",
     dir: "asc",
   });
+  const filterState = resolveCollectionPageFilter(
+    "components",
+    searchParams.get("group"),
+    searchParams.get("value"),
+  );
   const filterValue = String(searchParams.get("value") ?? "").trim().toLowerCase();
   const multiVariantFilter =
     searchParams.get("group") === "multiVariant" && filterValue === "multi"
@@ -111,13 +117,8 @@ export function ComponentsPage() {
     searchParams.get("group") === "docsCoverage" && filterValue === "with-spec"
       ? filterValue
       : "";
-  const hasActiveKpiFilter = multiVariantFilter === "multi" || docsCoverageFilter === "with-spec";
-  const pageHeaderDescription =
-    multiVariantFilter === "multi"
-      ? "Component collection filtered by multi-variant components"
-      : docsCoverageFilter === "with-spec"
-        ? "Component collection filtered by documentation coverage"
-        : undefined;
+  const hasActiveKpiFilter = filterState.isFiltered;
+  const pageHeaderDescription = filterState.description;
 
   const loadData = async () => {
     setLoading(true);
@@ -304,15 +305,6 @@ export function ComponentsPage() {
     return map;
   }, [rows]);
 
-  const usedInLabelsBySlug = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const row of rows) {
-      const usedInSlugs = usageBySlug[row.slug]?.used_in ?? [];
-      map[row.slug] = usedInSlugs.map((slug) => displayNameBySlug[slug] || slug);
-    }
-    return map;
-  }, [rows, usageBySlug, displayNameBySlug]);
-
   const multiVariantPercent = useMemo(() => {
     const total = rows.length;
     if (total <= 0) return 0;
@@ -332,7 +324,7 @@ export function ComponentsPage() {
         <PrevNextNav
           hasPrevious={true}
           hasNext={false}
-          onPrevious={() => navigate("/components")}
+          onPrevious={() => window.history.back()}
           onNext={() => undefined}
           currentIndex={0}
           totalItems={1}
@@ -354,7 +346,7 @@ export function ComponentsPage() {
               value: (
                 <Link
                   to="/components?group=docsCoverage&value=with-spec"
-                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                  className="inline-flex text-foreground hover:text-primary"
                 >
                   {docsEditedPercent}%
                 </Link>
@@ -366,7 +358,7 @@ export function ComponentsPage() {
               value: (
                 <Link
                   to="/components?group=multiVariant&value=multi"
-                  className="inline-flex text-foreground hover:text-primary hover:underline"
+                  className="inline-flex text-foreground hover:text-primary"
                 >
                   {multiVariantPercent}%
                 </Link>
@@ -507,7 +499,7 @@ export function ComponentsPage() {
                                 ) : null}
                                 <Link
                                   to={`/components/${item.slug}`}
-                                  className="text-foreground hover:text-primary hover:underline"
+                                  className="text-foreground hover:text-primary"
                                   aria-label={`Open ${item.display_name} detail`}
                                 >
                                   {item.display_name}
@@ -530,9 +522,23 @@ export function ComponentsPage() {
                             </TableCell>
                             <TableCell>
                               {(() => {
-                                const labels = usedInLabelsBySlug[item.slug] ?? [];
-                                if (labels.length === 0) return "-";
-                                return labels.join(", ");
+                                const usedInSlugs = usageBySlug[item.slug]?.used_in ?? [];
+                                if (usedInSlugs.length === 0) return "-";
+                                return usedInSlugs.map((slug, index) => {
+                                  const displayName = displayNameBySlug[slug] || slug;
+                                  return (
+                                    <span key={slug}>
+                                      <Link
+                                        to={toComponentDetail(slug)}
+                                        className="text-foreground hover:text-primary"
+                                        aria-label={`Open ${displayName} component detail`}
+                                      >
+                                        {displayName}
+                                      </Link>
+                                      {index < usedInSlugs.length - 1 ? ", " : null}
+                                    </span>
+                                  );
+                                });
                               })()}
                             </TableCell>
                           </TableRow>
@@ -572,6 +578,7 @@ export function ComponentsPage() {
             </>
           )}
       </Card>
+
     </div>
   );
 }
