@@ -1244,9 +1244,15 @@ function collectInstanceDependencies(
         componentId?: string;
         mainComponent?: { name?: string; key?: string } | null;
       };
-      const usedComponentNodeId = String(instanceRecord.componentId || '').trim();
+      const usedComponentNodeId = String(
+        instanceRecord.componentId ||
+          instanceRecord.mainComponent?.name ||
+          '',
+      ).trim();
       const usedComponentName = String(
-        instanceRecord.mainComponent?.name || '',
+        instanceRecord.mainComponent?.name ||
+          instanceRecord.componentId ||
+          '',
       ).trim();
       const usedComponentKey = String(
         instanceRecord.mainComponent?.key || '',
@@ -1261,7 +1267,10 @@ function collectInstanceDependencies(
             usedComponentNodeId,
             usedComponentName: usedComponentName || usedComponentNodeId,
             usedComponentKey: usedComponentKey || undefined,
-            status: instanceRecord.mainComponent ? 'resolved' : 'unresolved',
+            status:
+              instanceRecord.mainComponent && instanceRecord.componentId
+                ? 'resolved'
+                : 'unresolved',
           });
         }
       }

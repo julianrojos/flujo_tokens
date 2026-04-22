@@ -1079,4 +1079,46 @@ describe('Figma instance dependencies', () => {
             '4333:9286',
         );
     });
+
+    it('keeps unresolved instance dependencies when the Figma main component name is unavailable', async () => {
+        await repo.upsertFromRegistry('instance-deps-sys', [
+            {
+                slug: 'calendar-7',
+                name: 'Calendar',
+                status: 'ready',
+                figma: {
+                    componentSetNodeId: '4333:9262',
+                    instanceDependencies: [
+                        {
+                            instanceNodeId: '4333:9999',
+                            instanceNodeName: 'Calendar Select Group',
+                            usedComponentNodeId: '4333:9359',
+                            usedComponentName: '',
+                            usedComponentKey: '',
+                            status: 'unresolved',
+                        },
+                    ],
+                },
+            },
+            {
+                slug: 'calendar-button',
+                name: 'Calendar Button',
+                status: 'ready',
+                figma: {
+                    componentSetNodeId: '4333:9359',
+                },
+            },
+        ]);
+
+        const components = await repo.getAll('instance-deps-sys');
+        const calendar = components.find((component) => component.slug === 'calendar-7');
+        assert.ok(calendar);
+        assert.ok(Array.isArray(calendar?.figma?.instanceDependencies));
+        assert.strictEqual(calendar?.figma?.instanceDependencies?.length, 1);
+        assert.strictEqual(
+            calendar?.figma?.instanceDependencies?.[0]?.usedComponentNodeId,
+            '4333:9359',
+        );
+        assert.strictEqual(calendar?.figma?.instanceDependencies?.[0]?.usedComponentName, '4333:9359');
+    });
 });

@@ -2016,6 +2016,96 @@ describe('figma-db-sync-service', () => {
       assert.equal(entry.figma.tokenBindings[0].status, 'resolved');
     });
 
+    it('keeps instance dependencies when the used component name is unavailable', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'mode:1', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/accent',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode:1': { r: 0.39, g: 0.4, b: 0.95, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '4333:9262', name: 'Calendar' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async (
+        _fileKey: string | null,
+        params: { nodeId: string },
+      ): Promise<FullComponentSpecResult> => ({
+        success: true,
+        nodeId: params.nodeId,
+        name: 'Calendar',
+        type: 'COMPONENT_SET',
+        description: 'Calendar component',
+        variants: [],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [],
+        instanceDependencies: [
+          {
+            instanceNodeId: '4333:9999',
+            instanceNodeName: 'Calendar Select Group',
+            usedComponentNodeId: '4333:9359',
+            usedComponentName: '',
+            usedComponentKey: '',
+            status: 'unresolved',
+          },
+        ],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: {
+          deleteAll: async () => 0,
+          upsertFromRegistry: async (
+            _sysId: string,
+            entries: Array<Record<string, unknown>>,
+          ) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry(
+              'ltm-sync-sys',
+              entries as any,
+            );
+          },
+          markMissingComponents: async () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_calendar',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-calendar',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.instanceDependencies));
+      assert.equal(entry.figma.instanceDependencies.length, 1);
+      assert.equal(entry.figma.instanceDependencies[0].usedComponentNodeId, '4333:9359');
+      assert.equal(entry.figma.instanceDependencies[0].usedComponentName, '4333:9359');
+    });
+
     it('marks bindings with unknown variableId as unresolved', async () => {
       let receivedEntries: Array<Record<string, unknown>> = [];
 
@@ -2300,6 +2390,159 @@ describe('figma-db-sync-service', () => {
       assert.ok(Array.isArray(entry.figma.props));
       assert.equal(entry.figma.props.length, 1);
       assert.deepEqual(entry.figma.props[0].values, ['Default', 'Accent']);
+    });
+
+    it('normalizes uppercase TEXT prop types to text', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {},
+          variables: {},
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '401:1', name: 'Text Prop Test' }],
+        truncated: false,
+      });
+
+      await sql`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'text-prop-test', 'Text Prop Test', 'draft', 'component', '401:1')
+        ON CONFLICT DO NOTHING
+      `;
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '401:1',
+        name: 'Text Prop Test',
+        type: 'COMPONENT',
+        description: null,
+        anatomy: { id: '401:1', children: [] },
+        variants: [],
+        variantAxes: [],
+        props: [{ name: 'Label', type: 'TEXT', defaultValue: 'Button' }],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: {
+          deleteAll: async () => 0,
+          upsertFromRegistry: async (
+            _sysId: string,
+            entries: Array<Record<string, unknown>>,
+          ) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry(
+              'ltm-sync-sys',
+              entries as any,
+            );
+          },
+          markMissingComponents: async () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_text_prop',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-text-prop',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.props));
+      assert.equal(entry.figma.props.length, 1);
+      assert.equal(entry.figma.props[0].type, 'text');
+    });
+
+    it('infers instance dependencies from anatomy when explicit deps are absent', async () => {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {},
+          variables: {},
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '402:1', name: 'Calendar' }],
+        truncated: false,
+      });
+
+      await sql`
+        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_component_set_node_id)
+        VALUES ('ltm-sync-sys', 'calendar-7', 'Calendar', 'draft', 'component', '402:1')
+        ON CONFLICT DO NOTHING
+      `;
+
+      const fetchFullComponentSpec = async () => ({
+        success: true,
+        nodeId: '402:1',
+        name: 'Calendar',
+        type: 'COMPONENT',
+        description: null,
+        anatomy: {
+          id: '402:1',
+          name: 'Calendar',
+          type: 'COMPONENT',
+          children: [
+            {
+              id: '402:2',
+              name: 'Calendar Button Instance',
+              type: 'INSTANCE',
+              componentId: 'Calendar Button',
+              mainComponent: { name: 'Calendar Button', key: 'button-key' },
+              children: [],
+            },
+          ],
+        } as any,
+        variants: [],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: {
+          deleteAll: async () => 0,
+          upsertFromRegistry: async (
+            _sysId: string,
+            entries: Array<Record<string, unknown>>,
+          ) => {
+            receivedEntries = entries;
+            return componentRepo.upsertFromRegistry(
+              'ltm-sync-sys',
+              entries as any,
+            );
+          },
+          markMissingComponents: async () => 0,
+        } as unknown as ComponentRepository,
+        dsId: 'ltm-sync-sys',
+        figmaFileId: 'file_calendar',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-calendar',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        enrichComponentSpecConcurrency: 1,
+      });
+
+      assert.ok(result);
+      assert.equal(receivedEntries.length, 1);
+      const entry = receivedEntries[0] as Record<string, any>;
+      assert.ok(Array.isArray(entry.figma.instanceDependencies));
+      assert.equal(entry.figma.instanceDependencies.length, 1);
+      assert.equal(entry.figma.instanceDependencies[0].usedComponentName, 'Calendar Button');
+      assert.equal(entry.figma.instanceDependencies[0].usedComponentNodeId, 'Calendar Button');
     });
 
     it('does not infer enum property values when props.values is explicitly an empty array', async () => {

@@ -162,6 +162,7 @@ export async function handleComponentUsageIndexRoute(c, deps) {
     buildComponentUsageIndex(
       rows.map((row) => ({
         slug: row.slug,
+        name: row.name,
         figma: row.figma
           ? {
               componentSetNodeId:

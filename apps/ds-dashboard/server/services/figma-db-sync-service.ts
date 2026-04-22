@@ -354,6 +354,7 @@ function mapFigmaPropertyType(
   const rawType = String(value || '').trim();
   const type = rawType.toUpperCase();
   if (type === 'VARIANT') return 'enum';
+  if (type === 'TEXT') return 'text';
   if (type === 'BOOLEAN') return 'boolean';
   if (type === 'INSTANCE_SWAP') return 'instance_swap';
   if (type === 'SLOT') return 'slot';
@@ -364,6 +365,74 @@ function mapFigmaPropertyType(
     );
   }
   return 'text';
+}
+
+function collectInstanceDependenciesFromAnatomy(anatomy: unknown): Array<{
+  instanceNodeId: string;
+  instanceNodeName: string;
+  usedComponentNodeId: string;
+  usedComponentName: string;
+  usedComponentKey?: string;
+  status: 'resolved' | 'unresolved';
+}> {
+  const dependencies: Array<{
+    instanceNodeId: string;
+    instanceNodeName: string;
+    usedComponentNodeId: string;
+    usedComponentName: string;
+    usedComponentKey?: string;
+    status: 'resolved' | 'unresolved';
+  }> = [];
+  const seenDependencies = new Set<string>();
+  const queue: unknown[] = Array.isArray(anatomy)
+    ? [...anatomy]
+    : anatomy && typeof anatomy === 'object'
+      ? [anatomy]
+      : [];
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index];
+    if (!current || typeof current !== 'object') continue;
+    const record = current as Record<string, unknown>;
+    const type = String(record.type || '').trim().toUpperCase();
+    if (type === 'INSTANCE') {
+      const instanceNodeId = String(record.id || '').trim();
+      const instanceNodeName = String(record.name || '').trim();
+      const mainComponent =
+        record.mainComponent && typeof record.mainComponent === 'object'
+          ? (record.mainComponent as Record<string, unknown>)
+          : null;
+      const usedComponentNodeId = String(
+        record.componentId || mainComponent?.name || '',
+      ).trim();
+      const usedComponentName = String(
+        mainComponent?.name || record.componentId || '',
+      ).trim();
+      const usedComponentKey = String(mainComponent?.key || '').trim();
+      if (instanceNodeId && instanceNodeName && usedComponentNodeId) {
+        const dedupeKey = `${instanceNodeId}\x00${usedComponentNodeId}\x00${usedComponentKey}`;
+        if (!seenDependencies.has(dedupeKey)) {
+          seenDependencies.add(dedupeKey);
+          dependencies.push({
+            instanceNodeId,
+            instanceNodeName,
+            usedComponentNodeId,
+            usedComponentName: usedComponentName || usedComponentNodeId,
+            usedComponentKey: usedComponentKey || undefined,
+            status:
+              mainComponent && record.componentId ? 'resolved' : 'unresolved',
+          });
+        }
+      }
+    }
+
+    const children = record.children;
+    if (Array.isArray(children)) {
+      queue.push(...children);
+    }
+  }
+
+  return dependencies;
 }
 
 function normalizeVariantAxisValues(
@@ -669,8 +738,8 @@ function extractStructuredFigmaData(args: {
   }
 
   result.instanceDependencies = [];
+  const seenDependencies = new Set<string>();
   if (Array.isArray(specData.instanceDependencies)) {
-    const seenDependencies = new Set<string>();
     for (const dependency of specData.instanceDependencies) {
       const instanceNodeId = String(dependency.instanceNodeId || '').trim();
       const instanceNodeName = String(dependency.instanceNodeName || '').trim();
@@ -678,9 +747,9 @@ function extractStructuredFigmaData(args: {
         dependency.usedComponentNodeId || '',
       ).trim();
       const usedComponentName = String(
-        dependency.usedComponentName || '',
+        dependency.usedComponentName || dependency.usedComponentKey || usedComponentNodeId || '',
       ).trim();
-      if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId || !usedComponentName) {
+      if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId) {
         continue;
       }
       const usedComponentKey = String(
@@ -698,6 +767,12 @@ function extractStructuredFigmaData(args: {
         status: dependency.status === 'unresolved' ? 'unresolved' : 'resolved',
       });
     }
+  }
+  for (const dependency of collectInstanceDependenciesFromAnatomy(specData.anatomy)) {
+    const dedupeKey = `${dependency.instanceNodeId}\x00${dependency.usedComponentNodeId}\x00${dependency.usedComponentKey || ''}`;
+    if (seenDependencies.has(dedupeKey)) continue;
+    seenDependencies.add(dedupeKey);
+    result.instanceDependencies.push(dependency);
   }
 
   // Primary source of truth: variants[].layerTokens.

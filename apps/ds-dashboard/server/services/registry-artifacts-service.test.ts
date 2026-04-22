@@ -55,3 +55,77 @@ test("buildComponentUsageIndex resolves figma instance dependencies from capture
   assert.deepEqual(index.by_slug.calendar.uses, ["calendar-button"]);
   assert.deepEqual(index.by_slug["calendar-button"].used_in, ["calendar"]);
 });
+
+test("buildComponentUsageIndex falls back to component names when node ids are unavailable", () => {
+  const index = buildComponentUsageIndex(
+    [
+      {
+        slug: "calendar-7",
+        name: "Calendar",
+        figma: {
+          componentSetNodeId: "4333:9262",
+          instanceDependencies: [
+            {
+              instanceNodeId: "4333:9999",
+              instanceNodeName: "Calendar Select Group",
+              usedComponentNodeId: "Calendar Button",
+              usedComponentName: "Calendar Button",
+              status: "unresolved",
+            },
+          ],
+        },
+      },
+      {
+        slug: "calendar-button",
+        name: "Calendar Button",
+        figma: {
+          componentSetNodeId: "4333:9359",
+        },
+      },
+    ],
+  );
+
+  assert.deepEqual(index.by_slug["calendar-7"].uses, ["calendar-button"]);
+  assert.deepEqual(index.by_slug["calendar-button"].used_in, ["calendar-7"]);
+});
+
+test("buildComponentUsageIndex does not resolve ambiguous component names", () => {
+  const index = buildComponentUsageIndex(
+    [
+      {
+        slug: "calendar-7",
+        name: "Calendar",
+        figma: {
+          componentSetNodeId: "4333:9262",
+          instanceDependencies: [
+            {
+              instanceNodeId: "4333:9999",
+              instanceNodeName: "Calendar Select Group",
+              usedComponentNodeId: "Calendar Button",
+              usedComponentName: "Calendar Button",
+              status: "unresolved",
+            },
+          ],
+        },
+      },
+      {
+        slug: "calendar-button-a",
+        name: "Calendar Button",
+        figma: {
+          componentSetNodeId: "4333:9359",
+        },
+      },
+      {
+        slug: "calendar-button-b",
+        name: "Calendar Button",
+        figma: {
+          componentSetNodeId: "4333:9360",
+        },
+      },
+    ],
+  );
+
+  assert.deepEqual(index.by_slug["calendar-7"].uses, []);
+  assert.deepEqual(index.by_slug["calendar-button-a"].used_in, []);
+  assert.deepEqual(index.by_slug["calendar-button-b"].used_in, []);
+});

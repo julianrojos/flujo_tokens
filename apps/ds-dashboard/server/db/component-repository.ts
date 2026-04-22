@@ -1429,9 +1429,9 @@ export class ComponentRepository {
               dependency.usedComponentNodeId || '',
             ).trim();
             const usedComponentName = String(
-              dependency.usedComponentName || '',
+              dependency.usedComponentName || dependency.usedComponentKey || usedComponentNodeId || '',
             ).trim();
-            if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId || !usedComponentName) {
+            if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId) {
               continue;
             }
             const usedComponentKey = String(

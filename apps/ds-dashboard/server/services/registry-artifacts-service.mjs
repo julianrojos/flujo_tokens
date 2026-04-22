@@ -238,16 +238,24 @@ export function buildComponentUsageIndex(rows) {
   const usesMap = new Map();
   for (const slug of Array.from(slugSet)) usesMap.set(slug, new Set());
   const nodeIdToSlug = new Map();
+  const nameToSlugs = new Map();
   const normalizeNodeId = (value) => String(value || "").trim();
+  const normalizeName = (value) => String(value || "").trim().toLowerCase();
 
   for (const row of rows) {
     const slug = String(row.slug || "").trim();
     if (!slug) continue;
+    const name = normalizeName(row.name || row.display_name || "");
     const componentNodeId = normalizeNodeId(
       row.figma?.componentSetNodeId || row.figmaComponentSetNodeId,
     );
     if (componentNodeId && !nodeIdToSlug.has(componentNodeId)) {
       nodeIdToSlug.set(componentNodeId, slug);
+    }
+    if (name) {
+      const candidates = nameToSlugs.get(name) || new Set();
+      candidates.add(slug);
+      nameToSlugs.set(name, candidates);
     }
   }
 
@@ -272,7 +280,18 @@ export function buildComponentUsageIndex(rows) {
       : [];
     for (const dependency of instanceDependencies) {
       const usedNodeId = normalizeNodeId(dependency?.usedComponentNodeId);
-      const targetSlug = nodeIdToSlug.get(usedNodeId) || "";
+      const usedName = normalizeName(
+        dependency?.usedComponentName || dependency?.usedComponentKey || "",
+      );
+      const nameCandidates = nameToSlugs.get(usedName);
+      const usedNameSlug =
+        nameCandidates && nameCandidates.size === 1
+          ? Array.from(nameCandidates)[0] || ""
+          : "";
+      const targetSlug =
+        nodeIdToSlug.get(usedNodeId) ||
+        usedNameSlug ||
+        "";
       if (!targetSlug || targetSlug === ownerSlug) continue;
       usesMap.get(ownerSlug)?.add(targetSlug);
     }
