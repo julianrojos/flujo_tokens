@@ -69,7 +69,6 @@ function buildCrumbs(
   const systemOverviewMatch = matchPath(ROUTE_PATTERNS.systemOverview, pathname);
   const systemAdminMatch = matchPath(ROUTE_PATTERNS.systemAdmin, pathname);
   const systemConsumersMatch = matchPath(ROUTE_PATTERNS.systemConsumers, pathname);
-  const systemOpsMatch = matchPath(ROUTE_PATTERNS.systemOperations, pathname);
 
   if (systemOverviewMatch?.params.systemId) {
     const systemId = systemOverviewMatch.params.systemId;
@@ -110,20 +109,6 @@ function buildCrumbs(
         to: toSystemOverview(systemId),
       },
       { label: 'Consumers' },
-    ];
-  }
-
-  if (systemOpsMatch?.params.systemId) {
-    const systemId = systemOpsMatch.params.systemId;
-    const systems = options?.systems ?? [];
-    const system = systems.find((s) => s.id === systemId);
-    const systemLabel = system?.name ?? systemId;
-    return [
-      {
-        label: systemLabel,
-        to: toSystemOverview(systemId),
-      },
-      { label: 'Operations' },
     ];
   }
 

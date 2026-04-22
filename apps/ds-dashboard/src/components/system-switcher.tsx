@@ -7,7 +7,6 @@ import {
   toSystemOverview,
   toSystemAdmin,
   toSystemConsumers,
-  toSystemOperations,
 } from '@/lib/routes';
 import { resolveSystemTab } from '@/lib/resolve-system-tab';
 import { Select } from '@/components/ui/select';
@@ -39,8 +38,6 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
       navigate(toSystemAdmin(value));
     } else if (currentTab === 'consumers') {
       navigate(toSystemConsumers(value));
-    } else if (currentTab === 'operations') {
-      navigate(toSystemOperations(value));
     } else {
       navigate(toSystemOverview(value));
     }

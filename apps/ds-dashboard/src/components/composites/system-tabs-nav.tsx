@@ -1,11 +1,11 @@
 import { NavLink, useLocation, useParams } from 'react-router-dom';
 
 import { resolveSystemTab } from '@/lib/resolve-system-tab';
-import { toSystemAdmin, toSystemConsumers, toSystemOperations, toSystemOverview } from '@/lib/routes';
+import { toSystemAdmin, toSystemConsumers, toSystemOverview } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 type SystemTab = {
-  id: 'overview' | 'admin' | 'consumers' | 'operations';
+  id: 'overview' | 'admin' | 'consumers';
   label: string;
   to: (systemId: string) => string;
 };
@@ -14,7 +14,6 @@ const SYSTEM_TABS: SystemTab[] = [
   { id: 'overview', label: 'Overview', to: toSystemOverview },
   { id: 'admin', label: 'Admin', to: toSystemAdmin },
   { id: 'consumers', label: 'Consumer Files', to: toSystemConsumers },
-  { id: 'operations', label: 'Operations', to: toSystemOperations },
 ];
 
 export function SystemTabsNav() {

@@ -6,7 +6,6 @@ import {
   toSystemOverview,
   toSystemAdmin,
   toSystemConsumers,
-  toSystemOperations,
 } from './routes';
 import { resolveSystemTab } from './resolve-system-tab';
 
@@ -25,13 +24,6 @@ describe('ROUTE_PATTERNS', () => {
 
   it('defines system consumers pattern with :systemId', () => {
     assert.equal(ROUTE_PATTERNS.systemConsumers, '/:systemId/consumers');
-  });
-
-  it('defines system operations pattern with :systemId', () => {
-    assert.equal(
-      ROUTE_PATTERNS.systemOperations,
-      '/:systemId/operations',
-    );
   });
 
   it('does not expose legacy system routes', () => {
@@ -90,19 +82,6 @@ describe('toSystemConsumers', () => {
   });
 });
 
-describe('toSystemOperations', () => {
-  it('builds operations URL for a given systemId', () => {
-    assert.equal(toSystemOperations('ops-456'), '/ops-456/operations');
-  });
-
-  it('URL-encodes the systemId', () => {
-    assert.equal(
-      toSystemOperations('my system/id'),
-      '/my%20system%2Fid/operations',
-    );
-  });
-});
-
 describe('resolveSystemTab', () => {
   it('resolves overview tab', () => {
     assert.equal(resolveSystemTab('/abc/overview'), 'overview');
@@ -114,10 +93,6 @@ describe('resolveSystemTab', () => {
 
   it('resolves consumers tab', () => {
     assert.equal(resolveSystemTab('/abc/consumers'), 'consumers');
-  });
-
-  it('resolves operations tab', () => {
-    assert.equal(resolveSystemTab('/abc/operations'), 'operations');
   });
 
   it('falls back to overview for bare system path', () => {

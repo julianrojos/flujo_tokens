@@ -70,12 +70,6 @@ const DesignSystemsAdminPage = lazy(() =>
   })),
 );
 
-const OperationsPage = lazy(() =>
-  import('@/features/ops/operations-page').then((module) => ({
-    default: module.OperationsPage,
-  })),
-);
-
 const ComponentsPage = lazy(() =>
   import('@/features/components/components-page').then((module) => ({
     default: module.ComponentsPage,
@@ -461,7 +455,7 @@ export default function App() {
     const systemExists = systems.some((system) => system.id === systemId);
     if (!systemExists) return false;
     if (segments.length === 1) return true;
-    return ['overview', 'admin', 'consumers', 'operations'].includes(segments[1] || '');
+    return ['overview', 'admin', 'consumers'].includes(segments[1] || '');
   }, [location.pathname, systems]);
 
   return (
@@ -638,7 +632,6 @@ export default function App() {
                         path="consumers"
                         element={<ConsumersPage />}
                       />
-                      <Route path="operations" element={<OperationsPage />} />
                     </Route>
                     <Route path={ROUTE_PATTERNS.consumers} element={<SystemConsumersRedirect />} />
                     <Route
