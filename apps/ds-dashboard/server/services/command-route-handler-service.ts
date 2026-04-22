@@ -9,7 +9,6 @@ import type { Context } from 'hono';
 
 import {
   buildCaptureFigmaScreenshotCommandConfig,
-  buildHealthSnapshotCommandConfig,
   isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
 } from '../lib/command-route-service.ts';
@@ -28,11 +27,7 @@ import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-s
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
-import {
-  captureHealthSnapshotDbOnly,
-  refreshTokenHealthSnapshotDbOnly,
-  refreshUsageIndexDbOnly,
-} from './ops-db-maintenance-service.ts';
+import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
 
 function failBuildCommandConfig(
   c: Context,
@@ -103,7 +98,6 @@ export interface CommandRouteHandlerDeps {
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
   hasPluginSocketForFile?: (fileKey: string) => boolean;
-  validateGitRef: (value: string) => string | null;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
 }
@@ -121,7 +115,6 @@ export async function enqueueRefreshScriptJob(
     | 'enqueueQueueJob'
     | 'sha256Text'
     | 'tokenRepo'
-    | 'healthRepo'
     | 'db'
   >,
 ): Promise<Response> {
@@ -134,13 +127,12 @@ export async function enqueueRefreshScriptJob(
     enqueueQueueJob,
     sha256Text,
     tokenRepo,
-    healthRepo,
     db,
   } = deps;
   const requestId = createApiRequestId();
   const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
   const normalizedScript = String(script || '').trim();
-  type RefreshDepKey = 'db' | 'tokenRepo' | 'healthRepo';
+  type RefreshDepKey = 'db' | 'tokenRepo';
   const queueDbOnlyJob = (args: {
     label: string;
     operationName: string;
@@ -183,7 +175,8 @@ export async function enqueueRefreshScriptJob(
   const hasDep = (dep: RefreshDepKey): boolean => {
     if (dep === 'db') return Boolean(db);
     if (dep === 'tokenRepo') return Boolean(tokenRepo);
-    return Boolean(healthRepo);
+    const exhaustiveCheck: never = dep;
+    return exhaustiveCheck;
   };
 
   const refreshDbOnlyConfigByScript: Partial<
@@ -217,20 +210,6 @@ export async function enqueueRefreshScriptJob(
           emitChunk,
           sql: db as NonNullable<typeof db>,
           tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
-        }),
-    },
-    'ds:token-health': {
-      deps: ['db', 'tokenRepo', 'healthRepo'],
-      label: 'refresh token health (db-only)',
-      operationName: 'refresh:token-health',
-      build: (emitChunk) =>
-        refreshTokenHealthSnapshotDbOnly({
-          systemId: sysCtx.systemId,
-          emitChunk,
-          tokenRepo: tokenRepo as NonNullable<typeof tokenRepo>,
-          healthRepo: healthRepo as NonNullable<typeof healthRepo>,
-          sql: db as NonNullable<typeof db>,
-          sha256Text,
         }),
     },
   };
@@ -455,87 +434,6 @@ export async function handleRunScriptRoute(
       }),
   });
 
-  return c.json(queueJobAcceptedPayload(job), 202);
-}
-
-export async function handleCaptureHealthSnapshotRoute(
-  c: Context,
-  deps: CommandRouteHandlerDeps,
-): Promise<Response> {
-  const {
-    failJson,
-    createApiRequestId,
-    getSystemContext,
-    readJsonBody,
-    validateGitRef,
-    toBooleanString,
-    enqueueQueueJob,
-    sha256Text,
-    queueJobAcceptedPayload,
-    tokenRepo,
-    healthRepo,
-    db,
-  } = deps;
-
-  const requestId = createApiRequestId();
-  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
-  const body = await readJsonBody(c);
-
-  const parsed = buildHealthSnapshotCommandConfig({
-    body,
-    validateGitRef,
-    toBooleanString,
-  });
-  if (!parsed.ok) {
-    return failJson(c, 400, {
-      ...parsed.errorArgs,
-      requestId,
-    });
-  }
-
-  if (!tokenRepo || !healthRepo || !db) {
-    return failJson(c, 500, {
-      code: 'internal.health_snapshot_dependencies_missing',
-      userMessage:
-        'Cannot capture health snapshot: DB repositories are not initialized.',
-      recoverable: false,
-      requestId,
-    });
-  }
-
-  const job = enqueueQueueJob({
-    label: 'capture health snapshot (db-only)',
-    systemId: sysCtx.systemId,
-    operationName: 'capture:health-snapshot',
-    requestId,
-    inputHash: sha256Text(
-      JSON.stringify({
-        operation: 'capture:health-snapshot',
-        systemId: sysCtx.systemId,
-        beforeRef: parsed.beforeRef,
-        retentionDays: parsed.retentionDays,
-        skipDiff: parsed.skipDiff,
-        allowDuplicateDay: parsed.allowDuplicateDay,
-      }),
-    ),
-    execute: async ({
-      emitChunk,
-    }: {
-      emitChunk: (kind: string, text: string) => void;
-    }) =>
-      captureHealthSnapshotDbOnly({
-        systemId: sysCtx.systemId,
-        beforeRef: parsed.beforeRef,
-        retentionDays: parsed.retentionDays,
-        allowDuplicateDay: parsed.allowDuplicateDay,
-        skipDiff: parsed.skipDiff,
-        emitChunk,
-        tokenRepo,
-        healthRepo,
-        sql: db,
-        sha256Text,
-      }),
-  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
