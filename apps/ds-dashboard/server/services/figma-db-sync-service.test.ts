@@ -1853,6 +1853,16 @@ describe('figma-db-sync-service', () => {
         props: [],
         states: [],
         tokenBindings: [],
+        instanceDependencies: [
+          {
+            instanceNodeId: '101:9',
+            instanceNodeName: 'Calendar Select Group',
+            usedComponentNodeId: '4333:9286',
+            usedComponentName: 'Calendar Button',
+            usedComponentKey: 'button-key',
+            status: 'resolved',
+          },
+        ],
       });
 
       const result = await syncDesignSystemFromPlugin({
@@ -1912,6 +1922,9 @@ describe('figma-db-sync-service', () => {
       );
       assert.ok(hoverBinding);
       assert.equal(hoverBinding.variantNodeId, '101:2');
+      assert.ok(Array.isArray(entry.figma.instanceDependencies));
+      assert.equal(entry.figma.instanceDependencies.length, 1);
+      assert.equal(entry.figma.instanceDependencies[0].usedComponentNodeId, '4333:9286');
     });
 
     it('falls back to flat tokenBindings when variants do not expose layerTokens', async () => {

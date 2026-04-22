@@ -3,7 +3,6 @@ import {
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
-import path from "node:path";
 import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
@@ -76,25 +75,6 @@ function normalizeFigmaLayoutForApi(layoutRows) {
     });
   }
   return normalizedRows.length > 0 ? normalizedRows : undefined;
-}
-
-function toSpecPathForUsageIndex(row, systemId) {
-  const firstSpecPath = Array.isArray(row?.specs) && row.specs.length > 0
-    ? String(row.specs[0]?.docPath || "").trim()
-    : "";
-
-  if (firstSpecPath) {
-    const normalized = firstSpecPath.replace(/\\/g, "/");
-    if (normalized.includes("/docs/components/")) {
-      return normalized
-        .replace("/docs/components/", "/docs/_spec/components/")
-        .replace(/\.md$/i, ".yml");
-    }
-  }
-
-  const slug = String(row?.slug || "").trim();
-  if (!slug) return "";
-  return path.posix.join("design-systems", String(systemId || "").trim(), "docs", "_spec", "components", `${slug}.yml`);
 }
 
 export async function handleComponentCatalogRoute(c, deps) {
@@ -178,18 +158,37 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
   const rows = await componentRepo.getAll(sysCtx.systemId);
-  const registry = {
-    components: rows.map((row) => {
-      const specPath = toSpecPathForUsageIndex(row, sysCtx.systemId);
-      return {
+  return c.json(
+    buildComponentUsageIndex(
+      rows.map((row) => ({
         slug: row.slug,
-        paths: {
-          spec: specPath || `db://component_editorial/${row.id}`,
-        },
-      };
-    }),
-  };
-  return c.json(buildComponentUsageIndex(registry.components, sysCtx.repoRoot));
+        figma: row.figma
+          ? {
+              componentSetNodeId:
+                row.figma.componentSetNodeId ||
+                row.figmaComponentSetNodeId ||
+                null,
+              variants: Array.isArray(row.figma.variants)
+                ? row.figma.variants.map((variant) => ({
+                    name: variant.name,
+                    nodeId: variant.nodeId,
+                  }))
+                : undefined,
+              instanceDependencies: Array.isArray(row.figma.instanceDependencies)
+                ? row.figma.instanceDependencies.map((dependency) => ({
+                    instanceNodeId: dependency.instanceNodeId,
+                    instanceNodeName: dependency.instanceNodeName,
+                    usedComponentNodeId: dependency.usedComponentNodeId,
+                    usedComponentName: dependency.usedComponentName,
+                    usedComponentKey: dependency.usedComponentKey,
+                    status: dependency.status,
+                  }))
+                : undefined,
+            }
+          : undefined,
+      })),
+    ),
+  );
 }
 
 export async function handleTokenCatalogRoute(c, deps) {

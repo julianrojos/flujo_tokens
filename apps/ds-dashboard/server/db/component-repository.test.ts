@@ -243,6 +243,11 @@ describe('ComponentRepository', () => {
                 ${componentRow.id}, 'State=Default', '10:2', ${JSON.stringify({})}, 'State=Default', 'Default state'
               )
             `;
+            await sql`
+              UPDATE components
+              SET figma_descriptions_synced_at = now()
+              WHERE id = ${componentRow.id}
+            `;
 
             const component = await repo.getBySlug('variant-split-sys', 'button');
             assert.ok(component);
@@ -1011,5 +1016,67 @@ describe('ComponentRepository', () => {
             const tooltipProp = component.figma?.properties?.find((p) => p.name === 'tooltip');
             assert.strictEqual(tooltipProp?.type, 'instance_swap');
         });
+    });
+});
+
+describe('Figma instance dependencies', () => {
+    let sql: Sql;
+    let cleanup: () => Promise<void>;
+    let repo: ComponentRepository;
+    let originalConsoleWarn: typeof console.warn;
+
+    before(async () => {
+        originalConsoleWarn = console.warn;
+        console.warn = () => { };
+        ({ sql, cleanup } = await createTestDatabase({
+            designSystems: [{ id: 'instance-deps-sys', name: 'Instance Deps' }],
+        }));
+        repo = new ComponentRepository(sql);
+    });
+
+    after(async () => {
+        await cleanup();
+        console.warn = originalConsoleWarn;
+    });
+
+    it('persists and loads Figma instance dependencies', async () => {
+        await repo.upsertFromRegistry('instance-deps-sys', [
+            {
+                slug: 'calendar',
+                name: 'Calendar',
+                status: 'ready',
+                figma: {
+                    componentSetNodeId: '4333:9262',
+                    instanceDependencies: [
+                        {
+                            instanceNodeId: '4333:9999',
+                            instanceNodeName: 'Calendar Select Group',
+                            usedComponentNodeId: '4333:9286',
+                            usedComponentName: 'Calendar Button',
+                            usedComponentKey: 'key-1',
+                            status: 'resolved',
+                        },
+                    ],
+                },
+            },
+            {
+                slug: 'calendar-button',
+                name: 'Calendar Button',
+                status: 'ready',
+                figma: {
+                    componentSetNodeId: '4333:9286',
+                },
+            },
+        ]);
+
+        const components = await repo.getAll('instance-deps-sys');
+        const calendar = components.find((component) => component.slug === 'calendar');
+        assert.ok(calendar);
+        assert.ok(Array.isArray(calendar?.figma?.instanceDependencies));
+        assert.strictEqual(calendar?.figma?.instanceDependencies?.length, 1);
+        assert.strictEqual(
+            calendar?.figma?.instanceDependencies?.[0]?.usedComponentNodeId,
+            '4333:9286',
+        );
     });
 });

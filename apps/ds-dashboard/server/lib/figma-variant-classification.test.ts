@@ -24,6 +24,16 @@ describe("figma-variant-classification", () => {
     );
   });
 
+  it("treats stringified structural properties and no canonical key as variants", () => {
+    assert.equal(
+      isStructuralFigmaVariantRow({
+        canonical_key: null,
+        properties_json: JSON.stringify({ state: "default", size: "md" }),
+      }),
+      true,
+    );
+  });
+
   it("ignores empty or invalid property payloads", () => {
     assert.equal(
       isStructuralFigmaVariantRow({

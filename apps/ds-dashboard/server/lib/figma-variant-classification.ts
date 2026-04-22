@@ -1,3 +1,21 @@
+function parseVariantPropertiesJson(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function isStructuralFigmaVariantRow(row: {
   properties_json: unknown;
   canonical_key: string | null;
@@ -7,8 +25,8 @@ export function isStructuralFigmaVariantRow(row: {
 
   if (String(row.run_id || "").trim()) return true;
 
-  const value = row.properties_json;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const value = parseVariantPropertiesJson(row.properties_json);
+  if (!value) return false;
 
-  return Object.keys(value as Record<string, unknown>).length > 0;
+  return Object.keys(value).length > 0;
 }

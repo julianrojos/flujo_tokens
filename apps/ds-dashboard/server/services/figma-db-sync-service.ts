@@ -322,6 +322,14 @@ type FullComponentSpecResult = {
     field: string;
     variableId: string;
   }>;
+  instanceDependencies?: Array<{
+    instanceNodeId: string;
+    instanceNodeName: string;
+    usedComponentNodeId: string;
+    usedComponentName: string;
+    usedComponentKey?: string;
+    status?: 'resolved' | 'unresolved';
+  }>;
 };
 
 type FetchFullComponentSpecFn = (
@@ -586,6 +594,7 @@ function extractStructuredFigmaData(args: {
 }): {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+  instanceDependencies?: SyncComponentEntry['figma']['instanceDependencies'];
   props?: SyncComponentEntry['figma']['props'];
   unresolvedVariableIds: string[];
   usedFlatTokenBindingsFallback: boolean;
@@ -598,6 +607,7 @@ function extractStructuredFigmaData(args: {
   const result: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+    instanceDependencies?: SyncComponentEntry['figma']['instanceDependencies'];
     props?: SyncComponentEntry['figma']['props'];
     unresolvedVariableIds: string[];
     usedFlatTokenBindingsFallback: boolean;
@@ -656,6 +666,38 @@ function extractStructuredFigmaData(args: {
         ).trim(),
       };
     });
+  }
+
+  result.instanceDependencies = [];
+  if (Array.isArray(specData.instanceDependencies)) {
+    const seenDependencies = new Set<string>();
+    for (const dependency of specData.instanceDependencies) {
+      const instanceNodeId = String(dependency.instanceNodeId || '').trim();
+      const instanceNodeName = String(dependency.instanceNodeName || '').trim();
+      const usedComponentNodeId = String(
+        dependency.usedComponentNodeId || '',
+      ).trim();
+      const usedComponentName = String(
+        dependency.usedComponentName || '',
+      ).trim();
+      if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId || !usedComponentName) {
+        continue;
+      }
+      const usedComponentKey = String(
+        dependency.usedComponentKey || '',
+      ).trim();
+      const dedupeKey = `${instanceNodeId}\x00${usedComponentNodeId}\x00${usedComponentKey}`;
+      if (seenDependencies.has(dedupeKey)) continue;
+      seenDependencies.add(dedupeKey);
+      result.instanceDependencies.push({
+        instanceNodeId,
+        instanceNodeName,
+        usedComponentNodeId,
+        usedComponentName,
+        usedComponentKey: usedComponentKey || undefined,
+        status: dependency.status === 'unresolved' ? 'unresolved' : 'resolved',
+      });
+    }
   }
 
   // Primary source of truth: variants[].layerTokens.
@@ -763,6 +805,8 @@ async function enrichComponentEntriesWithStructuredData(options: {
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings)
       entry.figma.tokenBindings = structuredData.tokenBindings;
+    if (structuredData.instanceDependencies)
+      entry.figma.instanceDependencies = structuredData.instanceDependencies;
     if (Object.prototype.hasOwnProperty.call(structuredData, 'props')) {
       entry.figma.props = structuredData.props ?? [];
     }
@@ -1435,6 +1479,14 @@ type SyncComponentEntry = {
       status?: 'resolved' | 'unresolved';
       modeId?: string;
       modeName?: string;
+    }>;
+    instanceDependencies?: Array<{
+      instanceNodeId: string;
+      instanceNodeName: string;
+      usedComponentNodeId: string;
+      usedComponentName: string;
+      usedComponentKey?: string;
+      status?: 'resolved' | 'unresolved';
     }>;
     layout?: Array<{
       nodeId: string;

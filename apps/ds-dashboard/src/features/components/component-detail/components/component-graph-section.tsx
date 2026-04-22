@@ -26,7 +26,7 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
         {usage === null || (usage.uses.length === 0 && usage.used_in.length === 0) ? (
           <EmptyState
             icon={Network}
-            title="No dependency data available"
+            title="No Figma instance data available"
             compact
           />
         ) : (

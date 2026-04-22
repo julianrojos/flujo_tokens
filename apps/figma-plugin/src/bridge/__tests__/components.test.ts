@@ -1091,6 +1091,47 @@ describe('components handlers', () => {
       expect(typed.states).toContain('hover');
     });
 
+    it('marks instance dependencies unresolved when mainComponent is unavailable', async () => {
+      const instanceNode = {
+        id: 'inst-1',
+        name: 'Calendar Button Instance',
+        type: 'INSTANCE' as const,
+        componentId: '4333:9286',
+        mainComponent: null,
+        children: [],
+      };
+
+      const componentNode = {
+        id: 'comp-1',
+        name: 'Calendar',
+        type: 'COMPONENT' as const,
+        description: 'Calendar component',
+        boundVariables: {},
+        componentPropertyDefinitions: {},
+        children: [instanceNode],
+        parent: { type: 'PAGE' },
+      };
+
+      setMockFigma({
+        getNodeByIdAsync: async (id: string) => (id === 'comp-1' ? componentNode : null),
+      });
+
+      const result = await handleGetComponentSpec({ nodeId: 'comp-1' });
+      const typed = result as {
+        success: boolean;
+        instanceDependencies?: Array<{
+          instanceNodeId: string;
+          usedComponentNodeId: string;
+          status?: 'resolved' | 'unresolved';
+        }>;
+      };
+
+      expect(typed.success).toBe(true);
+      expect(typed.instanceDependencies).toHaveLength(1);
+      expect(typed.instanceDependencies?.[0]?.usedComponentNodeId).toBe('4333:9286');
+      expect(typed.instanceDependencies?.[0]?.status).toBe('unresolved');
+    });
+
     it('respects depth=0 by not including children in anatomy', async () => {
       const childNode = {
         id: 'child-1',

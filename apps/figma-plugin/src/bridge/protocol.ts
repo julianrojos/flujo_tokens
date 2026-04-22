@@ -804,6 +804,15 @@ export interface VariantSpec {
   }>;
 }
 
+export interface InstanceDependencySpec {
+  instanceNodeId: string;
+  instanceNodeName: string;
+  usedComponentNodeId: string;
+  usedComponentName: string;
+  usedComponentKey?: string;
+  status?: 'resolved' | 'unresolved';
+}
+
 export interface GetComponentSpecResult {
   success: true;
   nodeId: string;
@@ -816,6 +825,7 @@ export interface GetComponentSpecResult {
   props: Array<{ name: string; type: string; defaultValue: unknown }>;
   states: string[];
   tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+  instanceDependencies?: InstanceDependencySpec[];
 }
 
 // --- GET_COMPONENT_IMAGE ---

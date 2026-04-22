@@ -1,6 +1,4 @@
 import fs from "node:fs/promises";
-import fsSync from "node:fs";
-import path from "node:path";
 
 export async function readJsonArtifact({
   filePath,
@@ -231,82 +229,52 @@ export function buildTokenCollectionTrees(entries) {
   };
 }
 
-function normalizeSlug(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[\s\-./]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function singularizeSlug(slug) {
-  const normalized = normalizeSlug(slug);
-  if (normalized.endsWith("ies") && normalized.length > 3) return `${normalized.slice(0, -3)}y`;
-  if (normalized.endsWith("s") && normalized.length > 1) return normalized.slice(0, -1);
-  return normalized;
-}
-
-function extractAnatomyItemRefs(rawSpec) {
-  const refs = new Set();
-  const text = String(rawSpec || "");
-  const idRegex = /^\s*-\s*id:\s*([A-Za-z0-9_-]+)\s*$/gm;
-  let idMatch = null;
-  while ((idMatch = idRegex.exec(text)) !== null) {
-    const id = normalizeSlug(String(idMatch[1] || ""));
-    if (!id) continue;
-    if (id.endsWith("_item") || id.endsWith("_items")) {
-      const base = id.replace(/_items?$/, "");
-      if (base) refs.add(base);
-      const singular = singularizeSlug(base);
-      if (singular) refs.add(singular);
-    }
-  }
-
-  const instanceRegex = /\b([A-Z][A-Za-z0-9_-]*)\s+instances\b/g;
-  let instanceMatch = null;
-  while ((instanceMatch = instanceRegex.exec(text)) !== null) {
-    const token = normalizeSlug(String(instanceMatch[1] || ""));
-    if (token) {
-      refs.add(token);
-      refs.add(singularizeSlug(token));
-    }
-  }
-
-  return Array.from(refs);
-}
-
-export function buildComponentUsageIndex(rows, root, options = {}) {
-  const readFileSync = options.readFileSync || fsSync.readFileSync;
-  const slugSet = new Set(rows.map((row) => normalizeSlug(String(row.slug || ""))).filter(Boolean));
+export function buildComponentUsageIndex(rows) {
+  const slugSet = new Set(
+    rows
+      .map((row) => String(row.slug || "").trim())
+      .filter(Boolean),
+  );
   const usesMap = new Map();
   for (const slug of Array.from(slugSet)) usesMap.set(slug, new Set());
+  const nodeIdToSlug = new Map();
+  const normalizeNodeId = (value) => String(value || "").trim();
 
   for (const row of rows) {
-    const ownerSlug = normalizeSlug(String(row.slug || ""));
+    const slug = String(row.slug || "").trim();
+    if (!slug) continue;
+    const componentNodeId = normalizeNodeId(
+      row.figma?.componentSetNodeId || row.figmaComponentSetNodeId,
+    );
+    if (componentNodeId && !nodeIdToSlug.has(componentNodeId)) {
+      nodeIdToSlug.set(componentNodeId, slug);
+    }
+  }
+
+  for (const row of rows) {
+    const slug = String(row.slug || "").trim();
+    if (!slug) continue;
+    const variants = Array.isArray(row.figma?.variants) ? row.figma.variants : [];
+    for (const variant of variants) {
+      const variantNodeId = normalizeNodeId(variant?.nodeId);
+      if (variantNodeId && !nodeIdToSlug.has(variantNodeId)) {
+        nodeIdToSlug.set(variantNodeId, slug);
+      }
+    }
+  }
+
+  for (const row of rows) {
+    const ownerSlug = String(row.slug || "").trim();
     if (!ownerSlug || !usesMap.has(ownerSlug)) continue;
-    const specRelPath = String(row.paths?.spec || "").trim();
-    if (!specRelPath) continue;
-    if (specRelPath.startsWith("db://")) {
-      continue;
-    }
-    const specPath = path.resolve(root, specRelPath);
 
-    let rawSpec = "";
-    try {
-      rawSpec = readFileSync(specPath, "utf8");
-    } catch {
-      continue;
-    }
-
-    const refs = new Set(extractAnatomyItemRefs(rawSpec));
-    for (const ref of Array.from(refs)) {
-      const normalized = normalizeSlug(ref);
-      const singular = singularizeSlug(normalized);
-      const finalRef = slugSet.has(normalized) ? normalized : slugSet.has(singular) ? singular : "";
-      if (!finalRef || finalRef === ownerSlug) continue;
-      usesMap.get(ownerSlug)?.add(finalRef);
+    const instanceDependencies = Array.isArray(row.figma?.instanceDependencies)
+      ? row.figma.instanceDependencies
+      : [];
+    for (const dependency of instanceDependencies) {
+      const usedNodeId = normalizeNodeId(dependency?.usedComponentNodeId);
+      const targetSlug = nodeIdToSlug.get(usedNodeId) || "";
+      if (!targetSlug || targetSlug === ownerSlug) continue;
+      usesMap.get(ownerSlug)?.add(targetSlug);
     }
   }
 

@@ -27,6 +27,7 @@ import {
   GetComponentSpecResult,
   SpecLayerNode,
   VariantSpec,
+  InstanceDependencySpec,
   GetComponentImageParams,
   GetComponentImageResult,
   ComponentImageResult,
@@ -1227,6 +1228,55 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
   };
 }
 
+function collectInstanceDependencies(
+  root: BaseNode,
+): InstanceDependencySpec[] {
+  const dependencies: InstanceDependencySpec[] = [];
+  const seen = new Set<string>();
+  const queue: BaseNode[] = [root];
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const node = queue[index];
+    if (node.type === 'INSTANCE') {
+      const instanceNodeId = String(node.id || '').trim();
+      const instanceNodeName = String(node.name || '').trim();
+      const instanceRecord = node as BaseNode & {
+        componentId?: string;
+        mainComponent?: { name?: string; key?: string } | null;
+      };
+      const usedComponentNodeId = String(instanceRecord.componentId || '').trim();
+      const usedComponentName = String(
+        instanceRecord.mainComponent?.name || '',
+      ).trim();
+      const usedComponentKey = String(
+        instanceRecord.mainComponent?.key || '',
+      ).trim();
+      if (instanceNodeId && usedComponentNodeId) {
+        const dedupeKey = `${instanceNodeId}\x00${usedComponentNodeId}`;
+        if (!seen.has(dedupeKey)) {
+          seen.add(dedupeKey);
+          dependencies.push({
+            instanceNodeId,
+            instanceNodeName,
+            usedComponentNodeId,
+            usedComponentName: usedComponentName || usedComponentNodeId,
+            usedComponentKey: usedComponentKey || undefined,
+            status: instanceRecord.mainComponent ? 'resolved' : 'unresolved',
+          });
+        }
+      }
+    }
+
+    if ('children' in node) {
+      for (const child of node.children) {
+        queue.push(child);
+      }
+    }
+  }
+
+  return dependencies;
+}
+
 export async function handleGetComponentSpec(
   params: GetComponentSpecParams
 ): Promise<GetComponentSpecResult> {
@@ -1344,6 +1394,8 @@ export async function handleGetComponentSpec(
       }
     }
 
+    const instanceDependencies = collectInstanceDependencies(node);
+
     return {
       success: true,
       nodeId: node.id,
@@ -1356,6 +1408,7 @@ export async function handleGetComponentSpec(
       props,
       states,
       tokenBindings,
+      instanceDependencies,
     };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors

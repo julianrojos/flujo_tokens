@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
 import { Hono } from "hono";
 
@@ -42,7 +39,7 @@ function createTestApp(
   return app;
 }
 
-test("catalog-routes: /api/component-usage-index returns empty graph for db-backed components without spec refs", async () => {
+test("catalog-routes: /api/component-usage-index returns empty graph for components without figma relations", async () => {
   const app = createTestApp({
     getAll: () => [
       { id: 1, slug: "button" },
@@ -57,56 +54,40 @@ test("catalog-routes: /api/component-usage-index returns empty graph for db-back
   assert.deepEqual(payload.by_slug.icon.used_in, []);
 });
 
-test("catalog-routes: /api/component-usage-index resolves YAML relationships derived from docPath", async () => {
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "registry-usage-route-"));
-  try {
-    const specPath = path.join(
-      tmpRoot,
-      "design-systems",
-      "sys-01",
-      "docs",
-      "_spec",
-      "components",
-      "button.yml",
-    );
-    fs.mkdirSync(path.dirname(specPath), { recursive: true });
-    fs.writeFileSync(
-      specPath,
-      [
-        "name: button",
-        "status: draft",
-        "anatomy:",
-        "  - id: icon_item",
-        "    component_ref: icon",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-
-    const app = createTestApp(
+test("catalog-routes: /api/component-usage-index resolves figma instance dependencies", async () => {
+  const app = createTestApp({
+    getAll: () => [
       {
-        getAll: () => [
-          {
-            id: 1,
-            slug: "button",
-            specs: [{ docPath: "design-systems/sys-01/docs/components/button.md" }],
-          },
-          {
-            id: 2,
-            slug: "icon",
-            specs: [{ docPath: "design-systems/sys-01/docs/components/icon.md" }],
-          },
-        ],
+        id: 1,
+        slug: "calendar",
+        figmaComponentSetNodeId: "4333:9262",
+        figma: {
+          variants: [{ name: "Default", properties: {}, nodeId: "4333:9286" }],
+          instanceDependencies: [
+            {
+              instanceNodeId: "4333:9999",
+              instanceNodeName: "Calendar Select Group",
+              usedComponentNodeId: "4333:9286",
+              usedComponentName: "Calendar Button",
+              status: "resolved",
+            },
+          ],
+        },
       },
-      { repoRoot: tmpRoot, systemId: "sys-01" },
-    );
+      {
+        id: 2,
+        slug: "calendar-button",
+        figmaComponentSetNodeId: "4333:9286",
+        figma: {
+          variants: [{ name: "Default", properties: {}, nodeId: "4333:9287" }],
+        },
+      },
+    ],
+  });
 
-    const res = await app.request("/api/component-usage-index");
-    assert.equal(res.status, 200);
-    const payload = (await res.json()) as any;
-    assert.deepEqual(payload.by_slug.button.uses, ["icon"]);
-    assert.deepEqual(payload.by_slug.icon.used_in, ["button"]);
-  } finally {
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
-  }
+  const res = await app.request("/api/component-usage-index");
+  assert.equal(res.status, 200);
+  const payload = (await res.json()) as any;
+  assert.deepEqual(payload.by_slug.calendar.uses, ["calendar-button"]);
+  assert.deepEqual(payload.by_slug["calendar-button"].used_in, ["calendar"]);
 });

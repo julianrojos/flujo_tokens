@@ -54,6 +54,18 @@ export interface FigmaLayoutRowEntry {
   schemaVersion?: number;
 }
 
+export interface FigmaInstanceDependencyEntry {
+  instanceNodeId: string;
+  instanceNodeName: string;
+  usedComponentNodeId: string;
+  usedComponentName: string;
+  usedComponentKey?: string;
+  status?: 'resolved' | 'unresolved';
+  runId?: string;
+  capturedAtEpoch?: number;
+  schemaVersion?: number;
+}
+
 export interface CapturedPropertyEntry {
   name: string;
   type: PropertyType;
@@ -68,6 +80,7 @@ export interface StructuredFigmaData {
   variants?: FigmaVariantEntry[];
   tokenBindings?: FigmaTokenBindingEntry[];
   layout?: FigmaLayoutRowEntry[];
+  instanceDependencies?: FigmaInstanceDependencyEntry[];
   properties?: CapturedPropertyEntry[];
 }
 
@@ -197,6 +210,17 @@ export interface ComponentCatalogEntry {
       alignmentV?: string;
       itemSpacing?: number;
       padding?: { top: number; right: number; bottom: number; left: number };
+    }>;
+    instanceDependencies?: Array<{
+      instanceNodeId: string;
+      instanceNodeName: string;
+      usedComponentNodeId: string;
+      usedComponentName: string;
+      usedComponentKey?: string;
+      status?: 'resolved' | 'unresolved';
+      runId?: string;
+      capturedAtEpoch?: number;
+      schemaVersion?: number;
     }>;
     props?: Array<{
       name: string;
@@ -409,6 +433,7 @@ export class ComponentRepository {
       entry.variants !== undefined ||
       entry.tokenBindings !== undefined ||
       entry.layout !== undefined ||
+      entry.instanceDependencies !== undefined ||
       entry.props !== undefined
     );
   }
@@ -603,6 +628,46 @@ export class ComponentRepository {
         });
 
         current.layout = layout;
+        out.set(row.component_id, current);
+      }
+
+      const dependencyRows = (await this.sql`
+        SELECT component_id, instance_node_id, instance_node_name,
+               used_component_node_id, used_component_name, used_component_key,
+               status, run_id, captured_at, schema_version
+        FROM component_figma_instance_dependencies
+        WHERE component_id = ANY(${batch})
+        ORDER BY id ASC
+      `) as Array<{
+        component_id: number;
+        instance_node_id: string;
+        instance_node_name: string;
+        used_component_node_id: string;
+        used_component_name: string;
+        used_component_key: string | null;
+        status: string | null;
+        run_id: string | null;
+        captured_at: Date;
+        schema_version: number;
+      }>;
+
+      for (const row of dependencyRows) {
+        const current = out.get(row.component_id) || {};
+        const instanceDependencies = current.instanceDependencies || [];
+        instanceDependencies.push({
+          instanceNodeId: String(row.instance_node_id || '').trim(),
+          instanceNodeName: String(row.instance_node_name || '').trim(),
+          usedComponentNodeId: String(row.used_component_node_id || '').trim(),
+          usedComponentName: String(row.used_component_name || '').trim(),
+          usedComponentKey: String(row.used_component_key || '').trim() || undefined,
+          status: row.status === 'unresolved' ? 'unresolved' : 'resolved',
+          runId: String(row.run_id || '').trim() || undefined,
+          capturedAtEpoch: row.captured_at?.getTime(),
+          schemaVersion: Number.isFinite(Number(row.schema_version))
+            ? Number(row.schema_version)
+            : undefined,
+        });
+        current.instanceDependencies = instanceDependencies;
         out.set(row.component_id, current);
       }
 
@@ -1247,6 +1312,8 @@ export class ComponentRepository {
             .sql`DELETE FROM component_figma_token_bindings WHERE component_id = ${componentId}`;
           await this
             .sql`DELETE FROM component_figma_layout_rows WHERE component_id = ${componentId}`;
+          await this
+            .sql`DELETE FROM component_figma_instance_dependencies WHERE component_id = ${componentId}`;
         }
 
         if (
@@ -1344,6 +1411,47 @@ export class ComponentRepository {
                 ${String(rowItem.direction || '').trim() || null}, ${String(rowItem.hSizing || '').trim() || null}, ${String(rowItem.vSizing || '').trim() || null}, ${String(rowItem.alignmentH || '').trim() || null}, ${String(rowItem.alignmentV || '').trim() || null},
                 ${Number.isFinite(Number(rowItem.itemSpacing)) ? Number(rowItem.itemSpacing) : null}, ${rowItem.padding ? Number(rowItem.padding.top) : null}, ${rowItem.padding ? Number(rowItem.padding.right) : null}, ${rowItem.padding ? Number(rowItem.padding.bottom) : null}, ${rowItem.padding ? Number(rowItem.padding.left) : null},
                 ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion}
+              )
+            `;
+          }
+        }
+
+        if (
+          shouldReplaceStructuredData &&
+          Array.isArray(entry.figma.instanceDependencies) &&
+          entry.figma.instanceDependencies.length > 0
+        ) {
+          const seenDependencies = new Set<string>();
+          for (const dependency of entry.figma.instanceDependencies) {
+            const instanceNodeId = String(dependency.instanceNodeId || '').trim();
+            const instanceNodeName = String(dependency.instanceNodeName || '').trim();
+            const usedComponentNodeId = String(
+              dependency.usedComponentNodeId || '',
+            ).trim();
+            const usedComponentName = String(
+              dependency.usedComponentName || '',
+            ).trim();
+            if (!instanceNodeId || !instanceNodeName || !usedComponentNodeId || !usedComponentName) {
+              continue;
+            }
+            const usedComponentKey = String(
+              dependency.usedComponentKey || '',
+            ).trim();
+            const dedupeKey = `${instanceNodeId}\x00${usedComponentNodeId}\x00${usedComponentKey}`;
+            if (seenDependencies.has(dedupeKey)) continue;
+            seenDependencies.add(dedupeKey);
+            const status = dependency.status === 'unresolved' ? 'unresolved' : 'resolved';
+
+            await this.sql`
+              INSERT INTO component_figma_instance_dependencies (
+                component_id, instance_node_id, instance_node_name,
+                used_component_node_id, used_component_name, used_component_key,
+                status, run_id, captured_at, schema_version
+              )
+              VALUES (
+                ${componentId}, ${instanceNodeId}, ${instanceNodeName},
+                ${usedComponentNodeId}, ${usedComponentName}, ${usedComponentKey || ''},
+                ${status}, ${figmaRunId}, ${figmaCapturedAt}, ${figmaSchemaVersion}
               )
             `;
           }
