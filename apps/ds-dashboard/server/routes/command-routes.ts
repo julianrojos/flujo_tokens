@@ -10,7 +10,6 @@ import type { Context } from 'hono';
 import {
   enqueueRefreshScriptJob,
   handleCaptureFigmaScreenshotRoute,
-  handleCaptureHealthSnapshotRoute,
   handleRestartApiRoute,
   handleRunScriptRoute,
   handleSyncFigmaTokensRoute,
@@ -52,13 +51,11 @@ export interface CommandRoutesDeps {
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  healthRepo?: import('../db/health-repository.js').HealthRepository;
   db?: import('postgres').Sql;
   syncDesignSystemFromPluginFn?: CommandRouteHandlerDeps['syncDesignSystemFromPluginFn'];
   hasPluginSocketForFile?: CommandRouteHandlerDeps['hasPluginSocketForFile'];
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
-  validateGitRef: (value: string) => string | null;
   processEnv?: Record<string, string | undefined>;
   processCwd?: string;
   spawnProcessFn?: HandleRestartApiDeps['spawnProcessFn'];
@@ -141,13 +138,11 @@ function toCommandRouteHandlerDeps(
       assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
     componentRepo: deps.componentRepo,
     tokenRepo: deps.tokenRepo,
-    healthRepo: deps.healthRepo,
     db: deps.db,
     syncDesignSystemFromPluginFn: deps.syncDesignSystemFromPluginFn,
     hasPluginSocketForFile: deps.hasPluginSocketForFile,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
-    validateGitRef: deps.validateGitRef,
     processEnv: deps.processEnv ?? process.env,
     processCwd: deps.processCwd,
     spawnProcessFn: deps.spawnProcessFn,
@@ -188,12 +183,6 @@ export function registerCommandRoutes(
   );
   app.post('/api/refresh-token-usage-index', (c: Context) =>
     enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps),
-  );
-  app.post('/api/refresh-token-health', (c: Context) =>
-    enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps),
-  );
-  app.post('/api/capture-health-snapshot', (c: Context) =>
-    handleCaptureHealthSnapshotRoute(c, commandDeps),
   );
   app.post('/api/sync-figma-tokens', (c: Context) =>
     handleSyncFigmaTokensRoute(c, commandDeps),

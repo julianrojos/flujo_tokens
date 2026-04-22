@@ -2,7 +2,6 @@ import {
   fetchComponentCatalog,
   fetchHealthHistory,
   fetchTokenCatalog,
-  fetchTokenHealth,
 } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_DEFAULTS } from '@/lib/query-client';
@@ -13,11 +12,9 @@ import type {
   HealthHistoryReport,
 } from '@/types/health-history';
 import type { TokenCatalog } from '@/types/token-catalog';
-import type { TokenHealthReport } from '@/types/token-health';
 
 export const healthQueryKeys = {
   componentCatalog: (systemId: string) => ['health', systemId, 'component-catalog'] as const,
-  token: (systemId: string) => ['health', systemId, 'token'] as const,
   tokenCatalog: (systemId: string) => ['health', systemId, 'token-catalog'] as const,
   history: (
     systemId: string,
@@ -30,14 +27,6 @@ export function useComponentCatalogQuery(systemId: string) {
   return useQuery<ComponentCatalog>({
     queryKey: healthQueryKeys.componentCatalog(systemId),
     queryFn: () => fetchComponentCatalog(systemId || undefined),
-    ...QUERY_DEFAULTS,
-  });
-}
-
-export function useTokenHealthQuery(systemId: string) {
-  return useQuery<TokenHealthReport>({
-    queryKey: healthQueryKeys.token(systemId),
-    queryFn: () => fetchTokenHealth(systemId),
     ...QUERY_DEFAULTS,
   });
 }

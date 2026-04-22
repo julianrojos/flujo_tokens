@@ -702,7 +702,6 @@ Location: `apps/ds-dashboard/src/features/`
 | `TokenRelationsSection` | `src/features/tokens/token-detail/components/token-relations-section.tsx` | Alias relation summary         |
 | `TokenAliasSection`     | `src/features/tokens/token-detail/components/token-alias-section.tsx`     | Alias chains and descendants  |
 | `TokenUsageSection`     | `src/features/tokens/token-detail/components/token-usage-section.tsx`     | Usage table across components |
-| `TokenHealthSection`    | `src/features/tokens/token-detail/components/token-health-section.tsx`    | Health issues and diagnostics |
 
 ### Components Feature
 

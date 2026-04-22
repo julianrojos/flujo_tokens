@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 
 import {
-  buildEmptyTokenHealthReport,
   filterSnapshotsByRange,
   normalizeHealthHistoryRange,
 } from './health-artifacts-service.ts';
@@ -28,24 +27,6 @@ function buildMissingRepoError(c: Context, deps: HealthRouteHandlerDeps) {
     userMessage: 'Health repository is not initialized.',
     recoverable: false,
   });
-}
-
-export async function handleTokenHealthRoute(
-  c: Context,
-  deps: HealthRouteHandlerDeps,
-): Promise<any> {
-  const { getSystemContext, healthRepo } = deps;
-  if (!healthRepo) return buildMissingRepoError(c, deps);
-  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
-  const snapshot = await healthRepo.getSnapshot(sysCtx.systemId, 'tokens');
-  if (snapshot) return c.json(snapshot.snapshotJson);
-  return c.json(
-    buildEmptyTokenHealthReport({
-      systemId: sysCtx.systemId,
-      reason:
-        'Token health snapshot not found in database. Run refresh-token-health first.',
-    }),
-  );
 }
 
 export async function handleHealthHistoryRoute(

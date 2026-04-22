@@ -162,61 +162,6 @@ describe('command-routes', () => {
     });
   });
 
-  describe('/api/capture-health-snapshot', () => {
-    it('validates git ref', async () => {
-      const app = createTestApp({
-        readJsonBody: async () => ({ beforeRef: 'bad-ref' }),
-        validateGitRef: () => null,
-      });
-      const res = await app.request('/api/capture-health-snapshot', { method: 'POST' });
-      assert.equal(res.status, 400);
-      const payload = await res.json();
-      assert.equal((payload as any).code, 'validation.invalid_git_ref');
-    });
-
-    it('returns 500 when DB health dependencies are missing', async () => {
-      const app = createTestApp({
-        readJsonBody: async () => ({ beforeRef: 'HEAD~1' }),
-        validateGitRef: (value: string) => value,
-        tokenRepo: undefined,
-        healthRepo: undefined,
-        db: undefined,
-      });
-
-      const res = await app.request('/api/capture-health-snapshot', { method: 'POST' });
-      assert.equal(res.status, 500);
-      const payload = await res.json();
-      assert.equal((payload as any).code, 'internal.health_snapshot_dependencies_missing');
-    });
-
-    it('enqueues DB-only capture job when dependencies exist', async () => {
-      const queued: any[] = [];
-      const app = createTestApp({
-        readJsonBody: async () => ({ beforeRef: 'HEAD~2', retentionDays: 30, skipDiff: false }),
-        validateGitRef: (value: string) => value,
-        tokenRepo: {} as any,
-        healthRepo: {} as any,
-        db: {} as any,
-        enqueueQueueJob: (args: any) => {
-          queued.push(args);
-          return { id: 'health_job_1' };
-        },
-      });
-
-      const res = await app.request('/api/capture-health-snapshot', {
-        method: 'POST',
-        headers: { 'x-ds-system': 'core' },
-      });
-
-      assert.equal(res.status, 202);
-      const payload = await res.json();
-      assert.deepEqual(payload, { ok: true, jobId: 'health_job_1' });
-      assert.equal(queued.length, 1);
-      assert.equal(queued[0].operationName, 'capture:health-snapshot');
-      assert.equal(queued[0].systemId, 'core');
-    });
-  });
-
   describe('/api/capture-figma-screenshot', () => {
     it('requires figmaUrl', async () => {
       const app = createTestApp({

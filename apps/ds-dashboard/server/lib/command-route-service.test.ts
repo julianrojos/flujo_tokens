@@ -8,7 +8,6 @@ import { describe, it } from 'node:test';
 
 import {
   buildCaptureFigmaScreenshotCommandConfig,
-  buildHealthSnapshotCommandConfig,
   buildRunScriptCommandArgs,
 } from './command-route-service.js';
 
@@ -27,29 +26,6 @@ describe('command-route-service', () => {
         '--system',
         'core',
       ]);
-    });
-  });
-
-  describe('buildHealthSnapshotCommandConfig()', () => {
-    it('validates git ref', () => {
-      const invalid = buildHealthSnapshotCommandConfig({
-        body: { beforeRef: '???' },
-        validateGitRef: () => null,
-        toBooleanString: () => 'false',
-      });
-      assert.equal(invalid.ok, false);
-      assert.equal((invalid as any).errorArgs.code, 'validation.invalid_git_ref');
-
-      const valid = buildHealthSnapshotCommandConfig({
-        body: { beforeRef: 'HEAD~2', retentionDays: 30, skipDiff: true, allowDuplicateDay: true },
-        validateGitRef: (value: string) => value,
-        toBooleanString: (value: unknown) => (value ? 'true' : 'false'),
-      });
-      assert.equal(valid.ok, true);
-      assert.equal((valid as any).beforeRef, 'HEAD~2');
-      assert.equal((valid as any).retentionDays, 30);
-      assert.equal((valid as any).skipDiff, true);
-      assert.equal((valid as any).allowDuplicateDay, true);
     });
   });
 

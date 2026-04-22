@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { captureHealthSnapshot, fetchHealthHistory, fetchTokenHealth } from '../src/lib/api.ts';
+import { fetchHealthHistory } from '../src/lib/api.ts';
 import { healthQueryKeys } from '../src/features/health/use-health-queries.ts';
 
 describe('health system scoping', () => {
@@ -36,14 +36,17 @@ describe('health system scoping', () => {
   });
 
   it('includes the system id in health query keys', () => {
-    assert.deepEqual(healthQueryKeys.token('sys-a'), ['health', 'sys-a', 'token']);
+    assert.deepEqual(
+      healthQueryKeys.componentCatalog('sys-a'),
+      ['health', 'sys-a', 'component-catalog'],
+    );
     assert.deepEqual(
       healthQueryKeys.history('sys-a', '30d', 'day'),
       ['health', 'sys-a', 'history', '30d', 'day'],
     );
   });
 
-  it('sends x-ds-system for token health and history requests', async () => {
+  it('sends x-ds-system for history requests', async () => {
     const calls: Array<{ url: string; headers: Headers }> = [];
     Object.defineProperty(globalThis, 'fetch', {
       configurable: true,
@@ -59,38 +62,10 @@ describe('health system scoping', () => {
       },
     });
 
-    await fetchTokenHealth('sys-a');
     await fetchHealthHistory({ systemId: 'sys-a', range: '30d', bucket: 'day' });
 
-    assert.equal(calls.length, 2);
-    assert.equal(calls[0]?.url, '/api/token-health');
-    assert.equal(calls[0]?.headers.get('x-ds-system'), 'sys-a');
-    assert.equal(calls[1]?.url, '/api/health-history?range=30d&bucket=day');
-    assert.equal(calls[1]?.headers.get('x-ds-system'), 'sys-a');
-  });
-
-  it('sends x-ds-system for health snapshots', async () => {
-    const calls: Array<{ url: string; headers: Headers; body: string }> = [];
-    Object.defineProperty(globalThis, 'fetch', {
-      configurable: true,
-      value: async (input: RequestInfo | URL, init?: RequestInit) => {
-        calls.push({
-          url: String(input),
-          headers: new Headers(init?.headers),
-          body: String(init?.body || ''),
-        });
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
-      },
-    });
-
-    await captureHealthSnapshot({ systemId: 'sys-a', retentionDays: 7 });
-
     assert.equal(calls.length, 1);
-    assert.equal(calls[0]?.url, '/api/capture-health-snapshot');
+    assert.equal(calls[0]?.url, '/api/health-history?range=30d&bucket=day');
     assert.equal(calls[0]?.headers.get('x-ds-system'), 'sys-a');
-    assert.match(calls[0]?.body ?? '', /"retentionDays":7/);
   });
 });

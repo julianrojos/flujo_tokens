@@ -1,28 +1,20 @@
 /**
  * Operations Page - orchestrator only.
- * Delegates all logic to hooks and section components.
- * System is fixed by the route param (no internal selector).
+ * Delegates navigation/chrome to shared composites.
  *
  * Note: systemId validation and redirects are handled by SystemTabsLayout.
  * This page assumes a valid systemId from the route.
  */
 
-import { useParams } from 'react-router-dom';
 import { PageHeader, SystemTabsNav } from '@/components/composites';
-import { OpsActionsSections } from './components/ops-actions-sections';
 
 export function OperationsPage() {
-  const { systemId } = useParams<{ systemId: string }>();
-  const resolvedSystemId = String(systemId || '').trim();
-
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <PageHeader
         title="Operations"
       />
       <SystemTabsNav />
-
-      <OpsActionsSections systemId={resolvedSystemId} />
     </div>
   );
 }

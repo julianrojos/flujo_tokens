@@ -3,9 +3,7 @@ import type { ComponentUsageIndex } from '@/types/component-usage-index';
 import type { TokenCatalog } from '@/types/token-catalog';
 import type { TokenCollectionTreeIndex } from '@/types/token-tree';
 import type { TokenUsageIndex } from '@/types/token-usage-index';
-import type { TokenHealthReport } from '@/types/token-health';
 import type {
-  CaptureHealthSnapshotResult,
   HealthHistoryBucket,
   HealthHistoryRange,
   HealthHistoryReport,
@@ -384,13 +382,6 @@ export function fetchTokenUsageIndex(systemId?: string) {
     headers: normalizedSystemId
       ? { 'x-ds-system': normalizedSystemId }
       : undefined,
-  });
-}
-
-export function fetchTokenHealth(systemId?: string) {
-  const normalizedSystemId = String(systemId || '').trim();
-  return getJson<TokenHealthReport>('/api/token-health', {
-    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
   });
 }
 
@@ -775,10 +766,6 @@ export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
   return runQueuedRefresh('/api/refresh-token-usage-index', options);
 }
 
-export async function refreshTokenHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh('/api/refresh-token-health', options);
-}
-
 export function restartApiServer() {
   return getJson<{
     ok: boolean;
@@ -788,26 +775,6 @@ export function restartApiServer() {
     requestId?: string;
   }>('/api/admin/restart-api', {
     method: 'POST',
-  });
-}
-
-export async function captureHealthSnapshot(args?: {
-  systemId?: string;
-  beforeRef?: string;
-  retentionDays?: number;
-  // DB-only mode keeps this flag for request compatibility, but does not compute token diff yet.
-  skipDiff?: boolean;
-}) {
-  const normalizedSystemId = String(args?.systemId || '').trim();
-  return getJson<CaptureHealthSnapshotResult>('/api/capture-health-snapshot', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : {}),
-    },
-    body: JSON.stringify(
-      args ? { ...args, systemId: undefined } : {},
-    ),
   });
 }
 

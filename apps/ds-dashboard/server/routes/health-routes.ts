@@ -8,7 +8,6 @@ import type { Context } from 'hono';
 
 import {
   handleHealthHistoryRoute,
-  handleTokenHealthRoute,
 } from '../services/health-route-handler-service.ts';
 
 export interface HealthRoutesDeps {
@@ -28,7 +27,6 @@ export function registerHealthRoutes(
   app: { get: (path: string, handler: (c: Context) => unknown) => void },
   deps: HealthRoutesDeps,
 ): void {
-  app.get('/api/token-health', (c: Context) => handleTokenHealthRoute(c, deps));
   app.get('/api/health-history', (c: Context) =>
     handleHealthHistoryRoute(c, deps),
   );

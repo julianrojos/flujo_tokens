@@ -17,9 +17,6 @@ export type {
   TokenGraphEdge,
   TokenGraph,
   WcagPair,
-  TokenHealthStatus,
-  TokenHealthIssue,
-  TokenHealthReport,
   TokenUsageIndexReport,
   TokenGraphReport,
   TokenServiceOptions,
@@ -52,10 +49,6 @@ export {
 // Token services (runners)
 export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
 export { runTokenGraph } from '../runners/token-graph-runner.js';
-export { runTokenHealth } from '../runners/token-health-runner.js';
-
-// Health runners
-export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
 
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';

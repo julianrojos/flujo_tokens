@@ -31,18 +31,6 @@ export interface RunScriptCommandArgsResult {
   args: string[];
 }
 
-export interface HealthSnapshotCommandConfigOptions {
-  body: {
-    beforeRef?: string;
-    retentionDays?: number;
-    skipDiff?: boolean;
-    allowDuplicateDay?: boolean;
-    [key: string]: unknown;
-  };
-  validateGitRef: (value: string) => string | null;
-  toBooleanString: (value: unknown, fallback: boolean) => string;
-}
-
 type CommandConfigError = {
   ok: false;
   errorArgs: {
@@ -52,18 +40,6 @@ type CommandConfigError = {
     context?: Record<string, unknown>;
   };
 };
-
-type HealthSnapshotCommandConfigSuccess = {
-  ok: true;
-  beforeRef: string;
-  retentionDays: number;
-  skipDiff: boolean;
-  allowDuplicateDay: boolean;
-};
-
-export type HealthSnapshotCommandConfigResult =
-  | HealthSnapshotCommandConfigSuccess
-  | CommandConfigError;
 
 export interface CaptureFigmaScreenshotCommandConfigOptions {
   body: {
@@ -136,45 +112,6 @@ export function buildRunScriptCommandArgs(options: RunScriptCommandArgsOptions):
   const args = ['run', scriptName, '--', '--system', systemId];
   void body;
   return { args };
-}
-
-/**
- * Build normalized config for health snapshot execution.
- *
- * Route handlers consume this output to enqueue DB-only jobs; this function no
- * longer builds shell/script argument arrays.
- */
-export function buildHealthSnapshotCommandConfig(
-  options: HealthSnapshotCommandConfigOptions
-): HealthSnapshotCommandConfigResult {
-  const { body, validateGitRef, toBooleanString } = options;
-
-  const beforeRefRaw = toTrimmed(body.beforeRef ?? 'HEAD~1');
-  const beforeRef = validateGitRef(beforeRefRaw);
-  if (!beforeRef) {
-    return {
-      ok: false,
-      errorArgs: {
-        code: 'validation.invalid_git_ref',
-        userMessage: 'Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -',
-        recoverable: true,
-        context: { beforeRef: beforeRefRaw },
-      },
-    };
-  }
-
-  const retentionDaysRaw = Number(body.retentionDays);
-  const retentionDays = Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0 ? Math.floor(retentionDaysRaw) : 120;
-  const skipDiff = toBooleanString(body.skipDiff, false) === 'true';
-  const allowDuplicateDay = toBooleanString(body.allowDuplicateDay, false) === 'true';
-
-  return {
-    ok: true,
-    beforeRef,
-    retentionDays,
-    skipDiff,
-    allowDuplicateDay,
-  };
 }
 
 /**

@@ -13,7 +13,6 @@ export interface HealthHistorySnapshot {
   captured_at: string;
   metrics: HealthHistorySnapshotMetrics;
   fingerprints: {
-    token_health: string;
     token_usage: string;
     token_diff: string;
     signature_sha256: string;
@@ -34,19 +33,4 @@ export interface HealthHistoryReport {
     snapshots_total: number;
     latest_at: string | null;
   };
-}
-
-export interface CaptureHealthSnapshotResult {
-  ok: boolean;
-  dry_run?: boolean;
-  out_json?: string;
-  appended?: boolean;
-  deduplicated_same_day?: boolean;
-  pruned_old_snapshots?: number;
-  snapshots_total?: number;
-  changed?: boolean;
-  written?: boolean;
-  snapshot?: HealthHistorySnapshot;
-  warnings?: string[];
-  message?: string;
 }

@@ -39,15 +39,6 @@ function createApp(overrides: Partial<any> = {}) {
 }
 
 describe('health-routes', () => {
-  it('/api/token-health returns empty bootstrap payload when snapshot missing', async () => {
-    const app = createApp();
-    const res = await app.request('/api/token-health');
-    assert.equal(res.status, 200);
-    const payload = (await res.json()) as any;
-    assert.equal(payload.ok, false);
-    assert.equal(payload.bootstrapped, true);
-  });
-
   it('/api/health-history returns DB-backed snapshots', async () => {
     const app = createApp({
       healthRepo: {

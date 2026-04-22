@@ -1,7 +1,7 @@
 /**
  * Type definitions for Token Services
  *
- * Shared types for token-health, token-usage-index, and token-graph services.
+ * Shared types for token-usage-index and token-graph services.
  */
 
 /**
@@ -137,72 +137,6 @@ export interface WcagPair {
   level: 'AA' | 'AAA';
   /** Context description */
   context: string;
-}
-
-/**
- * Token health status
- */
-export type TokenHealthStatus = 'healthy' | 'warning' | 'error';
-
-/**
- * Token health issue
- */
-export interface TokenHealthIssue {
-  /** Issue code */
-  code: string;
-  /** Severity */
-  severity: 'error' | 'warning';
-  /** Token ID */
-  tokenId: string;
-  /** Token path */
-  tokenPath: string;
-  /** Issue message */
-  message: string;
-  /** Suggested fix */
-  suggestedFix?: string;
-}
-
-/**
- * Token health report
- */
-export interface TokenHealthReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Overall health status */
-  status: TokenHealthStatus;
-  /** Summary statistics */
-  summary: {
-    totalTokens: number;
-    healthyTokens: number;
-    warningTokens: number;
-    errorTokens: number;
-    brokenAliases: number;
-    brokenRefs: number;
-    wcagFailures: number;
-    highCouplingTokens: number;
-  };
-  /** Issues by token */
-  issues: TokenHealthIssue[];
-  /** High coupling tokens (usage) */
-  highUsageTokens: Array<{
-    tokenId: string;
-    tokenPath: string;
-    usageCount: number;
-  }>;
-  /** High coupling tokens (graph in-degree) */
-  highIndegreeTokens: Array<{
-    tokenId: string;
-    tokenPath: string;
-    inDegree: number;
-  }>;
-  /** WCAG failures */
-  wcagFailures: Array<{
-    fgToken: string;
-    bgToken: string;
-    contrastRatio: number;
-    requiredLevel: 'AA' | 'AAA';
-    actualLevel: 'AA' | 'AAA' | 'fail';
-  }>;
 }
 
 /**

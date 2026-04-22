@@ -68,9 +68,6 @@ If the command fails, fix the local tooling or test environment before continuin
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from the active system database, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
-- **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` from the active system database plus CSS alias chains and optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
-- **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
-- **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
 
 ### Team/CI Test Entry Points
 
@@ -250,22 +247,6 @@ npm run ds:token-usage-index -- --format text --dry-run true
 
 # Fail CI when unresolved references exist
 npm run ds:token-usage-index -- --strict-unresolved true
-```
-
-Token health examples:
-
-```bash
-# Generate operational health snapshot
-npm run ds:token-health
-
-# Print summary without writing files
-npm run ds:token-health -- --format text --dry-run true
-
-# Capture one historical KPI snapshot for trends
-npm run ds:health-snapshot
-
-# Regenerate health artifacts + capture snapshot in one step
-npm run ds:health:record
 ```
 
 ### Typography unit coercion (runtime)

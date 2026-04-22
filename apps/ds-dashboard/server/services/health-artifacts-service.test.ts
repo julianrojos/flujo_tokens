@@ -7,27 +7,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildEmptyTokenHealthReport,
   filterSnapshotsByRange,
   normalizeHealthHistoryPayload,
   normalizeHealthHistoryRange,
 } from './health-artifacts-service.js';
 
 describe('health-artifacts-service', () => {
-  describe('buildEmptyTokenHealthReport()', () => {
-    it('keeps bootstrap shape', () => {
-      const report = buildEmptyTokenHealthReport({
-        systemId: 'test-system',
-        reason: 'not found',
-      });
-
-      assert.equal(report.ok, false);
-      assert.equal(report.bootstrapped, true);
-      assert.equal(report.summary.tokens_total, 0);
-      assert.equal(report.warnings.length, 1);
-    });
-  });
-
   describe('normalizeHealthHistoryRange()', () => {
     it('defaults unknown values', () => {
       assert.equal(normalizeHealthHistoryRange('7d'), '7d');
@@ -44,7 +29,7 @@ describe('health-artifacts-service', () => {
           {
             captured_at: '2026-02-20T00:00:00.000Z',
             metrics: { wcag_failures_total: '2' },
-            fingerprints: { token_health: 'abc' },
+            fingerprints: { token_usage: 'abc' },
             meta: { before_ref: 'HEAD~2' },
           },
           {
