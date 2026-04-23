@@ -217,20 +217,6 @@ export type {
   FetchFigmaImagesOptions,
 } from './figma.js';
 
-// Agent output contract utilities
-export {
-  validateAgentOutputContract,
-  writeAgentOutputErrorReport,
-  CANONICAL_H2_ORDER,
-  REQUIRED_CANONICAL_H2,
-} from './agent-output-contract.js';
-
-export type {
-  AgentOutputContractOptions,
-  AgentOutputError,
-  AgentOutputContractResult,
-} from './agent-output-contract.js';
-
 // Figma component map utilities
 export {
   parseFigmaFileUrl,
