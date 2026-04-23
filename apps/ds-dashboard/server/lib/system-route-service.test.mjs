@@ -18,7 +18,6 @@ function createConfig() {
         outputDir: "design-systems/alpha/output",
         docsDir: "design-systems/alpha/docs",
         collections: ["primitives"],
-        compileVariablesOnCapture: true,
       },
     ],
   };
@@ -124,7 +123,6 @@ test("system-route-service: update mutation preserves id and keeps directories i
     body: {
       name: "Alpha Two",
       makeDefault: true,
-      compileVariablesOnCapture: false,
     },
     ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
   });
@@ -134,7 +132,6 @@ test("system-route-service: update mutation preserves id and keeps directories i
   assert.equal(mutation.updated?.inputDir, "design-systems/alpha/input");
   assert.equal(mutation.updated?.outputDir, "design-systems/alpha/output");
   assert.equal(mutation.updated?.docsDir, "design-systems/alpha/docs");
-  assert.equal(mutation.updated?.compileVariablesOnCapture, false);
   assert.equal(mutation.nextConfig?.defaultSystem, "alpha");
 });
 
@@ -215,7 +212,6 @@ test("system-route-service: update mutation tolerates mirrored read-only fields 
       inputDir: "design-systems/alpha/input",
       outputDir: "design-systems/alpha/output",
       docsDir: "design-systems/alpha/docs",
-      compileVariablesOnCapture: false,
     },
     ensureRelativeDir: (value, fallback) => String(value || "").trim() || fallback,
   });

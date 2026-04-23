@@ -2,7 +2,6 @@
  * Command Execution Service
  *
  * Executes commands with output capture and structured result handling.
- * Migrated from apps/ds-dashboard/server/lib/command-execution-service.mjs
  */
 
 import type { ChildProcess } from 'node:child_process';

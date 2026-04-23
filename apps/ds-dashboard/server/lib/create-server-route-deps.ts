@@ -2,7 +2,6 @@
  * Create Server Route Dependencies
  *
  * Builds route dependencies object from config.
- * Migrated from apps/ds-dashboard/server/lib/create-server-route-deps.mjs
  */
 
 export interface CreateServerRouteDepsConfig {

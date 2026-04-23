@@ -177,7 +177,7 @@ test('figma-mcp-variables-route: ?returnAsLinks=false uses standard mode', async
   assert.equal(payload.ok, true);
   assert.ok(payload.meta.variables);
   assert.ok(payload.meta.variableCollections);
-  // R-002: Verify variableCollections is Record (not array) - legacy contract
+  // R-002: Verify variableCollections is a Record, not an array.
   assert.equal(typeof payload.meta.variableCollections, 'object');
   assert.ok(!Array.isArray(payload.meta.variableCollections));
   assert.ok(payload.meta.variableCollections.col1);

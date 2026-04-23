@@ -269,14 +269,8 @@ export function mapTokensBootstrapReason(reason: string): string {
   if (normalized === "variables-empty") {
     return "No Figma local variables were found in this file.";
   }
-  if (normalized === "input-json-exists") {
-    return "Input token JSON already exists, so bootstrap was skipped.";
-  }
   if (normalized === "figma-file-key-missing") {
     return "Figma file key could not be resolved for token bootstrap.";
-  }
-  if (normalized === "system-input-dir-missing") {
-    return "Input directory is not configured for this system.";
   }
   if (normalized === "system-missing") {
     return "System configuration could not be resolved for token bootstrap.";
@@ -300,32 +294,6 @@ export function getTokensBootstrapErrorHint(errorMessage: string): string | null
     return "Direct plugin connection could not connect to Figma. Open the Figma plugin and run 'Test connection' before retrying.";
   }
   return null;
-}
-
-/**
- * Map tokens compile reason to human-readable message
- */
-export function mapTokensCompileReason(reason: string): string {
-  const normalized = normalizeReason(reason);
-  if (normalized === "disabled-by-config") {
-    return "Token compilation is disabled for this system (compileVariablesOnCapture is off).";
-  }
-  if (normalized === "input-json-missing") {
-    return "Token compilation was skipped because no input JSON files were available.";
-  }
-  if (normalized === "system-input-dir-missing") {
-    return "Input directory is not configured for this system.";
-  }
-  if (normalized === "system-missing") {
-    return "System configuration could not be resolved for token compilation.";
-  }
-  if (normalized === "compile-failed") {
-    return "Token compilation command failed.";
-  }
-  if (normalized === "compiled") {
-    return "Token compilation completed successfully.";
-  }
-  return reason ? `Unknown reason: ${reason}` : "No compilation reason was provided.";
 }
 
 /**

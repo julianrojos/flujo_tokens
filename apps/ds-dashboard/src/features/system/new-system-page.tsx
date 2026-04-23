@@ -175,10 +175,7 @@ export function NewSystemPage() {
   const importErrorHint = importState.error
     ? getImportErrorHint(importState.error, importFigmaError, importState.pipelinePhase)
     : null;
-  const canShowTokensLink =
-    importCompleted &&
-    !importState.error &&
-    (importState.successSummary?.tokensCompiled !== false);
+  const canShowTokensLink = importCompleted && !importState.error;
   const effectiveIsCancelling = isCancellingImport || isCancellingQueueJob;
   const scanErrorMeta = useMemo(
     () => summarizeScanError(scan.error || ""),
@@ -346,8 +343,6 @@ export function NewSystemPage() {
           collectionsTotal: null,
           variablesImported: importedTokens,
           variablesTotal: null,
-          tokensCompiled: null,
-          compileReason: null,
         });
       } catch (error) {
         if (stopped) return;

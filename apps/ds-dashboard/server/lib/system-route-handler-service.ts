@@ -2,7 +2,6 @@
  * System Route Handler Service
  *
  * Handles system route operations including filesystem pruning and scaffolding.
- * Migrated from apps/ds-dashboard/server/lib/system-route-handler-service.mjs
  */
 
 import path from "node:path";

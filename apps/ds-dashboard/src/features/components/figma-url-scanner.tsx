@@ -244,7 +244,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       figmaToken: figmaToken.trim() || undefined,
       includeVariants,
       requireExistingDoc: false,
-      refreshIndices: true,
       dryRun: false,
       mainCaptureMode: "rest",
       componentKind: "component_set",
@@ -324,14 +323,12 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       let preview = await captureFigmaScreenshot({
         ...requestWithKind,
         dryRun: true,
-        refreshIndices: false,
       });
       if (hasNoCaptureTargets(preview)) {
         requestWithKind = { ...request, componentKind: "component" as const };
         preview = await captureFigmaScreenshot({
           ...requestWithKind,
           dryRun: true,
-          refreshIndices: false,
         });
       }
 

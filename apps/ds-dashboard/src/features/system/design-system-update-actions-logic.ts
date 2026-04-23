@@ -33,7 +33,6 @@ export function buildUpdateComponentsPayload(
       variantLimit: 6,
       requireExistingDoc: true,
       continueOnError: true,
-      refreshIndices: true,
       dryRun: false,
       mainCaptureMode: "rest",
       componentKind: "component_set",

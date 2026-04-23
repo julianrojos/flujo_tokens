@@ -18,7 +18,6 @@ describe("WizardStepBasics", () => {
       appName: "",
       figmaFileUrl: "https://www.figma.com/file/ABC123/Test",
       figmaAccessToken: "test-token",
-      compileVariablesOnCapture: true,
       makeDefault: false,
       systemIdOverride: "",
     },

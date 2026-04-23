@@ -104,7 +104,6 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     figmaFileId: nextSystem.figmaFileId,
     figmaApiToken: nextSystem.figmaApiToken,
     collections: nextSystem.collections,
-    compileVariablesOnCapture: nextSystem.compileVariablesOnCapture,
     detectedComponentsCount: nextSystem.detectedComponentsCount,
     importedComponentsCount: nextSystem.importedComponentsCount,
     pendingComponentsCount: nextSystem.pendingComponentsCount,
@@ -148,7 +147,6 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
   await designSystemRepository.update(routeSystemId, {
     name: updated.name,
     appName: updated.appName,
-    compileVariablesOnCapture: updated.compileVariablesOnCapture,
     detectedComponentsCount: updated.detectedComponentsCount,
     importedComponentsCount: updated.importedComponentsCount,
     pendingComponentsCount: updated.pendingComponentsCount,

@@ -15,7 +15,6 @@ test("buildCaptureFromFigmaPayload trims inputs and applies defaults", () => {
   assert.equal(payload.variantLimit, 6);
   assert.equal(payload.requireExistingDoc, false);
   assert.equal(payload.continueOnError, true);
-  assert.equal(payload.refreshIndices, false);
   assert.equal(payload.dryRun, false);
   assert.equal(payload.mainCaptureMode, "rest");
   assert.equal(payload.componentKind, "component_set");

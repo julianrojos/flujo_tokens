@@ -1,7 +1,7 @@
 /**
  * System Route Handler Service (JavaScript shim)
  *
- * Re-exports from TypeScript implementation for backward compatibility.
+ * Thin re-export from the TypeScript implementation.
  */
 
 /**

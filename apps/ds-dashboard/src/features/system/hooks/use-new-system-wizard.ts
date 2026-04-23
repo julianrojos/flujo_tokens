@@ -40,7 +40,6 @@ interface WizardFormState {
   appName: string;
   figmaFileUrl: string;
   figmaAccessToken: string;
-  compileVariablesOnCapture: boolean;
   makeDefault: boolean;
   systemIdOverride: string;
 }
@@ -118,7 +117,6 @@ function createInitialFormState(): WizardFormState {
     appName: "",
     figmaFileUrl: "",
     figmaAccessToken: "",
-    compileVariablesOnCapture: true,
     makeDefault: false,
     systemIdOverride: "",
   };
@@ -534,7 +532,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         appName: state.form.appName.trim() || undefined,
         figmaFileId: sourceFileKey,
         figmaApiToken: state.form.figmaAccessToken.trim() || undefined,
-        compileVariablesOnCapture: true,
         makeDefault: state.form.makeDefault,
         detectedComponentsCount: scanComponents.length,
         importedComponentsCount: importedComponentNames.length,

@@ -10,7 +10,6 @@ CREATE TABLE design_systems (
   figma_file_id                   TEXT,
   figma_api_token                 TEXT,
   collections                     TEXT,
-  compile_variables_on_capture    BOOLEAN NOT NULL DEFAULT TRUE,
   created_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

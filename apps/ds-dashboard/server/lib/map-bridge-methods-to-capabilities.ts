@@ -6,7 +6,7 @@
  */
 
 export interface BridgeCapabilities {
-  /** Legacy supports flags (deprecated, maintained for compatibility) */
+  /** Deprecated supports flags. */
   supports: {
     searchNodes: boolean;
     getChildren: boolean;
@@ -27,7 +27,7 @@ export interface BridgeCapabilities {
 /**
  * Map bridge methods to capability flags.
  * @param methods - Array of supported bridge method names (e.g., ['GET_FILE_INFO', 'GET_COMPONENT'])
- * @returns Object with both legacy (supports) and V2 (supportsV2) capability flags
+ * @returns Object with both deprecated (supports) and V2 (supportsV2) capability flags
  */
 export function mapBridgeMethodsToCapabilities(methods: string[]): BridgeCapabilities {
   const has = (methodName: string): boolean => methods.includes(methodName);
@@ -41,7 +41,7 @@ export function mapBridgeMethodsToCapabilities(methods: string[]): BridgeCapabil
     hasPortSwitch: false, // Port switching deprecated in direct-only mode
   };
 
-  // Legacy flags (deprecated, maintained for backward compatibility)
+  // Deprecated flags retained for older callers.
   const supports = {
     searchNodes: supportsV2.hasFileInfo,
     getChildren: supportsV2.hasComponent,

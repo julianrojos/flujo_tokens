@@ -114,7 +114,6 @@ export function buildCreateDesignSystemConfigMutation({
     outputDir,
     docsDir,
     collections: normalizeCollectionList(body.collections),
-    compileVariablesOnCapture: body.compileVariablesOnCapture !== false,
     detectedComponentsCount: normalizeImportCount(body.detectedComponentsCount, null),
     importedComponentsCount: normalizeImportCount(body.importedComponentsCount, null),
     pendingComponentsCount: normalizeImportCount(body.pendingComponentsCount, null),
@@ -229,10 +228,6 @@ export function buildUpdateDesignSystemConfigMutation({
     outputDir: ensureRelativeDir(current.outputDir, defaultDirs.outputDir),
     docsDir: ensureRelativeDir(current.docsDir, defaultDirs.docsDir),
     collections: Array.isArray(current.collections) ? current.collections.filter(Boolean) : [],
-    compileVariablesOnCapture:
-      body.compileVariablesOnCapture !== undefined
-        ? body.compileVariablesOnCapture === true
-        : current.compileVariablesOnCapture !== false,
     detectedComponentsCount,
     importedComponentsCount,
     pendingComponentsCount,

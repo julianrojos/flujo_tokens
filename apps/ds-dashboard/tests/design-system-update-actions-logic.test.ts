@@ -31,7 +31,6 @@ describe("design-system update actions logic", () => {
       variantLimit: 6,
       requireExistingDoc: true,
       continueOnError: true,
-      refreshIndices: true,
       dryRun: false,
       injectDocSpecs: false,
       mainCaptureMode: "rest",

@@ -2,7 +2,6 @@
  * API Response Service
  *
  * Provides utilities for building API responses, error payloads, and health checks.
- * Migrated from apps/ds-dashboard/server/lib/api-response-service.mjs
  */
 
 export interface StructuredLogPayload {
