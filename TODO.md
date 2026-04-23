@@ -60,7 +60,6 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 #### Applicable rules
 
 - component-spec rules — output must comply with spec schema
-- component markdown section contract — no invented content
 
 ---
 

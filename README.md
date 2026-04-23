@@ -272,17 +272,6 @@ npm run ds:token-usage-index -- --strict-unresolved true
 
 - Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
 
-## 2) Figma Component Documentation
-
-This workflow documents Design System components from Figma.
-
-### Component Docs Workflow
-
-Component docs are edited directly in the dashboard and through dedicated commands. There is no single monolithic orchestrator.
-
-- Use the dashboard to update component specs and markdown pages.
-- Use `npm run ds:capture-visual-proof` to capture screenshot evidence for a single component.
-
 ### Documentation Scripts
 
 System context (DB-backed):
@@ -390,10 +379,7 @@ npm run dashboard:preview
 
 Component pages are governed by rules in `.agents/rules/` and must include:
 
-- Canonical section order from the component markdown section contract
-  - H2 headings are strict: only canonical allowed section titles, in canonical order
 - `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
-- No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed in source links (for example in `node-id` URLs)
 - `component_name` normalization contract:
   - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
@@ -409,10 +395,6 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
   - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
   - keep spec and markdown aligned 1:1 by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
-- `## Gaps / TBD` contract is enforced:
-  - include only when linked spec has unresolved gaps
-  - omit when linked spec has no unresolved gaps
-  - checklist format required: `- [ ] [GAP_TYPE] ...` in canonical order
 - Evidence-gated mutations are enforced for component docs/specs:
   - default mode is deny-by-default for key/value mutations
   - known values can only change when verifiable evidence proves they are wrong, incomplete, outdated, or missing
@@ -429,10 +411,6 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - recommended path: `docs/workflows/patterns/*.md`
   - expected focus: problem, decision guide, composition, behavior, accessibility, i18n, governance, and metrics
   - component APIs remain canonical in `design-systems/<id>/docs/components/*.md` and should be linked, not duplicated
-- Governance workflow docs should explicitly define:
-  - ownership model, review cadence, and contribution/review path
-  - deprecation policy with replacement and migration window
-  - feedback intake channel plus KPI definitions (source, formula, cadence)
 - Internationalization expectations:
   - component `Usage Guidelines -> Behavior` should cover RTL/LTR, text expansion, and locale-dependent formats
   - interactive docs should state reduced-motion and zoom behavior (or `TBD` with a tracked gap)

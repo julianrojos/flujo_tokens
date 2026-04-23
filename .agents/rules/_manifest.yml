@@ -9,24 +9,6 @@ enforcement:
     - matrix.by_stage
 
 rules:
-  - id: agent-prompt-contract
-    file: agent-prompt-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
-  - id: component-versioning
-    file: component-versioning.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown]
-    blocking: true
-    layer: domain
-  - id: error-codes
-    file: error-codes.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
   - id: general-programming-principles
     file: general-programming-principles.mdc
     owner: docs-governance
@@ -37,18 +19,6 @@ rules:
     file: git-constraints.mdc
     owner: docs-governance
     applies_to: [pipeline]
-    blocking: true
-    layer: core
-  - id: overview-components-canonical-list
-    file: overview-components-canonical-list.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: prohibited-patterns
-    file: prohibited-patterns.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
     blocking: true
     layer: core
   - id: readme-maintenance
@@ -94,22 +64,9 @@ rules:
     blocking: true
     layer: domain
 validation:
-  source_catalog: error-codes
   checks:
-    TOK03:
-      rule_ids: [prohibited-patterns]
-      blocking: true
-    LINK01:
-      rule_ids: [overview-components-canonical-list]
-      blocking: true
-    LINK02:
-      rule_ids: [overview-components-canonical-list]
-      blocking: true
     SLOT01:
       rule_ids: [skill-input-output-contract, skill-versioning]
-      blocking: true
-    VER01:
-      rule_ids: [component-versioning]
       blocking: true
     UI01:
       rule_ids: [ui-architecture-boundaries]
@@ -128,20 +85,14 @@ matrix:
   by_doc_type:
     component:
       [
-        prohibited-patterns,
         general-programming-principles,
         git-constraints,
       ]
-    overview:
-      [
-        overview-components-canonical-list,
-        git-constraints,
-      ]
+    overview: [git-constraints]
     workflow:
       [git-constraints]
     spec:
       [
-        prohibited-patterns,
         git-constraints,
       ]
     frontend:
@@ -164,11 +115,7 @@ matrix:
         general-programming-principles,
         git-constraints,
       ]
-    pipeline:
-      [
-        review-judge-workflow-format,
-        git-constraints,
-      ]
+    pipeline: [review-judge-workflow-format, git-constraints]
     frontend:
       [
         ui-architecture-boundaries,
