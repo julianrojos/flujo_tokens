@@ -51,14 +51,11 @@ Use this skill when:
 - Teams need a decision guide that maps problem -> pattern -> components.
 - You need pattern docs with governance, metrics, and i18n coverage.
 
-> Applicable rules are resolved from `context:` via `_manifest.yml`.
-
 ## Required behavior
 
 - Output path defaults to `docs/workflows/patterns/<snake_case>.md`.
 - Use workflow frontmatter:
   - `doc_type: workflow`
-- Follow exact section order from `pattern-doc-workflow.mdc`.
 - Do not duplicate component API tables from component docs.
 - Use `TBD` for unknowns and collect them in `## Gaps / TBD`.
 

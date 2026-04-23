@@ -1,10 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "markdown-sections",
-  "description": "Canonical H2 section order for component documentation pages. Single source of truth shared by scripts (docs-config.mjs) and agents. Mirrors component-doc.mdc section list.",
+  "description": "Canonical H2 section order for component documentation pages. Single source of truth shared by scripts (docs-config.mjs) and agents.",
   "version": "1.0.0",
   "source_of_truth_for": [
-    "component-doc.mdc (Required sections in order)",
     "tooling/scripts/lib/docs-config.mjs (CANONICAL_H2_ORDER)"
   ],
 
@@ -90,16 +89,8 @@
       "notes": "Role, keyboard interaction, focus management, labeling, contrast. Follow accessibility-docs.mdc."
     },
     {
-      "heading":   "Design\u2013Token Discrepancies",
-      "index":     9,
-      "required":  false,
-      "conditional": true,
-      "include_when": "One or more verifiable mismatches exist between design and token values.",
-      "notes": "Follow design-token-discrepancies.mdc."
-    },
-    {
       "heading":   "Gaps / TBD",
-      "index":     10,
+      "index":     9,
       "required":  false,
       "conditional": true,
       "include_when": "Unresolved gaps exist in the linked spec (binary contract: include or omit, never partially filled).",

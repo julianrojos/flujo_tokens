@@ -30,7 +30,7 @@ export const GAP_TYPE_ORDER = new Map([
 
 /**
  * Error codes for gaps section validation.
- * See component-doc.mdc § "Gaps / TBD" for human-readable definitions.
+ * See the component markdown gap contract for human-readable definitions.
  */
 export const GAP_ERROR_CODES = Object.freeze({
   GAP00: "GAP00",

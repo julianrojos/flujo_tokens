@@ -100,7 +100,7 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 ### Baseline: ${docs_root}/components/overview.md
 
 - One-page-per-component policy
-- Each component page follows the structure defined in `component-doc.mdc` (required frontmatter + ordered sections)
+- Each component page follows the canonical markdown section contract (required frontmatter + ordered sections)
 - How to add a component:
   1. Create the component spec in `_spec/components/<Component>.yml` (see the component-spec rules)
   2. Update the docs entry in the dashboard
@@ -124,7 +124,7 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 ### Optional: ${docs_root}/a11y/overview.md
 
 - Accessibility goals
-- What is documented here (focus, hit area, color contrast notes) — per `inclusive-docs.mdc`
+- What is documented here (focus, hit area, color contrast notes)
 - How to raise gaps/issues
 
 ## End with a brief report

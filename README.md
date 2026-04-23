@@ -390,10 +390,9 @@ npm run dashboard:preview
 
 Component pages are governed by rules in `.agents/rules/` and must include:
 
-- Canonical section order from `component-doc.mdc`
+- Canonical section order from the component markdown section contract
   - H2 headings are strict: only canonical allowed section titles, in canonical order
 - `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
-- Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed in source links (for example in `node-id` URLs)
 - `component_name` normalization contract:

@@ -60,8 +60,7 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 #### Applicable rules
 
 - component-spec rules — output must comply with spec schema
-- `token-references.mdc` — token paths in token_mapping must use real paths
-- `component-doc.mdc` — no invented content
+- component markdown section contract — no invented content
 
 ---
 

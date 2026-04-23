@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "source_of_truth_for": [
     "component-spec rules (type mapping decision table)",
-    "component-spec-properties-order.mdc (ordering group column)",
+    "component-spec property ordering rules (ordering group column)",
     "tooling/scripts/lib/spec-property-types.mjs (JS runtime mirror)",
     "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE — figma_node_id.pattern)"
   ],
@@ -92,8 +92,7 @@
     "examples":       ["1:234", "68:4097", "2304:1892"],
     "source_of_truth_for": [
       "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE)",
-      "tooling/schemas/component-spec.schema.json ($defs.figma_node_id)",
-      "component-figma-metadata.mdc (Node ID format contract)"
+      "tooling/schemas/component-spec.schema.json ($defs.figma_node_id)"
     ]
   }
 }

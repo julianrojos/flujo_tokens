@@ -45,7 +45,7 @@ outputs:
 | Type | Description | `default`/`value` format |
 | ---- | ----------- | ------------------------- |
 | `string` | Plain text value | Any string |
-| `component_name` | Display name subject to normalization (see `component-name-normalization.mdc`) | Display-name string, e.g. `"Status Bar"` |
+| `component_name` | Display-name string, e.g. `"Status Bar"` | Display-name string, e.g. `"Status Bar"` |
 | `path` | File or directory path; supports `${var}` interpolation | Path string |
 | `path[]` | Array of paths | YAML sequence of strings |
 | `boolean` | Boolean flag | `true` or `false` (unquoted) |
