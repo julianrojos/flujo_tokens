@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Inbox } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
@@ -206,17 +205,23 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
                       {row.displayPath}
                     </Link>
                   </TableCell>
-                  <TableCell>{row.collection}</TableCell>
-                  <TableCell>{row.type}</TableCell>
                   <TableCell>
-                    <Badge variant="neutral" className="font-mono text-xs">
-                      {row.depth}
-                    </Badge>
+                    <Badge variant="neutral">{row.collection}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="neutral" className="font-mono text-xs">
+                    <span className="font-mono text-xs lowercase text-foreground">
+                      {row.type}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-foreground">
+                      {row.depth}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs text-foreground">
                       {row.consumers}
-                    </Badge>
+                    </span>
                   </TableCell>
                   <TableCell>
                     {row.properties.length > 0 ? (

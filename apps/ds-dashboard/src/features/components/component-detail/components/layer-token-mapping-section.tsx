@@ -422,7 +422,9 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{refsCount} refs</Badge>
+                        <span className="font-mono text-xs text-foreground">
+                          {refsCount}
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))}

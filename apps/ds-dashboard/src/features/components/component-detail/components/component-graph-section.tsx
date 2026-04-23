@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
-import { Network } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { EmptyState } from "@/components/composites/empty-state";
 import type { ComponentUsageEntry } from "@/types/component-usage-index";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
@@ -32,7 +30,10 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
       }),
     [slugToDisplayName],
   );
-  const hasUsage = usage !== null && (usage.uses.length > 0 || usage.used_in.length > 0);
+  const hasUses = usage !== null && usage.uses.length > 0;
+  const hasUsedBy = usage !== null && usage.used_in.length > 0;
+  const hasUsage = hasUses || hasUsedBy;
+  const useTwoColumns = hasUses && hasUsedBy;
 
   const renderRelationTable = (
     rows: string[],
@@ -70,36 +71,31 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
     );
   };
 
-  // Always render Card - never return null
+  if (!hasUsage) {
+    return null;
+  }
+
   return (
     <Card>
-      <CardHeader className={hasUsage ? undefined : "pb-0"}>
+      <CardHeader>
         <CardTitle className="text-base">Component Dependencies</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {usage === null || (usage.uses.length === 0 && usage.used_in.length === 0) ? (
-          <EmptyState
-            icon={Network}
-            title="No Figma instance data available"
-            compact
-          />
-        ) : (
-          <div className="space-y-6">
-            {usage.uses.length > 0 ? (
-              <section className="space-y-2">
-                <h3 className="text-sm font-titles font-semibold titles-color">Uses</h3>
-                {renderRelationTable(usage.uses, usesSortDir, () => setUsesSortDir((current) => (current === "asc" ? "desc" : "asc")))}
-              </section>
-            ) : null}
+        <div className={useTwoColumns ? "grid gap-6 lg:grid-cols-2" : "space-y-6"}>
+          {hasUses ? (
+            <section className="space-y-2 min-w-0">
+              <h3 className="text-sm font-titles font-semibold titles-color">Uses</h3>
+              {renderRelationTable(usage.uses, usesSortDir, () => setUsesSortDir((current) => (current === "asc" ? "desc" : "asc")))}
+            </section>
+          ) : null}
 
-            {usage.used_in.length > 0 ? (
-              <section className="space-y-2">
-                <h3 className="text-sm font-titles font-semibold titles-color">Used by</h3>
-                {renderRelationTable(usage.used_in, usedBySortDir, () => setUsedBySortDir((current) => (current === "asc" ? "desc" : "asc")))}
-              </section>
-            ) : null}
-          </div>
-        )}
+          {hasUsedBy ? (
+            <section className="space-y-2 min-w-0">
+              <h3 className="text-sm font-titles font-semibold titles-color">Used by</h3>
+              {renderRelationTable(usage.used_in, usedBySortDir, () => setUsedBySortDir((current) => (current === "asc" ? "desc" : "asc")))}
+            </section>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
