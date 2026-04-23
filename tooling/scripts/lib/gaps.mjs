@@ -1,6 +1,12 @@
 import { isPlainObject } from "./is-plain-object.mjs";
-import { TOKEN_COLLECTION_PREFIXES } from "./docs-config.mjs";
 import { GAP_TYPE, GAP_TYPE_ORDER, classifyGapType } from "./gaps-contract.mjs";
+const TOKEN_COLLECTION_PREFIXES = new Set([
+  "Primitives",
+  "Semantic",
+  "Components",
+  "A11y",
+  "Aliases",
+]);
 const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
   [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase()),
 );
