@@ -61,12 +61,12 @@ npm run test:tooling:core
 
 If the command fails, fix the local tooling or test environment before continuing.
 
-### Token Compilation Scripts
+### Token Sync and Index Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
-- **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
-- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
+- **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the active system database. Supports `--source auto|mcp|rest`, `--force`, `--merge`, and `--dry-run`.
+- **`npm run ds:token-usage-index`**: Refreshes the database-backed token usage index from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) so the dashboard can show where each token/custom property is used.
 
 ### Team/CI Test Entry Points
 
@@ -282,9 +282,8 @@ System context (DB-backed):
 - If `--system` is omitted, the default configured system is used.
 - `--system` without value (for example `--system ""`) is rejected.
 
-- **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component as a standalone operation.
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage refresh).
+- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
@@ -292,15 +291,14 @@ System context (DB-backed):
 ### Documentation folders
 
 - `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
-- `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `DATABASE_URL`: operational storage for dashboard sync/capture state
-- `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage index (where each token/custom property is referenced)
+- dashboard token usage index: computed from PostgreSQL and consumed by the dashboard API
 
 ### Local dashboard (React, local-only)
 
 The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
 
-- `Tokens & Properties` (custom properties + token inventory from the active system database, plus `Used In` from `docs/_generated/token-usage-index.json`)
+- `Tokens & Properties` (custom properties + token inventory from the active system database, plus `Used In` from the dashboard token usage index API)
 - `Componentes` (component pipeline state from the dashboard PostgreSQL database via the local API)
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
@@ -438,33 +436,8 @@ If non-interactive execution is unavailable, the command stores a fallback promp
 - `docs/_generated/agent_prompts/`
 
 Component docs are edited in the dashboard and read back through the API.
-File-level Figma URL discovery is handled by `ds:figma-component-map`.
 
-### 1) Figma file URL -> component map (all pages)
-
-Extract all component nodes for one Figma file and persist a deterministic map:
-
-```bash
-npm run ds:figma-component-map -- \
-  --url "https://www.figma.com/design/<fileKey>/<slug>" \
-  --token "$FIGMA_TOKEN"
-```
-
-Default output:
-
-- `docs/_generated/figma-component-map/<fileKey>.json`
-
-Useful flags:
-
-- `--out <path/to/map.json>`
-- `--depth <number>` (optional Figma API depth override)
-- `--include-instances <true|false>` (default: `true`)
-- `--strict-unresolved-instances <true|false>` (default: `false`)
-- `--format <json|text>` (default: `json`)
-- `--timeout-ms <number>` (default: `30000`)
-- `--dry-run true`
-
-### 2) Capture screenshot evidence (standalone)
+### 1) Capture screenshot evidence (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \
@@ -490,7 +463,7 @@ Useful flags:
 - `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
-### 3) Import and capture from Figma
+### 2) Import and capture from Figma
 
 ```bash
 npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
