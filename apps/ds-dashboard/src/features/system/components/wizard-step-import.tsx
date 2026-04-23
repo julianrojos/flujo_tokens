@@ -6,7 +6,11 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { ModalCloseButton } from "@/components/ui/overlay";
+import {
+  ModalCloseButton,
+  ModalFooter,
+  ModalHeader,
+} from "@/components/ui/overlay";
 import type {
   CaptureFigmaErrorDetail,
   CaptureFigmaProgress,
@@ -117,16 +121,22 @@ export function WizardStepImport({
     const safeSystemId = String(systemId || "").trim();
     const overviewHref = safeSystemId ? toSystemOverview(safeSystemId) : "";
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Import Complete</CardTitle>
-          <CardDescription>
-            {importMode === "partial"
-              ? `Partial import: ${importedCount ?? 0} of ${(importedCount ?? 0) + (notSelectedCount ?? 0)} components imported`
-              : "Your design system has been created"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ModalHeader>
+          <div>
+            <h3 className="text-base font-titles font-semibold titles-color">
+              Import Complete
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {importMode === "partial"
+                ? `Partial import: ${importedCount ?? 0} of ${(importedCount ?? 0) + (notSelectedCount ?? 0)} components imported`
+                : "Your design system has been created"}
+            </p>
+          </div>
+          <ModalCloseButton onClick={onClose} label="Close import dialog" />
+        </ModalHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           {(showComponentsStats || showVariableStats) ? renderImportStats() : null}
           {successSummary ? <ImportSuccessNotice summary={successSummary} /> : null}
           <StatusAlert
@@ -134,27 +144,24 @@ export function WizardStepImport({
             title="Next steps"
             description="Your design system import has finished. You can now review the system overview, inspect tokens, or explore imported components."
           />
-          <div className="flex flex-wrap gap-2">
-            {overviewHref ? (
-              <Link to={overviewHref} className={cn(buttonVariants({ variant: "default" }))}>
-                Go to System overview
-              </Link>
-            ) : null}
-            {showTokensLink ? (
-              <Link to="/tokens" className={cn(buttonVariants({ variant: "outline" }))}>
-                View tokens
-              </Link>
-            ) : null}
-            <Link to="/components" className={cn(buttonVariants({ variant: "outline" }))}>
-              View components
+        </div>
+
+        <ModalFooter className="justify-end">
+          {overviewHref ? (
+            <Link to={overviewHref} className={cn(buttonVariants({ variant: "default" }))}>
+              Go to System overview
             </Link>
-            <Button variant="outline" onClick={onReset}>
-              Create another system
-            </Button>
-            <ModalCloseButton onClick={onClose} label="Close import dialog" />
-          </div>
-        </CardContent>
-      </Card>
+          ) : null}
+          {showTokensLink ? (
+            <Link to="/tokens" className={cn(buttonVariants({ variant: "outline" }))}>
+              View tokens
+            </Link>
+          ) : null}
+          <Link to="/components" className={cn(buttonVariants({ variant: "outline" }))}>
+            View components
+          </Link>
+        </ModalFooter>
+      </div>
     );
   }
 

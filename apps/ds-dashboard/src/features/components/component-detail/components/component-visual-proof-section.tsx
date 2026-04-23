@@ -19,6 +19,14 @@ interface ComponentVisualProofSectionProps {
   variantVisuals?: SpecVariantVisual[];
 }
 
+type VariantPreview = {
+  key: string;
+  name: string;
+  previewUrl: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+};
+
 export function ComponentVisualProofSection({ item, variantVisuals }: ComponentVisualProofSectionProps) {
   const proof = item?.visual_proof;
   const activeSystemId = getActiveSystemId();
@@ -41,9 +49,11 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
                 key: `${name}::${previewUrl || "no-preview"}::${index}`,
                 name,
                 previewUrl,
+                imageWidth: variant.image_width ?? null,
+                imageHeight: variant.image_height ?? null,
               };
             })
-            .filter((variant) => Boolean(variant.previewUrl))
+            .filter((variant): variant is VariantPreview => Boolean(variant.previewUrl))
         : [],
     [proof?.variants],
   );
@@ -65,6 +75,14 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
     }
     return map;
   }, [variantVisuals]);
+  const mainPreviewStyle =
+    typeof proof?.image_width === "number" && typeof proof?.image_height === "number"
+      ? { width: proof.image_width, height: proof.image_height }
+      : undefined;
+  const variantPreviewStyle = (variant: VariantPreview) =>
+    typeof variant.imageWidth === "number" && typeof variant.imageHeight === "number"
+      ? { width: variant.imageWidth, height: variant.imageHeight }
+      : undefined;
   useEffect(() => {
     setMainImageFailed(false);
   }, [screenshotUrl]);
@@ -165,7 +183,8 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
                   <img
                     src={screenshotUrl || undefined}
                     alt={`${item.display_name} screenshot`}
-                    className="h-auto w-auto max-h-64 max-w-full cursor-zoom-in object-contain"
+                    className="block h-auto w-auto max-h-64 max-w-full cursor-zoom-in object-contain"
+                    style={mainPreviewStyle}
                     onError={() => setMainImageFailed(true)}
                   />
                 </button>
@@ -197,7 +216,8 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
                           <img
                             src={variant.previewUrl || undefined}
                             alt={`${item.display_name} ${variant.name}`}
-                            className="h-auto w-auto max-h-40 max-w-full cursor-zoom-in object-contain"
+                            className="block h-auto w-auto max-h-64 max-w-full cursor-zoom-in object-contain"
+                            style={variantPreviewStyle(variant)}
                             onError={() =>
                               setFailedVariantKeys((prev) => {
                                 const next = new Set(prev);

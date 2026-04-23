@@ -431,7 +431,7 @@ export function NewSystemPage() {
         open={modalOpen}
         onClose={() => undefined}
       >
-        <ModalContent size="md">
+        <ModalContent size="md" className="max-h-[78vh] overflow-hidden">
           <WizardStepImport
             progress={importState.progress}
             error={importState.error}

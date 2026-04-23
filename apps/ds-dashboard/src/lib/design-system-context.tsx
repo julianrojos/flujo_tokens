@@ -123,9 +123,7 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
         error,
       }}
     >
-      <React.Fragment key={activeSystem}>
-        {children}
-      </React.Fragment>
+      {children}
     </DesignSystemContext.Provider>
   );
 }
