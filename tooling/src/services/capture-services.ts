@@ -18,11 +18,7 @@ import {
   fetchFigmaImages,
   fetchFigmaNodes,
 } from '../utils/figma-api.js';
-import { writeTextAtomic, buildMarkdownSeed } from './capture-doc-scaffold.js';
-import {
-  renderEnrichedMarkdownSeed,
-  extractComponentSpec,
-} from '../utils/figma-node-spec-extractor.js';
+import { extractComponentSpec } from '../utils/figma-node-spec-extractor.js';
 import type { PipelineContext } from './pipeline-context.js';
 import {
   bootstrapDatabase,
@@ -53,10 +49,7 @@ export interface CaptureServices {
   fetchFigmaFile: typeof fetchFigmaFile;
   fetchFigmaNodes: typeof fetchFigmaNodes;
   fetchFigmaImages: typeof fetchFigmaImages;
-  writeTextAtomic: typeof writeTextAtomic;
   stderrWrite: (message: string) => void;
-  renderEnrichedMarkdownSeed: typeof renderEnrichedMarkdownSeed;
-  buildMarkdownSeed: typeof buildMarkdownSeed;
   extractComponentSpec: typeof extractComponentSpec;
 }
 
@@ -135,10 +128,7 @@ export function createCaptureServices(params: {
     fetchFigmaFile: fetchFigmaFile,
     fetchFigmaNodes: fetchFigmaNodes,
     fetchFigmaImages: fetchFigmaImages,
-    writeTextAtomic: writeTextAtomic,
     stderrWrite: (message: string) => process.stderr.write(message),
-    renderEnrichedMarkdownSeed,
-    buildMarkdownSeed,
     extractComponentSpec,
   };
 }

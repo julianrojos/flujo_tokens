@@ -9,7 +9,7 @@
     "component-spec rules (spec structure + constraints)",
     "component-spec property ordering rules",
     "property-type-map.json (type mapping decision table)",
-    "tooling/scripts/lib/docs-config.mjs (SPEC_REQUIRED_TOP_LEVEL_FIELDS)"
+    "component-spec required top-level fields"
   ],
 
   "type": "object",

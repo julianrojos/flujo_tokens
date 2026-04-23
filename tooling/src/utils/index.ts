@@ -255,16 +255,11 @@ export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';
 // Figma node spec extractor utilities
 export {
   extractComponentSpec,
-  generateSpecSections,
-  generateSpecMarkdown,
-  renderEnrichedMarkdownSeed,
-  buildEnrichedMarkdownSections,
 } from './figma-node-spec-extractor.js';
 
 export type {
   // FigmaNode is now canonical here (removed from figma-api exports)
   FigmaNode,
-  SpecSections,
   LayoutInfo,
   LayoutTreeNode,
 } from './figma-node-spec-extractor.js';
@@ -276,5 +271,4 @@ export type {
   SpecProperty,
   SpecLayoutItem,
   SpecVariant,
-  SpecToMarkdownInput,
 } from '../types/spec.js';

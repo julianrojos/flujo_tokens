@@ -26,9 +26,6 @@ export interface MockDeps {
   runJsonCommandFn: () => { data: { ok: boolean } };
   extractComponentSpecFn: () => null;
   resolveSpecExhibitNodeIdsFn: () => null;
-  renderEnrichedMarkdownSeedFn: () => null;
-  buildMarkdownSeedFn: () => null;
-  writeTextAtomicFn: () => void;
   stderrWriteFn: () => void;
   [key: string]: any;
 }
@@ -147,9 +144,6 @@ export function createCaptureContextMock(
     }),
     extractComponentSpecFn: () => null,
     resolveSpecExhibitNodeIdsFn: () => null,
-    renderEnrichedMarkdownSeedFn: () => null,
-    buildMarkdownSeedFn: () => null,
-    writeTextAtomicFn: () => {},
     stderrWriteFn: () => {},
   };
 

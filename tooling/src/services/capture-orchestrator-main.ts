@@ -39,9 +39,6 @@ import {
   parsePositiveNumber,
 } from './capture-options.js';
 import { createPipelineContext } from './pipeline-context.js';
-import {
-  ensureSystemDocsScaffold,
-} from './capture-doc-scaffold.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import {
   buildSlugLookupFromSpecContents,
@@ -114,7 +111,6 @@ export interface RunCaptureFromFigmaUrlDeps {
   parseComponentKindFn?: typeof parseComponentKind;
   parseMainCaptureModeFn?: typeof parseMainCaptureMode;
   parsePositiveNumberFn?: typeof parsePositiveNumber;
-  ensureSystemDocsScaffoldFn?: typeof ensureSystemDocsScaffold;
   buildSlugLookupFromSpecContentsFn?: typeof buildSlugLookupFromSpecContents;
   buildSlugLookupFromRegistryFn?: typeof buildSlugLookupFromRegistry;
   isKindAllowedFn?: typeof isKindAllowed;
@@ -168,7 +164,6 @@ export async function runCaptureFromFigmaUrl(
     parseComponentKindFn = parseComponentKind,
     parseMainCaptureModeFn = parseMainCaptureMode,
     parsePositiveNumberFn = parsePositiveNumber,
-    ensureSystemDocsScaffoldFn = ensureSystemDocsScaffold,
     buildSlugLookupFromSpecContentsFn = buildSlugLookupFromSpecContents,
     buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
     isKindAllowedFn = isKindAllowed,
@@ -212,7 +207,6 @@ export async function runCaptureFromFigmaUrl(
 
   const {
     docsRootDir,
-    componentDocsDir,
     proofDir,
     proofImageDir,
     resolvedSpecRoot,
@@ -296,7 +290,6 @@ export async function runCaptureFromFigmaUrl(
   let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
   let slugByNodeFromSpecs: ReturnType<typeof buildSlugLookupFromSpecContentsFn>;
   try {
-    ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
     services = createCaptureServices({ context });
     const componentRows = await services.readComponentRegistry();
     slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
