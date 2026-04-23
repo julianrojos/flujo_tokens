@@ -74,6 +74,18 @@ export function extractVariantNodes(
   normalizeNodeIdFn: (nodeId: string) => string,
   isValidNodeIdFn: (nodeId: string) => boolean,
 ): VariantNode[] {
+  function toNodeDimension(node: Record<string, unknown>, key: 'width' | 'height'): number | null {
+    const direct = Number(node[key]);
+    if (Number.isFinite(direct)) return direct;
+    const size = node.size as Record<string, unknown> | undefined;
+    const sizeValue = Number(size?.[key]);
+    if (Number.isFinite(sizeValue)) return sizeValue;
+    const boundingBox = node.absoluteBoundingBox as Record<string, unknown> | undefined;
+    const boxValue = Number(boundingBox?.[key]);
+    if (Number.isFinite(boxValue)) return boxValue;
+    return null;
+  }
+
   const nodes =
     nodePayload && typeof nodePayload === 'object'
       ? (nodePayload.nodes as Record<string, unknown> | undefined)
@@ -93,18 +105,24 @@ export function extractVariantNodes(
       if (String(child.type || '').toUpperCase() !== 'COMPONENT') continue;
       const childId = normalizeNodeIdFn(String(child.id || '').trim());
       if (!childId || !isValidNodeIdFn(childId)) continue;
+      const childRecord = child as Record<string, unknown>;
       variants.push({
         nodeId: childId,
         name: String(child.name || childId).trim() || childId,
+        width: toNodeDimension(childRecord, 'width'),
+        height: toNodeDimension(childRecord, 'height'),
       });
     }
   } else if (rootType === 'COMPONENT') {
     const rootId =
       normalizeNodeIdFn(String(root.id || rootNodeId).trim()) || rootNodeId;
     if (rootId && isValidNodeIdFn(rootId)) {
+      const rootRecord = root as Record<string, unknown>;
       variants.push({
         nodeId: rootId,
         name: String(root.name || rootId).trim() || rootId,
+        width: toNodeDimension(rootRecord, 'width'),
+        height: toNodeDimension(rootRecord, 'height'),
       });
     }
   }

@@ -44,6 +44,8 @@ export interface VisualProofVariant {
   image_content_type: string | null;
   image_width: number | null;
   image_height: number | null;
+  node_width: number | null;
+  node_height: number | null;
   captured_at: string;
 }
 
@@ -78,6 +80,8 @@ export interface CaptureVisualProofReport {
   imageContentType: string | null;
   imageWidth: number | null;
   imageHeight: number | null;
+  nodeWidth: number | null;
+  nodeHeight: number | null;
   variantsCount: number;
   variants: VisualProofVariant[];
   mainCaptureMode: string;
@@ -113,4 +117,6 @@ export interface ImageDimensions {
 export interface VariantNode {
   nodeId: string;
   name: string;
+  width: number | null;
+  height: number | null;
 }

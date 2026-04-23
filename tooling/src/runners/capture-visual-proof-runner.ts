@@ -249,6 +249,8 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
               image_content_type: localImageInfo.contentType,
               image_width: localImageInfo.width,
               image_height: localImageInfo.height,
+              node_width: mainResult.nodeWidth,
+              node_height: mainResult.nodeHeight,
               variants: variantProofs,
             },
           ],

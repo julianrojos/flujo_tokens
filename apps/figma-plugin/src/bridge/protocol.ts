@@ -745,6 +745,8 @@ export interface CompactComponentResult {
   type: 'COMPONENT' | 'COMPONENT_SET';
   variantCount?: number;
   pageName?: string;  // Figma page containing the component
+  width?: number;
+  height?: number;
 }
 
 export interface SearchComponentsResult {
@@ -794,6 +796,8 @@ export interface VariantSpec {
   name: string;
   description: string | null;
   variantProperties: Record<string, string>;
+  width: number;
+  height: number;
   layerTokens: Array<{
     nodeId: string;
     nodeName: string;
@@ -819,6 +823,8 @@ export interface GetComponentSpecResult {
   name: string;
   type: 'COMPONENT' | 'COMPONENT_SET';
   description: string | null;
+  width?: number;
+  height?: number;
   anatomy: SpecLayerNode;
   variants?: VariantSpec[];
   variantAxes?: Array<{ name: string; values: string[] }>;

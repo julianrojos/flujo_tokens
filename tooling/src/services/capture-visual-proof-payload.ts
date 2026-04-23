@@ -100,6 +100,8 @@ export function buildCaptureReport(
     imageContentType: localImageInfo.contentType,
     imageWidth: localImageInfo.width,
     imageHeight: localImageInfo.height,
+    nodeWidth: mainResult.nodeWidth,
+    nodeHeight: mainResult.nodeHeight,
     variantsCount: variantProofs.length,
     variants: variantProofs,
     mainCaptureMode: mainResult.captureSource === 'REST' ? 'rest' : 'agent',

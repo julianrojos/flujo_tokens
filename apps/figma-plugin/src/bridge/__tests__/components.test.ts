@@ -573,6 +573,8 @@ describe('components handlers', () => {
       expect(typed.count).toBe(2);
       expect(typed.components[0]?.pageName).toBe('Components');
       expect(typed.components[1]?.pageName).toBe('Patterns');
+      expect((typed.components[0] as { width?: number; height?: number }).width).toBe(100);
+      expect((typed.components[1] as { width?: number; height?: number }).height).toBe(150);
     });
 
     it('includes variants when includeVariants=true', async () => {
@@ -635,6 +637,8 @@ describe('components handlers', () => {
       const resultWith = await handleSearchComponents({ includeVariants: true });
       const typedWith = resultWith as { success: boolean; components: unknown[]; count: number };
       expect(typedWith.count).toBe(3); // 1 set + 2 variants
+      expect((typedWith.components[1] as { width?: number; height?: number }).width).toBe(100);
+      expect((typedWith.components[2] as { width?: number; height?: number }).height).toBe(40);
     });
 
     it('returns page 1 with hasMore=true and nextOffset when total > limit', async () => {
@@ -1002,6 +1006,8 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT' as const,
         description: 'A button component',
+        width: 100,
+        height: 40,
         boundVariables: {
           fills: [{ id: 'var-1' }],
         },
@@ -1023,6 +1029,8 @@ describe('components handlers', () => {
         name: string;
         type: string;
         description: string | null;
+        width?: number;
+        height?: number;
         anatomy: { id: string; boundVariables?: Record<string, unknown>; children?: unknown[] };
         props: unknown[];
         tokenBindings: unknown[];
@@ -1033,6 +1041,8 @@ describe('components handlers', () => {
       expect(typed.name).toBe('Button');
       expect(typed.type).toBe('COMPONENT');
       expect(typed.description).toBe('A button component');
+      expect(typed.width).toBe(100);
+      expect(typed.height).toBe(40);
       expect(typed.anatomy.id).toBe('comp-1');
       expect(typed.anatomy.boundVariables).toBeDefined();
       expect(typed.props).toHaveLength(1);
@@ -1046,6 +1056,8 @@ describe('components handlers', () => {
         name: 'State=default, Size=md',
         type: 'COMPONENT' as const,
         description: '',
+        width: 100,
+        height: 40,
         boundVariables: {},
         children: [],
       };
@@ -1056,6 +1068,8 @@ describe('components handlers', () => {
         name: 'State=hover, Size=md',
         type: 'COMPONENT' as const,
         description: '',
+        width: 100,
+        height: 40,
         boundVariables: {},
         children: [],
       };
@@ -1065,6 +1079,8 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT_SET' as const,
         description: 'Button variants',
+        width: 100,
+        height: 40,
         boundVariables: {},
         componentPropertyDefinitions: {},
         children: [variant1, variant2],
@@ -1078,6 +1094,8 @@ describe('components handlers', () => {
       const typed = result as {
         success: boolean;
         type: string;
+        width?: number;
+        height?: number;
         variants?: unknown[];
         variantAxes?: unknown[];
         states: string[];
@@ -1085,6 +1103,8 @@ describe('components handlers', () => {
 
       expect(typed.success).toBe(true);
       expect(typed.type).toBe('COMPONENT_SET');
+      expect(typed.width).toBe(100);
+      expect(typed.height).toBe(40);
       expect(typed.variants).toHaveLength(2);
       expect(typed.variantAxes).toBeDefined();
       expect(typed.states).toContain('default');

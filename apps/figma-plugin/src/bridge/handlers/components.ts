@@ -906,6 +906,8 @@ export async function handleSearchComponents(
           type: 'COMPONENT_SET',
           variantCount: node.children.length,
           pageName,
+          width: node.width,
+          height: node.height,
         };
       }
       return {
@@ -914,6 +916,8 @@ export async function handleSearchComponents(
         name: node.name,
         type: 'COMPONENT',
         pageName,
+        width: node.width,
+        height: node.height,
       };
     }
 
@@ -953,13 +957,7 @@ export async function handleSearchComponents(
               for (const child of componentSet.children) {
                 if (child.type === 'COMPONENT' && passesNameFilter(child)) {
                   totalMatches += 1;
-                  matches.push({
-                    key: child.key,
-                    nodeId: child.id,
-                    name: child.name,
-                    type: 'COMPONENT',
-                    pageName,
-                  });
+                  matches.push(extractCompact(child as ComponentNode, pageName));
                 }
               }
             }
@@ -1224,6 +1222,8 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
     name: variant.name,
     description: variant.description || null,
     variantProperties,
+    width: variant.width,
+    height: variant.height,
     layerTokens,
   };
 }
@@ -1412,6 +1412,8 @@ export async function handleGetComponentSpec(
       name: node.name,
       type: node.type as 'COMPONENT' | 'COMPONENT_SET',
       description: 'description' in node ? (node.description as string | null) : null,
+      width: 'width' in node ? (node.width as number) : undefined,
+      height: 'height' in node ? (node.height as number) : undefined,
       anatomy,
       variants,
       variantAxes,

@@ -36,6 +36,10 @@ export interface CapturedComponent {
   image_width: number | null;
   /** Main image height in px. */
   image_height: number | null;
+  /** Logical node width in px. */
+  node_width: number | null;
+  /** Logical node height in px. */
+  node_height: number | null;
   /** Variant captures metadata. */
   variants: Array<Record<string, unknown>>;
 }
@@ -112,6 +116,15 @@ function emitCaptureProgress(snapshot: {
   } catch {
     // best-effort progress event
   }
+}
+
+function toPositiveIntegerOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 }
 
 /**
@@ -235,16 +248,12 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
         variants_count: Number(captureResult.variantsCount || 0),
         captured_at: (captureResult.capturedAt as string) || null,
         image_sha256: (captureResult.imageSha256 as string) || null,
-        image_bytes: Number.isFinite(Number(captureResult.imageBytes))
-          ? Number(captureResult.imageBytes)
-          : null,
+        image_bytes: toPositiveIntegerOrNull(captureResult.imageBytes),
         image_content_type: (captureResult.imageContentType as string) || null,
-        image_width: Number.isFinite(Number(captureResult.imageWidth))
-          ? Number(captureResult.imageWidth)
-          : null,
-        image_height: Number.isFinite(Number(captureResult.imageHeight))
-          ? Number(captureResult.imageHeight)
-          : null,
+        image_width: toPositiveIntegerOrNull(captureResult.imageWidth),
+        image_height: toPositiveIntegerOrNull(captureResult.imageHeight),
+        node_width: toPositiveIntegerOrNull(captureResult.nodeWidth),
+        node_height: toPositiveIntegerOrNull(captureResult.nodeHeight),
         variants: Array.isArray(captureResult.variants)
           ? (captureResult.variants as Array<Record<string, unknown>>)
           : [],
