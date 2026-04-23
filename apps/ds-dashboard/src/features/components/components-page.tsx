@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ExternalLink, LayoutGrid } from "lucide-react";
 
@@ -8,6 +8,7 @@ import {
   fetchComponentUsageIndex,
   getActiveSystemId,
 } from "@/lib/api";
+import { useDesignSystem } from "@/lib/design-system-context";
 import { resolveCollectionPageFilter } from "@/lib/collection-page-filter";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
@@ -29,6 +30,9 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import { toComponentDetail } from "@/lib/routes";
+import {
+  prefetchComponentDetailSnapshot,
+} from "./component-detail/hooks/use-component-detail";
 import {
   Table,
   TableBody,
@@ -84,6 +88,7 @@ function buildTokenCoverage(item: ComponentCatalogItem) {
 }
 
 export function ComponentsPage() {
+  const { activeSystem } = useDesignSystem();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<ComponentCatalogItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
@@ -205,6 +210,17 @@ export function ComponentsPage() {
     }
     return map;
   }, [rows, usageBySlug]);
+
+  const prefetchComponentDetail = useCallback((slug: string) => {
+    const target = String(slug || "").trim();
+    if (!target) return;
+    void prefetchComponentDetailSnapshot(target, {
+      systemId: activeSystem,
+      allItems: rows,
+      usageIndex: { by_slug: usageBySlug },
+      tokenCatalog: null,
+    });
+  }, [activeSystem, rows, usageBySlug]);
 
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
@@ -501,6 +517,8 @@ export function ComponentsPage() {
                                   to={`/components/${item.slug}`}
                                   className="text-foreground hover:text-primary"
                                   aria-label={`Open ${item.display_name} detail`}
+                                  onMouseEnter={() => prefetchComponentDetail(item.slug)}
+                                  onFocus={() => prefetchComponentDetail(item.slug)}
                                 >
                                   {item.display_name}
                                 </Link>
@@ -532,6 +550,8 @@ export function ComponentsPage() {
                                         to={toComponentDetail(slug)}
                                         className="text-foreground hover:text-primary"
                                         aria-label={`Open ${displayName} component detail`}
+                                        onMouseEnter={() => prefetchComponentDetail(slug)}
+                                        onFocus={() => prefetchComponentDetail(slug)}
                                       >
                                         {displayName}
                                       </Link>

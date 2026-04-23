@@ -5,8 +5,8 @@ import {
   getActiveSystemId,
 } from "@/lib/api";
 import { resolveDesignSystemContext } from "@/lib/design-system-keys";
+import { queryClient, QUERY_DEFAULTS } from "@/lib/query-client";
 import { useQuery } from "@tanstack/react-query";
-import { QUERY_DEFAULTS } from "@/lib/query-client";
 import type { ComponentCatalog } from "@/types/component-catalog";
 import type { TokenCatalog } from "@/types/token-catalog";
 
@@ -16,6 +16,25 @@ type TokenDetailQueryData = {
   componentCatalog: ComponentCatalog | null;
 };
 
+async function fetchTokenDetailQueryData(activeSystemId: string): Promise<TokenDetailQueryData> {
+  const config = await fetchDesignSystemsConfig().catch(() => null);
+  const { systemId: resolvedSystemId } = resolveDesignSystemContext(
+    config,
+    activeSystemId,
+  );
+
+  const [registry, componentCatalog] = await Promise.all([
+    fetchTokenCatalog(),
+    fetchComponentCatalog().catch(() => null),
+  ]);
+
+  return {
+    systemId: resolvedSystemId,
+    registry,
+    componentCatalog,
+  };
+}
+
 export const tokenDetailQueryKey = (tokenPath: string, systemId: string) =>
   ["token-detail", systemId, tokenPath] as const;
 
@@ -24,25 +43,23 @@ export function useTokenDetailQuery(tokenPath: string) {
   return useQuery<TokenDetailQueryData>({
     queryKey: tokenDetailQueryKey(tokenPath, activeSystemId),
     enabled: Boolean(tokenPath),
+    placeholderData: (previousData) =>
+      previousData?.systemId === activeSystemId ? previousData : undefined,
     ...QUERY_DEFAULTS,
-    queryFn: async () => {
-      const config = await fetchDesignSystemsConfig().catch(() => null);
-      const { systemId: resolvedSystemId } = resolveDesignSystemContext(
-        config,
-        activeSystemId,
-      );
+    queryFn: async () => fetchTokenDetailQueryData(activeSystemId),
+  });
+}
 
-      const [registry, componentCatalog] = await Promise.all([
-        fetchTokenCatalog(),
-        fetchComponentCatalog().catch(() => null),
-      ]);
+export function prefetchTokenDetailQuery(tokenPath: string): Promise<unknown> {
+  const activeSystemId = getActiveSystemId() || "";
+  if (!tokenPath) {
+    return Promise.resolve();
+  }
 
-      return {
-        systemId: resolvedSystemId,
-        registry,
-        componentCatalog,
-      };
-    },
+  return queryClient.prefetchQuery({
+    queryKey: tokenDetailQueryKey(tokenPath, activeSystemId),
+    ...QUERY_DEFAULTS,
+    queryFn: async () => fetchTokenDetailQueryData(activeSystemId),
   });
 }
 

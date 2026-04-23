@@ -48,7 +48,7 @@ export function TokenDetailPage() {
     handleNavigate,
   } = useTokenDetail(tokenPath);
 
-  if (loading) {
+  if (loading && !token) {
     return (
       <div className="space-y-5">
         <PageHeader title="Loading…" />

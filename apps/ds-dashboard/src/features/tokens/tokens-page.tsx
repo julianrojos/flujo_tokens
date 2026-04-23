@@ -46,6 +46,7 @@ import {
 } from "./token-detail/lib/token-detail-transforms";
 import { resolveVariableRef } from "@/lib/token-reference";
 import { toTokenDetail } from "@/lib/routes";
+import { prefetchTokenDetailQuery } from "./token-detail/use-token-detail-data";
 import {
   normalizeResolvedValueFilter,
   resolveColorSwatch as normalizeColorSwatch,
@@ -168,6 +169,12 @@ export function TokensPage() {
     searchParams.get("group"),
     searchParams.get("value"),
   );
+
+  const prefetchTokenDetail = useCallback((tokenPath: string) => {
+    const target = String(tokenPath || "").trim();
+    if (!target) return;
+    void prefetchTokenDetailQuery(target);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -769,6 +776,8 @@ export function TokensPage() {
                           to={detailHref}
                           className={rowLinkClassName}
                           aria-label={`Open ${entry.slashPath} detail`}
+                          onMouseEnter={() => prefetchTokenDetail(entry.path)}
+                          onFocus={() => prefetchTokenDetail(entry.path)}
                         >
                           {entry.slashPath}
                         </Link>
@@ -777,7 +786,7 @@ export function TokensPage() {
                         <Badge variant="neutral">{entry.collection}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs text-foreground">{entry.type}</span>
+                        <span className="font-mono text-xs lowercase text-foreground">{entry.type}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -793,6 +802,8 @@ export function TokensPage() {
                               to={toTokenDetail(resolvedToken.path)}
                               className={rowLinkClassName}
                               aria-label={`Open ${resolvedToken.slashPath} detail from resolved value`}
+                              onMouseEnter={() => prefetchTokenDetail(resolvedToken.path)}
+                              onFocus={() => prefetchTokenDetail(resolvedToken.path)}
                             >
                               {entry.resolvedValue}
                             </Link>

@@ -54,6 +54,7 @@ export function useFigmaDescriptions(
       }
       return fetchFigmaDescriptions(slug);
     },
+    placeholderData: (previousData) => previousData,
     enabled: !!slug,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
