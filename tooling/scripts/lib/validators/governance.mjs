@@ -29,6 +29,10 @@ export function loadRuleManifest(manifestPath) {
   if (!fs.existsSync(resolvedPath)) {
     return {
       path: resolvedPath,
+      validation: {
+        source_catalog: null,
+        checks: {},
+      },
       checks: {},
       loaded: false,
       error: null,
@@ -40,9 +44,11 @@ export function loadRuleManifest(manifestPath) {
       fs.readFileSync(resolvedPath, "utf8"),
       `rule manifest (${path.basename(resolvedPath)})`,
     );
-    const checks = isPlainObject(parsed.checks) ? parsed.checks : {};
+    const validation = isPlainObject(parsed.validation) ? parsed.validation : {};
+    const checks = isPlainObject(validation.checks) ? validation.checks : {};
     return {
       path: resolvedPath,
+      validation,
       checks,
       loaded: true,
       error: null,
@@ -50,6 +56,10 @@ export function loadRuleManifest(manifestPath) {
   } catch (error) {
     return {
       path: resolvedPath,
+      validation: {
+        source_catalog: null,
+        checks: {},
+      },
       checks: {},
       loaded: false,
       error: error instanceof Error ? error.message : String(error),

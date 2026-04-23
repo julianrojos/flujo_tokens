@@ -23,16 +23,15 @@ Only these H2 headings are allowed in component pages, in this exact canonical o
 7. `## Usage Guidelines`
 8. `## Content Guidelines`
 9. `## Accessibility`
-10. `## Related Components`
-11. `## Design–Token Discrepancies` (optional, only when real mismatches exist)
-12. `## Gaps / TBD` (optional, deterministic binary contract)
+10. `## Design–Token Discrepancies` (optional, only when real mismatches exist)
+11. `## Gaps / TBD` (optional, deterministic binary contract)
 
 No other H2 headings are permitted (`## Examples`, `## Changelog`, etc.).
 If additional details are needed, place them under `###` inside the nearest allowed H2.
 
 ## `## Gaps / TBD` deterministic contract
 
-> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic). For code semantics and blocking policy (`GAP00`–`GAP02`), see `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic). For code semantics and blocking policy (`GAP00`–`GAP02`), see `error-codes.mdc` and `.agents/rules/_manifest.yml` (`validation.checks`).
 
 - This section is **binary and deterministic**:
   - Include it when unresolved gaps exist in the linked spec.
@@ -47,11 +46,11 @@ If additional details are needed, place them under `###` inside the nearest allo
   2. `TOKEN_INVALID`
   3. `CONTENT_UNKNOWN`
   4. `A11Y_TBD`
-- When gaps exist and the page lifecycle state is `ready`, emit **`GAP02`** (see `error-codes.mdc`); resolve all gaps first.
+- When gaps exist, emit **`GAP02`** (see `error-codes.mdc`); resolve all gaps first.
 
 ## General rules
 
-- Every required section (1–10) must be present; when data is missing, use `TBD` instead of omitting sections.
+- Every required section (1–9) must be present; when data is missing, use `TBD` instead of omitting sections.
 - Do not add H2 headings outside the canonical allowed list.
 - One component per file. File name matches component name in `snake_case` (for example, `status_bar.md`).
 
@@ -72,11 +71,6 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 - Explain component purpose and role.
 - Include Figma component/set name and core variant properties.
-- Include a `### Visual Proof` subsection with:
-  - a screenshot link captured from Figma (`figma_take_screenshot` workflow),
-  - source node id,
-  - generated proof artifact path.
-- For `draft` / `needs-review`, use explicit `TBD` placeholders when capture is not yet available.
 
 ### `## Anatomy`
 
@@ -128,11 +122,6 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 - Cover role, keyboard interaction, focus management, labeling, and contrast.
 - Follow `inclusive-docs.mdc` for detailed accessibility and i18n guidance.
-
-### `## Related Components`
-
-- Link sibling/alternative components with one-line differentiation.
-- If a changelog is needed, use `### Changelog` inside this section.
 
 ### `## Design–Token Discrepancies` (optional)
 

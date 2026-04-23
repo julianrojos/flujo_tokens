@@ -27,4 +27,4 @@ Deterministic path contract:
 
 The normalization algorithm (token boundaries, acronym handling, digit handling, and invalid-token removal) is defined in `tooling/scripts/lib/name.mjs` and must not be reimplemented ad hoc.
 
-Validation and code semantics (`NAME01`, `NAME02`) are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+Validation and code semantics (`NAME01`, `NAME02`) are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`validation.checks`).

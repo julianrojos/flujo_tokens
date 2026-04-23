@@ -9,15 +9,13 @@ globs:
 
 This file is the canonical human-readable reference for validation/governance codes.
 
-- Machine-readable mapping (`code -> rule_ids`, blocking) lives in `.agents/rules/_manifest.yml` under `checks`.
+- Machine-readable mapping (`code -> rule_ids`, blocking) lives in `.agents/rules/_manifest.yml` under `validation.checks`.
 - Runtime emitters live in `tooling/scripts/**`.
 
 ## Validation and governance codes
 
 | Code | Blocking | Meaning | Primary rule sources |
 | --- | --- | --- | --- |
-| `REG01` | yes | Token registry file missing/unreadable in docs validation flow. | `ds-docs-guardrails`, `docs-pipeline-contract` |
-| `DOC01` | yes | Documentation root/path precondition failed. | `ds-docs-guardrails`, `docs-pipeline-contract` |
 | `SEC01` | yes | Missing required canonical section(s). | `component-doc` |
 | `SEC02` | yes | Invalid section ordering or disallowed H2 section(s). | `component-doc` |
 | `TOK01` | yes | Token path in markdown does not resolve in registry. | `token-references`, `token-registry-validation` |
@@ -30,20 +28,17 @@ This file is the canonical human-readable reference for validation/governance co
 | `TRACE01` | yes | Node ID mismatch/invalid contract. | `component-figma-metadata`, `component-spec-yaml` |
 | `LINK01` | yes | Overview/index maintenance contract failed. | `overview-index-maintenance` |
 | `LINK02` | yes | Components overview canonical list format/order failed. | `overview-components-canonical-list` |
-| `LINK03` | yes | Internal markdown links invalid or broken. | `ds-docs-guardrails` |
+| `LINK03` | yes | Internal markdown links invalid or broken. | `component-doc` |
 | `GAP00` | no | Gaps contract check skipped due to missing linked spec. | `component-doc` |
-| `GAP01` | yes | `## Gaps / TBD` section contract invalid/missing/mismatched. | `component-doc`, `ds-docs-guardrails` |
-| `GAP02` | yes | `ready` status conflicts with unresolved gaps. | `component-spec-yaml`, `markdown-lifecycle-status` |
-| `PAIR01` | yes | Required 1:1 markdown/spec pairing failed. | `docs-pipeline-contract`, `ds-docs-guardrails` |
-| `READY01` | yes | `ready` hard-gate requirements not met. | `markdown-lifecycle-status`, `component-spec-yaml`, `ds-docs-guardrails` |
-| `QLT01` | yes | Documentation quality guardrail violation. | `ds-docs-guardrails` |
-| `VIS01` | yes | Visual proof requirements not satisfied for expected lifecycle state. | `component-doc`, `markdown-lifecycle-status`, `ds-docs-guardrails` |
+| `GAP01` | yes | `## Gaps / TBD` section contract invalid/missing/mismatched. | `component-doc` |
+| `GAP02` | yes | `ready` status conflicts with unresolved gaps. | `component-spec-yaml` |
+| `PAIR01` | yes | Required 1:1 markdown/spec pairing failed. | `component-doc`, `component-spec-yaml` |
+| `READY01` | yes | `ready` hard-gate requirements not met. | `component-spec-yaml` |
+| `QLT01` | yes | Documentation quality guardrail violation. | `component-doc` |
 | `DEP01` | yes | Deprecated rule reference detected in skill metadata. | `docs-governance-ops` |
 | `SLOT01` | yes | Invalid skill slot contract (typed inputs/outputs). | `skill-input-output-contract`, `skill-versioning` |
 | `VER01` | yes | Versioning contract violation for spec/markdown metadata. | `component-versioning` |
-| `GOV01` | yes | Governance/manifest integrity error (for example manifest unreadable). | `docs-pipeline-contract` |
-| `EVID01` | yes | Evidence-gated mutation guardrail violated. | `evidence-gated-mutations`, `ds-docs-guardrails` |
-| `EVID02` | yes | Evidence gate/pipeline sequencing contract violated. | `evidence-gated-mutations`, `docs-pipeline-contract` |
+| `GOV01` | yes | Governance/manifest integrity error (for example manifest unreadable). | `docs-governance-ops` |
 | `UI01` | yes | UI layer boundary/import direction violation. | `ui-architecture-boundaries` |
 | `UI02` | yes | UI token/style contract violation (hardcoded colors, portal misuse, etc.). | `ui-style-contract` |
 | `UI03` | yes | UI component governance violation (CVA/cn/forwardRef, registry discipline, or orphan policy). | `ui-component-governance` |
@@ -52,6 +47,6 @@ This file is the canonical human-readable reference for validation/governance co
 
 Whenever a new validation/governance code is introduced (or semantics change), update:
 
-1. `.agents/rules/_manifest.yml` -> `checks`
+1. `.agents/rules/_manifest.yml` -> `validation.checks`
 2. this file (`error-codes.mdc`)
 3. emitter implementation in `tooling/scripts/**`

@@ -25,4 +25,4 @@ Key constraints (see schema for full detail):
 - For `ready`, defaults must be concrete (no `TBD`) and enum values must be concrete.
 - File naming and slug consistency follow `component-name-normalization.mdc`.
 
-Error semantics (`REL01`, `NAME02`, `READY01`, `TRACE01`) are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+Error semantics (`REL01`, `NAME02`, `READY01`, `TRACE01`) are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`validation.checks`).

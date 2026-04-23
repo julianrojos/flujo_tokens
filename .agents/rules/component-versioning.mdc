@@ -40,7 +40,7 @@ Rules:
 
 To keep canonical H2 structure intact:
 - Do **not** add `## Changelog` as a new H2 section.
-- If needed, add `### Changelog` inside `## Related Components`.
+- If needed, add `### Changelog` inside `## Overview`.
 
 Recommended format:
 

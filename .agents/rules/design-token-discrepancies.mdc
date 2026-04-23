@@ -11,7 +11,7 @@ Use a dedicated section to track mismatches between Figma design intent and toke
 ## Section name and placement
 
 - Section title: `## Design–Token Discrepancies`
-- Component docs: place after `## Related Components` and before `## Gaps / TBD` (see `component-doc.mdc`).
+- Component docs: place after `## Accessibility` and before `## Gaps / TBD` (see `component-doc.mdc`).
 - If no discrepancies exist, omit the section entirely.
 
 ## Required table format

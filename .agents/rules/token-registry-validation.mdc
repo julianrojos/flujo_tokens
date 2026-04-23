@@ -17,7 +17,7 @@ This rule defines how token references must be validated against `docs/_generate
 
 ## Error code contract
 
-Canonical code semantics and blocking policy are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+Canonical code semantics and blocking policy are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`validation.checks`).
 
 This rule emits `TOK01`, `TOK02`, `TOK03` for markdown token-reference violations.
 
