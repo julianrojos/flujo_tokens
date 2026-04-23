@@ -16,6 +16,7 @@
     "test:db:smoke": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/db/pg-db-service.test.ts",
     "typecheck:db": "tsc --project tsconfig.db.json --noEmit",
     "ds:rebuild-token-cache": "node --import tsx server/scripts/rebuild-token-cache.ts",
+    "ds:backfill-legacy-visual-proof-dimensions": "node --env-file-if-exists=.env scripts/backfill-legacy-visual-proof-dimensions.mjs",
     "build": "tsc -b && vite build",
     "check:bundle-isolation": "node scripts/validate-bundle-isolation.mjs",
     "preview": "vite preview",

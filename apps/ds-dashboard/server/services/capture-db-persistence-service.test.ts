@@ -10,7 +10,7 @@ import {
 } from './capture-db-persistence-service.ts';
 
 describe('capture-db-persistence-service', () => {
-  it('persists captured visual proof rows into component repository', () => {
+  it('persists captured visual proof rows into component repository', async () => {
     const upsertCalls: unknown[] = [];
     const componentRepo = {
       getAll: () => [
@@ -40,7 +40,7 @@ describe('capture-db-persistence-service', () => {
       },
     } as any;
 
-    const result = persistCapturePayloadToComponentRepo({
+    const result = await persistCapturePayloadToComponentRepo({
       payload: {
         source: {
           file_key: 'ABC123',
@@ -66,6 +66,8 @@ describe('capture-db-persistence-service', () => {
             image_content_type: 'image/png',
             image_width: 400,
             image_height: 240,
+            node_width: 200,
+            node_height: 120,
             variants: [
               {
                 name: 'Primary',
@@ -73,6 +75,8 @@ describe('capture-db-persistence-service', () => {
                 screenshot_url: 'https://cdn.example.com/button-primary.png',
                 image_path: 'design-systems/sys-01/docs/_generated/visual-proofs/images/variants/button__01__primary.png',
                 captured_at: '2026-03-31T09:59:59.000Z',
+                node_width: 100,
+                node_height: 60,
               },
             ],
           },
@@ -102,13 +106,15 @@ describe('capture-db-persistence-service', () => {
     assert.equal(entries[0].visualProofs[0].imageSha256, 'abc123');
     assert.equal(entries[0].visualProofs[0].imageBytes, 2048);
     assert.equal(entries[0].visualProofs[0].imageContentType, 'image/png');
-    assert.equal(entries[0].visualProofs[0].imageWidth, 400);
-    assert.equal(entries[0].visualProofs[0].imageHeight, 240);
+    assert.equal(entries[0].visualProofs[0].imageWidth, 200);
+    assert.equal(entries[0].visualProofs[0].imageHeight, 120);
     assert.ok(Array.isArray(entries[0].visualProofs[0].variants));
     assert.equal(entries[0].visualProofs[0].variants.length, 1);
+    assert.equal(entries[0].visualProofs[0].variants?.[0].image_width, 100);
+    assert.equal(entries[0].visualProofs[0].variants?.[0].image_height, 60);
   });
 
-  it('skips rows without local image path', () => {
+  it('skips rows without local image path', async () => {
     let upsertCount = 0;
     const componentRepo = {
       getAll: () => [],
@@ -119,7 +125,7 @@ describe('capture-db-persistence-service', () => {
       },
     } as any;
 
-    const result = persistCapturePayloadToComponentRepo({
+    const result = await persistCapturePayloadToComponentRepo({
       payload: {
         captured: [
           {
@@ -137,7 +143,7 @@ describe('capture-db-persistence-service', () => {
     assert.equal(upsertCount, 0);
   });
 
-  it('keeps variants with empty names by assigning a safe fallback label', () => {
+  it('keeps variants with empty names by assigning a safe fallback label', async () => {
     const upsertCalls: unknown[] = [];
     const componentRepo = {
       getAll: () => [],
@@ -148,7 +154,7 @@ describe('capture-db-persistence-service', () => {
       },
     } as any;
 
-    const result = persistCapturePayloadToComponentRepo({
+    const result = await persistCapturePayloadToComponentRepo({
       payload: {
         captured: [
           {
@@ -177,7 +183,7 @@ describe('capture-db-persistence-service', () => {
     assert.equal(entries[0].visualProofs[0].variants[0].name, 'Variant');
   });
 
-  it('defaults variantsCount to 0 when missing and variants are empty', () => {
+  it('defaults variantsCount to 0 when missing and variants are empty', async () => {
     const upsertCalls: unknown[] = [];
     const componentRepo = {
       getAll: () => [],
@@ -188,7 +194,7 @@ describe('capture-db-persistence-service', () => {
       },
     } as any;
 
-    const result = persistCapturePayloadToComponentRepo({
+    const result = await persistCapturePayloadToComponentRepo({
       payload: {
         captured: [
           {
@@ -208,83 +214,80 @@ describe('capture-db-persistence-service', () => {
     assert.equal(entries[0].visualProofs[0].variantsCount, 0);
   });
 
-  it('throws on invalid payload shape when captured is not an array', () => {
+  it('throws on invalid payload shape when captured is not an array', async () => {
     const componentRepo = {
       getAll: () => [],
       getBySlug: () => null,
       upsertFromRegistry: () => 0,
     } as any;
 
-    assert.throws(
-      () =>
-        persistCapturePayloadToComponentRepo({
-          payload: {
-            captured: {},
-          },
-          componentRepo,
-          systemId: 'sys-01',
-          repoRoot: '/repo',
-        }),
+    await assert.rejects(
+      persistCapturePayloadToComponentRepo({
+        payload: {
+          captured: {},
+        },
+        componentRepo,
+        systemId: 'sys-01',
+        repoRoot: '/repo',
+      }),
       /captured.*must be an array/i,
     );
   });
 
-  it('throws on invalid payload shape when captured rows are not objects', () => {
+  it('throws on invalid payload shape when captured rows are not objects', async () => {
     const componentRepo = {
       getAll: () => [],
       getBySlug: () => null,
       upsertFromRegistry: () => 0,
     } as any;
 
-    assert.throws(
-      () =>
-        persistCapturePayloadToComponentRepo({
-          payload: {
-            captured: ['bad-row'],
-          },
-          componentRepo,
-          systemId: 'sys-01',
-          repoRoot: '/repo',
-        }),
+    await assert.rejects(
+      persistCapturePayloadToComponentRepo({
+        payload: {
+          captured: ['bad-row'],
+        },
+        componentRepo,
+        systemId: 'sys-01',
+        repoRoot: '/repo',
+      }),
       /captured\[0\] must be an object/i,
     );
   });
 
-  it('throws on invalid payload shape when captured row fields have wrong types', () => {
+  it('throws on invalid payload shape when captured row fields have wrong types', async () => {
     const componentRepo = {
       getAll: () => [],
       getBySlug: () => null,
       upsertFromRegistry: () => 0,
     } as any;
 
-    assert.throws(
-      () =>
-        persistCapturePayloadToComponentRepo({
-          payload: {
-            captured: [
-              {
-                slug: 'button',
-                local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',
-                variants_count: 'NaN',
-              },
-            ],
-          },
-          componentRepo,
-          systemId: 'sys-01',
-          repoRoot: '/repo',
-        }),
+    await assert.rejects(
+      persistCapturePayloadToComponentRepo({
+        payload: {
+          captured: [
+            {
+              slug: 'button',
+              local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',
+              variants_count: 'NaN',
+            },
+          ],
+        },
+        componentRepo,
+        systemId: 'sys-01',
+        repoRoot: '/repo',
+      }),
       /variants_count must be a finite number/i,
     );
   });
 
-  it('skips rows when local_image_path points outside repo root', () => {
+  it('skips rows when local_image_path points outside repo root', async () => {
     const componentRepo = {
       getAll: () => [],
       getBySlug: () => null,
       upsertFromRegistry: () => 0,
     } as any;
 
-    const result = persistCapturePayloadToComponentRepo({
+    const result = await persistCapturePayloadToComponentRepo({
       payload: {
         captured: [
           {
@@ -301,34 +304,33 @@ describe('capture-db-persistence-service', () => {
     assert.deepEqual(result, { attempted: 1, upserted: 0, skipped: 1 });
   });
 
-  it('throws when image dimensions are out of range', () => {
+  it('throws when image dimensions are out of range', async () => {
     const componentRepo = {
       getAll: () => [],
       getBySlug: () => null,
       upsertFromRegistry: () => 0,
     } as any;
 
-    assert.throws(
-      () =>
-        persistCapturePayloadToComponentRepo({
-          payload: {
-            captured: [
-              {
-                slug: 'button',
-                local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',
-                image_width: -1,
-              },
-            ],
-          },
-          componentRepo,
-          systemId: 'sys-01',
-          repoRoot: '/repo',
-        }),
+    await assert.rejects(
+      persistCapturePayloadToComponentRepo({
+        payload: {
+          captured: [
+            {
+              slug: 'button',
+              local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/button.png',
+              image_width: -1,
+            },
+          ],
+        },
+        componentRepo,
+        systemId: 'sys-01',
+        repoRoot: '/repo',
+      }),
       /image_width/i,
     );
   });
 
-  it('skips rows when local_image_path is a symlink escaping repo root', () => {
+  it('skips rows when local_image_path is a symlink escaping repo root', async () => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-db-persistence-'));
     try {
       const repoRoot = path.join(tmpRoot, 'repo');
@@ -346,7 +348,7 @@ describe('capture-db-persistence-service', () => {
         upsertFromRegistry: () => 0,
       } as any;
 
-      const result = persistCapturePayloadToComponentRepo({
+      const result = await persistCapturePayloadToComponentRepo({
         payload: {
           captured: [
             {
@@ -365,7 +367,7 @@ describe('capture-db-persistence-service', () => {
     }
   });
 
-  it('reconciles empty catalog payload by marking existing components as missing', () => {
+  it('reconciles empty catalog payload by marking existing components as missing', async () => {
     const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
     const missingCalls: Array<{ dsId: string; slugs: string[] }> = [];
     const componentRepo = {
@@ -379,7 +381,7 @@ describe('capture-db-persistence-service', () => {
       },
     } as any;
 
-    const result = persistRegistryEntriesToComponentRepo({
+    const result = await persistRegistryEntriesToComponentRepo({
       entries: [],
       componentRepo,
       systemId: 'sys-01',
@@ -394,7 +396,7 @@ describe('capture-db-persistence-service', () => {
     assert.deepEqual(missingCalls[0]?.slugs, []);
   });
 
-  it('throws when catalog entries payload is not an array', () => {
+  it('throws when catalog entries payload is not an array', async () => {
     let called = false;
     const componentRepo = {
       upsertFromRegistry: () => {
@@ -404,13 +406,12 @@ describe('capture-db-persistence-service', () => {
       markMissingComponents: () => 0,
     } as any;
 
-    assert.throws(
-      () =>
-        persistRegistryEntriesToComponentRepo({
-          entries: null as unknown as Array<Record<string, unknown>>,
-          componentRepo,
-          systemId: 'sys-01',
-        }),
+    await assert.rejects(
+      persistRegistryEntriesToComponentRepo({
+        entries: null as unknown as Array<Record<string, unknown>>,
+        componentRepo,
+        systemId: 'sys-01',
+      }),
       /invalid catalog entries payload/i,
     );
     assert.equal(called, false);

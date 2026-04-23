@@ -816,7 +816,7 @@ describe('figma-db-sync-service', () => {
         });
 
       const searchComponents = async () => ({
-        components: [{ nodeId: '10:1', name: 'Button Primary' }],
+        components: [{ nodeId: '10:1', name: 'Button Primary', width: 240, height: 56 }],
         truncated: false,
       });
 
@@ -987,7 +987,7 @@ describe('figma-db-sync-service', () => {
         });
 
       const searchComponents = async () => ({
-        components: [{ nodeId: '10:1', name: 'Button Primary' }],
+        components: [{ nodeId: '10:1', name: 'Button Primary', width: 240, height: 56 }],
         truncated: false,
       });
 
@@ -1053,8 +1053,12 @@ describe('figma-db-sync-service', () => {
       const visualProofs = button.visualProofs as Array<{
         variantsCount?: number;
         variants?: Array<{ name?: string; image_path?: string | null }>;
+        imageWidth?: number;
+        imageHeight?: number;
       }>;
       assert.ok(Array.isArray(visualProofs));
+      assert.equal(visualProofs[0].imageWidth, 240);
+      assert.equal(visualProofs[0].imageHeight, 56);
       assert.equal(visualProofs[0].variantsCount, 2);
       assert.ok(Array.isArray(visualProofs[0].variants));
       assert.equal(visualProofs[0].variants?.length, 2);

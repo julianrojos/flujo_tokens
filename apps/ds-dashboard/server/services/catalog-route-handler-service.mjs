@@ -3,6 +3,7 @@ import {
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
 import { createHash } from "node:crypto";
+
 import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.mjs";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 

@@ -25,6 +25,8 @@ type CaptureRowPayload = {
   image_content_type?: unknown;
   image_width?: unknown;
   image_height?: unknown;
+  node_width?: unknown;
+  node_height?: unknown;
   variants?: unknown;
 };
 
@@ -136,6 +138,12 @@ function validateCapturePayloadShape(payloadObj: CapturePayloadObject): void {
       }
       if (entry.image_height !== undefined && !Number.isFinite(Number(entry.image_height))) {
         errors.push(`captured[${i}].image_height must be a finite number when present.`);
+      }
+      if (entry.node_width !== undefined && !Number.isFinite(Number(entry.node_width))) {
+        errors.push(`captured[${i}].node_width must be a finite number when present.`);
+      }
+      if (entry.node_height !== undefined && !Number.isFinite(Number(entry.node_height))) {
+        errors.push(`captured[${i}].node_height must be a finite number when present.`);
       }
       if (entry.variants !== undefined && !Array.isArray(entry.variants)) {
         errors.push(`captured[${i}].variants must be an array when present.`);
@@ -285,6 +293,8 @@ function toVariantRows(value: unknown, repoRoot: string): Array<{
   image_content_type?: string | null;
   image_width?: number | null;
   image_height?: number | null;
+  node_width?: number | null;
+  node_height?: number | null;
 }> | undefined {
   if (!Array.isArray(value)) return undefined;
   const isRecord = (entry: Record<string, unknown> | null): entry is Record<string, unknown> =>
@@ -297,6 +307,8 @@ function toVariantRows(value: unknown, repoRoot: string): Array<{
       const imageBytes = toFiniteNumber(entry.image_bytes);
       const imageWidth = toFiniteNumber(entry.image_width);
       const imageHeight = toFiniteNumber(entry.image_height);
+      const nodeWidth = toFiniteNumber(entry.node_width);
+      const nodeHeight = toFiniteNumber(entry.node_height);
       return {
         name,
         node_id: firstNonEmptyString(entry.node_id) || null,
@@ -323,19 +335,31 @@ function toVariantRows(value: unknown, repoRoot: string): Array<{
               ) ?? null,
         image_content_type: firstNonEmptyString(entry.image_content_type) || null,
         image_width:
-          imageWidth === undefined
-            ? null
+          nodeWidth === undefined
+            ? imageWidth === undefined
+              ? null
+              : toPositiveInteger(
+                  imageWidth,
+                  'captured[].variants[].image_width',
+                  100_000,
+                ) ?? null
             : toPositiveInteger(
-                imageWidth,
-                'captured[].variants[].image_width',
+                nodeWidth,
+                'captured[].variants[].node_width',
                 100_000,
               ) ?? null,
         image_height:
-          imageHeight === undefined
-            ? null
+          nodeHeight === undefined
+            ? imageHeight === undefined
+              ? null
+              : toPositiveInteger(
+                  imageHeight,
+                  'captured[].variants[].image_height',
+                  100_000,
+                ) ?? null
             : toPositiveInteger(
-                imageHeight,
-                'captured[].variants[].image_height',
+                nodeHeight,
+                'captured[].variants[].node_height',
                 100_000,
               ) ?? null,
       };
@@ -351,6 +375,8 @@ function toVariantRows(value: unknown, repoRoot: string): Array<{
       image_content_type?: string | null;
       image_width?: number | null;
       image_height?: number | null;
+      node_width?: number | null;
+      node_height?: number | null;
     }>;
   return rows.length > 0 ? rows : undefined;
 }
@@ -455,6 +481,8 @@ export async function persistCapturePayloadToComponentRepo(
     );
     const imageWidth = toPositiveInteger(row.image_width, 'captured[].image_width', 100_000);
     const imageHeight = toPositiveInteger(row.image_height, 'captured[].image_height', 100_000);
+    const nodeWidth = toPositiveInteger(row.node_width, 'captured[].node_width', 100_000);
+    const nodeHeight = toPositiveInteger(row.node_height, 'captured[].node_height', 100_000);
     const variants = toVariantRows(row.variants, root);
     const capturedAt = toIsoString(row.captured_at) || nowIso();
     const capturedAtEpoch = toUnixEpochSeconds(capturedAt);
@@ -478,8 +506,8 @@ export async function persistCapturePayloadToComponentRepo(
           imageSha256: firstNonEmptyString(row.image_sha256) || undefined,
           imageBytes,
           imageContentType: firstNonEmptyString(row.image_content_type) || undefined,
-          imageWidth,
-          imageHeight,
+          imageWidth: nodeWidth ?? imageWidth,
+          imageHeight: nodeHeight ?? imageHeight,
           variantsCount: variantsCountFromPayload ?? variants?.length ?? 0,
           variants,
         },

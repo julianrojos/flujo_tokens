@@ -299,11 +299,15 @@ type FullComponentSpecResult = {
   name: string;
   type: string;
   description: string | null;
+  width?: number;
+  height?: number;
   variants?: Array<{
     key: string;
     nodeId: string;
     name: string;
     variantProperties: Record<string, string>;
+    width?: number;
+    height?: number;
     layerTokens?: Array<{
       nodeId: string;
       nodeName: string;
@@ -694,6 +698,8 @@ function extractStructuredFigmaData(args: {
       name: v.name,
       properties: v.variantProperties,
       nodeId: v.nodeId,
+      width: v.width,
+      height: v.height,
     }));
   }
 
@@ -887,6 +893,12 @@ async function enrichComponentEntriesWithStructuredData(options: {
       entry.figma.instanceDependencies = structuredData.instanceDependencies;
     if (Object.prototype.hasOwnProperty.call(structuredData, 'props')) {
       entry.figma.props = structuredData.props ?? [];
+    }
+    if (Number.isFinite(Number(specData.width))) {
+      entry.figma.componentSetWidth = Number(specData.width);
+    }
+    if (Number.isFinite(Number(specData.height))) {
+      entry.figma.componentSetHeight = Number(specData.height);
     }
     entry.figma.structuredCaptureStatus = 'ok';
     if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
@@ -1399,6 +1411,36 @@ function discoverComponentVisualProofsFromFilesystem(options: {
 }): Map<string, SyncComponentEntry['visualProofs']> {
   const { entries, repoRoot, generatedDir } = options;
   const bySlug = new Map<string, SyncComponentEntry['visualProofs']>();
+  const entryBySlug = new Map(entries.map((entry) => [entry.slug, entry]));
+  const variantDimensionsBySlug = new Map<
+    string,
+    Map<string, { image_width?: number | null; image_height?: number | null }>
+  >();
+  for (const entry of entries) {
+    const variants = Array.isArray(entry.figma.variants)
+      ? entry.figma.variants
+      : [];
+    if (variants.length === 0) continue;
+    const dimensionsByName = new Map<
+      string,
+      { image_width?: number | null; image_height?: number | null }
+    >();
+    for (const variant of variants) {
+      const variantSlug = slugifyComponentName(String(variant.name || ''));
+      if (!variantSlug) continue;
+      dimensionsByName.set(variantSlug, {
+        image_width: Number.isFinite(Number(variant.width))
+          ? Number(variant.width)
+          : null,
+        image_height: Number.isFinite(Number(variant.height))
+          ? Number(variant.height)
+          : null,
+      });
+    }
+    if (dimensionsByName.size > 0) {
+      variantDimensionsBySlug.set(entry.slug, dimensionsByName);
+    }
+  }
   const knownSlugs = new Set(entries.map((entry) => entry.slug));
   const mainImageDir = path.join(generatedDir, 'visual-proofs', 'images');
   const variantsDir = path.join(mainImageDir, 'variants');
@@ -1412,6 +1454,8 @@ function discoverComponentVisualProofsFromFilesystem(options: {
       captured_at?: string | null;
       image_bytes?: number | null;
       image_content_type?: string | null;
+      image_width?: number | null;
+      image_height?: number | null;
     }>
   >();
 
@@ -1439,14 +1483,20 @@ function discoverComponentVisualProofsFromFilesystem(options: {
       stats = null;
     }
     const variantRows = variantRowsBySlug.get(slug) || [];
+    const variantName = deriveVariantName(fileStem, slug);
+    const variantDimensions = variantDimensionsBySlug.get(slug)?.get(
+      slugifyComponentName(variantName),
+    );
     variantRows.push({
-      name: deriveVariantName(fileStem, slug),
+      name: variantName,
       image_path: relPath,
       captured_at: stats ? new Date(stats.mtimeMs).toISOString() : null,
       image_bytes: stats ? stats.size : null,
       image_content_type:
         IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(fileName).toLowerCase()] ||
         null,
+      image_width: variantDimensions?.image_width ?? null,
+      image_height: variantDimensions?.image_height ?? null,
     });
     variantRowsBySlug.set(slug, variantRows);
   }
@@ -1484,6 +1534,12 @@ function discoverComponentVisualProofsFromFilesystem(options: {
           IMAGE_EXTENSION_TO_CONTENT_TYPE[
             path.extname(file.name).toLowerCase()
           ],
+        imageWidth:
+          entryBySlug.get(slug)?.figma.componentSetWidth ??
+          undefined,
+        imageHeight:
+          entryBySlug.get(slug)?.figma.componentSetHeight ??
+          undefined,
         variantsCount: variants.length,
         variants,
       },
@@ -1530,19 +1586,23 @@ type SyncComponentEntry = {
   name: string;
   status: 'draft';
   docType: 'component';
-  figma: {
-    fileUrl: string;
-    componentSetNodeId: string;
-    pageName?: string;
-    runId?: string;
-    capturedAtEpoch?: number;
-    schemaVersion?: number;
-    structuredCaptureStatus?: 'ok' | 'failed';
-    variants?: Array<{
-      name: string;
-      properties: Record<string, string>;
-      nodeId?: string;
-    }>;
+    figma: {
+      fileUrl: string;
+      componentSetNodeId: string;
+      componentSetWidth?: number;
+      componentSetHeight?: number;
+      pageName?: string;
+      runId?: string;
+      capturedAtEpoch?: number;
+      schemaVersion?: number;
+      structuredCaptureStatus?: 'ok' | 'failed';
+      variants?: Array<{
+        name: string;
+        properties: Record<string, string>;
+        nodeId?: string;
+        width?: number;
+        height?: number;
+      }>;
     tokenBindings?: Array<{
       nodeId: string;
       nodeName: string;
@@ -1930,7 +1990,7 @@ export async function syncDesignSystemFromPlugin(
     const scanSessionId = `sync-${syncRunId}`;
     const dedupedByNodeId = new Map<
       string,
-      { nodeId: string; name: string; pageName?: string }
+      { nodeId: string; name: string; pageName?: string; width?: number; height?: number }
     >();
     let scannedTotal: number | null = null;
     let offset = 0;
@@ -1969,6 +2029,8 @@ export async function syncDesignSystemFromPlugin(
             nodeId,
             name: String(entry.name || '').trim(),
             pageName: entry.pageName,
+            width: Number.isFinite(Number(entry.width)) ? Number(entry.width) : undefined,
+            height: Number.isFinite(Number(entry.height)) ? Number(entry.height) : undefined,
           });
         }
 
@@ -2027,6 +2089,12 @@ export async function syncDesignSystemFromPlugin(
         figma: {
           fileUrl: figmaFileUrl,
           componentSetNodeId: String(entry.nodeId || '').trim(),
+          componentSetWidth: Number.isFinite(Number(entry.width))
+            ? Number(entry.width)
+            : undefined,
+          componentSetHeight: Number.isFinite(Number(entry.height))
+            ? Number(entry.height)
+            : undefined,
           pageName: entry.pageName,
           runId: syncRunId,
           capturedAtEpoch: syncCapturedAtEpoch,
