@@ -45,13 +45,7 @@ A concise summary of what the component does.
 - Purpose: TBD
 - Figma component set: TBD
 - Variant properties: TBD
-- Artwork source instance: Required hidden instance used to drive Anatomy, Properties, and Layout and spacing sections.
-
-### Visual Proof
-
-- Screenshot: TBD
-- Source node: TBD
-- Artifact: TBD
+- Artwork source instance: Required hidden instance used to drive Anatomy, Properties, and Visual Specifications subsections.
 
 ## Anatomy
 
@@ -80,6 +74,12 @@ A concise summary of what the component does.
 - Font size: \`TBD\` (TBD)
 - Line height: \`TBD\` (TBD)
 
+### Layout and spacing
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
 ## Variants
 
 | Variant | Token | Fallback | Notes |
@@ -90,14 +90,6 @@ A concise summary of what the component does.
 
 - Default: TBD
 - Disabled: TBD
-
-## Layout and Spacing
-
-Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
-
-| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
-| --- | --- | --- | --- | --- | --- | --- |
-| TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 ## Usage Guidelines
 

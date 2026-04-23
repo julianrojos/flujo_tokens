@@ -498,12 +498,6 @@ export function generateSpecMarkdown(
 - Variant properties: ${propsForOverview || "TBD"}.
 - Source: [${safeName} in Figma](${safeUrl}).
 
-### Visual Proof
-
-- Screenshot: TBD
-- Source node: ${nodeId || "TBD"}
-- Artifact: TBD
-
 ## Anatomy
 
 ${sections.anatomy}
@@ -584,12 +578,6 @@ Auto-generated component documentation from Figma capture.
 - Figma component set: \`${safeName}\`.
 - Variant properties: ${propsForOverview || "TBD"}.
 - Source: [${safeName} in Figma](${safeUrl}).
-
-### Visual Proof
-
-- Screenshot: TBD
-- Source node: ${nodeId || "TBD"}
-- Artifact: TBD
 
 ## Anatomy
 

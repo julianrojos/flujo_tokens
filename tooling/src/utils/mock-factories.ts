@@ -27,10 +27,6 @@ export interface MockDeps {
   extractComponentSpecFn: () => null;
   resolveSpecExhibitNodeIdsFn: () => null;
   renderEnrichedMarkdownSeedFn: () => null;
-  injectExtractedSpecSectionsIntoMarkdownFn: () => {
-    changed: boolean;
-    content: string;
-  };
   buildMarkdownSeedFn: () => null;
   writeTextAtomicFn: () => void;
   stderrWriteFn: () => void;
@@ -152,10 +148,6 @@ export function createCaptureContextMock(
     extractComponentSpecFn: () => null,
     resolveSpecExhibitNodeIdsFn: () => null,
     renderEnrichedMarkdownSeedFn: () => null,
-    injectExtractedSpecSectionsIntoMarkdownFn: () => ({
-      changed: true,
-      content: 'mocked',
-    }),
     buildMarkdownSeedFn: () => null,
     writeTextAtomicFn: () => {},
     stderrWriteFn: () => {},

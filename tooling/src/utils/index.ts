@@ -110,19 +110,6 @@ export type {
   PipelineContext,
 } from '../types/pipeline.js';
 
-// Evidence-gated mutations
-export {
-  assertEvidenceGatedScalarChanges,
-  assertDocStatusStable,
-  readDocStatus,
-} from '../services/evidence-gated-mutations.js';
-
-export type {
-  AssertEvidenceGatedOptions,
-  AssertDocStatusStableOptions,
-  MutationViolation,
-} from '../services/evidence-gated-mutations.js';
-
 // File snapshot utilities
 export { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';
 

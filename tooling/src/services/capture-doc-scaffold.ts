@@ -95,13 +95,7 @@ Auto-generated placeholder created during Figma capture workflow.
 - Purpose: TBD
 - Figma component set: ${nodeId || 'TBD'}
 - Variant properties: TBD
-- Artwork source instance: Required hidden instance used to drive Anatomy, Properties, and Layout and spacing sections.
-
-### Visual Proof
-
-- Screenshot: TBD
-- Source node: ${nodeId || 'TBD'}
-- Artifact: TBD
+- Artwork source instance: Required hidden instance used to drive Anatomy, Properties, and Visual Specifications subsections.
 
 ## Anatomy
 

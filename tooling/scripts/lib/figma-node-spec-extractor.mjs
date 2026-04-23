@@ -705,12 +705,6 @@ Auto-generated component documentation from Figma capture.
 - Variant properties: ${propsForOverview || "TBD"}.
 - Source: [${safeName} in Figma](${safeUrl}).
 
-### Visual Proof
-
-- Screenshot: TBD
-- Source node: ${nodeId || "TBD"}
-- Artifact: TBD
-
 ## Anatomy
 
 ${sections.anatomy}

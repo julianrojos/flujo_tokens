@@ -23,7 +23,6 @@ import {
   renderEnrichedMarkdownSeed,
   extractComponentSpec,
 } from '../utils/figma-node-spec-extractor.js';
-import { injectExtractedSpecSectionsIntoMarkdown } from './capture-markdown-sections.js';
 import type { PipelineContext } from './pipeline-context.js';
 import {
   bootstrapDatabase,
@@ -57,7 +56,6 @@ export interface CaptureServices {
   writeTextAtomic: typeof writeTextAtomic;
   stderrWrite: (message: string) => void;
   renderEnrichedMarkdownSeed: typeof renderEnrichedMarkdownSeed;
-  injectExtractedSpecSectionsIntoMarkdown: typeof injectExtractedSpecSectionsIntoMarkdown;
   buildMarkdownSeed: typeof buildMarkdownSeed;
   extractComponentSpec: typeof extractComponentSpec;
 }
@@ -140,7 +138,6 @@ export function createCaptureServices(params: {
     writeTextAtomic: writeTextAtomic,
     stderrWrite: (message: string) => process.stderr.write(message),
     renderEnrichedMarkdownSeed,
-    injectExtractedSpecSectionsIntoMarkdown,
     buildMarkdownSeed,
     extractComponentSpec,
   };

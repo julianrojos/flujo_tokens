@@ -31,7 +31,7 @@
       "index":     0,
       "required":  true,
       "conditional": false,
-      "notes": "Must include a ### Visual Proof subsection. Use TBD placeholder when screenshot is not yet available."
+      "notes": "Explain purpose and role; include Figma component/set name and core variant properties."
     },
     {
       "heading":   "Anatomy",
