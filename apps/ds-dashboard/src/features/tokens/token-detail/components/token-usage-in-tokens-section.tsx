@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { Inbox } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
