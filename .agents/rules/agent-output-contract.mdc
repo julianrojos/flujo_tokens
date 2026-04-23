@@ -13,7 +13,6 @@ globs:
 Before keeping agent-generated markdown in the repository, scripts must validate:
 
 - Frontmatter exists and includes `doc_type: component`.
-- `doc_status` is one of `draft`, `ready`, or `needs-review`.
 - Canonical H2 structure is respected (no unauthorized H2 headings, canonical order).
 - No `VariableID:*` references appear in prose/tables.
 - No implementation-oriented code fences are included.

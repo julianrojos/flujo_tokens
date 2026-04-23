@@ -58,7 +58,6 @@ Use this skill when:
 - Output path defaults to `docs/workflows/patterns/<snake_case>.md`.
 - Use workflow frontmatter:
   - `doc_type: workflow`
-  - `doc_status: draft` (unless explicitly verified)
 - Follow exact section order from `pattern-doc-workflow.mdc`.
 - Do not duplicate component API tables from component docs.
 - Use `TBD` for unknowns and collect them in `## Gaps / TBD`.

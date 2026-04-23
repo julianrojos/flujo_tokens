@@ -15,7 +15,6 @@ All docs under `docs/` must be classified into one of these page types:
 
 ## Metadata contract
 
-Use `markdown-lifecycle-status.mdc` for lifecycle status values and `component-figma-metadata.mdc` for component metadata when applicable.
 This rule defines taxonomy scope and page intent boundaries, not field validation details.
 
 ## Scope discipline
@@ -28,4 +27,3 @@ This rule defines taxonomy scope and page intent boundaries, not field validatio
 ## Cross-rule references
 
 - Component pages must also follow `component-doc.mdc`.
-- Global integrity and no-invention behavior is defined in `ds-docs-guardrails.mdc`.

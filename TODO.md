@@ -61,7 +61,7 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 
 - component-spec rules — output must comply with spec schema
 - `token-references.mdc` — token paths in token_mapping must use real paths
-- `ds-docs-guardrails.mdc` — no invented content
+- `component-doc.mdc` — no invented content
 
 ---
 
@@ -84,7 +84,7 @@ Keep the dashboard-driven spec editor aligned with Figma capture and docs valida
 **Freshness** (what might be stale):
 
 - `FRE-01`: Component specs still `draft`
-- `FRE-02`: Markdown with `doc_status: needs-review`
+- `FRE-02`: Markdown with lifecycle review needed
 - `FRE-03`: `last_verified` dates older than 30 days
 
 **Completeness** (what has TBD gaps):

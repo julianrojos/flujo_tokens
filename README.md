@@ -281,7 +281,7 @@ This workflow documents Design System components from Figma.
 Component docs are edited directly in the dashboard and through dedicated commands. There is no single monolithic orchestrator.
 
 - Use the dashboard to update component specs and markdown pages.
-- Use `npm run ds:capture-visual-proof` to update screenshot evidence for a single component.
+- Use `npm run ds:capture-visual-proof` to capture screenshot evidence for a single component.
 
 ### Documentation Scripts
 
@@ -294,8 +294,8 @@ System context (DB-backed):
 - `--system` without value (for example `--system ""`) is rejected.
 
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation.
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage refresh).
+- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component as a standalone operation.
+- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage refresh).
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
@@ -392,7 +392,6 @@ Component pages are governed by rules in `.agents/rules/` and must include:
 
 - Canonical section order from `component-doc.mdc`
   - H2 headings are strict: only canonical allowed section titles, in canonical order
-- `### Visual Proof` must live inside `## Overview` (never as an extra H2)
 - `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
@@ -488,7 +487,7 @@ Useful flags:
 - `--timeout-ms <number>` (default: `30000`)
 - `--dry-run true`
 
-### 2) Capture visual proof (standalone)
+### 2) Capture screenshot evidence (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \

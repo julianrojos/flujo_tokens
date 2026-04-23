@@ -13,7 +13,6 @@ They are authored as `workflow` pages and should remain implementation-agnostic.
 ## Lifecycle contract
 
 - `doc_type` must be `workflow`.
-- `doc_status` must follow `markdown-lifecycle-status.mdc`.
 - Unknown information must be explicit `TBD`.
 
 ## Required sections (in order)

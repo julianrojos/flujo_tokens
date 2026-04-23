@@ -1,6 +1,5 @@
 ---
 doc_type: workflow
-doc_status: ready
 ---
 
 # Destructive Confirmation Pattern
