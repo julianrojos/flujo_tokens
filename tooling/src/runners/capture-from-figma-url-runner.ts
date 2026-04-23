@@ -96,12 +96,6 @@ const CLI_CONFIG = {
       defaultValue: 'true',
     },
     {
-      name: '--refresh-indices <true|false>',
-      description:
-        'Refresh component metadata in DB + overview once after batch capture.',
-      defaultValue: 'false',
-    },
-    {
       name: '--dry-run <true|false>',
       description: 'Resolve targets and report without writing changes.',
       defaultValue: 'false',

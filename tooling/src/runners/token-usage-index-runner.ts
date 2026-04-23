@@ -26,16 +26,12 @@ import type { TokenUsageIndex } from '../services/token-types.js';
 const CLI_CONFIG = {
   command: 'ds:token-usage-index [options]',
   description:
-    'Generate a deterministic usage index from the active system database, CSS alias chains, and Figma aliases.',
+    'Generate a deterministic usage index from the active system database and CSS alias chains.',
   options: [
     {
       name: '--css-files',
       description: 'Comma-separated CSS files to scan for var(--token) references.',
       defaultValue: '<system>/output/primitives.css,<system>/output/tokens.css',
-    },
-    {
-      name: '--figma-alias-graph',
-      description: 'Path to figma-alias-graph.json file.',
     },
     {
       name: '--registry',
@@ -46,11 +42,6 @@ const CLI_CONFIG = {
       description: 'Legacy spec root input path. Accepted for compatibility.',
     },
     {
-      name: '--out',
-      description: 'Output JSON file path.',
-      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
-    },
-    {
       name: '--format',
       description: 'Stdout output format.',
       defaultValue: 'json',
@@ -58,11 +49,6 @@ const CLI_CONFIG = {
     {
       name: '--strict-unresolved',
       description: 'Exit non-zero when unresolved token references are found.',
-      defaultValue: 'false',
-    },
-    {
-      name: '--dry-run',
-      description: 'Compute and print report without writing files.',
       defaultValue: 'false',
     },
     {
@@ -103,13 +89,8 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   const cssFiles = String(parsed['css-files'] || `${path.join(ctx.paths.output, 'primitives.css')},${path.join(ctx.paths.output, 'tokens.css')}`)
     .split(',')
     .map((f: string) => path.resolve(f.trim()));
-  const outPath = path.resolve(String(parsed.out || ctx.paths.generated + '/token-usage-index.json'));
-  const figmaAliasGraphPath = path.resolve(
-    String(getStringArg(parsed, 'figma-alias-graph') || ctx.paths.figmaAliasGraph)
-  );
   const format = String(parsed.format || 'json');
   const strictUnresolved = parseBooleanOption(parsed['strict-unresolved'], '--strict-unresolved', false);
-  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
   const registryPathArg = getStringArg(parsed, 'registry');
   const hasRegistryFlag = Object.prototype.hasOwnProperty.call(parsed, 'registry');
   const registryPath = registryPathArg ? path.resolve(registryPathArg) : '';
@@ -125,7 +106,6 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     ? (generateUsageIndexFromFile(
         registryPath,
         cssFiles,
-        figmaAliasGraphPath,
       ) as TokenUsageIndex)
     : (() => {
         const registry = loadTokenCatalogFromDatabase({
@@ -139,7 +119,6 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
             loadedRegistry,
             cssRefs,
             aliasChains,
-            figmaAliasGraphPath,
           ) as TokenUsageIndex;
         });
       })();
@@ -164,16 +143,6 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
         console.log(`  • ${item.ref} in ${item.file}`);
       }
     }
-  }
-
-  // Write output file
-  if (!dryRun) {
-    const outDir = path.dirname(outPath);
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
-    }
-    fs.writeFileSync(outPath, JSON.stringify(resolvedReport, null, 2), 'utf8');
-    console.error(`✅ Report saved to ${outPath}`);
   }
 
   // Exit with error if strict mode and unresolved refs

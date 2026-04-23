@@ -10,7 +10,6 @@ export interface DesignSystemConfigEntry {
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
   [key: string]: unknown;
 }
 

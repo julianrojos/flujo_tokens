@@ -23,7 +23,6 @@ export interface PipelineFlags {
     componentKind: string;
     includeVariants: boolean;
     continueOnError: boolean;
-    refreshIndices: boolean;
     dryRun: boolean;
     includeSpecExhibits: boolean;
     variantLimit: number;

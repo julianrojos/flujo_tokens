@@ -2,7 +2,6 @@
  * Mock Factories for Testing
  *
  * Provides mock dependencies for testing spec orchestration and related services.
- * Migrated from tooling/scripts/lib/mock-factories.mjs
  */
 
 import type { PipelineContext } from '../types/pipeline.js';
@@ -18,11 +17,6 @@ export interface MockDeps {
     created: boolean;
     reason: string;
   }>;
-  runTokensCompileIfNeededFn: () => {
-    attempted: boolean;
-    compiled: boolean;
-    reason: string;
-  };
   runJsonCommandFn: () => { data: { ok: boolean } };
   extractComponentSpecFn: () => null;
   resolveSpecExhibitNodeIdsFn: () => null;
@@ -56,7 +50,6 @@ export function createCaptureContextMock(
           generated: '/mock/repo/docs/_generated',
           specs: '/mock/repo/design-systems/sys-01/docs/_spec/components',
           databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
-          figmaAliasGraph: '/mock/repo/docs/_generated/figma-alias-graph.json',
         },
       },
         paths: {
@@ -75,7 +68,6 @@ export function createCaptureContextMock(
         componentKind: 'component_set',
         includeVariants: true,
         continueOnError: true,
-        refreshIndices: true,
         dryRun: true,
         includeSpecExhibits: true,
         variantLimit: 6,
@@ -132,11 +124,6 @@ export function createCaptureContextMock(
     bootstrapInputJsonFromFigmaVariablesFn: async () => ({
       attempted: true,
       created: true,
-      reason: 'mocked',
-    }),
-    runTokensCompileIfNeededFn: () => ({
-      attempted: true,
-      compiled: true,
       reason: 'mocked',
     }),
     runJsonCommandFn: () => ({

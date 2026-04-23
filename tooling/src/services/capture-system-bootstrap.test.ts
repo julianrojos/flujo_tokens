@@ -10,9 +10,8 @@ import {
   ensureCollectionsConfigured,
   getSystemRepository,
   setSystemRepositoryFactory,
-  runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
-import type { SyncFigmaTokensToInputOptions } from './figma-token-sync.js';
+import type { SyncFigmaTokensToDatabaseOptions } from './figma-token-sync.js';
 
 function uniqueSystemId(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
@@ -25,7 +24,6 @@ function createInMemorySystemRepository(repoRoot: string) {
       id: string;
       name: string;
       collections: string[];
-      compileVariablesOnCapture?: boolean;
     }
   >();
   let defaultSystemId: string | undefined;
@@ -41,13 +39,11 @@ function createInMemorySystemRepository(repoRoot: string) {
       id: string;
       name: string;
       collections?: string[];
-      compileVariablesOnCapture?: boolean;
     }) {
       const entry = {
         id: system.id,
         name: system.name,
         collections: [...(system.collections ?? [])],
-        compileVariablesOnCapture: system.compileVariablesOnCapture,
       };
       systems.set(system.id, entry);
       return entry;
@@ -97,7 +93,7 @@ describe('capture-system-bootstrap', () => {
     setSystemRepositoryFactory(null);
   });
 
-  it('bootstraps input JSON even when an empty generated seed exists', async () => {
+  it('bootstraps token rows even when an empty generated seed exists', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-seed-'));
     try {
       fs.mkdirSync(path.join(repoRoot, 'docs', 'demo', '_generated'), { recursive: true });
@@ -107,26 +103,25 @@ describe('capture-system-bootstrap', () => {
         'utf8',
       );
 
-      const calls: SyncFigmaTokensToInputOptions[] = [];
+      const calls: SyncFigmaTokensToDatabaseOptions[] = [];
       const result = await bootstrapInputJsonFromFigmaVariables({
         repoRoot,
         fileKey: 'FILE123',
         figmaToken: 'token',
         system: {
           id: 'demo',
-          inputDir: 'design-systems/demo/input',
-          docsDir: 'design-systems/demo/docs',
-          compileVariablesOnCapture: true,
+          paths: {
+            databaseUrl: 'postgres://demo',
+          },
         },
-        syncFigmaTokensToInputFn: async (args) => {
+        syncFigmaTokensToDatabaseFn: async (args) => {
           calls.push(args);
           return {
             attempted: true,
             reason: 'bootstrapped',
-            files_written: 1,
             tokens_written: 7,
             tokens_total: 9,
-            files: ['design-systems/demo/input/primitives.json'],
+            collections: ['Primitives'],
           };
         },
       });
@@ -135,7 +130,6 @@ describe('capture-system-bootstrap', () => {
       assert.equal(result.attempted, true);
       assert.equal(result.created, true);
       assert.equal(result.reason, 'bootstrapped');
-      assert.equal(result.files_written, 1);
       assert.equal(result.tokens_written, 7);
       assert.equal(result.tokens_total, 9);
     } finally {
@@ -143,28 +137,27 @@ describe('capture-system-bootstrap', () => {
     }
   });
 
-  it('bootstraps input JSON even when compileVariablesOnCapture is false', async () => {
+  it('bootstraps token rows with a minimal system config', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-'));
     try {
-      const calls: SyncFigmaTokensToInputOptions[] = [];
+      const calls: SyncFigmaTokensToDatabaseOptions[] = [];
       const result = await bootstrapInputJsonFromFigmaVariables({
         repoRoot,
         fileKey: 'FILE123',
         figmaToken: 'token',
         system: {
           id: 'demo',
-          inputDir: 'design-systems/demo/input',
-          docsDir: 'design-systems/demo/docs',
-          compileVariablesOnCapture: false,
+          paths: {
+            databaseUrl: 'postgres://demo',
+          },
         },
-        syncFigmaTokensToInputFn: async (args) => {
+        syncFigmaTokensToDatabaseFn: async (args) => {
           calls.push(args);
           return {
             attempted: true,
             reason: 'bootstrapped',
-            files_written: 2,
             tokens_written: 42,
-            files: ['design-systems/demo/input/primitives.json', 'design-systems/demo/input/semantic.json'],
+            collections: ['Primitives', 'Semantic'],
           };
         },
       });
@@ -173,58 +166,11 @@ describe('capture-system-bootstrap', () => {
       assert.equal(result.attempted, true);
       assert.equal(result.created, true);
       assert.equal(result.reason, 'bootstrapped');
-      assert.equal(result.files_written, 2);
       assert.equal(result.tokens_written, 42);
       assert.equal(result.tokens_total, 42);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
-  });
-
-  it('does not short-circuit compile only because a generated seed exists', () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-compile-'));
-    try {
-      fs.mkdirSync(path.join(repoRoot, 'docs', 'demo', '_generated'), { recursive: true });
-      fs.writeFileSync(
-        path.join(repoRoot, 'docs', 'demo', '_generated', 'bootstrap-seed.json'),
-        JSON.stringify({ entries: [], byPath: {}, bySlashPath: {} }, null, 2),
-        'utf8',
-      );
-
-      const result = runTokensCompileIfNeeded({
-        repoRoot,
-        system: {
-          id: 'demo',
-          inputDir: 'design-systems/demo/input',
-          docsDir: 'design-systems/demo/docs',
-          outputDir: 'design-systems/demo/output',
-          compileVariablesOnCapture: true,
-        },
-      });
-
-      assert.equal(result.reason, 'input-json-missing');
-      assert.equal(result.compiled, false);
-    } finally {
-      fs.rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('keeps compile gate controlled by compileVariablesOnCapture', () => {
-    const result = runTokensCompileIfNeeded({
-      repoRoot: '/tmp',
-      system: {
-        id: 'demo',
-        inputDir: 'design-systems/demo/input',
-        docsDir: 'design-systems/demo/docs',
-        compileVariablesOnCapture: false,
-      },
-    });
-
-    assert.deepEqual(result, {
-      attempted: false,
-      compiled: false,
-      reason: 'disabled-by-config',
-    });
   });
 
   it('does not inject fallback collections when input directory has no JSON files', async () => {

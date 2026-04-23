@@ -39,14 +39,12 @@ export interface CaptureReport {
   };
   requested: Record<string, unknown>;
   tokens_bootstrap: unknown;
-  tokens_compile: unknown;
   total_candidates: number;
   targets_total: number;
   targets: MappedCaptureTarget[];
   captured: unknown[];
   failed: unknown[];
   skipped: unknown[];
-  indices_refreshed: boolean;
 }
 
 /**
@@ -85,7 +83,6 @@ export function createCaptureReport(params: {
   };
   requested: Record<string, unknown>;
   tokenBootstrap: unknown;
-  tokenCompile: unknown;
   sourceCandidates: SourceCandidate[];
   targets: CaptureTarget[];
   skipped: unknown[];
@@ -95,7 +92,6 @@ export function createCaptureReport(params: {
     descriptor,
     requested,
     tokenBootstrap,
-    tokenCompile,
     sourceCandidates,
     targets,
     skipped,
@@ -111,13 +107,11 @@ export function createCaptureReport(params: {
     },
     requested,
     tokens_bootstrap: tokenBootstrap,
-    tokens_compile: tokenCompile,
     total_candidates: sourceCandidates.length,
     targets_total: targets.length,
     targets: targets.map((target) => mapCaptureTargetForReport(target)),
     captured: [],
     failed: [],
     skipped,
-    indices_refreshed: false,
   };
 }

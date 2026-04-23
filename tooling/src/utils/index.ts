@@ -249,9 +249,6 @@ export { parseFigmaUrl } from './figma-url-parser.js';
 
 export type { ParsedFigmaUrl } from './figma-url-parser.js';
 
-// Figma component map runners
-export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';
-
 // Figma node spec extractor utilities
 export {
   extractComponentSpec,

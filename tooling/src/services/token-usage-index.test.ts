@@ -1,7 +1,7 @@
 /**
  * Token Usage Index Tests
  *
- * Tests for token usage index generation and figma alias injection.
+ * Tests for token usage index generation.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,10 +10,9 @@ import assert from 'node:assert/strict';
 
 import {
   generateUsageIndex,
-  injectFigmaAliases,
   generateUsageIndexFromFile,
 } from './token-usage-index.js';
-import type { TokenCatalog, TokenUsageEntryNew } from './token-types.js';
+import type { TokenCatalog } from './token-types.js';
 
 describe('token-usage-index', () => {
   describe('generateUsageIndex()', () => {
@@ -78,189 +77,6 @@ describe('token-usage-index', () => {
     });
   });
 
-  describe('injectFigmaAliases()', () => {
-    let tempDir: string;
-    let figmaAliasGraphPath: string;
-
-    beforeEach(() => {
-      tempDir = fs.mkdtempSync('figma-alias-test-');
-      figmaAliasGraphPath = path.join(tempDir, 'figma-alias-graph.json');
-    });
-
-    afterEach(() => {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    });
-
-    it('injectFigmaAliases adds entries with kind: "figma-alias" given valid fixture', () => {
-      // Create mock usageMap
-      const usageMap = new Map<string, TokenUsageEntryNew>();
-      usageMap.set('color.primary', {
-        path: 'color.primary',
-        slashPath: 'color/primary',
-        cssVar: '--color-primary',
-        type: 'color',
-        collection: 'colors',
-        usageCount: 0,
-        usageByKind: {},
-        usedIn: [],
-      });
-
-      // Create figma-alias-graph.json fixture
-      const figmaAliasGraph = {
-        version: 1,
-        generatedAt: '2024-01-01T00:00:00Z',
-        aliases: [
-          {
-            fromPath: 'color.brand',
-            toPath: 'color.primary',
-            modes: ['light', 'dark'],
-          },
-        ],
-      };
-      fs.writeFileSync(figmaAliasGraphPath, JSON.stringify(figmaAliasGraph, null, 2));
-
-      const warnings: Array<{ message: string; tokenPath?: string }> = [];
-      injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
-
-      const entry = usageMap.get('color.primary');
-      assert.ok(entry);
-      assert.strictEqual(entry.usageCount, 1);
-      assert.strictEqual(entry.usageByKind['figma-alias'], 1);
-      assert.strictEqual(entry.usedIn.length, 1);
-      assert.strictEqual(entry.usedIn[0].kind, 'figma-alias');
-      assert.strictEqual(entry.usedIn[0].source, 'figma-variables');
-      assert.strictEqual(entry.usedIn[0].owner, 'color.brand');
-      assert.strictEqual(entry.usedIn[0].detail, 'light, dark');
-      // Warnings array should be empty on success
-      assert.strictEqual(warnings.length, 0);
-    });
-
-    it('injectFigmaAliases does not throw when figmaAliasGraphPath does not exist', () => {
-      const usageMap = new Map<string, TokenUsageEntryNew>();
-      usageMap.set('color.primary', {
-        path: 'color.primary',
-        slashPath: 'color/primary',
-        cssVar: '--color-primary',
-        type: 'color',
-        collection: 'colors',
-        usageCount: 0,
-        usageByKind: {},
-        usedIn: [],
-      });
-
-      const warnings: Array<{ message: string; tokenPath?: string }> = [];
-
-      // Should not throw even if file doesn't exist
-      assert.doesNotThrow(() => {
-        injectFigmaAliases(usageMap, '/nonexistent/path.json', warnings);
-      });
-
-      // Usage map should remain unchanged
-      const entry = usageMap.get('color.primary');
-      assert.ok(entry);
-      assert.strictEqual(entry.usageCount, 0);
-      assert.strictEqual(entry.usedIn.length, 0);
-      // Warnings array should be empty
-      assert.strictEqual(warnings.length, 0);
-    });
-
-    it('injectFigmaAliases gracefully handles malformed JSON', () => {
-      const usageMap = new Map<string, TokenUsageEntryNew>();
-      usageMap.set('color.primary', {
-        path: 'color.primary',
-        slashPath: 'color/primary',
-        cssVar: '--color-primary',
-        type: 'color',
-        collection: 'colors',
-        usageCount: 0,
-        usageByKind: {},
-        usedIn: [],
-      });
-
-      // Write malformed JSON
-      fs.writeFileSync(figmaAliasGraphPath, '{ invalid json }');
-
-      const warnings: Array<{ message: string; tokenPath?: string }> = [];
-
-      // Should not throw
-      assert.doesNotThrow(() => {
-        injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
-      });
-
-      // Usage map should remain unchanged
-      const entry = usageMap.get('color.primary');
-      assert.ok(entry);
-      assert.strictEqual(entry.usageCount, 0);
-    });
-
-    it('injectFigmaAliases skips entries for non-existent target tokens', () => {
-      const usageMap = new Map<string, TokenUsageEntryNew>();
-      // Note: color.secondary is NOT in the usageMap
-      usageMap.set('color.primary', {
-        path: 'color.primary',
-        slashPath: 'color/primary',
-        cssVar: '--color-primary',
-        type: 'color',
-        collection: 'colors',
-        usageCount: 0,
-        usageByKind: {},
-        usedIn: [],
-      });
-
-      const figmaAliasGraph = {
-        version: 1,
-        generatedAt: '2024-01-01T00:00:00Z',
-        aliases: [
-          {
-            fromPath: 'color.brand',
-            toPath: 'color.secondary', // This token doesn't exist in usageMap
-            modes: ['light'],
-          },
-        ],
-      };
-      fs.writeFileSync(figmaAliasGraphPath, JSON.stringify(figmaAliasGraph, null, 2));
-
-      const warnings: Array<{ message: string; tokenPath?: string }> = [];
-      injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
-
-      // color.primary should remain unchanged
-      const primaryEntry = usageMap.get('color.primary');
-      assert.ok(primaryEntry);
-      assert.strictEqual(primaryEntry.usageCount, 0);
-      assert.strictEqual(primaryEntry.usedIn.length, 0);
-      // Warnings array should be empty (skipping non-existent tokens is not an error)
-      assert.strictEqual(warnings.length, 0);
-    });
-
-    it('injectFigmaAliases adds warning to array on malformed JSON', () => {
-      const usageMap = new Map<string, TokenUsageEntryNew>();
-      usageMap.set('color.primary', {
-        path: 'color.primary',
-        slashPath: 'color/primary',
-        cssVar: '--color-primary',
-        type: 'color',
-        collection: 'colors',
-        usageCount: 0,
-        usageByKind: {},
-        usedIn: [],
-      });
-
-      // Write malformed JSON
-      fs.writeFileSync(figmaAliasGraphPath, '{ invalid json }');
-
-      const warnings: Array<{ message: string; tokenPath?: string }> = [];
-
-      // Should not throw
-      assert.doesNotThrow(() => {
-        injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
-      });
-
-      // Warning should be added to array, not just console
-      assert.strictEqual(warnings.length, 1);
-      assert.ok(warnings[0].message.includes('Failed to process figma-alias-graph.json'));
-    });
-  });
-
   describe('generateUsageIndexFromFile()', () => {
     let tempDir: string;
     let registryPath: string;
@@ -313,28 +129,5 @@ describe('token-usage-index', () => {
       assert.ok(result.summary.usage_links_total !== undefined);
     });
 
-    it('accepts optional figmaAliasGraphPath parameter', () => {
-      const figmaAliasGraphPath = path.join(tempDir, 'figma-alias-graph.json');
-
-      // Create figma alias graph
-      const figmaAliasGraph = {
-        version: 1,
-        generatedAt: '2024-01-01T00:00:00Z',
-        aliases: [
-          {
-            fromPath: 'color.brand',
-            toPath: 'color.primary',
-            modes: ['light'],
-          },
-        ],
-      };
-      fs.writeFileSync(figmaAliasGraphPath, JSON.stringify(figmaAliasGraph, null, 2));
-
-      const result = generateUsageIndexFromFile(registryPath, cssFiles, figmaAliasGraphPath);
-
-      const entry = result.byPath['color.primary'];
-      assert.ok(entry);
-      assert.strictEqual(entry.usageByKind['figma-alias'], 1);
-    });
   });
 });

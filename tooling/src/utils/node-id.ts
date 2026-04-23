@@ -2,7 +2,6 @@
  * Figma Node ID Utilities
  *
  * Utilities for normalizing and validating Figma node IDs.
- * Migrated from tooling/scripts/lib/node-id.mjs
  */
 import { createRequire } from 'node:module';
 

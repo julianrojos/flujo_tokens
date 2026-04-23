@@ -332,7 +332,6 @@ export function executeCaptureBatchAndRefresh(params: {
   variantLimit: number;
   agent: string;
   mainCaptureMode: string;
-  refreshIndices: boolean;
   skipDbPersistence?: boolean;
 }): Record<string, unknown> {
   const {
@@ -352,7 +351,6 @@ export function executeCaptureBatchAndRefresh(params: {
     variantLimit,
     agent,
     mainCaptureMode,
-    refreshIndices,
     skipDbPersistence = false,
   } = params;
 
@@ -363,14 +361,6 @@ export function executeCaptureBatchAndRefresh(params: {
     'runners',
     'capture-visual-proof-runner.ts',
   );
-  const tokenUsageIndexScriptPath = path.join(
-    projectRoot,
-    'tooling',
-    'src',
-    'runners',
-    'token-usage-index-runner.ts',
-  );
-
   const captureBatch = runCaptureBatchFn({
     targets,
     repoRoot: projectRoot,
@@ -428,23 +418,6 @@ export function executeCaptureBatchAndRefresh(params: {
       ok: false,
       skipped: true,
     };
-  }
-
-  if (refreshIndices) {
-    try {
-      const tokenUsageResult = runNodeScriptJson({
-        repoRoot: projectRoot,
-        scriptPath: tokenUsageIndexScriptPath,
-        scriptArgs: ['--system', systemId],
-        runJsonCommandFn,
-      });
-      report.token_usage_refresh = tokenUsageResult;
-    } catch (tokenUsageError) {
-      report.token_usage_refresh = {
-        ok: false,
-        error: toErrorMessage(tokenUsageError),
-      };
-    }
   }
 
   report.ok =

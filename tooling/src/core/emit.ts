@@ -16,7 +16,6 @@ import { canEmitUntypedTokenValue, canEmitTokenValue } from '../utils/emittable.
 import { ReferenceResolver } from './reference-resolver.js';
 import { processValueWithRegistry } from './value-processors.js';
 
-// Re-export processValue for backward compatibility
 export { processValueWithRegistry as processValue };
 
 // Local alias for use within this file

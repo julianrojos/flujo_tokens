@@ -491,7 +491,6 @@ export function processValueWithRegistry(
     });
 }
 
-// Re-export processValue for backward compatibility during transition
 export function processValue(
     ctx: EmissionContext,
     value: TokenValue['$value'],

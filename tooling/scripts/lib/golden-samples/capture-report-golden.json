@@ -23,11 +23,6 @@
     "created": false,
     "reason": "already-exists"
   },
-  "tokens_compile": {
-    "attempted": true,
-    "compiled": false,
-    "reason": "up-to-date"
-  },
   "total_candidates": 1,
   "targets_total": 1,
   "targets": [
@@ -50,6 +45,5 @@
     }
   ],
   "failed": [],
-  "skipped": [],
-  "indices_refreshed": false
+  "skipped": []
 }

@@ -42,7 +42,6 @@ export interface DesignSystemConfig {
   outputDir: string;
   docsDir: string;
   collections: string[];
-  compileVariablesOnCapture?: boolean;
 }
 
 /**
@@ -70,7 +69,6 @@ export interface ScriptSystemContext {
     specs: string;
     docs: string;
     databaseUrl: string;
-    figmaAliasGraph: string;
   };
 }
 
@@ -90,7 +88,6 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
       databaseUrl: resolveDashboardDatabaseUrl(),
-      figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },
   };
 }
@@ -114,7 +111,6 @@ function toDesignSystemConfig(system: {
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
 }): DesignSystemConfig {
   const dirs = deriveSystemDirs(system.id);
   return {
@@ -127,7 +123,6 @@ function toDesignSystemConfig(system: {
     outputDir: dirs.outputDir,
     docsDir: dirs.docsDir,
     collections: Array.isArray(system.collections) ? system.collections : [],
-    compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
   };
 }
 

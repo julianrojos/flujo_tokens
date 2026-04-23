@@ -1,7 +1,7 @@
 /**
  * Capture System Bootstrap
  *
- * Handles system repository initialization and token compilation for capture pipeline.
+ * Handles system repository initialization and token bootstrap for capture pipeline.
  */
 
 import * as fs from 'node:fs';
@@ -9,10 +9,7 @@ import * as path from 'node:path';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
-import {
-  runTokensCompile,
-  syncFigmaTokensToInput,
-} from './figma-token-sync.js';
+import { syncFigmaTokensToDatabase } from './figma-token-sync.js';
 import type { FigmaVariableSource } from './figma-token-sync.js';
 
 /**
@@ -124,7 +121,7 @@ export async function getSystemConfig(params: {
 }
 
 /**
- * Bootstrap input JSON from Figma variables.
+ * Bootstrap token rows from Figma variables into the database.
  */
 export async function bootstrapInputJsonFromFigmaVariables(params: {
   repoRoot: string;
@@ -133,16 +130,14 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   figmaFileUrl?: string;
   figmaToken: string;
   tokensSource?: FigmaVariableSource;
-  syncFigmaTokensToInputFn?: typeof syncFigmaTokensToInput;
+  syncFigmaTokensToDatabaseFn?: typeof syncFigmaTokensToDatabase;
 }): Promise<{
   attempted: boolean;
   created: boolean;
   reason: string;
-  files_written?: number;
   collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
-  files?: string[];
   error?: string;
 }> {
   const {
@@ -152,23 +147,24 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     figmaFileUrl,
     figmaToken,
     tokensSource = 'mcp',
-    syncFigmaTokensToInputFn = syncFigmaTokensToInput,
+    syncFigmaTokensToDatabaseFn,
   } = params;
+  const syncFigmaTokensToDatabaseImpl = syncFigmaTokensToDatabaseFn || syncFigmaTokensToDatabase;
 
   if (!system) {
     return { attempted: false, created: false, reason: 'system-missing' };
   }
 
-  const inputDir = String(system.inputDir || (system as { paths?: { input?: string } })?.paths?.input || '').trim();
-  if (!inputDir) {
-    return { attempted: false, created: false, reason: 'system-input-dir-missing' };
+  const databaseUrl = String((system as { paths?: { databaseUrl?: string } })?.paths?.databaseUrl || '').trim();
+  if (!databaseUrl) {
+    return { attempted: false, created: false, reason: 'system-database-url-missing' };
   }
 
   if (!fileKey) {
     return { attempted: false, created: false, reason: 'figma-file-key-missing' };
   }
 
-  const syncResult = await syncFigmaTokensToInputFn({
+  const syncResult = await syncFigmaTokensToDatabaseImpl({
     repoRoot,
     system,
     fileKey,
@@ -180,45 +176,25 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     mcpFileUrl: figmaFileUrl,
   });
 
+  if (syncResult.collections && syncResult.collections.length > 0 && system && typeof system.id === 'string') {
+    try {
+      const repository = getSystemRepository(repoRoot);
+      const current = await repository.getById(system.id);
+      if (current && (!Array.isArray(current.collections) || current.collections.length === 0)) {
+        await repository.update(system.id, { collections: syncResult.collections });
+      }
+    } catch {
+      // Keep token sync successful even if collection metadata update fails.
+    }
+  }
+
   return {
     attempted: syncResult.attempted ?? true,
-    created: (syncResult.files_written ?? 0) > 0,
-    reason: syncResult.reason ?? 'bootstrapped',
-    files_written: syncResult.files_written ?? 0,
+    created: (syncResult.tokens_written ?? syncResult.tokens_total ?? 0) > 0,
+    reason: syncResult.reason ?? 'persisted',
     collections: syncResult.collections ?? [],
-    tokens_written: syncResult.tokens_written ?? 0,
+    tokens_written: syncResult.tokens_written ?? syncResult.tokens_total ?? 0,
     tokens_total: syncResult.tokens_total ?? syncResult.tokens_written ?? 0,
-    files: syncResult.files ?? [],
     error: syncResult.error,
-  };
-}
-
-/**
- * Run tokens compile if needed.
- */
-export function runTokensCompileIfNeeded(params: {
-  repoRoot: string;
-  system?: Record<string, unknown> | null;
-}): {
-  attempted: boolean;
-  compiled: boolean;
-  reason: string;
-  stderr?: string;
-  output?: string;
-} {
-  const { repoRoot, system } = params;
-
-  if (!system) return { attempted: false, compiled: false, reason: 'system-missing' };
-
-  const enabled = system.compileVariablesOnCapture !== false;
-  if (!enabled) return { attempted: false, compiled: false, reason: 'disabled-by-config' };
-
-  const compileResult = runTokensCompile({ repoRoot, system });
-  return {
-    attempted: compileResult.attempted,
-    compiled: compileResult.compiled ?? false,
-    reason: compileResult.reason ?? (compileResult.compiled ? 'compiled' : 'unknown'),
-    stderr: compileResult.stderr,
-    output: compileResult.output,
   };
 }

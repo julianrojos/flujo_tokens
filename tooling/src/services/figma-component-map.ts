@@ -3,7 +3,6 @@
  *
  * Builds a map of components and component sets from Figma file.
  * Includes walkNode logic for tracking component ownership, nesting, and instance dependencies.
- * Migrated from tooling/scripts/lib/figma-component-map.mjs and integrated with existing types.
  */
 
 import type { FigmaNode } from '../types/figma.js';

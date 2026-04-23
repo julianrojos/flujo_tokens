@@ -1,39 +1,22 @@
 /**
  * Figma Token Sync Service
  *
- * Shared module for importing Figma local variables into design-token JSON files
- * and optionally compiling them to CSS custom properties.
+ * Shared module for importing Figma local variables into the token database
+ * from Figma variables.
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
 import { normalizeTokenTypeFromFigma } from '@flujo/shared';
 import { stripDiacritics } from '../utils/strip-diacritics.js';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
 
 const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
   rawValue: unknown,
   options?: { defaultValue?: SharedFigmaVariableSource; optionName?: string },
 ) => SharedFigmaVariableSource;
-
-// ─── File helpers ─────────────────────────────────────────────────────────────
-
-/**
- * Check if input directory has JSON files.
- */
-export function hasInputJsonFiles(repoRoot: string, inputDir: string): boolean {
-  // Validate inputDir is not empty to avoid resolving to repo root
-  if (!inputDir?.trim()) return false;
-  const resolvedDir = path.resolve(repoRoot, inputDir);
-  if (!fs.existsSync(resolvedDir)) return false;
-  return fs
-    .readdirSync(resolvedDir, { withFileTypes: true })
-    .some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.json'));
-}
 
 /**
  * Sanitize a collection name to a valid file stem.
@@ -46,26 +29,6 @@ export function sanitizeCollectionFileStem(rawName: string, fallback = 'imported
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
   return normalized || (fallback || 'imported').toLowerCase();
-}
-
-/**
- * Write text to file atomically.
- */
-function writeTextAtomic(filePath: string, text: string): void {
-  const tempPath = `${filePath}.tmp`;
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(tempPath, text, 'utf8');
-  fs.renameSync(tempPath, filePath);
-}
-
-/**
- * Backup an input JSON file before overwrite.
- */
-function backupInputJson(filePath: string): string | null {
-  if (!fs.existsSync(filePath)) return null;
-  const backupPath = `${filePath}.bak`;
-  fs.copyFileSync(filePath, backupPath);
-  return backupPath;
 }
 
 /**
@@ -327,113 +290,12 @@ export function mergeTokenTrees(base: unknown, incoming: unknown): unknown {
 interface FilesMapPayload {
   description: string;
   data: Record<string, unknown>;
-  modeName?: string; // Added to store explicit mode name
 }
 
 export interface BuildFilesMapResult {
   filesMap: Map<string, FilesMapPayload>;
   tokenCount: number;
 }
- /**
- * Extract figma alias graph from built token trees
- */
-function extractFigmaAliasGraph(filesMap: Map<string, FilesMapPayload>): { aliases: Array<{fromPath: string; toPath: string; modes: string[]}> } {
-  const aliases: Array<{fromPath: string; toPath: string; modes: string[]}> = [];
-  const figmaIdToPath = new Map<string, string>();
-
-  // First pass: build map of figmaId -> tokenPath
-  for (const [fileKey, payload] of filesMap.entries()) {
-    function walkTokenTree(node: unknown, currentPath: string[] = []): void {
-      if (!node || typeof node !== 'object') return;
-
-      const tokenNode = node as Record<string, unknown>;
-      if (tokenNode.$id && typeof tokenNode.$id === 'string') {
-        const fullPath = currentPath.join('.');
-        figmaIdToPath.set(tokenNode.$id, fullPath);
-      }
-
-      // Walk children
-      for (const [key, value] of Object.entries(tokenNode)) {
-        if (!key.startsWith('$')) {
-          walkTokenTree(value, [...currentPath, key]);
-        }
-      }
-    }
-
-    walkTokenTree(payload.data);
-  }
-
-  // Second pass: extract VARIABLE_ALIAS references
-  for (const [fileKey, payload] of filesMap.entries()) {
-    const modeName = payload.modeName || 'default'; // Use explicit mode name from payload
-
-    function walkAliasTree(node: unknown, currentPath: string[] = []): void {
-      if (!node || typeof node !== 'object') return;
-
-      const tokenNode = node as Record<string, unknown>;
-      if (
-        tokenNode.$value &&
-        typeof tokenNode.$value === 'object' &&
-        (tokenNode.$value as Record<string, unknown>).type === 'VARIABLE_ALIAS' &&
-        typeof (tokenNode.$value as Record<string, unknown>).id === 'string'
-      ) {
-        const fromPath = currentPath.join('.');
-        const toId = (tokenNode.$value as Record<string, unknown>).id as string;
-        const toPath = figmaIdToPath.get(toId);
-
-        if (toPath && toPath !== fromPath) {
-          const existingAlias = aliases.find(a => a.fromPath === fromPath && a.toPath === toPath);
-          if (existingAlias) {
-            if (!existingAlias.modes.includes(modeName)) {
-              existingAlias.modes.push(modeName);
-            }
-          } else {
-            aliases.push({ fromPath, toPath, modes: [modeName] });
-          }
-        }
-      }
-
-      // Walk children
-      for (const [key, value] of Object.entries(tokenNode)) {
-        if (!key.startsWith('$')) {
-          walkAliasTree(value, [...currentPath, key]);
-        }
-      }
-    }
-
-    walkAliasTree(payload.data);
-  }
-
-  return { aliases };
-}
-
-/**
- * Write figma-alias-graph.json file
- */
-function writeFigmaAliasGraph(filesMap: Map<string, FilesMapPayload>, docsDir: string): void {
-  try {
-    const aliasGraph = extractFigmaAliasGraph(filesMap);
-
-    if (aliasGraph.aliases.length === 0) {
-      // No aliases to write
-      return;
-    }
-
-    const graphPath = path.resolve(docsDir, '_generated/figma-alias-graph.json');
-    const graphData = {
-      version: 1,
-      generatedAt: new Date().toISOString(),
-      aliases: aliasGraph.aliases,
-    };
-
-    fs.mkdirSync(path.dirname(graphPath), { recursive: true });
-    writeTextAtomic(graphPath, `${JSON.stringify(graphData, null, 2)}\n`);
-    console.error(`✅ Figma alias graph written to ${path.relative(process.cwd(), graphPath)} (${aliasGraph.aliases.length} aliases)`);
-  } catch (error) {
-    console.warn(`⚠️  Failed to write figma-alias-graph.json: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 /**
  * Build a map of files from Figma variables payload.
  */
@@ -473,7 +335,6 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
               ? collectionName
               : `${collectionName} (${modeName})`,
           data: {},
-          modeName: modeName as string, // Store explicit mode name
         });
       }
 
@@ -498,54 +359,10 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
 
 // ─── Main sync function ───────────────────────────────────────────────────────
 
-export interface SyncFigmaTokensToInputOptions {
-  repoRoot: string;
-  system: {
-    inputDir?: string;
-    outputDir?: string;
-    docsDir?: string;
-    paths?: {
-      input?: string;
-      output?: string;
-      docs?: string;
-    };
-  } | null;
-  fileKey: string;
-  figmaToken?: string;
-  force?: boolean;
-  merge?: boolean;
-  dryRun?: boolean;
-  source?: FigmaVariableSource;
-  mcpFileUrl?: string;
-  fetchRestVariablesFn?: typeof fetchFigmaLocalVariables;
-  fetchMcpVariablesFn?: typeof fetchFigmaLocalVariablesViaMcp;
-}
-
 export type FigmaVariableSource = SharedFigmaVariableSource;
 
-export interface SyncFigmaTokensToInputResult {
-  attempted: boolean;
-  reason?: string;
-  hint?: string;  // Added for helpful messages
-  error?: string;
-  dryRun?: boolean;
-  force?: boolean;
-  merge?: boolean;
-  files_planned?: number;
-  tokens_planned?: number;
-  files?: string[];
-  collections?: string[];
-  files_written?: number;
-  tokens_written?: number;
-  tokens_total?: number;
-  backed_up?: string[];
-  source_requested?: FigmaVariableSource;
-  source_used?: Exclude<FigmaVariableSource, 'auto'>;
-  source_attempts?: Array<Exclude<FigmaVariableSource, 'auto'>>;
-}
-
 export function isFatalSyncReason(reason: string): boolean {
-  const fatalReasons = ['fetch-failed', 'system-missing', 'figma-file-key-missing', 'system-input-dir-missing', 'invalid-source'];
+  const fatalReasons = ['fetch-failed', 'system-missing', 'system-database-url-missing', 'figma-file-key-missing', 'invalid-source'];
   return fatalReasons.includes(reason);
 }
 
@@ -567,6 +384,229 @@ function toMcpFileUrl(fileKey: string, explicitFileUrl?: string): string {
   const direct = String(explicitFileUrl || '').trim();
   if (direct) return direct;
   return `https://www.figma.com/design/${encodeURIComponent(fileKey)}`;
+}
+
+function normalizeDbSegments(rawName: string): string[] {
+  return String(rawName || '')
+    .split('/')
+    .map((segment) => stripDiacritics(String(segment || '').trim()))
+    .filter(Boolean);
+}
+
+function toDbTokenPaths(rawName: string): {
+  path: string;
+  slashPath: string;
+  cssVar: string;
+} {
+  const segments = normalizeDbSegments(rawName);
+  const slashPath = segments.join('/');
+  const path = segments.join('.');
+  const cssStem = segments
+    .join('-')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+  const cssVar = `--${cssStem || 'token'}`;
+  return { path, slashPath, cssVar };
+}
+
+function normalizeDbType(args: { resolvedType: string }): string {
+  return String(args.resolvedType || '').trim().toUpperCase();
+}
+
+function toDbHexByte(value: number): string {
+  const clamped = Math.max(0, Math.min(1, Number(value || 0)));
+  return Math.round(clamped * 255)
+    .toString(16)
+    .padStart(2, '0');
+}
+
+function dbFigmaColorToHex(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Record<string, unknown>;
+  const r = toDbHexByte(Number(value.r));
+  const g = toDbHexByte(Number(value.g));
+  const b = toDbHexByte(Number(value.b));
+  const a = toDbHexByte(Number(value.a ?? 1));
+  if (a === 'ff') return `#${r}${g}${b}`.toUpperCase();
+  return `#${r}${g}${b}${a}`.toUpperCase();
+}
+
+function buildModeNameMap(
+  collections: Record<string, Record<string, unknown>>,
+): Map<string, Map<string, string>> {
+  const byCollectionId = new Map<string, Map<string, string>>();
+  for (const collection of Object.values(collections || {})) {
+    const collectionRecord = collection as Record<string, unknown>;
+    const modes = new Map<string, string>();
+    for (const mode of Array.isArray(collectionRecord.modes) ? collectionRecord.modes : []) {
+      const modeRecord = mode as Record<string, unknown>;
+      const modeId = String(modeRecord?.modeId || '').trim();
+      if (!modeId) continue;
+      modes.set(modeId, String(modeRecord?.name || modeId).trim() || modeId);
+    }
+    byCollectionId.set(String(collectionRecord.id || ''), modes);
+  }
+  return byCollectionId;
+}
+
+function resolveDbValue(raw: unknown, idToPath: Map<string, string>): string {
+  if (raw && typeof raw === 'object') {
+    const objectValue = raw as Record<string, unknown>;
+    if (String(objectValue.type || '').trim().toUpperCase() === 'VARIABLE_ALIAS') {
+      const aliasId = String(objectValue.id || '').trim();
+      return idToPath.get(aliasId) || aliasId;
+    }
+    const colorHex = dbFigmaColorToHex(raw);
+    if (colorHex) return colorHex;
+    return JSON.stringify(raw);
+  }
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+  return '';
+}
+
+type DbTokenRow = {
+  id: string;
+  slashPath: string;
+  cssVar: string;
+  type: string;
+  collection: string;
+  rawValue: string;
+};
+
+type DbModeValueRow = {
+  tokenPath: string;
+  mode: string;
+  resolvedValue: string;
+};
+
+type DbAliasRow = {
+  fromPath: string;
+  toPath: string;
+  modes: string[];
+};
+
+function buildDbTokenRows(meta: FigmaVariablesResponse['meta']): {
+  tokens: DbTokenRow[];
+  modeValues: DbModeValueRow[];
+  aliases: DbAliasRow[];
+  graphJson: string;
+} {
+  const variables = Object.values(meta?.variables || {});
+  const collections = (meta?.variableCollections || {}) as Record<string, Record<string, unknown>>;
+  const modeNameMapByCollectionId = buildModeNameMap(collections);
+
+  const idToPath = new Map<string, string>();
+  for (const variable of variables) {
+    const variableId = String((variable as Record<string, unknown>)?.id || '').trim();
+    const { path } = toDbTokenPaths(String((variable as Record<string, unknown>)?.name || ''));
+    if (!variableId || !path) continue;
+    idToPath.set(variableId, path);
+  }
+
+  const tokens: DbTokenRow[] = [];
+  const modeValuesByKey = new Map<string, DbModeValueRow>();
+  const aliasModes = new Map<string, Set<string>>();
+
+  for (const variable of variables) {
+    const variableRecord = variable as Record<string, unknown>;
+    const variableId = String(variableRecord?.id || '').trim();
+    const { path, slashPath, cssVar } = toDbTokenPaths(String(variableRecord?.name || ''));
+    if (!variableId || !path || !slashPath) continue;
+
+    const collection = collections[String(variableRecord.variableCollectionId || '')];
+    const collectionName =
+      String(collection?.name || 'default').trim() || 'default';
+    const type = normalizeDbType({
+      resolvedType: String(variableRecord.resolvedType || ''),
+    });
+    const modeNameMap =
+      modeNameMapByCollectionId.get(
+        String(variableRecord.variableCollectionId || ''),
+      ) || new Map<string, string>();
+
+    const localModeValues: DbModeValueRow[] = [];
+    for (const [modeId, rawValue] of Object.entries(
+      (variableRecord.valuesByMode as Record<string, unknown>) || {},
+    )) {
+      const mode =
+        modeNameMap.get(modeId) || String(modeId || '').trim() || 'Default';
+      const resolvedValue = resolveDbValue(rawValue, idToPath);
+      localModeValues.push({ tokenPath: path, mode, resolvedValue });
+
+      const aliasType =
+        rawValue && typeof rawValue === 'object'
+          ? String((rawValue as Record<string, unknown>).type || '')
+              .trim()
+              .toUpperCase()
+          : '';
+      if (aliasType === 'VARIABLE_ALIAS') {
+        const aliasId = String((rawValue as Record<string, unknown>).id || '').trim();
+        const targetPath = idToPath.get(aliasId);
+        if (targetPath) {
+          const key = `${path}::${targetPath}`;
+          const modes = aliasModes.get(key) || new Set<string>();
+          modes.add(mode);
+          aliasModes.set(key, modes);
+        }
+      }
+    }
+
+    if (localModeValues.length === 0) continue;
+    const preferred =
+      localModeValues.find((entry) => entry.mode === 'Default') ||
+      localModeValues.find((entry) => entry.mode.toLowerCase() === 'default') ||
+      localModeValues[0];
+
+    tokens.push({
+      id: path,
+      slashPath,
+      cssVar,
+      type,
+      collection: collectionName,
+      rawValue: preferred.resolvedValue,
+    });
+    for (const modeValue of localModeValues) {
+      const modeKey = `${modeValue.tokenPath}\x00${modeValue.mode}`;
+      modeValuesByKey.set(modeKey, modeValue);
+    }
+  }
+
+  const aliases: DbAliasRow[] = Array.from(aliasModes.entries()).map(
+    ([edge, modes]) => {
+      const [fromPath, toPath] = edge.split('::');
+      return {
+        fromPath,
+        toPath,
+        modes: Array.from(modes).sort((a, b) => a.localeCompare(b)),
+      };
+    },
+  );
+
+  const graphJson = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    graph: {
+      nodes: tokens.map((token) => ({
+        path: token.id,
+        type: token.type,
+        cssVar: token.cssVar,
+      })),
+      edges: aliases.map((alias) => ({
+        from: alias.fromPath,
+        to: alias.toPath,
+        type: 'figma-alias',
+      })),
+    },
+  });
+
+  return {
+    tokens,
+    modeValues: Array.from(modeValuesByKey.values()),
+    aliases,
+    graphJson,
+  };
 }
 
 async function fetchVariablesBySource(options: {
@@ -656,10 +696,49 @@ async function fetchVariablesBySource(options: {
   }
 }
 
-/**
- * Sync Figma local variables to input JSON files.
- */
-export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOptions): Promise<SyncFigmaTokensToInputResult> {
+export interface SyncFigmaTokensToDatabaseOptions {
+  repoRoot: string;
+  system: {
+    id?: string;
+    name?: string;
+    paths?: {
+      databaseUrl?: string;
+    };
+  } | null;
+  fileKey: string;
+  figmaToken?: string;
+  force?: boolean;
+  merge?: boolean;
+  dryRun?: boolean;
+  source?: FigmaVariableSource;
+  mcpFileUrl?: string;
+  fetchRestVariablesFn?: typeof fetchFigmaLocalVariables;
+  fetchMcpVariablesFn?: typeof fetchFigmaLocalVariablesViaMcp;
+  bootstrapDatabaseFn?: typeof bootstrapDatabase;
+}
+
+export interface SyncFigmaTokensToDatabaseResult {
+  attempted: boolean;
+  reason?: string;
+  error?: string;
+  dryRun?: boolean;
+  force?: boolean;
+  merge?: boolean;
+  files_planned?: number;
+  tokens_planned?: number;
+  files?: string[];
+  collections?: string[];
+  tokens_written?: number;
+  tokens_total?: number;
+  backed_up?: string[];
+  source_requested?: FigmaVariableSource;
+  source_used?: Exclude<FigmaVariableSource, 'auto'>;
+  source_attempts?: Array<Exclude<FigmaVariableSource, 'auto'>>;
+}
+
+export async function syncFigmaTokensToDatabase(
+  options: SyncFigmaTokensToDatabaseOptions,
+): Promise<SyncFigmaTokensToDatabaseResult> {
   const {
     repoRoot,
     system,
@@ -672,9 +751,9 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     mcpFileUrl,
     fetchRestVariablesFn = fetchFigmaLocalVariables,
     fetchMcpVariablesFn = fetchFigmaLocalVariablesViaMcp,
+    bootstrapDatabaseFn = bootstrapDatabase,
   } = options;
 
-  // Normalize and validate source, catching invalid values
   let sourceRequested: FigmaVariableSource;
   try {
     sourceRequested = normalizeVariableSource(source);
@@ -689,21 +768,18 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
   if (!system) {
     return { attempted: false, reason: 'system-missing' };
   }
+  const dsId = String(system.id || '').trim();
+  if (!dsId) {
+    return { attempted: false, reason: 'system-id-missing' };
+  }
+  const databaseUrl = String(system.paths?.databaseUrl || '').trim();
+  if (!databaseUrl) {
+    return { attempted: false, reason: 'system-database-url-missing' };
+  }
   if (!fileKey) {
     return { attempted: false, reason: 'figma-file-key-missing' };
   }
-  // Validate inputDir is not empty to prevent writing to repo root
-  const inputDir = String(system.inputDir || system.paths?.input || '').trim();
-  if (!inputDir) {
-    return { attempted: false, reason: 'system-input-dir-missing' };
-  }
 
-  const existingJsonFiles = hasInputJsonFiles(repoRoot, inputDir);
-  if (existingJsonFiles && !force) {
-    return { attempted: false, reason: 'input-json-exists', hint: 'Use --force true to re-sync.' };
-  }
-
-  // Fetch variables from Figma
   const variablesFetchResult = await fetchVariablesBySource({
     source: sourceRequested,
     fileKey,
@@ -712,6 +788,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     fetchRestVariablesFn,
     fetchMcpVariablesFn,
   });
+
   if (!variablesFetchResult.payload) {
     return {
       attempted: true,
@@ -721,15 +798,16 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
       source_attempts: variablesFetchResult.sourceAttempts,
     };
   }
-  const variablesPayload = variablesFetchResult.payload;
 
+  const variablesPayload = variablesFetchResult.payload;
   const meta: Record<string, unknown> | null = variablesPayload?.meta
     ? (variablesPayload.meta as Record<string, unknown>)
     : null;
+  const { tokens, modeValues, aliases, graphJson } = buildDbTokenRows(
+    meta as FigmaVariablesResponse['meta'],
+  );
 
-  const { filesMap, tokenCount } = buildFilesMapFromVariables(meta);
-
-  if (filesMap.size === 0 || tokenCount === 0) {
+  if (tokens.length === 0 || modeValues.length === 0) {
     return {
       attempted: true,
       reason: 'variables-empty',
@@ -740,12 +818,8 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     };
   }
 
-  const inputDirPath = path.resolve(repoRoot, inputDir);
-
-  // Build preview / dry-run result
-  const plannedFiles = Array.from(filesMap.keys()).map((stem) =>
-    path.relative(repoRoot, path.join(inputDirPath, `${stem}.json`)),
-  );
+  const collections = Array.from(new Set(tokens.map((token) => token.collection)));
+  const plannedFiles = collections.map((collection) => `${collection}.json`);
 
   if (dryRun) {
     return {
@@ -754,163 +828,78 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
       force,
       merge,
       files_planned: plannedFiles.length,
-      tokens_planned: tokenCount,
-      tokens_total: tokenCount,
+      tokens_planned: tokens.length,
+      tokens_total: tokens.length,
       files: plannedFiles,
-      collections: Array.from(filesMap.values()).map((f) => f.description),
+      collections,
       source_requested: sourceRequested,
       source_used: variablesFetchResult.sourceUsed,
       source_attempts: variablesFetchResult.sourceAttempts,
     };
   }
 
-  // Write files
-  fs.mkdirSync(inputDirPath, { recursive: true });
-  const writtenFiles: string[] = [];
-  const backedUpFiles: string[] = [];
+  const sql = await bootstrapDatabaseFn(databaseUrl);
+  try {
+    await sql.begin(async (tx) => {
+      await tx`DELETE FROM token_mode_values WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM tokens WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM figma_aliases WHERE ds_id = ${dsId}`;
+      await tx`DELETE FROM token_graph WHERE ds_id = ${dsId}`;
 
-  for (const [fileStem, payload] of filesMap.entries()) {
-    const filePath = path.join(inputDirPath, `${fileStem}.json`);
-
-    // Backup before overwrite
-    if (force && fs.existsSync(filePath)) {
-      const backupPath = backupInputJson(filePath);
-      if (backupPath) backedUpFiles.push(path.relative(repoRoot, backupPath));
-    }
-
-    let finalData = payload.data;
-
-    // Merge mode: deep-merge incoming over existing
-    if (merge && fs.existsSync(filePath)) {
-      try {
-        const existing = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        // Strip $description from merge base, re-add payload.description after
-        const { $description: _desc, ...existingData } = existing;
-        finalData = mergeTokenTrees(existingData as Record<string, unknown>, payload.data) as Record<string, unknown>;
-      } catch {
-        // If existing file is unparseable, fall through to full overwrite
+      for (const token of tokens) {
+        await tx`
+          INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+          VALUES (${token.id}, ${dsId}, ${token.slashPath}, ${token.cssVar}, ${token.type}, ${token.collection}, ${token.rawValue})
+          ON CONFLICT (ds_id, id) DO UPDATE SET
+            slash_path = EXCLUDED.slash_path,
+            css_var = EXCLUDED.css_var,
+            type = EXCLUDED.type,
+            collection = EXCLUDED.collection,
+            raw_value = EXCLUDED.raw_value
+        `;
       }
-    }
 
-    const jsonPayload = {
-      $description: payload.description,
-      ...finalData,
-    };
-    writeTextAtomic(filePath, `${JSON.stringify(jsonPayload, null, 2)}\n`);
-    writtenFiles.push(path.relative(repoRoot, filePath));
-  }
+      for (const modeValue of modeValues) {
+        await tx`
+          INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+          VALUES (${dsId}, ${modeValue.tokenPath}, ${modeValue.mode}, ${modeValue.resolvedValue})
+          ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET
+            resolved_value = EXCLUDED.resolved_value
+        `;
+      }
 
-  // Write figma-alias-graph.json if we have a docsDir
-  const docsDir = String(system.docsDir || system.paths?.docs || '').trim();
-  if (docsDir) {
-    writeFigmaAliasGraph(filesMap, path.resolve(repoRoot, docsDir));
+      for (const alias of aliases) {
+        await tx`
+          INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+          VALUES (${dsId}, ${alias.fromPath}, ${alias.toPath}, ${JSON.stringify(alias.modes)})
+          ON CONFLICT (ds_id, from_path, to_path) DO NOTHING
+        `;
+      }
+
+      await tx`
+        INSERT INTO token_graph (ds_id, graph_json, generated_at)
+        VALUES (${dsId}, ${graphJson}, now())
+        ON CONFLICT (ds_id) DO UPDATE SET
+          graph_json = EXCLUDED.graph_json,
+          generated_at = EXCLUDED.generated_at
+      `;
+    });
+  } finally {
+    await sql.end();
   }
 
   return {
     attempted: true,
+    reason: 'persisted',
     dryRun: false,
     force,
     merge,
-    files_written: writtenFiles.length,
-    tokens_written: tokenCount,
-    tokens_total: tokenCount,
-    files: writtenFiles,
-    collections: Array.from(filesMap.values()).map((f) => f.description),
-    backed_up: backedUpFiles,
+    tokens_written: tokens.length,
+    tokens_total: tokens.length,
+    collections,
+    backed_up: [],
     source_requested: sourceRequested,
     source_used: variablesFetchResult.sourceUsed,
     source_attempts: variablesFetchResult.sourceAttempts,
-  };
-}
-
-// ─── Compile step ─────────────────────────────────────────────────────────────
-
-export interface RunTokensCompileOptions {
-  repoRoot: string;
-  system: {
-    inputDir?: string;
-    outputDir?: string;
-    docsDir?: string;
-    paths?: {
-      input?: string;
-      output?: string;
-      docs?: string;
-    };
-  } | null;
-}
-
-export interface RunTokensCompileResult {
-  attempted: boolean;
-  compiled?: boolean;
-  reason?: string;
-  stderr?: string;
-  outputs?: {
-    primitives: string;
-    tokens: string;
-  };
-  output?: string;
-}
-
-/**
- * Run the token compiler to compile input JSON → CSS custom properties.
- */
-export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCompileResult {
-  const { repoRoot, system } = options;
-  if (!system) return { attempted: false, reason: 'system-missing' };
-
-  // Validate inputDir is not empty
-  const inputDir = String(system.inputDir || system.paths?.input || '').trim();
-  if (!inputDir) {
-    return { attempted: false, reason: 'system-input-dir-missing' };
-  }
-
-  const inputDirPath = path.resolve(repoRoot, inputDir);
-  const outputDir = path.resolve(repoRoot, String(system.outputDir || system.paths?.output || ''));
-
-  if (!hasInputJsonFiles(repoRoot, inputDir)) {
-    return { attempted: false, reason: 'input-json-missing' };
-  }
-
-  fs.mkdirSync(outputDir, { recursive: true });
-
-  const args = [
-    '--import',
-    'tsx',
-    path.join(repoRoot, 'tooling', 'src', 'cli', 'index.ts'),
-    '--split',
-    '--input',
-    inputDirPath,
-    '--output-primitives',
-    path.join(outputDir, 'primitives.css'),
-    '--output-tokens',
-    path.join(outputDir, 'tokens.css'),
-  ];
-
-  const result = spawnSync(process.execPath, args, {
-    cwd: repoRoot,
-    stdio: 'pipe',
-    env: process.env,
-  });
-  const stdout = result.stdout ? String(result.stdout).trim() : '';
-  const stderr = result.stderr ? String(result.stderr).trim() : '';
-
-  if ((result.status ?? 1) !== 0) {
-    return {
-      attempted: true,
-      compiled: false,
-      reason: 'compile-failed',
-      stderr: stderr || stdout,
-    };
-  }
-
-  return {
-    attempted: true,
-    compiled: true,
-    reason: 'compiled',
-    outputs: {
-      primitives: path.relative(repoRoot, path.join(outputDir, 'primitives.css')),
-      tokens: path.relative(repoRoot, path.join(outputDir, 'tokens.css')),
-    },
-    output: stdout,
   };
 }

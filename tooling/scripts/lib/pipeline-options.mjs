@@ -45,7 +45,6 @@ export function parsePipelineOptions(args) {
     includeVariants: parseBooleanOption(args["include-variants"], "--include-variants", true),
     requireExistingDoc: parseBooleanOption(args["require-existing-doc"], "--require-existing-doc", true),
     continueOnError: parseBooleanOption(args["continue-on-error"], "--continue-on-error", true),
-    refreshIndices: parseBooleanOption(args["refresh-indices"], "--refresh-indices", true),
     dryRun: parseBooleanOption(args["dry-run"], "--dry-run", false),
     injectDocSpecs: parseBooleanOption(args["inject-doc-specs"], "--inject-doc-specs", false),
     includeSpecExhibits: parseBooleanOption(args["include-spec-exhibits"], "--include-spec-exhibits", true),

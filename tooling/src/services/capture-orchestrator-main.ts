@@ -22,9 +22,7 @@ import {
 } from '../utils/system-context.js';
 import {
   bootstrapInputJsonFromFigmaVariables,
-  ensureCollectionsConfigured,
   getSystemConfig,
-  runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import { orchestrateTokenSync } from './capture-token-orchestrator.js';
 import { configureFigmaContext } from './capture-figma-context.js';
@@ -103,9 +101,7 @@ export interface RunCaptureFromFigmaUrlDeps {
   buildFigmaComponentMapFn?: typeof buildFigmaComponentMap;
   buildFigmaNodeUrlFn?: typeof buildFigmaNodeUrl;
   bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
-  ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
   getSystemConfigFn?: typeof getSystemConfig;
-  runTokensCompileIfNeededFn?: typeof runTokensCompileIfNeeded;
   extractSingleNodeCandidateFn?: typeof extractSingleNodeCandidate;
   parseBooleanOptionFn?: typeof parseBooleanOption;
   parseComponentKindFn?: typeof parseComponentKind;
@@ -156,9 +152,7 @@ export async function runCaptureFromFigmaUrl(
     buildFigmaComponentMapFn = buildFigmaComponentMap,
     buildFigmaNodeUrlFn = buildFigmaNodeUrl,
     bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
-    ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
     getSystemConfigFn = getSystemConfig,
-    runTokensCompileIfNeededFn = runTokensCompileIfNeeded,
     extractSingleNodeCandidateFn = extractSingleNodeCandidate,
     parseBooleanOptionFn = parseBooleanOption,
     parseComponentKindFn = parseComponentKind,
@@ -217,7 +211,6 @@ export async function runCaptureFromFigmaUrl(
     componentKind,
     includeVariants,
     continueOnError,
-    refreshIndices,
     dryRun,
     includeSpecExhibits,
     variantLimit,
@@ -242,7 +235,6 @@ export async function runCaptureFromFigmaUrl(
   };
   phase = 'token_sync';
   let tokenBootstrap: unknown;
-  let tokenCompile: unknown;
   try {
     const tokenSync = await orchestrateTokenSyncFn({
       dryRun,
@@ -254,11 +246,8 @@ export async function runCaptureFromFigmaUrl(
       tokensSource: flags.tokensSource,
       getSystemConfigFn,
       bootstrapInputJsonFromFigmaVariablesFn,
-      ensureCollectionsConfiguredFn,
-      runTokensCompileIfNeededFn,
     });
     tokenBootstrap = tokenSync.tokenBootstrap;
-    tokenCompile = tokenSync.tokenCompile;
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
@@ -418,7 +407,6 @@ export async function runCaptureFromFigmaUrl(
       include_spec_exhibits: includeSpecExhibits,
     },
     tokenBootstrap,
-    tokenCompile,
     sourceCandidates,
     targets,
     skipped,
@@ -452,7 +440,6 @@ export async function runCaptureFromFigmaUrl(
       variantLimit,
       agent,
       mainCaptureMode,
-      refreshIndices,
       skipDbPersistence,
     });
   } catch (error) {
