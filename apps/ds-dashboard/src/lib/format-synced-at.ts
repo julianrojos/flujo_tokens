@@ -1,5 +1,6 @@
 export function formatSyncedAt(value: string | undefined, fallback = "—"): string {
-  if (!value) return fallback;
-  const date = new Date(value);
+  const trimmed = value?.trim();
+  if (!trimmed) return fallback;
+  const date = new Date(trimmed);
   return Number.isFinite(date.getTime()) ? date.toLocaleString() : fallback;
 }

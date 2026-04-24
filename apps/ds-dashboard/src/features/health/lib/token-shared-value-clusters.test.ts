@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { TokenCatalogEntry } from "@/types/token-catalog";
-import { normalizeResolvedValueKey } from "@/lib/token-value-normalize";
+import {
+  normalizeResolvedValueKey,
+  normalizeResolvedValueFilter,
+} from "@/lib/token-value-normalize";
 import {
   buildSharedValueClusters,
   resolveClusterFill,
@@ -27,6 +30,8 @@ describe("token-shared-value-clusters", () => {
     assert.equal(normalizeResolvedValueKey("#fff"), "#FFFFFF");
     assert.equal(normalizeResolvedValueKey("#ffffff"), "#FFFFFF");
     assert.equal(normalizeResolvedValueKey("  16px  "), "16px");
+    assert.equal(normalizeResolvedValueFilter("#fff"), "#FFFFFF");
+    assert.equal(normalizeResolvedValueFilter("  16px  "), "16px");
   });
 
   it("groups tokens by shared resolved value and filters singletons", () => {

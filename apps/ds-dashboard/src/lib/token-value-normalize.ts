@@ -17,7 +17,7 @@ export function resolveColorSwatch(value: string): string | null {
   return normalizeHexColor(value);
 }
 
-export function normalizeResolvedValueKey(value: string): string {
+function normalizeResolvedValue(value: string): string {
   const raw = String(value || "").trim();
   if (!raw) return "";
   const hex = normalizeHexColor(raw);
@@ -25,10 +25,10 @@ export function normalizeResolvedValueKey(value: string): string {
   return raw.toLowerCase();
 }
 
+export function normalizeResolvedValueKey(value: string): string {
+  return normalizeResolvedValue(value);
+}
+
 export function normalizeResolvedValueFilter(value: string): string {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const hex = normalizeHexColor(raw);
-  if (hex) return hex;
-  return raw.toLowerCase();
+  return normalizeResolvedValue(value);
 }

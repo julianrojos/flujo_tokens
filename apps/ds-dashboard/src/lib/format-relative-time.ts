@@ -25,10 +25,10 @@ export function formatRelativeTime(
   const locale = options?.locale ?? 'es';
 
   const date =
-    typeof value === 'string' ? new Date(value) :
+    typeof value === 'string' ? new Date(value.trim()) :
     typeof value === 'number' ? new Date(value) :
     null;
-  if (!date || isNaN(date.getTime())) return locale === 'es' ? 'Nunca' : 'Never';
+  if (!date || Number.isNaN(date.getTime())) return locale === 'es' ? 'Nunca' : 'Never';
 
   const diffMs = date.getTime() - Date.now();
   const absMs = Math.abs(diffMs);

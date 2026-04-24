@@ -3,10 +3,10 @@ import { useCallback, useState } from "react";
 export type SortDirection = "asc" | "desc";
 
 export function useSortState<F extends string>(initial: {
-  field: F;
-  dir: SortDirection;
+  readonly field: F;
+  readonly dir: SortDirection;
 }) {
-  const [sort, setSort] = useState(() => ({ ...initial }));
+  const [sort, setSort] = useState(() => ({ field: initial.field, dir: initial.dir }));
 
   const toggle = useCallback((field: F) => {
     setSort((current) =>
