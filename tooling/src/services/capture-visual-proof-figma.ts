@@ -5,9 +5,6 @@
  * These are pure functions — no HTTP requests, only process data from disk or already-fetched responses.
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-
 import type { VariantNode } from '../types/capture-visual-proof.js';
 
 /**
@@ -28,24 +25,6 @@ export function parseFigmaFileKeyFromUrl(figmaUrl: string): string {
   } catch {
     return '';
   }
-}
-
-/**
- * Load Figma config from the component spec.
- */
-export function loadSpecFigma(
-  specPath: string,
-  parseYamlDocumentFn: (content: string, label: string) => Record<string, unknown>,
-): Record<string, unknown> {
-  if (!fs.existsSync(specPath)) return {};
-  const spec = parseYamlDocumentFn(
-    fs.readFileSync(specPath, 'utf8'),
-    `component spec (${path.basename(specPath)})`,
-  );
-  const figma = (spec as Record<string, unknown>).figma;
-  return figma && typeof figma === 'object' && !Array.isArray(figma)
-    ? (figma as Record<string, unknown>)
-    : {};
 }
 
 /**

@@ -203,7 +203,6 @@ export type {
 export {
   parseFigmaFileUrl,
   buildFigmaComponentMap,
-  formatFigmaComponentMap,
   toHyphenNodeId,
   sanitizeNodeId,
   parseNodeIdFromUrl,

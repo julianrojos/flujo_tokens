@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { guessContentType } from "../lib/request-file-helpers.mjs";
+import { guessContentType } from "../lib/request-file-helpers.ts";
 
 const ALLOWED_VISUAL_PROOF_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"]);
 

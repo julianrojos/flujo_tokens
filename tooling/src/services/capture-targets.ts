@@ -17,29 +17,6 @@ export function normalizeNameToSlug(rawName: unknown): string {
   return normalized || '';
 }
 
-/**
- * Build slug lookup map from component spec contents.
- */
-export function buildSlugLookupFromSpecContents(
-  specFiles: Array<{ slug: string; content: string }>,
-): Map<string, string> {
-  const byNodeId = new Map<string, string>();
-  
-  if (!Array.isArray(specFiles)) return byNodeId;
-  
-  for (const file of specFiles) {
-    const raw = String(file.content || '');
-    const slug = String(file.slug || '').trim();
-    const match = raw.match(/^\s*component_set_node_id:\s*["']?([0-9]+:[0-9]+)["']?\s*$/m);
-    
-    if (!match || !match[1]) continue;
-    const nodeId = String(match[1]).trim();
-    
-    if (!byNodeId.has(nodeId)) byNodeId.set(nodeId, slug);
-  }
-  
-  return byNodeId;
-}
 
 /**
  * Build slug lookup map from persisted component rows.
@@ -72,7 +49,6 @@ export function resolveInferredSlug(params: {
   applySlugOverride?: boolean;
   componentSlugOverride?: string;
   slugByNodeFromRegistry?: Map<string, string>;
-  slugByNodeFromSpecs: Map<string, string>;
   nodeId: string;
   candidateName?: unknown;
 }): string {
@@ -80,7 +56,6 @@ export function resolveInferredSlug(params: {
     applySlugOverride,
     componentSlugOverride,
     slugByNodeFromRegistry,
-    slugByNodeFromSpecs,
     nodeId,
     candidateName,
   } = params;
@@ -88,7 +63,6 @@ export function resolveInferredSlug(params: {
   return (
     (applySlugOverride ? componentSlugOverride : '') ||
     slugByNodeFromRegistry?.get(nodeId) ||
-    slugByNodeFromSpecs.get(nodeId) ||
     normalizeNameToSlug(candidateName)
   );
 }

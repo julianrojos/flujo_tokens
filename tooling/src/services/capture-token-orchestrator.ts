@@ -36,7 +36,6 @@ export interface OrchestrateTokenSyncResult {
     collections?: string[];
     tokens_written?: number;
     tokens_total?: number;
-    files?: string[];
     error?: string;
   };
 }

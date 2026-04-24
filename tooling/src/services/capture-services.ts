@@ -38,7 +38,6 @@ export interface CaptureServices {
       };
     }>
   >;
-  readSpecContents: () => Array<{ slug: string; content: string }>;
   readMarkdownContent: (path: string) => string;
   markdownExists: (path: string) => boolean;
   specExists: (path: string) => boolean;
@@ -83,20 +82,6 @@ export function createCaptureServices(params: {
       } finally {
         if (db) await db.end();
       }
-    },
-    readSpecContents: () => {
-      const dir = context.paths.resolvedSpecRoot;
-      if (!fs.existsSync(dir)) return [];
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      return entries
-        .filter(
-          (e) =>
-            e.isFile() && e.name.endsWith('.yml') && e.name !== '_template.yml',
-        )
-        .map((e) => ({
-          slug: path.basename(e.name, '.yml'),
-          content: fs.readFileSync(path.join(dir, e.name), 'utf8'),
-        }));
     },
     readMarkdownContent: (p: string) => fs.readFileSync(p, 'utf8'),
     markdownExists: (p: string) => fs.existsSync(p),

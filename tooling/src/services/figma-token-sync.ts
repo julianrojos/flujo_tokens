@@ -19,107 +19,16 @@ const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
 ) => SharedFigmaVariableSource;
 
 /**
- * Sanitize a collection name to a valid file stem.
+ * Sanitize a collection name to a stable slug.
  * Normalizes diacritics (accents) to ASCII base characters.
  */
-export function sanitizeCollectionFileStem(rawName: string, fallback = 'imported'): string {
+export function sanitizeCollectionSlug(rawName: string, fallback = 'imported'): string {
   const normalized = stripDiacritics(String(rawName || '').trim())
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
   return normalized || (fallback || 'imported').toLowerCase();
-}
-
-/**
- * Check if value is a plain object.
- */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-/**
- * Check if value has token node shape.
- */
-function isTokenNodeShape(value: unknown): boolean {
-  return (
-    isPlainObject(value) &&
-    Object.prototype.hasOwnProperty.call(value, '$value')
-  );
-}
-
-// ─── Figma variable normalization ─────────────────────────────────────────────
-
-/**
- * Normalize Figma variable collections into a map.
- */
-export function normalizeVariableCollections(rawCollections: unknown): Map<string, Record<string, unknown>> {
-  const index = new Map<string, Record<string, unknown>>();
-  if (Array.isArray(rawCollections)) {
-    for (const entry of rawCollections) {
-      const id = String(entry?.id || '').trim();
-      if (!id) continue;
-      index.set(id, entry as Record<string, unknown>);
-    }
-    return index;
-  }
-  if (rawCollections && typeof rawCollections === 'object') {
-    for (const entry of Object.values(rawCollections)) {
-      const id = String(entry?.id || '').trim();
-      if (!id) continue;
-      index.set(id, entry as Record<string, unknown>);
-    }
-  }
-  return index;
-}
-
-/**
- * Normalize variables list from various input shapes.
- */
-export function normalizeVariablesList(rawVariables: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(rawVariables)) return rawVariables as Array<Record<string, unknown>>;
-  if (rawVariables && typeof rawVariables === 'object') {
-    return Object.values(rawVariables) as Array<Record<string, unknown>>;
-  }
-  return [];
-}
-
-/**
- * Pick all mode values from a variable record.
- */
-export function pickAllModeValues(
-  variableRecord: Record<string, unknown>,
-  collectionRecord: Record<string, unknown> | null
-): Map<string, unknown> {
-  const valuesByMode =
-    variableRecord && typeof variableRecord.valuesByMode === 'object'
-      ? variableRecord.valuesByMode as Record<string, unknown>
-      : {};
-  const results = new Map<string, unknown>();
-
-  if (Array.isArray(collectionRecord?.modes)) {
-    for (const mode of collectionRecord.modes) {
-      const modeId = String(mode?.modeId || '').trim();
-      const modeName = String(mode?.name || modeId).trim();
-      if (!modeId) continue;
-      if (Object.prototype.hasOwnProperty.call(valuesByMode, modeId)) {
-        const val = valuesByMode[modeId];
-        if (val !== undefined && val !== null) {
-          results.set(modeName, val);
-        }
-      }
-    }
-  }
-
-  if (results.size === 0) {
-    for (const [modeId, val] of Object.entries(valuesByMode)) {
-      if (val !== undefined && val !== null) {
-        results.set(modeId, val);
-      }
-    }
-  }
-
-  return results;
 }
 
 /**
@@ -227,134 +136,6 @@ export function buildTokenNodeFromFigmaVariable(
     tokenNode.$id = tokenId;
   }
   return tokenNode;
-}
-
-/**
- * Assign a token node at a path in a target object.
- */
-export function assignTokenAtPath(
-  targetRoot: Record<string, unknown>,
-  pathSegments: string[],
-  tokenNode: TokenNode
-): boolean {
-  if (!targetRoot || typeof targetRoot !== 'object') return false;
-  if (!Array.isArray(pathSegments) || pathSegments.length === 0) return false;
-  let cursor: Record<string, unknown> = targetRoot;
-  for (let index = 0; index < pathSegments.length - 1; index += 1) {
-    const part = String(pathSegments[index] || '').trim();
-    if (!part) return false;
-    const current = cursor[part];
-    if (!current || typeof current !== 'object' || Array.isArray(current)) {
-      cursor[part] = {};
-    }
-    cursor = cursor[part] as Record<string, unknown>;
-  }
-  const leaf = String(pathSegments[pathSegments.length - 1] || '').trim();
-  if (!leaf) return false;
-  cursor[leaf] = tokenNode;
-  return true;
-}
-
-// ─── Deep merge for --merge mode ──────────────────────────────────────────────
-
-/**
- * Deep merge two token trees.
- */
-export function mergeTokenTrees(base: unknown, incoming: unknown): unknown {
-  if (!base || typeof base !== 'object') return incoming;
-  if (!incoming || typeof incoming !== 'object') return base;
-  // Token/group shape collisions must replace, not merge, to avoid invalid DTCG nodes.
-  if (isTokenNodeShape(base) || isTokenNodeShape(incoming)) {
-    return incoming;
-  }
-  const result = { ...base } as Record<string, unknown>;
-  for (const [key, value] of Object.entries(incoming)) {
-    if (
-      value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      result[key] &&
-      typeof result[key] === 'object' &&
-      !Array.isArray(result[key])
-    ) {
-      result[key] = mergeTokenTrees(result[key] as Record<string, unknown>, value as Record<string, unknown>);
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-// ─── Build files map from Figma variables payload ────────────────────────────
-
-interface FilesMapPayload {
-  description: string;
-  data: Record<string, unknown>;
-}
-
-export interface BuildFilesMapResult {
-  filesMap: Map<string, FilesMapPayload>;
-  tokenCount: number;
-}
-/**
- * Build a map of files from Figma variables payload.
- */
-export function buildFilesMapFromVariables(meta: Record<string, unknown> | null): BuildFilesMapResult {
-  const collectionsIndex = normalizeVariableCollections(meta?.variableCollections);
-  const variableRecords = normalizeVariablesList(meta?.variables);
-  const filesMap = new Map<string, FilesMapPayload>();
-  let tokenCount = 0;
-
-  for (const variableRecord of variableRecords) {
-    if (!variableRecord || typeof variableRecord !== 'object') continue;
-    const variableName = String(variableRecord.name || '').trim();
-    if (!variableName) continue;
-
-    const collectionId = String(variableRecord.variableCollectionId || '').trim();
-    const collectionRecord = collectionsIndex.get(collectionId) || null;
-    const collectionName =
-      String(collectionRecord?.name || 'Imported').trim() || 'Imported';
-    const collectionFileStem = sanitizeCollectionFileStem(collectionName, 'imported');
-
-    const modeValues = pickAllModeValues(variableRecord, collectionRecord);
-    if (modeValues.size === 0) continue;
-
-    for (const [modeName, modeValue] of modeValues) {
-      const fileKey =
-        modeValues.size === 1
-          ? collectionFileStem
-          : `${collectionFileStem}-${sanitizeCollectionFileStem(modeName as string, 'default')}`;
-
-      const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
-      if (!tokenNode) continue;
-
-      if (!filesMap.has(fileKey)) {
-        filesMap.set(fileKey, {
-          description:
-            modeValues.size === 1
-              ? collectionName
-              : `${collectionName} (${modeName})`,
-          data: {},
-        });
-      }
-
-      const target = filesMap.get(fileKey)!;
-      const pathSegments = variableName
-        .split('/')
-        .map((segment) => {
-          const trimmed = String(segment || '').trim();
-          // Normalize diacritics in the entire path segment
-          return stripDiacritics(trimmed);
-        })
-        .filter(Boolean);
-      if (pathSegments.length === 0) continue;
-      const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);
-      if (!assigned) continue;
-      tokenCount += 1;
-    }
-  }
-
-  return { filesMap, tokenCount };
 }
 
 // ─── Main sync function ───────────────────────────────────────────────────────
@@ -724,9 +505,8 @@ export interface SyncFigmaTokensToDatabaseResult {
   dryRun?: boolean;
   force?: boolean;
   merge?: boolean;
-  files_planned?: number;
+  collections_planned?: number;
   tokens_planned?: number;
-  files?: string[];
   collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
@@ -819,7 +599,6 @@ export async function syncFigmaTokensToDatabase(
   }
 
   const collections = Array.from(new Set(tokens.map((token) => token.collection)));
-  const plannedFiles = collections.map((collection) => `${collection}.json`);
 
   if (dryRun) {
     return {
@@ -827,10 +606,9 @@ export async function syncFigmaTokensToDatabase(
       dryRun: true,
       force,
       merge,
-      files_planned: plannedFiles.length,
+      collections_planned: collections.length,
       tokens_planned: tokens.length,
       tokens_total: tokens.length,
-      files: plannedFiles,
       collections,
       source_requested: sourceRequested,
       source_used: variablesFetchResult.sourceUsed,

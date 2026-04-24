@@ -8,7 +8,7 @@ import { createCommandExecutionService } from '../services/command-execution-ser
 import { createQueueEngineService } from '../services/queue-engine-service.mjs';
 import { createQueueJobFactoryService } from '../services/queue-job-factory-service.mjs';
 import { createSnippetBuilder, type SnippetResult } from './request-file-helpers.ts';
-import { runSpawnWithCapture } from './spawn-runner.mjs';
+import { runSpawnWithCapture } from './spawn-runner.ts';
 import { toQueueSummaryFromPayload } from './queue-utils.ts';
 import {
   createDevRuntimeChecker,

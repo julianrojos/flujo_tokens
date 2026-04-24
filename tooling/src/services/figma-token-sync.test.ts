@@ -8,8 +8,7 @@ import { describe, it } from 'node:test';
 
 import {
   buildTokenNodeFromFigmaVariable,
-  mergeTokenTrees,
-  sanitizeCollectionFileStem,
+  sanitizeCollectionSlug,
   syncFigmaTokensToDatabase,
 } from './figma-token-sync.js';
 import type { FigmaVariablesResponse } from '../utils/figma.js';
@@ -87,66 +86,16 @@ describe('figma-token-sync', () => {
     });
   });
 
-  describe('mergeTokenTrees()', () => {
-    it('replaces on token/group shape collision', () => {
-      const existing = {
-        color: {
-          brand: {
-            $value: '#ffffff',
-            $type: 'color',
-          },
-        },
-      };
-      const incoming = {
-        color: {
-          brand: {
-            100: { $value: '#f5f5f5', $type: 'color' },
-          },
-        },
-      };
-
-      const merged = mergeTokenTrees(existing, incoming);
-      assert.deepStrictEqual(merged, incoming);
-    });
-
-    it('deep-merges regular object branches', () => {
-      const existing = {
-        color: {
-          brand: {
-            100: { $value: '#f5f5f5', $type: 'color' },
-          },
-        },
-      };
-      const incoming = {
-        color: {
-          brand: {
-            200: { $value: '#e0e0e0', $type: 'color' },
-          },
-        },
-      };
-
-      const merged = mergeTokenTrees(existing, incoming);
-      assert.deepStrictEqual(merged, {
-        color: {
-          brand: {
-            100: { $value: '#f5f5f5', $type: 'color' },
-            200: { $value: '#e0e0e0', $type: 'color' },
-          },
-        },
-      });
-    });
-  });
-
-  describe('sanitizeCollectionFileStem', () => {
+  describe('sanitizeCollectionSlug', () => {
     it('normalizes diacritics in collection names', () => {
-      assert.equal(sanitizeCollectionFileStem('Tipografía'), 'tipografia');
-      assert.equal(sanitizeCollectionFileStem('Acción'), 'accion');
-      assert.equal(sanitizeCollectionFileStem('España'), 'espana');
+      assert.equal(sanitizeCollectionSlug('Tipografía'), 'tipografia');
+      assert.equal(sanitizeCollectionSlug('Acción'), 'accion');
+      assert.equal(sanitizeCollectionSlug('España'), 'espana');
     });
 
     it('falls back to imported for empty names', () => {
-      assert.equal(sanitizeCollectionFileStem(''), 'imported');
-      assert.equal(sanitizeCollectionFileStem('   '), 'imported');
+      assert.equal(sanitizeCollectionSlug(''), 'imported');
+      assert.equal(sanitizeCollectionSlug('   '), 'imported');
     });
   });
 
@@ -228,7 +177,7 @@ describe('figma-token-sync', () => {
       assert.equal(bootstrapCalls, 0);
       assert.equal(result.dryRun, true);
       assert.equal(result.tokens_planned, 1);
-      assert.equal(result.files_planned, 1);
+      assert.equal(result.collections_planned, 1);
       assert.deepEqual(result.collections, ['Primitives']);
     });
 

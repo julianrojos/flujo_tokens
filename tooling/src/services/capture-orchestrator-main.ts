@@ -39,7 +39,6 @@ import {
 import { createPipelineContext } from './pipeline-context.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import {
-  buildSlugLookupFromSpecContents,
   buildSlugLookupFromRegistry,
 } from './capture-targets.js';
 import { createCaptureServices } from './capture-services.js';
@@ -107,7 +106,6 @@ export interface RunCaptureFromFigmaUrlDeps {
   parseComponentKindFn?: typeof parseComponentKind;
   parseMainCaptureModeFn?: typeof parseMainCaptureMode;
   parsePositiveNumberFn?: typeof parsePositiveNumber;
-  buildSlugLookupFromSpecContentsFn?: typeof buildSlugLookupFromSpecContents;
   buildSlugLookupFromRegistryFn?: typeof buildSlugLookupFromRegistry;
   isKindAllowedFn?: typeof isKindAllowed;
   classifyTargetKindFn?: typeof classifyTargetKind;
@@ -158,7 +156,6 @@ export async function runCaptureFromFigmaUrl(
     parseComponentKindFn = parseComponentKind,
     parseMainCaptureModeFn = parseMainCaptureMode,
     parsePositiveNumberFn = parsePositiveNumber,
-    buildSlugLookupFromSpecContentsFn = buildSlugLookupFromSpecContents,
     buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
     isKindAllowedFn = isKindAllowed,
     classifyTargetKindFn = classifyTargetKind,
@@ -277,13 +274,10 @@ export async function runCaptureFromFigmaUrl(
   phase = 'build_targets';
   let services: ReturnType<typeof createCaptureServices>;
   let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
-  let slugByNodeFromSpecs: ReturnType<typeof buildSlugLookupFromSpecContentsFn>;
   try {
     services = createCaptureServices({ context });
     const componentRows = await services.readComponentRegistry();
     slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
-    const specContents = services.readSpecContents();
-    slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
@@ -347,10 +341,8 @@ export async function runCaptureFromFigmaUrl(
       applySlugOverride,
       componentSlugOverride,
       slugByNodeFromRegistry,
-      slugByNodeFromSpecs,
       includeSpecExhibits,
       figmaToken,
-      repoRoot: projectRoot,
       ensureFilePayload,
       fetchFigmaNodes: fetchFigmaNodesFn,
       fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: {
