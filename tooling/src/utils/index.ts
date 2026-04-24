@@ -154,24 +154,6 @@ export { isTbdMarker } from './tbd.js';
 // Frontmatter parsing utilities
 export { parseYamlDocument } from './parse-frontmatter.js';
 
-// Cache utilities
-export {
-  computeFingerprint,
-  loadSyncState,
-  saveSyncState,
-  shouldSkipTask,
-  updateTaskState,
-} from './cache-utils.js';
-
-export type {
-  SyncState,
-  SyncTaskState,
-  ComputeFingerprintOptions,
-  ShouldSkipTaskOptions,
-  ShouldSkipTaskResult,
-  UpdateTaskStateOptions,
-} from './cache-utils.js';
-
 // Component name utilities
 export {
   componentNameToSnakeCase,

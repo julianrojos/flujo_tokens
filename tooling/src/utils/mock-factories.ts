@@ -60,7 +60,6 @@ export function createCaptureContextMock(
           proofImageDir: '/mock/repo/docs/_generated/visual-proofs/images',
           resolvedSpecRoot:
             '/mock/repo/design-systems/sys-01/docs/_spec/components',
-          overviewPath: '/mock/repo/docs/overview.md',
           databaseUrl: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
         },
       flags: {

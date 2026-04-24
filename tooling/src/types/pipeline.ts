@@ -15,7 +15,6 @@ export interface PipelinePaths {
     proofImageDir: string;
     databaseUrl: string;
     resolvedSpecRoot: string;
-    overviewPath: string;
 }
 
 export interface PipelineFlags {

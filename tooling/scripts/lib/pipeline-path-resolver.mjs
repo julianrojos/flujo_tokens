@@ -29,14 +29,13 @@ export function resolvePipelinePaths(args, systemContext) {
 
   const specRoot = args["spec-root"] || systemContext.paths.specs || path.join(docsRootDir, "_spec", "components");
   const resolvedSpecRoot = path.resolve(specRoot);
-  return {
-    docsRootOverride,
-    docsRootDir,
-    componentDocsDir,
-    proofDir,
-    proofImageDir,
-    databaseUrl: systemContext.paths.databaseUrl,
-    resolvedSpecRoot,
-    overviewPath: path.resolve(path.join(docsRootDir, "overview.md")),
-  };
+    return {
+        docsRootOverride,
+        docsRootDir,
+        componentDocsDir,
+        proofDir,
+        proofImageDir,
+        databaseUrl: systemContext.paths.databaseUrl,
+        resolvedSpecRoot,
+    };
 }
