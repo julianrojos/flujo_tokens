@@ -4,12 +4,15 @@
  * Prefill token mapping suggestions based on registry entries.
  */
 import { isPlainObject } from '../utils/is-plain-object.js';
-import { isTbdMarker } from '../utils/tbd.js';
 
 /**
  * Minimum score for a strong token match.
  */
 const STRONG_MATCH_THRESHOLD = 2;
+
+function isTbdMarker(value: unknown): boolean {
+  return /^tbd$/i.test(String(value || '').trim());
+}
 
 export interface RegistryEntry {
   path?: string;
