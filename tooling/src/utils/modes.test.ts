@@ -20,6 +20,7 @@ describe('modes helpers', () => {
         it('accepts raw preferred labels and normalized preferred keys', () => {
             assert.equal(matchesPreferredMode('Mode Dark', 'Mode Dark'), true);
             assert.equal(matchesPreferredMode('mode_dark', 'dark'), true);
+            assert.equal(matchesPreferredMode('  --Mode Dark  ', '  mode--dark  '), true);
             assert.equal(matchesPreferredMode('Mode Light', 'dark'), false);
         });
     });

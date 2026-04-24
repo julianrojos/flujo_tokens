@@ -167,10 +167,14 @@ export function getTokenAliases(
   registry: TokenCatalog,
   tokenId: string,
 ): TokenCatalogEntry[] {
+  const target = findTokenById(registry, tokenId);
+  const targetCssVar = target?.cssVar;
   return registry.entries.filter(
     (entry) =>
       entry.aliases?.includes(tokenId) ||
-      (isCssVarRef(entry.$value) && extractVarName(entry.$value) === findTokenById(registry, tokenId)?.cssVar),
+      (Boolean(targetCssVar) &&
+        isCssVarRef(entry.$value) &&
+        extractVarName(entry.$value) === targetCssVar),
   );
 }
 

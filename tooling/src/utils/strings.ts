@@ -46,7 +46,7 @@ export function isValidCssVariableName(name: string): boolean {
  *
  * If all segments are empty, returns a safe fallback name to avoid emitting an invalid `"--"` token.
  */
-export function buildCssVarNameFromPrefix(prefix: string[]): string {
+export function buildCssVarNameFromPrefix(prefix: readonly string[]): string {
     const normalized = prefix.filter((segment) => String(segment || '').trim().length > 0);
     if (normalized.length === 0) return '--unknown-token';
     return `--${normalized.join('-')}`;
