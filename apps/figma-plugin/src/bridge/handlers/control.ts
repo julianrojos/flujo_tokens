@@ -19,9 +19,9 @@ import {
  * CLEAR_CONSOLE - No-op control for console buffer management.
  * Console buffer is maintained server-side.
  */
-export async function handleClearConsole(
+export function handleClearConsole(
   _params: ClearConsoleParams
-): Promise<ClearConsoleResult> {
+): ClearConsoleResult {
   // This is a no-op - console buffer management is server-side
   return {
     cleared: true,
