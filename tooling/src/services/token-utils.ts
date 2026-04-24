@@ -17,6 +17,7 @@ import type {
  * Regex for CSS variable references: var(--name) or var(--name, fallback)
  */
 export const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
+const CSS_VAR_REF_TEST_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/i;
 
 /**
  * Regex for CSS custom property declarations: --name: value;
@@ -108,7 +109,7 @@ export function extractCssDeclarations(cssText: string): Array<{
  */
 export function isCssVarRef(value: unknown): boolean {
   const trimmed = String(value ?? '').trim();
-  return CSS_VAR_REF_RE.test(trimmed);
+  return CSS_VAR_REF_TEST_RE.test(trimmed);
 }
 
 /**
@@ -178,7 +179,7 @@ export function getTokenAliases(
  */
 export function isPrimitiveValue(value: unknown): boolean {
   const trimmed = String(value ?? '').trim();
-  return !CSS_VAR_REF_RE.test(trimmed);
+  return !CSS_VAR_REF_TEST_RE.test(trimmed);
 }
 
 /**

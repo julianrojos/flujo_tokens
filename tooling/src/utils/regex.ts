@@ -9,14 +9,15 @@
  * This script keeps distinct instances for replacement vs collection, and resets `lastIndex`
  * around each use to avoid state leakage across calls.
  */
-export const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // Replacement/scanning.
-export const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // Dependency collection via exec() loops.
+const W3C_REF_PATTERN_SOURCE = '\\{([A-Za-z0-9_./\\s-]+)\\}';
+export const W3C_REF_REGEX_REPLACE = new RegExp(W3C_REF_PATTERN_SOURCE, 'g'); // Replacement/scanning.
+export const W3C_REF_REGEX_COLLECT = new RegExp(W3C_REF_PATTERN_SOURCE, 'g'); // Dependency collection via exec() loops.
 
 /**
  * Stateless reference test regex.
  * Prefer this for boolean checks (e.g. "does the string contain any reference?").
  */
-export const W3C_REF_REGEX_TEST = /\{([A-Za-z0-9_./\s-]+)\}/;
+export const W3C_REF_REGEX_TEST = new RegExp(W3C_REF_PATTERN_SOURCE);
 
 /** Helpers for validating CSS custom property names. */
 export const STARTS_WITH_DIGIT_REGEX = /^\d/;

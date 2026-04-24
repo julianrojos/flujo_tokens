@@ -49,19 +49,7 @@ export function isValidCssVariableName(name: string): boolean {
 export function buildCssVarNameFromPrefix(prefix: string[]): string {
     const normalized = prefix.filter((segment) => String(segment || '').trim().length > 0);
     if (normalized.length === 0) return '--unknown-token';
-
-    let out = '--';
-    let first = true;
-
-    for (let i = 0; i < normalized.length; i++) {
-        const p = normalized[i];
-        if (!p) continue;
-        if (!first) out += '-';
-        out += p;
-        first = false;
-    }
-
-    return out;
+    return `--${normalized.join('-')}`;
 }
 
 export function toSafePlaceholderName(id: string): string {

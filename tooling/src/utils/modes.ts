@@ -25,9 +25,10 @@ export function normalizePreferredMode(preferredMode?: string): string | undefin
 }
 
 export function matchesPreferredMode(modeKey: string, preferred?: string): boolean {
-    if (!preferred) return false;
+    const normalizedPreferred = normalizePreferredMode(preferred);
+    if (!normalizedPreferred) return false;
     const normalizedMode = normalizeModeName(modeKey).replace(/^mode[-_]?/i, '').replace(/[^a-z0-9]+/gi, '').toLowerCase();
-    return normalizedMode === preferred;
+    return normalizedMode === normalizedPreferred;
 }
 
 export function formatModeLabel(modeKey: string | undefined): string {
