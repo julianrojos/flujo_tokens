@@ -112,7 +112,6 @@ describe('figma-token-sync', () => {
       };
 
       const result = await syncFigmaTokensToDatabase({
-        repoRoot: '/tmp/repo',
         system: {
           id: 'demo',
           paths: {
@@ -157,7 +156,6 @@ describe('figma-token-sync', () => {
       let bootstrapCalls = 0;
 
       const result = await syncFigmaTokensToDatabase({
-        repoRoot: '/tmp/repo',
         system: {
           id: 'demo',
           paths: {
@@ -183,7 +181,6 @@ describe('figma-token-sync', () => {
 
     it('returns a typed failure when databaseUrl is missing', async () => {
       const result = await syncFigmaTokensToDatabase({
-        repoRoot: '/tmp/repo',
         system: {
           id: 'demo',
         },

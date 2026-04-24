@@ -211,7 +211,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   // ── Sync tokens from Figma ───────────────────────────────────────────────
   try {
     const syncResult = await syncFigmaTokensToDatabase({
-      repoRoot: PROJECT_ROOT,
       system: {
         id: systemId,
         paths: {

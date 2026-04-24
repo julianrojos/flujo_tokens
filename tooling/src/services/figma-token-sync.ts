@@ -478,7 +478,6 @@ async function fetchVariablesBySource(options: {
 }
 
 export interface SyncFigmaTokensToDatabaseOptions {
-  repoRoot: string;
   system: {
     id?: string;
     name?: string;
@@ -520,7 +519,6 @@ export async function syncFigmaTokensToDatabase(
   options: SyncFigmaTokensToDatabaseOptions,
 ): Promise<SyncFigmaTokensToDatabaseResult> {
   const {
-    repoRoot,
     system,
     fileKey,
     figmaToken,

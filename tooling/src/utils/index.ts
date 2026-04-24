@@ -88,20 +88,6 @@ export type {
   AgentPromptResult,
 } from '../services/agent-runner.js';
 
-// Spec run guards and resolvers
-export {
-  assertBypassPolicy,
-  assertFigmaSourceProvided,
-  assertOutputPath,
-  resolveFigmaSource,
-} from '../services/spec-guards.js';
-
-export type {
-  BypassPolicyOptions,
-  FigmaSourceInputs,
-  ResolvedFigmaSource,
-} from '../services/spec-guards.js';
-
 // Pipeline types
 export type {
   PipelineIdentity,
@@ -158,16 +144,6 @@ export {
 } from './component-name.js';
 
 export type { NormalizedComponentName } from './component-name.js';
-
-// Spec token mapping utilities
-export {
-  normalizeCompareKey,
-  extractUniqueRegistryEntries,
-  pickComponentTokenCandidates,
-  buildTokenMenuLines,
-  pickBestTokenPath,
-  prefillTokenMapping,
-} from '../services/spec-token-mapping.js';
 
 // Figma API utilities
 export {
@@ -239,8 +215,4 @@ export type {
 // Re-export spec types from canonical location
 export type {
   ExtractedComponentSpec,
-  SpecAnatomyItem,
-  SpecProperty,
-  SpecLayoutItem,
-  SpecVariant,
 } from '../types/spec.js';

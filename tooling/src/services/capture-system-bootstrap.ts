@@ -108,7 +108,6 @@ export async function bootstrapFigmaTokensToDatabase(params: {
   }
 
   const syncResult = await syncFigmaTokensToDatabaseImpl({
-    repoRoot,
     system,
     fileKey,
     figmaToken,
