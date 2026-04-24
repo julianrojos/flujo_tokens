@@ -21,7 +21,7 @@ import {
   PROJECT_ROOT,
 } from '../utils/system-context.js';
 import {
-  bootstrapInputJsonFromFigmaVariables,
+  bootstrapFigmaTokensToDatabase,
   getSystemConfig,
 } from './capture-system-bootstrap.js';
 import { orchestrateTokenSync } from './capture-token-orchestrator.js';
@@ -99,7 +99,7 @@ export interface RunCaptureFromFigmaUrlDeps {
   fetchFigmaImagesFn?: typeof fetchFigmaImages;
   buildFigmaComponentMapFn?: typeof buildFigmaComponentMap;
   buildFigmaNodeUrlFn?: typeof buildFigmaNodeUrl;
-  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
+  bootstrapFigmaTokensToDatabaseFn?: typeof bootstrapFigmaTokensToDatabase;
   getSystemConfigFn?: typeof getSystemConfig;
   extractSingleNodeCandidateFn?: typeof extractSingleNodeCandidate;
   parseBooleanOptionFn?: typeof parseBooleanOption;
@@ -149,7 +149,7 @@ export async function runCaptureFromFigmaUrl(
     fetchFigmaImagesFn = fetchFigmaImages,
     buildFigmaComponentMapFn = buildFigmaComponentMap,
     buildFigmaNodeUrlFn = buildFigmaNodeUrl,
-    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
+    bootstrapFigmaTokensToDatabaseFn = bootstrapFigmaTokensToDatabase,
     getSystemConfigFn = getSystemConfig,
     extractSingleNodeCandidateFn = extractSingleNodeCandidate,
     parseBooleanOptionFn = parseBooleanOption,
@@ -242,7 +242,7 @@ export async function runCaptureFromFigmaUrl(
       figmaUrl: descriptor.figmaUrl,
       tokensSource: flags.tokensSource,
       getSystemConfigFn,
-      bootstrapInputJsonFromFigmaVariablesFn,
+      bootstrapFigmaTokensToDatabaseFn,
     });
     tokenBootstrap = tokenSync.tokenBootstrap;
   } catch (error) {

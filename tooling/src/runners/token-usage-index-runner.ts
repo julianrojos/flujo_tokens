@@ -6,10 +6,9 @@
  * I/O operations and CLI entry point for the token usage index service.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
+import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
@@ -17,7 +16,6 @@ import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
 import {
   buildAliasChains,
   extractCssReferences,
-  generateUsageIndexFromFile,
   generateUsageIndex,
 } from '../services/token-usage-index.js';
 import { loadTokenCatalogFromDatabase } from '../services/token-catalog-db.js';
@@ -32,14 +30,6 @@ const CLI_CONFIG = {
       name: '--css-files',
       description: 'Comma-separated CSS files to scan for var(--token) references.',
       defaultValue: '<system>/output/primitives.css,<system>/output/tokens.css',
-    },
-    {
-      name: '--registry',
-      description: 'Legacy registry JSON input path. Overrides database-backed loading when present.',
-    },
-    {
-      name: '--spec-root',
-      description: 'Legacy spec root input path. Accepted for compatibility.',
     },
     {
       name: '--format',
@@ -91,45 +81,18 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     .map((f: string) => path.resolve(f.trim()));
   const format = String(parsed.format || 'json');
   const strictUnresolved = parseBooleanOption(parsed['strict-unresolved'], '--strict-unresolved', false);
-  const registryPathArg = getStringArg(parsed, 'registry');
-  const hasRegistryFlag = Object.prototype.hasOwnProperty.call(parsed, 'registry');
-  const registryPath = registryPathArg ? path.resolve(registryPathArg) : '';
 
-  if (hasRegistryFlag && !registryPath) {
-    throw new Error('Invalid --registry path: value is empty.');
-  }
-  if (registryPathArg && !fs.existsSync(registryPath)) {
-    throw new Error(`Invalid --registry path: ${registryPath}`);
-  }
+  const loadedRegistry = await loadTokenCatalogFromDatabase({
+    databaseUrl: ctx.paths.databaseUrl,
+    systemId: ctx.id,
+  });
+  const cssRefs = extractCssReferences(cssFiles, loadedRegistry);
+  const aliasChains = buildAliasChains(cssFiles, loadedRegistry);
+  const resolvedReport = generateUsageIndex(loadedRegistry, cssRefs, aliasChains) as TokenUsageIndex;
 
-  const report = registryPath
-    ? (generateUsageIndexFromFile(
-        registryPath,
-        cssFiles,
-      ) as TokenUsageIndex)
-    : (() => {
-        const registry = loadTokenCatalogFromDatabase({
-          databaseUrl: ctx.paths.databaseUrl,
-          systemId: ctx.id,
-        });
-        return registry.then((loadedRegistry) => {
-          const cssRefs = extractCssReferences(cssFiles, loadedRegistry);
-          const aliasChains = buildAliasChains(cssFiles, loadedRegistry);
-          return generateUsageIndex(
-            loadedRegistry,
-            cssRefs,
-            aliasChains,
-          ) as TokenUsageIndex;
-        });
-      })();
-
-  const resolvedReport = await report;
-
-  // Output to stdout
   if (format === 'json') {
     console.log(JSON.stringify(resolvedReport, null, 2));
   } else {
-    // Text format
     console.log('\n=== Token Usage Index ===\n');
     console.log(`Total tokens: ${resolvedReport.summary.totalTokens}`);
     console.log(`Tokens with usage: ${resolvedReport.summary.tokensWithUsage}`);
@@ -145,7 +108,6 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     }
   }
 
-  // Exit with error if strict mode and unresolved refs
   if (strictUnresolved && resolvedReport.unresolved.length > 0) {
     process.exit(1);
   }

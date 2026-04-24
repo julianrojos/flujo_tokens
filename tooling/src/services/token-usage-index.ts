@@ -205,22 +205,3 @@ export function generateUsageIndex(
   };
 }
 
-/**
- * Main function to generate usage index
- *
- * Handles file I/O
- */
-export function generateUsageIndexFromFile(
-  registryPath: string,
-  cssFiles: string[],
-): TokenUsageIndex {
-  // Load registry
-  const registryContent = fs.readFileSync(registryPath, 'utf8');
-  const registry = JSON.parse(registryContent) as TokenCatalog;
-
-  const cssRefs = extractCssReferences(cssFiles, registry);
-  const aliasChains = buildAliasChains(cssFiles, registry);
-
-  // Generate index
-  return generateUsageIndex(registry, cssRefs, aliasChains);
-}

@@ -5,7 +5,7 @@
  */
 
 import {
-  bootstrapInputJsonFromFigmaVariables,
+  bootstrapFigmaTokensToDatabase,
   getSystemConfig,
 } from './capture-system-bootstrap.js';
 import type { FigmaVariableSource } from './figma-token-sync.js';
@@ -22,7 +22,7 @@ export interface OrchestrateTokenSyncOptions {
   figmaUrl?: string;
   tokensSource?: FigmaVariableSource;
   getSystemConfigFn?: typeof getSystemConfig;
-  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
+  bootstrapFigmaTokensToDatabaseFn?: typeof bootstrapFigmaTokensToDatabase;
 }
 
 /**
@@ -55,7 +55,7 @@ export async function orchestrateTokenSync(
     figmaUrl,
     tokensSource = 'mcp',
     getSystemConfigFn = getSystemConfig,
-    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
+    bootstrapFigmaTokensToDatabaseFn = bootstrapFigmaTokensToDatabase,
   } = options;
 
   let tokenBootstrap: OrchestrateTokenSyncResult['tokenBootstrap'] = {
@@ -66,7 +66,7 @@ export async function orchestrateTokenSync(
 
   if (!dryRun) {
     const systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
-    tokenBootstrap = await bootstrapInputJsonFromFigmaVariablesFn({
+    tokenBootstrap = await bootstrapFigmaTokensToDatabaseFn({
       repoRoot: projectRoot,
       system: systemConfig,
       fileKey,

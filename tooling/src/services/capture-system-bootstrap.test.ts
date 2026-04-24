@@ -6,8 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
-  bootstrapInputJsonFromFigmaVariables,
-  ensureCollectionsConfigured,
+  bootstrapFigmaTokensToDatabase,
   getSystemRepository,
   setSystemRepositoryFactory,
 } from './capture-system-bootstrap.js';
@@ -93,18 +92,11 @@ describe('capture-system-bootstrap', () => {
     setSystemRepositoryFactory(null);
   });
 
-  it('bootstraps token rows even when an empty generated seed exists', async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-seed-'));
+  it('bootstraps token rows and returns sync result', async () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-'));
     try {
-      fs.mkdirSync(path.join(repoRoot, 'docs', 'demo', '_generated'), { recursive: true });
-      fs.writeFileSync(
-        path.join(repoRoot, 'docs', 'demo', '_generated', 'bootstrap-seed.json'),
-        JSON.stringify({ entries: [], byPath: {}, bySlashPath: {} }, null, 2),
-        'utf8',
-      );
-
       const calls: SyncFigmaTokensToDatabaseOptions[] = [];
-      const result = await bootstrapInputJsonFromFigmaVariables({
+      const result = await bootstrapFigmaTokensToDatabase({
         repoRoot,
         fileKey: 'FILE123',
         figmaToken: 'token',
@@ -137,11 +129,11 @@ describe('capture-system-bootstrap', () => {
     }
   });
 
-  it('bootstraps token rows with a minimal system config', async () => {
+  it('updates collection metadata when sync returns collections', async () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-'));
     try {
       const calls: SyncFigmaTokensToDatabaseOptions[] = [];
-      const result = await bootstrapInputJsonFromFigmaVariables({
+      const result = await bootstrapFigmaTokensToDatabase({
         repoRoot,
         fileKey: 'FILE123',
         figmaToken: 'token',
@@ -173,58 +165,4 @@ describe('capture-system-bootstrap', () => {
     }
   });
 
-  it('does not inject fallback collections when input directory has no JSON files', async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-empty-'));
-    try {
-      const systemId = uniqueSystemId('demo-empty');
-      fs.mkdirSync(path.join(repoRoot, 'design-systems', systemId, 'input'), { recursive: true });
-      const repository = getSystemRepository(repoRoot);
-      await repository.create({
-        id: systemId,
-        name: 'Demo',
-        collections: [],
-      });
-      await repository.setDefaultSystemId(systemId);
-
-      await ensureCollectionsConfigured({
-        repoRoot,
-        systemId,
-      });
-
-      const system = await repository.getById(systemId);
-      assert.deepEqual(system?.collections ?? [], []);
-    } finally {
-      fs.rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('infers collections from input JSON filenames when available', async () => {
-    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-infer-'));
-    try {
-      const systemId = uniqueSystemId('demo-infer');
-      fs.mkdirSync(path.join(repoRoot, 'design-systems', systemId, 'input'), { recursive: true });
-      fs.writeFileSync(path.join(repoRoot, 'design-systems', systemId, 'input', 'primitives.json'), '{}', 'utf8');
-      fs.writeFileSync(path.join(repoRoot, 'design-systems', systemId, 'input', 'theme-semantic.json'), '{}', 'utf8');
-      const repository = getSystemRepository(repoRoot);
-      await repository.create({
-        id: systemId,
-        name: 'Demo',
-        collections: [],
-      });
-      await repository.setDefaultSystemId(systemId);
-
-      await ensureCollectionsConfigured({
-        repoRoot,
-        systemId,
-      });
-
-      const system = await repository.getById(systemId);
-      const collections = [...(system?.collections ?? [])].sort((a, b) =>
-        a.localeCompare(b),
-      );
-      assert.deepEqual(collections, ['Primitives', 'Theme Semantic']);
-    } finally {
-      fs.rmSync(repoRoot, { recursive: true, force: true });
-    }
-  });
 });

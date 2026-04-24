@@ -12,7 +12,7 @@ export interface MockDeps {
   fetchFigmaFileFn: () => Promise<FigmaFileResponse>;
   fetchFigmaNodesFn: () => Promise<FigmaNodesResponse>;
   fetchFigmaImagesFn: () => Promise<{ images: Record<string, string> }>;
-  bootstrapInputJsonFromFigmaVariablesFn: () => Promise<{
+  bootstrapFigmaTokensToDatabaseFn: () => Promise<{
     attempted: boolean;
     created: boolean;
     reason: string;
@@ -120,7 +120,7 @@ export function createCaptureContextMock(
         '100:200': 'https://figma.com/mock-image.png',
       },
     }),
-    bootstrapInputJsonFromFigmaVariablesFn: async () => ({
+    bootstrapFigmaTokensToDatabaseFn: async () => ({
       attempted: true,
       created: true,
       reason: 'mocked',
