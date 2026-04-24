@@ -148,12 +148,6 @@ export { logger } from './logger.js';
 // Log level type (centralized to avoid duplication)
 export type { LogLevel } from './logger-types.js';
 
-// TBD marker utility
-export { isTbdMarker } from './tbd.js';
-
-// Frontmatter parsing utilities
-export { parseYamlDocument } from './parse-frontmatter.js';
-
 // Component name utilities
 export {
   componentNameToSnakeCase,
