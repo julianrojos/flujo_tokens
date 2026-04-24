@@ -6,7 +6,7 @@
 
 import type { Hono } from 'hono';
 
-import { registerSystemRoutes } from './system-routes.mjs';
+import { registerSystemRoutes } from './system-routes.ts';
 import { registerAssetRoutes } from './asset-routes.mjs';
 import { registerCatalogRoutes } from './catalog-routes.mjs';
 import { registerTokenUsageIndexRoutes } from './token-usage-index-routes.ts';

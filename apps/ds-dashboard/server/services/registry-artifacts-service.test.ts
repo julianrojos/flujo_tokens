@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildComponentUsageIndex } from "./registry-artifacts-service.mjs";
+import { buildComponentUsageIndex } from "./registry-artifacts-service.ts";
 
 test("buildComponentUsageIndex keeps usage graph empty without figma relations", () => {
   const index = buildComponentUsageIndex([{ slug: "button" }, { slug: "icon" }]);

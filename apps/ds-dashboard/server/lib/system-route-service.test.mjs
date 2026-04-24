@@ -5,7 +5,7 @@ import {
   buildCreateDesignSystemConfigMutation,
   buildDeleteDesignSystemConfigMutation,
   buildUpdateDesignSystemConfigMutation,
-} from "../services/system-route-service.mjs";
+} from "../services/system-route-service.ts";
 
 function createConfig() {
   return {

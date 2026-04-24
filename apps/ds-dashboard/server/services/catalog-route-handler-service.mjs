@@ -1,7 +1,7 @@
 import {
   buildComponentUsageIndex,
   buildTokenCollectionTrees,
-} from "./registry-artifacts-service.mjs";
+} from "./registry-artifacts-service.ts";
 import { createHash } from "node:crypto";
 
 import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.mjs";

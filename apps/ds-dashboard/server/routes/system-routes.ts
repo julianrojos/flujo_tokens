@@ -6,9 +6,12 @@ import {
   handleLegacyHealthRoute,
   handleListDesignSystemsRoute,
   handleUpdateDesignSystemRoute,
-} from "../services/system-route-handler-service.mjs";
+} from "../services/system-route-handler-service.ts";
+import type { Hono } from "hono";
 
-export function registerSystemRoutes(app, deps) {
+import type { CreateServerRouteDeps } from "../lib/create-server-route-deps.ts";
+
+export function registerSystemRoutes(app: Hono, deps: CreateServerRouteDeps): void {
   app.get("/health", (c) => handleLegacyHealthRoute(c, deps));
   app.get("/api/health", (c) => handleApiHealthRoute(c, deps));
   app.get("/api/design-systems", (c) => handleListDesignSystemsRoute(c, deps));

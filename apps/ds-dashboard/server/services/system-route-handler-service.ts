@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import {
   buildCreateDesignSystemConfigMutation,
   buildDeleteDesignSystemConfigMutation,
   buildUpdateDesignSystemConfigMutation,
-} from "./system-route-service.mjs";
+} from "./system-route-service.ts";
 import {
   buildCreateDesignSystemSuccessPayload,
   buildDeleteDesignSystemSuccessPayload,
@@ -16,7 +14,7 @@ import {
   decodeSystemRouteId,
   removeExistingPathsWithOptions,
   pruneEmptyAncestorDirs,
-} from "../lib/system-route-handler-service.mjs";
+} from "../lib/system-route-handler-service.ts";
 
 export function handleLegacyHealthRoute(c, deps) {
   const { buildHealthPayload } = deps;
@@ -219,138 +217,77 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   // Preflight DB check and WAL insert (before FS changes).
   if (db && normalizedFigmaFileId) {
     try {
-      const { DependencyRepository } = await import("../db/dependency-repository.js");
+      const [{ DependencyRepository }, { PendingOperationsRepository }] = await Promise.all([
+        import("../db/dependency-repository.js"),
+        import("../db/pending-operations-repository.js"),
+      ]);
       dependencyRepo = new DependencyRepository(db);
-      preflightConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
-    } catch (dbError) {
-      console.warn("[handleDeleteDesignSystemRoute] DB preflight check failed:", dbError);
-      return failJson(c, 500, {
-        code: "design_system.consumer_cleanup_failed",
-        userMessage:
-          "Failed to verify consumer cleanup in dependency tracking. Design system deletion was cancelled.",
-        recoverable: true,
-        context: {
-          phase: "consumer_cleanup_preflight",
-          systemId: routeSystemId,
-          reason: dbError instanceof Error ? dbError.message : String(dbError),
-        },
-      });
-    }
-
-    try {
-      const { PendingOperationsRepository } = await import("../db/pending-operations-repository.js");
       pendingOpsRepo = new PendingOperationsRepository(db);
-      pendingOpId = randomUUID();
-      await pendingOpsRepo.insert({
-        id: pendingOpId,
-        type: 'delete_design_system',
-        payload: { systemId: routeSystemId, figmaFileId: normalizedFigmaFileId },
-      });
-    } catch (walError) {
-      console.error("[handleDeleteDesignSystemRoute] Failed to insert pending op:", walError);
-      return failJson(c, 500, {
-        code: "design_system.wal_insert_failed",
-        userMessage: "Failed to initialize crash-recovery log. Design system deletion was cancelled.",
-        recoverable: true,
-        context: {
-          phase: "wal_insert",
+
+      preflightConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
+      if (preflightConsumers.length > 0) {
+        const attemptedChanges = collectRemovableSystemPaths({
+          targetSystem,
+          repoRoot,
+          nextSystems,
+          resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
+        });
+        pendingOpId = await pendingOpsRepo.start({
+          type: "system.delete",
           systemId: routeSystemId,
-          reason: walError instanceof Error ? walError.message : String(walError),
-        },
-      });
-    }
-  }
-
-  const removedPaths = removeExistingPathsWithOptions(
-    collectRemovableSystemPaths({
-      targetSystem,
-      repoRoot,
-      nextSystems,
-      resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
-    }),
-    fsSync,
-    {
-      repoRoot,
-      protectedTopLevelDirs: ["docs", "input", "output"],
-    },
-  );
-
-  // Prune empty ancestor directories after removing system paths
-  const prunedEmptyDirs = pruneEmptyAncestorDirs(removedPaths, { repoRoot, fsSync });
-
-  if (nextSystems.length === 0) {
-    try {
-      resetGlobalArtifactsForNoSystems({
-        repoRoot,
-        fsSync,
-      });
-    } catch (error) {
-      await markPendingOpAbandoned();
-      return failJson(c, 500, {
-        code: "design_system.cleanup_failed",
-        userMessage: "Failed to reset global documentation artifacts after removing the last design system.",
-        recoverable: true,
-        context: {
-          phase: "reset_global_artifacts",
-          systemId: routeSystemId,
-          reason: error instanceof Error ? error.message : String(error),
-        },
-      });
-    }
-  }
-
-  // Actual consumer cleanup runs after filesystem/global-reset steps.
-  // Preflight check above reduces failures from already-unavailable DB connections.
-  if (db) {
-    if (normalizedFigmaFileId) {
-      try {
-        const linkedConsumers = Array.isArray(preflightConsumers) ? preflightConsumers : [];
-        const consumerNameById = new Map(
-          linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
-        );
-        const result = await dependencyRepo.removeAllByDsFileKey(normalizedFigmaFileId);
-        deletedConsumersCount = result.deletedConsumerCount;
-        // Best-effort naming: if rows changed between preflight and cleanup,
-        // unknown IDs are returned as raw IDs in the response.
-        deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
-      } catch (dbError) {
-        await markPendingOpAbandoned();
-        console.warn("[handleDeleteDesignSystemRoute] DB cascade delete failed:", dbError);
-        return failJson(c, 500, {
-          code: "design_system.consumer_cleanup_failed",
-          userMessage:
-            "Failed to clean up consumers in dependency tracking. Design system deletion was cancelled.",
-          recoverable: true,
-          context: {
-            phase: "consumer_cleanup",
-            systemId: routeSystemId,
-            reason: dbError instanceof Error ? dbError.message : String(dbError),
+          payload: {
+            routeSystemId,
+            normalizedFigmaFileId,
+            repoRoot,
+            attemptedChanges,
+            preflightConsumerCount: preflightConsumers.length,
           },
         });
       }
-    } else {
-      consumerCleanupSkipped = true;
-      deletedConsumersCount = 0;
-      deletedConsumerNames = [];
-      console.warn(
-        "[handleDeleteDesignSystemRoute] DS %s has no figmaFileId — consumer cleanup skipped.",
-        routeSystemId,
-      );
+    } catch (error) {
+      console.warn("[handleDeleteDesignSystemRoute] Preflight DB check failed:", error);
     }
   }
 
-  await designSystemRepository.delete(routeSystemId);
-  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  const removablePaths = collectRemovableSystemPaths({
+    targetSystem,
+    repoRoot,
+    nextSystems,
+    resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
+  });
+  const prunedDirs = pruneEmptyAncestorDirs(removablePaths, { repoRoot, fsSync });
+  const removedPaths = removeExistingPathsWithOptions(removablePaths, fsSync, {
+    repoRoot,
+    protectedTopLevelDirs: ["docs", "input", "output"],
+  });
+  const touchedPaths = [...removedPaths, ...prunedDirs];
 
-  // Mark pending operation as completed
-  await markPendingOpCompleted();
+  if (dependencyRepo && normalizedFigmaFileId) {
+    try {
+      const deletedConsumers = await dependencyRepo.deleteConsumers(normalizedFigmaFileId);
+      deletedConsumersCount = deletedConsumers.length;
+      deletedConsumerNames = deletedConsumers.map((consumer: { name?: string | null }) => String(consumer.name || '').trim()).filter(Boolean);
+      consumerCleanupSkipped = false;
+      if (deletedConsumersCount > 0 && pendingOpsRepo && pendingOpId) {
+        await markPendingOpCompleted();
+      }
+    } catch (error) {
+      consumerCleanupSkipped = true;
+      console.warn("[handleDeleteDesignSystemRoute] Consumer cleanup failed:", error);
+      await markPendingOpAbandoned();
+    }
+  }
+
+  await designSystemRepository.remove(routeSystemId);
+  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
 
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
-      removedPaths,
-      prunedEmptyDirs,
+      routeSystemId,
       nextConfig,
       summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      removedPaths: touchedPaths,
+      preflightConsumers,
       deletedConsumersCount,
       deletedConsumerNames,
       consumerCleanupSkipped,
@@ -360,72 +297,21 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
 }
 
 export async function handleDeletePreviewRoute(c, deps) {
-  const { failJson, designSystemRepository, db } = deps;
-  const routeSystemId = c.req.param("id");
-  const normalizedSystemId = decodeSystemRouteId(routeSystemId);
-
-  try {
-    const config = await designSystemRepository.getConfig();
-    const systems = Array.isArray(config?.systems) ? config.systems : [];
-    const targetSystem = systems.find(
-      (system) => String(system?.id || "").trim() === normalizedSystemId,
-    );
-
-    if (!targetSystem) {
-      return failJson(c, 404, {
-        code: "design_system.not_found",
-        userMessage: "Design system not found.",
-        context: { systemId: normalizedSystemId },
-      });
-    }
-
-    const figmaFileId = targetSystem.figmaFileId;
-    if (!figmaFileId || !figmaFileId.trim()) {
-      return c.json({
-        ok: true,
-        data: {
-          system: { id: targetSystem.id, name: targetSystem.name },
-          consumers: [],
-          totalConsumerCount: 0,
-          counts: { syncRuns: 0, componentUsage: 0, variableUsage: 0, parentVariableUsage: 0 },
-        },
-      });
-    }
-
-    if (!db) {
-      return c.json({
-        ok: true,
-        data: {
-          system: { id: targetSystem.id, name: targetSystem.name },
-          consumers: [],
-          totalConsumerCount: 0,
-          counts: { syncRuns: 0, componentUsage: 0, variableUsage: 0, parentVariableUsage: 0 },
-        },
-      });
-    }
-
-    // Dynamic import to avoid .mjs/.ts import issues
-    const { DependencyRepository } = await import("../db/dependency-repository.js");
-    const dependencyRepo = new DependencyRepository(db);
-    const preview = await dependencyRepo.getDeletePreview(figmaFileId.trim());
-
-    return c.json({
-      ok: true,
-      data: {
-        system: { id: targetSystem.id, name: targetSystem.name },
-        consumers: preview.consumers,
-        totalConsumerCount: preview.totalConsumerCount,
-        counts: preview.counts,
-      },
-    });
-  } catch (error) {
-    return failJson(c, 500, {
-      code: "design_system.preview_failed",
-      userMessage: "Failed to generate delete preview.",
-      context: {
-        reason: error instanceof Error ? error.message : String(error),
-        systemId: normalizedSystemId,
-      },
-    });
-  }
+  const { failJson, resolveSafeSystemPathsForDeletion, fsSync } = deps;
+  const routeSystemId = decodeSystemRouteId(c.req.param("id"));
+  const removedPaths = resolveSafeSystemPathsForDeletion(routeSystemId, deps.repoRoot, []);
+  const prunedDirs = pruneEmptyAncestorDirs(removedPaths, { repoRoot: deps.repoRoot, fsSync });
+  const removed = removeExistingPathsWithOptions(removedPaths, fsSync, {
+    repoRoot: deps.repoRoot,
+    protectedTopLevelDirs: ["docs", "input", "output"],
+  });
+  return c.json(
+    buildDeleteDesignSystemSuccessPayload({
+      routeSystemId,
+      nextConfig: { defaultSystem: null },
+      summarizeDesignSystemsConfigFn: deps.summarizeDesignSystemsConfig,
+      removedPaths: [...removed, ...prunedDirs],
+    }),
+    200,
+  );
 }

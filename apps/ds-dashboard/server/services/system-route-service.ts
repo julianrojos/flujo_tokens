@@ -18,7 +18,6 @@ function cloneSystems(config) {
 
 function normalizeReadonlyCollections(value) {
   if (!Array.isArray(value)) return [];
-  // Keep case-sensitive values; normalize only order/duplicates for read-only equality checks.
   return Array.from(
     new Set(
       value
@@ -52,10 +51,6 @@ function normalizeImportCount(value, fallback) {
 
 const CANONICAL_SYSTEMS_PREFIX = "design-systems";
 
-/**
- * Validates that systemId contains only safe characters.
- * Returns true if valid, false otherwise.
- */
 function isValidSystemId(systemId) {
   return typeof systemId === "string" && /^[a-z0-9_-]+$/.test(systemId);
 }
@@ -220,8 +215,6 @@ export function buildUpdateDesignSystemConfigMutation({
     id: routeSystemId,
     name: normalizedName,
     appName: String(body.appName ?? current.appName ?? normalizedName).trim() || normalizedName,
-    // Immutable via update route: managed by create/bootstrap flows, not admin UI edits.
-    // This includes Figma identity fields and collection scope.
     figmaFileId: String(current.figmaFileId ?? "").trim(),
     figmaApiToken: String(current.figmaApiToken ?? "").trim(),
     inputDir: ensureRelativeDir(current.inputDir, defaultDirs.inputDir),

@@ -4,7 +4,7 @@
  * Creates and wires runtime services for the server.
  */
 
-import { createCommandExecutionService } from '../services/command-execution-service.mjs';
+import { createCommandExecutionService } from '../services/command-execution-service.ts';
 import { createQueueEngineService } from '../services/queue-engine-service.mjs';
 import { createQueueJobFactoryService } from '../services/queue-job-factory-service.mjs';
 import { createSnippetBuilder, type SnippetResult } from './request-file-helpers.ts';
