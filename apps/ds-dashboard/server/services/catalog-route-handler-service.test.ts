@@ -1,14 +1,14 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
 
-import { Hono } from 'hono';
+import { Hono } from "hono";
 
-import { handleComponentCatalogRoute } from './catalog-route-handler-service.mjs';
+import { handleComponentCatalogRoute } from "./catalog-route-handler-service.ts";
 
-test('component catalog leaves missing visual proof dimensions unset', async () => {
-  const repoRoot = path.resolve(process.cwd(), '..', '..');
+test("component catalog leaves missing visual proof dimensions unset", async () => {
+  const repoRoot = path.resolve(process.cwd());
   const proofImageRel =
     'design-systems/simple-design-system-community/docs/_generated/visual-proofs/images/calendar-month-field.png';
   const proofImageAbs = path.join(repoRoot, proofImageRel);
@@ -16,7 +16,7 @@ test('component catalog leaves missing visual proof dimensions unset', async () 
   assert.ok(fs.existsSync(proofImageAbs), `missing fixture image: ${proofImageAbs}`);
 
   const componentRepo = {
-    async getAll(systemId) {
+    async getAll(systemId: string) {
       assert.equal(systemId, 'sys-legacy-proof');
       return [
         {
@@ -52,11 +52,11 @@ test('component catalog leaves missing visual proof dimensions unset', async () 
   const app = new Hono();
   app.get('/api/component-catalog', (c) =>
     handleComponentCatalogRoute(c, {
-      failJson: (ctx, status, payload) => ctx.json(payload, status),
+      failJson: (ctx: any, status: number, payload: any) => ctx.json(payload, status),
       getSystemContext: () => ({ systemId: 'sys-legacy-proof', repoRoot }),
       componentRepo,
       repoRoot,
-    }),
+    } as any),
   );
 
   const res = await app.request('http://localhost/api/component-catalog');
@@ -64,7 +64,7 @@ test('component catalog leaves missing visual proof dimensions unset', async () 
 
   const payload = await res.json();
   const component = payload.components.find(
-    (entry) => entry.slug === 'calendar-month-field',
+    (entry: any) => entry.slug === 'calendar-month-field',
   );
 
   assert.ok(component, 'expected calendar-month-field in payload');

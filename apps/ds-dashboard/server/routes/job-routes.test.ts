@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { registerJobRoutes } from "./job-routes.ts";
 
 function createFailJson() {
-  return (c, statusCode, args) =>
+  return (c: any, statusCode: number, args: Record<string, unknown>) =>
     c.json(
       {
         ok: false,
@@ -17,23 +17,23 @@ function createFailJson() {
     );
 }
 
-function createBaseDeps(overrides = {}) {
+function createBaseDeps(overrides: Record<string, unknown> = {}) {
   const queueJobs = new Map();
   return {
     failJson: createFailJson(),
     queueJobs,
-    listQueueJobEvents: (job) => job.events || [],
-    queueJobSnapshot: (job) => ({ id: job.id, status: job.status }),
-    isQueueJobFinalStatus: (status) => status === "success" || status === "error" || status === "cancelled",
+    listQueueJobEvents: (job: { events?: Array<{ seq: number }> }) => job.events || [],
+    queueJobSnapshot: (job: { id: string; status: string }) => ({ id: job.id, status: job.status }),
+    isQueueJobFinalStatus: (status: string) => status === "success" || status === "error" || status === "cancelled",
     cancelQueueJob: () => ({ ok: true }),
-    toQueueTerminalEvent: (job) => ({ type: "end", status: job.status }),
-    buildApiErrorPayload: (args) => ({ ok: false, ...args }),
+    toQueueTerminalEvent: (job: { status: string }) => ({ type: "end", status: job.status }),
+    buildApiErrorPayload: (args: Record<string, unknown>) => ({ ok: false, ...args }),
     MAX_RETAINED_EVENTS: 2000,
     ...overrides,
   };
 }
 
-function createTestApp(depsOverrides = {}) {
+function createTestApp(depsOverrides: Record<string, unknown> = {}) {
   const app = new Hono();
   const deps = createBaseDeps(depsOverrides);
   registerJobRoutes(app, deps);

@@ -9,7 +9,7 @@ import { Hono } from 'hono';
 import { createTestDatabase } from '../db/test-db-helpers.js';
 import { ComponentRepository } from '../db/component-repository.js';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
-import { handleComponentCatalogRoute } from './catalog-route-handler-service.mjs';
+import { handleComponentCatalogRoute } from './catalog-route-handler-service.ts';
 
 test('e2e: capture payload upserts DB and /api/component-catalog exposes spec-centric payload', async (t) => {
   if (

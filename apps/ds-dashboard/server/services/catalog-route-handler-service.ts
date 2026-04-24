@@ -1,13 +1,53 @@
-import {
-  buildComponentUsageIndex,
-  buildTokenCollectionTrees,
-} from "./registry-artifacts-service.ts";
 import { createHash } from "node:crypto";
 
-import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.mjs";
+import { buildComponentUsageIndex, buildTokenCollectionTrees } from "./registry-artifacts-service.ts";
+import { COMPONENT_CATALOG_SCHEMA_VERSION } from "../lib/catalog-seed-service.ts";
 import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
+import type { Context } from "hono";
+import type { SharedSystemContextDeps } from "../lib/register-all-routes-service.ts";
+import type { ComponentRepository } from "../db/component-repository.js";
+import type { TokenRepository } from "../db/token-repository.js";
 
-function sha256Json(value) {
+type CatalogRow = {
+  id: number | string;
+  slug: string;
+  name: string;
+  editorialExists?: boolean;
+  figmaFileUrl?: string | null;
+  figmaComponentSetNodeId?: string | null;
+  figma?: {
+    pageName?: string | null;
+    variants?: Array<{ name?: string; properties?: unknown; nodeId?: string }>;
+    tokenBindings?: Array<{
+      nodeId?: string;
+      nodeName?: string;
+      field?: string;
+      variableId?: string;
+      tokenPath?: string | null;
+      mode?: string | null;
+      status?: string | null;
+      propertyPath?: string | null;
+    }>;
+    instanceDependencies?: Array<{
+      instanceNodeId?: string;
+      instanceNodeName?: string;
+      usedComponentNodeId?: string;
+      usedComponentName?: string;
+      usedComponentKey?: string;
+      status?: string;
+    }>;
+    layout?: unknown[];
+  };
+  visualProofs?: unknown[];
+  specs?: unknown[];
+};
+
+export interface CatalogRouteHandlerDeps extends SharedSystemContextDeps {
+  componentRepo?: ComponentRepository;
+  tokenRepo?: TokenRepository;
+}
+
+function sha256Json(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
@@ -27,7 +67,7 @@ function emptyVisualProof() {
   };
 }
 
-function normalizeFigmaVariantsForApi(variants) {
+function normalizeFigmaVariantsForApi(variants: CatalogRow["figma"] extends { variants?: infer T } ? T : never) {
   if (!Array.isArray(variants) || variants.length === 0) return undefined;
   return variants.map((variant) => ({
     name: String(variant?.name || "").trim() || "Variant",
@@ -36,7 +76,7 @@ function normalizeFigmaVariantsForApi(variants) {
   }));
 }
 
-function normalizeFigmaTokenBindingsForApi(tokenBindings) {
+function normalizeFigmaTokenBindingsForApi(tokenBindings: CatalogRow["figma"] extends { tokenBindings?: infer T } ? T : never) {
   if (!Array.isArray(tokenBindings) || tokenBindings.length === 0) return undefined;
   return tokenBindings
     .map((binding) => ({
@@ -52,51 +92,53 @@ function normalizeFigmaTokenBindingsForApi(tokenBindings) {
     .filter((binding) => binding.node_id && binding.node_name && binding.field && binding.variable_id);
 }
 
-function normalizeFigmaLayoutForApi(layoutRows) {
+function normalizeFigmaLayoutForApi(layoutRows: unknown) {
   if (!Array.isArray(layoutRows) || layoutRows.length === 0) return undefined;
-  const normalizedRows = [];
+  const normalizedRows: Array<Record<string, unknown>> = [];
   for (const row of layoutRows) {
-    const nodeId = String(row?.nodeId || "").trim();
-    const nodeName = String(row?.nodeName || "").trim();
+    const nodeId = String((row as { nodeId?: unknown })?.nodeId || "").trim();
+    const nodeName = String((row as { nodeName?: unknown })?.nodeName || "").trim();
     if (!nodeId || !nodeName) continue;
-    const parsedDepth = Number(row?.depth);
+    const parsedDepth = Number((row as { depth?: unknown })?.depth);
     normalizedRows.push({
       node_id: nodeId,
       node_name: nodeName,
       depth: Number.isFinite(parsedDepth) ? Math.max(0, Math.floor(parsedDepth)) : 0,
-      direction: String(row?.direction || "").trim() || undefined,
-      h_sizing: String(row?.hSizing || "").trim() || undefined,
-      v_sizing: String(row?.vSizing || "").trim() || undefined,
-      alignment_h: String(row?.alignmentH || "").trim() || undefined,
-      alignment_v: String(row?.alignmentV || "").trim() || undefined,
-      item_spacing: Number.isFinite(Number(row?.itemSpacing))
-        ? Number(row.itemSpacing)
+      direction: String((row as { direction?: unknown })?.direction || "").trim() || undefined,
+      h_sizing: String((row as { hSizing?: unknown })?.hSizing || "").trim() || undefined,
+      v_sizing: String((row as { vSizing?: unknown })?.vSizing || "").trim() || undefined,
+      alignment_h: String((row as { alignmentH?: unknown })?.alignmentH || "").trim() || undefined,
+      alignment_v: String((row as { alignmentV?: unknown })?.alignmentV || "").trim() || undefined,
+      item_spacing: Number.isFinite(Number((row as { itemSpacing?: unknown })?.itemSpacing))
+        ? Number((row as { itemSpacing?: unknown })?.itemSpacing)
         : undefined,
-      padding: row?.padding || undefined,
+      padding: (row as { padding?: unknown })?.padding || undefined,
     });
   }
   return normalizedRows.length > 0 ? normalizedRows : undefined;
 }
 
-export async function handleComponentCatalogRoute(c, deps) {
+export async function handleComponentCatalogRoute(c: Context, deps: CatalogRouteHandlerDeps): Promise<Response> {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
     return failJson(c, 500, {
       code: "internal.component_repo_missing",
       userMessage: "Component repository is not initialized.",
       recoverable: false,
-    });
+    }) as Response;
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
-  const rows = await componentRepo.getAll(sysCtx.systemId);
+  const rows = (await componentRepo.getAll(sysCtx.systemId)) as CatalogRow[];
   const components = rows.map((row) => {
-    const specExists = row.editorialExists;
+    const specExists = Boolean(row.editorialExists);
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
     const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry);
     const visualProof = {
       ...emptyVisualProof(),
       ...(visualProofFromDb || {}),
-      variants: Array.isArray(visualProofFromDb?.variants) ? visualProofFromDb.variants : [],
+      variants: Array.isArray((visualProofFromDb as { variants?: unknown[] } | null)?.variants)
+        ? (visualProofFromDb as { variants: unknown[] }).variants
+        : [],
     };
     const componentBase = {
       slug: row.slug,
@@ -128,13 +170,13 @@ export async function handleComponentCatalogRoute(c, deps) {
     with_editorial: 0,
   };
   for (const [index, item] of components.entries()) {
-    summary.total_components++;
+    summary.total_components += 1;
     const sourceRow = rows[index];
     if (Array.isArray(sourceRow?.specs) && sourceRow.specs.length > 0) {
-      summary.with_spec++;
+      summary.with_spec += 1;
     }
     if (item.spec.exists) {
-      summary.with_editorial++;
+      summary.with_editorial += 1;
     }
   }
   const responseBase = {
@@ -148,17 +190,17 @@ export async function handleComponentCatalogRoute(c, deps) {
   });
 }
 
-export async function handleComponentUsageIndexRoute(c, deps) {
+export async function handleComponentUsageIndexRoute(c: Context, deps: CatalogRouteHandlerDeps): Promise<Response> {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
     return failJson(c, 500, {
       code: "internal.component_repo_missing",
       userMessage: "Component repository is not initialized.",
       recoverable: false,
-    });
+    }) as Response;
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
-  const rows = await componentRepo.getAll(sysCtx.systemId);
+  const rows = (await componentRepo.getAll(sysCtx.systemId)) as CatalogRow[];
   return c.json(
     buildComponentUsageIndex(
       rows.map((row) => ({
@@ -193,28 +235,28 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   );
 }
 
-export async function handleTokenCatalogRoute(c, deps) {
+export async function handleTokenCatalogRoute(c: Context, deps: CatalogRouteHandlerDeps): Promise<Response> {
   const { failJson, getSystemContext, tokenRepo } = deps;
   if (!tokenRepo) {
     return failJson(c, 500, {
       code: "internal.token_repo_missing",
       userMessage: "Token repository is not initialized.",
       recoverable: false,
-    });
+    }) as Response;
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
   const catalog = await tokenRepo.getTokenCatalog(sysCtx.systemId);
   return c.json(catalog);
 }
 
-export async function handleTokenCollectionTreesRoute(c, deps) {
+export async function handleTokenCollectionTreesRoute(c: Context, deps: CatalogRouteHandlerDeps): Promise<Response> {
   const { failJson, getSystemContext, tokenRepo } = deps;
   if (!tokenRepo) {
     return failJson(c, 500, {
       code: "internal.token_repo_missing",
       userMessage: "Token repository is not initialized.",
       recoverable: false,
-    });
+    }) as Response;
   }
   const sysCtx = await getSystemContext(c.req.header("x-ds-system"));
   const registry = await tokenRepo.getTokenCatalog(sysCtx.systemId);

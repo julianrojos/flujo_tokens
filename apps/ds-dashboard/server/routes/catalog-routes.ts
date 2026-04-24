@@ -5,15 +5,10 @@ import {
   handleComponentUsageIndexRoute,
   handleTokenCollectionTreesRoute,
   handleTokenCatalogRoute,
-} from '../services/catalog-route-handler-service.mjs';
-import type { SharedSystemContextDeps } from '../lib/register-all-routes-service.ts';
-import type { ComponentRepository } from '../db/component-repository.js';
-import type { TokenRepository } from '../db/token-repository.js';
+  type CatalogRouteHandlerDeps,
+} from '../services/catalog-route-handler-service.ts';
 
-export interface CatalogRoutesDeps extends SharedSystemContextDeps {
-  componentRepo?: ComponentRepository;
-  tokenRepo?: TokenRepository;
-}
+export type CatalogRoutesDeps = CatalogRouteHandlerDeps;
 
 export function registerCatalogRoutes(
   app: Hono,

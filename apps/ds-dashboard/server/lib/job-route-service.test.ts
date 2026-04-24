@@ -55,8 +55,8 @@ test("job-route-service: state payload and cursor helpers are deterministic", ()
   const payload = buildQueueJobStatePayload({
     job,
     events: [{ seq: 1 }],
-    queueJobSnapshotFn: (value) => ({ id: value.id }),
-    isQueueJobFinalStatusFn: (status) => status === "done",
+    queueJobSnapshotFn: (value: { id?: string }) => ({ id: value.id }),
+    isQueueJobFinalStatusFn: (status: string) => status === "done",
   });
   assert.equal(payload.ok, true);
   assert.equal(payload.job.id, "job-1");
@@ -65,7 +65,7 @@ test("job-route-service: state payload and cursor helpers are deterministic", ()
 });
 
 test("job-route-service: stream event builders use API error envelope", () => {
-  const buildApiErrorPayloadFn = (args) => ({
+  const buildApiErrorPayloadFn = (args: { code: string; userMessage: string }) => ({
     ok: false,
     error: { code: args.code, userMessage: args.userMessage },
   });

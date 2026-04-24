@@ -3,11 +3,11 @@ import test from "node:test";
 
 import { createQueueEngineService } from "../services/queue-engine-service.ts";
 
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForFinal(job, timeoutMs = 1500) {
+async function waitForFinal(job: { id: string; status: string }, timeoutMs = 1500): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     if (job.status === "success" || job.status === "error" || job.status === "cancelled") return;
@@ -16,8 +16,8 @@ async function waitForFinal(job, timeoutMs = 1500) {
   throw new Error(`Timed out waiting for job ${job.id} to finish`);
 }
 
-function createEngine(overrides = {}) {
-  const operationEvents = [];
+function createEngine(overrides: Record<string, unknown> = {}) {
+  const operationEvents: Array<Record<string, unknown>> = [];
   const engine = createQueueEngineService({
     jobQueueConcurrency: 1,
     jobTimeoutMs: 250,
@@ -25,7 +25,7 @@ function createEngine(overrides = {}) {
     maxRetainedEvents: 100,
     maxRetainedJobs: 100,
     nowIso: () => new Date().toISOString(),
-    onOperationEvent: (entry) => operationEvents.push(entry),
+    onOperationEvent: (entry: Record<string, unknown>) => operationEvents.push(entry),
     ...overrides,
   });
   return { engine, operationEvents };

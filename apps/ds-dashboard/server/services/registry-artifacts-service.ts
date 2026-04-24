@@ -109,7 +109,9 @@ export interface ArtifactReadApiError {
   };
 }
 
-export function artifactReadFailureToApiError(error: ArtifactReadFailureLike): ArtifactReadApiError {
+export function artifactReadFailureToApiError(
+  error: ArtifactReadFailureLike,
+): ArtifactReadApiError {
   const artifactName = String(error?.artifactName || "artifact");
   const filePath = String(error?.filePath || "");
   if (error?.kind === "not_found") {
@@ -207,7 +209,9 @@ function sortTokenTree(nodes: TokenTreeNode[]): void {
   }
 }
 
-export function buildTokenCollectionTrees(entries: RegistryTokenEntry[]): TokenCollectionTreesResult {
+export function buildTokenCollectionTrees(
+  entries: RegistryTokenEntry[],
+): TokenCollectionTreesResult {
   const byCollection = new Map<string, RegistryTokenEntry[]>();
   for (const entry of entries) {
     const collection = String(entry.collection || "Uncategorized").trim() || "Uncategorized";
@@ -344,7 +348,9 @@ export interface ComponentUsageIndexResult {
   by_slug: Record<string, ComponentUsageEntry>;
 }
 
-export function buildComponentUsageIndex(rows: RegistryComponentUsageRow[]): ComponentUsageIndexResult {
+export function buildComponentUsageIndex(
+  rows: RegistryComponentUsageRow[],
+): ComponentUsageIndexResult {
   const slugSet = new Set(
     rows
       .map((row) => String(row.slug || "").trim())

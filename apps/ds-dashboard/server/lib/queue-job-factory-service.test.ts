@@ -3,9 +3,9 @@ import test from "node:test";
 
 import { createQueueJobFactoryService } from "../services/queue-job-factory-service.ts";
 
-function createFactory(overrides = {}) {
-  const enqueued = [];
-  const runCalls = [];
+function createFactory(overrides: Record<string, unknown> = {}) {
+  const enqueued: Array<Record<string, unknown>> = [];
+  const runCalls: Array<Record<string, unknown>> = [];
   const systems = new Map([
     [
       "core",
@@ -18,20 +18,20 @@ function createFactory(overrides = {}) {
   ]);
 
   const service = createQueueJobFactoryService({
-    getSystemContext(systemId) {
+    getSystemContext(systemId: string) {
       const row = systems.get(systemId);
       if (!row) throw new Error("unknown system");
       return row;
     },
-    enqueueQueueJob(payload) {
+    enqueueQueueJob(payload: Record<string, unknown>) {
       enqueued.push(payload);
       return { id: `job_${enqueued.length}` };
     },
-    async runQueuedSpawnCommand(args) {
+    async runQueuedSpawnCommand(args: Record<string, unknown>) {
       runCalls.push(args);
       return { ok: true, code: 0, summary: "ok", payload: { ok: true } };
     },
-    sha256Text(value) {
+    sha256Text(value: string) {
       return `hash:${String(value).length}`;
     },
     ...overrides,
@@ -52,7 +52,7 @@ test("queue-job-factory: queueNpmScript enqueues npm command with system arg", (
   assert.deepEqual(job, { id: "job_1" });
   assert.equal(enqueued.length, 1);
   assert.equal(enqueued[0].operationName, "script:ds:token-usage-index");
-  assert.match(enqueued[0].label, /npm run ds:token-usage-index/);
+  assert.match(enqueued[0].label as string, /npm run ds:token-usage-index/);
 });
 
 test("queue-job-factory: queueNodeJsonCommand adds tsx loader for TypeScript runners", async () => {
@@ -97,7 +97,7 @@ test("queue-job-factory: queueNodeJsonCommand configures JSON parsing", async ()
 });
 
 test("queue-job-factory: queueNodeJsonCommand runs onSuccess post-processing hook", async () => {
-  let hookPayload = null;
+  let hookPayload: unknown = null;
   const { service, enqueued } = createFactory({
     async runQueuedSpawnCommand() {
       return { ok: true, code: 0, summary: "ok", payload: { ok: true, captured: [] } };
@@ -110,7 +110,7 @@ test("queue-job-factory: queueNodeJsonCommand runs onSuccess post-processing hoo
     scriptPath: "tooling/scripts/capture.mjs",
     scriptArgs: [],
     systemId: "core",
-    onSuccess: async ({ payload }) => {
+    onSuccess: async ({ payload }: { payload: unknown }) => {
       hookPayload = payload;
     },
   });
@@ -121,7 +121,7 @@ test("queue-job-factory: queueNodeJsonCommand runs onSuccess post-processing hoo
 });
 
 test("queue-job-factory: queueNodeJsonCommand fails when onSuccess hook throws", async () => {
-  const emitted = [];
+  const emitted: Array<{ kind: string; text: string }> = [];
   const { service, enqueued } = createFactory({
     async runQueuedSpawnCommand() {
       return { ok: true, code: 0, summary: "ok", payload: { ok: true } };
@@ -140,7 +140,7 @@ test("queue-job-factory: queueNodeJsonCommand fails when onSuccess hook throws",
   });
 
   const result = await enqueued[0].execute({
-    emitChunk(kind, text) {
+    emitChunk(kind: string, text: string) {
       emitted.push({ kind, text });
     },
     setProcess() {},
