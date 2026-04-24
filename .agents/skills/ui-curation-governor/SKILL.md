@@ -105,11 +105,7 @@ The palette intentionally avoids pure black (`#000`) — `#0C0C0D` has a subtle 
 
 ### Motion
 
-| Token               | Duration | Easing      | Use case                              |
-| ------------------- | -------- | ----------- | ------------------------------------- |
-| `--app-motion-fast` | 150ms    | ease-out    | Hover states, toggles, micro-feedback |
-| `--app-motion-base` | 250ms    | ease-out    | Panel reveals, content transitions    |
-| `--app-motion-slow` | 400ms    | ease-in-out | Modal entrances, page transitions     |
+See `ui-style-contract.mdc` § Motion for the canonical duration token table (`duration-fast`, `duration-base`, `duration-slow`) and easing rules.
 
 Motion exists to communicate state — not to decorate. Every animation must answer: "what changed and why?"
 

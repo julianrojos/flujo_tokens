@@ -6,7 +6,6 @@ globs:
   - "tooling/scripts/ds-*.mjs"
   - "tooling/src/cli/**/*.ts"
   - "tooling/scripts/lib/agent-runner.mjs"
-  - "docs/_spec/**/*.yml"
   - ".agents/rules/*.mdc"
 ---
 

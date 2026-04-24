@@ -1,179 +1,179 @@
 ---
-description: "FindExcellence (repo completo, iterativo): detecta refactors, limpieza, mejoras de arquitectura/consistencia y oportunidades de performance (excluye bugs). Incluye churn (14d), máx. 2 planes por ítem y registry para evitar repetición. Stop-condition: si no hay deltas reales, no re-emite ítems."
+description: "FindExcellence (repo-wide, iterative): detects refactors, cleanup, architecture/consistency improvements, and performance opportunities (excludes bugs). Includes 14-day churn, max 2 plans per item, and a registry to avoid repetition. Stop condition: if there are no real deltas, does not re-emit items."
 ---
 
 # /findExcellence — Repo-wide excellence scan (v2.2, iterative, no code changes)
 
-Este workflow inspecciona **todo el código del proyecto** (no el diff) y mejora en cada iteración usando un **Excellence Registry** como memoria persistente.
-No edites código ni hagas commits.
+This workflow inspects **all project code** (not the diff) and improves each iteration using an **Excellence Registry** as persistent memory.
+Do not edit code or make commits.
 
-> `// turbo` solo para comandos *read-only*. Evita `// turbo-all`.
+> `// turbo` only for *read-only* commands. Avoid `// turbo-all`.
 
 ---
 
 ## Workflow contract
 state_file: `.agents/state/excellence-registry.yml`  
-produces: `Repo Excellence Report v2.2` + `registry_seed|registry_patch` (para aplicar manualmente)  
+produces: `Repo Excellence Report v2.2` + `registry_seed|registry_patch` (to be applied manually)  
 next: `/judgeExcellence`
 
 ---
 
-## Reglas de oro
-1) **No cambies el código.** Solo análisis.
-2) **Actionable-only:** si no puedes proponer una **acción concreta** o un **paso de verificación/medición**, **no lo reportes**.
-3) **Nada de validaciones positivas:** sin ✅, sin “está bien”, sin “patrón válido”.
-4) **Excluye bugs:** si ves probable bug (comportamiento incorrecto), mándalo a **OUT OF SCOPE (BUG?)** y recomienda `/findBugs` (máx. 5).
-5) **No redundancias:** si la mejora ya está implementada en el repo, **omítela**.
-6) **Performance con disciplina:** no propongas micro-optis sin hipótesis de hot-path + plan de medición.
-7) **Sin duplicados:** si varias observaciones comparten la misma raíz, fusiona en 1 ítem.
-8) **Máx. 2 planes por ítem:** Plan A (obligatorio) y Plan B (opcional).
-9) **Iteración = mejora real:** si un ítem ya existe en el registry, no lo re‑reportes salvo que aportes `delta` real.
-10) **Stop condition (anti-repetición):** si tras filtrar NO hay ningún ítem `NEW` ni ningún ítem existente con `delta` real, **no re-emitas ítems**. Devuelve **solo** el output “NO_UPDATES” (definido al final).
+## Golden rules
+1) **Do not change code.** Analysis only.
+2) **Actionable-only:** if you cannot propose a **concrete action** or a **verification/measurement step**, **do not report it**.
+3) **No positive validations:** no ✅, no "this is fine", no "valid pattern".
+4) **Exclude bugs:** if you see a probable bug (incorrect behavior), send it to **OUT OF SCOPE (BUG?)** and recommend `/findBugs` (max 5).
+5) **No redundancies:** if the improvement is already implemented in the repo, **omit it**.
+6) **Performance with discipline:** do not propose micro-optimizations without a hot-path hypothesis + measurement plan.
+7) **No duplicates:** if several observations share the same root, merge into 1 item.
+8) **Max 2 plans per item:** Plan A (required) and Plan B (optional).
+9) **Iteration = real improvement:** if an item already exists in the registry, do not re-report it unless you provide real `delta`.
+10) **Stop condition (anti-repetition):** if after filtering there are no `NEW` items and no existing items with real `delta`, **do not re-emit items**. Return **only** the "NO_UPDATES" output (defined at the end).
 
-## Gates y límites
-- **IMPROVEMENT:** Confianza ≥ 80% **y** actionability ∈ {high, medium}
-- **QUESTION:** alto valor pero falta contexto (máx. 5)
-- **OUT OF SCOPE (BUG?)**: máx. 5
-- **Límites:** máx. 20 improvements
+## Gates and limits
+- **IMPROVEMENT:** Confidence ≥ 80% **and** actionability ∈ {high, medium}
+- **QUESTION:** high value but missing context (max 5)
+- **OUT OF SCOPE (BUG?)**: max 5
+- **Limits:** max 20 improvements
 
-### Definición determinista de actionability
-- **high:** pasos claros + verificación clara + coste/riesgo razonable
-- **medium:** pasos claros, pero verificación o impacto requieren una decisión/contexto extra
-- **low:** vago o sin verificación (→ debe ser QUESTION, no IMPROVEMENT)
-
----
-
-## Paso 0 — Prerrequisitos operacionales (manual)
-- Lee `AGENTS.md` en la raíz antes de actuar.
-- No propongas commits ni modificaciones de código aquí.
+### Deterministic actionability definition
+- **high:** clear steps + clear verification + reasonable cost/risk
+- **medium:** clear steps, but verification or impact requires an extra decision/context
+- **low:** vague or without verification (→ must be QUESTION, not IMPROVEMENT)
 
 ---
 
-## Paso 1 — Mapear el repo (inventario + churn hotspots)
+## Step 0 — Operational prerequisites (manual)
+- Read `AGENTS.md` at the root before acting.
+- Do not propose commits or code modifications here.
+
+---
+
+## Step 1 — Map the repo (inventory + churn hotspots)
 
 // turbo
-1) Raíz y estructura:
+1) Root and structure:
 ```bash
 git rev-parse --show-toplevel
 ls -la
 ```
 
 // turbo
-2) Detectar workspace (si aplica):
+2) Detect workspace (if applicable):
 ```bash
 ls -la package.json pnpm-workspace.yaml yarn.lock package-lock.json 2>/dev/null || true
 ```
 
 // turbo
-3) Listar archivos de código (tracked):
+3) List code files (tracked):
 ```bash
 git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs'
 ```
 
 // turbo
-4) Top archivos más grandes (por líneas):
+4) Top largest files (by lines):
 ```bash
 git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs'   | xargs -I{} wc -l "{}" 2>/dev/null   | sort -nr   | head -n 30
 ```
 
 // turbo
-5) Hotspots por churn (últimos 14 días) — top 30 por frecuencia:
+5) Churn hotspots (last 14 days) — top 30 by frequency:
 ```bash
 git log --since="14 days ago" --name-only --pretty=format:   | grep -E '\.(ts|tsx|js|jsx|mjs|cjs)$'   | grep -vE '^$'   | sort   | uniq -c   | sort -nr   | head -n 30 || true
 ```
 
-> Regla: los **top churn files** entran automáticamente en la selección de hotspots, aunque no sean los más grandes.
+> Rule: **top churn files** automatically enter hotspot selection, even if they are not the largest.
 
 ---
 
-## Paso 2 — Barrido repo-wide de señales rápidas (read-only)
+## Step 2 — Repo-wide quick signal scan (read-only)
 
 // turbo
-1) Detectar si `rg` existe:
+1) Check if `rg` exists:
 ```bash
 command -v rg >/dev/null 2>&1 && echo "rg: OK" || echo "rg: MISSING"
 ```
 
 // turbo
-2) Deuda obvia:
+2) Obvious debt:
 ```bash
 rg -n "(TODO|FIXME|HACK)" --hidden --glob '!**/node_modules/**' || true
 ```
 
 // turbo
-3) Degradaciones de calidad:
+3) Quality degradations:
 ```bash
 rg -n "(eslint-disable|ts-ignore|ts-expect-error)" --hidden --glob '!**/node_modules/**' || true
 ```
 
 // turbo
-4) Ruido accidental:
+4) Accidental noise:
 ```bash
 rg -n "(console\.log|debugger)" --hidden --glob '!**/node_modules/**' || true
 ```
 
 // turbo
-5) Señales de performance (candidatos; no afirmar sin contexto):
+5) Performance signals (candidates; do not assert without context):
 ```bash
 rg -n "(readFileSync|writeFileSync|JSON\.parse\(|forEach\(async|await .*for\s*\()"
   --hidden --glob '!**/node_modules/**' || true
 ```
 
 // turbo
-6) Señales de arquitectura/consistencia:
+6) Architecture/consistency signals:
 ```bash
 rg -n "(export \* from|index\.ts$)" --hidden --glob '!**/node_modules/**' || true
 ```
 
 ---
 
-## Paso 3 — Seleccionar hotspots para lectura profunda (8–12)
-Para mantener señal alta en repos grandes, elige **8–12 hotspots** combinando:
+## Step 3 — Select hotspots for deep reading (8–12)
+To maintain high signal in large repos, choose **8–12 hotspots** combining:
 
-- **churn hotspots** (Paso 1.5): incluye 4–6 de los más tocados
-- top archivos grandes (Paso 1.4): incluye 2–4
-- archivos con más señales (Paso 2): incluye 2–4
-- módulos “core” (tooling, servicios, shared libs, runtime entrypoints)
+- **churn hotspots** (Step 1.5): include 4–6 of the most touched
+- top large files (Step 1.4): include 2–4
+- files with most signals (Step 2): include 2–4
+- "core" modules (tooling, services, shared libs, runtime entrypoints)
 
 ---
 
-## Paso 4 — Construir candidatos y filtrar duro (excluyendo bugs)
+## Step 4 — Build candidates and filter hard (excluding bugs)
 
-Para cada candidato, produce:
-1) **Evidencia**: archivo + líneas + snippet mínimo
-2) **Contexto**:
-   - `context_signature` (firma de función/clase o encabezado del bloque contenedor)
-   - `context_window` (±3 líneas alrededor)
-3) **Por qué mejora el repo** (1–3 frases)
-4) **Planes (máx. 2)**:
-   - Plan A: el más razonable/seguro
-   - Plan B: alternativa solo si aporta algo distinto
-5) **Verificación**: test/benchmark/check seguro
+For each candidate, produce:
+1) **Evidence**: file + lines + minimal snippet
+2) **Context**:
+   - `context_signature` (function/class signature or enclosing block header)
+   - `context_window` (±3 lines around)
+3) **Why it improves the repo** (1–3 sentences)
+4) **Plans (max 2)**:
+   - Plan A: the most reasonable/safe
+   - Plan B: alternative only if it adds something different
+5) **Verification**: safe test/benchmark/check
 6) **Scoring**:
-   - Confianza (0–100)
+   - Confidence (0–100)
    - Actionability (high|medium|low)
-   - Beneficio (0–5)
-   - Riesgo (0–5)
-   - Esfuerzo (S/M/L)
+   - Benefit (0–5)
+   - Risk (0–5)
+   - Effort (S/M/L)
 7) **Hotspot rationale**: `churn|size|signals|core`
 
-Si el ítem ya existía en registry, añade `delta` (obligatorio):
+If the item already existed in the registry, add `delta` (required):
 - `evidence_delta`, `plan_delta`, `verification_delta`, `priority_delta`
-Si no hay delta real → **no lo reportes**.
+If there is no real delta → **do not report it**.
 
 ---
 
-## Paso 5 — Stop condition (OBLIGATORIO)
-Tras aplicar gates + filtro de deltas:
-- Si el conjunto final de `IMPROVEMENTS` está vacío **y**
-- no hay `registry_patch.upsert` con deltas reales **y**
-- no hay `QUESTIONS` nuevas de alto valor,
+## Step 5 — Stop condition (REQUIRED)
+After applying gates + delta filter:
+- If the final `IMPROVEMENTS` set is empty **and**
+- there are no `registry_patch.upsert` with real deltas **and**
+- there are no new high-value `QUESTIONS`,
 
-Entonces devuelve **solo** el bloque `NO_UPDATES OUTPUT` (abajo).
+Then return **only** the `NO_UPDATES OUTPUT` block (below).
 
 ---
 
-## Output A — Reporte normal (plantilla obligatoria)
+## Output A — Normal report (mandatory template)
 
 # Repo Excellence Report v2.2 (repo-wide, iterative)
 
@@ -184,46 +184,46 @@ Entonces devuelve **solo** el bloque `NO_UPDATES OUTPUT` (abajo).
 - churn_window_days: 14
 - churn_hotspots_top: ["<file1>", "<file2>", "<file3>"]
 
-## IMPROVEMENTS (máx. 20; priorizados)
-- **IMP-001** — Tipo: **REFACTOR | CLEANUP | ARCH | CONSISTENCY | PERF | TEST/DX**
-  Prioridad: **(B−R)=X** | Confianza (finder): **YY%** | Actionability: **high|medium** | Esfuerzo: **S/M/L**
+## IMPROVEMENTS (max 20; prioritized)
+- **IMP-001** — Type: **REFACTOR | CLEANUP | ARCH | CONSISTENCY | PERF | TEST/DX**
+  Priority: **(B−R)=X** | Confidence (finder): **YY%** | Actionability: **high|medium** | Effort: **S/M/L**
   - **Status (from registry):** <NEW|NEEDS_CONTEXT|KEEP|DROP|IMPLEMENTED|DUPLICATE|unknown>
-  - **Ubicación:** <archivo>:<líneas>
-  - **Evidencia:** <snippet mínimo>
-  - **Contexto:**
+  - **Location:** <file>:<lines>
+  - **Evidence:** <minimal snippet>
+  - **Context:**
     - context_signature: <signature/header>
     - context_window: |
         <±3 lines>
   - **Hotspot rationale:** <churn|size|signals|core>
-  - **Por qué es mejora:** <1–3 frases>
+  - **Why it's an improvement:** <1–3 sentences>
 
-  - **Plan A (obligatorio):** <título corto>
-    - Pasos: <2–6 bullets concretos>
-    - Trade-offs / riesgo: <1–2 bullets>
-    - Verificación: <test/benchmark/check>
+  - **Plan A (required):** <short title>
+    - Steps: <2–6 concrete bullets>
+    - Trade-offs / risk: <1–2 bullets>
+    - Verification: <test/benchmark/check>
 
-  - **Plan B (opcional, máx. 1):** <título corto>
-    - Pasos: <2–6 bullets concretos>
-    - Trade-offs / riesgo: <1–2 bullets>
-    - Verificación: <test/benchmark/check>
+  - **Plan B (optional, max 1):** <short title>
+    - Steps: <2–6 concrete bullets>
+    - Trade-offs / risk: <1–2 bullets>
+    - Verification: <test/benchmark/check>
 
   - **Delta (required if not NEW):**
-    - evidence_delta: <nuevo>
-    - plan_delta: <nuevo>
-    - verification_delta: <nuevo>
-    - priority_delta: <nuevo>
+    - evidence_delta: <new>
+    - plan_delta: <new>
+    - verification_delta: <new>
+    - priority_delta: <new>
 
-## QUESTIONS (máx. 5; alto valor pero falta contexto)
-- **Q-01** — <qué decidir/verificar>
-  - Evidencia parcial:
-  - Qué falta:
-  - Qué decisión desbloquea:
+## QUESTIONS (max 5; high value but missing context)
+- **Q-01** — <what to decide/verify>
+  - Partial evidence:
+  - What's missing:
+  - What decision it unblocks:
 
-## OUT OF SCOPE (BUG?) (máx. 5)
-- **BUG?-01** — <breve>
-  - Evidencia:
-  - Por qué parece bug:
-  - Siguiente paso: ejecutar `/findBugs` con repro/test.
+## OUT OF SCOPE (BUG?) (max 5)
+- **BUG?-01** — <brief>
+  - Evidence:
+  - Why it looks like a bug:
+  - Next step: run `/findBugs` with repro/test.
 
 ---
 
@@ -261,12 +261,12 @@ registry_patch:
 
 ---
 
-## Output B — NO_UPDATES OUTPUT (OBLIGATORIO si aplica)
-> Devuelve exactamente este formato, sin secciones adicionales.
+## Output B — NO_UPDATES OUTPUT (REQUIRED if applicable)
+> Return exactly this format, no additional sections.
 
 # Repo Excellence Report v2.2 — NO_UPDATES
 
-✅ Sin novedades: no hay `NEW` ni deltas reales en ítems existentes; nada que re‑emitir con señal suficiente.
+✅ No updates: no `NEW` items and no real deltas in existing items; nothing to re-emit with sufficient signal.
 
 registry_patch:
   updated_at: "<YYYY-MM-DD or unknown>"
