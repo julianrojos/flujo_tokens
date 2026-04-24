@@ -8,13 +8,11 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 const cwd = process.cwd();
 
-function isRepoRoot(dir: string): boolean {
+function isRepoRoot(dir) {
   const manifestPath = path.join(dir, "package.json");
   if (!fs.existsSync(manifestPath)) return false;
   try {
-    const pkg = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
-      workspaces?: unknown;
-    };
+    const pkg = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     return Array.isArray(pkg.workspaces);
   } catch {
     return false;

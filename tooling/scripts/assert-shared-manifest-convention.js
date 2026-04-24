@@ -4,15 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-type PackageJson = {
-  dependencies?: Record<string, string>;
-};
-
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../..");
 
-function readJson(filePath: string): PackageJson {
-  return JSON.parse(fs.readFileSync(filePath, "utf8")) as PackageJson;
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
 const rootPkgPath = path.join(repoRoot, "package.json");
@@ -27,7 +23,7 @@ const pluginRef = pluginPkg?.dependencies?.["@flujo/shared"];
 const expectedRootRef = "workspace:*";
 const expectedPluginRef = "file:../../packages/shared";
 
-const failures: string[] = [];
+const failures = [];
 
 if (rootRef !== expectedRootRef) {
   failures.push(

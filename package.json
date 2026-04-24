@@ -12,8 +12,8 @@
     "apps/*"
   ],
   "scripts": {
-    "assert:repo-root": "node --import tsx tooling/scripts/assert-repo-root.ts",
-    "assert:shared-manifest-convention": "node --import tsx tooling/scripts/assert-shared-manifest-convention.ts",
+    "assert:repo-root": "node tooling/scripts/assert-repo-root.js",
+    "assert:shared-manifest-convention": "node tooling/scripts/assert-shared-manifest-convention.js",
     "assert:tsx-runtime": "node tooling/scripts/assert-tsx-runtime.js",
     "build:shared": "npm run assert:repo-root && npm -w @flujo/shared run build",
     "ci:preflight": "npm run assert:repo-root && npm run assert:shared-manifest-convention && npm run assert:tsx-runtime && npm run build:shared",
@@ -28,8 +28,8 @@
     "test:tooling:ds-types": "tsx --test packages/ds-types/src/*.test.ts",
     "test:tooling:core": "tsx --test tooling/src/utils/*.test.ts tooling/src/services/*.test.ts tooling/src/runners/*.test.ts",
     "test:tooling": "npm run assert:repo-root && npm run build:shared && npm run test:tooling:ds-types && npm run test:tooling:core",
-    "test:server:node": "tsx --test apps/ds-dashboard/server/lib/*.test.mjs apps/ds-dashboard/server/routes/*.test.mjs",
-    "test:server:tsx": "tsx --test apps/ds-dashboard/server/lib/*.test.ts apps/ds-dashboard/server/routes/*.test.ts apps/ds-dashboard/server/create-server-app.test.ts apps/ds-dashboard/server/create-server-http-app.test.ts apps/ds-dashboard/server/routes/component-spec-routes.test.ts",
+    "test:server:node": "tsx --test apps/ds-dashboard/server/lib/*.test.ts",
+    "test:server:tsx": "tsx --test apps/ds-dashboard/server/routes/*.test.ts apps/ds-dashboard/server/create-server-app.test.ts apps/ds-dashboard/server/create-server-http-app.test.ts",
     "test:server:services": "TSX_TSCONFIG_PATH=apps/ds-dashboard/tsconfig.app.json node --import tsx --test apps/ds-dashboard/server/services/*.test.ts",
     "test:server": "npm run test:server:node && npm run test:server:tsx",
     "test:plugin:bridge": "npm run assert:repo-root && npm run build:shared && npm --prefix apps/figma-plugin run test:bridge",
