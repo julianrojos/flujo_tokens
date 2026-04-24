@@ -1,14 +1,7 @@
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const TYPE_MAP = require("../../lib/property-type-map.json");
-
 /**
  * Canonical regex for Figma node IDs in spec metadata (colon-separated integers).
- * Pattern is sourced from tooling/lib/property-type-map.json → figma_node_id.pattern.
- * See the node ID format contract in the design system rules.
  */
-export const FIGMA_NODE_ID_RE = new RegExp(TYPE_MAP.figma_node_id.pattern);
+export const FIGMA_NODE_ID_RE = /^\d+:\d+$/;
 
 export function normalizeNodeId(raw) {
   const value = String(raw || "").trim();

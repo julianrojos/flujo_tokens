@@ -3,16 +3,11 @@
  *
  * Utilities for normalizing and validating Figma node IDs.
  */
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const TYPE_MAP = require('../../lib/property-type-map.json');
 
 /**
  * Canonical regex for Figma node IDs in spec metadata (colon-separated integers).
- * Pattern is sourced from tooling/lib/property-type-map.json → figma_node_id.pattern.
  */
-export const FIGMA_NODE_ID_RE = new RegExp(TYPE_MAP.figma_node_id.pattern);
+export const FIGMA_NODE_ID_RE = /^\d+:\d+$/;
 
 /**
  * Normalize a Figma node ID from hyphen to colon format.

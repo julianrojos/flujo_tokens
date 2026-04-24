@@ -3,12 +3,12 @@
   "$id": "component-spec",
   "title": "Component Specification Schema",
   "description": "JSON Schema for component spec files (design-systems/<id>/docs/_spec/components/*.yml). This is the canonical structural specification that formalizes the component-spec rules and the component-spec property ordering contract. All other rules and scripts must reference this schema instead of duplicating the constraints.",
-  "$comment": "Thin-rule companion: component-spec rules. Canonical machine-readable companions: tooling/lib/property-type-map.json (type mapping + ordering groups), tooling/scripts/ds-sort-spec.mjs (deterministic property order), tooling/scripts/lib/name.mjs (name/slug normalization). Ready specs require concrete defaults and deterministic figma.component_set_node_id.",
+  "$comment": "Thin-rule companion: component-spec rules. Canonical machine-readable companions: tooling/scripts/ds-sort-spec.mjs (deterministic property order), tooling/scripts/lib/name.mjs (name/slug normalization). Ready specs require concrete defaults and deterministic figma.component_set_node_id.",
   "version": "1.0.0",
   "source_of_truth_for": [
     "component-spec rules (spec structure + constraints)",
     "component-spec property ordering rules",
-    "property-type-map.json (type mapping decision table)",
+    "component-spec rules (type mapping decision table)",
     "component-spec required top-level fields"
   ],
 
@@ -237,7 +237,7 @@
         "type": {
           "type": "string",
           "enum": ["enum", "text", "boolean", "instance_swap"],
-          "description": "Canonical spec type. Must match one of the valid types from property-type-map.json. Case-insensitive comparison is done at validation time."
+          "description": "Canonical spec type. Must match one of the valid types from the component-spec rules. Case-insensitive comparison is done at validation time."
         },
 
         "values": {
