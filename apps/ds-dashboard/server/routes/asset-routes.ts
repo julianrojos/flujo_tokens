@@ -1,3 +1,4 @@
+import type { Context, Hono } from "hono";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -5,7 +6,13 @@ import { guessContentType } from "../lib/request-file-helpers.ts";
 
 const ALLOWED_VISUAL_PROOF_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"]);
 
-function isAllowedVisualProofAsset(repoRoot, absPath) {
+export interface AssetRoutesDeps {
+  failJson: (c: Context, statusCode: number, args: { code: string; userMessage: string; recoverable: boolean; context: Record<string, unknown> }) => Response;
+  getSystemContext: (systemHeader: string) => Promise<{ repoRoot?: unknown } | unknown>;
+  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
+}
+
+function isAllowedVisualProofAsset(repoRoot: string, absPath: string): boolean {
   const ext = path.extname(absPath).toLowerCase();
   if (!ALLOWED_VISUAL_PROOF_EXTENSIONS.has(ext)) return false;
 
@@ -17,21 +24,20 @@ function isAllowedVisualProofAsset(repoRoot, absPath) {
   );
 }
 
-function getSystemRepoRoot(deps, systemHeader) {
-  return deps.getSystemContext(systemHeader).then((context) => {
-    if (!context || typeof context !== "object") {
-      throw new TypeError("assetDeps.getSystemContext must return an object");
-    }
-    const repoRoot = String(context.repoRoot || "").trim();
-    if (!repoRoot) {
-      throw new TypeError("assetDeps.getSystemContext.repoRoot must be a string");
-    }
-    return repoRoot;
-  });
+async function getSystemRepoRoot(deps: AssetRoutesDeps, systemHeader: string): Promise<string> {
+  const context = await deps.getSystemContext(systemHeader);
+  if (!context || typeof context !== "object") {
+    throw new TypeError("assetDeps.getSystemContext must return an object");
+  }
+  const repoRoot = String((context as { repoRoot?: unknown }).repoRoot || "").trim();
+  if (!repoRoot) {
+    throw new TypeError("assetDeps.getSystemContext.repoRoot must be a string");
+  }
+  return repoRoot;
 }
 
-export function registerAssetRoutes(app, deps) {
-  app.get("/api/asset", async (c) => {
+export function registerAssetRoutes(app: Hono, deps: AssetRoutesDeps): void {
+  app.get("/api/asset", async (c: Context) => {
     const requested = c.req.query("path") ?? c.req.query("file") ?? "";
     const requestedSystem = c.req.query("system") ?? "";
     const raw = String(requested || "").trim();

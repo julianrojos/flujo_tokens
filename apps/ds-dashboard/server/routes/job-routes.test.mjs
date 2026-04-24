@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { Hono } from "hono";
 
-import { registerJobRoutes } from "./job-routes.mjs";
+import { registerJobRoutes } from "./job-routes.ts";
 
 function createFailJson() {
   return (c, statusCode, args) =>

@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import { Hono } from 'hono';
 
-import { registerAssetRoutes } from './asset-routes.mjs';
+import { registerAssetRoutes } from './asset-routes.ts';
 
 function createFailJson() {
   return (c: any, statusCode: number, args: any) =>

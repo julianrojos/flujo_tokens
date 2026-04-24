@@ -7,12 +7,12 @@
 import type { Hono } from 'hono';
 
 import { registerSystemRoutes } from './system-routes.ts';
-import { registerAssetRoutes } from './asset-routes.mjs';
-import { registerCatalogRoutes } from './catalog-routes.mjs';
+import { registerAssetRoutes } from './asset-routes.ts';
+import { registerCatalogRoutes } from './catalog-routes.ts';
 import { registerTokenUsageIndexRoutes } from './token-usage-index-routes.ts';
 import { registerHealthRoutes } from './health-routes.ts';
-import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
-import { registerJobRoutes } from './job-routes.mjs';
+import { registerComponentSpecRoutes } from './component-spec-routes.ts';
+import { registerJobRoutes } from './job-routes.ts';
 import { registerCommandRoutes } from './command-routes.ts';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
 import { registerFigmaMcpPortRoute } from './figma-mcp-port-route.ts';

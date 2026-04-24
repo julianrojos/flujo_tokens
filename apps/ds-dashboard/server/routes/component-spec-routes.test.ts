@@ -10,7 +10,7 @@ import type { Sql } from 'postgres';
 
 import { ComponentRepository } from '../db/component-repository.js';
 import { createTestDatabase } from '../db/test-db-helpers.js';
-import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
+import { registerComponentSpecRoutes } from './component-spec-routes.ts';
 import { Hono } from 'hono';
 
 function createFailJson() {
