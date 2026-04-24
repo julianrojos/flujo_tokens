@@ -714,8 +714,6 @@ Location: `apps/ds-dashboard/src/features/`
 | Component              | Path                                                           | Description                 |
 | ---------------------- | -------------------------------------------------------------- | --------------------------- |
 | `TokensPage`           | `src/features/tokens/tokens-page.tsx`                          | Main tokens list view       |
-| `ContrastCheckerModal` | `src/features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker       |
-| `ColorPreview`         | `src/features/tokens/accessibility/color-preview.tsx`          | Color contrast preview      |
 | `TokenTreeModal`       | `src/features/tokens/token-tree/token-tree-modal.tsx`          | Token dependency tree modal |
 | `TokenDetailPage`      | `src/features/tokens/token-detail/token-detail-page.tsx`       | Token detail orchestrator   |
 
