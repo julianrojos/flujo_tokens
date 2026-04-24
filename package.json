@@ -12,8 +12,8 @@
     "apps/*"
   ],
   "scripts": {
-    "assert:repo-root": "node tooling/scripts/assert-repo-root.mjs",
-    "assert:shared-manifest-convention": "node tooling/scripts/assert-shared-manifest-convention.mjs",
+    "assert:repo-root": "node --import tsx tooling/scripts/assert-repo-root.ts",
+    "assert:shared-manifest-convention": "node --import tsx tooling/scripts/assert-shared-manifest-convention.ts",
     "assert:tsx-runtime": "node tooling/scripts/assert-tsx-runtime.mjs",
     "build:shared": "npm run assert:repo-root && npm -w @flujo/shared run build",
     "ci:preflight": "npm run assert:repo-root && npm run assert:shared-manifest-convention && npm run assert:tsx-runtime && npm run build:shared",

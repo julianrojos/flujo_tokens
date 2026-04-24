@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDesignSystemRepository } from "../../scripts/lib/system-repository.mjs";
+import { createDesignSystemRepository } from "../../scripts/lib/system-repository.ts";
 import { resolveDashboardDbUrl } from "../../../apps/ds-dashboard/server/db/pg-db-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

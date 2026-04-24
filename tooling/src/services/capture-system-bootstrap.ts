@@ -7,7 +7,7 @@
 import * as path from 'node:path';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
-import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.ts';
 import { syncFigmaTokensToDatabase } from './figma-token-sync.js';
 import type { FigmaVariableSource } from './figma-token-sync.js';
 

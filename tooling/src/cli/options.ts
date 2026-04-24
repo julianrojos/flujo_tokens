@@ -2,7 +2,7 @@ import path from 'path';
 
 import { formatDiagnostic } from '../utils/logging.js';
 import type { PipelinePhase } from '../runtime/pipeline-cache.js';
-import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.ts';
 
 export type CliOptions = {
     inputDir: string;
