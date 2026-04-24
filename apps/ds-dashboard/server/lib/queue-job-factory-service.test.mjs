@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createQueueJobFactoryService } from "../services/queue-job-factory-service.mjs";
+import { createQueueJobFactoryService } from "../services/queue-job-factory-service.ts";
 
 function createFactory(overrides = {}) {
   const enqueued = [];

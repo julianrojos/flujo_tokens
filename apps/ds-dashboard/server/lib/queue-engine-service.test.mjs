@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createQueueEngineService } from "../services/queue-engine-service.mjs";
+import { createQueueEngineService } from "../services/queue-engine-service.ts";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

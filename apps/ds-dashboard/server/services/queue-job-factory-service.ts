@@ -1,11 +1,46 @@
 import path from "node:path";
 
-function shouldUseTsxLoader(scriptPath) {
-  const normalizedPath = String(scriptPath || "").trim().toLowerCase();
-  return normalizedPath.endsWith(".ts") || normalizedPath.endsWith(".tsx") || normalizedPath.endsWith(".mts") || normalizedPath.endsWith(".cts");
+export interface QueueJobFactoryConfig {
+  getSystemContext: (systemId: string) => { repoRoot: string; [key: string]: unknown };
+  enqueueQueueJob: (payload: {
+    label: string;
+    systemId: string;
+    requestId?: string;
+    sourceEventId?: string;
+    operationName: string;
+    inputHash: string;
+    execute: (args: {
+      emitChunk: (kind: string, text: string) => void;
+      setProcess: (process: unknown) => void;
+      isCancelled: () => boolean;
+    }) => Promise<unknown>;
+  }) => { id: string };
+  runQueuedSpawnCommand: (args: {
+    cwd: string;
+    command: string;
+    commandArgs: string[];
+    emitChunk: (kind: string, text: string) => void;
+    registerProcess: (process: unknown) => void;
+    commandLabel: string;
+    commandEnv?: Record<string, string>;
+    parseJsonStdout?: boolean;
+    allowNonZeroJson?: boolean;
+  }) => Promise<Record<string, unknown>>;
+  sha256Text: (value: string) => string;
+  tokenRepo?: unknown;
 }
 
-function buildNodeCommandArgs(scriptPath, scriptArgs) {
+function shouldUseTsxLoader(scriptPath: string): boolean {
+  const normalizedPath = String(scriptPath || "").trim().toLowerCase();
+  return (
+    normalizedPath.endsWith(".ts") ||
+    normalizedPath.endsWith(".tsx") ||
+    normalizedPath.endsWith(".mts") ||
+    normalizedPath.endsWith(".cts")
+  );
+}
+
+function buildNodeCommandArgs(scriptPath: string, scriptArgs: string[]): string[] {
   const normalizedScriptPath = String(scriptPath || "").trim();
   const extraArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
   return shouldUseTsxLoader(normalizedScriptPath)
@@ -13,16 +48,29 @@ function buildNodeCommandArgs(scriptPath, scriptArgs) {
     : [normalizedScriptPath, ...extraArgs];
 }
 
-export function createQueueJobFactoryService(config) {
+export function createQueueJobFactoryService(config: QueueJobFactoryConfig) {
   const {
     getSystemContext,
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    tokenRepo,
   } = config;
 
-  function queueNpmScript({ repoRoot, script, systemId, commandLabel, requestId, sourceEventId }) {
+  function queueNpmScript({
+    repoRoot,
+    script,
+    systemId,
+    commandLabel,
+    requestId,
+    sourceEventId,
+  }: {
+    repoRoot: string;
+    script: string;
+    systemId?: string;
+    commandLabel?: string;
+    requestId?: string;
+    sourceEventId?: string;
+  }) {
     const safeScript = String(script || "").trim();
     if (!safeScript) throw new Error("Missing script name.");
 
@@ -32,7 +80,7 @@ export function createQueueJobFactoryService(config) {
 
     return enqueueQueueJob({
       label,
-      systemId,
+      systemId: systemId || "",
       requestId,
       sourceEventId,
       operationName: `script:${safeScript}`,
@@ -68,6 +116,25 @@ export function createQueueJobFactoryService(config) {
     requestId,
     sourceEventId,
     onSuccess,
+  }: {
+    repoRoot: string;
+    commandLabel: string;
+    scriptPath: string;
+    scriptArgs: string[];
+    commandEnv?: Record<string, string>;
+    systemId?: string;
+    allowNonZeroJson?: boolean;
+    requestId?: string;
+    sourceEventId?: string;
+    onSuccess?: (args: {
+      payload: unknown;
+      result: Record<string, unknown>;
+      emitChunk: (kind: string, text: string) => void;
+      repoRoot: string;
+      systemId?: string;
+      scriptPath: string;
+      commandLabel: string;
+    }) => Promise<void>;
   }) {
     const finalArgs = [...scriptArgs];
     if (systemId) finalArgs.push("--system", systemId);
@@ -75,7 +142,7 @@ export function createQueueJobFactoryService(config) {
 
     return enqueueQueueJob({
       label: commandLabel,
-      systemId,
+      systemId: systemId || "",
       requestId,
       sourceEventId,
       operationName: `script:${path.basename(scriptPath)}`,
@@ -103,13 +170,13 @@ export function createQueueJobFactoryService(config) {
             allowNonZeroJson: allowNonZeroJson === true,
           });
 
-          if (!result?.ok || typeof onSuccess !== "function") {
+          if (!(result as { ok?: boolean })?.ok || typeof onSuccess !== "function") {
             return result;
           }
 
           try {
             await onSuccess({
-              payload: result.payload,
+              payload: (result as { payload?: unknown }).payload,
               result,
               emitChunk,
               repoRoot,
@@ -122,7 +189,10 @@ export function createQueueJobFactoryService(config) {
             const message = error instanceof Error ? error.message : String(error);
             emitChunk("error", message);
             const payloadBase =
-              result?.payload && typeof result.payload === "object" ? result.payload : {};
+              (result as { payload?: unknown })?.payload &&
+              typeof (result as { payload?: unknown }).payload === "object"
+                ? (result as { payload?: Record<string, unknown> }).payload
+                : {};
             return {
               ...result,
               ok: false,

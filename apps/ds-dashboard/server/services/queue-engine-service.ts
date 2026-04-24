@@ -1,25 +1,78 @@
 import { EventEmitter } from "node:events";
 
-import { isQueueJobFinalStatus } from "../lib/queue-utils.ts";
+import { isQueueJobFinalStatus, type QueueJob } from "../lib/queue-utils.ts";
 
-function defaultOperationDurationMs(startedAt, finishedAt) {
+export interface QueueEngineServiceConfig {
+  jobQueueConcurrency: number;
+  jobTimeoutMs: number;
+  jobRetentionMs: number;
+  maxRetainedEvents: number;
+  maxRetainedJobs: number;
+  nowIso: () => string;
+  onOperationEvent?: (entry: Record<string, unknown>) => void;
+  createQueueJobId?: () => string;
+  hashUnknown?: (value: unknown) => string | null;
+  operationDurationMs?: (startedAt?: string, finishedAt?: string) => number | null;
+  operationResultSummary?: (result: unknown) => string;
+}
+
+export interface QueueEngineJob
+  extends Omit<QueueJob, "requestId" | "events" | "result"> {
+  requestId: string | null;
+  process?: { killed?: boolean; kill: (signal?: string) => void } | undefined;
+  emitter: EventEmitter;
+  nextSeq: number;
+  events: Array<{ seq: number; [key: string]: unknown }>;
+  startedAt?: string;
+  finishedAt?: string;
+  result?: {
+    ok: boolean;
+    code?: number;
+    summary?: string;
+    payload?: Record<string, unknown>;
+  };
+  execute: (args: {
+    emitChunk: (kind: string, text: string) => void;
+    setProcess: (process: { killed?: boolean; kill: (signal?: string) => void } | undefined) => void;
+    isCancelled: () => boolean;
+  }) => Promise<{ ok: boolean; code?: number; summary?: string; payload?: Record<string, unknown> }>;
+}
+
+export interface QueueEngineServiceResult {
+  queueJobs: Map<string, QueueEngineJob>;
+  queueMetrics: () => { active: number; pending: number; total: number };
+  enqueueQueueJob: (payload: {
+    label: string;
+    systemId: string;
+    operationName: string;
+    requestId?: string;
+    sourceEventId?: string;
+    inputHash?: string;
+    execute: QueueEngineJob["execute"];
+  }) => QueueEngineJob;
+  cancelQueueJob: (jobId: string) => { ok: boolean; message?: string };
+  cleanupQueueJobs: () => void;
+}
+
+function defaultOperationDurationMs(startedAt?: string, finishedAt?: string): number | null {
   const startTs = startedAt ? new Date(startedAt).getTime() : NaN;
   const endTs = finishedAt ? new Date(finishedAt).getTime() : NaN;
   if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs < startTs) return null;
   return endTs - startTs;
 }
 
-function defaultOperationResultSummary(result) {
+function defaultOperationResultSummary(result: unknown): string {
   if (!result || typeof result !== "object") return "";
-  const summary = String(result.summary ?? "").trim();
+  const record = result as Record<string, unknown>;
+  const summary = String(record.summary ?? "").trim();
   if (summary) return summary;
-  const payload = result.payload && typeof result.payload === "object" ? result.payload : null;
+  const payload = record.payload && typeof record.payload === "object" ? record.payload as Record<string, unknown> : null;
   const payloadMessage = String(payload?.message ?? payload?.error ?? "").trim();
   if (payloadMessage) return payloadMessage;
   return "";
 }
 
-function defaultHashUnknown(value) {
+function defaultHashUnknown(value: unknown): string | null {
   try {
     return JSON.stringify(value ?? null);
   } catch {
@@ -27,11 +80,11 @@ function defaultHashUnknown(value) {
   }
 }
 
-function defaultCreateQueueJobId() {
+function defaultCreateQueueJobId(): string {
   return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function createQueueEngineService(config) {
+export function createQueueEngineService(config: QueueEngineServiceConfig): QueueEngineServiceResult {
   const {
     jobQueueConcurrency,
     jobTimeoutMs,
@@ -46,10 +99,8 @@ export function createQueueEngineService(config) {
     operationResultSummary = defaultOperationResultSummary,
   } = config;
 
-  /** @type {Map<string, any>} */
-  const queueJobs = new Map();
-  /** @type {string[]} */
-  const queuePendingIds = [];
+  const queueJobs = new Map<string, QueueEngineJob>();
+  const queuePendingIds: string[] = [];
   let queueActiveCount = 0;
 
   function queueMetrics() {
@@ -60,7 +111,7 @@ export function createQueueEngineService(config) {
     };
   }
 
-  function appendQueueJobEvent(job, event) {
+  function appendQueueJobEvent(job: QueueEngineJob, event: Record<string, unknown>) {
     const fullEvent = {
       ...event,
       seq: job.nextSeq,
@@ -75,7 +126,7 @@ export function createQueueEngineService(config) {
     return fullEvent;
   }
 
-  function emitOperationEvent(entry) {
+  function emitOperationEvent(entry: Record<string, unknown>) {
     if (typeof onOperationEvent !== "function") return;
     onOperationEvent(entry);
   }
@@ -116,7 +167,7 @@ export function createQueueEngineService(config) {
     }
   }
 
-  async function runQueueJob(job) {
+  async function runQueueJob(job: QueueEngineJob) {
     queueActiveCount += 1;
     job.status = "running";
     job.startedAt = nowIso();
@@ -269,11 +320,11 @@ export function createQueueEngineService(config) {
     } catch (error) {
       const structuredError =
         error && typeof error === "object" && !Array.isArray(error)
-          ? error
+          ? (error as Record<string, unknown>)
           : null;
       const structuredCode =
         structuredError && typeof structuredError.code === "string"
-          ? structuredError.code
+          ? String(structuredError.code)
           : "";
       const isSupportedStructuredCode =
         structuredCode === "sync.component_proofs_required_failed";
@@ -286,7 +337,7 @@ export function createQueueEngineService(config) {
           : null;
       const structuredMessage =
         structuredError && typeof structuredError.message === "string"
-          ? structuredError.message
+          ? String(structuredError.message)
           : "";
       const message = didTimeout
         ? timeoutMessage
@@ -348,17 +399,33 @@ export function createQueueEngineService(config) {
     }
   }
 
-  function enqueueQueueJob({ label, systemId, operationName, requestId, sourceEventId, inputHash, execute }) {
-    const job = {
+  function enqueueQueueJob({
+    label,
+    systemId,
+    operationName,
+    requestId,
+    sourceEventId,
+    inputHash,
+    execute,
+  }: {
+    label: string;
+    systemId: string;
+    operationName: string;
+    requestId?: string;
+    sourceEventId?: string;
+    inputHash?: string;
+    execute: QueueEngineJob["execute"];
+  }): QueueEngineJob {
+    const job: QueueEngineJob = {
       id: createQueueJobId(),
       label,
       systemId,
       operationName: String(operationName || label || "unknown.operation"),
-      requestId: requestId ? String(requestId) : null,
-      sourceEventId: sourceEventId ? String(sourceEventId) : null,
-      inputHash: inputHash ? String(inputHash) : hashUnknown({ label, systemId }),
       status: "queued",
       createdAt: nowIso(),
+      requestId: requestId ? String(requestId) : null,
+      sourceEventId: sourceEventId ? String(sourceEventId) : null,
+      inputHash: inputHash ? String(inputHash) : hashUnknown({ label, systemId }) || "",
       startedAt: undefined,
       finishedAt: undefined,
       result: undefined,
@@ -395,7 +462,7 @@ export function createQueueEngineService(config) {
     return job;
   }
 
-  function cancelQueueJob(jobId) {
+  function cancelQueueJob(jobId: string) {
     const job = queueJobs.get(jobId);
     if (!job) return { ok: false, message: "Job not found." };
     if (isQueueJobFinalStatus(job.status)) return { ok: false, message: "Job is already finished." };

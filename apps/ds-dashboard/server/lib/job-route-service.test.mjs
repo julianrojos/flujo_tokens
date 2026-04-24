@@ -11,7 +11,7 @@ import {
   getQueueNextCursor,
   parseJobEventsCursor,
   parseJobEventsPage,
-} from "./job-route-service.mjs";
+} from "./job-route-service.ts";
 
 test("job-route-service: decodeJobId decodes route params", () => {
   assert.equal(decodeJobId("job%2Fabc"), "job/abc");

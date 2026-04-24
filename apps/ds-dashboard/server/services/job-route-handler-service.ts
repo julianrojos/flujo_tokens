@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 
 import {
@@ -9,14 +10,26 @@ import {
   decodeJobId,
   parseJobEventsCursor,
   parseJobEventsPage,
-} from "../lib/job-route-service.mjs";
+} from "../lib/job-route-service.ts";
+import type { JobDeps } from "../lib/register-all-routes-service.ts";
 
-export function handleGetJobRoute(c, deps) {
+export type JobRouteDeps = JobDeps;
+
+export interface JobRouteEntry {
+  id: string;
+  status: string;
+  events?: Array<{ seq: number; [key: string]: unknown }>;
+  nextSeq: number;
+  requestId?: string | null;
+  [key: string]: unknown;
+}
+
+export function handleGetJobRoute(c: Context, deps: JobRouteDeps): Response {
   const { failJson, queueJobs, listQueueJobEvents, queueJobSnapshot, isQueueJobFinalStatus } = deps;
   const jobId = decodeJobId(c.req.param("jobId"));
-  const job = queueJobs.get(jobId);
+  const job = queueJobs.get(jobId) as JobRouteEntry | undefined;
   if (!job) {
-    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
+    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
   }
 
   const { since, limit } = parseJobEventsPage(c.req.query("since"), c.req.query("limit"));
@@ -31,15 +44,15 @@ export function handleGetJobRoute(c, deps) {
   );
 }
 
-export function handleDeleteJobRoute(c, deps) {
+export function handleDeleteJobRoute(c: Context, deps: JobRouteDeps): Response {
   const { failJson, queueJobs, cancelQueueJob, queueJobSnapshot } = deps;
   const jobId = decodeJobId(c.req.param("jobId"));
-  const job = queueJobs.get(jobId);
+  const job = queueJobs.get(jobId) as JobRouteEntry | undefined;
   if (!job) {
-    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
+    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
   }
 
-  const cancelled = cancelQueueJob(jobId);
+  const cancelled = cancelQueueJob(jobId) as { ok?: boolean; message?: string };
   if (!cancelled.ok) {
     return failJson(
       c,
@@ -49,12 +62,12 @@ export function handleDeleteJobRoute(c, deps) {
         status: job.status,
         message: cancelled.message,
       }),
-    );
+    ) as Response;
   }
   return c.json({ ok: true, job: queueJobSnapshot(job) });
 }
 
-export function handleStreamJobRoute(c, deps) {
+export function handleStreamJobRoute(c: Context, deps: JobRouteDeps): Response {
   const {
     failJson,
     queueJobs,
@@ -66,20 +79,20 @@ export function handleStreamJobRoute(c, deps) {
   } = deps;
   const jobId = decodeJobId(c.req.param("jobId"));
   const since = parseJobEventsCursor(c.req.query("since"));
-  const existing = queueJobs.get(jobId);
+  const existing = queueJobs.get(jobId) as JobRouteEntry | undefined;
   if (!existing) {
-    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
+    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
   }
 
   return streamSSE(c, async (stream) => {
-    const writeJsonEvent = async (payload) => {
+    const writeJsonEvent = async (payload: unknown) => {
       await stream.writeSSE({ data: JSON.stringify(payload) });
     };
     let cursor = since;
     const deadline = Date.now() + 25 * 60 * 1000;
 
     while (Date.now() < deadline) {
-      const job = queueJobs.get(jobId);
+      const job = queueJobs.get(jobId) as JobRouteEntry | undefined;
       if (!job) {
         const missing = buildQueueMissingJobStreamEvents({
           jobId,
@@ -95,7 +108,7 @@ export function handleStreamJobRoute(c, deps) {
         limit: MAX_RETAINED_EVENTS,
       });
       for (const event of events) {
-        cursor = Math.max(cursor, Number(event.seq) || cursor);
+        cursor = Math.max(cursor, Number((event as { seq?: unknown }).seq) || cursor);
         await writeJsonEvent(event);
       }
 
