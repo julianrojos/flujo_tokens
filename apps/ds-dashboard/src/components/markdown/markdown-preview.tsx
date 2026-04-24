@@ -5,5 +5,6 @@ interface MarkdownPreviewProps {
 }
 
 export function MarkdownPreview({ content }: MarkdownPreviewProps) {
-  return <MarkdownViewer content={content || "No content."} />;
+  const normalizedContent = content.trim();
+  return <MarkdownViewer content={normalizedContent || "No content."} />;
 }

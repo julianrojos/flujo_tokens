@@ -16,6 +16,11 @@ describe("MarkdownPreview", () => {
     assert.match(html, /No content/);
   });
 
+  it("renders whitespace-only content with fallback message", () => {
+    const html = render("   \n\t  ");
+    assert.match(html, /No content/);
+  });
+
   it("renders heading", () => {
     const html = render("# Hello World");
     assert.match(html, /<h1>Hello World<\/h1>/);

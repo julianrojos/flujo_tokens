@@ -55,18 +55,6 @@ const REPO_ROOT_WITH_SEP = REPO_ROOT.endsWith(path.sep)
   ? REPO_ROOT
   : `${REPO_ROOT}${path.sep}`;
 
-function isPathWithinDirectory(targetPath: string, baseDir: string): boolean {
-  const relative = path.relative(
-    path.resolve(baseDir),
-    path.resolve(targetPath),
-  );
-  return (
-    relative.length > 0 &&
-    !relative.startsWith('..') &&
-    !path.isAbsolute(relative)
-  );
-}
-
 interface SystemContextLike {
   systemId?: unknown;
   docsDir?: unknown;
