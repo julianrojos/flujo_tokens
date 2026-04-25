@@ -1,5 +1,6 @@
 import type { DesignSystem } from "@/lib/design-system-context";
 import type { FigmaMcpHeartbeatResult } from "@/lib/api";
+import { suggestNameFromFigmaUrl } from "@/lib/figma-name-suggestion";
 
 export function normalizeSystemNameForCollision(rawName: string): string {
   return String(rawName || "")
@@ -33,33 +34,6 @@ function normalizeSuggestedSystemName(rawName: string | null | undefined): strin
   return String(rawName || "").trim().replace(/\s+/g, " ");
 }
 
-function extractFigmaFileKeyFromUrl(rawUrl: string): string {
-  const value = String(rawUrl || "").trim();
-  if (!value) return "";
-
-  try {
-    const parsed = new URL(value);
-    const segments = parsed.pathname.split("/").filter(Boolean);
-    for (let i = 0; i < segments.length - 1; i += 1) {
-      if (segments[i] === "file" || segments[i] === "design") {
-        return segments[i + 1] || "";
-      }
-    }
-  } catch {
-    return "";
-  }
-
-  return "";
-}
-
-function humanizeFigmaSlug(rawSlug: string): string {
-  return String(rawSlug || "")
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
-}
-
 export function suggestSystemNameFromFigmaHeartbeat(args: {
   heartbeat: Pick<FigmaMcpHeartbeatResult, "alive" | "sourceFileKey" | "sourceDocName"> | null;
   expectedFileKey: string;
@@ -78,23 +52,7 @@ export function suggestSystemNameFromFigmaHeartbeat(args: {
 }
 
 export function suggestSystemNameFromFigmaUrl(rawUrl: string): string {
-  const value = String(rawUrl || "").trim();
-  if (!value) return "";
-
-  try {
-    const parsed = new URL(value);
-    const segments = parsed.pathname.split("/").filter(Boolean);
-    const fileKey = extractFigmaFileKeyFromUrl(value);
-    if (!fileKey) return "";
-
-    const fileIndex = segments.findIndex((segment) => segment === "file" || segment === "design");
-    if (fileIndex < 0) return "";
-
-    const slug = segments[fileIndex + 2] || "";
-    return humanizeFigmaSlug(slug);
-  } catch {
-    return "";
-  }
+  return suggestNameFromFigmaUrl(rawUrl);
 }
 
 export function resolveSuggestedSystemName(args: {
