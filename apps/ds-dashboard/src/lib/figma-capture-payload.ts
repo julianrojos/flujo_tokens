@@ -10,7 +10,6 @@ export interface BuildCaptureFromFigmaPayloadArgs {
   variantLimit?: number;
   requireExistingDoc?: boolean;
   continueOnError?: boolean;
-  refreshIndices?: boolean;
   dryRun?: boolean;
   mainCaptureMode?: NonNullable<CaptureFigmaScreenshotArgs["mainCaptureMode"]>;
   componentKind?: NonNullable<CaptureFigmaScreenshotArgs["componentKind"]>;
@@ -32,7 +31,6 @@ export function buildCaptureFromFigmaPayload(
     variantLimit: args.variantLimit ?? 6,
     requireExistingDoc: args.requireExistingDoc ?? false,
     continueOnError: args.continueOnError ?? true,
-    refreshIndices: args.refreshIndices ?? false,
     dryRun: args.dryRun ?? false,
     mainCaptureMode: args.mainCaptureMode ?? "rest",
     componentKind: args.componentKind ?? "component_set",

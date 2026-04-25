@@ -15,7 +15,6 @@ export interface PipelinePaths {
     proofImageDir: string;
     databaseUrl: string;
     resolvedSpecRoot: string;
-    overviewPath: string;
 }
 
 export interface PipelineFlags {
@@ -23,7 +22,6 @@ export interface PipelineFlags {
     componentKind: string;
     includeVariants: boolean;
     continueOnError: boolean;
-    refreshIndices: boolean;
     dryRun: boolean;
     includeSpecExhibits: boolean;
     variantLimit: number;

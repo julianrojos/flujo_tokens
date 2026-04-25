@@ -1,7 +1,7 @@
 /**
  * Figma Node ID Utilities
  *
- * Sourced from tooling/lib/property-type-map.json
+ * Shared node ID contract for tooling utilities and schema validation.
  */
 
 /**

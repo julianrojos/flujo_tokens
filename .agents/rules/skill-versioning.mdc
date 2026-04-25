@@ -17,7 +17,7 @@ This rule defines a safe migration path for versioned skills.
 ## Required frontmatter fields for new or modified skills
 
 ```yaml
-name: ds-component-doc
+name: ds-component-pages
 version: "1.2.0" # SemVer
 context:
   doc_type: component

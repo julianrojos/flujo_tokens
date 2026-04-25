@@ -7,6 +7,7 @@ describe("formatRelativeTime", () => {
   it("returns Spanish fallback by default when value is invalid", () => {
     assert.equal(formatRelativeTime(undefined), "Nunca");
     assert.equal(formatRelativeTime("not-a-date"), "Nunca");
+    assert.equal(formatRelativeTime("   "), "Nunca");
   });
 
   it("returns English fallback when locale is en and value is invalid", () => {

@@ -4,7 +4,6 @@ import type { FigmaNode } from "../utils/figma.js";
 import {
   parseFigmaFileUrl,
   buildFigmaComponentMap,
-  formatFigmaComponentMap,
   toHyphenNodeId,
   sanitizeNodeId,
 } from "./figma-component-map.js";
@@ -204,61 +203,4 @@ describe("figma-component-map utils", () => {
     });
   });
 
-  describe("formatFigmaComponentMap", () => {
-    it("formats map to markdown", () => {
-      const map: ReturnType<typeof buildFigmaComponentMap> = {
-        fileKey: "abc123",
-        fileName: "Test-File",
-        fileSlug: "Test-File",
-        surface: "design",
-        rootNodeId: "1:2",
-        figmaUrl: "https://www.figma.com/file/abc123/Test-File",
-        components: [{ id: "1", name: "Button", nodeId: "1-2", type: "component" }],
-        componentSets: [{ id: "2", name: "Button Set", nodeId: "2-3", type: "component_set" }],
-        pages: [{
-          id: "3",
-          name: "Page 1",
-          nodeId: "3-4",
-          type: "page",
-          children: [{ id: "4", name: "Child", nodeId: "4-5", type: "component" }],
-        }],
-        tree_contains: [],
-        instance_uses: [],
-        unresolved_instance_uses: [],
-        dependency_edges: [],
-      };
-
-      const markdown = formatFigmaComponentMap(map);
-
-      assert.ok(markdown.includes("# Test-File"));
-      assert.ok(markdown.includes("**File Key:** abc123"));
-      assert.ok(markdown.includes("## Component Sets"));
-      assert.ok(markdown.includes("## Components"));
-      assert.ok(markdown.includes("## Pages"));
-    });
-
-    it("handles empty map", () => {
-      const map: ReturnType<typeof buildFigmaComponentMap> = {
-        fileKey: "abc123",
-        fileName: "Empty",
-        fileSlug: "Empty",
-        surface: "design",
-        rootNodeId: "",
-        figmaUrl: "",
-        components: [],
-        componentSets: [],
-        pages: [],
-        tree_contains: [],
-        instance_uses: [],
-        unresolved_instance_uses: [],
-        dependency_edges: [],
-      };
-
-      const markdown = formatFigmaComponentMap(map);
-
-      assert.ok(markdown.includes("# Empty"));
-      assert.ok(!markdown.includes("## Component Sets"));
-      assert.ok(!markdown.includes("## Components"));
-    });
-  });
 });

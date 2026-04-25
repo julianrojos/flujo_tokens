@@ -3,7 +3,6 @@
  *
  * Builds a map of components and component sets from Figma file.
  * Includes walkNode logic for tracking component ownership, nesting, and instance dependencies.
- * Migrated from tooling/scripts/lib/figma-component-map.mjs and integrated with existing types.
  */
 
 import type { FigmaNode } from '../types/figma.js';
@@ -507,52 +506,6 @@ export function renderFigmaComponentMapText(map: ComponentMapWithRelations): str
     }
 
     return lines.join("\n") + "\n";
-}
-
-/**
- * Format a component map as a Markdown document.
- *
- * @deprecated Use {@link renderFigmaComponentMapText} for richer output.
- * Preserved for backwards compatibility with consumers that rely on the
- * heading-based Markdown format (H1 file name, H2 sections).
- */
-export function formatFigmaComponentMap(map: FigmaComponentMap): string {
-    const lines: string[] = [];
-    lines.push(`# ${map.fileName}`);
-    lines.push('');
-    lines.push(`**File Key:** ${map.fileKey}`);
-    lines.push(`**Surface:** ${map.surface}`);
-    lines.push(`**Root Node:** ${map.rootNodeId || 'N/A'}`);
-    lines.push('');
-
-    if (map.componentSets.length > 0) {
-        lines.push('## Component Sets');
-        lines.push('');
-        for (const set of map.componentSets) {
-            lines.push(`- **${set.name}** (\`${set.nodeId}\`)`);
-        }
-        lines.push('');
-    }
-
-    if (map.components.length > 0) {
-        lines.push('## Components');
-        lines.push('');
-        for (const component of map.components) {
-            lines.push(`- **${component.name}** (\`${component.nodeId}\`)`);
-        }
-        lines.push('');
-    }
-
-    if (map.pages.length > 0) {
-        lines.push('## Pages');
-        lines.push('');
-        for (const page of map.pages) {
-            lines.push(`- **${page.name}** (\`${page.nodeId}\`)`);
-        }
-        lines.push('');
-    }
-
-    return lines.join('\n');
 }
 
 /**

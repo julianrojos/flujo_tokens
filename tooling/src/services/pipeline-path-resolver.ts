@@ -15,7 +15,6 @@ export interface PipelinePaths {
   proofImageDir: string;
   databaseUrl: string;
   resolvedSpecRoot: string;
-  overviewPath: string;
 }
 
 export interface PipelinePathsArgs {
@@ -69,6 +68,5 @@ export function resolvePipelinePaths(
     proofImageDir,
     databaseUrl: systemContext.paths.databaseUrl,
     resolvedSpecRoot,
-    overviewPath: path.resolve(path.join(docsRootDir, 'overview.md')),
   };
 }

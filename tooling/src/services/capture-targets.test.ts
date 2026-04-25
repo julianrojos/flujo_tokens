@@ -3,26 +3,23 @@ import { describe, it } from 'node:test';
 
 import {
   buildSlugLookupFromRegistry,
-  buildSlugLookupFromSpecContents,
   resolveInferredSlug,
 } from './capture-targets.js';
 
 describe('capture-targets', () => {
-  it('resolves slugs from specs before falling back to the candidate name', () => {
-    const slugByNodeFromSpecs = buildSlugLookupFromSpecContents([
+  it('resolves slugs from registry, falling back to candidate name', () => {
+    const slugByNodeFromRegistry = buildSlugLookupFromRegistry([
       {
         slug: 'alert',
-        content: [
-          'name: alert',
-          'component_set_node_id: 10:20',
-          '',
-        ].join('\n'),
+        figma: {
+          component_set_node_id: '10:20',
+        },
       },
     ]);
 
     assert.equal(
       resolveInferredSlug({
-        slugByNodeFromSpecs,
+        slugByNodeFromRegistry,
         nodeId: '10:20',
         candidateName: 'Alert Card',
       }),
@@ -31,7 +28,7 @@ describe('capture-targets', () => {
 
     assert.equal(
       resolveInferredSlug({
-        slugByNodeFromSpecs,
+        slugByNodeFromRegistry,
         nodeId: '99:88',
         candidateName: 'Alert Card',
       }),
@@ -52,7 +49,6 @@ describe('capture-targets', () => {
     assert.equal(
       resolveInferredSlug({
         slugByNodeFromRegistry,
-        slugByNodeFromSpecs: new Map(),
         nodeId: '10:20',
         candidateName: 'Primary Button',
       }),
@@ -61,14 +57,12 @@ describe('capture-targets', () => {
   });
 
   it('keeps an explicit slug override ahead of inferred values', () => {
-    const slugByNodeFromSpecs = buildSlugLookupFromSpecContents([
+    const slugByNodeFromRegistry = buildSlugLookupFromRegistry([
       {
         slug: 'button',
-        content: [
-          'name: button',
-          'component_set_node_id: 10:20',
-          '',
-        ].join('\n'),
+        figma: {
+          component_set_node_id: '10:20',
+        },
       },
     ]);
 
@@ -76,7 +70,7 @@ describe('capture-targets', () => {
       resolveInferredSlug({
         applySlugOverride: true,
         componentSlugOverride: 'manual-alert',
-        slugByNodeFromSpecs,
+        slugByNodeFromRegistry,
         nodeId: '10:20',
         candidateName: 'Alert Card',
       }),

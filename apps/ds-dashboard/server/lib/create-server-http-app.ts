@@ -2,7 +2,6 @@
  * Create Server HTTP App
  *
  * Creates and configures the Hono app with routes and error middleware.
- * Migrated from apps/ds-dashboard/server/lib/create-server-http-app.mjs
  */
 
 import { Hono } from 'hono';

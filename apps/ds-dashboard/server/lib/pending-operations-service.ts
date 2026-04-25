@@ -10,6 +10,11 @@ import type { Sql } from 'postgres';
 import { PendingOperationsRepository } from '../db/pending-operations-repository.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import type { DesignSystemsConfig } from '../db/design-system-repository.js';
+import {
+  pruneEmptyAncestorDirs,
+  removeExistingPathsWithOptions,
+  type FsSync,
+} from './system-route-handler-service.js';
 
 export interface ReconcileResult {
   completed: string[];
@@ -19,6 +24,7 @@ export interface ReconcileResult {
 
 export interface ReconcileDeleteDsOpsArgs {
   sql: Sql;
+  fsSync: FsSync;
   pendingOpsRepo: PendingOperationsRepository;
   designSystemRepository: {
     getConfig(): Promise<DesignSystemsConfig>;
@@ -31,11 +37,44 @@ export interface ReconcileDeleteDsOpsArgs {
   >;
 }
 
+function toTrimmedStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter(Boolean);
+}
+
+function replayPendingFilesystemCleanup(
+  attemptedChanges: string[],
+  repoRoot: string,
+  fsSync: FsSync,
+): string[] {
+  if (!repoRoot || attemptedChanges.length === 0) return [];
+
+  const removedPaths = removeExistingPathsWithOptions(attemptedChanges, fsSync, {
+    repoRoot,
+    protectedTopLevelDirs: ['docs', 'input', 'output'],
+  });
+  const prunedDirs = pruneEmptyAncestorDirs(removedPaths, { repoRoot, fsSync });
+  return [...removedPaths, ...prunedDirs];
+}
+
+async function repairDefaultSystemIfNeeded(
+  designSystemRepository: ReconcileDeleteDsOpsArgs['designSystemRepository'],
+  config: DesignSystemsConfig,
+  systemId: string,
+): Promise<void> {
+  if (config.defaultSystem !== systemId) return;
+  const remaining = config.systems.filter((s) => s.id !== systemId);
+  await designSystemRepository.setDefaultSystemId(remaining[0]?.id ?? null);
+}
+
 export async function reconcileDeleteDesignSystemOps(
   args: ReconcileDeleteDsOpsArgs,
 ): Promise<ReconcileResult> {
   const {
     sql,
+    fsSync,
     pendingOpsRepo,
     designSystemRepository,
     dependencyRepo: injectedDependencyRepo,
@@ -58,6 +97,10 @@ export async function reconcileDeleteDesignSystemOps(
         typeof payload?.figmaFileId === 'string'
           ? payload.figmaFileId.trim()
           : systemId;
+      const repoRoot =
+        typeof payload?.repoRoot === 'string' ? payload.repoRoot.trim() : '';
+      const attemptedChanges = toTrimmedStringArray(payload?.attemptedChanges);
+      const hasFilesystemTail = attemptedChanges.length > 0;
 
       if (!systemId || !figmaFileId) {
         await pendingOpsRepo.abandon(op.id);
@@ -69,24 +112,28 @@ export async function reconcileDeleteDesignSystemOps(
       const consumers = await dependencyRepo.listConsumers(figmaFileId);
       const hasConsumers = consumers.length > 0;
 
+      if (hasFilesystemTail && !repoRoot) {
+        throw new Error(`Missing repoRoot for pending delete replay: ${op.id}`);
+      }
+
       if (hasDS && hasConsumers) {
         await pendingOpsRepo.abandon(op.id);
         result.abandoned.push(op.id);
       } else if (hasDS && !hasConsumers) {
         await designSystemRepository.delete(systemId);
-        if (config.defaultSystem === systemId) {
-          const remaining = config.systems.filter((s) => s.id !== systemId);
-          await designSystemRepository.setDefaultSystemId(
-            remaining[0]?.id ?? null,
-          );
-        }
+        await repairDefaultSystemIfNeeded(designSystemRepository, config, systemId);
+        replayPendingFilesystemCleanup(attemptedChanges, repoRoot, fsSync);
         await pendingOpsRepo.complete(op.id);
         result.completed.push(op.id);
       } else if (!hasDS && hasConsumers) {
         await dependencyRepo.removeAllByDsFileKey(figmaFileId);
+        await repairDefaultSystemIfNeeded(designSystemRepository, config, systemId);
+        replayPendingFilesystemCleanup(attemptedChanges, repoRoot, fsSync);
         await pendingOpsRepo.complete(op.id);
         result.completed.push(op.id);
       } else {
+        await repairDefaultSystemIfNeeded(designSystemRepository, config, systemId);
+        replayPendingFilesystemCleanup(attemptedChanges, repoRoot, fsSync);
         await pendingOpsRepo.complete(op.id);
         result.completed.push(op.id);
       }

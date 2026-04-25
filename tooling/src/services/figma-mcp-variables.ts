@@ -1086,26 +1086,61 @@ function isMcpDisconnectedError(message: string): boolean {
   );
 }
 
-function waitMs(durationMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
+function waitMs(durationMs: number, signal?: AbortSignal): Promise<void> {
+  if (durationMs <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('MCP request aborted'));
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, durationMs);
+
+    const onAbort = () => {
+      cleanup();
+      reject(new Error('MCP request aborted'));
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
 
 async function ensureMcpConnectivity(
   client: McpStdioClient,
   connectWaitMs: number,
   timeoutMs?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
   const budgetMs = Math.max(0, Math.floor(connectWaitMs));
   const startedAt = Date.now();
   let attempt = 0;
 
   while (true) {
+    if (signal?.aborted) {
+      throw new Error('MCP request aborted');
+    }
     attempt += 1;
     try {
-      await checkMcpConnectivity(client, timeoutMs);
+      await checkMcpConnectivity(client, timeoutMs, signal);
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (signal?.aborted) {
+        throw new Error('MCP request aborted');
+      }
       if (!isMcpDisconnectedError(message)) {
         throw error;
       }
@@ -1116,7 +1151,7 @@ async function ensureMcpConnectivity(
       }
       // Short bounded backoff to tolerate bridge attach races on fresh MCP startup.
       const delayMs = Math.min(1_000, Math.max(200, Math.floor(remainingMs / Math.max(1, 4 - attempt))));
-      await waitMs(Math.min(delayMs, remainingMs));
+      await waitMs(Math.min(delayMs, remainingMs), signal);
     }
   }
 }
@@ -1315,6 +1350,7 @@ interface SharedMcpClientState {
 }
 
 let sharedMcpClientState: SharedMcpClientState | null = null;
+let sharedMcpClientInitChain: Promise<void> = Promise.resolve();
 type SharedMcpClientFactoryForTesting = (
   options: PingSharedFigmaMcpOptions,
 ) => Promise<McpStdioClient>;
@@ -1331,9 +1367,10 @@ export function setSharedMcpClientFactoryForTesting(
   factory: SharedMcpClientFactoryForTesting | null,
 ): void {
   sharedMcpClientFactoryForTesting = factory;
-  if (factory) {
-    disposeSharedClientState();
-  }
+  // Keep test runs isolated: swapping the factory should drop any cached
+  // shared client so the next call rebuilds from the new test fixture.
+  disposeSharedClientState();
+  sharedMcpClientInitChain = Promise.resolve();
 }
 
 function buildSharedClientSignature(args: {
@@ -1355,10 +1392,28 @@ function buildSharedClientSignature(args: {
   return `${args.command.command}\u0000${args.command.args.join('\u0001')}\u0000${envSignature}`;
 }
 
+async function withSharedMcpClientInitLock<T>(task: () => Promise<T>): Promise<T> {
+  let release: (() => void) | null = null;
+  const previous = sharedMcpClientInitChain;
+  sharedMcpClientInitChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release?.();
+  }
+}
+
 function disposeSharedClientState(): void {
   if (!sharedMcpClientState) return;
   try {
-    sharedMcpClientState.client.close();
+    const close = sharedMcpClientState.client.close;
+    if (typeof close === "function") {
+      close.call(sharedMcpClientState.client);
+    }
   } catch {
     // no-op
   } finally {
@@ -1369,60 +1424,71 @@ function disposeSharedClientState(): void {
 export async function getOrCreateSharedMcpClient(
   options: PingSharedFigmaMcpOptions,
 ): Promise<McpStdioClient> {
-  if (sharedMcpClientFactoryForTesting) {
-    return await sharedMcpClientFactoryForTesting(options);
-  }
-
-  const timeoutMs = resolveTimeoutMs(options);
-  const command = resolveFigmaMcpCommand({
-    command: options.command,
-    args: options.args,
-    env: options.env,
-  });
-  const signature = buildSharedClientSignature({ command, env: options.env });
-
-  if (sharedMcpClientState && sharedMcpClientState.signature === signature) {
-    return sharedMcpClientState.client;
-  }
-
-  // Kill any orphaned MCP child process from a previous server run.
-  // This handles the case where the server crashed or was killed before
-  // the shared client state was set (e.g., during warmup).
-  const staleState = readMcpChildPidFile();
-  if (staleState?.version === 1) {
-    const staleOwnerPid = staleState.ownerPid;
-    const staleChildPid = staleState.childPid;
-    const ownedByCurrentProcess = staleOwnerPid === process.pid;
-    const ownerAlive = ownedByCurrentProcess ? true : isProcessAlive(staleOwnerPid);
-    const shouldCleanup = ownedByCurrentProcess || !ownerAlive;
-
-    if (shouldCleanup) {
-      try {
-        if (isFigmaMcpProcessPid(staleChildPid)) {
-          process.kill(staleChildPid, 'SIGTERM');
+  return await withSharedMcpClientInitLock(async () => {
+    const timeoutMs = resolveTimeoutMs(options);
+    const usingTestFactory = sharedMcpClientFactoryForTesting !== null;
+    const command = usingTestFactory
+      ? {
+          command: String(options.command || '__shared_mcp_test_factory__'),
+          args: options.args ?? [],
         }
-      } catch {
-        // PID already dead or permission error — both are safe to ignore.
-      } finally {
-        // Don't keep stale data around for subsequent startups.
-        clearMcpChildPidFile({
-          ownerPid: staleOwnerPid,
-          childPid: staleChildPid,
+      : resolveFigmaMcpCommand({
+          command: options.command,
+          args: options.args,
+          env: options.env,
         });
+    const signature = buildSharedClientSignature({ command, env: options.env });
+
+    if (sharedMcpClientState && sharedMcpClientState.signature === signature) {
+      return sharedMcpClientState.client;
+    }
+
+    disposeSharedClientState();
+
+    if (sharedMcpClientFactoryForTesting) {
+      const client = await sharedMcpClientFactoryForTesting(options);
+      sharedMcpClientState = { signature, client };
+      return client;
+    }
+
+    // Kill any orphaned MCP child process from a previous server run.
+    // This handles the case where the server crashed or was killed before
+    // the shared client state was set (e.g., during warmup).
+    const staleState = readMcpChildPidFile();
+    if (staleState?.version === 1) {
+      const staleOwnerPid = staleState.ownerPid;
+      const staleChildPid = staleState.childPid;
+      const ownedByCurrentProcess = staleOwnerPid === process.pid;
+      const ownerAlive = ownedByCurrentProcess ? true : isProcessAlive(staleOwnerPid);
+      const shouldCleanup = ownedByCurrentProcess || !ownerAlive;
+
+      if (shouldCleanup) {
+        try {
+          if (isFigmaMcpProcessPid(staleChildPid)) {
+            process.kill(staleChildPid, 'SIGTERM');
+          }
+        } catch {
+          // PID already dead or permission error — both are safe to ignore.
+        } finally {
+          // Don't keep stale data around for subsequent startups.
+          clearMcpChildPidFile({
+            ownerPid: staleOwnerPid,
+            childPid: staleChildPid,
+          });
+        }
       }
     }
-  }
 
-  disposeSharedClientState();
-  const client = new McpStdioClient(command, timeoutMs, options.env);
-  try {
-    await client.initialize(timeoutMs);
-  } catch (error) {
-    client.close();
-    throw error;
-  }
-  sharedMcpClientState = { signature, client };
-  return client;
+    const client = new McpStdioClient(command, timeoutMs, options.env);
+    try {
+      await client.initialize(timeoutMs);
+    } catch (error) {
+      client.close();
+      throw error;
+    }
+    sharedMcpClientState = { signature, client };
+    return client;
+  });
 }
 
 function shouldRestartSharedClient(message: string): boolean {

@@ -33,7 +33,6 @@ interface WizardFormValues {
   appName: string;
   figmaFileUrl: string;
   figmaAccessToken: string;
-  compileVariablesOnCapture: boolean;
   makeDefault: boolean;
   systemIdOverride: string;
 }

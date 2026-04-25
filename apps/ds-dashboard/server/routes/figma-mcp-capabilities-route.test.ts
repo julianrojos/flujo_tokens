@@ -164,7 +164,7 @@ test('figma-mcp-capabilities-route (direct-only): GET returns supportsV2 with se
   assert.equal(typeof payload.supportsV2.hasVariablesData, 'boolean');
   assert.equal(typeof payload.supportsV2.hasPortSwitch, 'boolean');
 
-  // Verify legacy supports still exists for compatibility
+  // Verify deprecated supports still exists in the response.
   assert.ok(payload.supports);
   assert.equal(typeof payload.supports.searchNodes, 'boolean');
   assert.equal(typeof payload.supports.getChildren, 'boolean');

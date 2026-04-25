@@ -2,7 +2,6 @@
  * System Route Handler Service
  *
  * Handles system route operations including filesystem pruning and scaffolding.
- * Migrated from apps/ds-dashboard/server/lib/system-route-handler-service.mjs
  */
 
 import path from "node:path";
@@ -21,7 +20,6 @@ export type FsSync = Pick<
   typeof fsSync,
   | "existsSync"
   | "mkdirSync"
-  | "writeFileSync"
   | "rmSync"
   | "statSync"
   | "readdirSync"
@@ -364,20 +362,8 @@ export function buildDeleteDesignSystemSuccessPayload({
 // ---------------------------------------------------------------------------
 
 /**
- * Build overview.md seed content.
- * @returns Markdown content string
- */
-function buildOverviewSeed(): string {
-  return `# Components Overview
-
-## Component list
-
-`;
-}
-
-/**
  * Ensure filesystem scaffold for a design system.
- * Creates required directories and seed files.
+ * Creates required directories for a new system.
  * @param options - Scaffold options
  * @returns Scaffold result with created paths
  */
@@ -397,18 +383,12 @@ export function ensureSystemFilesystemScaffold({
   const generatedDir = path.join(docsDir, "_generated");
   const specsDir = path.join(docsDir, "_spec", "components");
   const componentsDir = path.join(docsDir, "components");
-  const overviewPath = path.join(componentsDir, "overview.md");
 
   const createdPaths: string[] = [];
   for (const dirPath of [inputDir, outputDir, docsDir, generatedDir, specsDir, componentsDir]) {
     if (fs.existsSync(dirPath)) continue;
     fs.mkdirSync(dirPath, { recursive: true });
     createdPaths.push(dirPath);
-  }
-
-  if (!fs.existsSync(overviewPath)) {
-    fs.writeFileSync(overviewPath, buildOverviewSeed(), "utf8");
-    createdPaths.push(overviewPath);
   }
 
   return {

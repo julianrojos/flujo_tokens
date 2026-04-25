@@ -3,6 +3,9 @@
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import type { Sql } from 'postgres';
 
@@ -13,11 +16,12 @@ import { DependencyRepository } from '../db/dependency-repository.js';
 
 interface TestContext {
   sql: Sql;
+  repoRoot: string;
   cleanup: () => Promise<void>;
   pendingOpsRepo: PendingOperationsRepository;
-  config: { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string };
+  config: { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string | null };
   designSystemRepository: {
-    getConfig(): Promise<{ systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string }>;
+    getConfig(): Promise<{ systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string | null }>;
     delete(id: string): Promise<boolean>;
     setDefaultSystemId(id: string | null): Promise<void>;
   };
@@ -25,6 +29,7 @@ interface TestContext {
 
 async function createTestContext(): Promise<TestContext> {
   const { sql, cleanup } = await createTestDatabase();
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pending-ops-'));
   const config = {
     systems: [
       { id: 'test-ds', name: 'Test DS', figmaFileId: 'figma123' },
@@ -34,7 +39,11 @@ async function createTestContext(): Promise<TestContext> {
 
   return {
     sql,
-    cleanup,
+    repoRoot,
+    cleanup: async () => {
+      await cleanup();
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    },
     pendingOpsRepo: new PendingOperationsRepository(sql),
     config,
     designSystemRepository: {
@@ -45,7 +54,7 @@ async function createTestContext(): Promise<TestContext> {
         return config.systems.length < before;
       },
       setDefaultSystemId: async (id) => {
-        config.defaultSystem = id ?? '';
+        config.defaultSystem = id;
       },
     },
   };
@@ -73,6 +82,7 @@ test('reconcileDeleteDesignSystemOps: Y+N (consumers gone, config intact) → co
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -110,6 +120,7 @@ test('reconcileDeleteDesignSystemOps: Y+Y (nothing done) → abandon', async () 
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -149,6 +160,7 @@ test('reconcileDeleteDesignSystemOps: N+Y (config clean, consumers remain) → c
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -181,6 +193,7 @@ test('reconcileDeleteDesignSystemOps: N+N (already complete) → complete', asyn
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -188,6 +201,44 @@ test('reconcileDeleteDesignSystemOps: N+N (already complete) → complete', asyn
     assert.equal(result.errors.length, 0);
     assert.equal(result.abandoned.length, 0);
     assert.equal(result.completed.length, 1);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('reconcileDeleteDesignSystemOps: N+N with filesystem tail → completes delete replay', async () => {
+  const ctx = await createTestContext();
+  try {
+    ctx.config.systems = [];
+    ctx.config.defaultSystem = 'test-ds';
+
+    const targetPath = path.join(ctx.repoRoot, 'design-systems', 'test-ds', 'obsolete.txt');
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, 'legacy');
+
+    await ctx.pendingOpsRepo.insert({
+      id: 'op-1',
+      type: 'delete_design_system',
+      payload: {
+        systemId: 'test-ds',
+        figmaFileId: 'figma123',
+        repoRoot: ctx.repoRoot,
+        attemptedChanges: [targetPath],
+      },
+    });
+
+    const result = await reconcileDeleteDesignSystemOps({
+      sql: ctx.sql,
+      fsSync: fs,
+      pendingOpsRepo: ctx.pendingOpsRepo,
+      designSystemRepository: ctx.designSystemRepository,
+    });
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.abandoned.length, 0);
+    assert.equal(result.completed.length, 1);
+    assert.equal(fs.existsSync(targetPath), false);
+    assert.equal(ctx.config.defaultSystem, null);
   } finally {
     await ctx.cleanup();
   }
@@ -213,6 +264,7 @@ test('reconcileDeleteDesignSystemOps: uses injected dependency repo when provide
 
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
       dependencyRepo: injectedDependencyRepo,
@@ -239,6 +291,7 @@ test('reconcileDeleteDesignSystemOps: malformed payload → abandon', async () =
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: ctx.designSystemRepository,
     });
@@ -306,6 +359,7 @@ test('reconcileDeleteDesignSystemOps: error in repository delete → push to err
     // Reconcile
     const result = await reconcileDeleteDesignSystemOps({
       sql: ctx.sql,
+      fsSync: fs,
       pendingOpsRepo: ctx.pendingOpsRepo,
       designSystemRepository: erroringRepo,
     });
@@ -362,6 +416,7 @@ test('reconcileDeleteDesignSystemOps: error in cascade delete → push to errors
     try {
       const result = await reconcileDeleteDesignSystemOps({
         sql: ctx.sql,
+        fsSync: fs,
         pendingOpsRepo: ctx.pendingOpsRepo,
         designSystemRepository: ctx.designSystemRepository,
       });

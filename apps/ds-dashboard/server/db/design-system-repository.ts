@@ -2,7 +2,6 @@
  * Design System Repository
  *
  * PostgreSQL-backed repository for design_systems and app_settings tables.
- * Replaces JSON-based system-repository.ts for multi-tenant support.
  */
 
 import type { Sql } from 'postgres';
@@ -15,7 +14,6 @@ export interface DesignSystemRow {
   figma_file_id: string | null;
   figma_api_token: string | null;
   collections: unknown;
-  compile_variables_on_capture: boolean;
   detected_components_count: number | null;
   imported_components_count: number | null;
   pending_components_count: number | null;
@@ -32,7 +30,6 @@ export interface DesignSystemEntry {
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
   detectedComponentsCount?: number;
   importedComponentsCount?: number;
   pendingComponentsCount?: number;
@@ -115,7 +112,6 @@ function rowToEntry(row: DesignSystemRow): DesignSystemEntry {
     figmaFileId: row.figma_file_id ?? undefined,
     figmaApiToken: row.figma_api_token ?? undefined,
     collections,
-    compileVariablesOnCapture: row.compile_variables_on_capture,
     detectedComponentsCount: typeof row.detected_components_count === 'number' ? row.detected_components_count : undefined,
     importedComponentsCount: typeof row.imported_components_count === 'number' ? row.imported_components_count : undefined,
     pendingComponentsCount: typeof row.pending_components_count === 'number' ? row.pending_components_count : undefined,
@@ -212,7 +208,7 @@ export class DesignSystemRepository {
 
   async getAll(): Promise<DesignSystemEntry[]> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+            SELECT id, name, app_name, figma_file_id, figma_api_token, collections,
                    detected_components_count, imported_components_count, pending_components_count,
                    imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
@@ -223,7 +219,7 @@ export class DesignSystemRepository {
 
   async getById(id: string): Promise<DesignSystemEntry | null> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+            SELECT id, name, app_name, figma_file_id, figma_api_token, collections,
                    detected_components_count, imported_components_count, pending_components_count,
                    imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
@@ -240,13 +236,13 @@ export class DesignSystemRepository {
     const pendingComponentNames = serializeNameList(entry.pendingComponentNames);
     await this.sql`
             INSERT INTO design_systems (
-              id, name, app_name, figma_file_id, figma_api_token, collections, compile_variables_on_capture,
+              id, name, app_name, figma_file_id, figma_api_token, collections,
               detected_components_count, imported_components_count, pending_components_count,
               imported_component_names, pending_component_names, created_at, updated_at
             )
             VALUES (
               ${entry.id}, ${entry.name}, ${entry.appName ?? null}, ${entry.figmaFileId ?? null}, ${entry.figmaApiToken ?? null},
-              ${collections}, ${entry.compileVariablesOnCapture !== false},
+              ${collections},
               ${entry.detectedComponentsCount ?? null}, ${entry.importedComponentsCount ?? null}, ${entry.pendingComponentsCount ?? null},
               ${importedComponentNames}, ${pendingComponentNames}, ${now}, ${now}
             )
@@ -278,7 +274,6 @@ export class DesignSystemRepository {
                 figma_file_id = ${updated.figmaFileId ?? null},
                 figma_api_token = ${updated.figmaApiToken ?? null},
                 collections = ${collections},
-                compile_variables_on_capture = ${updated.compileVariablesOnCapture !== false},
                 detected_components_count = ${updated.detectedComponentsCount ?? null},
                 imported_components_count = ${updated.importedComponentsCount ?? null},
                 pending_components_count = ${updated.pendingComponentsCount ?? null},

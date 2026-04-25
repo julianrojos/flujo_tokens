@@ -9,7 +9,6 @@ Sequence:
 
 ## Prerequisites
 
-- Token registry available in system docs: `design-systems/<system-id>/docs/_generated/token-registry.json`
 - Design systems PostgreSQL available and at least one system configured (`DATABASE_URL` must point to the dashboard database)
 - Agent CLI available (`codex`, `claude`, or `gemini`)
 

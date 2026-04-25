@@ -2,7 +2,6 @@
  * Request File Helpers
  *
  * Utilities for handling file operations in request handlers.
- * Migrated from apps/ds-dashboard/server/lib/request-file-helpers.mjs
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';

@@ -108,7 +108,7 @@ describe('computeDocStatusesDbFromSnapshots (deprecated alias)', () => {
     });
 });
 
-describe('computeDocStatuses (deprecated legacy signature)', () => {
+describe('computeDocStatuses (deprecated signature)', () => {
     it('returns empty components when no DB is provided', async () => {
         const result = await computeDocStatuses('/some/path');
 

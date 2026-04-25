@@ -3,8 +3,7 @@
 /**
  * Tokens From Figma Runner
  *
- * Imports Figma local variables into design-token JSON files
- * and optionally compiles them to CSS custom properties.
+ * Imports Figma local variables from the Figma API into the PostgreSQL token database.
  */
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
@@ -21,8 +20,7 @@ import type { FigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 
 import {
-  syncFigmaTokensToInput,
-  runTokensCompile,
+  syncFigmaTokensToDatabase,
   isFatalSyncReason,
 } from '../services/figma-token-sync.js';
 
@@ -34,7 +32,7 @@ const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',
   description:
-    'Imports Figma local variables into design-token JSON files and optionally compiles them to CSS custom properties.',
+    'Imports Figma local variables into the database.',
   options: [
     {
       name: '--system <id>',
@@ -62,18 +60,13 @@ const CLI_CONFIG = {
     },
     {
       name: '--force',
-      description: 'Overwrite existing input JSON files.',
+      description: 'Overwrite existing persisted token rows.',
       defaultValue: 'false',
     },
     {
       name: '--merge',
-      description: 'Deep-merge incoming variables (requires --force true).',
+      description: 'Merge incoming variables into existing token rows (requires --force true).',
       defaultValue: 'false',
-    },
-    {
-      name: '--compile',
-      description: 'Compile generated tokens after writing.',
-      defaultValue: 'true',
     },
     {
       name: '--dry-run',
@@ -208,7 +201,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   // ── Resolve flags ────────────────────────────────────────────────────────
   const force = parseBooleanArg(parsed.force, false);
   const merge = parseBooleanArg(parsed.merge, false);
-  const compile = parseBooleanArg(parsed.compile, true);
   const dryRun = parseBooleanArg(parsed.dryRun, false);
 
   if (merge && !force) {
@@ -218,9 +210,13 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 
   // ── Sync tokens from Figma ───────────────────────────────────────────────
   try {
-    const syncResult = await syncFigmaTokensToInput({
-      repoRoot: PROJECT_ROOT,
-      system,
+    const syncResult = await syncFigmaTokensToDatabase({
+      system: {
+        id: systemId,
+        paths: {
+          databaseUrl: systemCtx.paths.databaseUrl,
+        },
+      },
       fileKey,
       figmaToken,
       force,
@@ -237,7 +233,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
         );
         process.exit(1);
       }
-      // Non-fatal reasons (like 'input-json-exists') are just informational
+      // Non-fatal reasons are just informational.
     }
 
     if (dryRun) {
@@ -246,11 +242,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
         JSON.stringify(syncResult, null, 2),
       );
       return;
-    }
-
-    // ── Optional compile ───────────────────────────────────────────────────
-    if (compile) {
-      await runTokensCompile({ repoRoot: PROJECT_ROOT, system });
     }
 
     console.log(
@@ -263,7 +254,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
           tokensImported: syncResult.tokens_written || 0,
           sourceRequested: source,
           sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
-          compiled: compile,
         },
         null,
         2,

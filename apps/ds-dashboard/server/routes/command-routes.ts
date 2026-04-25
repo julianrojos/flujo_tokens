@@ -2,7 +2,6 @@
  * Command Routes
  *
  * Registers command-related API routes.
- * Migrated from apps/ds-dashboard/server/routes/command-routes.mjs
  */
 
 import type { Context } from 'hono';

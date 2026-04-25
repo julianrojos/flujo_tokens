@@ -17,7 +17,6 @@ const MOCK_CONTEXT = {
     specs: "/repo/design-systems/sys-01/docs/_spec/components",
     docs: "/repo/design-systems/sys-01/docs/components",
     databaseUrl: "/repo/apps/ds-dashboard/server/db/ds-dashboard.db",
-    figmaAliasGraph: "/repo/design-systems/sys-01/docs/_generated/figma-alias-graph.json",
   },
 } as const;
 

@@ -2,7 +2,7 @@
  * Token Usage Index Service
  *
  * Generates a deterministic usage index for token registry entries
- * from CSS references, alias chains, and optional Figma alias graphs.
+ * from CSS references and alias chains.
  *
  * Pure logic module - I/O handled by runner.
  */
@@ -98,46 +98,6 @@ export function buildAliasChains(
 }
 
 /**
- * Inject figma aliases into usage map
- */
-export function injectFigmaAliases(
-  usageMap: Map<string, TokenUsageEntryNew>,
-  figmaAliasGraphPath: string,
-  warnings: Array<{ message: string; tokenPath?: string }>,
-): void {
-  if (!fs.existsSync(figmaAliasGraphPath)) {
-    return;
-  }
-
-  try {
-    const graph = JSON.parse(fs.readFileSync(figmaAliasGraphPath, 'utf8'));
-    if (!graph.aliases || !Array.isArray(graph.aliases)) {
-      return;
-    }
-
-    for (const alias of graph.aliases) {
-      // alias.toPath is the token being pointed to (the one that shows up in "Used in")
-      const entry = usageMap.get(alias.toPath);
-      if (!entry) continue;
-
-      entry.usedIn.push({
-        kind: 'figma-alias',
-        source: 'figma-variables',
-        owner: alias.fromPath,
-        detail: alias.modes ? alias.modes.join(', ') : 'unknown',
-      });
-      entry.usageCount++;
-      entry.usageByKind['figma-alias'] = (entry.usageByKind['figma-alias'] || 0) + 1;
-    }
-  } catch (error) {
-    // Add warning to array so user sees it in output JSON (not just console)
-    warnings.push({
-      message: `Failed to process figma-alias-graph.json: ${error instanceof Error ? error.message : String(error)}`,
-    });
-  }
-}
-
-/**
  * Generate token usage index
  *
  * Pure function - all I/O is passed as parameters
@@ -146,7 +106,6 @@ export function generateUsageIndex(
   registry: TokenCatalog,
   cssRefs: CssReference[],
   aliasChains: Map<string, string[]>,
-  figmaAliasGraphPath?: string,
 ): TokenUsageIndex {
   const usageMap = new Map<string, TokenUsageEntryNew>();
   const warnings: Array<{ message: string; tokenPath?: string }> = [];
@@ -223,11 +182,6 @@ export function generateUsageIndex(
     }
   }
 
-  // Inject figma aliases if graph path provided
-  if (figmaAliasGraphPath) {
-    injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
-  }
-
   // Build final structure
   const entries = Array.from(usageMap.values()).filter(u => u.usageCount > 0);
   const byPath = Object.fromEntries(entries.map(e => [e.path, e]));
@@ -251,23 +205,3 @@ export function generateUsageIndex(
   };
 }
 
-/**
- * Main function to generate usage index
- *
- * Handles file I/O
- */
-export function generateUsageIndexFromFile(
-  registryPath: string,
-  cssFiles: string[],
-  figmaAliasGraphPath?: string,
-): TokenUsageIndex {
-  // Load registry
-  const registryContent = fs.readFileSync(registryPath, 'utf8');
-  const registry = JSON.parse(registryContent) as TokenCatalog;
-
-  const cssRefs = extractCssReferences(cssFiles, registry);
-  const aliasChains = buildAliasChains(cssFiles, registry);
-
-  // Generate index
-  return generateUsageIndex(registry, cssRefs, aliasChains, figmaAliasGraphPath);
-}

@@ -1,14 +1,12 @@
 /**
  * Capture Token Orchestrator
  *
- * Orchestrates token sync and compilation for capture pipeline.
+ * Orchestrates token sync for the capture pipeline.
  */
 
 import {
-  bootstrapInputJsonFromFigmaVariables,
-  ensureCollectionsConfigured,
+  bootstrapFigmaTokensToDatabase,
   getSystemConfig,
-  runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import type { FigmaVariableSource } from './figma-token-sync.js';
 
@@ -24,9 +22,7 @@ export interface OrchestrateTokenSyncOptions {
   figmaUrl?: string;
   tokensSource?: FigmaVariableSource;
   getSystemConfigFn?: typeof getSystemConfig;
-  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
-  ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
-  runTokensCompileIfNeededFn?: typeof runTokensCompileIfNeeded;
+  bootstrapFigmaTokensToDatabaseFn?: typeof bootstrapFigmaTokensToDatabase;
 }
 
 /**
@@ -37,24 +33,15 @@ export interface OrchestrateTokenSyncResult {
     attempted: boolean;
     created: boolean;
     reason: string;
-    files_written?: number;
     collections?: string[];
     tokens_written?: number;
     tokens_total?: number;
-    files?: string[];
     error?: string;
-  };
-  tokenCompile: {
-    attempted: boolean;
-    compiled: boolean;
-    reason: string;
-    stderr?: string;
-    output?: string;
   };
 }
 
 /**
- * Orchestrate token sync and compilation.
+ * Orchestrate token sync.
  */
 export async function orchestrateTokenSync(
   options: OrchestrateTokenSyncOptions,
@@ -68,9 +55,7 @@ export async function orchestrateTokenSync(
     figmaUrl,
     tokensSource = 'mcp',
     getSystemConfigFn = getSystemConfig,
-    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
-    ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
-    runTokensCompileIfNeededFn = runTokensCompileIfNeeded,
+    bootstrapFigmaTokensToDatabaseFn = bootstrapFigmaTokensToDatabase,
   } = options;
 
   let tokenBootstrap: OrchestrateTokenSyncResult['tokenBootstrap'] = {
@@ -78,16 +63,10 @@ export async function orchestrateTokenSync(
     created: false,
     reason: dryRun ? 'skipped-dry-run' : 'not-run',
   };
-  let tokenCompile: OrchestrateTokenSyncResult['tokenCompile'] = {
-    attempted: false,
-    compiled: false,
-    reason: dryRun ? 'skipped-dry-run' : 'not-run',
-  };
 
   if (!dryRun) {
-    let systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
-    
-    tokenBootstrap = await bootstrapInputJsonFromFigmaVariablesFn({
+    const systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
+    tokenBootstrap = await bootstrapFigmaTokensToDatabaseFn({
       repoRoot: projectRoot,
       system: systemConfig,
       fileKey,
@@ -95,16 +74,7 @@ export async function orchestrateTokenSync(
       figmaFileUrl: figmaUrl,
       tokensSource,
     });
-    
-    ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId });
-    
-    systemConfig = await getSystemConfigFn({ repoRoot: projectRoot, systemId });
-    
-    tokenCompile = runTokensCompileIfNeededFn({
-      repoRoot: projectRoot,
-      system: systemConfig,
-    });
   }
 
-  return { tokenBootstrap, tokenCompile };
+  return { tokenBootstrap };
 }

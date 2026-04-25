@@ -4,11 +4,7 @@ export interface BuildUpdateActionsPropsArgs {
   disabled: boolean;
 }
 
-export interface DesignSystemUpdateActionsViewProps {
-  systemId: string;
-  figmaFileId?: string;
-  disabled: boolean;
-}
+export type DesignSystemUpdateActionsViewProps = BuildUpdateActionsPropsArgs;
 
 /**
  * Keep update actions stateless regarding admin drafts:
@@ -17,10 +13,5 @@ export interface DesignSystemUpdateActionsViewProps {
 export function buildUpdateActionsProps(
   args: BuildUpdateActionsPropsArgs,
 ): DesignSystemUpdateActionsViewProps {
-  return {
-    systemId: args.systemId,
-    figmaFileId: args.figmaFileId,
-    disabled: args.disabled,
-  };
+  return { ...args };
 }
-

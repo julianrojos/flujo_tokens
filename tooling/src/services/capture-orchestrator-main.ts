@@ -21,10 +21,8 @@ import {
   PROJECT_ROOT,
 } from '../utils/system-context.js';
 import {
-  bootstrapInputJsonFromFigmaVariables,
-  ensureCollectionsConfigured,
+  bootstrapFigmaTokensToDatabase,
   getSystemConfig,
-  runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import { orchestrateTokenSync } from './capture-token-orchestrator.js';
 import { configureFigmaContext } from './capture-figma-context.js';
@@ -39,12 +37,8 @@ import {
   parsePositiveNumber,
 } from './capture-options.js';
 import { createPipelineContext } from './pipeline-context.js';
-import {
-  ensureSystemDocsScaffold,
-} from './capture-doc-scaffold.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
 import {
-  buildSlugLookupFromSpecContents,
   buildSlugLookupFromRegistry,
 } from './capture-targets.js';
 import { createCaptureServices } from './capture-services.js';
@@ -105,17 +99,13 @@ export interface RunCaptureFromFigmaUrlDeps {
   fetchFigmaImagesFn?: typeof fetchFigmaImages;
   buildFigmaComponentMapFn?: typeof buildFigmaComponentMap;
   buildFigmaNodeUrlFn?: typeof buildFigmaNodeUrl;
-  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
-  ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
+  bootstrapFigmaTokensToDatabaseFn?: typeof bootstrapFigmaTokensToDatabase;
   getSystemConfigFn?: typeof getSystemConfig;
-  runTokensCompileIfNeededFn?: typeof runTokensCompileIfNeeded;
   extractSingleNodeCandidateFn?: typeof extractSingleNodeCandidate;
   parseBooleanOptionFn?: typeof parseBooleanOption;
   parseComponentKindFn?: typeof parseComponentKind;
   parseMainCaptureModeFn?: typeof parseMainCaptureMode;
   parsePositiveNumberFn?: typeof parsePositiveNumber;
-  ensureSystemDocsScaffoldFn?: typeof ensureSystemDocsScaffold;
-  buildSlugLookupFromSpecContentsFn?: typeof buildSlugLookupFromSpecContents;
   buildSlugLookupFromRegistryFn?: typeof buildSlugLookupFromRegistry;
   isKindAllowedFn?: typeof isKindAllowed;
   classifyTargetKindFn?: typeof classifyTargetKind;
@@ -159,17 +149,13 @@ export async function runCaptureFromFigmaUrl(
     fetchFigmaImagesFn = fetchFigmaImages,
     buildFigmaComponentMapFn = buildFigmaComponentMap,
     buildFigmaNodeUrlFn = buildFigmaNodeUrl,
-    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
-    ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
+    bootstrapFigmaTokensToDatabaseFn = bootstrapFigmaTokensToDatabase,
     getSystemConfigFn = getSystemConfig,
-    runTokensCompileIfNeededFn = runTokensCompileIfNeeded,
     extractSingleNodeCandidateFn = extractSingleNodeCandidate,
     parseBooleanOptionFn = parseBooleanOption,
     parseComponentKindFn = parseComponentKind,
     parseMainCaptureModeFn = parseMainCaptureMode,
     parsePositiveNumberFn = parsePositiveNumber,
-    ensureSystemDocsScaffoldFn = ensureSystemDocsScaffold,
-    buildSlugLookupFromSpecContentsFn = buildSlugLookupFromSpecContents,
     buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
     isKindAllowedFn = isKindAllowed,
     classifyTargetKindFn = classifyTargetKind,
@@ -212,7 +198,6 @@ export async function runCaptureFromFigmaUrl(
 
   const {
     docsRootDir,
-    componentDocsDir,
     proofDir,
     proofImageDir,
     resolvedSpecRoot,
@@ -223,7 +208,6 @@ export async function runCaptureFromFigmaUrl(
     componentKind,
     includeVariants,
     continueOnError,
-    refreshIndices,
     dryRun,
     includeSpecExhibits,
     variantLimit,
@@ -248,7 +232,6 @@ export async function runCaptureFromFigmaUrl(
   };
   phase = 'token_sync';
   let tokenBootstrap: unknown;
-  let tokenCompile: unknown;
   try {
     const tokenSync = await orchestrateTokenSyncFn({
       dryRun,
@@ -259,12 +242,9 @@ export async function runCaptureFromFigmaUrl(
       figmaUrl: descriptor.figmaUrl,
       tokensSource: flags.tokensSource,
       getSystemConfigFn,
-      bootstrapInputJsonFromFigmaVariablesFn,
-      ensureCollectionsConfiguredFn,
-      runTokensCompileIfNeededFn,
+      bootstrapFigmaTokensToDatabaseFn,
     });
     tokenBootstrap = tokenSync.tokenBootstrap;
-    tokenCompile = tokenSync.tokenCompile;
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
@@ -294,14 +274,10 @@ export async function runCaptureFromFigmaUrl(
   phase = 'build_targets';
   let services: ReturnType<typeof createCaptureServices>;
   let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
-  let slugByNodeFromSpecs: ReturnType<typeof buildSlugLookupFromSpecContentsFn>;
   try {
-    ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
     services = createCaptureServices({ context });
     const componentRows = await services.readComponentRegistry();
     slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
-    const specContents = services.readSpecContents();
-    slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
@@ -365,10 +341,8 @@ export async function runCaptureFromFigmaUrl(
       applySlugOverride,
       componentSlugOverride,
       slugByNodeFromRegistry,
-      slugByNodeFromSpecs,
       includeSpecExhibits,
       figmaToken,
-      repoRoot: projectRoot,
       ensureFilePayload,
       fetchFigmaNodes: fetchFigmaNodesFn,
       fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: {
@@ -425,7 +399,6 @@ export async function runCaptureFromFigmaUrl(
       include_spec_exhibits: includeSpecExhibits,
     },
     tokenBootstrap,
-    tokenCompile,
     sourceCandidates,
     targets,
     skipped,
@@ -459,7 +432,6 @@ export async function runCaptureFromFigmaUrl(
       variantLimit,
       agent,
       mainCaptureMode,
-      refreshIndices,
       skipDbPersistence,
     });
   } catch (error) {

@@ -2,7 +2,6 @@
  * Server Config
  *
  * Server configuration with environment variable overrides.
- * Migrated from apps/ds-dashboard/server/lib/server-config.mjs
  */
 
 export interface ServerConfig {

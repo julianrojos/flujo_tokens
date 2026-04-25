@@ -1,64 +1,64 @@
 ---
-description: FindBugs (repo completo, iterativo): descubre y refina bugs reales en todo el proyecto con evidencia rica (incluye contexto), actionability y señales de consumo. Usa Bug Registry para evitar repetición. No cambia código.
+description: FindBugs (repo-wide, iterative): discovers and refines real bugs across the entire project with rich evidence (including context), actionability scores, and consumption signals. Uses a Bug Registry to avoid repetition. Does not change code.
 ---
 
 # /findBugs — Repo-wide bug hunting (v3.1, iterative, actionable-only, no code changes)
 
-Este workflow busca bugs en **todo el repositorio** (no solo en el diff) y mejora en cada iteración usando un **Bug Registry** como memoria persistente.
-No edites código ni hagas commits.
+This workflow hunts bugs across the **entire repository** (not just the diff) and improves each iteration using a **Bug Registry** as persistent memory.
+Do not edit code or make commits.
 
-> `// turbo` solo para comandos *read-only*. Evita `// turbo-all`.
+> `// turbo` only for *read-only* commands. Avoid `// turbo-all`.
 
 ---
 
 ## Workflow contract
 state_file: `.agents/state/bug-registry.yml`  
-produces: `FindBugs Report v3.1` + `registry_seed|registry_patch` (para aplicar manualmente)  
+produces: `FindBugs Report v3.1` + `registry_seed|registry_patch` (to be applied manually)  
 next: `/judgeBugs`
 
 ---
 
-## Reglas de oro
-1) **No validaciones positivas** (sin ✅, sin “looks good”).
-2) **Actionable-only:** si no puedes proponer una acción o una verificación concreta, **no lo reportes**.
-3) Un “BUG” requiere: **evidencia + expected vs actual + por qué importa + cómo confirmarlo**.
-4) **No repetición:** si un bug ya está en el registry como **DROP/DUPLICATE/FIXED**, no lo vuelvas a reportar salvo que aportes **evidencia nueva** y lo declares como `delta`.
-5) **No duplicados:** fusiona síntomas con misma raíz.
-6) **Señales ≠ bugs:** patrones (ts-ignore, catch vacío, etc.) son pistas; solo son BUG si se puede argumentar expected vs actual y verificación.
-7) **No crear/editar archivos automáticamente.** Si necesitas crear/actualizar el registry, produce el bloque YAML para que el usuario lo copie.
+## Golden rules
+1) **No positive validations** (no ✅, no "looks good").
+2) **Actionable-only:** if you cannot propose a concrete action or verification, **do not report it**.
+3) A "BUG" requires: **evidence + expected vs actual + why it matters + how to confirm**.
+4) **No repetition:** if a bug is already in the registry as **DROP/DUPLICATE/FIXED**, do not report it again unless you provide **new evidence** and declare it as `delta`.
+5) **No duplicates:** merge symptoms with the same root cause.
+6) **Signals ≠ bugs:** patterns (ts-ignore, empty catch, etc.) are hints; they are only a BUG if you can argue expected vs actual and a verification path.
+7) **Do not create/edit files automatically.** If you need to create/update the registry, produce the YAML block for the user to copy.
 
-## Umbrales y límites
-- **BUG:** reporta solo si **Confianza (finder) ≥ 60%** **y** `actionability ∈ {high, medium}`
-- **QUESTION:** riesgo plausible pero no concluyente (máx. 5)
-- **Límites:** máx. **20 BUG** + máx. **5 QUESTION**
+## Thresholds and limits
+- **BUG:** report only if **Confidence (finder) ≥ 60%** **and** `actionability ∈ {high, medium}`
+- **QUESTION:** plausible risk but not conclusive (max 5)
+- **Limits:** max **20 BUG** + max **5 QUESTION**
 
-### Definición determinista de actionability
-- **high:** hay verificación mínima clara **y** un fix plan A razonable (y opcional B)
-- **medium:** hay verificación mínima clara, pero el fix requiere investigación o tiene incertidumbre relevante
-- **low:** no hay verificación mínima clara (→ debe ser QUESTION, no BUG)
-
----
-
-## Paso 0 — Prerrequisitos operacionales (manual)
-- Lee `AGENTS.md` en la raíz antes de actuar.
-- No hagas commits ni modifiques código.
+### Deterministic actionability definition
+- **high:** clear minimum verification **and** a reasonable fix plan A (and optional B)
+- **medium:** clear minimum verification, but the fix requires investigation or has relevant uncertainty
+- **low:** no clear minimum verification (→ must be QUESTION, not BUG)
 
 ---
 
-## Paso 1 — Cargar Bug Registry (si existe)
-
-Ruta estándar: `.agents/state/bug-registry.yml`
-
-Si existe, úsalo como fuente de verdad para:
-- no repetir items descartados
-- priorizar convertir `NEEDS_VERIFY → KEEP/DROP`
-- evitar duplicados
-
-Si NO existe, continúa con un registry vacío y al final genera `registry_seed`.
+## Step 0 — Operational prerequisites (manual)
+- Read `AGENTS.md` at the root before acting.
+- Do not commit or modify code.
 
 ---
 
-## Paso 2 — Mapear repo (inventario rápido)
+## Step 1 — Load Bug Registry (if it exists)
+
+Standard path: `.agents/state/bug-registry.yml`
+
+If it exists, use it as source of truth to:
+- avoid repeating discarded items
+- prioritize converting `NEEDS_VERIFY → KEEP/DROP`
+- avoid duplicates
+
+If it does NOT exist, continue with an empty registry and generate `registry_seed` at the end.
+
+---
+
+## Step 2 — Map the repo (quick inventory)
 
 // turbo
 ```bash
@@ -77,7 +77,7 @@ git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs'   | xargs -I{} wc -l 
 
 ---
 
-## Paso 3 — Señales repo-wide (rápido, read-only)
+## Step 3 — Repo-wide signals (fast, read-only)
 
 // turbo
 ```bash
@@ -103,11 +103,11 @@ rg -n "(catch\s*\(.*\)\s*\{\s*\}|\.catch\(\s*\(.*\)\s*=>\s*\{\s*\}\s*\))"
 
 ---
 
-## Paso 4 — Dead code / unused exports (opcional, preferido si está disponible)
+## Step 4 — Dead code / unused exports (optional, preferred if available)
 
-Este paso ayuda a identificar código sin consumidores (no siempre es bug, pero ajusta prioridad/confianza).
+This step helps identify code with no consumers (not always a bug, but adjusts priority/confidence).
 
-### Opción A (preferida): Knip (si está disponible)
+### Option A (preferred): Knip (if available)
 // turbo
 ```bash
 npx -y knip --version >/dev/null 2>&1 && echo "knip: OK" || echo "knip: MISSING"
@@ -118,67 +118,67 @@ npx -y knip --version >/dev/null 2>&1 && echo "knip: OK" || echo "knip: MISSING"
 npx -y knip --include exports,types,nsExports,nsTypes || true
 ```
 
-### Opción B (fallback rápido): búsquedas aproximadas (menos fiable)
-- Usa `rg` para encontrar símbolos/exports y luego `rg` para call sites/imports.
-- Trátalo como evidencia **débil** (marcar `consumers: dynamic_possible` si no puedes asegurar).
+### Option B (quick fallback): approximate searches (less reliable)
+- Use `rg` to find symbols/exports and then `rg` for call sites/imports.
+- Treat as **weak evidence** (mark `consumers: dynamic_possible` if you cannot be certain).
 
 ---
 
-## Paso 5 — Selección guiada por iteración (mejora continua)
+## Step 5 — Iteration-guided selection (continuous improvement)
 
-### 5.1 Iteración 1 (si el registry está vacío)
-- Elige **8–12 hotspots**: archivos grandes + señales + módulos core.
-- Descubre candidatos nuevos hasta `max 20` (con gates).
+### 5.1 Iteration 1 (if registry is empty)
+- Choose **8–12 hotspots**: large files + signals + core modules.
+- Discover new candidates up to `max 20` (with gates).
 
-### 5.2 Iteraciones 2+ (si hay registry)
-Prioriza:
-1) `NEEDS_VERIFY`: confirmar o descartar con evidencia nueva y verificación más sólida.
-2) `KEEP` con fix débil: mejorar verificación/fix **solo si aportas delta real**.
-3) Solo si queda margen (< 20 activos): descubrir bugs nuevos.
+### 5.2 Iterations 2+ (if registry exists)
+Prioritize:
+1) `NEEDS_VERIFY`: confirm or discard with new evidence and stronger verification.
+2) `KEEP` with weak fix: improve verification/fix **only if you provide real delta**.
+3) Only if room remains (< 20 active): discover new bugs.
 
 ---
 
-## Paso 6 — Construcción y filtrado de bugs (contrato obligatorio)
+## Step 6 — Bug construction and filtering (mandatory contract)
 
-Por cada BUG candidato:
+For each BUG candidate:
 
-### 6.1 Evidencia (incluye contexto)
-- `evidence_snippet`: 1–5 líneas del sitio exacto
+### 6.1 Evidence (includes context)
+- `evidence_snippet`: 1–5 lines from the exact location
 - `file_context`:
-  - `context_signature`: firma de función/clase o encabezado del bloque contenedor
-  - `context_window`: ±3 líneas alrededor del bug (o el bloque condicional relevante)
+  - `context_signature`: function/class signature or enclosing block header
+  - `context_window`: ±3 lines around the bug (or the relevant conditional block)
 
 ### 6.2 Expected vs actual
-1–2 frases. Debe ser verificable.
+1–2 sentences. Must be verifiable.
 
-### 6.3 Consumers (señal)
-Incluye un campo `consumers` con uno de:
+### 6.3 Consumers (signal)
+Include a `consumers` field with one of:
 - `found`
 - `none_found`
-- `dynamic_possible` (framework hooks, entrypoints, imports dinámicos, etc.)
+- `dynamic_possible` (framework hooks, entrypoints, dynamic imports, etc.)
 
-Y una evidencia breve (`consumers_evidence`): cómo lo determinaste (knip/rg/manual).
+And brief evidence (`consumers_evidence`): how you determined it (knip/rg/manual).
 
-### 6.4 Verificación mínima
-Un repro o test mínimo a añadir.
+### 6.4 Minimum verification
+A minimal repro or test to add.
 
 ### 6.5 Fix
-Fix recomendado + 1 alternativa (solo si realmente difiere).
+Recommended fix + 1 alternative (only if genuinely different).
 
 ### 6.6 Scoring
-- Confianza (0–100)
+- Confidence (0–100)
 - Actionability (high|medium|low)
-- Impacto (0–5)
-- Probabilidad (0–5)
-- Esfuerzo (S/M/L)
+- Impact (0–5)
+- Probability (0–5)
+- Effort (S/M/L)
 
-### 6.7 Delta (si no es NEW)
-Si el bug ya existía, añade:
+### 6.7 Delta (if not NEW)
+If the bug already existed, add:
 - `evidence_delta`
 - `verification_delta`
 - `fix_delta`
 
-Si no hay delta real → no lo vuelvas a reportar.
+If there is no real delta → do not report it again.
 
 ---
 
@@ -207,7 +207,7 @@ Si no hay delta real → no lo vuelvas a reportar.
   - **Likely root cause:** <1–3 sentences>
   - **How to confirm:** <repro or minimal test>
   - **Fix recommended (A):** <brief>
-  - **Fix alternative (B):** <brief> / “none”
+  - **Fix alternative (B):** <brief> / "none"
   - **Regression risk:** <what could break + mitigation>
   - **Delta (required if not NEW):**
     - evidence_delta: <what is new vs previous iteration>
@@ -217,7 +217,7 @@ Si no hay delta real → no lo vuelvas a reportar.
 ## QUESTIONS (max 5; high-risk but inconclusive)
 - **Q-01** — <what to check to raise confidence>
   - Evidence partial:
-  - What’s missing:
+  - What's missing:
 
 ---
 

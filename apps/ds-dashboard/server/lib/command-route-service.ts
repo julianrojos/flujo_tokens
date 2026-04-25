@@ -2,7 +2,6 @@
  * Command Route Service
  *
  * Builds command configurations for route handlers.
- * Migrated from apps/ds-dashboard/server/lib/command-route-service.mjs
  */
 import * as dsTypes from 'ds-types';
 
@@ -49,7 +48,6 @@ export interface CaptureFigmaScreenshotCommandConfigOptions {
     componentSlug?: string;
     includeVariants?: boolean;
     continueOnError?: boolean;
-    refreshIndices?: boolean;
     dryRun?: boolean;
     variantLimit?: number;
     scale?: number;
@@ -167,7 +165,6 @@ export function buildCaptureFigmaScreenshotCommandConfig(
   const figmaToken = toTrimmed(body.figmaToken);
   const includeVariants = toBooleanString(body.includeVariants, false);
   const continueOnError = toBooleanString(body.continueOnError, true);
-  const refreshIndices = toBooleanString(body.refreshIndices, false);
   const dryRun = toBooleanString(body.dryRun, false);
   const variantLimit = toNumberString(body.variantLimit, 6, 20);
   const scale = toNumberString(body.scale, 2, 4);
@@ -203,8 +200,6 @@ export function buildCaptureFigmaScreenshotCommandConfig(
     variantLimit,
     '--continue-on-error',
     continueOnError,
-    '--refresh-indices',
-    refreshIndices,
     '--dry-run',
     dryRun,
     '--scale',

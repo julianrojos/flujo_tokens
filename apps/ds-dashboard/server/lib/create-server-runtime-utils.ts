@@ -2,7 +2,6 @@
  * Create Server Runtime Utils
  *
  * Utilities for server runtime.
- * Migrated from apps/ds-dashboard/server/lib/create-server-runtime-utils.mjs
  */
 import { createHash } from 'node:crypto';
 

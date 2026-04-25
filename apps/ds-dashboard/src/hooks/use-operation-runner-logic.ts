@@ -8,6 +8,6 @@ export function resolveOperationSystemId(args: {
 }
 
 export function buildOperationSystemHeaders(systemId: string): HeadersInit {
-  return systemId ? { "x-ds-system": systemId } : {};
+  const normalized = String(systemId || "").trim();
+  return normalized ? { "x-ds-system": normalized } : {};
 }
-

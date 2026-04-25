@@ -45,14 +45,14 @@ outputs:
 | Type | Description | `default`/`value` format |
 | ---- | ----------- | ------------------------- |
 | `string` | Plain text value | Any string |
-| `component_name` | Display name subject to normalization (see `component-name-normalization.mdc`) | Display-name string, e.g. `"Status Bar"` |
+| `component_name` | Display-name string, e.g. `"Status Bar"` | Display-name string, e.g. `"Status Bar"` |
 | `path` | File or directory path; supports `${var}` interpolation | Path string |
 | `path[]` | Array of paths | YAML sequence of strings |
 | `boolean` | Boolean flag | `true` or `false` (unquoted) |
 | `enum(v1,v2,…)` | One of a fixed set of string values | One of the declared values |
 | `report` | Structured summary output — not a file artifact | — (no `value` field) |
 
-No other types are valid. An unknown type emits `SLOT01`; semantics and blocking policy are defined in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+No other types are valid. An unknown type emits `SLOT01`; blocking policy is defined in `.agents/rules/_manifest.yml` (`validation.checks.SLOT01`).
 
 ## Interpolation in `default` and `value` fields
 
@@ -90,6 +90,6 @@ When slots and prose sections (e.g. `## Inputs`, `## Output`) conflict, **slots 
 
 ## Validation
 
-- Emit `SLOT01` for slot-contract violations (unknown type, or missing required input resolution). See `error-codes.mdc` for canonical semantics.
+- Emit `SLOT01` for slot-contract violations (unknown type, or missing required input resolution). Blocking policy is defined in `_manifest.yml` (`validation.checks.SLOT01`).
 - Slot validation runs at skill-load time before execution begins.
 - The validator must check all SKILL.md files in `.agents/skills/**/SKILL.md` that declare `inputs` or `outputs`.

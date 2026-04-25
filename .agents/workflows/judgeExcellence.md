@@ -1,59 +1,59 @@
 ---
-description: "JudgeExcellence (repo completo, iterativo): evalúa Repo Excellence Report v2.2. Si NO_UPDATES, responde sin cambios. Si hay ítems, valida evidencia, selecciona Plan A/B y solo propone Plan C si ≥80% seguro. Emite registry_patch autoritativo. No cambia código."
+description: "JudgeExcellence (repo-wide, iterative): evaluates a Repo Excellence Report v2.2. If NO_UPDATES, responds without changes. If items exist, validates evidence, selects Plan A/B, and only proposes Plan C if ≥80% confident. Emits authoritative registry_patch. Does not change code."
 ---
 
 # /judgeExcellence — Repo-wide excellence judge (v2.2, iterative, no code changes)
 
-Input: el usuario pega un **Repo Excellence Report v2.2** (y opcionalmente el Excellence Registry actual).  
-Objetivo: maximizar **señal/ruido**, descartar falsos positivos y mejorar diagnósticos/propuestas en cada iteración.
+Input: the user pastes a **Repo Excellence Report v2.2** (and optionally the current Excellence Registry).  
+Goal: maximize **signal/noise ratio**, discard false positives, and improve diagnoses/proposals in each iteration.
 
-> `// turbo` solo para comandos *read-only*. Evita `// turbo-all`.
+> `// turbo` only for *read-only* commands. Avoid `// turbo-all`.
 
 ---
 
 ## Workflow contract
 state_file: `.agents/state/excellence-registry.yml`  
 consumes: `Repo Excellence Report v2.2` (+ optional registry)  
-produces: `Judge Repo Excellence Report v2.2` + `registry_patch` (autoridad de estado)  
-next: (manual) aplicar patch + iterar con `/findExcellence`
+produces: `Judge Repo Excellence Report v2.2` + `registry_patch` (authority on status)  
+next: (manual) apply patch + iterate with `/findExcellence`
 
 ---
 
-## Reglas de oro
-1) **No cambies el código.**
-2) Evalúa ítems en el **mismo orden** (sección “veredictos”), para auditar.
-3) **Sin validaciones positivas.**
-4) **No inventes**: si la evidencia no sostiene, baja confianza o descarta.
-5) **Recalcula tu confianza**: no heredes los números del finder.
-6) **Plan C solo con alta certeza:** solo propón Plan C si estás **≥ 80% seguro** de que es mejor que Plan A y Plan B.
-7) Si no llegas a ese 80%, **NO inventes plan nuevo**: elige A o B y añade “tweaks” dentro del plan elegido.
-8) Performance: exige **plan de medición** + hipótesis de hot-path; si no, degrada.
-9) **Anti-repetición:** si el ítem ya estaba DROP/DUPLICATE/IMPLEMENTED y no hay delta real, tiende a DROP.
+## Golden rules
+1) **Do not change code.**
+2) Evaluate items in the **same order** ("verdicts" section), for auditability.
+3) **No positive validations.**
+4) **Do not invent**: if the evidence does not support it, lower confidence or discard.
+5) **Recalculate your confidence**: do not inherit the finder's numbers.
+6) **Plan C only with high certainty:** only propose Plan C if you are **≥ 80% confident** it is better than Plan A and Plan B.
+7) If you do not reach 80%, **do not invent a new plan**: choose A or B and add "tweaks" within the chosen plan.
+8) Performance: require a **measurement plan** + hot-path hypothesis; if absent, downgrade.
+9) **Anti-repetition:** if an item was already DROP/DUPLICATE/IMPLEMENTED and there is no real delta, tend toward DROP.
 
-## Gates (alta precisión)
-- **KEEP:** Confianza (juez) ≥ 85% y actionability ∈ {high, medium}
-- **NEEDS-CONTEXT:** 55–84% o falta evidencia/delta
-- **DROP:** < 55% o contradicho o ya existe / no accionable
-- **ROUTE-TO-FINDBUGS:** si el ítem describe comportamiento incorrecto (bug)
+## Gates (high precision)
+- **KEEP:** Confidence (judge) ≥ 85% and actionability ∈ {high, medium}
+- **NEEDS-CONTEXT:** 55–84% or missing evidence/delta
+- **DROP:** < 55% or contradicted or already exists / not actionable
+- **ROUTE-TO-FINDBUGS:** if the item describes incorrect behavior (bug)
 
 ---
 
-## Paso 0 — Caso especial: NO_UPDATES
-Si el input es `Repo Excellence Report v2.2 — NO_UPDATES`, responde **solo** con esto:
+## Step 0 — Special case: NO_UPDATES
+If the input is `Repo Excellence Report v2.2 — NO_UPDATES`, respond **only** with this:
 
 # Judge Repo Excellence Report v2.2 — NO_UPDATES
 
-✅ Nada que juzgar: el finder no ha aportado deltas reales en esta iteración.
+✅ Nothing to judge: the finder has not provided real deltas in this iteration.
 
 registry_patch:
   updated_at: "<YYYY-MM-DD or unknown>"
   upsert: []
 
-Y termina. No añadas nada más.
+And stop. Do not add anything else.
 
 ---
 
-## Paso 1 — Preparar verificación repo-wide (sin diff)
+## Step 1 — Prepare repo-wide verification (no diff)
 
 // turbo
 ```bash
@@ -62,58 +62,58 @@ command -v rg >/dev/null 2>&1 && echo "rg: OK" || echo "rg: MISSING"
 
 ---
 
-## Paso 2 — Validar contrato del informe (antes de juzgar)
-Para cada **IMP-XXX** debe existir:
-- Ubicación + evidencia
+## Step 2 — Validate report contract (before judging)
+For each **IMP-XXX** the following must exist:
+- Location + evidence
 - context_signature + context_window
-- Plan A completo (pasos + trade-offs + verificación)
-- Si hay Plan B, que sea realmente distinto o se considera ruido
+- Complete Plan A (steps + trade-offs + verification)
+- If Plan B exists, it must be genuinely different — otherwise it is noise
 
-Si falta algo esencial → NEEDS-CONTEXT o DROP.
+If anything essential is missing → NEEDS-CONTEXT or DROP.
 
 ---
 
-## Paso 3 — Verificación por ítem (repo completo)
-Para cada ítem:
-- Abre el archivo y valida snippet y contexto.
-- Si hace falta, busca referencias y duplicación:
+## Step 3 — Per-item verification (full repo)
+For each item:
+- Open the file and validate snippet and context.
+- If needed, search for references and duplication:
 
 // turbo
 ```bash
-rg -n "<token/snippet clave del ítem>" --hidden --glob '!**/node_modules/**' || true
+rg -n "<key token/snippet from the item>" --hidden --glob '!**/node_modules/**' || true
 ```
 
 ---
 
-## Output — normal (plantilla obligatoria)
+## Output — normal (mandatory template)
 
 # Judge Repo Excellence Report v2.2 (repo-wide, iterative)
 
-## Veredictos por ítem (mismo orden que el input)
-- **IMP-001** — Veredicto: **KEEP | NEEDS-CONTEXT | DROP | ROUTE-TO-FINDBUGS**
-  - **Confianza (juez):** YY%
+## Verdicts per item (same order as input)
+- **IMP-001** — Verdict: **KEEP | NEEDS-CONTEXT | DROP | ROUTE-TO-FINDBUGS**
+  - **Confidence (judge):** YY%
   - **Actionability:** <high|medium|low>
-  - **Tipo ajustado:** <REFACTOR/CLEANUP/ARCH/CONSISTENCY/PERF/TEST-DX> (si cambia)
-  - **Prioridad ajustada:** (B−R)=X | Esfuerzo: S/M/L (si cambia)
-  - **Qué se sostiene / qué no:** <1–3 bullets>
+  - **Adjusted type:** <REFACTOR/CLEANUP/ARCH/CONSISTENCY/PERF/TEST-DX> (if changed)
+  - **Adjusted priority:** (B−R)=X | Effort: S/M/L (if changed)
+  - **What holds / what doesn't:** <1–3 bullets>
 
-  - **Evaluación Plan A:** <1–3 bullets>
-  - **Evaluación Plan B:** <1–3 bullets> / “No aplica (no hay Plan B)”
-  - **Plan recomendado:** A | B
-  - **Tweaks al plan recomendado (si aplica):** <1–4 bullets concretos>
+  - **Plan A evaluation:** <1–3 bullets>
+  - **Plan B evaluation:** <1–3 bullets> / "Not applicable (no Plan B)"
+  - **Recommended plan:** A | B
+  - **Tweaks to recommended plan (if applicable):** <1–4 concrete bullets>
 
-  - **Plan C (solo si ≥80% seguro de que es mejor):**
-    - Confianza (Plan C mejor): **ZZ%**
-    - Pasos: <2–6 bullets concretos>
-    - Trade-offs / riesgo: <1–2 bullets>
-    - Verificación: <test/benchmark/check>
-    - Por qué es mejor que A/B: <1–2 frases>
+  - **Plan C (only if ≥80% confident it's better):**
+    - Confidence (Plan C is better): **ZZ%**
+    - Steps: <2–6 concrete bullets>
+    - Trade-offs / risk: <1–2 bullets>
+    - Verification: <test/benchmark/check>
+    - Why it's better than A/B: <1–2 sentences>
 
-  - **Motivo de DROP/NEEDS-CONTEXT (si aplica):** <breve>
-  - **Si ROUTE-TO-FINDBUGS:** <qué parece bug + repro/test sugerido>
+  - **Reason for DROP/NEEDS-CONTEXT (if applicable):** <brief>
+  - **If ROUTE-TO-FINDBUGS:** <what looks like a bug + suggested repro/test>
 
-## Ranking final (solo KEEP; reordenado por prioridad)
-- **IMP-AAA** — Prioridad X — Confianza YY% — razón (1 frase)
+## Final ranking (KEEP only; re-ordered by priority)
+- **IMP-AAA** — Priority X — Confidence YY% — reason (1 sentence)
 - ...
 
 ---

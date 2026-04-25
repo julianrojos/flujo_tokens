@@ -18,12 +18,7 @@ import {
   fetchFigmaImages,
   fetchFigmaNodes,
 } from '../utils/figma-api.js';
-import { writeTextAtomic, buildMarkdownSeed } from './capture-doc-scaffold.js';
-import {
-  renderEnrichedMarkdownSeed,
-  extractComponentSpec,
-} from '../utils/figma-node-spec-extractor.js';
-import { injectExtractedSpecSectionsIntoMarkdown } from './capture-markdown-sections.js';
+import { extractComponentSpec } from '../utils/figma-node-spec-extractor.js';
 import type { PipelineContext } from './pipeline-context.js';
 import {
   bootstrapDatabase,
@@ -43,7 +38,6 @@ export interface CaptureServices {
       };
     }>
   >;
-  readSpecContents: () => Array<{ slug: string; content: string }>;
   readMarkdownContent: (path: string) => string;
   markdownExists: (path: string) => boolean;
   specExists: (path: string) => boolean;
@@ -54,11 +48,7 @@ export interface CaptureServices {
   fetchFigmaFile: typeof fetchFigmaFile;
   fetchFigmaNodes: typeof fetchFigmaNodes;
   fetchFigmaImages: typeof fetchFigmaImages;
-  writeTextAtomic: typeof writeTextAtomic;
   stderrWrite: (message: string) => void;
-  renderEnrichedMarkdownSeed: typeof renderEnrichedMarkdownSeed;
-  injectExtractedSpecSectionsIntoMarkdown: typeof injectExtractedSpecSectionsIntoMarkdown;
-  buildMarkdownSeed: typeof buildMarkdownSeed;
   extractComponentSpec: typeof extractComponentSpec;
 }
 
@@ -93,20 +83,6 @@ export function createCaptureServices(params: {
         if (db) await db.end();
       }
     },
-    readSpecContents: () => {
-      const dir = context.paths.resolvedSpecRoot;
-      if (!fs.existsSync(dir)) return [];
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      return entries
-        .filter(
-          (e) =>
-            e.isFile() && e.name.endsWith('.yml') && e.name !== '_template.yml',
-        )
-        .map((e) => ({
-          slug: path.basename(e.name, '.yml'),
-          content: fs.readFileSync(path.join(dir, e.name), 'utf8'),
-        }));
-    },
     readMarkdownContent: (p: string) => fs.readFileSync(p, 'utf8'),
     markdownExists: (p: string) => fs.existsSync(p),
     specExists: (p: string) => fs.existsSync(p),
@@ -137,11 +113,7 @@ export function createCaptureServices(params: {
     fetchFigmaFile: fetchFigmaFile,
     fetchFigmaNodes: fetchFigmaNodes,
     fetchFigmaImages: fetchFigmaImages,
-    writeTextAtomic: writeTextAtomic,
     stderrWrite: (message: string) => process.stderr.write(message),
-    renderEnrichedMarkdownSeed,
-    injectExtractedSpecSectionsIntoMarkdown,
-    buildMarkdownSeed,
     extractComponentSpec,
   };
 }

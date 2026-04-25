@@ -12,6 +12,21 @@ const BLOCKED_ENDPOINTS = [
   "anthropic.com",
 ];
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const BLOCKED_MODULE_PATTERNS = BLOCKED_MODULES.map((moduleName) => {
+  const escaped = escapeRegExp(moduleName);
+  return {
+    moduleName,
+    importFrom: new RegExp(`\\bfrom\\s*["']${escaped}["']`),
+    dynamicImport: new RegExp(`\\bimport\\s*\\(\\s*["']${escaped}["']\\s*\\)`),
+    commonJsRequire: new RegExp(`\\brequire\\s*\\(\\s*["']${escaped}["']\\s*\\)`),
+    modulePath: new RegExp(`node_modules[\\\\/]${escaped.replace("/", "[\\\\/]")}`),
+  };
+});
+
 if (!fs.existsSync(DIST_ASSETS_DIR)) {
   console.error("❌ dist/assets not found. Run `npm run build` first.");
   process.exit(1);
@@ -40,24 +55,18 @@ function addViolation(filePath, kind, detail) {
 for (const filePath of files) {
   const content = fs.readFileSync(filePath, "utf8");
 
-  for (const moduleName of BLOCKED_MODULES) {
-    const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const importFrom = new RegExp(`\\bfrom\\s*["']${escaped}["']`);
-    const dynamicImport = new RegExp(`\\bimport\\s*\\(\\s*["']${escaped}["']\\s*\\)`);
-    const commonJsRequire = new RegExp(`\\brequire\\s*\\(\\s*["']${escaped}["']\\s*\\)`);
-    const modulePath = new RegExp(`node_modules[\\\\/]${escaped.replace("/", "[\\\\/]")}`);
-
-    if (importFrom.test(content)) {
-      addViolation(filePath, "import", `static import from "${moduleName}"`);
+  for (const pattern of BLOCKED_MODULE_PATTERNS) {
+    if (pattern.importFrom.test(content)) {
+      addViolation(filePath, "import", `static import from "${pattern.moduleName}"`);
     }
-    if (dynamicImport.test(content)) {
-      addViolation(filePath, "import()", `dynamic import("${moduleName}")`);
+    if (pattern.dynamicImport.test(content)) {
+      addViolation(filePath, "import()", `dynamic import("${pattern.moduleName}")`);
     }
-    if (commonJsRequire.test(content)) {
-      addViolation(filePath, "require()", `require("${moduleName}")`);
+    if (pattern.commonJsRequire.test(content)) {
+      addViolation(filePath, "require()", `require("${pattern.moduleName}")`);
     }
-    if (modulePath.test(content)) {
-      addViolation(filePath, "module-path", `path reference to ${moduleName} in node_modules`);
+    if (pattern.modulePath.test(content)) {
+      addViolation(filePath, "module-path", `path reference to ${pattern.moduleName} in node_modules`);
     }
   }
 

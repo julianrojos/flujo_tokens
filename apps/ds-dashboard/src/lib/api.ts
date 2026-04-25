@@ -210,7 +210,6 @@ export interface CreateDesignSystemPayload {
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
   detectedComponentsCount?: number;
   importedComponentsCount?: number;
@@ -238,7 +237,6 @@ export interface DesignSystemConfigEntry {
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
   detectedComponentsCount?: number;
   importedComponentsCount?: number;
   pendingComponentsCount?: number;
@@ -268,7 +266,6 @@ export interface MutateDesignSystemResponse {
 export interface UpdateDesignSystemPayload {
   name?: string;
   appName?: string;
-  compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
   detectedComponentsCount?: number;
   importedComponentsCount?: number;
@@ -787,7 +784,6 @@ export interface CaptureFigmaScreenshotArgs {
   variantLimit?: number;
   requireExistingDoc?: boolean;
   continueOnError?: boolean;
-  refreshIndices?: boolean;
   dryRun?: boolean;
   scale?: number;
   format?: string;
@@ -800,20 +796,11 @@ export interface TokensBootstrapResult {
   attempted?: boolean;
   created?: boolean;
   reason?: string;
-  files_written?: number;
   collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
   error?: string;
-}
-
-export interface TokensCompileResult {
-  attempted?: boolean;
-  compiled?: boolean;
-  reason?: string;
-  stderr?: string;
-  output?: string;
 }
 
 export interface CaptureFigmaErrorDetail {
@@ -874,9 +861,7 @@ export interface CaptureFigmaScreenshotResult {
     error: string;
   }>;
   skipped?: Array<Record<string, unknown>>;
-  indices_refreshed?: boolean;
   tokens_bootstrap?: TokensBootstrapResult;
-  tokens_compile?: TokensCompileResult;
   figma_error?: CaptureFigmaErrorDetail;
   error?: string;
   message?: string;
@@ -965,7 +950,6 @@ export interface FigmaMcpPingResult {
   everConnected?: boolean;
   /**
    * Diagnostic details for disconnection (additive field for better UX).
-   * Preserves backward compatibility - existing consumers ignore this field.
    */
   details?: {
     /** Reason for disconnection: no_plugin_session | reachable_but_no_session */
@@ -1183,7 +1167,7 @@ function toMcpPingResultFromCapabilities(
 /**
  * Ping DS Graph to check connectivity.
  * Note: figmaUrl/figmaToken args are deprecated in direct-only mode.
- * @deprecated Use direct capabilities endpoint instead. This function is maintained for backward compatibility.
+ * @deprecated Use direct capabilities endpoint instead.
  */
 export async function pingFigmaMcp(
   _args?: {
@@ -1996,10 +1980,10 @@ export interface NormalizedSupportFlags {
 /**
  * MCP Capabilities response shape (server payload).
  * Note: supportsV2 is always present in direct-only mode.
- * supports legacy is maintained for backward compatibility during transition.
+ * supports remains available for older clients during transition.
  */
 export interface McpCapabilitiesPayload {
-  /** @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics. */
+  /** @deprecated Deprecated flags. Use supportsV2 for clearer semantics. */
   supports?: {
     searchNodes?: boolean;
     getChildren?: boolean;
@@ -2019,7 +2003,7 @@ export interface McpCapabilitiesPayload {
 
 /**
  * Normalize MCP capabilities payload to stable support flags.
- * Prioritizes supportsV2 (canonical) with fallback to supports (legacy).
+ * Prioritizes supportsV2 (canonical) with fallback to supports (deprecated).
  *
  * @param payload - Raw capabilities payload from server
  * @returns Normalized support flags with safe defaults

@@ -207,6 +207,101 @@ describe('DependencyRepository', () => {
     assert.strictEqual(retrieved?.status, 'partial');
   });
 
+  test('removeAllByDsFileKey runs parent-variable and consumer cleanup inside a transaction', async () => {
+    const committedStatements: string[] = [];
+    const pendingStatements: string[] = [];
+    let beginCalls = 0;
+
+    const tx = async (strings: TemplateStringsArray) => {
+      const statement = String(strings[0] || '').trim().replace(/\s+/g, ' ');
+      pendingStatements.push(statement);
+
+      if (statement.startsWith('SELECT id FROM ds_consumers')) {
+        return [{ id: 'consumer-1' }];
+      }
+
+      if (statement.startsWith('DELETE FROM ds_sync_warnings')) {
+        throw new Error('boom');
+      }
+
+      return { count: 1 };
+    };
+
+    const sql = Object.assign(
+      async () => {
+        throw new Error('top-level sql should not be used by removeAllByDsFileKey');
+      },
+      {
+        begin: async (callback: (tx: typeof tx) => Promise<void>) => {
+          beginCalls += 1;
+          try {
+            await callback(tx);
+            committedStatements.push(...pendingStatements);
+          } catch (error) {
+            pendingStatements.length = 0;
+            throw error;
+          }
+        },
+      },
+    ) as unknown as Sql;
+
+    const transactionalRepo = new DependencyRepository(sql);
+
+    await assert.rejects(
+      () => transactionalRepo.removeAllByDsFileKey('ds-transaction'),
+      /boom/,
+    );
+
+    assert.strictEqual(beginCalls, 1);
+    assert.deepStrictEqual(committedStatements, []);
+    assert.deepStrictEqual(pendingStatements, []);
+  });
+
+  test('removeAllByDsFileKey returns early without consumer deletes when there are no consumers', async () => {
+    const committedStatements: string[] = [];
+    let beginCalls = 0;
+
+    const tx = async (strings: TemplateStringsArray) => {
+      const statement = String(strings[0] || '').trim().replace(/\s+/g, ' ');
+      committedStatements.push(statement);
+
+      if (statement.startsWith('DELETE FROM ds_parent_variable_usage')) {
+        return { count: 1 };
+      }
+
+      if (statement.startsWith('SELECT id FROM ds_consumers')) {
+        return [];
+      }
+
+      throw new Error(`Unexpected statement: ${statement}`);
+    };
+
+    const sql = Object.assign(
+      async () => {
+        throw new Error('top-level sql should not be used by removeAllByDsFileKey');
+      },
+      {
+        begin: async (callback: (tx: typeof tx) => Promise<void>) => {
+          beginCalls += 1;
+          await callback(tx);
+        },
+      },
+    ) as unknown as Sql;
+
+    const transactionalRepo = new DependencyRepository(sql);
+
+    const result = await transactionalRepo.removeAllByDsFileKey('ds-transaction-empty');
+
+    assert.deepStrictEqual(result, {
+      deletedConsumerIds: [],
+      deletedConsumerCount: 0,
+    });
+    assert.strictEqual(beginCalls, 1);
+    assert.equal(committedStatements.length, 2);
+    assert.ok(committedStatements[0].startsWith('DELETE FROM ds_parent_variable_usage'));
+    assert.ok(committedStatements[1].startsWith('SELECT id FROM ds_consumers'));
+  });
+
   test('getLatestComponentUsage aggregates from latest runs', async () => {
     const consumer = await repo.addConsumer({
       ds_file_key: 'ds999',

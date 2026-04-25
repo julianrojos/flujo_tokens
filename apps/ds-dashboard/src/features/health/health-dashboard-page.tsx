@@ -38,9 +38,7 @@ export function HealthDashboardPage() {
 
       <section className="overview-widgets-masonry">
         {widgets.map((widget) => (
-          <div key={widget.id}>
-            {widget.render()}
-          </div>
+          <div key={widget.id}>{widget.render()}</div>
         ))}
       </section>
     </div>

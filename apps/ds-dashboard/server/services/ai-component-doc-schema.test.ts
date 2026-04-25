@@ -48,6 +48,40 @@ describe('ai-component-doc-schema', () => {
             assert.equal(result.accessibilityFacts[1].wcagCriterion, undefined);
         });
 
+        it('should normalize common accessibilityFacts source synonyms', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [
+                    { fact: 'Visible label present', source: 'verified' },
+                    { fact: 'Focus is implied by state', source: 'likely' },
+                ],
+            };
+            const result = validateComponentDocModelOutput(fixture);
+            assert.deepEqual(result.accessibilityFacts.map((fact) => fact.source), ['spec', 'assumed']);
+        });
+
+        it('should reject assumedly as an unsupported accessibilityFacts source', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [{ fact: 'Has accessible name', source: 'assumedly' }],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /accessibilityFacts\[0\]\.source: must be one of spec\|inferred\|assumed/);
+        });
+
         it('should reject missing states array (v2)', () => {
             const fixture: Record<string, unknown> = {
                 schemaVersion: 2,
@@ -119,7 +153,7 @@ describe('ai-component-doc-schema', () => {
                 variants: [],
                 accessibilityNotes: [],
                 states: [],
-                accessibilityFacts: [{ fact: 'Has accessible name', source: 'verified' }],
+                accessibilityFacts: [{ fact: 'Has accessible name', source: 'unsupported' }],
             };
             assert.throws(() => {
                 validateComponentDocModelOutput(fixture);

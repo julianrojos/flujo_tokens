@@ -385,7 +385,7 @@ export function createWalkContext(
 }
 
 /**
- * Legacy signature wrapper for backward compatibility.
+ * Compatibility wrapper around the standard traversal signature.
  * @deprecated Use walkTokenTree with WalkState and WalkContext instead
  */
 export function walkTokenTreeLegacy(

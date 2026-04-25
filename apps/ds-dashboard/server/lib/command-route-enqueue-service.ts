@@ -2,7 +2,6 @@
  * Command Route Enqueue Service
  *
  * Builds queue arguments for command route handlers.
- * Migrated from apps/ds-dashboard/server/lib/command-route-enqueue-service.mjs
  */
 
 export interface SystemContext {

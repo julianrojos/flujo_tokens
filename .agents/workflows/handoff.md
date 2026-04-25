@@ -1,82 +1,82 @@
 ---
-description: "Handoff: empaqueta el estado del trabajo para transferirlo a otra IA con máxima continuidad (sin editar código ni commitear)."
+description: "Handoff: packages the current work state to transfer it to another AI with maximum continuity (without editing code or committing)."
 ---
 
 # /handoff — Transfer pack (no code changes)
 
-Este workflow genera un **handoff pack** para que otra IA pueda retomar el trabajo sin dudas.
+This workflow generates a **handoff pack** so another AI can resume the work without ambiguity.
 
-Workflows en Antigravity se definen como archivos Markdown en `.agents/workflows/` con YAML frontmatter `description:` y pasos en el cuerpo.  
-`// turbo` se reserva para comandos seguros (*read-only*).
+Workflows in this project are defined as Markdown files in `.agents/workflows/` with YAML frontmatter `description:` and steps in the body.  
+`// turbo` is reserved for safe (*read-only*) commands.
 
-## Reglas
-- No cambies código sin permiso previo.
-- No hagas commits sin permiso previo.
-- No escribas prosa libre: entrega **solo** el bloque YAML final.
-- Separa hechos verificables de opiniones.
-- Si algo no lo sabes con seguridad, márcalo como `unknown` (no lo inventes).
-- Máximo 180 líneas de YAML.
+## Rules
+- Do not change code without prior permission.
+- Do not make commits without prior permission.
+- Do not write free prose: deliver **only** the final YAML block.
+- Separate verifiable facts from opinions.
+- If you are not certain about something, mark it as `unknown` (do not invent).
+- Maximum 180 lines of YAML.
 
-## Output (OBLIGATORIO): YAML exacto con esta estructura y este orden
+## Output (REQUIRED): exact YAML with this structure and order
 
 handoff:
   summary:
-    purpose: "<por qué existe este trabajo (3-4 frases)>"
-    current_phase: "<p.ej. 'designing workflows', 'calibrating thresholds', etc.>"
-    current_task: "<en qué tarea exacta estabas (2 frases)>"
+    purpose: "<why this work exists (3-4 sentences)>"
+    current_phase: "<e.g. 'designing workflows', 'calibrating thresholds', etc.>"
+    current_task: "<what exact task you were on (2 sentences)>"
     definition_of_done: ["<bullet>", "<bullet>"]
 
   constraints:
     do_not:
       - "Do not modify code without explicit user permission."
       - "Do not commit without explicit user permission."
-      - "<otras restricciones importantes>"
+      - "<other important constraints>"
     must_read:
       - "AGENTS.md (repository root) — read, understand, and comply before doing anything else."
     quality_bar:
-      - "<qué significa 'bien' en este proyecto (señal/ruido, actionable-only, etc.)>"
+      - "<what 'good' means in this project (signal/noise, actionable-only, etc.)>"
 
   context:
     workflows_to_know:
       - name: "<workflow>"
         file: "<path>"
-        purpose: "<cuándo se usa>"
-        inputs: ["<qué necesita>"]
-        outputs: ["<qué produce>"]
+        purpose: "<when it is used>"
+        inputs: ["<what it needs>"]
+        outputs: ["<what it produces>"]
       # ...
     rules_to_know:
       - name: "<rule>"
         file: "<path>"
-        purpose: "<qué gobierna>"
+        purpose: "<what it governs>"
     key_files:
       - file: "<path>"
-        why: "<por qué importa>"
+        why: "<why it matters>"
 
   decisions_log:
-    - decision: "<qué se decidió>"
-      rationale: "<por qué>"
+    - decision: "<what was decided>"
+      rationale: "<why>"
       date: "<YYYY-MM-DD or unknown>"
 
   progress:
     completed:
-      - "<qué se completó (hecho)>"
+      - "<what was completed (fact)>"
     pending:
-      - "<qué queda pendiente>"
+      - "<what remains pending>"
     blockers:
-      - "<bloqueo o unknown>"
+      - "<blocker or unknown>"
 
   strategy:
-    approach: "<estrategia general (2–5 bullets)>"
+    approach: "<general strategy (2–5 bullets)>"
     next_actions:
-      - action: "<siguiente acción concreta>"
-        how: ["<pasos>"]
-        expected_outcome: "<resultado esperado>"
-        risk: "<riesgo principal>"
-        mitigation: "<mitigación>"
+      - action: "<next concrete action>"
+        how: ["<steps>"]
+        expected_outcome: "<expected result>"
+        risk: "<main risk>"
+        mitigation: "<mitigation>"
 
   open_questions:
-    - "<pregunta que la siguiente IA debe resolver para avanzar>"
+    - "<question the next AI must resolve to move forward>"
 
   handoff_note:
     what_to_do_first: "Read /AGENTS.md at the repo root, then follow this handoff pack."
-    what_not_to_repeat: ["<cosas ya resueltas/no reabrir>"]
+    what_not_to_repeat: ["<things already resolved / do not reopen>"]

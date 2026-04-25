@@ -74,58 +74,6 @@ export interface TokenUsage {
 }
 
 /**
- * Token graph node
- */
-export interface TokenGraphNode {
-  /** Token ID */
-  id: string;
-  /** Token path */
-  path: string;
-  /** Token value */
-  value: string;
-  /** Type */
-  type: string;
-  /** CSS variable name */
-  cssVar?: string;
-  /** Dependency depth */
-  depth: number;
-  /** In-degree (number of tokens that depend on this one) */
-  inDegree: number;
-  /** Out-degree (number of tokens this one depends on) */
-  outDegree: number;
-}
-
-/**
- * Token graph edge
- */
-export interface TokenGraphEdge {
-  /** Source token ID */
-  from: string;
-  /** Target token ID */
-  to: string;
-  /** Edge kind */
-  kind: 'w3c-ref' | 'alias-id';
-  /** Reference string */
-  ref: string;
-}
-
-/**
- * Token graph structure
- */
-export interface TokenGraph {
-  /** Graph nodes */
-  nodes: TokenGraphNode[];
-  /** Graph edges */
-  edges: TokenGraphEdge[];
-  /** Cycles detected */
-  cycles: string[][];
-  /** Collections */
-  collections: Map<string, string[]>;
-  /** Modes */
-  modes: Map<string, { key: string; selector?: string; isDefault?: boolean }>;
-}
-
-/**
  * WCAG contrast pair configuration
  */
 export interface WcagPair {
@@ -137,71 +85,6 @@ export interface WcagPair {
   level: 'AA' | 'AAA';
   /** Context description */
   context: string;
-}
-
-/**
- * Token usage index report
- */
-export interface TokenUsageIndexReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Total tokens in registry */
-  totalTokens: number;
-  /** Tokens with usage */
-  tokensWithUsage: number;
-  /** Usage entries */
-  usage: TokenUsage[];
-  /** Unresolved references */
-  unresolved: Array<{
-    ref: string;
-    file: string;
-    context: 'spec' | 'css' | 'other';
-  }>;
-  /** Summary statistics */
-  summary: {
-    totalReferences: number;
-    specReferences: number;
-    cssReferences: number;
-    unresolvedCount: number;
-  };
-}
-
-/**
- * Token graph report
- */
-export interface TokenGraphReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Graph data */
-  graph: TokenGraph;
-  /** Cycles detected */
-  cycles: string[][];
-  /** High indirection chains */
-  highIndirection: Array<{
-    tokenId: string;
-    tokenPath: string;
-    chainLength: number;
-    chain: string[];
-  }>;
-  /** Unused primitive terminals */
-  unusedPrimitives: string[];
-  /** Unresolved aliases */
-  unresolvedAliases: string[];
-  /** Identity collisions */
-  collisions: Array<{
-    cssVar: string;
-    tokenIds: string[];
-  }>;
-  /** Summary statistics */
-  summary: {
-    totalNodes: number;
-    totalEdges: number;
-    cycleCount: number;
-    highIndirectionCount: number;
-    unusedPrimitiveCount: number;
-    unresolvedAliasCount: number;
-    collisionCount: number;
-  };
 }
 
 /**

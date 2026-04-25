@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { Hono } from "hono";
 
-import { registerCatalogRoutes } from "./catalog-routes.mjs";
+import { registerCatalogRoutes } from "./catalog-routes.ts";
 
 function createFailJson() {
   return (c: any, statusCode: number, args: Record<string, unknown>) =>

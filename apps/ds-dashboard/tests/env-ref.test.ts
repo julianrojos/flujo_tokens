@@ -14,4 +14,8 @@ describe("client env ref normalization", () => {
     assert.equal(normalizeEnvRef("figd_abc123"), "figd_abc123");
     assert.equal(normalizeEnvRef("figd_ABC123"), "figd_ABC123");
   });
+
+  it("uses the fallback when the primary value is blank", () => {
+    assert.equal(normalizeEnvRef("   ", "FIGMA_TOKEN"), "${FIGMA_TOKEN}");
+  });
 });

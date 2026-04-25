@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  Accessibility,
-  FolderTree,
-  Inbox,
-} from "lucide-react";
+import { FolderTree, Inbox } from "lucide-react";
 
 import {
   fetchDesignSystemsConfig,
@@ -36,9 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ContrastCheckerModal } from "./accessibility/contrast-checker-modal";
-import { buildSemanticColorOptions } from "./accessibility/semantic-color-options";
-import { useContrastChecker } from "./accessibility/use-contrast-checker";
 import { TokenTreeModal } from "./token-tree/token-tree-modal";
 import {
   buildTokenUsageTargets,
@@ -54,14 +47,6 @@ import {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
-
-function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): T[] {
-  const map = new Map<string, T>();
-  for (const item of items) {
-    if (!map.has(item.tokenPath)) map.set(item.tokenPath, item);
-  }
-  return Array.from(map.values());
-}
 
 function splitReportNodeCounts(report: VariableUsageReport): { parent: number; consumer: number } {
   let parent = 0;
@@ -153,7 +138,6 @@ export function TokensPage() {
   const [treeError, setTreeError] = useState<ApiErrorDisplay | null>(null);
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
-  const contrastChecker = useContrastChecker();
   const userAdjustedFiltersRef = useRef(false);
   const lastResolvedValueFilterRef = useRef("");
   const filterValue = String(searchParams.get("value") ?? "").trim().toLowerCase();
@@ -436,69 +420,7 @@ export function TokensPage() {
     };
   }, [entries, usageByPath]);
 
-  const semanticColorOptions = useMemo(
-    () => buildSemanticColorOptions(entries),
-    [entries],
-  );
-  const backgroundColorOptions = useMemo(() => {
-    if (!contrastChecker.includePrimitivesBackground) {
-      return semanticColorOptions.background;
-    }
-    return dedupeColorOptionsByPath([
-      ...semanticColorOptions.background,
-      ...semanticColorOptions.primitives,
-    ]);
-  }, [
-    contrastChecker.includePrimitivesBackground,
-    semanticColorOptions.background,
-    semanticColorOptions.primitives,
-  ]);
-  const foregroundColorOptions = useMemo(() => {
-    if (!contrastChecker.includePrimitivesForeground) {
-      return semanticColorOptions.foreground;
-    }
-    return dedupeColorOptionsByPath([
-      ...semanticColorOptions.foreground,
-      ...semanticColorOptions.primitives,
-    ]);
-  }, [
-    contrastChecker.includePrimitivesForeground,
-    semanticColorOptions.foreground,
-    semanticColorOptions.primitives,
-  ]);
-
-  const showAccessibilityButton = type === "COLOR";
   const hasKpiFilter = collectionFilter.isFiltered;
-
-  useEffect(() => {
-    if (!showAccessibilityButton && contrastChecker.isOpen) {
-      contrastChecker.setIsOpen(false);
-    }
-  }, [showAccessibilityButton, contrastChecker.isOpen, contrastChecker.setIsOpen]);
-
-  useEffect(() => {
-    contrastChecker.syncWithOptions(
-      backgroundColorOptions,
-      foregroundColorOptions,
-    );
-  }, [
-    backgroundColorOptions,
-    foregroundColorOptions,
-    contrastChecker.syncWithOptions,
-  ]);
-
-  const contrastResult = useMemo(
-    () =>
-      contrastChecker.buildResult(
-        backgroundColorOptions,
-        foregroundColorOptions,
-      ),
-    [
-      contrastChecker.buildResult,
-      backgroundColorOptions,
-      foregroundColorOptions,
-    ],
-  );
 
   const loadTokenCollectionTrees = useCallback(
     async (force: boolean) => {
@@ -619,13 +541,13 @@ export function TokensPage() {
               ) : null
             }
           >
-          <Select
-            value={collection}
-            onChange={(event) => {
-              userAdjustedFiltersRef.current = true;
-              setCollection(event.target.value);
-            }}
-          >
+            <Select
+              value={collection}
+              onChange={(event) => {
+                userAdjustedFiltersRef.current = true;
+                setCollection(event.target.value);
+              }}
+            >
               <option value="all">Collection: All</option>
               {collections.map((item) => (
                 <option key={item} value={item}>
@@ -633,13 +555,13 @@ export function TokensPage() {
                 </option>
               ))}
             </Select>
-          <Select
-            value={type}
-            onChange={(event) => {
-              userAdjustedFiltersRef.current = true;
-              setType(event.target.value);
-            }}
-          >
+            <Select
+              value={type}
+              onChange={(event) => {
+                userAdjustedFiltersRef.current = true;
+                setType(event.target.value);
+              }}
+            >
               <option value="all">Type: All</option>
               {types.map((item) => (
                 <option key={item} value={item}>
@@ -647,20 +569,6 @@ export function TokensPage() {
                 </option>
               ))}
             </Select>
-            {showAccessibilityButton ? (
-              <Button
-                variant="outline"
-                disabled={
-                  backgroundColorOptions.length === 0 ||
-                  foregroundColorOptions.length === 0
-                }
-                title="Open color accessibility checker"
-                aria-label="Open color accessibility checker"
-                onClick={() => contrastChecker.setIsOpen(true)}
-              >
-                <Accessibility className="h-4 w-4" />
-              </Button>
-            ) : null}
           </FilterBar>
 
           {error ? (
@@ -858,31 +766,6 @@ export function TokensPage() {
             </div>
           ) : null}
       </Card>
-
-      <ContrastCheckerModal
-        open={contrastChecker.isOpen}
-        onClose={() => contrastChecker.setIsOpen(false)}
-        backgroundOptions={backgroundColorOptions}
-        foregroundOptions={foregroundColorOptions}
-        backgroundTokenPath={contrastChecker.backgroundTokenPath}
-        foregroundTokenPath={contrastChecker.foregroundTokenPath}
-        onBackgroundChange={contrastChecker.setBackgroundTokenPath}
-        onForegroundChange={contrastChecker.setForegroundTokenPath}
-        includePrimitivesBackground={contrastChecker.includePrimitivesBackground}
-        onIncludePrimitivesBackgroundChange={
-          contrastChecker.setIncludePrimitivesBackground
-        }
-        includePrimitivesForeground={contrastChecker.includePrimitivesForeground}
-        onIncludePrimitivesForegroundChange={
-          contrastChecker.setIncludePrimitivesForeground
-        }
-        elementType={contrastChecker.elementType}
-        onElementTypeChange={contrastChecker.setElementType}
-        textSize={contrastChecker.textSize}
-        onTextSizeChange={contrastChecker.setTextSize}
-        result={contrastResult}
-        onReset={contrastChecker.reset}
-      />
 
       <TokenTreeModal
         open={treeModalOpen}

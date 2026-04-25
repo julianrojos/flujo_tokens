@@ -5,32 +5,32 @@ globs: ["**/*"]
 priority: 100
 ---
 
-# NO STAGE NI COMMIT SIN AUTORIZACIÓN PREVIA
+# NO STAGE OR COMMIT WITHOUT EXPLICIT AUTHORIZATION
 
-## Regla Absoluta
+## Absolute rule
 
-**NUNCA** ejecutes comandos que modifiquen el historial de git sin autorización explícita del usuario:
+**NEVER** run commands that modify git history without explicit user authorization:
 
-- ❌ `git commit` (a menos que se pida explícitamente)
-- ❌ `git add` (a menos que se pida explícitamente)
+- ❌ `git commit` (unless explicitly requested)
+- ❌ `git add` (unless explicitly requested)
 - ❌ `git push`
 - ❌ `git reset --hard`
 - ❌ `git rebase`
 
-## Excepción
+## Exception
 
-Únicamente si el usuario dice explícitamente:
-- "haz commit"
-- "commitea esto"
+Only when the user explicitly says:
+- "commit this"
+- "make a commit"
 - "git commit -m '...'"
 
-## Consecuencia
+## Consequence
 
-Si esta regla se viola, el usuario puede:
-1. Revertir el commit
-2. Reportar el incidente
-3. Solicitar que el agente no opere en este repositorio
+If this rule is violated, the user may:
+1. Revert the commit
+2. Report the incident
+3. Request that the agent no longer operates in this repository
 
-## Referencia
+## Reference
 
-Esta regla tiene prioridad sobre cualquier workflow o skill que sugiera commits automáticos.
+This rule takes precedence over any workflow or skill that suggests automatic commits.

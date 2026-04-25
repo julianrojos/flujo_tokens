@@ -12,13 +12,12 @@ describe("formatImportSuccessNotice", () => {
       collectionsTotal: null,
       variablesImported: 48,
       variablesTotal: null,
-      tokensCompiled: null,
-      compileReason: null,
     });
 
     assert.equal(notice.elementsLine, "Components: 12 imported out of 24 detected.");
     assert.equal(notice.collectionsLine, "Collections: n/a (token bootstrap not attempted).");
     assert.equal(notice.variablesLine, "Variables: 48 imported.");
+    assert.equal(notice.customPropertiesLine, "Custom properties: n/a (compile step removed).");
   });
 
   it("marks detected component total as lower bound when scan was truncated", () => {
@@ -30,8 +29,6 @@ describe("formatImportSuccessNotice", () => {
       collectionsTotal: null,
       variablesImported: null,
       variablesTotal: null,
-      tokensCompiled: null,
-      compileReason: null,
     });
 
     assert.equal(notice.elementsLine, "Components: 120 imported out of at least 500 detected.");

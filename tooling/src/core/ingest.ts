@@ -7,6 +7,8 @@ import path from 'path';
 import { isPlainObject } from '../types/tokens.js';
 import { ALLOW_JSON_REPAIR } from '../runtime/config.js';
 
+type JsonRecord = Record<string, unknown>;
+
 /**
  * Finds the start offset of a top-level object key (depth=1), outside string literals.
  * Returns -1 when the key is not found in object-key position.
@@ -178,7 +180,7 @@ function findTopLevelPropertyRange(
  * When `ALLOW_JSON_REPAIR` is enabled, attempts a best-effort repair for known truncation patterns
  * observed in some exports.
  */
-function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
+function parseJsonWithOptionalRepair(fileContent: string, file: string): unknown {
     try {
         return JSON.parse(fileContent);
     } catch (error) {
@@ -228,15 +230,18 @@ export function readAndCombineJsons(dir: string): Record<string, any> {
             const filePath = path.join(dir, file);
             try {
                 const fileContent = fs.readFileSync(filePath, 'utf-8');
-                let json: any = parseJsonWithOptionalRepair(fileContent, file);
+                let json: unknown = parseJsonWithOptionalRepair(fileContent, file);
 
-                if (isPlainObject(json) && 'Tokens' in json && isPlainObject((json as any).Tokens)) {
-                    json = (json as any).Tokens;
+                if (isPlainObject(json)) {
+                    const record = json as JsonRecord;
+                    if ('Tokens' in record && isPlainObject(record.Tokens)) {
+                        json = record.Tokens;
+                    }
                 }
 
                 if (isPlainObject(json)) {
-                    delete (json as any)['$schema'];
-                    delete (json as any)['Translations'];
+                    delete (json as JsonRecord)['$schema'];
+                    delete (json as JsonRecord)['Translations'];
                 }
 
                 const name = path.basename(file, '.json');

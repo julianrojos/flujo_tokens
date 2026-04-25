@@ -204,6 +204,7 @@ export async function createServerApp(
     const pendingOpsRepo = new PendingOperationsRepository(sql);
     const reconcileResult = await reconcileDeleteDesignSystemOps({
       sql,
+      fsSync,
       pendingOpsRepo,
       designSystemRepository,
     });

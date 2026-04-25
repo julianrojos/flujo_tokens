@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   InvalidFigmaVariableSourceError,
+  isFigmaVariableSource,
   parseFigmaVariableSource,
 } from './figma-variable-source.js';
 
@@ -37,5 +38,11 @@ describe('figma-variable-source', () => {
       },
     );
   });
-});
 
+  it('recognizes supported values through the shared guard', () => {
+    assert.equal(isFigmaVariableSource('auto'), true);
+    assert.equal(isFigmaVariableSource('mcp'), true);
+    assert.equal(isFigmaVariableSource('rest'), true);
+    assert.equal(isFigmaVariableSource('ftp'), false);
+  });
+});

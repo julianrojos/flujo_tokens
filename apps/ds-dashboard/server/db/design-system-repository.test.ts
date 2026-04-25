@@ -56,7 +56,6 @@ describe('DesignSystemRepository', () => {
                 name: 'Test System 01',
                 appName: 'Test App',
                 collections: ['primitives', 'semantic'],
-                compileVariablesOnCapture: true,
                 detectedComponentsCount: 12,
                 importedComponentsCount: 9,
                 pendingComponentsCount: 3,
@@ -68,7 +67,6 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(entry.name, 'Test System 01');
             assert.strictEqual(entry.appName, 'Test App');
             assert.deepStrictEqual(entry.collections, ['primitives', 'semantic']);
-            assert.strictEqual(entry.compileVariablesOnCapture, true);
             assert.strictEqual(entry.detectedComponentsCount, 12);
             assert.strictEqual(entry.importedComponentsCount, 9);
             assert.strictEqual(entry.pendingComponentsCount, 3);

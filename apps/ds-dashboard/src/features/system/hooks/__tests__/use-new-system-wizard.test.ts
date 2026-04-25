@@ -11,7 +11,6 @@ function makeState() {
       appName: "",
       figmaFileUrl: "",
       figmaAccessToken: "",
-      compileVariablesOnCapture: true,
       makeDefault: false,
       systemIdOverride: "",
     },

@@ -2,7 +2,6 @@
  * Queue Utils
  *
  * Utilities for queue job management and event handling.
- * Migrated from apps/ds-dashboard/server/lib/queue-utils.mjs
  */
 
 export interface QueueJob {

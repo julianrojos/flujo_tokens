@@ -16,5 +16,5 @@ if (!template.includes('__INLINE_UI_JS__')) {
   throw new Error('ui.runtime.html is missing __INLINE_UI_JS__ placeholder');
 }
 
-const html = template.replace('__INLINE_UI_JS__', () => uiJs);
+const html = template.replace('__INLINE_UI_JS__', uiJs);
 fs.writeFileSync(outPath, html, 'utf8');

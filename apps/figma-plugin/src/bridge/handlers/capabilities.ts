@@ -19,7 +19,7 @@ export interface BridgeCapabilitiesResult {
  * Returns the list of supported bridge methods and plugin metadata.
  * Note: supportedMethods is derived from actually registered handlers, not the protocol enum.
  */
-export async function handleGetBridgeCapabilities(): Promise<BridgeCapabilitiesResult> {
+export function handleGetBridgeCapabilities(): BridgeCapabilitiesResult {
   return {
     supportedMethods: getSupportedMethods(),
     pluginVersion: PLUGIN_VERSION,

@@ -29,7 +29,6 @@ import { buildUpdateActionsProps } from './design-systems-admin-page-logic';
 
 type RowDraft = {
   name: string;
-  compileVariablesOnCapture: boolean;
   makeDefault: boolean;
 };
 
@@ -40,7 +39,6 @@ function toDraft(
   const id = String(system.id || '');
   return {
     name: String(system.name || ''),
-    compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
     makeDefault: id === defaultSystemId,
   };
 }
@@ -74,10 +72,7 @@ function hasNonDefaultDraftChanges(
   defaultSystemId: string,
 ): boolean {
   const base = toDraft(system, defaultSystemId);
-  return (
-    normalizeDraftText(base.name) !== normalizeDraftText(draft.name) ||
-    base.compileVariablesOnCapture !== draft.compileVariablesOnCapture
-  );
+  return normalizeDraftText(base.name) !== normalizeDraftText(draft.name);
 }
 
 function shouldShowSaveButton(
@@ -231,7 +226,6 @@ export function DesignSystemsAdminPage() {
     try {
       const response = await updateDesignSystem(id, {
         name: draft.name,
-        compileVariablesOnCapture: draft.compileVariablesOnCapture,
         makeDefault: draft.makeDefault,
       });
       replaceSystems(response.config.systems, {
