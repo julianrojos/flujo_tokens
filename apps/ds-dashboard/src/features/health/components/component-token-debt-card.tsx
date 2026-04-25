@@ -54,46 +54,55 @@ export function ComponentTokenDebtCard() {
     );
   }
 
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Componentes con deuda de tokens</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StatusAlert variant="success" title="No token debt">
+            No components have unresolved layer bindings in this system.
+          </StatusAlert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Componentes con deuda de tokens</CardTitle>
       </CardHeader>
       <CardContent>
-        {rows.length > 0 ? (
-          <div className="space-y-3">
-            {rows.map((row) => {
-              const width = maxUnresolved > 0 ? Math.max(4, (row.unresolvedCount / maxUnresolved) * 100) : 0;
-              return (
-                <div key={row.slug} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_auto] items-center gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      to={toComponentDetail(row.slug)}
-                      className="truncate text-sm text-foreground hover:text-primary"
-                      title={`Open ${row.displayName} detail`}
-                    >
-                      {row.displayName}
-                    </Link>
-                  </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-muted/70">
-                    <div
-                      className="h-full rounded-full bg-[var(--app-accent)] transition-[width] duration-300 ease-out"
-                      style={{ width: `${width}%` }}
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <div className="tabular-nums text-sm font-semibold text-foreground">
-                    {row.unresolvedCount}
-                  </div>
+        <div className="space-y-3">
+          {rows.map((row) => {
+            const width = maxUnresolved > 0 ? Math.max(4, (row.unresolvedCount / maxUnresolved) * 100) : 0;
+            return (
+              <div key={row.slug} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_auto] items-center gap-3">
+                <div className="min-w-0">
+                  <Link
+                    to={toComponentDetail(row.slug)}
+                    className="truncate text-sm text-foreground hover:text-primary"
+                    title={`Open ${row.displayName} detail`}
+                  >
+                    {row.displayName}
+                  </Link>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <StatusAlert variant="success" title="No token debt">
-            No components have unresolved layer bindings in this system.
-          </StatusAlert>
-        )}
+                <div className="h-3 overflow-hidden rounded-full bg-muted/70">
+                  <div
+                    className="h-full rounded-full bg-[var(--app-accent)] transition-[width] duration-300 ease-out"
+                    style={{ width: `${width}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="tabular-nums text-sm font-semibold text-foreground">
+                  {row.unresolvedCount}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
