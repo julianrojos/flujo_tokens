@@ -9,7 +9,7 @@ function normalizeModeComparisonKey(value: string): string {
         .trim()
         .toLowerCase()
         .replace(/^[^a-z0-9]+/i, '')
-        .replace(/^mode[-_]*/i, '')
+        .replace(/^mode(?:[-_]+|$)/i, '')
         .replace(/[^a-z0-9]+/g, '')
         .toLowerCase();
 }
@@ -21,9 +21,9 @@ export function normalizeModeName(modeKey: string | undefined): string {
 }
 
 export function normalizePreferredMode(preferredMode?: string): string | undefined {
-    const trimmed = preferredMode?.trim().toLowerCase();
-    if (!trimmed) return undefined;
-    const normalized = normalizeModeComparisonKey(trimmed);
+    const normalizedModeName = normalizeModeName(preferredMode);
+    if (!normalizedModeName) return undefined;
+    const normalized = normalizeModeComparisonKey(normalizedModeName);
     return normalized || undefined;
 }
 
@@ -36,7 +36,7 @@ export function matchesPreferredMode(modeKey: string, preferred?: string): boole
 
 export function formatModeLabel(modeKey: string | undefined): string {
     const normalized = normalizeModeName(modeKey);
-    const withoutPrefix = normalized.replace(/^mode[-_]?/i, '');
+    const withoutPrefix = normalized.replace(/^mode(?:[-_]+|$)/i, '');
     const label = withoutPrefix || normalized || (modeKey ?? '');
     return label.toUpperCase();
 }
