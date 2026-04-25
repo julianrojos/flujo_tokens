@@ -8,9 +8,11 @@ import { describe, it } from 'node:test';
 
 import {
   disposeSharedFigmaMcpClient,
+  getOrCreateSharedMcpClient,
   fetchFigmaLocalVariablesViaMcp,
   pingSharedFigmaMcp,
   resolveFigmaMcpCommand,
+  setSharedMcpClientFactoryForTesting,
 } from './figma-mcp-variables.js';
 
 const LEGACY_STDIO_MCP_CLI = ['figma', 'console-mcp'].join('-');
@@ -322,6 +324,109 @@ process.stdin.on('data', (chunk) => {
       assert.equal(result.meta.variables['VariableID:1']?.name, 'size/md');
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('aborts the connectivity backoff when the caller aborts', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-status-abort-'));
+    const scriptPath = path.join(tempRoot, 'mock-mcp-status-abort.js');
+    const script = `
+let buffer = '';
+function send(payload) {
+  process.stdout.write(JSON.stringify(payload) + '\\n');
+}
+function handleMessage(message) {
+  if (message.method === 'initialize') {
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        serverInfo: { name: 'mock', version: '1.0.0' },
+      },
+    });
+    return;
+  }
+  if (message.method === 'tools/call' && String(message.params?.name || '') === 'figma_get_status') {
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        content: [{ type: 'text', text: 'transport disconnected' }],
+      },
+    });
+  }
+}
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
+    handleMessage(parsed);
+  }
+});
+`;
+    fs.writeFileSync(scriptPath, script, 'utf8');
+
+    const controller = new AbortController();
+    const startedAt = Date.now();
+    const abortTimer = setTimeout(() => controller.abort(), 50);
+
+    try {
+      await assert.rejects(
+        fetchFigmaLocalVariablesViaMcp({
+          command: process.execPath,
+          args: [scriptPath],
+          timeoutMs: 2_000,
+          connectWaitMs: 5_000,
+          signal: controller.signal,
+        }),
+        /aborted/i,
+      );
+      const elapsedMs = Date.now() - startedAt;
+      assert.ok(elapsedMs < 1_000, `expected abort to stop backoff quickly, got ${elapsedMs}ms`);
+    } finally {
+      clearTimeout(abortTimer);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('deduplicates concurrent shared MCP client initialization', async () => {
+    let factoryCalls = 0;
+    const sharedClient = {
+      close() {},
+    } as unknown as ReturnType<typeof getOrCreateSharedMcpClient> extends Promise<infer T> ? T : never;
+
+    setSharedMcpClientFactoryForTesting(async () => {
+      factoryCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      return sharedClient;
+    });
+
+    try {
+      const options = {
+        command: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        timeoutMs: 1_000,
+      };
+
+      const [clientA, clientB] = await Promise.all([
+        getOrCreateSharedMcpClient(options),
+        getOrCreateSharedMcpClient(options),
+      ]);
+
+      assert.equal(factoryCalls, 1);
+      assert.equal(clientA, sharedClient);
+      assert.equal(clientB, sharedClient);
+    } finally {
+      setSharedMcpClientFactoryForTesting(null);
+      disposeSharedFigmaMcpClient();
     }
   });
 
