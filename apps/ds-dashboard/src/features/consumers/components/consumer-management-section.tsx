@@ -8,7 +8,6 @@ import {
   listConsumers,
   removeConsumer,
   syncConsumers,
-  updateConsumer,
   type ListConsumersResponse,
 } from "@/lib/api";
 import { AddConsumerModal } from "./add-consumer-modal";
@@ -96,19 +95,6 @@ export function ConsumerManagementSection({ dsFileKey }: ConsumerManagementSecti
     }
   };
 
-  const handleToggleEnabled = async (consumerId: string, enabled: boolean) => {
-    setError(null);
-    try {
-      await updateConsumer(consumerId, { enabled });
-      await loadConsumers();
-    } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Update failed",
-        fallbackMessage: "Unable to update consumer.",
-      }));
-    }
-  };
-
   if (!dsFileKey) {
     return (
       <StatusAlert variant="warning" title="Figma File ID required">
@@ -159,7 +145,6 @@ export function ConsumerManagementSection({ dsFileKey }: ConsumerManagementSecti
               syncing={syncingConsumerId === consumer.id}
               onSync={(id) => void handleSync(id)}
               onRemove={(id) => void handleRemove(id)}
-              onToggleEnabled={(id, enabled) => void handleToggleEnabled(id, enabled)}
             />
           ))}
         </div>

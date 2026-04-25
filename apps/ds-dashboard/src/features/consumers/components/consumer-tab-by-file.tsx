@@ -3,9 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
-import { StatusAlert } from "@/components/ui/status-alert";
+import { Card } from "@/components/ui/card";
+import { EmptyState, EmptyStateAction, FilterBar, StatsOverview } from "@/components/composites";
 import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -13,12 +12,19 @@ import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toConsumerDetail } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-import { Info, Network } from "lucide-react";
+import { ExternalLink, Inbox, Network } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport, DsSyncRun } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";
-import { AdoptionBar } from "./adoption-bar";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
@@ -91,6 +97,11 @@ function sortReports(reports: FileReport[]): FileReport[] {
   });
 }
 
+function buildFigmaFileUrl(fileKey: string): string {
+  const normalizedKey = String(fileKey || "").trim();
+  return normalizedKey ? `https://www.figma.com/file/${encodeURIComponent(normalizedKey)}` : "";
+}
+
 function applyFilters(
   reports: FileReport[],
   filters: {
@@ -140,7 +151,7 @@ function renderAdoptionCell(report: FileReport) {
 
   if (state.showUnavailable) {
     return (
-      <div className="flex items-center justify-end gap-1.5">
+      <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground" title="Adoption data unavailable">
           —
         </span>
@@ -157,25 +168,22 @@ function renderAdoptionCell(report: FileReport) {
     );
   }
 
-  // Invariant: showBar=true → adoptionRate!=null → both local counts non-null → totalLocalUsed!=null
-  if (state.showBar && state.totalLocalUsed != null) {
-    return (
-      <div className="flex items-center justify-end gap-1.5">
-        <AdoptionBar dsCount={state.totalDsUsed} nonDsCount={state.totalLocalUsed} className="flex-1" />
-        {state.showPartial && (
-          <Badge
-            variant="neutral"
-            className="text-[10px]"
-            title="Partial: one local usage dimension is unavailable for this sync."
-          >
-            Partial
-          </Badge>
-        )}
-      </div>
-    );
-  }
-
-  return <span className="text-muted-foreground">—</span>;
+  return state.percentageLabel ? (
+    <div className="flex items-center gap-1.5">
+      <span className="tabular-nums text-foreground">{state.percentageLabel}</span>
+      {state.showPartial && (
+        <Badge
+          variant="neutral"
+          className="text-[10px]"
+          title="Partial: one local usage dimension is unavailable for this sync."
+        >
+          Partial
+        </Badge>
+      )}
+    </div>
+  ) : (
+    <span className="text-muted-foreground">—</span>
+  );
 }
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
@@ -283,237 +291,234 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     highImpactOnly,
   }), [reports, searchQuery, statusFilter, highImpactOnly]);
   const sortedReports = useMemo(() => sortReports(filteredReports), [filteredReports]);
+  const rowLinkClassName = "text-foreground hover:text-primary";
 
-  if (loading) {
+  if (!loading && reports.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6">
-        <p className="text-sm text-muted-foreground">Loading consumer files...</p>
-      </div>
-    );
-  }
-
-  if (reports.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <EmptyState
-            icon={Network}
-            title="No consumer files yet"
-            action={
-              <EmptyStateAction onClick={onAddConsumer}>
-                Add first consumer
-              </EmptyStateAction>
-            }
-          />
-        </CardContent>
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        <EmptyState
+          icon={Network}
+          title="No consumer files yet"
+          action={
+            <EmptyStateAction onClick={onAddConsumer}>
+              Add first consumer
+            </EmptyStateAction>
+          }
+        />
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* KPI Bar */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="text-2xl font-bold">{kpis.total}</p>
-          <p className="text-xs text-muted-foreground">Total files</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="text-2xl font-bold">{kpis.syncedToday}</p>
-          <p className="text-xs text-muted-foreground">Synced today</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="text-2xl font-bold">{kpis.withWarnings}</p>
-          <p className="text-xs text-muted-foreground">With warnings</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-3 text-center">
-          <p className="text-2xl font-bold">{kpis.neverSynced}</p>
-          <p className="text-xs text-muted-foreground">Never synced</p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <StatsOverview
+        items={[
+          { id: "consumers-total", label: "Total files", value: kpis.total },
+          { id: "consumers-synced", label: "Synced today", value: kpis.syncedToday },
+          { id: "consumers-warnings", label: "With warnings", value: kpis.withWarnings },
+          { id: "consumers-never", label: "Never synced", value: kpis.neverSynced },
+        ]}
+      />
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 items-center gap-2">
-          <input
-            type="text"
-            placeholder="Search by name or file key..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-w-0 rounded border border-border bg-surface-2 px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
-          />
-          <div className="flex flex-shrink-0 gap-1">
-            {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  statusFilter === status
-                    ? "bg-app-accent text-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70",
-                )}
-              >
-                {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <label className="flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={highImpactOnly}
-              onChange={(e) => setHighImpactOnly(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <span>High impact only</span>
-          </label>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void handleSync()}
-            disabled={syncing}
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        <div className="space-y-4">
+          <FilterBar
+            searchValue={searchQuery}
+            onSearch={setSearchQuery}
+            searchPlaceholder="Search by name or file key"
+            rightSlot={
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleSync()}
+                  disabled={syncing}
+                >
+                  {syncing ? "Syncing..." : "Sync changed"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleSync(undefined, true)}
+                  disabled={syncing}
+                >
+                  Force re-sync all
+                </Button>
+              </div>
+            }
           >
-            {syncing ? "Syncing..." : "Sync changed"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void handleSync(undefined, true)}
-            disabled={syncing}
-          >
-            Force re-sync all
-          </Button>
-        </div>
-      </div>
-
-      {error ? <ApiErrorMessage error={error} /> : null}
-
-      {sortedReports.length === 0 ? (
-        <StatusAlert variant="info" title="No results match your filters">
-          Try adjusting your search or filter criteria.
-        </StatusAlert>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full text-sm">
-            <thead className="titles-color">
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left font-medium titles-color">Consumer</th>
-                <th className="px-3 py-2 text-left font-medium titles-color">Last sync</th>
-                <th className="px-3 py-2 text-left font-medium titles-color">Usage</th>
-                <th className="px-3 py-2 text-right font-medium titles-color">Warnings</th>
-                <th className="px-3 py-2 text-right font-medium titles-color">
-                  <span
-                    className="inline-flex items-center justify-end gap-1"
-                    title="Adoption = DS usage ÷ (DS + Non-DS usage). Non-DS includes local and other-library items not matched to the tracked DS during the last sync. The table shows an aggregate adoption value (components + variables)."
-                  >
-                    Adoption
-                    <Info
-                      className="h-3 w-3 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                    <span className="sr-only">
-                      Adoption uses DS usage divided by DS plus Non-DS usage. Non-DS includes local
-                      and other-library items not matched to the tracked design system during the
-                      last sync.
-                    </span>
-                  </span>
-                </th>
-                <th className="px-3 py-2 text-right font-medium titles-color">Locally defined</th>
-                <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
-                <th className="px-3 py-2 text-right font-medium titles-color">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedReports.map((report) => (
-                <tr key={report.consumerId} className="border-b border-border/50 hover:bg-muted/20">
-                  <td className="px-3 py-3">
-                    <div className="space-y-0.5">
-                      <Link
-                        to={toConsumerDetail(report.consumerId)}
-                        className="font-medium text-foreground hover:underline"
-                      >
-                        {report.consumerName}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-muted-foreground">
-                    {formatSyncedAt(report.lastSyncedAt, "Never")}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="space-y-0.5 text-sm">
-                      <p>
-                        <span className="text-xs text-muted-foreground">Comp </span>
-                        <span className="tabular-nums">DS {report.componentCount}</span>
-                        {report.localComponentUsedCount != null && (
-                          <span className="text-muted-foreground"> · Non-DS {report.localComponentUsedCount}</span>
-                        )}
-                      </p>
-                      <p>
-                        <span className="text-xs text-muted-foreground">Vars </span>
-                        <span className="tabular-nums">DS {report.variableCount}</span>
-                        {report.localVariableUsedCount != null && (
-                          <span className="text-muted-foreground"> · Non-DS {report.localVariableUsedCount}</span>
-                        )}
-                      </p>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    {report.warningCount > 0 ? (
-                      <Badge variant="warning">{report.warningCount}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    {renderAdoptionCell(report)}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    {report.localComponentDefinedCount == null && report.localVariableDefinedCount == null ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <span
-                        className="text-sm text-muted-foreground tabular-nums"
-                        title="Components and variables created in this file"
-                      >
-                        {report.localComponentDefinedCount ?? "—"} comp ·{" "}
-                        {report.localVariableDefinedCount ?? "—"} vars
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    <Badge variant={STATUS_BADGE_VARIANT[report.status]}>
-                      {report.status}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={syncingConsumerId === report.consumerId || removingConsumerId === report.consumerId}
-                        onClick={() => void handleSync(report.consumerId)}
-                      >
-                        {syncingConsumerId === report.consumerId ? "Syncing..." : "Sync"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={removingConsumerId === report.consumerId}
-                        onClick={() => requestRemove(report.consumerId, report.consumerName)}
-                      >
-                        {removingConsumerId === report.consumerId ? "Removing..." : "Remove"}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    statusFilter === status
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border/60 bg-[var(--app-surface-1)] text-muted-foreground hover:border-border hover:text-foreground",
+                  )}
+                >
+                  {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+                </button>
               ))}
-            </tbody>
-          </table>
+              <label className="flex items-center gap-2 rounded-md border border-border/70 bg-[var(--app-surface-1)] px-3 py-1.5 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={highImpactOnly}
+                  onChange={(e) => setHighImpactOnly(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span>High impact only</span>
+              </label>
+            </div>
+          </FilterBar>
+
+          {error ? <ApiErrorMessage error={error} /> : null}
+
+          <p className="text-xs text-muted-foreground">
+            Adoption compares DS usage against DS plus non-DS usage for the last sync.
+          </p>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableTableHead label="Consumer" onSort={() => undefined} ariaLabel="Consumer" />
+                <SortableTableHead label="Last sync" onSort={() => undefined} ariaLabel="Last sync" />
+                <SortableTableHead label="Usage" onSort={() => undefined} ariaLabel="Usage" />
+                <SortableTableHead label="Adoption" onSort={() => undefined} ariaLabel="Adoption" />
+                <SortableTableHead
+                  label="Defined locally"
+                  onSort={() => undefined}
+                  ariaLabel="Defined locally"
+                />
+                <SortableTableHead label="Status" onSort={() => undefined} ariaLabel="Status" />
+                <SortableTableHead label="Actions" onSort={() => undefined} ariaLabel="Actions" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <TableRow key={`consumer-loading-${index}`}>
+                    <TableCell colSpan={7} className="text-muted-foreground">
+                      Loading consumer files...
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : sortedReports.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={Inbox}
+                      title="No results match your filters"
+                      description="Try adjusting your search or filter criteria."
+                      compact
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedReports.map((report) => (
+                    <TableRow key={report.consumerId}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {report.consumerFileKey ? (
+                            <a
+                              href={buildFigmaFileUrl(report.consumerFileKey)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-muted-foreground hover:text-primary"
+                              title={`Open ${report.consumerName} in Figma`}
+                              aria-label={`Open ${report.consumerName} in Figma`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          <Link
+                            to={toConsumerDetail(report.consumerId)}
+                            className={rowLinkClassName}
+                          >
+                            {report.consumerName}
+                          </Link>
+                        </div>
+                      </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatSyncedAt(report.lastSyncedAt, "Never")}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5 text-sm">
+                        <p>
+                          <span className="text-xs text-muted-foreground">Comp </span>
+                          <span className="tabular-nums">DS {report.componentCount}</span>
+                          {report.localComponentUsedCount != null && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · Non-DS {report.localComponentUsedCount}
+                            </span>
+                          )}
+                        </p>
+                        <p>
+                          <span className="text-xs text-muted-foreground">Vars </span>
+                          <span className="tabular-nums">DS {report.variableCount}</span>
+                          {report.localVariableUsedCount != null && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · Non-DS {report.localVariableUsedCount}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>{renderAdoptionCell(report)}</TableCell>
+                    <TableCell>
+                      {report.localComponentDefinedCount == null &&
+                      report.localVariableDefinedCount == null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span
+                          className="text-sm text-muted-foreground tabular-nums"
+                          title="Components and variables created in this file"
+                        >
+                          {report.localComponentDefinedCount ?? "—"} comp ·{" "}
+                          {report.localVariableDefinedCount ?? "—"} vars
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_BADGE_VARIANT[report.status]}>
+                        {report.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            syncingConsumerId === report.consumerId ||
+                            removingConsumerId === report.consumerId
+                          }
+                          onClick={() => void handleSync(report.consumerId)}
+                        >
+                          {syncingConsumerId === report.consumerId ? "Syncing..." : "Sync"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={removingConsumerId === report.consumerId}
+                          onClick={() => requestRemove(report.consumerId, report.consumerName)}
+                        >
+                          {removingConsumerId === report.consumerId ? "Removing..." : "Remove"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </Card>
 
       <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
         <ModalContent size="md">

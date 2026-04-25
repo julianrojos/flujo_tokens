@@ -18,7 +18,6 @@ interface ConsumerCardManagementProps extends ConsumerCardBaseProps {
   mode: "management";
   onSync: (consumerId: string) => void;
   onRemove: (consumerId: string) => void;
-  onToggleEnabled: (consumerId: string, enabled: boolean) => void;
 }
 
 interface ConsumerCardReportProps extends ConsumerCardBaseProps {
@@ -88,21 +87,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
         )}
       </CardContent>
       {(isManagement || canSync || canRemove) && (
-        <CardFooter className="flex justify-between gap-2 border-t border-border/50 bg-muted/30 px-4 py-3">
-          {isManagement ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={consumer.enabled}
-                onChange={(e) => props.onToggleEnabled(consumer.id, e.target.checked)}
-                className="h-4 w-4"
-                disabled={syncing || removing}
-              />
-              <span className="text-muted-foreground">Enabled</span>
-            </label>
-          ) : (
-            <span />
-          )}
+        <CardFooter className="flex justify-end gap-2 border-t border-border/50 bg-muted/30 px-4 py-3">
           <div className="flex gap-2">
             {canSync && props.onSync ? (
               <Button

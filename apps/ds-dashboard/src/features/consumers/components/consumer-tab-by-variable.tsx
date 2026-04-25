@@ -1,21 +1,56 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { EmptyState } from "@/components/composites/empty-state";
-import { StatusAlert } from "@/components/ui/status-alert";
+import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByVariable } from "@/lib/api";
+import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { SimulateChangePanel } from "./simulate-change-panel";
-import { Network } from "lucide-react";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
 
 interface ConsumerTabByVariableProps {
   dsFileKey: string;
+}
+
+interface VariableKpis {
+  totalVariables: number;
+  totalNodes: number;
+  highImpactVariables: number;
+  uniqueConsumers: number;
+}
+
+type VariableSortField = "name" | "type" | "impact" | "nodes";
+
+function computeKpis(reports: VariableUsageReport[]): VariableKpis {
+  const consumerIds = new Set<string>();
+  let totalNodes = 0;
+  let highImpactVariables = 0;
+
+  for (const report of reports) {
+    totalNodes += report.totalNodes;
+    if (report.impactLevel.level === "CRITICAL" || report.impactLevel.level === "HIGH") {
+      highImpactVariables += 1;
+    }
+    for (const consumer of report.consumers) {
+      consumerIds.add(consumer.consumerId);
+    }
+  }
+
+  return {
+    totalVariables: reports.length,
+    totalNodes,
+    highImpactVariables,
+    uniqueConsumers: consumerIds.size,
+  };
 }
 
 export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps) {
@@ -24,6 +59,7 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [selectedVariableKey, setSelectedVariableKey] = useState<string | null>(null);
+  const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
 
   const loadReports = async () => {
     setLoading(true);
@@ -32,10 +68,12 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
       const response = await fetchReportByVariable(dsFileKey);
       setReports(response.data || []);
     } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Load reports failed",
-        fallbackMessage: "Unable to load variable usage reports.",
-      }));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Load reports failed",
+          fallbackMessage: "Unable to load variable usage reports.",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -45,146 +83,206 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
     void loadReports();
   }, [dsFileKey]);
 
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch = !searchQuery ||
-      report.variableName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.variableKey.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.variableType.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredReports = useMemo(() => {
+    const lowered = searchQuery.toLowerCase().trim();
+    return reports.filter((report) => {
+      const matchesSearch =
+        !lowered ||
+        report.variableName.toLowerCase().includes(lowered) ||
+        report.variableKey.toLowerCase().includes(lowered) ||
+        report.variableType.toLowerCase().includes(lowered);
+      const matchesSeverity =
+        severityFilter === "all" || report.impactLevel.level === severityFilter;
+      return matchesSearch && matchesSeverity;
+    });
+  }, [reports, searchQuery, severityFilter]);
 
-    const matchesSeverity = severityFilter === "all" || report.impactLevel.level === severityFilter;
+  const sortedReports = useMemo(() => {
+    return [...filteredReports].sort((a, b) => {
+      const valueFor = (report: VariableUsageReport): string | number => {
+        if (sort.field === "name") return report.variableName.toLowerCase();
+        if (sort.field === "type") return report.variableType.toLowerCase();
+        if (sort.field === "impact") return report.impactLevel.level;
+        if (sort.field === "nodes") return report.totalNodes;
+        return report.consumers.length;
+      };
 
-    return matchesSearch && matchesSeverity;
-  });
+      const aValue = valueFor(a);
+      const bValue = valueFor(b);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sort.dir === "asc" ? comparison : comparison * -1;
+    });
+  }, [filteredReports, sort]);
 
-  if (loading) {
+  const kpis = useMemo(() => computeKpis(reports), [reports]);
+
+  if (!loading && reports.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6">
-        <p className="text-sm text-muted-foreground">Loading variable usage...</p>
-      </div>
-    );
-  }
-
-  if (reports.length === 0) {
-    return (
-      <EmptyState
-        icon={Network}
-        title="No variable usage data"
-        description="Sync consumer files to see variable usage across files."
-      />
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        <EmptyState
+          icon={Network}
+          title="No variable usage data"
+          description="Sync consumer files to see variable usage across files."
+        />
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-titles font-semibold titles-color">Variable Usage</h2>
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-            {filteredReports.length} of {reports.length} variables
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={severityFilter}
-            onChange={(e) => setSeverityFilter(e.target.value as ImpactLevel | "all")}
-            className="w-40"
+    <div className="space-y-5">
+      <StatsOverview
+        items={[
+          { id: "variables-total", label: "Total variables", value: kpis.totalVariables },
+          { id: "variables-high", label: "High impact", value: kpis.highImpactVariables },
+          { id: "variables-nodes", label: "Total nodes", value: kpis.totalNodes },
+          { id: "variables-consumers", label: "Unique consumers", value: kpis.uniqueConsumers },
+        ]}
+      />
+
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        <div className="space-y-4">
+          <FilterBar
+            searchValue={searchQuery}
+            onSearch={setSearchQuery}
+            searchPlaceholder="Search variables"
+            rightSlot={
+              <Badge variant="neutral" className="shrink-0">
+                {filteredReports.length} of {reports.length} variables
+              </Badge>
+            }
           >
-            <option value="all">All severities</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </Select>
-          <Input
-            placeholder="Search variables..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-48"
-          />
-        </div>
-      </div>
-
-      {error ? <ApiErrorMessage error={error} /> : null}
-
-      {filteredReports.length === 0 ? (
-        <StatusAlert variant="info" title="No matching variables">
-          No variables found matching "{searchQuery}". Try a different search term.
-        </StatusAlert>
-      ) : (
-        <div className="space-y-3">
-          {filteredReports.map((report) => (
-            <div
-              key={report.variableKey}
-              className="rounded-lg border border-border bg-card p-4"
+            <Select
+              value={severityFilter}
+              onChange={(event) => setSeverityFilter(event.target.value as ImpactLevel | "all")}
+              className="w-40"
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-titles font-semibold titles-color">
-                      {report.variableName}
-                    </h3>
-                    <ImpactLevelBadge level={report.impactLevel.level} />
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {report.variableType}
-                    </span>
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {report.variableKey}
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">{report.totalNodes}</p>
-                    <p className="text-xs text-muted-foreground">nodes</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedVariableKey(report.variableKey)}
-                  >
-                    Simulate change →
-                  </Button>
-                </div>
-              </div>
+              <option value="all">All severities</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </Select>
+          </FilterBar>
 
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Used in {report.consumers.length} {report.consumers.length === 1 ? "file" : "files"}:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {report.consumers.slice(0, 10).map((usage) => (
-                    <a
-                      key={usage.consumerId}
-                      href={usage.sampleLinks[0] || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                    >
-                      {usage.consumerName}
-                      <span className="rounded-full bg-background px-1.5 py-0.5 text-[10px] font-medium">
-                        {usage.nodeCount || 0}
-                      </span>
-                    </a>
-                  ))}
-                  {report.consumers.length > 10 && (
-                    <span className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
-                      +{report.consumers.length - 10} more
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+          {error ? <ApiErrorMessage error={error} /> : null}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <SortableTableHead
+                  label="Variable"
+                  onSort={() => toggleSort("name")}
+                  ariaLabel="Sort by variable"
+                />
+                <SortableTableHead
+                  label="Type"
+                  onSort={() => toggleSort("type")}
+                  ariaLabel="Sort by type"
+                />
+                <SortableTableHead
+                  label="Impact"
+                  onSort={() => toggleSort("impact")}
+                  ariaLabel="Sort by impact"
+                />
+                <SortableTableHead
+                  label="Instances"
+                  onSort={() => toggleSort("nodes")}
+                  ariaLabel="Sort by instances"
+                />
+                <SortableTableHead
+                  label="Used in"
+                  onSort={() => undefined}
+                  ariaLabel="Used in"
+                />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <TableRow key={`variable-loading-${index}`}>
+                    <TableCell colSpan={5} className="text-muted-foreground">
+                      Loading variable usage...
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : sortedReports.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <EmptyState
+                      icon={Network}
+                      title="No matching variables"
+                      description="Try adjusting the current filters."
+                      compact
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedReports.map((report) => {
+                  const topConsumers = report.consumers.slice(0, 3);
+                  return (
+                    <TableRow key={report.variableKey}>
+                      <TableCell>
+                        <span className="text-foreground">{report.variableName}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs lowercase text-foreground">
+                          {report.variableType}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <ImpactLevelBadge level={report.impactLevel.level} />
+                      </TableCell>
+                      <TableCell>
+                        <span className="tabular-nums text-foreground">{report.totalNodes}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {topConsumers.map((usage) => (
+                            <a
+                              key={usage.consumerId}
+                              href={usage.sampleLinks[0] || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-foreground transition-colors hover:text-primary"
+                            >
+                              <span className="truncate max-w-[140px]">{usage.consumerName}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {usage.nodeCount || 0}
+                              </span>
+                            </a>
+                          ))}
+                          {report.consumers.length > topConsumers.length ? (
+                            <span className="px-2 py-1 text-xs text-muted-foreground">
+                              +{report.consumers.length - topConsumers.length} more
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedVariableKey(report.variableKey)}
+                        >
+                          Simulate change
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </Card>
 
-      {selectedVariableKey && (
+      {selectedVariableKey ? (
         <SimulateChangePanel
           variableKey={selectedVariableKey}
           dsFileKey={dsFileKey}
           onClose={() => setSelectedVariableKey(null)}
         />
-      )}
+      ) : null}
     </div>
   );
 }
