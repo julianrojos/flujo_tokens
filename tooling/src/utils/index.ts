@@ -13,12 +13,7 @@ export type {
   TokenCatalogEntry,
   CssVarReference,
   TokenUsage,
-  TokenGraphNode,
-  TokenGraphEdge,
-  TokenGraph,
   WcagPair,
-  TokenUsageIndexReport,
-  TokenGraphReport,
   TokenServiceOptions,
 } from '../services/token-types.js';
 
