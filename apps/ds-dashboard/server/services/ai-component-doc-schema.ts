@@ -340,6 +340,29 @@ export const AI_ERROR_CODES = {
 
 export type AiErrorCode = (typeof AI_ERROR_CODES)[keyof typeof AI_ERROR_CODES]['code'];
 
+function normalizeAccessibilityFactSource(value: unknown): AccessibilityFact['source'] | null {
+    const source = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (!source) return null;
+
+    if (source === 'spec' || source === 'verified' || source === 'observed') {
+        return 'spec';
+    }
+    if (source === 'inferred' || source === 'inference' || source === 'derived') {
+        return 'inferred';
+    }
+    if (
+        source === 'assumed' ||
+        source === 'assumption' ||
+        source === 'likely' ||
+        source === 'guessed' ||
+        source === 'guess'
+    ) {
+        return 'assumed';
+    }
+
+    return null;
+}
+
 /**
  * JSON Schema representation for LLM structured output
  */
@@ -557,9 +580,11 @@ export function validateComponentDocModelOutput(raw: unknown): ComponentDocModel
         if (typeof fact.source !== 'string') {
             throw new Error(`accessibilityFacts[${i}]: missing or invalid 'source' field`);
         }
-        if (!['spec', 'inferred', 'assumed'].includes(fact.source)) {
+        const normalizedSource = normalizeAccessibilityFactSource(fact.source);
+        if (!normalizedSource) {
             throw new Error(`accessibilityFacts[${i}].source: must be one of spec|inferred|assumed`);
         }
+        fact.source = normalizedSource;
     }
 
     if (obj.structureWarning !== undefined) {

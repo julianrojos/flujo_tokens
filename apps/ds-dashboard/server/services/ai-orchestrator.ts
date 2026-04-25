@@ -325,7 +325,8 @@ Generate a JSON object that matches the provided schema exactly. Follow these gu
    - Do NOT invent states that are not present in the spec
 5. ACCESSIBILITY: Document evidence-based accessibility output only:
    - accessibilityNotes: concise notes from observable evidence or clearly marked inferences
-   - accessibilityFacts: factual or inferred statements with source set to one of: spec | inferred | assumed
+   - accessibilityFacts: factual or inferred statements with source set to exactly one of: spec | inferred | assumed
+   - Do not use synonyms such as verified, observed, likely, guess, or assumedly in the source field
    - You may mention visible focus/disabled/loading states when present
    - Do NOT claim verified keyboard behavior, focus management, or screen reader announcements from Figma alone
    - Use explicit pending markers such as "[To confirm with dev]" or "TBD" when evidence is insufficient
