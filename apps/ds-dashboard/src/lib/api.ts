@@ -1630,10 +1630,8 @@ export async function syncFigmaTokens(
 
 export interface AddConsumerPayload {
   dsFileKey?: string;
-  dsFileUrl?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  enabled?: boolean;
 }
 
 export interface AddConsumerResponse {
@@ -1654,11 +1652,6 @@ export interface GetConsumerResponse {
 export interface RemoveConsumerResponse {
   ok: boolean;
   data: { consumerId: string };
-}
-
-export interface UpdateConsumerResponse {
-  ok: boolean;
-  data: DsConsumer;
 }
 
 export interface SyncConsumersPayload {
@@ -1732,14 +1725,6 @@ function normalizeDsConsumerRecord(
 ): (DsConsumer & { latestSync?: DsSyncRun }) | null {
   const row = toRecord(value);
   if (!row) return null;
-  const enabledRaw = row.enabled;
-  const enabled =
-    typeof enabledRaw === 'boolean'
-      ? enabledRaw
-      : typeof enabledRaw === 'number'
-        ? enabledRaw !== 0
-        : toNonEmptyString(enabledRaw) === '1' ||
-          toNonEmptyString(enabledRaw).toLowerCase() === 'true';
 
   const latestSync = normalizeDsSyncRunRecord(
     row.latestSync ?? row.latest_sync,
@@ -1752,7 +1737,6 @@ function normalizeDsConsumerRecord(
       row.consumerFileKey ?? row.consumer_file_key,
     ),
     consumerName: toNonEmptyString(row.consumerName ?? row.consumer_name),
-    enabled,
     createdAt: toNonEmptyString(row.createdAt ?? row.created_at),
     ...(latestSync ? { latestSync } : {}),
   };
@@ -1785,7 +1769,6 @@ export function addConsumer(payload: AddConsumerPayload) {
         dsFileKey: '',
         consumerFileKey: '',
         consumerName: '',
-        enabled: true,
         createdAt: '',
       },
     } satisfies AddConsumerResponse;
@@ -1825,7 +1808,6 @@ export function fetchConsumer(consumerId: string) {
         dsFileKey: '',
         consumerFileKey: '',
         consumerName: '',
-        enabled: true,
         createdAt: '',
       },
     } satisfies GetConsumerResponse;
@@ -1839,38 +1821,6 @@ export function removeConsumer(consumerId: string) {
       method: 'DELETE',
     },
   );
-}
-
-export function updateConsumer(
-  consumerId: string,
-  payload: Partial<{ enabled: boolean }>,
-) {
-  return requestJson<{ ok: boolean; data: unknown }>(
-    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  ).then((response) => {
-    const normalized = normalizeDsConsumerRecord(response.data);
-    if (!normalized) {
-      warnInvalidConsumerPayload('updateConsumer', response.data);
-    }
-    return {
-      ok: response.ok,
-      data: normalized || {
-        id: consumerId,
-        dsFileKey: '',
-        consumerFileKey: '',
-        consumerName: '',
-        enabled: payload.enabled ?? true,
-        createdAt: '',
-      },
-    } satisfies UpdateConsumerResponse;
-  });
 }
 
 export function syncConsumers(payload: SyncConsumersPayload) {

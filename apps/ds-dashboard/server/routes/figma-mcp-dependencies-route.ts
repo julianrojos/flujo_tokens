@@ -17,8 +17,8 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
   const hasNonEmptyString = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0;
 
-  if (!hasNonEmptyString(body.dsFileKey) && !hasNonEmptyString(body.dsFileUrl)) {
-    errors.push('Either dsFileKey or dsFileUrl is required');
+  if (!hasNonEmptyString(body.dsFileKey)) {
+    errors.push('dsFileKey is required and must be a non-empty string');
   }
 
   if (!hasNonEmptyString(body.consumerFileUrl)) {
@@ -27,10 +27,6 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
 
   if (!hasNonEmptyString(body.consumerName)) {
     errors.push('Consumer name is required and must be a non-empty string');
-  }
-
-  if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
-    errors.push('enabled must be a boolean');
   }
 
   return errors;
@@ -170,17 +166,8 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      // Resolve DS file key and derive consumer file key from URL
-      const dsFileKey = body.dsFileKey || extractFileKey(body.dsFileUrl as string);
+      const dsFileKey = body.dsFileKey as string;
       const consumerFileKey = extractFileKey(body.consumerFileUrl as string);
-
-      if (!dsFileKey) {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.invalid_ds_file',
-          message: 'Invalid DS file key or URL',
-        }, 400);
-      }
 
       if (!consumerFileKey) {
         return c.json({
@@ -194,7 +181,6 @@ export function registerFigmaMcpDependenciesRoutes(
         ds_file_key: dsFileKey as string,
         consumer_file_key: consumerFileKey as string,
         consumer_name: body.consumerName as string,
-        enabled: body.enabled as boolean,
       });
 
       return c.json({
@@ -347,77 +333,6 @@ export function registerFigmaMcpDependenciesRoutes(
         ok: false,
         code: 'deps.consumer.get_failed',
         message: 'Failed to load consumer',
-      }, 500);
-    }
-  });
-
-  // PATCH /api/figma-mcp/dependencies/consumers/:consumerId - Update consumer (archive via enabled)
-  app.patch('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
-    if (!isAuthorized(c, deps)) {
-      return c.json({
-        ok: false,
-        code: 'deps.unauthorized',
-        message: 'Unauthorized access',
-      }, 401);
-    }
-
-    const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());
-
-    let body: Record<string, unknown>;
-    try {
-      body = await readJsonBody(c);
-    } catch {
-      return c.json({
-        ok: false,
-        code: 'deps.validation.invalid_json',
-        message: 'Invalid JSON in request body',
-      }, 400);
-    }
-
-    try {
-      const consumerId = c.req.param('consumerId');
-
-      if (!consumerId) {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.missing_consumer_id',
-          message: 'Consumer ID is required',
-        }, 400);
-      }
-
-      const consumer = await repository.getConsumer(consumerId);
-      if (!consumer) {
-        return c.json({
-          ok: false,
-          code: 'deps.consumer.not_found',
-          message: 'Consumer not found',
-        }, 404);
-      }
-
-      // Update only the enabled field for now (archive functionality)
-      if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.invalid_enabled',
-          message: 'enabled must be a boolean',
-        }, 400);
-      }
-
-      const updatedConsumer = await repository.updateConsumerEnabled(
-        consumerId,
-        body.enabled !== undefined ? Boolean(body.enabled) : Boolean(consumer.enabled),
-      );
-
-      return c.json({
-        ok: true,
-        data: updatedConsumer,
-      });
-    } catch (error) {
-      console.error('Error updating consumer:', error);
-      return c.json({
-        ok: false,
-        code: 'deps.consumer.update_failed',
-        message: 'Failed to update consumer',
       }, 500);
     }
   });

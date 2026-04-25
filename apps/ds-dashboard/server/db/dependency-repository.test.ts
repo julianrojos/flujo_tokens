@@ -28,7 +28,6 @@ describe('DependencyRepository', () => {
     assert.strictEqual(consumer.ds_file_key, 'ds123');
     assert.strictEqual(consumer.consumer_file_key, 'consumer456');
     assert.strictEqual(consumer.consumer_name, 'Test App');
-    assert.strictEqual(consumer.enabled, true);
     assert(typeof consumer.id === 'string');
     assert(consumer.created_at instanceof Date);
   });
@@ -64,22 +63,6 @@ describe('DependencyRepository', () => {
 
     const retrieved = await repo.getConsumer(created.id);
     assert.deepStrictEqual(retrieved, created);
-  });
-
-  test('updateConsumerEnabled updates enabled flag', async () => {
-    const created = await repo.addConsumer({
-      ds_file_key: 'ds-update-enabled',
-      consumer_file_key: 'consumer-update-enabled',
-      consumer_name: 'Toggle App',
-      enabled: true,
-    });
-
-    const updated = await repo.updateConsumerEnabled(created.id, false);
-    assert.ok(updated);
-    assert.strictEqual(updated?.enabled, false);
-
-    const fetched = await repo.getConsumer(created.id);
-    assert.strictEqual(fetched?.enabled, false);
   });
 
   test('getConsumerByFileKeys returns existing consumer', async () => {

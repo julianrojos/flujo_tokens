@@ -8,7 +8,6 @@ CREATE TABLE ds_consumers (
   ds_file_key TEXT NOT NULL,
   consumer_file_key TEXT NOT NULL,
   consumer_name TEXT NOT NULL,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (ds_file_key, consumer_file_key)
 );
@@ -86,7 +85,6 @@ CREATE TABLE pending_operations (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_ds_consumers_ds_file_enabled ON ds_consumers(ds_file_key, enabled);
 CREATE INDEX idx_ds_consumers_created_at ON ds_consumers(created_at);
 CREATE INDEX idx_ds_consumers_ds_file_created ON ds_consumers(ds_file_key, created_at DESC);
 CREATE INDEX idx_ds_sync_runs_consumer_synced ON ds_sync_runs(consumer_id, synced_at DESC);

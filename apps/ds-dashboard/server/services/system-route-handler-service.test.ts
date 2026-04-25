@@ -272,7 +272,6 @@ test("handleDeleteDesignSystemRoute abandons pending op and stops when consumer 
               ds_file_key: "figma-file-alpha",
               consumer_file_key: "consumer-file-1",
               consumer_name: "Button Consumer",
-              enabled: true,
               created_at: new Date("2026-01-01T00:00:00.000Z"),
             },
           ];

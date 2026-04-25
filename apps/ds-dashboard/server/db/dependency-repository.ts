@@ -6,7 +6,6 @@ export interface DsConsumer {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  enabled: boolean;
   created_at: Date;
 }
 
@@ -70,7 +69,6 @@ export interface AddConsumerParams {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  enabled?: boolean;
 }
 
 export interface SaveSyncRunParams {
@@ -177,8 +175,8 @@ export class DependencyRepository {
     try {
       await this.sql`
         INSERT INTO ds_consumers (
-          id, ds_file_key, consumer_file_key, consumer_name, enabled
-        ) VALUES (${id}, ${params.ds_file_key}, ${params.consumer_file_key}, ${params.consumer_name}, ${params.enabled !== false})
+          id, ds_file_key, consumer_file_key, consumer_name
+        ) VALUES (${id}, ${params.ds_file_key}, ${params.consumer_file_key}, ${params.consumer_name})
       `;
     } catch (error) {
       if (error instanceof Error && error.message.includes('duplicate')) {
@@ -246,7 +244,6 @@ export class DependencyRepository {
         ds_file_key: row.ds_file_key as string,
         consumer_file_key: row.consumer_file_key as string,
         consumer_name: row.consumer_name as string,
-        enabled: Boolean(row.enabled),
         created_at: row.created_at as Date,
       };
       if (row.sync_id) {
@@ -284,32 +281,10 @@ export class DependencyRepository {
     try {
       const rows = (await this
         .sql`SELECT * FROM ds_consumers WHERE id = ${consumerId}`) as Array<DsConsumer>;
-      return rows.length > 0
-        ? { ...rows[0], enabled: Boolean(rows[0].enabled) }
-        : null;
+      return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error(
         `[DependencyRepository] Failed to get consumer by id: ${consumerId}`,
-        error,
-      );
-      throw error;
-    }
-  }
-
-  async updateConsumerEnabled(
-    consumerId: string,
-    enabled: boolean,
-  ): Promise<DsConsumer | null> {
-    try {
-      await this.sql`
-        UPDATE ds_consumers
-        SET enabled = ${enabled}
-        WHERE id = ${consumerId}
-      `;
-      return this.getConsumer(consumerId);
-    } catch (error) {
-      console.error(
-        `[DependencyRepository] Failed to update consumer enabled state: ${consumerId}`,
         error,
       );
       throw error;
@@ -326,9 +301,7 @@ export class DependencyRepository {
         WHERE ds_file_key = ${dsFileKey} AND consumer_file_key = ${consumerFileKey}
         LIMIT 1
       `) as Array<DsConsumer>;
-      return rows.length > 0
-        ? { ...rows[0], enabled: Boolean(rows[0].enabled) }
-        : null;
+      return rows.length > 0 ? rows[0] : null;
     } catch (error) {
       console.error(
         `[DependencyRepository] Failed to get consumer by file keys: ds=${dsFileKey}, consumer=${consumerFileKey}`,

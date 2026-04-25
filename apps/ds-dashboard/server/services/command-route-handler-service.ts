@@ -619,8 +619,7 @@ export async function handleSyncFigmaTokensRoute(
           const rawTokenRef = String(rows[0]?.figma_api_token || '').trim();
           const resolvedToken = resolveEnvRef(rawTokenRef);
           const dependencyRepo = new DependencyRepository(db);
-          const enabledConsumers = (await dependencyRepo.listConsumers(sysCtx.systemId))
-            .filter((consumer) => consumer.enabled !== false);
+          const consumers = await dependencyRepo.listConsumers(sysCtx.systemId);
           const captureParentUsageFromBindings = async (): Promise<number> => {
             const bindingRows = (await db`
               SELECT
@@ -672,11 +671,11 @@ export async function handleSyncFigmaTokensRoute(
                 'Parent token-usage snapshot skipped: unresolved Figma API token and no component bindings available for fallback.',
               );
             }
-          } else if (enabledConsumers.length === 0) {
+          } else if (consumers.length === 0) {
             const captured = await captureParentUsageFromBindings();
             emitChunk(
               'warning',
-              `Parent usage snapshot skipped live consumer sync because no enabled consumers are registered yet; DB fallback from captured component bindings wrote ${captured} variable entries.`,
+              `Parent usage snapshot skipped live consumer sync because no consumers are registered yet; DB fallback from captured component bindings wrote ${captured} variable entries.`,
             );
           } else {
             const dependencySyncService = new DependencySyncService(

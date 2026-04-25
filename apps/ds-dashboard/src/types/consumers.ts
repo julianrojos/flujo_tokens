@@ -9,7 +9,6 @@ export interface DsConsumer {
   dsFileKey: string;
   consumerFileKey: string;
   consumerName: string;
-  enabled: boolean;
   createdAt: string;
 }
 
@@ -174,11 +173,9 @@ export interface SimulationResult {
 // Request types
 export interface AddConsumerRequest {
   dsFileKey?: string;
-  dsFileUrl?: string;
   consumerFileKey?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  enabled?: boolean;
 }
 
 export interface SyncConsumersRequest {

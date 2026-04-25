@@ -365,12 +365,8 @@ export class DependencySyncService {
   private async getConsumersToSync(dsFileKey: string, consumerIds?: string[]): Promise<DsConsumer[]> {
     const allConsumers = await this.repository.listConsumers(dsFileKey);
 
-    // Filter by enabled status and optionally by specific IDs
+    // Filter only by specific IDs when requested.
     return allConsumers.filter(consumer => {
-      if (!consumer.enabled) {
-        return false;
-      }
-
       if (consumerIds && !consumerIds.includes(consumer.id)) {
         return false;
       }

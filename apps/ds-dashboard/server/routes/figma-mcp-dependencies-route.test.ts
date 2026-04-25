@@ -99,7 +99,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
-      enabled: true,
     });
 
     const response = await app.request('/api/figma-mcp/dependencies/consumers?dsFileKey=ds123');
@@ -116,7 +115,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer-single',
       consumer_name: 'Single Consumer',
-      enabled: true,
     });
 
     const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`);
@@ -135,7 +133,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
-      enabled: true,
     });
 
     const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`, {
@@ -146,46 +143,6 @@ describe('figma-mcp-dependencies-route', () => {
     const body = await response.json();
     assert.strictEqual(body.ok, true);
     assert.strictEqual(body.data.consumerId, consumer.id);
-  });
-
-  test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - update enabled state', async () => {
-    const consumer = await repository.addConsumer({
-      ds_file_key: 'ds123',
-      consumer_file_key: 'consumer-enable',
-      consumer_name: 'Enable Toggle',
-      enabled: true,
-    });
-
-    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: false }),
-    });
-
-    assert.strictEqual(response.status, 200);
-    const body = await response.json();
-    assert.strictEqual(body.ok, true);
-    assert.strictEqual(body.data.enabled, false);
-  });
-
-  test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - invalid JSON', async () => {
-    const consumer = await repository.addConsumer({
-      ds_file_key: 'ds123',
-      consumer_file_key: 'consumer-invalid-json',
-      consumer_name: 'Invalid JSON',
-      enabled: true,
-    });
-
-    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: 'invalid json',
-    });
-
-    assert.strictEqual(response.status, 400);
-    const body = await response.json();
-    assert.strictEqual(body.ok, false);
-    assert.strictEqual(body.code, 'deps.validation.invalid_json');
   });
 
   test('POST /api/figma-mcp/dependencies/sync - trigger sync', async () => {
@@ -310,13 +267,11 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds-stale',
       consumer_file_key: 'consumer-stale',
       consumer_name: 'Stale Consumer',
-      enabled: true,
     });
     const freshConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale',
       consumer_file_key: 'consumer-fresh',
       consumer_name: 'Fresh Consumer',
-      enabled: true,
     });
 
     const staleRun = await repository.saveSyncRun({
@@ -354,13 +309,11 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds-stale-boundary',
       consumer_file_key: 'consumer-71h',
       consumer_name: 'Near Threshold Consumer',
-      enabled: true,
     });
     const pastThresholdConsumer = await repository.addConsumer({
       ds_file_key: 'ds-stale-boundary',
       consumer_file_key: 'consumer-73h',
       consumer_name: 'Past Threshold Consumer',
-      enabled: true,
     });
 
     const nearThresholdRun = await repository.saveSyncRun({
@@ -399,7 +352,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds-stale-legacy-param',
       consumer_file_key: 'consumer-stale-legacy',
       consumer_name: 'Legacy Param Consumer',
-      enabled: true,
     });
 
     const staleRun = await repository.saveSyncRun({
@@ -490,7 +442,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
-      enabled: true,
     });
 
     // Add some sync runs
@@ -533,7 +484,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
-      enabled: true,
     });
 
     // Add 5 sync runs
@@ -574,7 +524,6 @@ describe('figma-mcp-dependencies-route', () => {
       ds_file_key: 'ds123',
       consumer_file_key: 'consumer456',
       consumer_name: 'Test Consumer',
-      enabled: true,
     });
 
     const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}/runs?limit=0`);

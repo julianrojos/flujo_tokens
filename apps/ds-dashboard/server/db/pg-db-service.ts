@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MIGRATION_CHECKSUMS: Record<number, string> = {
   1: '5bf101c991868049fa13e17a073e4be8e856c881290f0b71ca18e3cc151446df',
-  2: '2e2f05f14692f7df7c0a6a1a2d323f6a08d0fb4ef3110cdb57e40528392a15fa',
+  2: 'de6fd855dceb0ac85e0a8a73d7304ec0fb3422c303cd12c689197e5c3bbfefde',
   3: 'de27aa6db1415532c5ac5b1d119f403217d6b5856cddb052f362b06e0792668c',
   4: '6e7ab75f6021d5002056b742420e46d6863059b2ce812e78974e150ec5ba674f',
   5: 'a9859ecb4fecf8bb9dd4e167f4f1d5455633184dbe2005e93ecefa7f7ded25b0',

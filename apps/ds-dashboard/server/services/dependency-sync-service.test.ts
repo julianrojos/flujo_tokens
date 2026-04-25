@@ -36,24 +36,6 @@ describe('DependencySyncService', () => {
     assert.strictEqual(result.dsFileKey, 'non-existent-ds');
   });
 
-  test('syncConsumers filters disabled consumers', async () => {
-    await repository.addConsumer({
-      ds_file_key: 'test-ds',
-      consumer_file_key: 'test-consumer',
-      consumer_name: 'Test Consumer',
-      enabled: false,
-    });
-
-    const result = await syncService.syncConsumers({
-      dsFileKey: 'test-ds',
-    });
-
-    assert.strictEqual(result.synced, 0);
-    assert.strictEqual(result.skipped, 0);
-    assert.strictEqual(result.errored, 0);
-    assert.strictEqual(result.runs.length, 0);
-  });
-
   test('syncConsumers filters by consumerIds', () => {
     // Skip: Requires mocking Figma REST API calls
     // This test would need sinon/mock to stub fetchFigmaFile
@@ -64,7 +46,6 @@ describe('DependencySyncService', () => {
       ds_file_key: 'test-ds',
       consumer_file_key: 'test-consumer-partial',
       consumer_name: 'Partial Consumer',
-      enabled: true,
     });
 
     const service = syncService as unknown as {
@@ -131,7 +112,6 @@ describe('DependencySyncService', () => {
       ds_file_key: 'abort-ds',
       consumer_file_key: 'abort-consumer',
       consumer_name: 'Abort Consumer',
-      enabled: true,
     });
 
     const controller = new AbortController();
