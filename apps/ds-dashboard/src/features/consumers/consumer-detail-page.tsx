@@ -409,11 +409,10 @@ export function ConsumerDetailPage() {
               </div>
             </div>
 
-            {/* Row 3: Footer with defined locally + warnings/impact */}
+            {/* Row 3: Footer with parent-derived components + warnings/impact */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span title="Components and variables created in this file">
-                Defined locally: {consumer.latestSync.localComponentDefinedCount ?? "—"} comp ·{" "}
-                {consumer.latestSync.localVariableDefinedCount ?? "—"} vars
+              <span title="Local components that include at least one parent DS component in their subtree">
+                Derived from parent DS: {consumer.latestSync.parentDerivedComponentCount ?? "—"} comp
               </span>
               <div className="flex items-center gap-3">
                 {consumer.latestSync.warningCount > 0 && (

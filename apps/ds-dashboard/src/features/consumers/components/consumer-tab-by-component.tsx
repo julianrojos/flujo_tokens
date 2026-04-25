@@ -5,15 +5,12 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
-import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { splitComponentName } from "@/lib/component-identity";
 import { fetchReportByComponent } from "@/lib/api";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import type { ComponentUsageReport, ImpactLevel } from "@/types/consumers";
+import type { ComponentUsageReport } from "@/types/consumers";
 
 interface ConsumerTabByComponentProps {
   dsFileKey: string;
@@ -22,20 +19,15 @@ interface ConsumerTabByComponentProps {
 interface ComponentKpis {
   totalComponents: number;
   totalInstances: number;
-  highImpactComponents: number;
   uniqueConsumers: number;
 }
 
 function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   const consumerIds = new Set<string>();
   let totalInstances = 0;
-  let highImpactComponents = 0;
 
   for (const report of reports) {
     totalInstances += report.totalInstances;
-    if (report.impactLevel.level === "CRITICAL" || report.impactLevel.level === "HIGH") {
-      highImpactComponents += 1;
-    }
     for (const consumer of report.consumers) {
       consumerIds.add(consumer.consumerId);
     }
@@ -44,13 +36,12 @@ function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   return {
     totalComponents: reports.length,
     totalInstances,
-    highImpactComponents,
     uniqueConsumers: consumerIds.size,
   };
 }
 
 export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProps) {
-  const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
+  const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<ComponentUsageReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -84,11 +75,13 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
         !lowered ||
         report.componentName.toLowerCase().includes(lowered) ||
         report.componentKey.toLowerCase().includes(lowered);
-      const matchesSeverity =
-        severityFilter === "all" || report.impactLevel.level === severityFilter;
-      return matchesSearch && matchesSeverity;
+      return matchesSearch;
     });
-  }, [reports, searchQuery, severityFilter]);
+  }, [reports, searchQuery]);
+
+  const sortedReports = useMemo(() => {
+    return [...filteredReports].sort((a, b) => a.componentName.localeCompare(b.componentName));
+  }, [filteredReports]);
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
 
@@ -109,7 +102,6 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
       <StatsOverview
         items={[
           { id: "components-total", label: "Total components", value: kpis.totalComponents },
-          { id: "components-high", label: "High impact", value: kpis.highImpactComponents },
           { id: "components-instances", label: "Total instances", value: kpis.totalInstances },
           { id: "components-consumers", label: "Unique consumers", value: kpis.uniqueConsumers },
         ]}
@@ -126,53 +118,32 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
                 {filteredReports.length} of {reports.length} components
               </Badge>
             }
-          >
-            <Select
-              value={severityFilter}
-              onChange={(event) => setSeverityFilter(event.target.value as ImpactLevel | "all")}
-              className="w-40"
-            >
-              <option value="all">All severities</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </Select>
-          </FilterBar>
+          />
 
           {error ? <ApiErrorMessage error={error} /> : null}
 
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableTableHead label="Component" onSort={() => undefined} ariaLabel="Component" />
-                <SortableTableHead label="Variant" onSort={() => undefined} ariaLabel="Variant" />
-                <SortableTableHead label="Impact" onSort={() => undefined} ariaLabel="Impact" />
-                <SortableTableHead label="Instances" onSort={() => undefined} ariaLabel="Instances" />
-                <SortableTableHead
-                  label="Used in"
-                  onSort={() => undefined}
-                  ariaLabel="Used in"
-                />
-                <SortableTableHead
-                  label="Consumers"
-                  onSort={() => undefined}
-                  ariaLabel="Consumers"
-                />
+                <TableHead>Component</TableHead>
+                <TableHead>Variant</TableHead>
+                <TableHead>Instances</TableHead>
+                <TableHead>Used in</TableHead>
+                <TableHead>Consumers</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`component-loading-${index}`}>
-                    <TableCell colSpan={6} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       Loading component usage...
                     </TableCell>
                   </TableRow>
                 ))
-              ) : filteredReports.length === 0 ? (
+              ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching components"
@@ -182,13 +153,13 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredReports.map((report) => {
+                sortedReports.map((report) => {
                   const topConsumers = report.consumers.slice(0, 3);
-                  const { variantLabel } = splitComponentName(report.componentName);
+                  const { parentName, variantLabel } = splitComponentName(report.componentName);
                   return (
                     <TableRow key={report.componentKey}>
                       <TableCell>
-                        <span className="text-foreground">{report.componentName}</span>
+                        <span className="text-foreground">{parentName}</span>
                       </TableCell>
                       <TableCell>
                         {variantLabel ? (
@@ -196,9 +167,6 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <ImpactLevelBadge level={report.impactLevel.level} />
                       </TableCell>
                       <TableCell>
                         <span className="tabular-nums text-foreground">{report.totalInstances}</span>

@@ -18,12 +18,12 @@ import {
   TableBody,
   TableCell,
   TableHeader,
+  TableHead,
   TableRow,
 } from "@/components/ui/table";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
-import type { FileReport, DsSyncRun } from "@/types/consumers";
+import type { FileReport } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";
 
 interface ConsumerTabByFileProps {
@@ -43,19 +43,6 @@ interface KpiData {
   withWarnings: number;
   neverSynced: number;
 }
-
-const STATUS_SORT_ORDER: Record<DsSyncRun["status"], number> = {
-  error: 0,
-  partial: 1,
-  skipped: 2,
-  ok: 3,
-};
-const STATUS_BADGE_VARIANT: Record<DsSyncRun["status"], "error" | "warning" | "neutral" | "success"> = {
-  error: "error",
-  partial: "warning",
-  skipped: "neutral",
-  ok: "success",
-};
 
 function computeKpis(reports: FileReport[]): KpiData {
   const now = Date.now();
@@ -87,12 +74,15 @@ function computeKpis(reports: FileReport[]): KpiData {
 }
 
 function sortReports(reports: FileReport[]): FileReport[] {
+  const getSyncedAtMs = (value: string | null | undefined): number => {
+    if (!value) return Number.NEGATIVE_INFINITY;
+    const syncedAt = new Date(value).getTime();
+    return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
+  };
+
   return [...reports].sort((a, b) => {
-    // Use fallback value (99) for unknown status to avoid NaN breaking sort
-    const statusA = STATUS_SORT_ORDER[a.status] ?? 99;
-    const statusB = STATUS_SORT_ORDER[b.status] ?? 99;
-    const statusDiff = statusA - statusB;
-    if (statusDiff !== 0) return statusDiff;
+    const syncedDiff = getSyncedAtMs(b.lastSyncedAt) - getSyncedAtMs(a.lastSyncedAt);
+    if (syncedDiff !== 0) return syncedDiff;
     return a.consumerName.localeCompare(b.consumerName);
   });
 }
@@ -107,10 +97,9 @@ function applyFilters(
   filters: {
     searchQuery: string;
     statusFilter: SyncStatusFilter;
-    highImpactOnly: boolean;
   },
 ): FileReport[] {
-  const { searchQuery, statusFilter, highImpactOnly } = filters;
+  const { searchQuery, statusFilter } = filters;
   const normalizedQuery = searchQuery.toLowerCase().trim();
 
   return reports.filter((report) => {
@@ -124,14 +113,6 @@ function applyFilters(
     // Status filter
     if (statusFilter !== "all" && report.status !== statusFilter) {
       return false;
-    }
-
-    // High impact filter (CRITICAL or HIGH)
-    if (highImpactOnly) {
-      const impact = report.impactLevel.level;
-      if (impact !== "CRITICAL" && impact !== "HIGH") {
-        return false;
-      }
     }
 
     return true;
@@ -196,7 +177,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
-  const [highImpactOnly, setHighImpactOnly] = useState(false);
 
   const loadReports = async () => {
     setLoading(true);
@@ -288,8 +268,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const filteredReports = useMemo(() => applyFilters(reports, {
     searchQuery,
     statusFilter,
-    highImpactOnly,
-  }), [reports, searchQuery, statusFilter, highImpactOnly]);
+  }), [reports, searchQuery, statusFilter]);
   const sortedReports = useMemo(() => sortReports(filteredReports), [filteredReports]);
   const rowLinkClassName = "text-foreground hover:text-primary";
 
@@ -363,15 +342,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
                 </button>
               ))}
-              <label className="flex items-center gap-2 rounded-md border border-border/70 bg-[var(--app-surface-1)] px-3 py-1.5 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={highImpactOnly}
-                  onChange={(e) => setHighImpactOnly(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>High impact only</span>
-              </label>
             </div>
           </FilterBar>
 
@@ -384,31 +354,25 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableTableHead label="Consumer" onSort={() => undefined} ariaLabel="Consumer" />
-                <SortableTableHead label="Last sync" onSort={() => undefined} ariaLabel="Last sync" />
-                <SortableTableHead label="Usage" onSort={() => undefined} ariaLabel="Usage" />
-                <SortableTableHead label="Adoption" onSort={() => undefined} ariaLabel="Adoption" />
-                <SortableTableHead
-                  label="Defined locally"
-                  onSort={() => undefined}
-                  ariaLabel="Defined locally"
-                />
-                <SortableTableHead label="Status" onSort={() => undefined} ariaLabel="Status" />
-                <SortableTableHead label="Actions" onSort={() => undefined} ariaLabel="Actions" />
+                <TableHead>Consumer</TableHead>
+                <TableHead>Last sync</TableHead>
+                <TableHead>Usage</TableHead>
+                <TableHead>Adoption</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`consumer-loading-${index}`}>
-                    <TableCell colSpan={7} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       Loading consumer files...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={Inbox}
                       title="No results match your filters"
@@ -470,25 +434,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                       </div>
                     </TableCell>
                     <TableCell>{renderAdoptionCell(report)}</TableCell>
-                    <TableCell>
-                      {report.localComponentDefinedCount == null &&
-                      report.localVariableDefinedCount == null ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span
-                          className="text-sm text-muted-foreground tabular-nums"
-                          title="Components and variables created in this file"
-                        >
-                          {report.localComponentDefinedCount ?? "—"} comp ·{" "}
-                          {report.localVariableDefinedCount ?? "—"} vars
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_BADGE_VARIANT[report.status]}>
-                        {report.status}
-                      </Badge>
-                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button

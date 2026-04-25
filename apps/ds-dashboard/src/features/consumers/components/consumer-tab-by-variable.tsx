@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByVariable } from "@/lib/api";
 import { useSortState } from "@/lib/use-sort-state";
@@ -189,11 +189,7 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
                   onSort={() => toggleSort("nodes")}
                   ariaLabel="Sort by instances"
                 />
-                <SortableTableHead
-                  label="Used in"
-                  onSort={() => undefined}
-                  ariaLabel="Used in"
-                />
+                <TableHead>Used in</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
