@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildComponentUsageIndex } from "./registry-artifacts-service.ts";
+import { buildComponentUsageIndex, buildTokenCollectionTrees } from "./registry-artifacts-service.ts";
 
 test("buildComponentUsageIndex keeps usage graph empty without figma relations", () => {
   const index = buildComponentUsageIndex([{ slug: "button" }, { slug: "icon" }]);
@@ -128,4 +128,22 @@ test("buildComponentUsageIndex does not resolve ambiguous component names", () =
   assert.deepEqual(index.by_slug["calendar-7"].uses, []);
   assert.deepEqual(index.by_slug["calendar-button-a"].used_in, []);
   assert.deepEqual(index.by_slug["calendar-button-b"].used_in, []);
+});
+
+test("buildTokenCollectionTrees counts only inserted tokens", () => {
+  const result = buildTokenCollectionTrees([
+    { collection: "Primitives", path: "Primitives/Color/Brand/Primary" },
+    { collection: "Primitives", slashPath: "Primitives/Spacing/Sm" },
+    { collection: "Primitives", path: "" },
+    { collection: "Primitives", slashPath: "   " },
+    { collection: "Primitives", path: "Primitives" },
+  ]);
+
+  assert.equal(result.summary.collections, 1);
+  assert.equal(result.summary.tokens, 2);
+  assert.equal(result.collections[0]?.tokenCount, 2);
+  assert.deepEqual(
+    result.collections[0]?.root.children.map((node) => node.name),
+    ["Color", "Spacing"],
+  );
 });

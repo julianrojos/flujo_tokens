@@ -241,6 +241,7 @@ export function buildTokenCollectionTrees(
             { sensitivity: "base" },
           ),
         );
+      let tokenCount = 0;
 
       for (const entry of sortedEntries) {
         const slashPath = String(entry.slashPath || "").trim();
@@ -271,6 +272,7 @@ export function buildTokenCollectionTrees(
               tokenData: entry,
             };
             parent.children.push(tokenNode);
+            tokenCount += 1;
             continue;
           }
 
@@ -294,7 +296,7 @@ export function buildTokenCollectionTrees(
 
       return {
         collection,
-        tokenCount: collectionEntries.length,
+        tokenCount,
         root,
       };
     });
@@ -303,7 +305,7 @@ export function buildTokenCollectionTrees(
     collections,
     summary: {
       collections: collections.length,
-      tokens: entries.length,
+      tokens: collections.reduce((total, collection) => total + collection.tokenCount, 0),
     },
   };
 }
