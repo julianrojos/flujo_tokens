@@ -59,8 +59,8 @@ export interface FileReport {
     sampleLinks: string[];
   }>;
   impactLevel: ImpactLevel;
-  localComponentDefinedCount?: number | null;
   localComponentUsedCount?: number | null;
+  parentDerivedComponentCount?: number | null;
   localVariableDefinedCount?: number | null;
   localVariableUsedCount?: number | null;
   adoptionRate?: number | null;
@@ -153,8 +153,8 @@ export class DependencyAnalysisService {
           topComponents: [],
           topVariables: [],
           impactLevel: { level: 'LOW' as const, description: 'No usage data' },
-          localComponentDefinedCount: null,
           localComponentUsedCount: null,
+          parentDerivedComponentCount: null,
           localVariableDefinedCount: null,
           localVariableUsedCount: null,
           adoptionRate: null,
@@ -202,8 +202,8 @@ export class DependencyAnalysisService {
           sampleLinks: this.buildSampleLinks(variable.consumer_file_key, variable.sample_node_ids_json, opts.maxSampleLinks),
         })),
         impactLevel,
-        localComponentDefinedCount: latestSync.local_component_defined_count,
         localComponentUsedCount: latestSync.local_component_used_count,
+        parentDerivedComponentCount: latestSync.parent_derived_component_count,
         localVariableDefinedCount: latestSync.local_variable_defined_count,
         localVariableUsedCount: latestSync.local_variable_used_count,
         adoptionRate,

@@ -23,8 +23,8 @@ export interface SyncRunSummary {
   warningCount: number;
   errorMessage?: string;
   skippedReason?: string;
-  localComponentDefinedCount?: number | null;
   localComponentUsedCount?: number | null;
+  parentDerivedComponentCount?: number | null;
   localVariableDefinedCount?: number | null;
   localVariableUsedCount?: number | null;
 }
@@ -255,8 +255,8 @@ export class DependencySyncService {
           sample_node_ids_json: JSON.stringify(binding.nodeIds),
         })),
         warnings: scanResult.warnings,
-        local_component_defined_count: scanResult.localComponentDefinedCount,
         local_component_used_count: scanResult.localComponentUsedCount,
+        parent_derived_component_count: scanResult.parentDerivedComponentCount,
         local_variable_defined_count: scanResult.localVariableDefinedCount,
         local_variable_used_count: scanResult.localVariableUsedCount,
       });
@@ -274,8 +274,8 @@ export class DependencySyncService {
         variableCount: syncRun.variable_count,
         warningCount: syncRun.warning_count,
         errorMessage: syncRun.error_message,
-        localComponentDefinedCount: syncRun.local_component_defined_count,
         localComponentUsedCount: syncRun.local_component_used_count,
+        parentDerivedComponentCount: syncRun.parent_derived_component_count,
         localVariableDefinedCount: syncRun.local_variable_defined_count,
         localVariableUsedCount: syncRun.local_variable_used_count,
       };

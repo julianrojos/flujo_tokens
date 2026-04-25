@@ -50,7 +50,7 @@ describe('scanConsumerFile local-count derivation', () => {
     }
   });
 
-  test('derives localComponentDefinedCount from fileResponse.components and localComponentUsedCount from unmatched instances', async () => {
+  test('derives parentDerivedComponentCount from local components using DS instances and localComponentUsedCount from unmatched instances', async () => {
     const dsCatalog = makeDsCatalog({ componentId: '1:1' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -74,10 +74,36 @@ describe('scanConsumerFile local-count derivation', () => {
               type: 'DOCUMENT',
               children: [
                 {
-                  id: '2:1',
-                  name: 'DS instance',
-                  type: 'INSTANCE',
-                  componentId: '1:1',
+                  id: '10:0',
+                  name: 'Local shell',
+                  type: 'COMPONENT',
+                  children: [
+                    {
+                      id: '10:1',
+                      name: 'Local card',
+                      type: 'COMPONENT',
+                      children: [
+                        {
+                          id: '2:1',
+                          name: 'DS instance',
+                          type: 'INSTANCE',
+                          componentId: '1:1',
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: '10:2',
+                  name: 'Local empty state',
+                  type: 'COMPONENT',
+                  children: [
+                    {
+                      id: '2:3',
+                      name: 'Decoration',
+                      type: 'RECTANGLE',
+                    },
+                  ],
                 },
                 {
                   id: '2:2',
@@ -88,6 +114,7 @@ describe('scanConsumerFile local-count derivation', () => {
               ],
             },
             components: {
+              '10:0': { key: 'local.zero', name: 'Local/Zero' },
               '10:1': { key: 'local.one', name: 'Local/One' },
               '10:2': { key: 'local.two', name: 'Local/Two' },
             },
@@ -99,8 +126,54 @@ describe('scanConsumerFile local-count derivation', () => {
     }) as typeof fetch;
 
     const result = await scanConsumerFile('consumer-components', 'figd_test_token', dsCatalog);
-    assert.equal(result.localComponentDefinedCount, 2);
+    assert.equal(result.parentDerivedComponentCount, 1);
     assert.equal(result.localComponentUsedCount, 1);
+  });
+
+  test('does not count a component node as parent-derived when it is directly the DS instance itself', async () => {
+    const dsCatalog = makeDsCatalog({ componentId: '1:1' });
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-self-instance/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/consumer-self-instance')) {
+        return new Response(
+          JSON.stringify({
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: {
+              id: '0:0',
+              name: 'Document',
+              type: 'DOCUMENT',
+              children: [
+                {
+                  id: '10:9',
+                  name: 'Local direct instance',
+                  type: 'COMPONENT',
+                  componentId: '1:1',
+                },
+              ],
+            },
+            components: {
+              '10:9': { key: 'local.self', name: 'Local/Self' },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await scanConsumerFile('consumer-self-instance', 'figd_test_token', dsCatalog);
+    assert.equal(result.parentDerivedComponentCount, 0);
+    assert.equal(result.localComponentUsedCount, 0);
   });
 
   test('sets localVariableDefinedCount to null when consumer variables fetch fails', async () => {

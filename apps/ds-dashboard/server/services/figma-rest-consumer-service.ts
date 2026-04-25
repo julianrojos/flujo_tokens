@@ -66,8 +66,8 @@ export interface ConsumerScanResult {
     message: string;
     nodeId?: string;
   }>;
-  localComponentDefinedCount: number | null;
   localComponentUsedCount: number | null;
+  parentDerivedComponentCount: number | null;
   localVariableDefinedCount: number | null;
   localVariableUsedCount: number | null;
 }
@@ -522,8 +522,15 @@ export async function scanConsumerFile(
     let matchedViaDsId = 0;
     const unmatchedComponentIds = new Set<string>();
     let unmatchedComponentIdsTotal = 0;
+    const localComponentDefinitionStack: string[] = [];
+    const parentDerivedComponentIds = new Set<string>();
 
     function scanNode(node: FigmaNode): void {
+      const isLocalComponentDefinition = node.type === 'COMPONENT';
+      if (isLocalComponentDefinition) {
+        localComponentDefinitionStack.push(node.id);
+      }
+
       // Check for component instances
       if (node.componentId) {
         const normalizedComponentId = String(node.componentId || '').trim();
@@ -533,6 +540,12 @@ export async function scanConsumerFile(
         if (componentKey && dsCatalog.components.has(componentKey)) {
           if (viaFile) matchedViaFileKey++;
           else matchedViaDsId++;
+          if (localComponentDefinitionStack.length > 0) {
+            const directDefinitionId = localComponentDefinitionStack[localComponentDefinitionStack.length - 1];
+            if (directDefinitionId !== node.id) {
+              parentDerivedComponentIds.add(directDefinitionId);
+            }
+          }
           const dsComponent = dsCatalog.components.get(componentKey)!;
           if (!componentInstances.has(componentKey)) {
             componentInstances.set(componentKey, {
@@ -594,6 +607,10 @@ export async function scanConsumerFile(
         for (const child of node.children) {
           scanNode(child);
         }
+      }
+
+      if (isLocalComponentDefinition) {
+        localComponentDefinitionStack.pop();
       }
     }
 
@@ -717,17 +734,12 @@ export async function scanConsumerFile(
 
     // Convert Maps to arrays and limit sample node IDs
     // Compute local counts for adoption tracking (SC-1, SC-2)
-    // localComponentDefinedCount:
-    // - number when components payload is available
-    // - null when components payload is unavailable
-    // Note: 0 may still occur due to Figma API limitations on some plan/file combinations.
-    const localComponentDefinedCount =
-      fileResponse.components != null ? Object.keys(fileResponse.components).length : null;
-
     // localComponentUsedCount captures non-DS usage:
     // unmatched component instances not resolved to the tracked DS
     // (includes local file usage and other libraries).
     const localComponentUsedCount = unmatchedComponentIdsTotal;
+
+    const parentDerivedComponentCount = parentDerivedComponentIds.size;
 
     // localVariableDefinedCount: null if variables fetch failed, otherwise count of variables in consumer file
     const localVariableDefinedCount =
@@ -752,8 +764,8 @@ export async function scanConsumerFile(
           nodeIds: binding.nodeIds.slice(0, 20),
         })),
       warnings,
-      localComponentDefinedCount,
       localComponentUsedCount,
+      parentDerivedComponentCount,
       localVariableDefinedCount,
       localVariableUsedCount,
     };

@@ -1695,10 +1695,16 @@ function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
   const componentCountRaw = row.componentCount ?? row.component_count;
   const variableCountRaw = row.variableCount ?? row.variable_count;
   const warningCountRaw = row.warningCount ?? row.warning_count;
+  const parentDerivedComponentCountRaw =
+    row.parentDerivedComponentCount ?? row.parent_derived_component_count;
   const durationMs = Number(durationRaw);
   const componentCount = Number(componentCountRaw);
   const variableCount = Number(variableCountRaw);
   const warningCount = Number(warningCountRaw);
+  const parentDerivedComponentCount =
+    parentDerivedComponentCountRaw == null
+      ? null
+      : Number(parentDerivedComponentCountRaw);
 
   return {
     id: toNonEmptyString(row.id),
@@ -1717,6 +1723,11 @@ function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
     componentCount: Number.isFinite(componentCount) ? componentCount : 0,
     variableCount: Number.isFinite(variableCount) ? variableCount : 0,
     warningCount: Number.isFinite(warningCount) ? warningCount : 0,
+    parentDerivedComponentCount:
+      parentDerivedComponentCount != null &&
+      Number.isFinite(parentDerivedComponentCount)
+        ? parentDerivedComponentCount
+        : null,
   };
 }
 

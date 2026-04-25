@@ -160,6 +160,28 @@ describe('DependencyRepository', () => {
     assert.strictEqual(warnings.length, 1);
   });
 
+  test('listConsumers returns latest sync parent-derived component count', async () => {
+    const consumer = await repo.addConsumer({
+      ds_file_key: 'ds-parent-derived',
+      consumer_file_key: 'consumer-parent-derived',
+      consumer_name: 'Parent Derived App',
+    });
+
+    await repo.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 900,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+      parent_derived_component_count: 4,
+    });
+
+    const consumers = await repo.listConsumers('ds-parent-derived');
+    assert.strictEqual(consumers.length, 1);
+    assert.strictEqual(consumers[0].latest_sync?.parent_derived_component_count, 4);
+  });
+
   test('getLatestSyncRun returns most recent sync', async () => {
     const consumer = await repo.addConsumer({
       ds_file_key: 'ds777',

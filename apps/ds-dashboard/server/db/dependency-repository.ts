@@ -21,8 +21,8 @@ export interface DsSyncRun {
   component_count: number;
   variable_count: number;
   warning_count: number;
-  local_component_defined_count?: number | null;
   local_component_used_count?: number | null;
+  parent_derived_component_count?: number | null;
   local_variable_defined_count?: number | null;
   local_variable_used_count?: number | null;
 }
@@ -81,8 +81,8 @@ export interface SaveSyncRunParams {
   component_usage: Omit<DsComponentUsage, 'id' | 'run_id'>[];
   variable_usage: Omit<DsVariableUsage, 'id' | 'run_id'>[];
   warnings: Omit<DsSyncWarning, 'id' | 'run_id'>[];
-  local_component_defined_count?: number | null;
   local_component_used_count?: number | null;
+  parent_derived_component_count?: number | null;
   local_variable_defined_count?: number | null;
   local_variable_used_count?: number | null;
 }
@@ -222,13 +222,13 @@ export class DependencyRepository {
         r.component_count as sync_component_count,
         r.variable_count as sync_variable_count,
         r.warning_count as sync_warning_count,
-        r.local_component_defined_count as sync_local_component_defined_count,
         r.local_component_used_count as sync_local_component_used_count,
+        r.parent_derived_component_count as sync_parent_derived_component_count,
         r.local_variable_defined_count as sync_local_variable_defined_count,
         r.local_variable_used_count as sync_local_variable_used_count
       FROM ds_consumers c
       LEFT JOIN LATERAL (
-        SELECT r2.id, r2.synced_at, r2.duration_ms, r2.status, r2.error_message, r2.ds_last_modified, r2.consumer_last_modified, r2.component_count, r2.variable_count, r2.warning_count, r2.local_component_defined_count, r2.local_component_used_count, r2.local_variable_defined_count, r2.local_variable_used_count
+        SELECT r2.id, r2.synced_at, r2.duration_ms, r2.status, r2.error_message, r2.ds_last_modified, r2.consumer_last_modified, r2.component_count, r2.variable_count, r2.warning_count, r2.local_component_used_count, r2.parent_derived_component_count, r2.local_variable_defined_count, r2.local_variable_used_count
         FROM ds_sync_runs r2
         WHERE r2.consumer_id = c.id
         ORDER BY r2.synced_at DESC, r2.id DESC
@@ -261,11 +261,11 @@ export class DependencyRepository {
           component_count: row.sync_component_count as number,
           variable_count: row.sync_variable_count as number,
           warning_count: row.sync_warning_count as number,
-          local_component_defined_count:
-            row.sync_local_component_defined_count as number | null,
           local_component_used_count: row.sync_local_component_used_count as
             | number
             | null,
+          parent_derived_component_count:
+            row.sync_parent_derived_component_count as number | null,
           local_variable_defined_count:
             row.sync_local_variable_defined_count as number | null,
           local_variable_used_count: row.sync_local_variable_used_count as
@@ -329,11 +329,11 @@ export class DependencyRepository {
         INSERT INTO ds_sync_runs (
           id, consumer_id, synced_at, duration_ms, status, error_message,
           ds_last_modified, consumer_last_modified, component_count, variable_count, warning_count,
-          local_component_defined_count, local_component_used_count, local_variable_defined_count, local_variable_used_count
+          local_component_used_count, parent_derived_component_count, local_variable_defined_count, local_variable_used_count
         ) VALUES (
           ${runId}, ${params.consumer_id}, now(), ${params.duration_ms}, ${params.status}, ${params.error_message ?? null},
           ${params.ds_last_modified ?? null}, ${params.consumer_last_modified ?? null}, ${params.component_usage?.length ?? 0}, ${params.variable_usage?.length ?? 0}, ${params.warnings?.length ?? 0},
-          ${params.local_component_defined_count ?? null}, ${params.local_component_used_count ?? null}, ${params.local_variable_defined_count ?? null}, ${params.local_variable_used_count ?? null}
+          ${params.local_component_used_count ?? null}, ${params.parent_derived_component_count ?? null}, ${params.local_variable_defined_count ?? null}, ${params.local_variable_used_count ?? null}
         )
       `;
 

@@ -25,8 +25,8 @@ CREATE TABLE ds_sync_runs (
   component_count INTEGER NOT NULL DEFAULT 0,
   variable_count INTEGER NOT NULL DEFAULT 0,
   warning_count INTEGER NOT NULL DEFAULT 0,
-  local_component_defined_count INTEGER,
   local_component_used_count INTEGER,
+  parent_derived_component_count INTEGER,
   local_variable_defined_count INTEGER,
   local_variable_used_count INTEGER
 );
