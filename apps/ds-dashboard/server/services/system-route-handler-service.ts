@@ -172,6 +172,8 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     fsSync,
     summarizeDesignSystemsConfig,
     db,
+    dependencyRepo: injectedDependencyRepo,
+    pendingOpsRepo: injectedPendingOpsRepo,
   } = deps;
   const routeSystemId = decodeSystemRouteId(c.req.param("id"));
   const config = await designSystemRepository.getConfig();
@@ -185,22 +187,12 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   let deletedConsumersCount = undefined;
   let deletedConsumerNames = undefined;
   let consumerCleanupSkipped = undefined;
-  let dependencyRepo = null;
+  let mutationPhase: "none" | "consumers" | "design-system" | "filesystem" = "none";
+  let dependencyRepo = injectedDependencyRepo ?? null;
   let preflightConsumers = undefined;
+  let preflightFailed = false;
   let pendingOpId = undefined;
-  let pendingOpsRepo = undefined;
-  const markPendingOpAbandoned = async () => {
-    if (!pendingOpId || !pendingOpsRepo) return;
-    try {
-      await pendingOpsRepo.abandon(pendingOpId);
-    } catch (error) {
-      console.error("[handleDeleteDesignSystemRoute] Failed to abandon pending op:", {
-        pendingOpId,
-        systemId: routeSystemId,
-        reason: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
+  let pendingOpsRepo = injectedPendingOpsRepo ?? null;
   const markPendingOpCompleted = async () => {
     if (!pendingOpId || !pendingOpsRepo) return;
     try {
@@ -215,38 +207,48 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   };
 
   // Preflight DB check and WAL insert (before FS changes).
-  if (db && normalizedFigmaFileId) {
+  if (normalizedFigmaFileId) {
     try {
-      const [{ DependencyRepository }, { PendingOperationsRepository }] = await Promise.all([
-        import("../db/dependency-repository.js"),
-        import("../db/pending-operations-repository.js"),
-      ]);
-      dependencyRepo = new DependencyRepository(db);
-      pendingOpsRepo = new PendingOperationsRepository(db);
+      if ((!dependencyRepo || !pendingOpsRepo) && db) {
+        const [{ DependencyRepository }, { PendingOperationsRepository }] = await Promise.all([
+          import("../db/dependency-repository.js"),
+          import("../db/pending-operations-repository.js"),
+        ]);
+        dependencyRepo = dependencyRepo ?? new DependencyRepository(db);
+        pendingOpsRepo = pendingOpsRepo ?? new PendingOperationsRepository(db);
+      }
 
-      preflightConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
-      if (preflightConsumers.length > 0) {
-        const attemptedChanges = collectRemovableSystemPaths({
-          targetSystem,
-          repoRoot,
-          nextSystems,
-          resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
-        });
-        pendingOpId = await pendingOpsRepo.start({
-          type: "system.delete",
-          systemId: routeSystemId,
-          payload: {
-            routeSystemId,
-            normalizedFigmaFileId,
-            repoRoot,
-            attemptedChanges,
-            preflightConsumerCount: preflightConsumers.length,
-          },
-        });
+      if (dependencyRepo) {
+        preflightConsumers = await dependencyRepo.listConsumers(normalizedFigmaFileId);
       }
     } catch (error) {
       console.warn("[handleDeleteDesignSystemRoute] Preflight DB check failed:", error);
+      preflightFailed = true;
     }
+  }
+
+  if (preflightFailed) {
+    return failJson(c, 500, {
+      code: "design_system.delete_failed",
+      userMessage: "Failed to delete the design system.",
+      recoverable: true,
+      context: {
+        systemId: routeSystemId,
+        reason: "Preflight DB check failed before delete could start.",
+      },
+    });
+  }
+
+  if (normalizedFigmaFileId && !pendingOpsRepo) {
+    return failJson(c, 500, {
+      code: "design_system.delete_failed",
+      userMessage: "Failed to delete the design system.",
+      recoverable: true,
+      context: {
+        systemId: routeSystemId,
+        reason: "Pending operation repository is unavailable.",
+      },
+    });
   }
 
   const removablePaths = collectRemovableSystemPaths({
@@ -255,31 +257,95 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     nextSystems,
     resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
   });
-  const prunedDirs = pruneEmptyAncestorDirs(removablePaths, { repoRoot, fsSync });
-  const removedPaths = removeExistingPathsWithOptions(removablePaths, fsSync, {
-    repoRoot,
-    protectedTopLevelDirs: ["docs", "input", "output"],
-  });
-  const touchedPaths = [...removedPaths, ...prunedDirs];
+  let touchedPaths: string[] = [];
 
-  if (dependencyRepo && normalizedFigmaFileId) {
+  if (pendingOpsRepo) {
     try {
-      const deletedConsumers = await dependencyRepo.deleteConsumers(normalizedFigmaFileId);
-      deletedConsumersCount = deletedConsumers.length;
-      deletedConsumerNames = deletedConsumers.map((consumer: { name?: string | null }) => String(consumer.name || '').trim()).filter(Boolean);
-      consumerCleanupSkipped = false;
-      if (deletedConsumersCount > 0 && pendingOpsRepo && pendingOpId) {
-        await markPendingOpCompleted();
-      }
+      pendingOpId = await pendingOpsRepo.start({
+        type: "system.delete",
+        systemId: routeSystemId,
+        payload: {
+          systemId: routeSystemId,
+          routeSystemId,
+          figmaFileId: normalizedFigmaFileId || routeSystemId,
+          normalizedFigmaFileId,
+          repoRoot,
+          attemptedChanges: removablePaths,
+          preflightConsumerCount: preflightConsumers?.length ?? 0,
+        },
+      });
     } catch (error) {
-      consumerCleanupSkipped = true;
-      console.warn("[handleDeleteDesignSystemRoute] Consumer cleanup failed:", error);
-      await markPendingOpAbandoned();
+      console.warn("[handleDeleteDesignSystemRoute] Failed to start pending op:", {
+        systemId: routeSystemId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return failJson(c, 500, {
+        code: "design_system.delete_failed",
+        userMessage: "Failed to delete the design system.",
+        recoverable: true,
+        context: {
+          systemId: routeSystemId,
+          reason: error instanceof Error ? error.message : String(error),
+        },
+      });
     }
   }
 
-  await designSystemRepository.remove(routeSystemId);
-  await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  try {
+    if (dependencyRepo && normalizedFigmaFileId) {
+      const deletedConsumers = await dependencyRepo.removeAllByDsFileKey(
+        normalizedFigmaFileId,
+      );
+      deletedConsumersCount = deletedConsumers.deletedConsumerCount;
+      deletedConsumerNames = (preflightConsumers || [])
+        .map((consumer: { consumer_name?: string | null }) =>
+          String(consumer.consumer_name || "").trim(),
+        )
+        .filter(Boolean);
+      consumerCleanupSkipped = false;
+      mutationPhase = "consumers";
+    } else {
+      consumerCleanupSkipped = true;
+    }
+
+    await designSystemRepository.delete(routeSystemId);
+    mutationPhase = "design-system";
+    await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+
+    const removedPaths = removeExistingPathsWithOptions(removablePaths, fsSync, {
+      repoRoot,
+      protectedTopLevelDirs: ["docs", "input", "output"],
+    });
+    const prunedDirs = pruneEmptyAncestorDirs(removablePaths, { repoRoot, fsSync });
+    touchedPaths = [...removedPaths, ...prunedDirs];
+    mutationPhase = "filesystem";
+
+    if (pendingOpsRepo && pendingOpId) {
+      await markPendingOpCompleted();
+    }
+  } catch (error) {
+    if (pendingOpsRepo && pendingOpId && mutationPhase === "none") {
+      try {
+        await pendingOpsRepo.abandon(pendingOpId);
+      } catch (abandonError) {
+        console.error("[handleDeleteDesignSystemRoute] Failed to abandon pending op:", {
+          pendingOpId,
+          systemId: routeSystemId,
+          reason: abandonError instanceof Error ? abandonError.message : String(abandonError),
+        });
+      }
+    }
+    console.warn("[handleDeleteDesignSystemRoute] Delete design system failed; pending op left for reconciliation:", error);
+    return failJson(c, 500, {
+      code: "design_system.delete_failed",
+      userMessage: "Failed to delete the design system.",
+      recoverable: true,
+      context: {
+        systemId: routeSystemId,
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
 
   return c.json(
     buildDeleteDesignSystemSuccessPayload({

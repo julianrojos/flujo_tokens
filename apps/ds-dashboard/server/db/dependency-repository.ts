@@ -92,6 +92,85 @@ export interface SaveSyncRunParams {
 export class DependencyRepository {
   constructor(private sql: Sql) {}
 
+  private normalizeDsFileKey(dsFileKey: string): string {
+    if (!dsFileKey || !dsFileKey.trim()) {
+      throw new Error('dsFileKey is required and cannot be empty');
+    }
+    return dsFileKey.trim();
+  }
+
+  private async removeParentVariableUsageByDsFileKeyWithSql(
+    sql: Sql,
+    dsFileKey: string,
+  ): Promise<number> {
+    const normalizedKey = this.normalizeDsFileKey(dsFileKey);
+
+    const result = await sql`
+      DELETE FROM ds_parent_variable_usage
+      WHERE ds_file_key = ${normalizedKey}
+    `;
+    return result.count ?? 0;
+  }
+
+  private async removeAllConsumersByDsFileKeyWithSql(
+    sql: Sql,
+    dsFileKey: string,
+  ): Promise<{ deletedConsumerIds: string[]; deletedConsumerCount: number }> {
+    const normalizedKey = this.normalizeDsFileKey(dsFileKey);
+
+    const consumers = (await sql`
+      SELECT id FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
+    `) as Array<{ id: string }>;
+    const consumerIds = consumers.map((c) => c.id);
+
+    if (consumerIds.length === 0) {
+      return { deletedConsumerIds: [], deletedConsumerCount: 0 };
+    }
+
+    await sql`
+      DELETE FROM ds_sync_warnings
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ${normalizedKey}
+      )
+    `;
+
+    await sql`
+      DELETE FROM ds_component_usage
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ${normalizedKey}
+      )
+    `;
+
+    await sql`
+      DELETE FROM ds_variable_usage
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ${normalizedKey}
+      )
+    `;
+
+    await sql`
+      DELETE FROM ds_sync_runs
+      WHERE consumer_id IN (
+        SELECT id FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
+      )
+    `;
+
+    await sql`
+      DELETE FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
+    `;
+
+    return {
+      deletedConsumerIds: consumerIds,
+      deletedConsumerCount: consumerIds.length,
+    };
+  }
+
   async addConsumer(params: AddConsumerParams): Promise<DsConsumer> {
     const id = randomUUID();
 
@@ -607,84 +686,24 @@ export class DependencyRepository {
   async removeParentVariableUsageByDsFileKey(
     dsFileKey: string,
   ): Promise<number> {
-    if (!dsFileKey || !dsFileKey.trim()) {
-      throw new Error('dsFileKey is required and cannot be empty');
-    }
-
-    const result = await this.sql`
-      DELETE FROM ds_parent_variable_usage
-      WHERE ds_file_key = ${dsFileKey.trim()}
-    `;
-    return result.count ?? 0;
+    return this.removeParentVariableUsageByDsFileKeyWithSql(this.sql, dsFileKey);
   }
 
   async removeAllConsumersByDsFileKey(
     dsFileKey: string,
   ): Promise<{ deletedConsumerIds: string[]; deletedConsumerCount: number }> {
-    if (!dsFileKey || !dsFileKey.trim()) {
-      throw new Error('dsFileKey is required and cannot be empty');
-    }
-
-    const normalizedKey = dsFileKey.trim();
-
-    const consumers = (await this.sql`
-      SELECT id FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
-    `) as Array<{ id: string }>;
-    const consumerIds = consumers.map((c) => c.id);
-
-    if (consumerIds.length === 0) {
-      return { deletedConsumerIds: [], deletedConsumerCount: 0 };
-    }
-
-    await this.sql`
-      DELETE FROM ds_sync_warnings
-      WHERE run_id IN (
-        SELECT r.id FROM ds_sync_runs r
-        JOIN ds_consumers c ON r.consumer_id = c.id
-        WHERE c.ds_file_key = ${normalizedKey}
-      )
-    `;
-
-    await this.sql`
-      DELETE FROM ds_component_usage
-      WHERE run_id IN (
-        SELECT r.id FROM ds_sync_runs r
-        JOIN ds_consumers c ON r.consumer_id = c.id
-        WHERE c.ds_file_key = ${normalizedKey}
-      )
-    `;
-
-    await this.sql`
-      DELETE FROM ds_variable_usage
-      WHERE run_id IN (
-        SELECT r.id FROM ds_sync_runs r
-        JOIN ds_consumers c ON r.consumer_id = c.id
-        WHERE c.ds_file_key = ${normalizedKey}
-      )
-    `;
-
-    await this.sql`
-      DELETE FROM ds_sync_runs
-      WHERE consumer_id IN (
-        SELECT id FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
-      )
-    `;
-
-    await this.sql`
-      DELETE FROM ds_consumers WHERE ds_file_key = ${normalizedKey}
-    `;
-
-    return {
-      deletedConsumerIds: consumerIds,
-      deletedConsumerCount: consumerIds.length,
-    };
+    return this.removeAllConsumersByDsFileKeyWithSql(this.sql, dsFileKey);
   }
 
   async removeAllByDsFileKey(
     dsFileKey: string,
   ): Promise<{ deletedConsumerIds: string[]; deletedConsumerCount: number }> {
-    await this.removeParentVariableUsageByDsFileKey(dsFileKey);
-    return this.removeAllConsumersByDsFileKey(dsFileKey);
+    let deletedConsumers = { deletedConsumerIds: [] as string[], deletedConsumerCount: 0 };
+    await this.sql.begin(async (tx) => {
+      await this.removeParentVariableUsageByDsFileKeyWithSql(tx, dsFileKey);
+      deletedConsumers = await this.removeAllConsumersByDsFileKeyWithSql(tx, dsFileKey);
+    });
+    return deletedConsumers;
   }
 
   async getDeletePreview(dsFileKey: string): Promise<{
