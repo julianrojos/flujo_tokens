@@ -8,6 +8,7 @@ interface FigmaNode {
   name: string;
   type: string;
   componentId?: string;
+  componentProperties?: Record<string, unknown>;
   boundVariables?: Record<string, { id: string; type: string } | Array<{ id: string; type: string }> | null | undefined>;
   children?: FigmaNode[];
 }
@@ -58,6 +59,82 @@ export interface VariableBinding {
   totalNodeCount: number;
 }
 
+type UsageScope = "page" | "local-component" | "nested-local-component";
+
+interface ComponentRef {
+  componentKey: string;
+  componentName: string;
+  nodeId: string;
+}
+
+interface UsageScopeSummary {
+  page: number;
+  localComponent: number;
+  nestedLocalComponent: number;
+}
+
+export interface DirectParentUsageDetail {
+  localComponentKey: string;
+  localComponentName: string;
+  parentComponentKey: string;
+  parentComponentName: string;
+  usageScope: UsageScope;
+  usageCount: number;
+  sampleNodeIds: string[];
+}
+
+export interface LocalComponentGraphEdge {
+  parentComponentKey: string;
+  parentComponentName: string;
+  childComponentKey: string;
+  childComponentName: string;
+  usageCount: number;
+  sampleNodeIds: string[];
+}
+
+export interface ComponentPropertyUsageDetail {
+  nodeId: string;
+  nodeName: string;
+  componentKey: string;
+  componentName: string;
+  usageScope: UsageScope;
+  localComponentKey?: string;
+  localComponentName?: string;
+  properties: Array<{
+    name: string;
+    value: string;
+    valueType: string;
+  }>;
+}
+
+export interface TokenBindingDetail {
+  nodeId: string;
+  nodeName: string;
+  usageScope: UsageScope;
+  localComponentKey?: string;
+  localComponentName?: string;
+  bindings: Array<{
+    field: string;
+    variableId: string;
+    variableKey: string | null;
+    variableName: string | null;
+    variableType: string | null;
+    status: "resolved" | "unresolved";
+    resolvedTokenPath: string | null;
+  }>;
+}
+
+export interface ConsumerUsageDetails {
+  parentComponentUsages: DirectParentUsageDetail[];
+  localComponentGraph: LocalComponentGraphEdge[];
+  componentPropertyUsages: ComponentPropertyUsageDetail[];
+  tokenBindingDetails: TokenBindingDetail[];
+  usageShape: {
+    components: UsageScopeSummary;
+    tokens: UsageScopeSummary;
+  };
+}
+
 export interface ConsumerScanResult {
   componentInstances: ComponentInstance[];
   variableBindings: VariableBinding[];
@@ -70,6 +147,7 @@ export interface ConsumerScanResult {
   parentDerivedComponentCount: number | null;
   localVariableDefinedCount: number | null;
   localVariableUsedCount: number | null;
+  usageDetails: ConsumerUsageDetails;
 }
 
 function buildComponentDisplayName(component: DsComponentCatalog): string {
@@ -81,10 +159,47 @@ function buildComponentDisplayName(component: DsComponentCatalog): string {
   return `${setName}/${componentName}`;
 }
 
+function getUsageScope(depth: number): UsageScope {
+  if (depth <= 0) return "page";
+  if (depth === 1) return "local-component";
+  return "nested-local-component";
+}
+
+function serializeComponentPropertyValue(value: unknown): { value: string; valueType: string } {
+  if (value === null) {
+    return { value: "null", valueType: "null" };
+  }
+  if (value === undefined) {
+    return { value: "undefined", valueType: "undefined" };
+  }
+  const valueType = Array.isArray(value) ? "array" : typeof value;
+  if (valueType === "string" || valueType === "number" || valueType === "boolean") {
+    return { value: String(value), valueType };
+  }
+  try {
+    return { value: JSON.stringify(value), valueType };
+  } catch {
+    return { value: String(value), valueType: "unknown" };
+  }
+}
+
+function createEmptyUsageDetails(): ConsumerUsageDetails {
+  return {
+    parentComponentUsages: [],
+    localComponentGraph: [],
+    componentPropertyUsages: [],
+    tokenBindingDetails: [],
+    usageShape: {
+      components: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
+      tokens: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
+    },
+  };
+}
+
 /**
  * Keep a bounded sample of node IDs per usage entry to avoid large payloads.
  */
-const MAX_CAPTURED_NODE_IDS_PER_ENTRY = 200;
+const MAX_CAPTURED_NODE_IDS_PER_ENTRY = 20;
 /**
  * Emit unmatched-component diagnostics only when unresolved instances are significant.
  */
@@ -463,11 +578,17 @@ export async function scanConsumerFile(
     // fileResponse.components may be empty on non-Enterprise plans for library-only files.
     // Consumer files typically don't publish components — they consume from DS libraries.
     // We rely on dsComponentIdToKey (DS catalog) for matching imported component instances.
-    const fileComponentIdToKey = new Map<string, string>();
+    const fileComponentIdToInfo = new Map<string, ComponentRef>();
     if (fileResponse.components && Object.keys(fileResponse.components).length > 0) {
       for (const [componentId, component] of Object.entries(fileResponse.components)) {
         const comp = component as { key: string; name: string };
-        fileComponentIdToKey.set(componentId, comp.key);
+        const componentKey = String(comp.key || '').trim();
+        if (!componentKey) continue;
+        fileComponentIdToInfo.set(componentId, {
+          componentKey,
+          componentName: String(comp.name || componentKey).trim() || componentKey,
+          nodeId: componentId,
+        });
       }
     }
     // Note: No fallback to /files/:key/components here — that endpoint returns components
@@ -522,35 +643,93 @@ export async function scanConsumerFile(
     let matchedViaDsId = 0;
     const unmatchedComponentIds = new Set<string>();
     let unmatchedComponentIdsTotal = 0;
-    const localComponentDefinitionStack: string[] = [];
-    const parentDerivedComponentIds = new Set<string>();
+    const localComponentDefinitionStack: ComponentRef[] = [];
+    const usageDetails = createEmptyUsageDetails();
+    const directParentUsageByKey = new Map<string, DirectParentUsageDetail>();
+    const localComponentGraphByKey = new Map<string, LocalComponentGraphEdge>();
+    const componentPropertyUsageByNode = new Map<string, ComponentPropertyUsageDetail>();
+    const tokenBindingUsageByNode = new Map<string, TokenBindingDetail>();
+
+    const getLocalComponentInfo = (node: FigmaNode): ComponentRef => {
+      const fromFile = fileComponentIdToInfo.get(node.id);
+      if (fromFile) return fromFile;
+      const fallbackName = String(node.name || '').trim() || node.id;
+      return {
+        componentKey: node.id,
+        componentName: fallbackName,
+        nodeId: node.id,
+      };
+    };
 
     function scanNode(node: FigmaNode): void {
       const isLocalComponentDefinition = node.type === 'COMPONENT';
       if (isLocalComponentDefinition) {
-        localComponentDefinitionStack.push(node.id);
+        localComponentDefinitionStack.push(getLocalComponentInfo(node));
       }
+
+      const activeLocalComponentStack = localComponentDefinitionStack;
+      const activeLocalComponent = activeLocalComponentStack[activeLocalComponentStack.length - 1] || null;
+      const usageScope = getUsageScope(activeLocalComponentStack.length);
 
       // Check for component instances
       if (node.componentId) {
         const normalizedComponentId = String(node.componentId || '').trim();
-        const viaFile = fileComponentIdToKey.get(normalizedComponentId);
+        const viaFile = fileComponentIdToInfo.get(normalizedComponentId);
         const viaDsId = viaFile ? undefined : dsComponentIdToKey.get(normalizedComponentId);
-        const componentKey = viaFile || viaDsId;
-        if (componentKey && dsCatalog.components.has(componentKey)) {
+        const componentKey = viaFile?.componentKey || viaDsId || '';
+        const resolvedComponent = componentKey && dsCatalog.components.has(componentKey)
+          ? dsCatalog.components.get(componentKey)!
+          : null;
+        const resolvedComponentName = viaFile?.componentName || (resolvedComponent ? buildComponentDisplayName(resolvedComponent) : '');
+        const isResolvedLocalComponent = Boolean(viaFile);
+        const isResolvedParentComponent = Boolean(resolvedComponent && !isResolvedLocalComponent);
+        const currentComponentRef: ComponentRef | null = componentKey
+          ? {
+              componentKey,
+              componentName: resolvedComponentName || componentKey,
+              nodeId: normalizedComponentId,
+            }
+          : null;
+
+        if (componentKey && (resolvedComponent || isResolvedLocalComponent)) {
+          if (usageScope === 'page') {
+            usageDetails.usageShape.components.page += 1;
+          } else if (usageScope === 'local-component') {
+            usageDetails.usageShape.components.localComponent += 1;
+          } else {
+            usageDetails.usageShape.components.nestedLocalComponent += 1;
+          }
+        }
+
+        if (componentKey && resolvedComponent) {
           if (viaFile) matchedViaFileKey++;
           else matchedViaDsId++;
-          if (localComponentDefinitionStack.length > 0) {
-            const directDefinitionId = localComponentDefinitionStack[localComponentDefinitionStack.length - 1];
-            if (directDefinitionId !== node.id) {
-              parentDerivedComponentIds.add(directDefinitionId);
+          if (activeLocalComponent && activeLocalComponent.nodeId !== node.id && isResolvedParentComponent) {
+            const parentKey = activeLocalComponent.componentKey;
+            const edgeKey = `${parentKey}\u0000${resolvedComponent.key}\u0000${usageScope}`;
+            const existing = directParentUsageByKey.get(edgeKey);
+            if (existing) {
+              existing.usageCount += 1;
+              if (existing.sampleNodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+                existing.sampleNodeIds.push(node.id);
+              }
+            } else {
+              directParentUsageByKey.set(edgeKey, {
+                localComponentKey: activeLocalComponent.componentKey,
+                localComponentName: activeLocalComponent.componentName,
+                parentComponentKey: resolvedComponent.key,
+                parentComponentName: buildComponentDisplayName(resolvedComponent),
+                usageScope,
+                usageCount: 1,
+                sampleNodeIds: [node.id],
+              });
             }
           }
-          const dsComponent = dsCatalog.components.get(componentKey)!;
+
           if (!componentInstances.has(componentKey)) {
             componentInstances.set(componentKey, {
               componentKey,
-              componentName: buildComponentDisplayName(dsComponent),
+              componentName: resolvedComponentName || componentKey,
               nodeIds: [],
             });
           }
@@ -558,7 +737,60 @@ export async function scanConsumerFile(
           if (instance.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
             instance.nodeIds.push(node.id);
           }
-        } else if (normalizedComponentId) {
+          if (node.componentProperties && typeof node.componentProperties === 'object') {
+            const propertyEntries = Object.entries(node.componentProperties)
+              .map(([name, value]) => {
+                const normalizedName = String(name || '').trim();
+                if (!normalizedName) return null;
+                const normalizedValue = serializeComponentPropertyValue(value);
+                return {
+                  name: normalizedName,
+                  value: normalizedValue.value,
+                  valueType: normalizedValue.valueType,
+                };
+              })
+              .filter((item): item is { name: string; value: string; valueType: string } => item !== null);
+
+            if (propertyEntries.length > 0) {
+              const propertyKey = `${node.id}\u0000${componentKey}`;
+              const existing = componentPropertyUsageByNode.get(propertyKey);
+              if (existing) {
+                existing.properties.push(...propertyEntries);
+              } else {
+                componentPropertyUsageByNode.set(propertyKey, {
+                  nodeId: node.id,
+                  nodeName: String(node.name || '').trim() || node.id,
+                  componentKey,
+                  componentName: resolvedComponentName || componentKey,
+                  usageScope,
+                  localComponentKey: activeLocalComponent?.componentKey,
+                  localComponentName: activeLocalComponent?.componentName,
+                  properties: propertyEntries,
+                });
+              }
+            }
+          }
+        }
+
+        if (isResolvedLocalComponent && activeLocalComponent && activeLocalComponent.nodeId !== node.id) {
+          const edgeKey = `${activeLocalComponent.componentKey}\u0000${currentComponentRef!.componentKey}`;
+          const existing = localComponentGraphByKey.get(edgeKey);
+          if (existing) {
+            existing.usageCount += 1;
+            if (existing.sampleNodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+              existing.sampleNodeIds.push(node.id);
+            }
+          } else {
+            localComponentGraphByKey.set(edgeKey, {
+              parentComponentKey: activeLocalComponent.componentKey,
+              parentComponentName: activeLocalComponent.componentName,
+              childComponentKey: currentComponentRef!.componentKey,
+              childComponentName: currentComponentRef!.componentName,
+              usageCount: 1,
+              sampleNodeIds: [node.id],
+            });
+          }
+        } else if (normalizedComponentId && !resolvedComponent && !isResolvedLocalComponent) {
           unmatchedComponentIdsTotal += 1;
           if (unmatchedComponentIds.size < MAX_UNMATCHED_COMPONENT_IDS_SAMPLE) {
             unmatchedComponentIds.add(normalizedComponentId);
@@ -568,10 +800,16 @@ export async function scanConsumerFile(
 
       // Check for variable bindings
       if (node.boundVariables) {
-        for (const [, bindings] of Object.entries(node.boundVariables)) {
+        const bindingsForNode: TokenBindingDetail["bindings"] = [];
+        for (const [fieldName, bindings] of Object.entries(node.boundVariables)) {
+          const normalizedField = String(fieldName || '').trim();
+          if (!normalizedField) continue;
           for (const binding of normalizeBindings(bindings)) {
-            totalBoundVariableCount += 1;
             const variableId = binding.id;
+            if (!String(variableId || '').trim()) {
+              continue;
+            }
+            totalBoundVariableCount += 1;
             const variableKey =
               consumerVariableIdToKey.get(variableId) ||
               dsCatalog.variableIdToKey.get(variableId) ||
@@ -594,10 +832,51 @@ export async function scanConsumerFile(
               if (variableBinding.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
                 variableBinding.nodeIds.push(node.id);
               }
+              bindingsForNode.push({
+                field: normalizedField,
+                variableId,
+                variableKey,
+                variableName: dsVariable.name,
+                variableType: dsVariable.type,
+                status: 'resolved',
+                resolvedTokenPath: variableKey,
+              });
             } else {
               unresolvedBoundVariableCount += 1;
+              bindingsForNode.push({
+                field: normalizedField,
+                variableId,
+                variableKey: null,
+                variableName: null,
+                variableType: null,
+                status: 'unresolved',
+                resolvedTokenPath: null,
+              });
+            }
+            if (usageScope === 'page') {
+              usageDetails.usageShape.tokens.page += 1;
+            } else if (usageScope === 'local-component') {
+              usageDetails.usageShape.tokens.localComponent += 1;
+            } else {
+              usageDetails.usageShape.tokens.nestedLocalComponent += 1;
             }
             // Non-DS variables are expected (consumer-local variables) — no warning needed.
+          }
+        }
+        if (bindingsForNode.length > 0) {
+          const bindingKey = `${node.id}`;
+          const existing = tokenBindingUsageByNode.get(bindingKey);
+          if (existing) {
+            existing.bindings.push(...bindingsForNode);
+          } else {
+            tokenBindingUsageByNode.set(bindingKey, {
+              nodeId: node.id,
+              nodeName: String(node.name || '').trim() || node.id,
+              usageScope,
+              localComponentKey: activeLocalComponent?.componentKey,
+              localComponentName: activeLocalComponent?.componentName,
+              bindings: bindingsForNode,
+            });
           }
         }
       }
@@ -715,7 +994,7 @@ export async function scanConsumerFile(
         message: [
           'Scan completed with 0 components and 0 variables.',
           `dsCatalog: ${dsCatalog.components.size} components, ${dsCatalog.variables.size} variables.`,
-          `fileComponentIdToKey: ${fileComponentIdToKey.size} entries.`,
+          `fileComponentIdToInfo: ${fileComponentIdToInfo.size} entries.`,
           `dsComponentIdToKey: ${dsComponentIdToKey.size} entries.`,
           `Bound variables scanned: ${totalBoundVariableCount}.`,
           `Unresolved boundVariable count: ${unresolvedBoundVariableCount}.`,
@@ -734,12 +1013,13 @@ export async function scanConsumerFile(
 
     // Convert Maps to arrays and limit sample node IDs
     // Compute local counts for adoption tracking (SC-1, SC-2)
-    // localComponentUsedCount captures non-DS usage:
-    // unmatched component instances not resolved to the tracked DS
-    // (includes local file usage and other libraries).
+    // localComponentUsedCount captures only component instances that do not resolve
+    // to the tracked DS or to a local component in this file.
     const localComponentUsedCount = unmatchedComponentIdsTotal;
 
-    const parentDerivedComponentCount = parentDerivedComponentIds.size;
+    const parentDerivedComponentCount = new Set(
+      Array.from(directParentUsageByKey.values(), (entry) => entry.localComponentKey),
+    ).size;
 
     // localVariableDefinedCount: null if variables fetch failed, otherwise count of variables in consumer file
     const localVariableDefinedCount =
@@ -768,6 +1048,19 @@ export async function scanConsumerFile(
       parentDerivedComponentCount,
       localVariableDefinedCount,
       localVariableUsedCount,
+      usageDetails: {
+        parentComponentUsages: Array.from(directParentUsageByKey.values()).map((entry) => ({
+          ...entry,
+          sampleNodeIds: entry.sampleNodeIds.slice(0, 20),
+        })),
+        localComponentGraph: Array.from(localComponentGraphByKey.values()).map((entry) => ({
+          ...entry,
+          sampleNodeIds: entry.sampleNodeIds.slice(0, 20),
+        })),
+        componentPropertyUsages: Array.from(componentPropertyUsageByNode.values()),
+        tokenBindingDetails: Array.from(tokenBindingUsageByNode.values()),
+        usageShape: usageDetails.usageShape,
+      },
     };
 
     return result;

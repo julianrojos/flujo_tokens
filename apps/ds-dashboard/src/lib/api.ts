@@ -18,6 +18,7 @@ import type {
   SimulationResult,
   DsSyncRun,
   SyncRunsResponse,
+  UsageScope,
 } from '@/types/consumers';
 import { API_ERROR_CODES, type ApiErrorCode } from '@/lib/api-errors';
 import { normalizeEnvRef } from '@/lib/env-ref';
@@ -105,6 +106,108 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 
 function toNonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeUsageScopeSummary(value: unknown) {
+  const record = toRecord(value);
+  return {
+    page: Number(record?.page ?? 0) || 0,
+    localComponent: Number(record?.localComponent ?? 0) || 0,
+    nestedLocalComponent: Number(record?.nestedLocalComponent ?? 0) || 0,
+  };
+}
+
+function normalizeUsageScope(value: unknown): UsageScope {
+  return value === "local-component" || value === "nested-local-component" ? value : "page";
+}
+
+function normalizeUsageDetails(value: unknown): DsSyncRun['usageDetails'] {
+  const record = toRecord(value);
+  if (!record) return null;
+
+  const normalizeArray = (input: unknown): unknown[] => (
+    Array.isArray(input) ? input : []
+  );
+
+  return {
+    parentComponentUsages: normalizeArray(record.parentComponentUsages).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        localComponentKey: toNonEmptyString(item?.localComponentKey),
+        localComponentName: toNonEmptyString(item?.localComponentName),
+        parentComponentKey: toNonEmptyString(item?.parentComponentKey),
+        parentComponentName: toNonEmptyString(item?.parentComponentName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        usageCount: Number(item?.usageCount ?? 0) || 0,
+        sampleNodeIds: Array.isArray(item?.sampleNodeIds)
+          ? item.sampleNodeIds.map((nodeId) => toNonEmptyString(nodeId)).filter(Boolean)
+          : [],
+      };
+    }).filter((entry) => entry.parentComponentKey && entry.localComponentKey),
+    localComponentGraph: normalizeArray(record.localComponentGraph).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        parentComponentKey: toNonEmptyString(item?.parentComponentKey),
+        parentComponentName: toNonEmptyString(item?.parentComponentName),
+        childComponentKey: toNonEmptyString(item?.childComponentKey),
+        childComponentName: toNonEmptyString(item?.childComponentName),
+        usageCount: Number(item?.usageCount ?? 0) || 0,
+        sampleNodeIds: Array.isArray(item?.sampleNodeIds)
+          ? item.sampleNodeIds.map((nodeId) => toNonEmptyString(nodeId)).filter(Boolean)
+          : [],
+      };
+    }).filter((entry) => entry.parentComponentKey && entry.childComponentKey),
+    componentPropertyUsages: normalizeArray(record.componentPropertyUsages).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        nodeId: toNonEmptyString(item?.nodeId),
+        nodeName: toNonEmptyString(item?.nodeName),
+        componentKey: toNonEmptyString(item?.componentKey),
+        componentName: toNonEmptyString(item?.componentName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        localComponentKey: toNonEmptyString(item?.localComponentKey) || undefined,
+        localComponentName: toNonEmptyString(item?.localComponentName) || undefined,
+        properties: Array.isArray(item?.properties)
+          ? item.properties.map((property) => {
+              const prop = toRecord(property);
+              return {
+                name: toNonEmptyString(prop?.name),
+                value: toNonEmptyString(prop?.value),
+                valueType: toNonEmptyString(prop?.valueType) || "unknown",
+              };
+            }).filter((property) => property.name.length > 0)
+          : [],
+      };
+    }).filter((entry) => entry.nodeId && entry.componentKey),
+    tokenBindingDetails: normalizeArray(record.tokenBindingDetails).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        nodeId: toNonEmptyString(item?.nodeId),
+        nodeName: toNonEmptyString(item?.nodeName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        localComponentKey: toNonEmptyString(item?.localComponentKey) || undefined,
+        localComponentName: toNonEmptyString(item?.localComponentName) || undefined,
+        bindings: Array.isArray(item?.bindings)
+          ? item.bindings.map((binding) => {
+              const normalizedBinding = toRecord(binding);
+              return {
+                field: toNonEmptyString(normalizedBinding?.field),
+                variableId: toNonEmptyString(normalizedBinding?.variableId),
+                variableKey: normalizedBinding?.variableKey == null ? null : toNonEmptyString(normalizedBinding?.variableKey),
+                variableName: normalizedBinding?.variableName == null ? null : toNonEmptyString(normalizedBinding?.variableName),
+                variableType: normalizedBinding?.variableType == null ? null : toNonEmptyString(normalizedBinding?.variableType),
+                status: normalizedBinding?.status === 'resolved' ? 'resolved' : 'unresolved',
+                resolvedTokenPath: normalizedBinding?.resolvedTokenPath == null ? null : toNonEmptyString(normalizedBinding?.resolvedTokenPath),
+              };
+            }).filter((binding) => binding.field.length > 0 && binding.variableId.length > 0)
+          : [],
+      };
+    }).filter((entry) => entry.nodeId),
+    usageShape: {
+      components: normalizeUsageScopeSummary(record.usageShape && toRecord(record.usageShape)?.components),
+      tokens: normalizeUsageScopeSummary(record.usageShape && toRecord(record.usageShape)?.tokens),
+    },
+  };
 }
 
 async function buildApiError(response: Response): Promise<ApiError> {
@@ -1823,6 +1926,12 @@ function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
       Number.isFinite(parentDerivedComponentCount)
         ? parentDerivedComponentCount
         : null,
+    usageDetails: normalizeUsageDetails(
+      row.usageDetails ??
+        row.usage_details ??
+        row.consumerUsageDetails ??
+        row.consumer_usage_details_json,
+    ),
   };
 }
 

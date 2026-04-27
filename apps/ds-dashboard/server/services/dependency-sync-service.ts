@@ -259,6 +259,7 @@ export class DependencySyncService {
         parent_derived_component_count: scanResult.parentDerivedComponentCount,
         local_variable_defined_count: scanResult.localVariableDefinedCount,
         local_variable_used_count: scanResult.localVariableUsedCount,
+        consumer_usage_details_json: scanResult.usageDetails,
       });
 
       this.throwIfAborted(signal);

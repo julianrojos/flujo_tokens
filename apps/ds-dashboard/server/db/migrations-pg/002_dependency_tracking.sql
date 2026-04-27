@@ -28,7 +28,8 @@ CREATE TABLE ds_sync_runs (
   local_component_used_count INTEGER,
   parent_derived_component_count INTEGER,
   local_variable_defined_count INTEGER,
-  local_variable_used_count INTEGER
+  local_variable_used_count INTEGER,
+  consumer_usage_details_json JSONB
 );
 
 -- Component usage: Aggregated component instance data per sync run

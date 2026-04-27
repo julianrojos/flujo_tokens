@@ -28,6 +28,71 @@ export interface DsSyncRun {
   parentDerivedComponentCount?: number | null;
   localVariableDefinedCount?: number | null;
   localVariableUsedCount?: number | null;
+  usageDetails?: ConsumerUsageDetails | null;
+}
+
+export type UsageScope = "page" | "local-component" | "nested-local-component";
+
+export interface ConsumerUsageDetails {
+  parentComponentUsages: Array<{
+    localComponentKey: string;
+    localComponentName: string;
+    parentComponentKey: string;
+    parentComponentName: string;
+    usageScope: UsageScope;
+    usageCount: number;
+    sampleNodeIds: string[];
+  }>;
+  localComponentGraph: Array<{
+    parentComponentKey: string;
+    parentComponentName: string;
+    childComponentKey: string;
+    childComponentName: string;
+    usageCount: number;
+    sampleNodeIds: string[];
+  }>;
+  componentPropertyUsages: Array<{
+    nodeId: string;
+    nodeName: string;
+    componentKey: string;
+    componentName: string;
+    usageScope: UsageScope;
+    localComponentKey?: string;
+    localComponentName?: string;
+    properties: Array<{
+      name: string;
+      value: string;
+      valueType: string;
+    }>;
+  }>;
+  tokenBindingDetails: Array<{
+    nodeId: string;
+    nodeName: string;
+    usageScope: UsageScope;
+    localComponentKey?: string;
+    localComponentName?: string;
+    bindings: Array<{
+      field: string;
+      variableId: string;
+      variableKey: string | null;
+      variableName: string | null;
+      variableType: string | null;
+      status: "resolved" | "unresolved";
+      resolvedTokenPath: string | null;
+    }>;
+  }>;
+  usageShape: {
+    components: {
+      page: number;
+      localComponent: number;
+      nestedLocalComponent: number;
+    };
+    tokens: {
+      page: number;
+      localComponent: number;
+      nestedLocalComponent: number;
+    };
+  };
 }
 
 // API response wrappers

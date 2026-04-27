@@ -25,6 +25,7 @@ export interface DsSyncRun {
   parent_derived_component_count?: number | null;
   local_variable_defined_count?: number | null;
   local_variable_used_count?: number | null;
+  consumer_usage_details_json?: unknown | null;
 }
 
 export interface DsComponentUsage {
@@ -85,6 +86,7 @@ export interface SaveSyncRunParams {
   parent_derived_component_count?: number | null;
   local_variable_defined_count?: number | null;
   local_variable_used_count?: number | null;
+  consumer_usage_details_json?: unknown | null;
 }
 
 export class DependencyRepository {
@@ -225,10 +227,11 @@ export class DependencyRepository {
         r.local_component_used_count as sync_local_component_used_count,
         r.parent_derived_component_count as sync_parent_derived_component_count,
         r.local_variable_defined_count as sync_local_variable_defined_count,
-        r.local_variable_used_count as sync_local_variable_used_count
+        r.local_variable_used_count as sync_local_variable_used_count,
+        r.consumer_usage_details_json as sync_consumer_usage_details_json
       FROM ds_consumers c
       LEFT JOIN LATERAL (
-        SELECT r2.id, r2.synced_at, r2.duration_ms, r2.status, r2.error_message, r2.ds_last_modified, r2.consumer_last_modified, r2.component_count, r2.variable_count, r2.warning_count, r2.local_component_used_count, r2.parent_derived_component_count, r2.local_variable_defined_count, r2.local_variable_used_count
+        SELECT r2.id, r2.synced_at, r2.duration_ms, r2.status, r2.error_message, r2.ds_last_modified, r2.consumer_last_modified, r2.component_count, r2.variable_count, r2.warning_count, r2.local_component_used_count, r2.parent_derived_component_count, r2.local_variable_defined_count, r2.local_variable_used_count, r2.consumer_usage_details_json
         FROM ds_sync_runs r2
         WHERE r2.consumer_id = c.id
         ORDER BY r2.synced_at DESC, r2.id DESC
@@ -271,6 +274,7 @@ export class DependencyRepository {
           local_variable_used_count: row.sync_local_variable_used_count as
             | number
             | null,
+          consumer_usage_details_json: row.sync_consumer_usage_details_json,
         };
       }
       return result;
@@ -329,11 +333,11 @@ export class DependencyRepository {
         INSERT INTO ds_sync_runs (
           id, consumer_id, synced_at, duration_ms, status, error_message,
           ds_last_modified, consumer_last_modified, component_count, variable_count, warning_count,
-          local_component_used_count, parent_derived_component_count, local_variable_defined_count, local_variable_used_count
+          local_component_used_count, parent_derived_component_count, local_variable_defined_count, local_variable_used_count, consumer_usage_details_json
         ) VALUES (
           ${runId}, ${params.consumer_id}, now(), ${params.duration_ms}, ${params.status}, ${params.error_message ?? null},
           ${params.ds_last_modified ?? null}, ${params.consumer_last_modified ?? null}, ${params.component_usage?.length ?? 0}, ${params.variable_usage?.length ?? 0}, ${params.warnings?.length ?? 0},
-          ${params.local_component_used_count ?? null}, ${params.parent_derived_component_count ?? null}, ${params.local_variable_defined_count ?? null}, ${params.local_variable_used_count ?? null}
+          ${params.local_component_used_count ?? null}, ${params.parent_derived_component_count ?? null}, ${params.local_variable_defined_count ?? null}, ${params.local_variable_used_count ?? null}, ${JSON.stringify(params.consumer_usage_details_json ?? null)}
         )
       `;
 

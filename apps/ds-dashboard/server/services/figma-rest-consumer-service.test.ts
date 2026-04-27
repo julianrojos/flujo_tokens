@@ -35,7 +35,7 @@ function makeDsCatalog(args?: {
   };
 }
 
-describe('scanConsumerFile local-count derivation', () => {
+describe('scanConsumerFile local-count derivation', { concurrency: false }, () => {
   beforeEach(() => {
     (globalThis as { fetch: typeof fetch }).fetch = originalFetch;
     process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
@@ -50,7 +50,7 @@ describe('scanConsumerFile local-count derivation', () => {
     }
   });
 
-  test('derives parentDerivedComponentCount from local components using DS instances and localComponentUsedCount from unmatched instances', async () => {
+  test('derives parentDerivedComponentCount from local components using DS instances and localComponentUsedCount from unmatched instances', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog({ componentId: '1:1' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -79,15 +79,39 @@ describe('scanConsumerFile local-count derivation', () => {
                   type: 'COMPONENT',
                   children: [
                     {
-                      id: '10:1',
-                      name: 'Local card',
-                      type: 'COMPONENT',
+                      id: '11:0',
+                      name: 'Local card instance',
+                      type: 'INSTANCE',
+                      componentId: '10:1',
+                    },
+                  ],
+                },
+                {
+                  id: '10:1',
+                  name: 'Local card',
+                  type: 'COMPONENT',
+                  children: [
+                    {
+                      id: '10:2',
+                      name: 'DS instance',
+                      type: 'INSTANCE',
+                      componentId: '1:1',
+                      componentProperties: {
+                        size: 'md',
+                        disabled: false,
+                        content: 'Primary',
+                      },
+                      boundVariables: {
+                        fills: {
+                          id: 'VariableID:1:1',
+                          type: 'VARIABLE_ALIAS',
+                        },
+                      },
                       children: [
                         {
-                          id: '2:1',
-                          name: 'DS instance',
-                          type: 'INSTANCE',
-                          componentId: '1:1',
+                          id: '2:9',
+                          name: 'Text child',
+                          type: 'TEXT',
                         },
                       ],
                     },
@@ -114,8 +138,8 @@ describe('scanConsumerFile local-count derivation', () => {
               ],
             },
             components: {
-              '10:0': { key: 'local.zero', name: 'Local/Zero' },
-              '10:1': { key: 'local.one', name: 'Local/One' },
+              '10:0': { key: 'local.shell', name: 'Local/Shell' },
+              '10:1': { key: 'local.card', name: 'Local/Card' },
               '10:2': { key: 'local.two', name: 'Local/Two' },
             },
           }),
@@ -128,9 +152,40 @@ describe('scanConsumerFile local-count derivation', () => {
     const result = await scanConsumerFile('consumer-components', 'figd_test_token', dsCatalog);
     assert.equal(result.parentDerivedComponentCount, 1);
     assert.equal(result.localComponentUsedCount, 1);
+    assert.equal(result.usageDetails.parentComponentUsages.length, 1);
+    assert.deepEqual(result.usageDetails.parentComponentUsages[0], {
+      localComponentKey: 'local.card',
+      localComponentName: 'Local/Card',
+      parentComponentKey: 'comp.button.primary',
+      parentComponentName: 'Button/Primary',
+      usageScope: 'local-component',
+      usageCount: 1,
+      sampleNodeIds: ['10:2'],
+    });
+    assert.equal(result.usageDetails.localComponentGraph.length, 1);
+    assert.deepEqual(result.usageDetails.localComponentGraph[0], {
+      parentComponentKey: 'local.shell',
+      parentComponentName: 'Local/Shell',
+      childComponentKey: 'local.card',
+      childComponentName: 'Local/Card',
+      usageCount: 1,
+      sampleNodeIds: ['11:0'],
+    });
+    assert.equal(result.usageDetails.componentPropertyUsages.length, 1);
+    assert.equal(result.usageDetails.componentPropertyUsages[0].properties.length, 3);
+    assert.deepEqual(result.usageDetails.componentPropertyUsages[0].properties.map((item) => item.name), [
+      'size',
+      'disabled',
+      'content',
+    ]);
+    assert.equal(result.usageDetails.tokenBindingDetails.length, 1);
+    assert.equal(result.usageDetails.tokenBindingDetails[0].bindings.length, 1);
+    assert.equal(result.usageDetails.tokenBindingDetails[0].bindings[0].variableKey, 'color.primary');
+    assert.equal(result.usageDetails.usageShape.components.localComponent, 2);
+    assert.equal(result.usageDetails.usageShape.tokens.localComponent, 1);
   });
 
-  test('does not count a component node as parent-derived when it is directly the DS instance itself', async () => {
+  test('does not count a component node as parent-derived when it is directly the DS instance itself', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog({ componentId: '1:1' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -174,9 +229,14 @@ describe('scanConsumerFile local-count derivation', () => {
     const result = await scanConsumerFile('consumer-self-instance', 'figd_test_token', dsCatalog);
     assert.equal(result.parentDerivedComponentCount, 0);
     assert.equal(result.localComponentUsedCount, 0);
+    assert.deepEqual(result.usageDetails.usageShape.components, {
+      page: 0,
+      localComponent: 1,
+      nestedLocalComponent: 0,
+    });
   });
 
-  test('sets localVariableDefinedCount to null when consumer variables fetch fails', async () => {
+  test('sets localVariableDefinedCount to null when consumer variables fetch fails', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog({ variableId: 'VariableID:1:1', variableKey: 'color.primary' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -211,7 +271,7 @@ describe('scanConsumerFile local-count derivation', () => {
     assert.equal(result.localVariableDefinedCount, null);
   });
 
-  test('derives localVariableUsedCount from total bound variables minus resolved DS bindings', async () => {
+  test('derives localVariableUsedCount from total bound variables minus resolved DS bindings', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog({ variableId: 'VariableID:1:1', variableKey: 'color.primary' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -294,7 +354,7 @@ describe('scanConsumerFile local-count derivation', () => {
     assert.equal(result.localVariableUsedCount, 1);
   });
 
-  test('derives localVariableDefinedCount from consumer variable payload size', async () => {
+  test('derives localVariableDefinedCount from consumer variable payload size', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog();
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -338,7 +398,7 @@ describe('scanConsumerFile local-count derivation', () => {
     assert.equal(result.localVariableDefinedCount, 5);
   });
 
-  test('prefixes DS component set name when component names are variant-only', async () => {
+  test('prefixes DS component set name when component names are variant-only', { concurrency: false }, async () => {
     const componentKey = 'comp.button.variant.accent';
     const dsCatalog: DsCatalog = {
       components: new Map([
@@ -400,8 +460,8 @@ describe('scanConsumerFile local-count derivation', () => {
   });
 });
 
-describe('buildDsCatalog', () => {
-  test('resolves setName via containing_frame.containingComponentSet in /components response', async () => {
+describe('buildDsCatalog', { concurrency: false }, () => {
+  test('resolves setName via containing_frame.containingComponentSet in /components response', { concurrency: false }, async () => {
     // Simulates the real Figma API behaviour:
     // - /v1/files/:key/components  → includes containing_frame.containingComponentSet (real API response)
     // - /v1/files/:key?depth=1     → components and componentSets maps are EMPTY (depth truncates them)
@@ -486,7 +546,7 @@ describe('buildDsCatalog', () => {
     assert.equal(def!.setName, 'Button');
   });
 
-  test('falls back to componentSetId and file componentSets when containingComponentSet is absent', async () => {
+  test('falls back to componentSetId and file componentSets when containingComponentSet is absent', { concurrency: false }, async () => {
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/api/figma-mcp-variables')) {
@@ -543,7 +603,7 @@ describe('buildDsCatalog', () => {
     assert.equal(comp!.setName, 'Button');
   });
 
-  test('prefers containingComponentSet name when both sources exist and conflict', async () => {
+  test('prefers containingComponentSet name when both sources exist and conflict', { concurrency: false }, async () => {
     const warnings: string[] = [];
     const originalWarn = console.warn;
     console.warn = (...args: unknown[]) => {

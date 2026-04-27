@@ -140,6 +140,20 @@ describe('DependencyRepository', () => {
           node_id: 'node5',
         },
       ],
+      consumer_usage_details_json: {
+        usageShape: {
+          components: {
+            page: 1,
+            localComponent: 2,
+            nestedLocalComponent: 0,
+          },
+          tokens: {
+            page: 3,
+            localComponent: 1,
+            nestedLocalComponent: 0,
+          },
+        },
+      },
     });
 
     assert.strictEqual(syncRun.consumer_id, consumer.id);
@@ -158,6 +172,66 @@ describe('DependencyRepository', () => {
 
     const warnings = await sql`SELECT * FROM ds_sync_warnings WHERE run_id = ${syncRun.id}`;
     assert.strictEqual(warnings.length, 1);
+  });
+
+  test('listConsumers returns latest sync usage details', async () => {
+    const consumer = await repo.addConsumer({
+      ds_file_key: 'ds-usage-details',
+      consumer_file_key: 'consumer-usage-details',
+      consumer_name: 'Usage Details App',
+    });
+
+    await repo.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 600,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+      consumer_usage_details_json: {
+        parentComponentUsages: [
+          {
+            localComponentKey: 'local.card',
+            localComponentName: 'Local/Card',
+            parentComponentKey: 'button.primary',
+            parentComponentName: 'Button/Primary',
+            usageScope: 'local-component',
+            usageCount: 2,
+            sampleNodeIds: ['10:1'],
+          },
+        ],
+        localComponentGraph: [],
+        componentPropertyUsages: [],
+        tokenBindingDetails: [],
+        usageShape: {
+          components: { page: 0, localComponent: 1, nestedLocalComponent: 0 },
+          tokens: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
+        },
+      },
+    });
+
+    const consumers = await repo.listConsumers('ds-usage-details');
+    assert.strictEqual(consumers.length, 1);
+    assert.deepStrictEqual(consumers[0].latest_sync?.consumer_usage_details_json, {
+      parentComponentUsages: [
+        {
+          localComponentKey: 'local.card',
+          localComponentName: 'Local/Card',
+          parentComponentKey: 'button.primary',
+          parentComponentName: 'Button/Primary',
+          usageScope: 'local-component',
+          usageCount: 2,
+          sampleNodeIds: ['10:1'],
+        },
+      ],
+      localComponentGraph: [],
+      componentPropertyUsages: [],
+      tokenBindingDetails: [],
+      usageShape: {
+        components: { page: 0, localComponent: 1, nestedLocalComponent: 0 },
+        tokens: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
+      },
+    });
   });
 
   test('listConsumers returns latest sync parent-derived component count', async () => {
