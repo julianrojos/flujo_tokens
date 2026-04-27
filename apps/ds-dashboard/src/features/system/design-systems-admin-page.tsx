@@ -248,16 +248,16 @@ export function DesignSystemsAdminPage() {
   const handleDelete = async (id: string) => {
     setBusy(id, true);
     setError(null);
+    setDeleteModalTarget(null);
+    setDeleteConfirmed(false);
+    setDeletePreview(null);
+    setDeletePreviewLoading(false);
     try {
       const response = await deleteDesignSystem(id);
       replaceSystems(response.config.systems, {
         activeSystemId: response.config.defaultSystem || undefined,
       });
       await load();
-      setDeleteModalTarget(null);
-      setDeleteConfirmed(false);
-      setDeletePreview(null);
-      setDeletePreviewLoading(false);
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -606,7 +606,6 @@ export function DesignSystemsAdminPage() {
 
                 <div className="flex items-center justify-end gap-2">
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={() => {
                       setDeleteModalTarget(null);
@@ -618,7 +617,6 @@ export function DesignSystemsAdminPage() {
                     Cancel
                   </Button>
                   <Button
-                    size="sm"
                     variant="destructive"
                     disabled={
                       !deleteConfirmed ||

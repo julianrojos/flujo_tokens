@@ -139,7 +139,6 @@ export function DesignSystemUpdateActions({
       <div className="mt-4">
         <div className="flex items-center justify-end gap-2">
           <Button
-            size="sm"
             onClick={() => void handleUpdateComponents()}
             disabled={disabled || componentsState.isRunning}
           >
@@ -149,7 +148,6 @@ export function DesignSystemUpdateActions({
             })}
           </Button>
           <Button
-            size="sm"
             onClick={() => void handleUpdateVariables()}
             disabled={!canRunVariablesUpdate}
           >
