@@ -145,10 +145,10 @@ export function ConsumersPage() {
         />
       )}
       {activeTab === 'by-component' && (
-        <ConsumerTabByComponent dsFileKey={dsFileKey} />
+        <ConsumerTabByComponent dsFileKey={dsFileKey} reloadToken={reloadToken} />
       )}
       {activeTab === 'by-variable' && (
-        <ConsumerTabByVariable dsFileKey={dsFileKey} />
+        <ConsumerTabByVariable dsFileKey={dsFileKey} reloadToken={reloadToken} />
       )}
 
       <AddConsumerModal

@@ -6,19 +6,26 @@ import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { StatusAlert } from "@/components/ui/status-alert";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByVariable } from "@/lib/api";
+import { fetchReportByVariable, listConsumers } from "@/lib/api";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { SimulateChangePanel } from "./simulate-change-panel";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
+import {
+  buildVariableUsageScopeSummary,
+  type VariableUsageScopeSummary,
+  type ConsumerWithUsageDetails,
+} from "../lib/usage-details-summary";
 
 interface ConsumerTabByVariableProps {
   dsFileKey: string;
+  reloadToken?: number;
 }
 
 interface VariableKpis {
@@ -28,7 +35,7 @@ interface VariableKpis {
   uniqueConsumers: number;
 }
 
-type VariableSortField = "name" | "type" | "impact" | "nodes";
+type VariableSortField = "name" | "type" | "impact" | "nodes" | "bindings" | "usedIn";
 
 function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   const consumerIds = new Set<string>();
@@ -53,20 +60,61 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   };
 }
 
-export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps) {
+function renderUsageBreakdown(usageSummary: VariableUsageScopeSummary | undefined) {
+  if (!usageSummary) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1.5">
+        <Badge variant="neutral" className="text-[10px]">Page {usageSummary.usageScope.page}</Badge>
+        <Badge variant="neutral" className="text-[10px]">Local {usageSummary.usageScope.localComponent}</Badge>
+        <Badge variant="neutral" className="text-[10px]">Nested {usageSummary.usageScope.nestedLocalComponent}</Badge>
+      </div>
+      <Badge
+        variant="neutral"
+        className="text-[10px]"
+        title="Field-level binding occurrences across the consumer; a single node can contribute more than one binding."
+      >
+        {usageSummary.bindingOccurrenceCount} binding occurrences
+      </Badge>
+    </div>
+  );
+}
+
+export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTabByVariableProps) {
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
   const [reports, setReports] = useState<VariableUsageReport[]>([]);
+  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
+  const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
   const [selectedVariableKey, setSelectedVariableKey] = useState<string | null>(null);
   const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
 
   const loadReports = async () => {
     setLoading(true);
     setError(null);
+    setUsageDetailsWarning(null);
     try {
-      const response = await fetchReportByVariable(dsFileKey);
-      setReports(response.data || []);
+      const [reportResult, consumersResult] = await Promise.allSettled([
+        fetchReportByVariable(dsFileKey),
+        listConsumers(dsFileKey),
+      ]);
+
+      if (reportResult.status === "rejected") {
+        throw reportResult.reason;
+      }
+
+      setReports(reportResult.value.data || []);
+      if (consumersResult.status === "fulfilled") {
+        setConsumers(consumersResult.value.data || []);
+      } else {
+        console.warn("[consumer-tab-by-variable] Consumer usage details unavailable", consumersResult.reason);
+        setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
+        setConsumers([]);
+      }
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -81,7 +129,7 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
 
   useEffect(() => {
     void loadReports();
-  }, [dsFileKey]);
+  }, [dsFileKey, reloadToken]);
 
   const filteredReports = useMemo(() => {
     const lowered = searchQuery.toLowerCase().trim();
@@ -97,6 +145,11 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
     });
   }, [reports, searchQuery, severityFilter]);
 
+  const usageSummaryByVariable = useMemo(
+    () => buildVariableUsageScopeSummary(consumers),
+    [consumers],
+  );
+
   const sortedReports = useMemo(() => {
     return [...filteredReports].sort((a, b) => {
       const valueFor = (report: VariableUsageReport): string | number => {
@@ -104,6 +157,8 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
         if (sort.field === "type") return report.variableType.toLowerCase();
         if (sort.field === "impact") return report.impactLevel.level;
         if (sort.field === "nodes") return report.totalNodes;
+        if (sort.field === "bindings") return usageSummaryByVariable.get(report.variableKey)?.bindingOccurrenceCount ?? Number.NEGATIVE_INFINITY;
+        if (sort.field === "usedIn") return report.consumers.length;
         return report.consumers.length;
       };
 
@@ -112,7 +167,7 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return sort.dir === "asc" ? comparison : comparison * -1;
     });
-  }, [filteredReports, sort]);
+  }, [filteredReports, sort, usageSummaryByVariable]);
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
 
@@ -164,6 +219,14 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
             </Select>
           </FilterBar>
 
+          {usageDetailsWarning ? (
+            <StatusAlert
+              variant="warning"
+              title="Usage details unavailable"
+              description={usageDetailsWarning}
+            />
+          ) : null}
+
           {error ? <ApiErrorMessage error={error} /> : null}
 
           <Table>
@@ -189,21 +252,30 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
                   onSort={() => toggleSort("nodes")}
                   ariaLabel="Sort by instances"
                 />
-                <TableHead>Used in</TableHead>
+                <SortableTableHead
+                  label="Bindings"
+                  onSort={() => toggleSort("bindings")}
+                  ariaLabel="Sort by bindings"
+                />
+                <SortableTableHead
+                  label="Used in"
+                  onSort={() => toggleSort("usedIn")}
+                  ariaLabel="Sort by used in"
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`variable-loading-${index}`}>
-                    <TableCell colSpan={5} className="text-muted-foreground">
+                    <TableCell colSpan={6} className="text-muted-foreground">
                       Loading variable usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={6} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching variables"
@@ -230,6 +302,9 @@ export function ConsumerTabByVariable({ dsFileKey }: ConsumerTabByVariableProps)
                       </TableCell>
                       <TableCell>
                         <span className="tabular-nums text-foreground">{report.totalNodes}</span>
+                      </TableCell>
+                      <TableCell>
+                        {renderUsageBreakdown(usageSummaryByVariable.get(report.variableKey))}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">

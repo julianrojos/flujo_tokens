@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, EmptyStateAction, FilterBar, StatsOverview } from "@/components/composites";
 import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
+import { fetchReportByFile, listConsumers, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toConsumerDetail } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -21,10 +22,17 @@ import {
   TableHead,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";
+import { useSortState } from "@/lib/use-sort-state";
+import {
+  summarizeUsageDetails,
+  type ConsumerWithUsageDetails,
+  type UsageScopeSummary,
+} from "../lib/usage-details-summary";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
@@ -43,6 +51,8 @@ interface KpiData {
   withWarnings: number;
   neverSynced: number;
 }
+
+type ConsumerSortField = "consumer" | "lastSync" | "usage" | "adoption";
 
 function computeKpis(reports: FileReport[]): KpiData {
   const now = Date.now();
@@ -71,20 +81,6 @@ function computeKpis(reports: FileReport[]): KpiData {
     withWarnings,
     neverSynced,
   };
-}
-
-function sortReports(reports: FileReport[]): FileReport[] {
-  const getSyncedAtMs = (value: string | null | undefined): number => {
-    if (!value) return Number.NEGATIVE_INFINITY;
-    const syncedAt = new Date(value).getTime();
-    return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
-  };
-
-  return [...reports].sort((a, b) => {
-    const syncedDiff = getSyncedAtMs(b.lastSyncedAt) - getSyncedAtMs(a.lastSyncedAt);
-    if (syncedDiff !== 0) return syncedDiff;
-    return a.consumerName.localeCompare(b.consumerName);
-  });
 }
 
 function buildFigmaFileUrl(fileKey: string): string {
@@ -167,9 +163,47 @@ function renderAdoptionCell(report: FileReport) {
   );
 }
 
+function renderScopeSummary(label: string, summary: UsageScopeSummary) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <Badge variant="neutral" className="text-[10px]">
+        Page {summary.page}
+      </Badge>
+      <Badge variant="neutral" className="text-[10px]">
+        Local {summary.localComponent}
+      </Badge>
+      <Badge variant="neutral" className="text-[10px]">
+        Nested {summary.nestedLocalComponent}
+      </Badge>
+    </div>
+  );
+}
+
+function renderUsageSnapshotSummary(consumerUsage: ConsumerWithUsageDetails | undefined) {
+  const usageSummary = summarizeUsageDetails(consumerUsage?.latestSync?.usageDetails);
+  if (!usageSummary) return null;
+
+  return (
+    <div className="space-y-1 pt-1">
+      {renderScopeSummary("Components", usageSummary.componentShape)}
+      {renderScopeSummary("Tokens", usageSummary.tokenShape)}
+      <div className="flex flex-wrap gap-1.5">
+        <Badge variant="neutral" className="text-[10px]">
+          Direct parent usage {usageSummary.directParentUsageCount}
+        </Badge>
+        <Badge variant="neutral" className="text-[10px]">
+          Local graph {usageSummary.localComponentGraphCount}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
   const { statusFilter, setStatusFilter, searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<FileReport[]>([]);
+  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -177,16 +211,34 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
+  const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
+  const [sort, toggleSort] = useSortState<ConsumerSortField>({ field: "lastSync", dir: "desc" });
 
   const loadReports = async () => {
     setLoading(true);
     setError(null);
+    setUsageDetailsWarning(null);
     try {
-      // Always fetch with staleOnly: false for accurate KPIs
-      const response = await fetchReportByFile(dsFileKey, {
-        staleOnly: false,
-      });
-      setReports(response.data || []);
+      const [reportResult, consumersResult] = await Promise.allSettled([
+        fetchReportByFile(dsFileKey, {
+          staleOnly: false,
+        }),
+        listConsumers(dsFileKey),
+      ]);
+
+      if (reportResult.status === "rejected") {
+        throw reportResult.reason;
+      }
+
+      setReports(reportResult.value.data || []);
+
+      if (consumersResult.status === "fulfilled") {
+        setConsumers(consumersResult.value.data || []);
+      } else {
+        console.warn("[consumer-tab-by-file] Consumer usage details unavailable", consumersResult.reason);
+        setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
+        setConsumers([]);
+      }
     } catch (cause) {
       setError(toApiErrorDisplay(cause, {
         fallbackTitle: "Load reports failed",
@@ -269,7 +321,42 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     searchQuery,
     statusFilter,
   }), [reports, searchQuery, statusFilter]);
-  const sortedReports = useMemo(() => sortReports(filteredReports), [filteredReports]);
+  const consumersById = useMemo(
+    () => new Map(consumers.map((consumer) => [consumer.id, consumer])),
+    [consumers],
+  );
+  const sortedReports = useMemo(() => {
+    const getSyncedAtMs = (value: string | null | undefined): number => {
+      if (!value) return Number.NEGATIVE_INFINITY;
+      const syncedAt = new Date(value).getTime();
+      return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
+    };
+    const getUsageCount = (report: FileReport): number => {
+      const consumerUsage = consumersById.get(report.consumerId);
+      const usageSummary = summarizeUsageDetails(consumerUsage?.latestSync?.usageDetails);
+      return usageSummary?.directParentUsageCount ?? Number.NEGATIVE_INFINITY;
+    };
+    const getAdoptionScore = (report: FileReport): number => {
+      const adoption = buildAggregateAdoptionState(report);
+      return adoption.percentage ?? Number.NEGATIVE_INFINITY;
+    };
+    const valueFor = (report: FileReport): string | number => {
+      if (sort.field === "consumer") return report.consumerName.toLowerCase();
+      if (sort.field === "lastSync") return getSyncedAtMs(report.lastSyncedAt);
+      if (sort.field === "usage") return getUsageCount(report);
+      if (sort.field === "adoption") return getAdoptionScore(report);
+      return report.consumerName.toLowerCase();
+    };
+
+    return [...filteredReports].sort((a, b) => {
+      const aValue = valueFor(a);
+      const bValue = valueFor(b);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      const dirAdjusted = sort.dir === "asc" ? comparison : comparison * -1;
+      if (dirAdjusted !== 0) return dirAdjusted;
+      return a.consumerName.localeCompare(b.consumerName);
+    });
+  }, [consumersById, filteredReports, sort]);
   const rowLinkClassName = "text-foreground hover:text-primary";
 
   if (!loading && reports.length === 0) {
@@ -345,6 +432,14 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             </div>
           </FilterBar>
 
+          {usageDetailsWarning ? (
+            <StatusAlert
+              variant="warning"
+              title="Usage details unavailable"
+              description={usageDetailsWarning}
+            />
+          ) : null}
+
           {error ? <ApiErrorMessage error={error} /> : null}
 
           <p className="text-xs text-muted-foreground">
@@ -354,11 +449,27 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Consumer</TableHead>
-                <TableHead>Last sync</TableHead>
-                <TableHead>Usage</TableHead>
-                <TableHead>Adoption</TableHead>
-                <TableHead>Actions</TableHead>
+                <SortableTableHead
+                  label="Consumer"
+                  onSort={() => toggleSort("consumer")}
+                  ariaLabel="Sort by consumer"
+                />
+                <SortableTableHead
+                  label="Last sync"
+                  onSort={() => toggleSort("lastSync")}
+                  ariaLabel="Sort by last sync"
+                />
+                <SortableTableHead
+                  label="Usage"
+                  onSort={() => toggleSort("usage")}
+                  ariaLabel="Sort by usage"
+                />
+                <SortableTableHead
+                  label="Adoption"
+                  onSort={() => toggleSort("adoption")}
+                  ariaLabel="Sort by adoption"
+                />
+                <TableHead showSortIcon={false}>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -431,6 +542,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                             </span>
                           )}
                         </p>
+                        {renderUsageSnapshotSummary(consumersById.get(report.consumerId))}
                       </div>
                     </TableCell>
                     <TableCell>{renderAdoptionCell(report)}</TableCell>

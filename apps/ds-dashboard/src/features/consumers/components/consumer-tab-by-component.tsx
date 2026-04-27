@@ -5,15 +5,24 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { splitComponentName } from "@/lib/component-identity";
-import { fetchReportByComponent } from "@/lib/api";
+import { fetchReportByComponent, listConsumers } from "@/lib/api";
+import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { ComponentUsageReport } from "@/types/consumers";
+import {
+  buildComponentUsageScopeSummary,
+  type ComponentUsageScopeSummary,
+  type ConsumerWithUsageDetails,
+} from "../lib/usage-details-summary";
 
 interface ConsumerTabByComponentProps {
   dsFileKey: string;
+  reloadToken?: number;
 }
 
 interface ComponentKpis {
@@ -21,6 +30,8 @@ interface ComponentKpis {
   totalInstances: number;
   uniqueConsumers: number;
 }
+
+type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "usedIn" | "consumers";
 
 function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   const consumerIds = new Set<string>();
@@ -40,18 +51,60 @@ function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   };
 }
 
-export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProps) {
+function countUniqueConsumers(report: ComponentUsageReport): number {
+  return new Set(report.consumers.map((consumer) => consumer.consumerId)).size;
+}
+
+function renderUsageBreakdown(usageSummary: ComponentUsageScopeSummary | undefined) {
+  if (!usageSummary) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <Badge variant="neutral" className="text-[10px]" title="Unique local component wrappers across consumers">
+        {usageSummary.wrapperCount} wrappers across files
+      </Badge>
+      <div className="flex flex-wrap gap-1.5">
+        <Badge variant="neutral" className="text-[10px]">Page {usageSummary.usageScope.page}</Badge>
+        <Badge variant="neutral" className="text-[10px]">Local {usageSummary.usageScope.localComponent}</Badge>
+        <Badge variant="neutral" className="text-[10px]">Nested {usageSummary.usageScope.nestedLocalComponent}</Badge>
+      </div>
+    </div>
+  );
+}
+
+export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerTabByComponentProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<ComponentUsageReport[]>([]);
+  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
+  const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
+  const [sort, toggleSort] = useSortState<ComponentSortField>({ field: "component", dir: "asc" });
 
   const loadReports = async () => {
     setLoading(true);
     setError(null);
+    setUsageDetailsWarning(null);
     try {
-      const response = await fetchReportByComponent(dsFileKey);
-      setReports(response.data || []);
+      const [reportResult, consumersResult] = await Promise.allSettled([
+        fetchReportByComponent(dsFileKey),
+        listConsumers(dsFileKey),
+      ]);
+
+      if (reportResult.status === "rejected") {
+        throw reportResult.reason;
+      }
+
+      setReports(reportResult.value.data || []);
+      if (consumersResult.status === "fulfilled") {
+        setConsumers(consumersResult.value.data || []);
+      } else {
+        console.warn("[consumer-tab-by-component] Consumer usage details unavailable", consumersResult.reason);
+        setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
+        setConsumers([]);
+      }
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -66,7 +119,7 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
 
   useEffect(() => {
     void loadReports();
-  }, [dsFileKey]);
+  }, [dsFileKey, reloadToken]);
 
   const filteredReports = useMemo(() => {
     const lowered = searchQuery.toLowerCase().trim();
@@ -79,9 +132,38 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
     });
   }, [reports, searchQuery]);
 
+  const usageSummaryByComponent = useMemo(
+    () => buildComponentUsageScopeSummary(consumers),
+    [consumers],
+  );
+
   const sortedReports = useMemo(() => {
-    return [...filteredReports].sort((a, b) => a.componentName.localeCompare(b.componentName));
-  }, [filteredReports]);
+    return [...filteredReports].sort((a, b) => {
+      const getVariantLabel = (report: ComponentUsageReport): string => {
+        const { variantLabel } = splitComponentName(report.componentName);
+        return variantLabel?.toLowerCase() ?? "";
+      };
+      const valueFor = (report: ComponentUsageReport): string | number => {
+        const { parentName } = splitComponentName(report.componentName);
+        if (sort.field === "component") return parentName.toLowerCase();
+        if (sort.field === "variant") return getVariantLabel(report);
+        if (sort.field === "instances") return report.totalInstances;
+        if (sort.field === "wrappers") return usageSummaryByComponent.get(report.componentKey)?.wrapperCount ?? Number.NEGATIVE_INFINITY;
+        if (sort.field === "usedIn") return report.consumers.length;
+        if (sort.field === "consumers") return countUniqueConsumers(report);
+        return parentName.toLowerCase();
+      };
+
+      const aValue = valueFor(a);
+      const bValue = valueFor(b);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      const dirAdjusted = sort.dir === "asc" ? comparison : comparison * -1;
+      if (dirAdjusted !== 0) return dirAdjusted;
+      return splitComponentName(a.componentName).parentName.localeCompare(
+        splitComponentName(b.componentName).parentName,
+      );
+    });
+  }, [filteredReports, sort, usageSummaryByComponent]);
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
 
@@ -120,30 +202,63 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
             }
           />
 
+          {usageDetailsWarning ? (
+            <StatusAlert
+              variant="warning"
+              title="Usage details unavailable"
+              description={usageDetailsWarning}
+            />
+          ) : null}
+
           {error ? <ApiErrorMessage error={error} /> : null}
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Component</TableHead>
-                <TableHead>Variant</TableHead>
-                <TableHead>Instances</TableHead>
-                <TableHead>Used in</TableHead>
-                <TableHead>Consumers</TableHead>
+                <SortableTableHead
+                  label="Component"
+                  onSort={() => toggleSort("component")}
+                  ariaLabel="Sort by component"
+                />
+                <SortableTableHead
+                  label="Variant"
+                  onSort={() => toggleSort("variant")}
+                  ariaLabel="Sort by variant"
+                />
+                <SortableTableHead
+                  label="Instances"
+                  onSort={() => toggleSort("instances")}
+                  ariaLabel="Sort by instances"
+                />
+                <SortableTableHead
+                  label="Wrappers"
+                  onSort={() => toggleSort("wrappers")}
+                  ariaLabel="Sort by wrappers"
+                />
+                <SortableTableHead
+                  label="Used in"
+                  onSort={() => toggleSort("usedIn")}
+                  ariaLabel="Sort by used in"
+                />
+                <SortableTableHead
+                  label="Consumers"
+                  onSort={() => toggleSort("consumers")}
+                  ariaLabel="Sort by consumers"
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`component-loading-${index}`}>
-                    <TableCell colSpan={5} className="text-muted-foreground">
+                    <TableCell colSpan={6} className="text-muted-foreground">
                       Loading component usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={6} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching components"
@@ -170,6 +285,9 @@ export function ConsumerTabByComponent({ dsFileKey }: ConsumerTabByComponentProp
                       </TableCell>
                       <TableCell>
                         <span className="tabular-nums text-foreground">{report.totalInstances}</span>
+                      </TableCell>
+                      <TableCell>
+                        {renderUsageBreakdown(usageSummaryByComponent.get(report.componentKey))}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {report.consumers.length} {report.consumers.length === 1 ? "file" : "files"}
