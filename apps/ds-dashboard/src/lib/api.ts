@@ -249,6 +249,32 @@ export interface DesignSystemsConfigResponse {
   defaultSystem: string;
 }
 
+export type DatabaseProvider = 'local' | 'supabase' | 'custom';
+
+export interface DatabaseConfig {
+  provider: DatabaseProvider;
+  databaseUrlMasked: string;
+  databaseUrlConfigured: boolean;
+  activeDatabaseUrlMasked: string;
+  activeProvider: DatabaseProvider;
+  envPath: string;
+  restartRequired: boolean;
+  saved?: boolean;
+  restartCommand?: string;
+}
+
+export interface DatabaseValidationResult {
+  ok: boolean;
+  provider: DatabaseProvider;
+  databaseUrlMasked: string;
+  database: string;
+  user: string;
+  serverVersion: string;
+  vectorExtensionInstalled: boolean;
+  preparedStatements: boolean;
+  ssl: boolean;
+}
+
 export interface MutateDesignSystemResponse {
   ok: boolean;
   system?: {
@@ -301,6 +327,44 @@ export function createDesignSystem(args: CreateDesignSystemPayload) {
  */
 export function fetchDesignSystemsConfig() {
   return getJson<DesignSystemsConfigResponse>('/api/design-systems');
+}
+
+export function fetchDatabaseConfig() {
+  return getJson<{ ok: boolean; config: DatabaseConfig }>(
+    '/api/database-config',
+  );
+}
+
+export function validateDatabaseConfig(args: {
+  provider: DatabaseProvider;
+  databaseUrl: string;
+}) {
+  return getJson<{ ok: boolean; result: DatabaseValidationResult }>(
+    '/api/database-config/validate',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(args),
+    },
+  );
+}
+
+export function saveDatabaseConfig(args: {
+  provider: DatabaseProvider;
+  databaseUrl: string;
+}) {
+  return getJson<{ ok: boolean; config: DatabaseConfig }>(
+    '/api/database-config',
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(args),
+    },
+  );
 }
 
 export function updateDesignSystem(
@@ -365,7 +429,9 @@ export function fetchComponentUsageIndex() {
 export function fetchTokenCatalog(systemId?: string) {
   const normalizedSystemId = String(systemId || '').trim();
   return getJson<TokenCatalog>('/api/token-catalog', {
-    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
   });
 }
 
@@ -393,7 +459,9 @@ export function fetchHealthHistory(args?: {
   const suffix = params.size ? `?${params.toString()}` : '';
   const normalizedSystemId = String(args?.systemId || '').trim();
   return getJson<HealthHistoryReport>(`/api/health-history${suffix}`, {
-    headers: normalizedSystemId ? { 'x-ds-system': normalizedSystemId } : undefined,
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
   });
 }
 

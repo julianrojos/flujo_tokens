@@ -6,7 +6,10 @@
 
 export interface CreateServerRouteDepsConfig {
   createApiRequestId: () => string;
-  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
+  queueJobAcceptedPayload: (job: { id: string }) => {
+    ok: boolean;
+    jobId: string;
+  };
   buildHealthPayload: () => unknown;
   failJson: (...args: unknown[]) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
@@ -18,14 +21,22 @@ export interface CreateServerRouteDepsConfig {
   summarizeDesignSystemsConfig: (...args: unknown[]) => unknown;
   resolveSafeSystemPathsForDeletion: (...args: unknown[]) => unknown;
   repoRoot: string;
+  databaseUrl?: string;
   fsSync: Record<string, unknown>;
   getSystemContext: (systemHeader: string) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
-  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
+  readTextFileLimited: (
+    ...args: unknown[]
+  ) => Promise<{ content: string; truncated: boolean }>;
   findLineForQuery: (content: string, query: string) => number | null;
-  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
+  buildSnippet: (...args: unknown[]) => {
+    targetLine: number;
+    startLine: number;
+    endLine: number;
+    snippet: string;
+  };
   guessContentType: (filePath: string) => string;
   MAX_FILE_BYTES: number;
   queueJobs: Map<string, unknown>;
@@ -55,7 +66,9 @@ export type CreateServerRouteDeps = CreateServerRouteDepsConfig;
 /**
  * Build route dependencies from config.
  */
-export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): CreateServerRouteDeps {
+export function buildCreateServerRouteDeps(
+  deps: CreateServerRouteDepsConfig,
+): CreateServerRouteDeps {
   return {
     createApiRequestId: deps.createApiRequestId,
     queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
@@ -70,6 +83,7 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     summarizeDesignSystemsConfig: deps.summarizeDesignSystemsConfig,
     resolveSafeSystemPathsForDeletion: deps.resolveSafeSystemPathsForDeletion,
     repoRoot: deps.repoRoot,
+    databaseUrl: deps.databaseUrl,
     fsSync: deps.fsSync,
     getSystemContext: deps.getSystemContext,
     isDevRuntime: deps.isDevRuntime,

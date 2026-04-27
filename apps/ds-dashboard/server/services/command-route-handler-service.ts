@@ -542,6 +542,13 @@ export async function handleSyncFigmaTokensRoute(
     toBooleanString(body.requireComponentProofs, true) === 'true';
   const requireVariantProofsWhenPresent =
     toBooleanString(body.requireVariantProofsWhenPresent, true) === 'true';
+  const captureComponentProofs =
+    toBooleanString(body.captureComponentProofs, includeComponents) === 'true';
+  const captureComponentProofVariants =
+    toBooleanString(
+      body.captureComponentProofVariants,
+      captureComponentProofs,
+    ) === 'true';
 
   const job = enqueueQueueJob({
     label: 'sync figma (plugin→db)',
@@ -558,6 +565,8 @@ export async function handleSyncFigmaTokensRoute(
         selectedCount: selectedComponentNodeIds?.length || 0,
         requireComponentProofs,
         requireVariantProofsWhenPresent,
+        captureComponentProofs,
+        captureComponentProofVariants,
       }),
     ),
     execute: async ({
@@ -576,8 +585,9 @@ export async function handleSyncFigmaTokensRoute(
         selectedComponentNodeIds,
         requireComponentProofs,
         requireVariantProofsWhenPresent,
-        captureComponentProofs: includeComponents && !dryRun,
-        captureComponentProofVariants: includeComponents && !dryRun,
+        captureComponentProofs: includeComponents && !dryRun && captureComponentProofs,
+        captureComponentProofVariants:
+          includeComponents && !dryRun && captureComponentProofVariants,
         repoRoot: sysCtx.repoRoot,
         reindexUsageFromFilesystem: !dryRun,
         usageReindexStrict: true,

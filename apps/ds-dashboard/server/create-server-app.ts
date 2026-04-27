@@ -83,9 +83,10 @@ function formatDatabaseInitError(error: unknown): string {
     const messages = error.errors
       .map((entry) => {
         if (entry instanceof Error) {
-          const code = typeof (entry as { code?: unknown }).code === 'string'
-            ? String((entry as { code?: unknown }).code)
-            : '';
+          const code =
+            typeof (entry as { code?: unknown }).code === 'string'
+              ? String((entry as { code?: unknown }).code)
+              : '';
           const base = String(entry.message || entry.name || '').trim();
           return code ? `${code}: ${base}` : base;
         }
@@ -144,13 +145,15 @@ export async function createServerApp(
   let aiJobsStore!: AiJobsStoreWithPersistence;
   let tokenRepo!: TokenRepository;
   let componentRepo!: ComponentRepository;
+  let databaseUrl = '';
   let healthRepo!: HealthRepository;
   let resumeTimer: NodeJS.Timeout | undefined;
   let designSystemRepositoryDisposed = false;
   let designSystemRepository: DesignSystemRepository | null = null;
 
   try {
-    sql = await bootstrapDatabase(resolveDashboardDbUrl(env));
+    databaseUrl = resolveDashboardDbUrl(env);
+    sql = await bootstrapDatabase(databaseUrl);
     designSystemRepository = new DesignSystemRepository(sql, repoRoot);
     componentRepo = new ComponentRepository(sql);
     healthRepo = new HealthRepository(sql);
@@ -367,6 +370,7 @@ export async function createServerApp(
         ...args: unknown[]
       ) => unknown,
       repoRoot,
+      databaseUrl,
       fsSync,
       getSystemContext,
       isDevRuntime,
