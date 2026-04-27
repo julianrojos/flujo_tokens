@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { FormField } from '@/components/common';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import {
   Modal,
   ModalCloseButton,
   ModalContent,
+  ModalFooter,
   ModalHeader,
 } from '@/components/ui/overlay/modal';
 import { ApiErrorMessage } from '@/components/api-error-message';
@@ -94,6 +95,7 @@ function shouldShowSaveButton(
 
 export function DesignSystemsAdminPage() {
   const { systemId: routeSystemId } = useParams<{ systemId: string }>();
+  const navigate = useNavigate();
   const { replaceSystems } = useDesignSystem();
   const [systems, setSystems] = useState<DesignSystemConfigEntry[]>([]);
   const [defaultSystem, setDefaultSystem] = useState('');
@@ -110,6 +112,10 @@ export function DesignSystemsAdminPage() {
     DeletePreviewResponse['data'] | null
   >(null);
   const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
+  const [deleteSuccessSystem, setDeleteSuccessSystem] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const normalizedRouteSystemId = String(routeSystemId || '').trim();
   const targetSystem = useMemo(
@@ -148,9 +154,9 @@ export function DesignSystemsAdminPage() {
     setError(null);
     try {
       const config = await fetchDesignSystemsConfig();
-      setSystems(config.systems || []);
-      setDefaultSystem(config.defaultSystem || '');
       const systemsList = config.systems || [];
+      setSystems(systemsList);
+      setDefaultSystem(config.defaultSystem || '');
       setDrafts(
         Object.fromEntries(
           systemsList.map((system) => [
@@ -254,10 +260,26 @@ export function DesignSystemsAdminPage() {
     setDeletePreviewLoading(false);
     try {
       const response = await deleteDesignSystem(id);
-      replaceSystems(response.config.systems, {
+      const nextSystems = response.config.systems || [];
+      replaceSystems(nextSystems, {
         activeSystemId: response.config.defaultSystem || undefined,
       });
-      await load();
+      setSystems(nextSystems);
+      setDefaultSystem(response.config.defaultSystem || '');
+      setDrafts(
+        Object.fromEntries(
+          nextSystems.map((system) => [
+            system.id,
+            toDraft(system, response.config.defaultSystem),
+          ]),
+        ),
+      );
+      setDeleteSuccessSystem({
+        id,
+        name: String(
+          systems.find((system) => system.id === id)?.name || id,
+        ),
+      });
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -270,11 +292,11 @@ export function DesignSystemsAdminPage() {
     }
   };
 
-  if (!loading && !targetSystem && systems.length === 0) {
+  if (!loading && !targetSystem && systems.length === 0 && !deleteSuccessSystem) {
     return <NewSystemPage />;
   }
 
-  if (!loading && !targetSystem) {
+  if (!loading && !targetSystem && !deleteSuccessSystem) {
     return <Navigate to={ROUTE_PATTERNS.newSystem} replace />;
   }
 
@@ -631,6 +653,56 @@ export function DesignSystemsAdminPage() {
                   </Button>
                 </div>
               </div>
+            </>
+          ) : null}
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        open={!!deleteSuccessSystem}
+        onClose={() => undefined}
+        aria-labelledby="delete-success-title"
+      >
+        <ModalContent size="sm">
+          {deleteSuccessSystem ? (
+            <>
+              <ModalHeader>
+                <div>
+                  <h2
+                    id="delete-success-title"
+                    className="text-lg font-titles font-semibold tracking-tight titles-color"
+                  >
+                    Design system deleted
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {deleteSuccessSystem.name} was deleted successfully.
+                  </p>
+                </div>
+              </ModalHeader>
+              <div className="p-5 pt-4">
+                <p className="text-sm text-foreground">
+                  You can continue with a new design system from here.
+                </p>
+              </div>
+              <ModalFooter>
+                <Button
+                  onClick={() => {
+                    const nextSystemId = String(systems[0]?.id || '').trim();
+                    setDeleteSuccessSystem(null);
+                    navigate(
+                      nextSystemId
+                        ? ROUTE_PATTERNS.systemOverview.replace(
+                            ':systemId',
+                            encodeURIComponent(nextSystemId),
+                          )
+                        : ROUTE_PATTERNS.newSystem,
+                      { replace: true },
+                    );
+                  }}
+                >
+                  Accept
+                </Button>
+              </ModalFooter>
             </>
           ) : null}
         </ModalContent>

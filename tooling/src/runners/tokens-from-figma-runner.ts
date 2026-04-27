@@ -29,6 +29,20 @@ const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
   options?: { defaultValue?: FigmaVariableSource; optionName?: string },
 ) => FigmaVariableSource;
 
+function emitProgressSnapshot(snapshot: {
+  completed: number;
+  total: number;
+  remaining: number;
+  slug?: string;
+  state: 'starting' | 'tokens' | 'mode-values' | 'aliases' | 'completed';
+}): void {
+  try {
+    process.stderr.write(`[capture-progress] ${JSON.stringify(snapshot)}\n`);
+  } catch {
+    // best-effort progress event
+  }
+}
+
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',
   description:
@@ -224,6 +238,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
       dryRun,
       source,
       mcpFileUrl: String(parsed.url || '').trim() || undefined,
+      onProgress: emitProgressSnapshot,
     });
 
     if (syncResult.reason) {

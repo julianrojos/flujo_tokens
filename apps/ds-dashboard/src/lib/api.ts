@@ -1634,6 +1634,10 @@ export async function syncFigmaTokens(
   const onProgress = options?.onProgress;
   const acceptedJobId =
     toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+  let progressBuffer = '';
+  let latestCompleted = 0;
+  let latestTotal = 0;
+  let latestSlug: string | undefined;
 
   onProgress?.({
     jobId: acceptedJobId,
@@ -1656,14 +1660,35 @@ export async function syncFigmaTokens(
             : statusRaw === 'error'
               ? 'error'
               : statusRaw === 'cancelled'
-                ? 'cancelled'
-                : 'queued';
+              ? 'cancelled'
+              : 'queued';
+
+      const events = Array.isArray(payload.events) ? payload.events : [];
+      const parsed = parseCaptureProgressChunks({
+        events,
+        buffer: progressBuffer,
+      });
+      progressBuffer = parsed.buffer;
+      const lastSnapshot =
+        parsed.snapshots.length > 0
+          ? parsed.snapshots[parsed.snapshots.length - 1]
+          : null;
+      if (lastSnapshot) {
+        latestCompleted = toProgressInt(lastSnapshot.completed);
+        latestTotal = toProgressInt(lastSnapshot.total);
+        latestSlug = toNonEmptyString(lastSnapshot.slug) || latestSlug;
+      }
+
+      const total = latestTotal;
+      const completed = Math.min(latestCompleted, total || latestCompleted);
+      const remaining = Math.max(0, (total || 0) - completed);
       onProgress?.({
         jobId: toNonEmptyString(job?.id) || acceptedJobId,
         status,
-        completed: 0,
-        total: 0,
-        remaining: 0,
+        completed,
+        total,
+        remaining,
+        currentSlug: latestSlug,
       });
     },
   });
@@ -1688,6 +1713,7 @@ export async function syncFigmaTokens(
     completed: typed.components,
     total: typed.components,
     remaining: 0,
+    currentSlug: latestSlug,
   });
   return typed;
 }

@@ -502,6 +502,13 @@ export interface SyncFigmaTokensToDatabaseOptions {
   fetchRestVariablesFn?: typeof fetchFigmaLocalVariables;
   fetchMcpVariablesFn?: typeof fetchFigmaLocalVariablesViaMcp;
   bootstrapDatabaseFn?: typeof bootstrapDatabase;
+  onProgress?: (progress: {
+    completed: number;
+    total: number;
+    remaining: number;
+    slug?: string;
+    state: 'starting' | 'tokens' | 'mode-values' | 'aliases' | 'completed';
+  }) => void;
 }
 
 export interface SyncFigmaTokensToDatabaseResult {
@@ -537,7 +544,11 @@ export async function syncFigmaTokensToDatabase(
     fetchRestVariablesFn = fetchFigmaLocalVariables,
     fetchMcpVariablesFn = fetchFigmaLocalVariablesViaMcp,
     bootstrapDatabaseFn = bootstrapDatabase,
+    onProgress,
   } = options;
+
+  const totalWorkUnits = (tokensCount: number, modeValuesCount: number, aliasesCount: number) =>
+    Math.max(0, tokensCount + modeValuesCount + aliasesCount + 1);
 
   let sourceRequested: FigmaVariableSource;
   try {
@@ -623,6 +634,20 @@ export async function syncFigmaTokensToDatabase(
 
   const sql = await bootstrapDatabaseFn(databaseUrl);
   try {
+    let completed = 0;
+    const total = totalWorkUnits(tokens.length, modeValues.length, aliases.length);
+    const emitProgress = (state: 'starting' | 'tokens' | 'mode-values' | 'aliases' | 'completed', slug?: string) => {
+      if (!onProgress) return;
+      onProgress({
+        completed,
+        total,
+        remaining: Math.max(0, total - completed),
+        slug,
+        state,
+      });
+    };
+
+    emitProgress('starting');
     await sql.begin(async (tx) => {
       await tx`DELETE FROM token_mode_values WHERE ds_id = ${dsId}`;
       await tx`DELETE FROM tokens WHERE ds_id = ${dsId}`;
@@ -640,6 +665,8 @@ export async function syncFigmaTokensToDatabase(
             collection = EXCLUDED.collection,
             raw_value = EXCLUDED.raw_value
         `;
+        completed += 1;
+        emitProgress('tokens', token.id);
       }
 
       for (const modeValue of modeValues) {
@@ -649,6 +676,8 @@ export async function syncFigmaTokensToDatabase(
           ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET
             resolved_value = EXCLUDED.resolved_value
         `;
+        completed += 1;
+        emitProgress('mode-values', modeValue.tokenPath);
       }
 
       for (const alias of aliases) {
@@ -657,6 +686,8 @@ export async function syncFigmaTokensToDatabase(
           VALUES (${dsId}, ${alias.fromPath}, ${alias.toPath}, ${JSON.stringify(alias.modes)})
           ON CONFLICT (ds_id, from_path, to_path) DO NOTHING
         `;
+        completed += 1;
+        emitProgress('aliases', alias.fromPath);
       }
 
       await tx`
@@ -666,6 +697,8 @@ export async function syncFigmaTokensToDatabase(
           graph_json = EXCLUDED.graph_json,
           generated_at = EXCLUDED.generated_at
       `;
+      completed += 1;
+      emitProgress('completed');
     });
   } finally {
     await sql.end();

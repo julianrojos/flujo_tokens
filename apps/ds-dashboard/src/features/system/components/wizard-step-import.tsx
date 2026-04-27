@@ -88,6 +88,28 @@ export function WizardStepImport({
     (progress?.completed ?? 0) > 0;
   const showStatsWhileImporting =
     (showComponentsStats || showVariableStats) && hasRealProgressData;
+  const progressSummary = (() => {
+    if (!progress) return statusText || "Preparing import...";
+    if (progress.status === "queued") {
+      return progress.message || "Queued in backend. Waiting for worker assignment...";
+    }
+    if (progress.status === "running") {
+      if (progress.total > 0) {
+        return `${progress.completed} / ${progress.total} items`;
+      }
+      return progress.message || statusText || "Running import. Waiting for first progress event...";
+    }
+    if (progress.status === "cancelled") {
+      return progress.message || "Import was cancelled.";
+    }
+    if (progress.status === "error") {
+      return progress.message || "Import failed.";
+    }
+    if (progress.total > 0) {
+      return `${progress.completed} / ${progress.total} items`;
+    }
+    return progress.message || statusText || "Import completed successfully.";
+  })();
 
   const renderImportStats = () => (
     <div className="rounded border border-border/70 bg-muted/30 p-3 text-sm">
@@ -189,18 +211,19 @@ export function WizardStepImport({
           </p>
         ) : null}
 
-        {progress ? (
-          <div className="space-y-2">
-            <div className="text-sm">
-              <span className="font-medium">Progress:</span> {progress.completed} / {progress.total} components
-            </div>
-            {progress.currentSlug && (
-              <div className="text-xs text-muted-foreground">
-                Current: {progress.currentSlug}
-              </div>
-            )}
+        <div className="space-y-1" aria-live="polite" aria-atomic="true">
+          <div className="text-sm">
+            <span className="font-medium">
+              {progress && progress.total > 0 ? "Progress:" : "Status:"}
+            </span>{" "}
+            {progressSummary}
           </div>
-        ) : null}
+          {progress?.currentSlug ? (
+            <div className="text-xs text-muted-foreground">
+              Current: {progress.currentSlug}
+            </div>
+          ) : null}
+        </div>
 
         {error ? (
           <>
@@ -245,7 +268,7 @@ export function WizardStepImport({
             )}
           </>
         ) : (
-          <div className="space-y-2">
+          <div className="flex items-center justify-end">
             <Button variant="outline" onClick={onCancel} disabled={isCancelling}>
               {isCancelling ? "Cancelling…" : "Cancel import"}
             </Button>

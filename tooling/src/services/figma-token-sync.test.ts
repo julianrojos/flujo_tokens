@@ -151,6 +151,50 @@ describe('figma-token-sync', () => {
       assert.equal(recordedSql.some((query) => query.startsWith('INSERT INTO token_graph')), true);
     });
 
+    it('emits incremental progress snapshots while persisting token data', async () => {
+      const payload = createVariablesPayload();
+      const progressSnapshots: Array<{ completed: number; total: number; remaining: number; slug?: string; state: string }> = [];
+
+      const fakeTx = async (_strings: TemplateStringsArray, ..._values: unknown[]) => {
+        return [];
+      };
+
+      const result = await syncFigmaTokensToDatabase({
+        system: {
+          id: 'demo',
+          paths: {
+            databaseUrl: 'postgres://demo',
+          },
+        },
+        fileKey: 'dummy',
+        source: 'mcp',
+        fetchMcpVariablesFn: async () => payload,
+        fetchRestVariablesFn: async () => {
+          throw new Error('REST should not be used');
+        },
+        bootstrapDatabaseFn: async () => {
+          return {
+            begin: async (handler: (tx: typeof fakeTx) => Promise<void>) => {
+              await handler(fakeTx);
+            },
+            end: async () => undefined,
+          } as never;
+        },
+        onProgress: (snapshot) => {
+          progressSnapshots.push(snapshot);
+        },
+      });
+
+      assert.equal(result.reason, 'persisted');
+      assert.ok(progressSnapshots.length >= 3);
+      assert.equal(progressSnapshots[0]?.state, 'starting');
+      assert.equal(progressSnapshots[0]?.completed, 0);
+      assert.equal(progressSnapshots[0]?.total, 3);
+      assert.equal(progressSnapshots.at(-1)?.state, 'completed');
+      assert.equal(progressSnapshots.at(-1)?.completed, 3);
+      assert.equal(progressSnapshots.at(-1)?.remaining, 0);
+    });
+
     it('supports dry-run without opening the database', async () => {
       const payload = createVariablesPayload();
       let bootstrapCalls = 0;
