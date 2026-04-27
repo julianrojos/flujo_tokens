@@ -20,7 +20,11 @@ import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
 import { groupByParentComponent } from "./lib/component-grouping";
-import { buildComponentLookupMap, resolveKnownComponentSlug } from "@/lib/component-identity";
+import {
+  buildComponentLookupMap,
+  resolveKnownComponentSlug,
+  splitComponentName,
+} from "@/lib/component-identity";
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "@/lib/format-synced-at";
@@ -31,6 +35,7 @@ import type {
   ComponentUsageReport,
   VariableUsageReport,
   ImpactLevel,
+  UsageScope,
 } from "@/types/consumers";
 
 function normalizeTokenLookupKey(value: string): string {
@@ -60,6 +65,47 @@ function formatDurationMs(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   const duration = typeof value === "number" ? value : Number(value);
   return Number.isFinite(duration) && duration >= 0 ? `${Math.round(duration)}ms` : "—";
+}
+
+function formatUsageScope(scope: UsageScope): string {
+  if (scope === "page") return "Page / screen";
+  if (scope === "local-component") return "Local component";
+  return "Nested local component";
+}
+
+function formatPropertyValue(value: string): string {
+  if (value === "null" || value === "undefined" || value === "") return "—";
+  return value;
+}
+
+function sumUsageScopeSummary(summary: { page: number; localComponent: number; nestedLocalComponent: number }): number {
+  return summary.page + summary.localComponent + summary.nestedLocalComponent;
+}
+
+function renderComponentName(
+  componentKey: string,
+  componentName: string,
+  componentSlugByLookup: Record<string, string>,
+): ReactNode {
+  const { parentName, variantLabel } = splitComponentName(componentName);
+  const resolvedComponentSlug = resolveKnownComponentSlug({
+    lookup: componentSlugByLookup,
+    parentName,
+    variantName: variantLabel,
+  });
+
+  if (resolvedComponentSlug) {
+    return (
+      <Link
+        to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+        className="text-app-accent hover:underline"
+      >
+        <span className="font-normal">{componentName || componentKey}</span>
+      </Link>
+    );
+  }
+
+  return <span className="font-normal">{componentName || componentKey}</span>;
 }
 
 function sortByImpactThenCount<T extends { impactLevel: { level: ImpactLevel }; instances?: number; nodes?: number }>(
@@ -295,6 +341,7 @@ export function ConsumerDetailPage() {
 
   // Compute worst impact level for overview
   const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
+  const usageDetails = consumer.latestSync?.usageDetails ?? null;
 
   if (loading) {
     return (
@@ -411,8 +458,8 @@ export function ConsumerDetailPage() {
 
             {/* Row 3: Footer with parent-derived components + warnings/impact */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span title="Local components that include at least one parent DS component in their subtree">
-                Derived from parent DS: {consumer.latestSync.parentDerivedComponentCount ?? "—"} comp
+              <span title="Local components that directly use at least one parent DS component">
+                Direct parent usage: {consumer.latestSync.parentDerivedComponentCount ?? "—"} comp
               </span>
               <div className="flex items-center gap-3">
                 {consumer.latestSync.warningCount > 0 && (
@@ -702,6 +749,293 @@ export function ConsumerDetailPage() {
           </div>
         )}
       </div>
+
+      {usageDetails ? (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-titles font-semibold titles-color">Usage Details</h2>
+              <p className="text-sm text-muted-foreground">
+                Direct parent usage, local component graph, component properties and token
+                bindings captured during the latest sync.
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Badge variant="neutral">
+                Components {sumUsageScopeSummary(usageDetails.usageShape.components)}
+              </Badge>
+              <Badge variant="neutral">
+                Tokens {sumUsageScopeSummary(usageDetails.usageShape.tokens)}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Component usage shape
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="neutral">Page {usageDetails.usageShape.components.page}</Badge>
+                <Badge variant="neutral">
+                  Local {usageDetails.usageShape.components.localComponent}
+                </Badge>
+                <Badge variant="neutral">
+                  Nested {usageDetails.usageShape.components.nestedLocalComponent}
+                </Badge>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Token usage shape
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="neutral">Page {usageDetails.usageShape.tokens.page}</Badge>
+                <Badge variant="neutral">
+                  Local {usageDetails.usageShape.tokens.localComponent}
+                </Badge>
+                <Badge variant="neutral">
+                  Nested {usageDetails.usageShape.tokens.nestedLocalComponent}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold titles-color">Direct parent usage</h3>
+                <Badge variant="neutral">{usageDetails.parentComponentUsages.length} entries</Badge>
+              </div>
+              {usageDetails.parentComponentUsages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No direct DS parent component usage captured for this consumer.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="titles-color">
+                      <tr className="border-b border-border">
+                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Parent DS component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
+                        <th className="px-3 py-2 text-right font-medium titles-color">Uses</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Samples</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageDetails.parentComponentUsages.map((usage) => (
+                        <tr key={`${usage.localComponentKey}-${usage.parentComponentKey}-${usage.usageScope}`} className="border-b border-border/50">
+                          <td className="px-3 py-2">
+                            {renderComponentName(usage.localComponentKey, usage.localComponentName, componentSlugByLookup)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {renderComponentName(usage.parentComponentKey, usage.parentComponentName, componentSlugByLookup)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge variant="neutral" className="text-[10px]">
+                              {formatUsageScope(usage.usageScope)}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Badge variant="neutral">{usage.usageCount}</Badge>
+                          </td>
+                          <td className="px-3 py-2">
+                            {usage.sampleNodeIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {usage.sampleNodeIds.map((nodeId) => (
+                                  <Badge key={nodeId} variant="neutral" className="rounded-md text-[10px] font-normal">
+                                    {nodeId}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold titles-color">Local component graph</h3>
+                <Badge variant="neutral">{usageDetails.localComponentGraph.length} edges</Badge>
+              </div>
+              {usageDetails.localComponentGraph.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No local component composition edges captured for this consumer.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="titles-color">
+                      <tr className="border-b border-border">
+                        <th className="px-3 py-2 text-left font-medium titles-color">Parent local component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Child local component</th>
+                        <th className="px-3 py-2 text-right font-medium titles-color">Uses</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Samples</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageDetails.localComponentGraph.map((edge) => (
+                        <tr key={`${edge.parentComponentKey}-${edge.childComponentKey}`} className="border-b border-border/50">
+                          <td className="px-3 py-2">
+                            {renderComponentName(edge.parentComponentKey, edge.parentComponentName, componentSlugByLookup)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {renderComponentName(edge.childComponentKey, edge.childComponentName, componentSlugByLookup)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Badge variant="neutral">{edge.usageCount}</Badge>
+                          </td>
+                          <td className="px-3 py-2">
+                            {edge.sampleNodeIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {edge.sampleNodeIds.map((nodeId) => (
+                                  <Badge key={nodeId} variant="neutral" className="rounded-md text-[10px] font-normal">
+                                    {nodeId}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold titles-color">Component properties</h3>
+                <Badge variant="neutral">{usageDetails.componentPropertyUsages.length} nodes</Badge>
+              </div>
+              {usageDetails.componentPropertyUsages.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No component property bindings captured for this consumer.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="titles-color">
+                      <tr className="border-b border-border">
+                        <th className="px-3 py-2 text-left font-medium titles-color">Node</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Property</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Value</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageDetails.componentPropertyUsages.flatMap((entry) =>
+                        entry.properties.map((property) => (
+                          <tr key={`${entry.nodeId}-${entry.componentKey}-${property.name}`} className="border-b border-border/50">
+                            <td className="px-3 py-2">{entry.nodeName}</td>
+                            <td className="px-3 py-2">
+                              {renderComponentName(entry.componentKey, entry.componentName, componentSlugByLookup)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Badge variant="neutral" className="text-[10px]">
+                                {formatUsageScope(entry.usageScope)}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2">
+                              {entry.localComponentKey && entry.localComponentName ? (
+                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-medium">{property.name}</td>
+                            <td className="px-3 py-2">{formatPropertyValue(property.value)}</td>
+                            <td className="px-3 py-2 text-muted-foreground">{property.valueType}</td>
+                          </tr>
+                        )),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold titles-color">Token binding detail</h3>
+                <Badge variant="neutral">{usageDetails.tokenBindingDetails.length} nodes</Badge>
+              </div>
+              {usageDetails.tokenBindingDetails.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No token binding details captured for this consumer.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="titles-color">
+                      <tr className="border-b border-border">
+                        <th className="px-3 py-2 text-left font-medium titles-color">Node</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Field</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
+                        <th className="px-3 py-2 text-left font-medium titles-color">Token path</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usageDetails.tokenBindingDetails.flatMap((entry) =>
+                        entry.bindings.map((binding) => (
+                          <tr key={`${entry.nodeId}-${binding.field}-${binding.variableId}`} className="border-b border-border/50">
+                            <td className="px-3 py-2">{entry.nodeName}</td>
+                            <td className="px-3 py-2">
+                              <Badge variant="neutral" className="text-[10px]">
+                                {formatUsageScope(entry.usageScope)}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2">
+                              {entry.localComponentKey && entry.localComponentName ? (
+                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-medium">{binding.field}</td>
+                            <td className="px-3 py-2">
+                              {binding.status === "resolved" ? (
+                                <span>{binding.variableName ?? binding.variableId}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Unresolved ({binding.variableId})</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Badge variant={binding.status === "resolved" ? "success" : "warning"}>
+                                {binding.status}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground">
+                              {binding.resolvedTokenPath ?? "—"}
+                            </td>
+                          </tr>
+                        )),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      ) : null}
 
       {/* Sync Run Log */}
       <section className="rounded-lg border border-border bg-card">
