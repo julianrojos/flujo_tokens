@@ -36,8 +36,22 @@ Tooling commands that persist capture/registry data use `DATABASE_URL`.
 Set it in `apps/ds-dashboard/.env` or export it before starting `dev:api`:
 
 ```bash
+DB_PROVIDER=local
 DATABASE_URL=postgres://ds:local@localhost:5432/ds_dashboard
 ```
+
+To use Supabase, choose the Supabase provider in the dashboard Database panel
+or set the environment explicitly:
+
+```bash
+DB_PROVIDER=supabase
+SUPABASE_DATABASE_URL=postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require
+DATABASE_URL=$SUPABASE_DATABASE_URL
+```
+
+Supabase is treated as hosted PostgreSQL. The server requires SSL for Supabase
+connections and disables prepared statements automatically when the URL points
+to the Supabase pooler (`pooler.supabase.*` or port `6543`).
 
 If `DATABASE_URL` is missing, the dashboard dev supervisor falls back to the
 local database URL above. In production, missing database configuration is a

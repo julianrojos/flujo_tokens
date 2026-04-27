@@ -6,7 +6,10 @@
 
 export interface CreateServerAppRouteDepsConfig {
   createApiRequestId: () => string;
-  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
+  queueJobAcceptedPayload: (job: { id: string }) => {
+    ok: boolean;
+    jobId: string;
+  };
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: import('../db/design-system-repository.js').DesignSystemRepository;
   normalizeSystemId: (value: string) => string;
@@ -16,14 +19,22 @@ export interface CreateServerAppRouteDepsConfig {
   summarizeDesignSystemsConfig: (...args: unknown[]) => unknown;
   resolveSafeSystemPathsForDeletion: (...args: unknown[]) => unknown;
   repoRoot: string;
+  databaseUrl?: string;
   fsSync: Record<string, unknown>;
   getSystemContext: (systemHeader: string) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
-  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
+  readTextFileLimited: (
+    ...args: unknown[]
+  ) => Promise<{ content: string; truncated: boolean }>;
   findLineForQuery: (content: string, query: string) => number | null;
-  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
+  buildSnippet: (...args: unknown[]) => {
+    targetLine: number;
+    startLine: number;
+    endLine: number;
+    snippet: string;
+  };
   guessContentType: (filePath: string) => string;
   MAX_FILE_BYTES: number;
   queueJobs: Map<string, unknown>;
@@ -52,7 +63,9 @@ export type CreateServerAppRouteDeps = CreateServerAppRouteDepsConfig;
 /**
  * Build app route dependencies from config.
  */
-export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsConfig): CreateServerAppRouteDeps {
+export function buildCreateServerAppRouteDeps(
+  config: CreateServerAppRouteDepsConfig,
+): CreateServerAppRouteDeps {
   return {
     createApiRequestId: config.createApiRequestId,
     queueJobAcceptedPayload: config.queueJobAcceptedPayload,
@@ -65,6 +78,7 @@ export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsCo
     summarizeDesignSystemsConfig: config.summarizeDesignSystemsConfig,
     resolveSafeSystemPathsForDeletion: config.resolveSafeSystemPathsForDeletion,
     repoRoot: config.repoRoot,
+    databaseUrl: config.databaseUrl,
     fsSync: config.fsSync,
     getSystemContext: config.getSystemContext,
     isDevRuntime: config.isDevRuntime,

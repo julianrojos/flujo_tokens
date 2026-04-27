@@ -98,6 +98,104 @@ export interface PostgresDbOptions {
   max?: number;
   idle_timeout?: number;
   connect_timeout?: number;
+  prepare?: boolean;
+  ssl?: boolean | 'require';
+}
+
+export type DatabaseProvider = 'local' | 'supabase' | 'custom';
+
+export const DEFAULT_LOCAL_DATABASE_URL =
+  'postgres://ds:local@localhost:5432/ds_dashboard';
+
+function normalizeDatabaseProvider(value: unknown): DatabaseProvider | null {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (
+    normalized === 'local' ||
+    normalized === 'supabase' ||
+    normalized === 'custom'
+  ) {
+    return normalized;
+  }
+  return null;
+}
+
+function inferDatabaseProvider(databaseUrl: string): DatabaseProvider {
+  try {
+    const parsed = new URL(databaseUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('supabase.co') || host.includes('supabase.com')) {
+      return 'supabase';
+    }
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === ''
+    ) {
+      return 'local';
+    }
+  } catch {
+    // Invalid URLs are handled by postgres.js when a connection is attempted.
+  }
+  return 'custom';
+}
+
+export function resolveDatabaseProvider(
+  env: NodeJS.ProcessEnv = process.env,
+): DatabaseProvider {
+  const configured = normalizeDatabaseProvider(env.DB_PROVIDER);
+  if (configured) return configured;
+  const dbUrl = String(
+    env.DATABASE_URL || env.SUPABASE_DATABASE_URL || '',
+  ).trim();
+  if (!dbUrl) return 'local';
+  return inferDatabaseProvider(dbUrl);
+}
+
+export function resolvePostgresConnectionOptions(
+  databaseUrl: string,
+  env: NodeJS.ProcessEnv = process.env,
+): PostgresDbOptions {
+  const provider = resolveDatabaseProvider(env);
+  const explicitPrepare = String(env.DB_PREPARE_STATEMENTS || '')
+    .trim()
+    .toLowerCase();
+  const explicitSsl = String(env.DB_SSL || '')
+    .trim()
+    .toLowerCase();
+  let host = '';
+  let port = '';
+  let sslMode = '';
+  try {
+    const parsed = new URL(databaseUrl);
+    host = parsed.hostname.toLowerCase();
+    port = parsed.port;
+    sslMode = String(parsed.searchParams.get('sslmode') || '').toLowerCase();
+  } catch {
+    // Leave optional connection tuning at defaults for malformed URLs.
+  }
+
+  const isSupabasePooler =
+    provider === 'supabase' &&
+    (host.includes('pooler.supabase') || port === '6543');
+  const shouldRequireSsl =
+    explicitSsl === 'require' ||
+    explicitSsl === 'true' ||
+    sslMode === 'require' ||
+    provider === 'supabase';
+  const shouldPrepare =
+    explicitPrepare === 'false' || explicitPrepare === '0'
+      ? false
+      : isSupabasePooler
+        ? false
+        : undefined;
+
+  return {
+    ...(shouldPrepare !== undefined ? { prepare: shouldPrepare } : {}),
+    ...(shouldRequireSsl ? { ssl: 'require' as const } : {}),
+  };
 }
 
 /**
@@ -120,6 +218,8 @@ export function openDatabase(
     max: options?.max ?? 10,
     idle_timeout: options?.idle_timeout ?? 30,
     connect_timeout: options?.connect_timeout ?? 10,
+    ...(options?.prepare !== undefined ? { prepare: options.prepare } : {}),
+    ...(options?.ssl !== undefined ? { ssl: options.ssl } : {}),
   });
 }
 
@@ -160,7 +260,11 @@ export async function runMigrations(
 
   for (const migration of pending) {
     try {
-      validateMigrationChecksum(migration.version, migration.sql, options?.skipChecksumValidation);
+      validateMigrationChecksum(
+        migration.version,
+        migration.sql,
+        options?.skipChecksumValidation,
+      );
       await sql.begin(async (tx) => {
         await tx.unsafe(migration.sql);
         await tx`
@@ -215,8 +319,14 @@ export function loadMigrationsFromDir(dirPath: string): MigrationEntry[] {
  * @returns Configured Sql instance with migrations applied
  * @throws If database connection or migrations fail
  */
-export async function bootstrapDatabase(databaseUrl: string): Promise<Sql> {
-  const sql = openDatabase(databaseUrl);
+export async function bootstrapDatabase(
+  databaseUrl: string,
+  options?: PostgresDbOptions,
+): Promise<Sql> {
+  const sql = openDatabase(databaseUrl, {
+    ...resolvePostgresConnectionOptions(databaseUrl),
+    ...options,
+  });
 
   const migrationsDir = path.join(__dirname, 'migrations-pg');
   const migrations = loadMigrationsFromDir(migrationsDir);
@@ -241,8 +351,9 @@ export async function closeDatabase(sql: Sql): Promise<void> {
  *
  * Priority:
  * 1. `TEST_DATABASE_URL` when present.
- * 2. `DATABASE_URL` when present.
- * 3. Local fallback database URL used by the dashboard/dev supervisor.
+ * 2. `SUPABASE_DATABASE_URL` when DB_PROVIDER=supabase.
+ * 3. `DATABASE_URL` when present.
+ * 4. Local fallback database URL used by the dashboard/dev supervisor.
  *
  * In production, missing database configuration is treated as an error so we
  * do not silently connect to the local fallback database.
@@ -252,24 +363,33 @@ export function resolveDashboardDbUrl(
 ): string {
   const testDbUrl = String(env.TEST_DATABASE_URL || '').trim();
   const dbUrl = String(env.DATABASE_URL || '').trim();
+  const supabaseDbUrl = String(env.SUPABASE_DATABASE_URL || '').trim();
+  const provider = resolveDatabaseProvider(env);
   const preferTestUrl = String(env.NODE_ENV || '').trim() === 'test';
-  const defaultLocalTestDbUrl = 'postgres://ds:local@localhost:5432/ds_dashboard';
   if (testDbUrl) {
     return testDbUrl;
+  }
+  if (provider === 'supabase' && supabaseDbUrl) {
+    return supabaseDbUrl;
   }
   if (dbUrl) {
     return dbUrl;
   }
   if (preferTestUrl) {
-    return defaultLocalTestDbUrl;
+    return DEFAULT_LOCAL_DATABASE_URL;
   }
   if (String(env.NODE_ENV || '').trim() === 'production') {
     throw new Error(
-      'DATABASE_URL environment variable is required in production. ' +
-        'Set DATABASE_URL or TEST_DATABASE_URL before starting the dashboard.',
+      'Database configuration is required in production. ' +
+        'Set DATABASE_URL, SUPABASE_DATABASE_URL, or TEST_DATABASE_URL before starting the dashboard.',
     );
   }
-  return defaultLocalTestDbUrl;
+  if (provider === 'supabase') {
+    throw new Error(
+      'SUPABASE_DATABASE_URL or DATABASE_URL is required when DB_PROVIDER=supabase.',
+    );
+  }
+  return DEFAULT_LOCAL_DATABASE_URL;
 }
 
 async function ensureEmbeddingDimensions(sql: Sql): Promise<void> {

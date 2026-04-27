@@ -17,6 +17,8 @@ import {
   runMigrations,
   loadMigrationsFromDir,
   resolveDashboardDbUrl,
+  resolveDatabaseProvider,
+  resolvePostgresConnectionOptions,
   type MigrationEntry,
 } from './pg-db-service.js';
 import { createTestDatabase } from './test-db-helpers.js';
@@ -61,8 +63,15 @@ describe('pg-db-service', () => {
       const migrations = await sql`
         SELECT version FROM schema_migrations ORDER BY version
       `;
-      assert.ok(migrations.length > 0, 'At least one migration should be recorded');
-      assert.strictEqual(Number(migrations[0].version), 1, 'First migration should be version 1');
+      assert.ok(
+        migrations.length > 0,
+        'At least one migration should be recorded',
+      );
+      assert.strictEqual(
+        Number(migrations[0].version),
+        1,
+        'First migration should be version 1',
+      );
     });
 
     it('component_editorial does not have legacy columns', async () => {
@@ -72,13 +81,34 @@ describe('pg-db-service', () => {
         AND table_name = 'component_editorial'
       `;
       const columnNames = columns.map((c) => c.column_name);
-      assert.ok(columnNames.includes('variants_json'), 'variants_json should exist');
-      assert.ok(!columnNames.includes('properties_json'), 'properties_json should not exist');
-      assert.ok(columnNames.includes('behaviour_json'), 'behaviour_json should exist');
-      assert.ok(!columnNames.includes('tokens_json'), 'tokens_json should not exist');
-      assert.ok(!columnNames.includes('token_mapping_json'), 'token_mapping_json should not exist');
-      assert.ok(!columnNames.includes('best_practices_json'), 'best_practices_json should not exist');
-      assert.ok(!columnNames.includes('related_components_json'), 'related_components_json should not exist');
+      assert.ok(
+        columnNames.includes('variants_json'),
+        'variants_json should exist',
+      );
+      assert.ok(
+        !columnNames.includes('properties_json'),
+        'properties_json should not exist',
+      );
+      assert.ok(
+        columnNames.includes('behaviour_json'),
+        'behaviour_json should exist',
+      );
+      assert.ok(
+        !columnNames.includes('tokens_json'),
+        'tokens_json should not exist',
+      );
+      assert.ok(
+        !columnNames.includes('token_mapping_json'),
+        'token_mapping_json should not exist',
+      );
+      assert.ok(
+        !columnNames.includes('best_practices_json'),
+        'best_practices_json should not exist',
+      );
+      assert.ok(
+        !columnNames.includes('related_components_json'),
+        'related_components_json should not exist',
+      );
     });
 
     it('ds_consumers does not have legacy sync/stale columns', async () => {
@@ -88,8 +118,14 @@ describe('pg-db-service', () => {
         AND table_name = 'ds_consumers'
       `;
       const columnNames = columns.map((c) => c.column_name);
-      assert.ok(!columnNames.includes('sync_interval_hours'), 'sync_interval_hours should not exist');
-      assert.ok(!columnNames.includes('max_stale_hours'), 'max_stale_hours should not exist');
+      assert.ok(
+        !columnNames.includes('sync_interval_hours'),
+        'sync_interval_hours should not exist',
+      );
+      assert.ok(
+        !columnNames.includes('max_stale_hours'),
+        'max_stale_hours should not exist',
+      );
     });
 
     it('creates all expected indexes', async () => {
@@ -192,7 +228,7 @@ describe('pg-db-service', () => {
 
       assert.throws(() => {
         resolveDashboardDbUrl();
-      }, /DATABASE_URL environment variable is required in production/);
+      }, /Database configuration is required in production/);
     });
 
     it('returns DATABASE_URL when set', () => {
@@ -204,11 +240,79 @@ describe('pg-db-service', () => {
     it('prefers TEST_DATABASE_URL over DATABASE_URL in test environments', () => {
       process.env.NODE_ENV = 'test';
       process.env.DATABASE_URL = 'postgres://prod:test@localhost:5432/prod';
-      process.env.TEST_DATABASE_URL = 'postgres://test:test@localhost:5432/test';
+      process.env.TEST_DATABASE_URL =
+        'postgres://test:test@localhost:5432/test';
 
       const result = resolveDashboardDbUrl();
 
       assert.strictEqual(result, 'postgres://test:test@localhost:5432/test');
+    });
+
+    it('uses SUPABASE_DATABASE_URL when DB_PROVIDER is supabase', () => {
+      process.env.DB_PROVIDER = 'supabase';
+      process.env.SUPABASE_DATABASE_URL =
+        'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres?sslmode=require';
+
+      const result = resolveDashboardDbUrl();
+
+      assert.strictEqual(
+        result,
+        'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres?sslmode=require',
+      );
+    });
+
+    it('requires a Supabase URL when DB_PROVIDER is supabase', () => {
+      delete process.env.DATABASE_URL;
+      delete process.env.TEST_DATABASE_URL;
+      delete process.env.SUPABASE_DATABASE_URL;
+      process.env.DB_PROVIDER = 'supabase';
+
+      assert.throws(() => {
+        resolveDashboardDbUrl();
+      }, /SUPABASE_DATABASE_URL or DATABASE_URL is required/);
+    });
+  });
+
+  describe('resolveDatabaseProvider()', () => {
+    it('infers supabase from Supabase hosts', () => {
+      assert.strictEqual(
+        resolveDatabaseProvider({
+          DATABASE_URL:
+            'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres',
+        } as NodeJS.ProcessEnv),
+        'supabase',
+      );
+    });
+
+    it('prefers explicit DB_PROVIDER', () => {
+      assert.strictEqual(
+        resolveDatabaseProvider({
+          DB_PROVIDER: 'custom',
+          DATABASE_URL:
+            'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres',
+        } as NodeJS.ProcessEnv),
+        'custom',
+      );
+    });
+  });
+
+  describe('resolvePostgresConnectionOptions()', () => {
+    it('requires SSL for Supabase', () => {
+      const options = resolvePostgresConnectionOptions(
+        'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres',
+        { DB_PROVIDER: 'supabase' } as NodeJS.ProcessEnv,
+      );
+
+      assert.strictEqual(options.ssl, 'require');
+    });
+
+    it('disables prepared statements for the Supabase pooler', () => {
+      const options = resolvePostgresConnectionOptions(
+        'postgresql://postgres:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres',
+        { DB_PROVIDER: 'supabase' } as NodeJS.ProcessEnv,
+      );
+
+      assert.strictEqual(options.prepare, false);
     });
   });
 
@@ -229,11 +333,18 @@ describe('pg-db-service', () => {
 
   describe('runMigrations() with skipChecksumValidation', () => {
     it('skips checksum validation when skipChecksumValidation is true', async () => {
-      const sql = openDatabase('postgres://ds:local@localhost:5432/ds_dashboard');
+      const sql = openDatabase(
+        'postgres://ds:local@localhost:5432/ds_dashboard',
+      );
       try {
-        const fakeMigration: MigrationEntry = { version: 9999, sql: 'SELECT 1;' };
+        const fakeMigration: MigrationEntry = {
+          version: 9999,
+          sql: 'SELECT 1;',
+        };
         await assert.doesNotReject(async () => {
-          await runMigrations(sql, [fakeMigration], { skipChecksumValidation: true });
+          await runMigrations(sql, [fakeMigration], {
+            skipChecksumValidation: true,
+          });
         });
       } finally {
         await sql`DELETE FROM schema_migrations WHERE version = 9999`;
@@ -242,12 +353,16 @@ describe('pg-db-service', () => {
     });
 
     it('validates checksum by default', async () => {
-      const sql = openDatabase('postgres://ds:local@localhost:5432/ds_dashboard');
+      const sql = openDatabase(
+        'postgres://ds:local@localhost:5432/ds_dashboard',
+      );
       try {
         await sql`DELETE FROM schema_migrations WHERE version = 3`;
         const fakeMigration: MigrationEntry = { version: 3, sql: 'SELECT 2;' };
         await assert.rejects(async () => {
-          await runMigrations(sql, [fakeMigration], { skipChecksumValidation: false });
+          await runMigrations(sql, [fakeMigration], {
+            skipChecksumValidation: false,
+          });
         }, /checksum mismatch/);
       } finally {
         await sql`DELETE FROM schema_migrations WHERE version = 3`;
