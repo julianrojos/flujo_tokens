@@ -262,7 +262,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   if (pendingOpsRepo) {
     try {
       pendingOpId = await pendingOpsRepo.start({
-        type: "system.delete",
+        type: "delete_design_system",
         systemId: routeSystemId,
         payload: {
           systemId: routeSystemId,
@@ -310,19 +310,6 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
 
     await designSystemRepository.delete(routeSystemId);
     mutationPhase = "design-system";
-    await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
-
-    const removedPaths = removeExistingPathsWithOptions(removablePaths, fsSync, {
-      repoRoot,
-      protectedTopLevelDirs: ["docs", "input", "output"],
-    });
-    const prunedDirs = pruneEmptyAncestorDirs(removablePaths, { repoRoot, fsSync });
-    touchedPaths = [...removedPaths, ...prunedDirs];
-    mutationPhase = "filesystem";
-
-    if (pendingOpsRepo && pendingOpId) {
-      await markPendingOpCompleted();
-    }
   } catch (error) {
     if (pendingOpsRepo && pendingOpId && mutationPhase === "none") {
       try {
@@ -345,6 +332,36 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         reason: error instanceof Error ? error.message : String(error),
       },
     });
+  }
+
+  try {
+    await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
+  } catch (error) {
+    console.warn("[handleDeleteDesignSystemRoute] Failed to update default system after delete:", {
+      systemId: routeSystemId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  let filesystemCleanupSucceeded = true;
+  try {
+    const removedPaths = removeExistingPathsWithOptions(removablePaths, fsSync, {
+      repoRoot,
+      protectedTopLevelDirs: ["docs", "input", "output"],
+    });
+    const prunedDirs = pruneEmptyAncestorDirs(removablePaths, { repoRoot, fsSync });
+    touchedPaths = [...removedPaths, ...prunedDirs];
+    mutationPhase = "filesystem";
+  } catch (error) {
+    filesystemCleanupSucceeded = false;
+    console.warn("[handleDeleteDesignSystemRoute] Failed to clean filesystem after delete:", {
+      systemId: routeSystemId,
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (filesystemCleanupSucceeded && pendingOpsRepo && pendingOpId) {
+    await markPendingOpCompleted();
   }
 
   return c.json(

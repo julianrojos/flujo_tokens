@@ -58,7 +58,7 @@ function createRouteContext(repoRoot: string) {
   const pendingOpsRepo = {
     async start(input: { type: string; systemId: string; payload: Record<string, unknown> }) {
       calls.push(`pending-start:${input.type}:${input.systemId}`);
-      assert.equal(input.type, "system.delete");
+      assert.equal(input.type, "delete_design_system");
       assert.equal(input.systemId, "alpha");
       assert.equal(input.payload.systemId, "alpha");
       assert.equal(input.payload.routeSystemId, "alpha");
@@ -114,7 +114,7 @@ test("handleDeleteDesignSystemRoute records a pending delete op even when there 
     assert.equal(fs.existsSync(targetPath), false);
     assert.deepEqual(calls, [
       "preflight:figma-file-alpha",
-      "pending-start:system.delete:alpha",
+      "pending-start:delete_design_system:alpha",
       "cleanup:figma-file-alpha",
       "delete:alpha",
       "set-default:null",
@@ -386,6 +386,214 @@ test("handleDeleteDesignSystemRoute keeps pending op open when design-system del
     assert.equal(fs.existsSync(targetPath), true);
     assert.deepEqual(calls, ["preflight", "pending-start", "cleanup", "delete"]);
     assert.equal((result.payload as Record<string, unknown>).code, "design_system.delete_failed");
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("handleDeleteDesignSystemRoute returns success when default update fails after delete", async () => {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ds-delete-default-fail-"));
+  try {
+    const targetPath = path.join(repoRoot, "design-systems", "alpha", "old.txt");
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, "legacy");
+
+    const calls: string[] = [];
+    const c = {
+      req: {
+        param(name: string) {
+          assert.equal(name, "id");
+          return "alpha";
+        },
+      },
+      json(payload: unknown, status = 200) {
+        return { payload, status };
+      },
+    };
+
+    const deps = {
+      failJson: (ctx: typeof c, status: number, payload: unknown) => ctx.json(payload, status),
+      designSystemRepository: {
+        async getConfig() {
+          return {
+            defaultSystem: "alpha",
+            systems: [
+              {
+                id: "alpha",
+                name: "Alpha",
+                figmaFileId: "figma-file-alpha",
+              },
+            ],
+          };
+        },
+        async delete(systemId: string) {
+          calls.push(`delete:${systemId}`);
+          assert.equal(systemId, "alpha");
+          assert.ok(fs.existsSync(targetPath), "filesystem must still exist before DB delete");
+          return true;
+        },
+        async setDefaultSystemId(id: string | null) {
+          calls.push(`set-default:${String(id)}`);
+          throw new Error("default update failed");
+        },
+      },
+      repoRoot,
+      resolveSafeSystemPathsForDeletion: () => [targetPath],
+      fsSync: fs,
+      summarizeDesignSystemsConfig: (config: unknown) => config as Record<string, unknown>,
+      dependencyRepo: {
+        async listConsumers() {
+          calls.push("preflight");
+          return [];
+        },
+        async removeAllByDsFileKey() {
+          calls.push("cleanup");
+          return {
+            deletedConsumerIds: [],
+            deletedConsumerCount: 0,
+          };
+        },
+      },
+      pendingOpsRepo: {
+        async start() {
+          calls.push("pending-start");
+          return "pending-3";
+        },
+        async complete(id: string) {
+          calls.push(`pending-complete:${id}`);
+        },
+        async abandon() {
+          calls.push("pending-abandon");
+        },
+      },
+    };
+
+    const result = await handleDeleteDesignSystemRoute(c as never, deps as never);
+
+    assert.equal(result.status, 200);
+    assert.equal(fs.existsSync(targetPath), false);
+    assert.deepEqual(calls, [
+      "preflight",
+      "pending-start",
+      "cleanup",
+      "delete:alpha",
+      "set-default:null",
+      "pending-complete:pending-3",
+    ]);
+    const payload = result.payload as Record<string, unknown>;
+    assert.equal(payload.ok, true);
+    assert.equal(payload.deletedConsumersCount, 0);
+  } finally {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("handleDeleteDesignSystemRoute leaves pending op open when filesystem cleanup fails", async () => {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ds-delete-fs-fail-"));
+  try {
+    const targetPath = path.join(repoRoot, "design-systems", "alpha", "old.txt");
+    const calls: string[] = [];
+    const c = {
+      req: {
+        param(name: string) {
+          assert.equal(name, "id");
+          return "alpha";
+        },
+      },
+      json(payload: unknown, status = 200) {
+        return { payload, status };
+      },
+    };
+
+    const fsSync = {
+      existsSync() {
+        return true;
+      },
+      rmSync(target: string) {
+        calls.push(`rm:${target}`);
+        assert.equal(target, targetPath);
+        throw new Error("filesystem cleanup failed");
+      },
+      statSync() {
+        throw new Error("statSync should not be called after rm failure");
+      },
+      readdirSync() {
+        throw new Error("readdirSync should not be called after rm failure");
+      },
+      rmdirSync() {
+        throw new Error("rmdirSync should not be called after rm failure");
+      },
+      mkdirSync() {
+        throw new Error("mkdirSync should not be called");
+      },
+    };
+
+    const deps = {
+      failJson: (ctx: typeof c, status: number, payload: unknown) => ctx.json(payload, status),
+      designSystemRepository: {
+        async getConfig() {
+          return {
+            defaultSystem: "alpha",
+            systems: [
+              {
+                id: "alpha",
+                name: "Alpha",
+                figmaFileId: "figma-file-alpha",
+              },
+            ],
+          };
+        },
+        async delete(systemId: string) {
+          calls.push(`delete:${systemId}`);
+          return true;
+        },
+        async setDefaultSystemId(id: string | null) {
+          calls.push(`set-default:${String(id)}`);
+        },
+      },
+      repoRoot,
+      resolveSafeSystemPathsForDeletion: () => [targetPath],
+      fsSync,
+      summarizeDesignSystemsConfig: (config: unknown) => config as Record<string, unknown>,
+      dependencyRepo: {
+        async listConsumers() {
+          calls.push("preflight");
+          return [];
+        },
+        async removeAllByDsFileKey() {
+          calls.push("cleanup");
+          return {
+            deletedConsumerIds: [],
+            deletedConsumerCount: 0,
+          };
+        },
+      },
+      pendingOpsRepo: {
+        async start() {
+          calls.push("pending-start");
+          return "pending-fs-1";
+        },
+        async complete() {
+          calls.push("pending-complete");
+        },
+        async abandon() {
+          calls.push("pending-abandon");
+        },
+      },
+    };
+
+    const result = await handleDeleteDesignSystemRoute(c as never, deps as never);
+
+    assert.equal(result.status, 200);
+    assert.deepEqual(calls, [
+      "preflight",
+      "pending-start",
+      "cleanup",
+      "delete:alpha",
+      "set-default:null",
+      `rm:${targetPath}`,
+    ]);
+    assert.equal((result.payload as Record<string, unknown>).ok, true);
   } finally {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   }

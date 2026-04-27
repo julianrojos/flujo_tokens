@@ -6,6 +6,8 @@
  * to enable recovery after server crashes.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { Sql } from 'postgres';
 
 export type PendingOperationStatus = 'in_progress' | 'completed' | 'abandoned';
@@ -25,8 +27,23 @@ export interface PendingOperationInput {
   payload: Record<string, unknown>;
 }
 
+export interface StartPendingOperationInput {
+  type: string;
+  systemId: string;
+  payload: Record<string, unknown>;
+}
+
 export class PendingOperationsRepository {
   constructor(private sql: Sql) {}
+
+  async start(op: StartPendingOperationInput): Promise<string> {
+    const id = randomUUID();
+    await this.sql`
+      INSERT INTO pending_operations (id, type, payload, status, created_at)
+      VALUES (${id}, ${op.type}, ${op.payload}, 'in_progress', now())
+    `;
+    return id;
+  }
 
   async insert(op: PendingOperationInput): Promise<void> {
     await this.sql`

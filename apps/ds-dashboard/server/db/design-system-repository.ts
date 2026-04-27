@@ -170,6 +170,17 @@ function normalizeNameList(value: unknown): string[] | undefined {
   }
 }
 
+function resolveConfigDefaultSystem(
+  systems: DesignSystemEntry[],
+  configuredDefault: string | null,
+): string {
+  const normalizedDefault = String(configuredDefault || '').trim();
+  if (normalizedDefault && systems.some((system) => system.id === normalizedDefault)) {
+    return normalizedDefault;
+  }
+  return systems[0]?.id ?? '';
+}
+
 function serializeNameList(value: string[] | undefined): string | null {
   if (!Array.isArray(value) || value.length === 0) return null;
   const normalized = value
@@ -292,7 +303,12 @@ export class DesignSystemRepository {
       // Legacy tokens table was created before design_systems existed and may
       // not have an FK in older migrated schemas.
       await tx`DELETE FROM tokens WHERE ds_id = ${id}`;
-      await tx`DELETE FROM document_chunks WHERE ds_id = ${id}`;
+      const documentChunksTable = (await tx`
+        SELECT to_regclass('document_chunks') AS regclass
+      `) as Array<{ regclass: string | null }>;
+      if (String(documentChunksTable[0]?.regclass || '').trim()) {
+        await tx`DELETE FROM document_chunks WHERE ds_id = ${id}`;
+      }
       const result = await tx`
               DELETE FROM design_systems
               WHERE id = ${id}
@@ -329,9 +345,10 @@ export class DesignSystemRepository {
 
   async getConfig(): Promise<DesignSystemsConfig> {
     const systems = await this.getAll();
-    const defaultSystem =
-      (await this.getDefaultSystemId()) ||
-      (systems.length > 0 ? systems[0].id : '');
+    const defaultSystem = resolveConfigDefaultSystem(
+      systems,
+      await this.getDefaultSystemId(),
+    );
     return {
       systems,
       defaultSystem,

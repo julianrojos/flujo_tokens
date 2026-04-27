@@ -134,6 +134,48 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(fetched, null);
         });
 
+        it('deletes a design system even when document_chunks is absent', async () => {
+            const queries: string[] = [];
+            const tx = async (
+                strings: TemplateStringsArray,
+                ...values: unknown[]
+            ) => {
+                const query = String.raw(strings, ...values)
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                queries.push(query);
+                if (query.includes('DELETE FROM tokens WHERE ds_id =')) {
+                    return { count: 1 };
+                }
+                if (query.includes("SELECT to_regclass('document_chunks')")) {
+                    return [{ regclass: null }];
+                }
+                if (query.includes('DELETE FROM document_chunks WHERE ds_id =')) {
+                    throw new Error('document_chunks should be skipped when absent');
+                }
+                if (query.includes('DELETE FROM design_systems WHERE id =')) {
+                    return { count: 1 };
+                }
+                throw new Error(`Unexpected query: ${query}`);
+            };
+            const sqlWithoutDocumentChunks = {
+                begin: async (callback: (tx: typeof tx) => Promise<void>) => {
+                    await callback(tx);
+                },
+            } as unknown as Sql;
+            const repoWithoutDocumentChunks = new DesignSystemRepository(
+                sqlWithoutDocumentChunks,
+            );
+
+            await repoWithoutDocumentChunks.delete('to-delete');
+
+            assert.deepStrictEqual(queries, [
+                'DELETE FROM tokens WHERE ds_id = to-delete',
+                "SELECT to_regclass('document_chunks') AS regclass",
+                'DELETE FROM design_systems WHERE id = to-delete',
+            ]);
+        });
+
         it('returns false when deleting non-existent system', async () => {
             const deleted = await repo.delete('non-existent');
             assert.strictEqual(deleted, false);
@@ -167,6 +209,19 @@ describe('DesignSystemRepository', () => {
             assert.ok(Array.isArray(config.systems));
             assert.ok(config.systems.length >= 1);
             assert.strictEqual(config.defaultSystem, 'test-sys-01');
+        });
+
+        it('falls back to an existing system when the stored default is missing', async () => {
+            await repo.setDefaultSystemId('missing-default');
+            const config = await repo.getConfig();
+
+            assert.ok(Array.isArray(config.systems));
+            assert.ok(config.systems.length >= 1);
+            assert.notStrictEqual(config.defaultSystem, 'missing-default');
+            assert.strictEqual(
+                config.defaultSystem,
+                config.systems[0]?.id,
+            );
         });
     });
 
