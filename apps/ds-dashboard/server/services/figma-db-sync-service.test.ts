@@ -1527,6 +1527,71 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  it('disambiguates generated css variables when normalized token names collide', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [{ id: 'sys-01', name: 'System 01' }],
+    });
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'm1', name: 'Default' }],
+            },
+            col2: {
+              id: 'col2',
+              name: 'Semantic',
+              modes: [{ modeId: 'm2', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/a b',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 0, b: 0, a: 1 } },
+            },
+            v2: {
+              id: 'v2',
+              name: 'color/a-b',
+              variableCollectionId: 'col2',
+              resolvedType: 'COLOR',
+              valuesByMode: { m2: { r: 0, g: 1, b: 0, a: 1 } },
+            },
+          },
+        });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: false,
+        dryRun: false,
+        createRunId: () => 'run-duplicate-css-var',
+        fetchVariables,
+      });
+
+      const tokenRows = (await sql`
+        SELECT id, css_var
+        FROM tokens
+        WHERE ds_id = ${'sys-01'}
+        ORDER BY id
+      `) as Array<{ id: string; css_var: string }>;
+
+      assert.equal(result.tokens, 2);
+      assert.deepEqual(
+        tokenRows.map((row) => row.css_var),
+        ['--color-a-b', '--color-a-b-semantic'],
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('does not fail sync when reindex has no scan sources (reports failed status + warnings)', async () => {
     const { sql, cleanup } = await createTestDatabase({
       designSystems: [{ id: 'sys-01', name: 'System 01' }],

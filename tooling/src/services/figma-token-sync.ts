@@ -9,6 +9,7 @@ import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
 import { normalizeTokenTypeFromFigma } from '@flujo/shared';
 import { stripDiacritics } from '../utils/strip-diacritics.js';
+import { resolveUniqueCssVar } from '../utils/css-var-utils.js';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
@@ -290,6 +291,7 @@ function buildDbTokenRows(meta: FigmaVariablesResponse['meta']): {
   const tokens: DbTokenRow[] = [];
   const modeValuesByKey = new Map<string, DbModeValueRow>();
   const aliasModes = new Map<string, Set<string>>();
+  const usedCssVars = new Set<string>();
 
   for (const variable of variables) {
     const variableRecord = variable as Record<string, unknown>;
@@ -344,7 +346,12 @@ function buildDbTokenRows(meta: FigmaVariablesResponse['meta']): {
     tokens.push({
       id: path,
       slashPath,
-      cssVar,
+      cssVar: resolveUniqueCssVar({
+        baseCssVar: cssVar,
+        collection: collectionName,
+        variableId,
+        usedCssVars,
+      }),
       type,
       collection: collectionName,
       rawValue: preferred.resolvedValue,

@@ -13,6 +13,7 @@ import {
   extractCssReferences,
   generateUsageIndex,
 } from '../../../../tooling/src/services/token-usage-index.js';
+import { resolveUniqueCssVar } from '../../../../tooling/src/utils/css-var-utils.js';
 import {
   fetchVariablesDirect,
   getComponentImageDirect,
@@ -166,6 +167,7 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
   const tokens: TokenRow[] = [];
   const modeValuesByKey = new Map<string, TokenModeValueRow>();
   const aliasModes = new Map<string, Set<string>>();
+  const usedCssVars = new Set<string>();
 
   for (const variable of variables) {
     const variableId = String(variable?.id || '').trim();
@@ -223,7 +225,12 @@ function buildTokenRows(meta: FigmaVariablesResponse['meta']): {
     tokens.push({
       id: path,
       slashPath,
-      cssVar,
+      cssVar: resolveUniqueCssVar({
+        baseCssVar: cssVar,
+        collection: collectionName,
+        variableId,
+        usedCssVars,
+      }),
       type,
       collection: collectionName,
       rawValue: preferred.resolvedValue,
