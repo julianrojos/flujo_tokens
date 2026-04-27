@@ -11,6 +11,12 @@ import type { PropertyType } from 'ds-types';
 import { normalizeVisualProofVariants } from '../lib/visual-proof-normalizer.js';
 import { isStructuralFigmaVariantRow } from '../lib/figma-variant-classification.js';
 
+function toNullableInteger(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : null;
+}
+
 export interface FigmaVariantEntry {
   name: string;
   properties: Record<string, string>;
@@ -1269,10 +1275,12 @@ export class ComponentRepository {
           const capturedAtEpoch =
             proof.capturedAtEpoch ??
             (capturedAt ? Math.floor(capturedAt.getTime() / 1000) : null);
+          const imageWidth = toNullableInteger(proof.imageWidth);
+          const imageHeight = toNullableInteger(proof.imageHeight);
 
           await this.sql`
             INSERT INTO component_visual_proofs (component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json, created_at)
-            VALUES (${componentId}, ${proof.imagePath}, ${proof.screenshotUrl ?? null}, ${proof.caption ?? null}, ${capturedAt}, ${capturedAtEpoch}, ${proof.nodeId ?? null}, ${proof.imageSha256 ?? null}, ${proof.imageBytes ?? null}, ${proof.imageContentType ?? null}, ${proof.imageWidth ?? null}, ${proof.imageHeight ?? null}, ${proof.variantsCount ?? null}, ${Array.isArray(proof.variants) ? JSON.stringify(proof.variants) : null}, ${now})
+            VALUES (${componentId}, ${proof.imagePath}, ${proof.screenshotUrl ?? null}, ${proof.caption ?? null}, ${capturedAt}, ${capturedAtEpoch}, ${proof.nodeId ?? null}, ${proof.imageSha256 ?? null}, ${proof.imageBytes ?? null}, ${proof.imageContentType ?? null}, ${imageWidth}, ${imageHeight}, ${proof.variantsCount ?? null}, ${Array.isArray(proof.variants) ? JSON.stringify(proof.variants) : null}, ${now})
             ON CONFLICT(component_id, image_path) DO UPDATE SET
               screenshot_url = EXCLUDED.screenshot_url,
               caption = EXCLUDED.caption,
