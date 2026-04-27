@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { Link } from "react-router-dom";
 import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -12,11 +12,12 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByVariable, listConsumers } from "@/lib/api";
+import { fetchReportByVariable, fetchTokenCatalog, listConsumers } from "@/lib/api";
+import { toTokenDetail } from "@/lib/routes";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import { SimulateChangePanel } from "./simulate-change-panel";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
+import type { TokenCatalog, TokenCatalogEntry } from "@/types/token-catalog";
 import {
   buildVariableUsageScopeSummary,
   type VariableUsageScopeSummary,
@@ -36,6 +37,40 @@ interface VariableKpis {
 }
 
 type VariableSortField = "name" | "type" | "impact" | "nodes" | "bindings" | "usedIn";
+const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
+
+function isParentConsumerUsage(consumerId: string): boolean {
+  return String(consumerId || "").startsWith(PARENT_CONSUMER_ID_PREFIX);
+}
+
+function normalizeTokenLookupKey(value: string): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^_+/, "")
+    .replace(/^semanticos[./]/, "")
+    .replace(/^primitivos[./]/, "")
+    .replace(/^theme[./]/, "")
+    .replace(/^tokens?[./]/, "")
+    .replace(/^--+/, "")
+    .replace(/[._]+/g, "/")
+    .replace(/\/+/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+}
+
+function buildTokenPathLookup(entries: TokenCatalogEntry[]): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const entry of entries) {
+    for (const ref of [entry.path, entry.slashPath, entry.cssVar]) {
+      const key = normalizeTokenLookupKey(ref);
+      if (!key) continue;
+      if (!lookup.has(key)) {
+        lookup.set(key, entry.path);
+      }
+    }
+  }
+  return lookup;
+}
 
 function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   const consumerIds = new Set<string>();
@@ -48,6 +83,7 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
       highImpactVariables += 1;
     }
     for (const consumer of report.consumers) {
+      if (isParentConsumerUsage(consumer.consumerId)) continue;
       consumerIds.add(consumer.consumerId);
     }
   }
@@ -87,10 +123,10 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
   const [reports, setReports] = useState<VariableUsageReport[]>([]);
   const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
+  const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
-  const [selectedVariableKey, setSelectedVariableKey] = useState<string | null>(null);
   const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
 
   const loadReports = async () => {
@@ -98,9 +134,10 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     setError(null);
     setUsageDetailsWarning(null);
     try {
-      const [reportResult, consumersResult] = await Promise.allSettled([
+      const [reportResult, consumersResult, tokenCatalogResult] = await Promise.allSettled([
         fetchReportByVariable(dsFileKey),
         listConsumers(dsFileKey),
+        fetchTokenCatalog(),
       ]);
 
       if (reportResult.status === "rejected") {
@@ -114,6 +151,11 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
         console.warn("[consumer-tab-by-variable] Consumer usage details unavailable", consumersResult.reason);
         setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
         setConsumers([]);
+      }
+      if (tokenCatalogResult.status === "fulfilled") {
+        setTokenCatalog(tokenCatalogResult.value);
+      } else {
+        setTokenCatalog(null);
       }
     } catch (cause) {
       setError(
@@ -149,17 +191,22 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     () => buildVariableUsageScopeSummary(consumers),
     [consumers],
   );
+  const tokenPathByLookup = useMemo(
+    () => buildTokenPathLookup(tokenCatalog?.entries || []),
+    [tokenCatalog],
+  );
 
   const sortedReports = useMemo(() => {
     return [...filteredReports].sort((a, b) => {
       const valueFor = (report: VariableUsageReport): string | number => {
+        const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
         if (sort.field === "name") return report.variableName.toLowerCase();
         if (sort.field === "type") return report.variableType.toLowerCase();
         if (sort.field === "impact") return report.impactLevel.level;
         if (sort.field === "nodes") return report.totalNodes;
         if (sort.field === "bindings") return usageSummaryByVariable.get(report.variableKey)?.bindingOccurrenceCount ?? Number.NEGATIVE_INFINITY;
-        if (sort.field === "usedIn") return report.consumers.length;
-        return report.consumers.length;
+        if (sort.field === "usedIn") return visibleConsumers.length;
+        return visibleConsumers.length;
       };
 
       const aValue = valueFor(a);
@@ -168,6 +215,20 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       return sort.dir === "asc" ? comparison : comparison * -1;
     });
   }, [filteredReports, sort, usageSummaryByVariable]);
+
+  function resolveTokenPathForReport(report: VariableUsageReport): string | null {
+    const directTokenPath = tokenCatalog?.byVariableId?.[report.variableKey]?.path;
+    if (directTokenPath) {
+      return directTokenPath;
+    }
+    for (const candidate of [report.variableName, report.variableKey]) {
+      const key = normalizeTokenLookupKey(candidate);
+      if (!key) continue;
+      const resolved = tokenPathByLookup.get(key);
+      if (resolved) return resolved;
+    }
+    return null;
+  }
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
 
@@ -286,11 +347,23 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                 </TableRow>
               ) : (
                 sortedReports.map((report) => {
-                  const topConsumers = report.consumers.slice(0, 3);
+                  const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
+                  const topConsumers = visibleConsumers.slice(0, 3);
+                  const resolvedTokenPath = resolveTokenPathForReport(report);
                   return (
                     <TableRow key={report.variableKey}>
                       <TableCell>
-                        <span className="text-foreground">{report.variableName}</span>
+                        {resolvedTokenPath ? (
+                          <Link
+                            to={toTokenDetail(resolvedTokenPath)}
+                            className="text-foreground hover:text-primary"
+                            aria-label={`Open ${report.variableName} detail`}
+                          >
+                            {report.variableName}
+                          </Link>
+                        ) : (
+                          <span className="text-foreground">{report.variableName}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="font-mono text-xs lowercase text-foreground">
@@ -322,21 +395,12 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                               </span>
                             </a>
                           ))}
-                          {report.consumers.length > topConsumers.length ? (
+                          {visibleConsumers.length > topConsumers.length ? (
                             <span className="px-2 py-1 text-xs text-muted-foreground">
-                              +{report.consumers.length - topConsumers.length} more
+                              +{visibleConsumers.length - topConsumers.length} more
                             </span>
                           ) : null}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedVariableKey(report.variableKey)}
-                        >
-                          Simulate change
-                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -346,14 +410,6 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
           </Table>
         </div>
       </Card>
-
-      {selectedVariableKey ? (
-        <SimulateChangePanel
-          variableKey={selectedVariableKey}
-          dsFileKey={dsFileKey}
-          onClose={() => setSelectedVariableKey(null)}
-        />
-      ) : null}
     </div>
   );
 }

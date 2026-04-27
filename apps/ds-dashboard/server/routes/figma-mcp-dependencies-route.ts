@@ -90,6 +90,35 @@ function validateReportQuery(query: Record<string, unknown>) {
   return errors;
 }
 
+function withParentFileName(
+  reports: Array<{
+    consumers: Array<{ consumerId: string; consumerName: string }>;
+  }>,
+  parentFileName: string,
+) {
+  if (!parentFileName.trim()) return reports;
+  return reports.map((report) => ({
+    ...report,
+    consumers: report.consumers.map((consumer) =>
+      consumer.consumerName === 'Parent file'
+        ? { ...consumer, consumerName: parentFileName }
+        : consumer,
+      ),
+  }));
+}
+
+async function resolveParentFileNameByDsFileKey(db: Sql, dsFileKey: string): Promise<string> {
+  const normalizedDsFileKey = String(dsFileKey || '').trim();
+  if (!normalizedDsFileKey) return '';
+  const rows = (await db`
+    SELECT name
+    FROM design_systems
+    WHERE figma_file_id = ${normalizedDsFileKey}
+    LIMIT 1
+  `) as Array<{ name?: string | null }>;
+  return String(rows[0]?.name || '').trim();
+}
+
 type RouteDeps = {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
   getConnInfoFn?: (c: Context) => ConnInfo;
@@ -530,7 +559,11 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = await analysisService.reportByVariable(query.dsFileKey, query.variableKey);
+      const parentFileName = await resolveParentFileNameByDsFileKey(deps.db, query.dsFileKey);
+      const reports = withParentFileName(
+        await analysisService.reportByVariable(query.dsFileKey, query.variableKey),
+        parentFileName,
+      );
 
       return c.json({
         ok: true,

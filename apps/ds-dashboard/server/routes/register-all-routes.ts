@@ -128,16 +128,21 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const routeDeps = buildAllRouteDeps(deps);
   const figmaTokenByDsFileKey = new Map<string, string>();
   const figmaTokenBySystemId = new Map<string, string>();
+  const systemNameByDsFileKey = new Map<string, string>();
   if (hasDbDesignSystemRepo(deps.designSystemRepository)) {
     Promise.resolve(deps.designSystemRepository.getAll?.())
       .then((systems) => {
         if (!Array.isArray(systems)) return;
         for (const system of systems) {
           const systemId = String((system as { id?: unknown })?.id || '').trim();
+          const systemName = String((system as { name?: unknown })?.name || '').trim();
           const dsFileKey = String(system?.figmaFileId || '').trim();
           const tokenRef = String(system?.figmaApiToken || '').trim();
           if (dsFileKey && tokenRef) {
             figmaTokenByDsFileKey.set(dsFileKey, tokenRef);
+          }
+          if (dsFileKey && systemName) {
+            systemNameByDsFileKey.set(dsFileKey, systemName);
           }
           if (systemId && tokenRef) {
             figmaTokenBySystemId.set(systemId, tokenRef);
@@ -202,7 +207,9 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
       getSystemConfigByDsFileKey: (dsFileKey) => {
         const rawRef = resolveFigmaTokenRefByDsFileKey(dsFileKey);
         if (!rawRef) return null;
-        return { figmaApiToken: rawRef };
+        const normalizedDsFileKey = String(dsFileKey || '').trim();
+        const name = systemNameByDsFileKey.get(normalizedDsFileKey);
+        return name ? { figmaApiToken: rawRef, name } : { figmaApiToken: rawRef };
       },
     });
   }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { Link } from "react-router-dom";
 import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
@@ -9,11 +10,17 @@ import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { splitComponentName } from "@/lib/component-identity";
-import { fetchReportByComponent, listConsumers } from "@/lib/api";
+import {
+  buildComponentLookupMap,
+  resolveKnownComponentSlug,
+  splitComponentName,
+} from "@/lib/component-identity";
+import { fetchComponentCatalog, fetchReportByComponent, listConsumers } from "@/lib/api";
+import { toComponentDetail } from "@/lib/routes";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { ComponentUsageReport } from "@/types/consumers";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import {
   buildComponentUsageScopeSummary,
   type ComponentUsageScopeSummary,
@@ -78,6 +85,7 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<ComponentUsageReport[]>([]);
   const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
+  const [componentCatalogItems, setComponentCatalogItems] = useState<ComponentCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
@@ -88,9 +96,10 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     setError(null);
     setUsageDetailsWarning(null);
     try {
-      const [reportResult, consumersResult] = await Promise.allSettled([
+      const [reportResult, consumersResult, componentCatalogResult] = await Promise.allSettled([
         fetchReportByComponent(dsFileKey),
         listConsumers(dsFileKey),
+        fetchComponentCatalog(),
       ]);
 
       if (reportResult.status === "rejected") {
@@ -104,6 +113,11 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
         console.warn("[consumer-tab-by-component] Consumer usage details unavailable", consumersResult.reason);
         setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
         setConsumers([]);
+      }
+      if (componentCatalogResult.status === "fulfilled") {
+        setComponentCatalogItems(componentCatalogResult.value.components || []);
+      } else {
+        setComponentCatalogItems([]);
       }
     } catch (cause) {
       setError(
@@ -136,6 +150,10 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     () => buildComponentUsageScopeSummary(consumers),
     [consumers],
   );
+  const componentSlugByLookup = useMemo(
+    () => buildComponentLookupMap(componentCatalogItems),
+    [componentCatalogItems],
+  );
 
   const sortedReports = useMemo(() => {
     return [...filteredReports].sort((a, b) => {
@@ -164,6 +182,29 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
       );
     });
   }, [filteredReports, sort, usageSummaryByComponent]);
+
+  function renderComponentCell(report: ComponentUsageReport) {
+    const { parentName, variantLabel } = splitComponentName(report.componentName);
+    const resolvedComponentSlug = resolveKnownComponentSlug({
+      lookup: componentSlugByLookup,
+      parentName,
+      variantName: variantLabel,
+    });
+
+    if (resolvedComponentSlug) {
+      return (
+        <Link
+          to={toComponentDetail(resolvedComponentSlug)}
+          className="text-foreground hover:text-primary"
+          aria-label={`Open ${report.componentName} detail`}
+        >
+          {parentName}
+        </Link>
+      );
+    }
+
+    return <span className="text-foreground">{parentName}</span>;
+  }
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
 
@@ -270,11 +311,11 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               ) : (
                 sortedReports.map((report) => {
                   const topConsumers = report.consumers.slice(0, 3);
-                  const { parentName, variantLabel } = splitComponentName(report.componentName);
+                  const { variantLabel } = splitComponentName(report.componentName);
                   return (
                     <TableRow key={report.componentKey}>
                       <TableCell>
-                        <span className="text-foreground">{parentName}</span>
+                        {renderComponentCell(report)}
                       </TableCell>
                       <TableCell>
                         {variantLabel ? (
@@ -293,23 +334,24 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                         {report.consumers.length} {report.consumers.length === 1 ? "file" : "files"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-1">
                           {topConsumers.map((usage) => (
-                            <a
-                              key={usage.consumerId}
-                              href={usage.sampleLinks[0] || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface-1 px-2 py-1 text-xs text-foreground transition-colors hover:border-border hover:bg-surface-2"
-                            >
-                              <span className="truncate max-w-[140px]">{usage.consumerName}</span>
-                              <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            <div key={usage.consumerId} className="flex items-center gap-2">
+                              <a
+                                href={usage.sampleLinks[0] || "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-foreground hover:text-primary"
+                              >
+                                {usage.consumerName}
+                              </a>
+                              <span className="text-xs text-muted-foreground">
                                 {usage.instanceCount || 0}
                               </span>
-                            </a>
+                            </div>
                           ))}
                           {report.consumers.length > topConsumers.length ? (
-                            <span className="rounded-md border border-border/70 bg-surface-1 px-2 py-1 text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               +{report.consumers.length - topConsumers.length} more
                             </span>
                           ) : null}
