@@ -42,6 +42,7 @@ function buildLocalValidationError(message: string): ApiErrorDisplay {
   return {
     title: 'Database URL required',
     message,
+    reason: null,
     action: null,
     requestId: null,
     code: null,

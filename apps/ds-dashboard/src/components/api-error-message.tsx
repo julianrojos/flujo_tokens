@@ -27,6 +27,11 @@ export function ApiErrorMessage({
     <div className={cn("rounded-md border p-3 text-sm", toneClasses[tone], className)}>
       <div className="font-medium">{error.title}</div>
       <div className="mt-1">{error.message}</div>
+      {error.reason ? (
+        <div className="mt-2 text-xs opacity-80">
+          Reason: {error.reason}
+        </div>
+      ) : null}
       {error.action ? (
         <div className="mt-2 text-xs opacity-80">
           Suggested action: {error.action}

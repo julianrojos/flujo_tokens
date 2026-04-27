@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { ApiError } from "./api";
 import { toApiErrorDisplay } from "./api-error-ux";
 
 describe("toApiErrorDisplay", () => {
@@ -26,5 +27,28 @@ describe("toApiErrorDisplay", () => {
     assert.equal(result.message, "Boom");
     assert.equal(result.action, "Retry the action.");
     assert.equal(result.retryable, true);
+  });
+
+  it("exposes backend reasons when present in the api error context", () => {
+    const result = toApiErrorDisplay(
+      new ApiError({
+        status: 500,
+        statusText: "Internal Server Error",
+        code: "design_system.delete_failed",
+        userMessage: "Failed to delete the design system.",
+        recoverable: true,
+        requestId: "req_123",
+        context: {
+          reason: "Preflight DB check failed before delete could start.",
+        },
+      }),
+      {
+        fallbackTitle: "Design system error",
+        fallbackMessage: "Failed to delete the design system.",
+      },
+    );
+
+    assert.equal(result.reason, "Preflight DB check failed before delete could start.");
+    assert.equal(result.requestId, "req_123");
   });
 });

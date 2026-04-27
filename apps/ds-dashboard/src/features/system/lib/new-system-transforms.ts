@@ -401,6 +401,7 @@ export function makeInlineErrorDisplay(args: {
   return {
     title: args.title,
     message: args.message,
+    reason: null,
     action: args.action ?? null,
     code: null,
     requestId: null,

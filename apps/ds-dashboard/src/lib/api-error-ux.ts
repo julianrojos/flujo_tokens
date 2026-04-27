@@ -7,6 +7,7 @@ import {
 export interface ApiErrorDisplay {
   title: string;
   message: string;
+  reason: string | null;
   action: string | null;
   code: string | null;
   requestId: string | null;
@@ -122,11 +123,13 @@ export function toApiErrorDisplay(
   if (error instanceof ApiError) {
     const meta = getApiErrorMeta(error.code);
     const message = toTrimmedString(error.message) || meta?.description || options.fallbackMessage;
+    const reason = toTrimmedString(error.context?.reason);
     const title = resolveTitle(error.code, error.status, options.fallbackTitle);
     const action = resolveAction(error.code, error.recoverable, meta?.fix ?? null);
     return {
       title,
       message,
+      reason: reason || null,
       action,
       code: error.code,
       requestId: error.requestId,
@@ -142,6 +145,7 @@ export function toApiErrorDisplay(
       title: "API unavailable",
       message:
         "The dashboard API is not reachable. Make sure `npm run db:up` is running and then restart `npm run dashboard:dev`.",
+      reason: null,
       action: "Check PostgreSQL and restart the dashboard.",
       code: null,
       requestId: null,
@@ -152,6 +156,7 @@ export function toApiErrorDisplay(
   return {
     title: options.fallbackTitle,
     message,
+    reason: null,
     action: "Retry the action.",
     code: null,
     requestId: null,
