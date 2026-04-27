@@ -287,6 +287,7 @@ export interface MutateDesignSystemResponse {
   };
   deletedConsumersCount?: number;
   deletedConsumerNames?: string[];
+  filesystemCleanupPending?: boolean;
 }
 
 export interface UpdateDesignSystemPayload {

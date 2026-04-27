@@ -374,6 +374,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
       deletedConsumersCount,
       deletedConsumerNames,
       consumerCleanupSkipped,
+      filesystemCleanupPending: !filesystemCleanupSucceeded,
     }),
     200,
   );

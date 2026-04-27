@@ -115,6 +115,7 @@ export function DesignSystemsAdminPage() {
   const [deleteSuccessSystem, setDeleteSuccessSystem] = useState<{
     id: string;
     name: string;
+    filesystemCleanupPending: boolean;
   } | null>(null);
 
   const normalizedRouteSystemId = String(routeSystemId || '').trim();
@@ -279,6 +280,8 @@ export function DesignSystemsAdminPage() {
         name: String(
           systems.find((system) => system.id === id)?.name || id,
         ),
+        filesystemCleanupPending:
+          response.filesystemCleanupPending === true,
       });
     } catch (cause) {
       setError(
@@ -677,6 +680,11 @@ export function DesignSystemsAdminPage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {deleteSuccessSystem.name} was deleted successfully.
                   </p>
+                  {deleteSuccessSystem.filesystemCleanupPending ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Filesystem cleanup is pending and will be retried on the next server start.
+                    </p>
+                  ) : null}
                 </div>
               </ModalHeader>
               <div className="p-5 pt-4">

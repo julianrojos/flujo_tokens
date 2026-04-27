@@ -337,6 +337,7 @@ export function buildDeleteDesignSystemSuccessPayload({
   deletedConsumersCount,
   deletedConsumerNames,
   consumerCleanupSkipped,
+  filesystemCleanupPending,
 }: {
   removedPaths: string[];
   prunedEmptyDirs?: string[];
@@ -345,6 +346,7 @@ export function buildDeleteDesignSystemSuccessPayload({
   deletedConsumersCount?: number;
   deletedConsumerNames?: string[];
   consumerCleanupSkipped?: boolean;
+  filesystemCleanupPending?: boolean;
 }): Record<string, unknown> {
   return {
     ok: true,
@@ -354,6 +356,9 @@ export function buildDeleteDesignSystemSuccessPayload({
     ...(deletedConsumersCount !== undefined && { deletedConsumersCount }),
     ...(deletedConsumerNames !== undefined && { deletedConsumerNames }),
     ...(consumerCleanupSkipped !== undefined && { consumerCleanupSkipped }),
+    ...(filesystemCleanupPending !== undefined && {
+      filesystemCleanupPending,
+    }),
   };
 }
 

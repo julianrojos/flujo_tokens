@@ -593,7 +593,9 @@ test("handleDeleteDesignSystemRoute leaves pending op open when filesystem clean
       "set-default:null",
       `rm:${targetPath}`,
     ]);
-    assert.equal((result.payload as Record<string, unknown>).ok, true);
+    const payload = result.payload as Record<string, unknown>;
+    assert.equal(payload.ok, true);
+    assert.equal(payload.filesystemCleanupPending, true);
   } finally {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   }
