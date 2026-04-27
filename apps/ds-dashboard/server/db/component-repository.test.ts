@@ -50,6 +50,8 @@ describe('ComponentRepository', () => {
                             screenshotUrl: 'https://example.com/button.png',
                             caption: 'Button component',
                             capturedAt: '2026-03-31T10:00:00.000Z',
+                            imageWidth: 242.42855834960938,
+                            imageHeight: 55.6,
                             variantsCount: 2,
                             variants: [
                                 { name: 'Variant=Default', image_path: 'images/button-default.png' },
@@ -77,6 +79,8 @@ describe('ComponentRepository', () => {
             assert.strictEqual(button.visualProofs[0].imagePath, 'images/button.png');
             assert.strictEqual(button.visualProofs[0].screenshotUrl, 'https://example.com/button.png');
             assert.strictEqual(button.visualProofs[0].capturedAt, '2026-03-31T10:00:00.000Z');
+            assert.strictEqual(button.visualProofs[0].imageWidth, 242);
+            assert.strictEqual(button.visualProofs[0].imageHeight, 56);
             assert.strictEqual(button.visualProofs[0].variantsCount, 2);
             assert.ok(Array.isArray(button.visualProofs[0].variants));
             assert.strictEqual(button.visualProofs[0].variants?.length, 2);
