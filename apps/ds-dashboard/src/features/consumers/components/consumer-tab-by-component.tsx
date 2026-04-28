@@ -1,13 +1,15 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -33,6 +35,7 @@ import {
   type ComponentLocalDependencySummary,
 } from "../lib/usage-details-summary";
 import { getComponentTableDisplayInfo } from "../lib/component-table-display";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 
 interface ConsumerTabByComponentProps {
   dsFileKey: string;
@@ -53,6 +56,9 @@ interface ComponentTabByComponentData {
 }
 
 type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "uses" | "consumers";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 async function loadComponentTabByComponentData(dsFileKey: string): Promise<ComponentTabByComponentData> {
   const [reportResult, consumersResult, componentCatalogResult] = await Promise.allSettled([
@@ -135,6 +141,8 @@ function renderUsageBreakdown(usageSummary: ComponentUsageScopeSummary | undefin
 export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerTabByComponentProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [sort, toggleSort] = useSortState<ComponentSortField>({ field: "component", dir: "asc" });
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
   const query = useQuery<ComponentTabByComponentData>({
     queryKey: ["consumer-tab-by-component", dsFileKey, reloadToken],
     enabled: Boolean(dsFileKey),
@@ -383,6 +391,47 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     localDependencySummaryByComponent,
     rowMetaByKey,
   ]);
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedReports.length)),
+    [sortedReports.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedReports.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    sortedReports.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedReports.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedReports.length);
+
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedReports.length)) {
+      setPageSize("25");
+      return;
+    }
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [pageSize, pageSizeOptions, searchQuery, sortedReports.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedReports = useMemo(() => {
+    if (!shouldPaginate) return sortedReports;
+    const start = (currentPage - 1) * pageSizeValue;
+    return sortedReports.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedReports]);
+
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : sortedReports.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(sortedReports.length, currentPage * pageSizeValue) : sortedReports.length;
 
   function renderComponentCell(report: ComponentUsageReport) {
     const { displayInfo, resolvedComponentSlug } = getRowMeta(report);
@@ -433,9 +482,24 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
             onSearch={setSearchQuery}
             searchPlaceholder="Search components"
             rightSlot={
-              <Badge variant="neutral" className="shrink-0">
-                {filteredReports.length} of {reports.length} components
-              </Badge>
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
+                </div>
+              ) : null
             }
           />
 
@@ -448,6 +512,35 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
           ) : null}
 
           {error ? <ApiErrorMessage error={error} /> : null}
+
+          {shouldPaginate ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <Table>
             <TableHeader>
@@ -505,7 +598,7 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedReports.map((report) => {
+                pagedReports.map((report) => {
                   const topConsumers = report.consumers.slice(0, 3);
                   const { displayInfo } = getRowMeta(report);
                   return (
@@ -515,7 +608,7 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                       </TableCell>
                       <TableCell>
                         {displayInfo.variantLabel ? (
-                          <Badge variant="neutral">{displayInfo.variantLabel}</Badge>
+                          <span className="block truncate text-sm !font-normal">{displayInfo.variantLabel}</span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
@@ -559,6 +652,35 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               )}
             </TableBody>
           </Table>
+
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>

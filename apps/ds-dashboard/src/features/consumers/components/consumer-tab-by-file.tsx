@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toConsumerDetail } from "@/lib/routes";
 import { ExternalLink, Inbox, Network } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,7 +26,9 @@ import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport } from "@/types/consumers";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { useSortState } from "@/lib/use-sort-state";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
@@ -44,7 +48,13 @@ interface KpiData {
   neverSynced: number;
 }
 
+interface ConsumerTabByFileData {
+  reports: FileReport[];
+}
+
 type ConsumerSortField = "consumer" | "lastSync" | "usage" | "adoption";
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 function computeKpis(reports: FileReport[]): KpiData {
   const now = Date.now();
@@ -78,6 +88,16 @@ function computeKpis(reports: FileReport[]): KpiData {
 function buildFigmaFileUrl(fileKey: string): string {
   const normalizedKey = String(fileKey || "").trim();
   return normalizedKey ? `https://www.figma.com/file/${encodeURIComponent(normalizedKey)}` : "";
+}
+
+async function loadConsumerTabByFileData(dsFileKey: string): Promise<ConsumerTabByFileData> {
+  const reportResult = await fetchReportByFile(dsFileKey, {
+    staleOnly: false,
+  });
+
+  return {
+    reports: reportResult.data || [],
+  };
 }
 
 function applyFilters(
@@ -150,42 +170,33 @@ function renderAdoptionCell(report: FileReport) {
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
-  const [reports, setReports] = useState<FileReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
+  const [mutationError, setMutationError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [sort, toggleSort] = useSortState<ConsumerSortField>({ field: "lastSync", dir: "desc" });
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
+  const query = useQuery<ConsumerTabByFileData>({
+    queryKey: ["consumer-tab-by-file", dsFileKey, reloadToken],
+    enabled: Boolean(dsFileKey),
+    queryFn: async () => loadConsumerTabByFileData(dsFileKey),
+    ...QUERY_DEFAULTS,
+  });
 
-  const loadReports = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const reportResult = await fetchReportByFile(dsFileKey, {
-        staleOnly: false,
-      });
-
-      setReports(reportResult.data || []);
-    } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
+  const reports = query.data?.reports ?? [];
+  const loading = query.isLoading;
+  const error = mutationError ?? (query.error
+    ? toApiErrorDisplay(query.error, {
         fallbackTitle: "Load reports failed",
         fallbackMessage: "Unable to load consumer file reports.",
-      }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadReports();
-  }, [dsFileKey, reloadToken]);
+      })
+    : null);
 
   const handleSync = async (force = false) => {
     setSyncing(true);
-
-    setError(null);
+    setMutationError(null);
     try {
       await syncConsumers({
         dsFileKey,
@@ -194,9 +205,9 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
         // Tradeoff: adds one extra parent-file scan per sync request.
         captureParentUsage: true,
       });
-      await loadReports();
+      await query.refetch();
     } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
+      setMutationError(toApiErrorDisplay(cause, {
         fallbackTitle: "Sync failed",
         fallbackMessage: "Unable to sync consumer files.",
       }));
@@ -220,14 +231,14 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     if (!removeCandidate) return;
 
     setRemovingConsumerId(removeCandidate.id);
-    setError(null);
+    setMutationError(null);
     try {
       await removeConsumer(removeCandidate.id);
-      await loadReports();
+      await query.refetch();
       setRemoveCandidate(null);
       setRemoveConfirmed(false);
     } catch (cause) {
-      setError(toApiErrorDisplay(cause, {
+      setMutationError(toApiErrorDisplay(cause, {
         fallbackTitle: "Remove failed",
         fallbackMessage: "Unable to remove this consumer file.",
       }));
@@ -273,6 +284,47 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       return a.consumerName.localeCompare(b.consumerName);
     });
   }, [filteredReports, sort]);
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedReports.length)),
+    [sortedReports.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedReports.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    sortedReports.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedReports.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedReports.length);
+
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedReports.length)) {
+      setPageSize("25");
+      return;
+    }
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [pageSize, pageSizeOptions, searchQuery, sortedReports.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedReports = useMemo(() => {
+    if (!shouldPaginate) return sortedReports;
+    const start = (currentPage - 1) * pageSizeValue;
+    return sortedReports.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedReports]);
+
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : sortedReports.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(sortedReports.length, currentPage * pageSizeValue) : sortedReports.length;
   const rowLinkClassName = "text-foreground hover:text-primary";
 
   if (!loading && reports.length === 0) {
@@ -309,23 +361,43 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             onSearch={setSearchQuery}
             searchPlaceholder="Search by name or file key"
             rightSlot={
-              <div className="flex flex-shrink-0 items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleSync()}
-                  disabled={syncing}
-                >
-                  {syncing ? "Syncing..." : "Sync changed"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleSync(true)}
-                  disabled={syncing}
-                >
-                  Force re-sync all
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {showPageSizeSelect ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Rows</span>
+                    <Select
+                      value={pageSize}
+                      onChange={(event) => setPageSize(event.target.value)}
+                      className="w-[132px]"
+                      aria-label="Rows per page"
+                    >
+                      {pageSizeOptions.map((size) => (
+                        <option key={size} value={String(size)}>
+                          {size}
+                        </option>
+                      ))}
+                      {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    </Select>
+                  </div>
+                ) : null}
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleSync()}
+                    disabled={syncing}
+                  >
+                    {syncing ? "Syncing..." : "Sync changed"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleSync(true)}
+                    disabled={syncing}
+                  >
+                    Force re-sync all
+                  </Button>
+                </div>
               </div>
             }
           />
@@ -335,6 +407,35 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
           <p className="text-xs text-muted-foreground">
             Adoption compares DS usage against DS plus non-DS usage for the last sync.
           </p>
+
+          {shouldPaginate ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <Table>
             <TableHeader>
@@ -359,7 +460,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   onSort={() => toggleSort("adoption")}
                   ariaLabel="Sort by adoption"
                 />
-                <TableHead showSortIcon={false}>Actions</TableHead>
+                <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -383,7 +484,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedReports.map((report) => (
+                pagedReports.map((report) => (
                     <TableRow key={report.consumerId}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -452,6 +553,35 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
               )}
             </TableBody>
           </Table>
+
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Card>
 

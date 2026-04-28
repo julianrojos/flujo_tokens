@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -14,6 +15,8 @@ import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByVariable, fetchTokenCatalog, listConsumers } from "@/lib/api";
 import { toTokenDetail } from "@/lib/routes";
 import { useSortState } from "@/lib/use-sort-state";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
 import type { TokenCatalog, TokenCatalogEntry } from "@/types/token-catalog";
@@ -32,8 +35,16 @@ interface VariableKpis {
   uniqueConsumers: number;
 }
 
+interface ConsumerTabByVariableData {
+  reports: VariableUsageReport[];
+  consumers: ConsumerWithUsageDetails[];
+  tokenCatalog: TokenCatalog | null;
+}
+
 type VariableSortField = "name" | "property" | "impact" | "nodes" | "usedIn";
 const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 function isParentConsumerUsage(consumerId: string): boolean {
   return String(consumerId || "").startsWith(PARENT_CONSUMER_ID_PREFIX);
@@ -92,55 +103,46 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   };
 }
 
+async function loadVariableTabByVariableData(dsFileKey: string): Promise<ConsumerTabByVariableData> {
+  const [reportResult, tokenCatalogResult, consumersResult] = await Promise.allSettled([
+    fetchReportByVariable(dsFileKey),
+    fetchTokenCatalog(),
+    listConsumers(dsFileKey),
+  ]);
+
+  if (reportResult.status === "rejected") {
+    throw reportResult.reason;
+  }
+
+  return {
+    reports: reportResult.value.data || [],
+    tokenCatalog: tokenCatalogResult.status === "fulfilled" ? tokenCatalogResult.value : null,
+    consumers: consumersResult.status === "fulfilled" ? consumersResult.value.data || [] : [],
+  };
+}
+
 export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTabByVariableProps) {
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
-  const [reports, setReports] = useState<VariableUsageReport[]>([]);
-  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
-  const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
+  const [pageSize, setPageSize] = useState<string>("25");
+  const [currentPage, setCurrentPage] = useState(1);
+  const query = useQuery<ConsumerTabByVariableData>({
+    queryKey: ["consumer-tab-by-variable", dsFileKey, reloadToken],
+    enabled: Boolean(dsFileKey),
+    queryFn: async () => loadVariableTabByVariableData(dsFileKey),
+    ...QUERY_DEFAULTS,
+  });
 
-  const loadReports = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [reportResult, tokenCatalogResult, consumersResult] = await Promise.allSettled([
-        fetchReportByVariable(dsFileKey),
-        fetchTokenCatalog(),
-        listConsumers(dsFileKey),
-      ]);
-
-      if (reportResult.status === "rejected") {
-        throw reportResult.reason;
-      }
-
-      setReports(reportResult.value.data || []);
-      if (tokenCatalogResult.status === "fulfilled") {
-        setTokenCatalog(tokenCatalogResult.value);
-      } else {
-        setTokenCatalog(null);
-      }
-      if (consumersResult.status === "fulfilled") {
-        setConsumers(consumersResult.value.data || []);
-      } else {
-        setConsumers([]);
-      }
-    } catch (cause) {
-      setError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Load reports failed",
-          fallbackMessage: "Unable to load variable usage reports.",
-        }),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadReports();
-  }, [dsFileKey, reloadToken]);
+  const reports = query.data?.reports ?? [];
+  const consumers = query.data?.consumers ?? [];
+  const tokenCatalog = query.data?.tokenCatalog ?? null;
+  const loading = query.isLoading;
+  const error = query.error
+    ? toApiErrorDisplay(query.error, {
+        fallbackTitle: "Load reports failed",
+        fallbackMessage: "Unable to load variable usage reports.",
+      })
+    : null;
 
   const filteredReports = useMemo(() => {
     const lowered = searchQuery.toLowerCase().trim();
@@ -192,6 +194,47 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       return sort.dir === "asc" ? comparison : comparison * -1;
     });
   }, [visibleReports, sort]);
+  const pageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedReports.length)),
+    [sortedReports.length],
+  );
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedReports.length : Number(pageSize);
+  const shouldPaginate =
+    pageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(pageSizeValue) &&
+    pageSizeValue > 0 &&
+    sortedReports.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedReports.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedReports.length);
+
+  useEffect(() => {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedReports.length)) {
+      setPageSize("25");
+      return;
+    }
+    if (pageSize !== PAGE_SIZE_ALL) {
+      const numericValue = Number(pageSize);
+      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
+        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
+        setPageSize(String(fallback));
+        return;
+      }
+    }
+    setCurrentPage(1);
+  }, [pageSize, pageSizeOptions, searchQuery, severityFilter, sortedReports.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const pagedReports = useMemo(() => {
+    if (!shouldPaginate) return sortedReports;
+    const start = (currentPage - 1) * pageSizeValue;
+    return sortedReports.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedReports]);
+
+  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : sortedReports.length === 0 ? 0 : 1;
+  const pageEnd = shouldPaginate ? Math.min(sortedReports.length, currentPage * pageSizeValue) : sortedReports.length;
 
   function resolveTokenPathForReport(report: VariableUsageReport): string | null {
     const directTokenPath = tokenCatalog?.byVariableId?.[report.variableKey]?.path;
@@ -239,9 +282,24 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
             onSearch={setSearchQuery}
             searchPlaceholder="Search variables"
             rightSlot={
-              <Badge variant="neutral" className="shrink-0">
-                {visibleReports.length} of {reports.length} variables
-              </Badge>
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
+                </div>
+              ) : null
             }
           >
             <Select
@@ -258,6 +316,35 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
           </FilterBar>
 
           {error ? <ApiErrorMessage error={error} /> : null}
+
+          {shouldPaginate ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <Table>
             <TableHeader>
@@ -310,7 +397,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedReports.map((report) => {
+                pagedReports.map((report) => {
                   const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
                   const topConsumers = visibleConsumers.slice(0, 3);
                   const resolvedTokenPath = resolveTokenPathForReport(report);
@@ -376,6 +463,35 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
               )}
             </TableBody>
           </Table>
+
+          {shouldPaginate ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedReports.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>
