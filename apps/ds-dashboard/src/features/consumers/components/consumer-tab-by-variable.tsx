@@ -8,21 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { StatusAlert } from "@/components/ui/status-alert";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByVariable, fetchTokenCatalog, listConsumers } from "@/lib/api";
+import { fetchReportByVariable, fetchTokenCatalog } from "@/lib/api";
 import { toTokenDetail } from "@/lib/routes";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
 import type { TokenCatalog, TokenCatalogEntry } from "@/types/token-catalog";
-import {
-  buildVariableUsageScopeSummary,
-  type VariableUsageScopeSummary,
-  type ConsumerWithUsageDetails,
-} from "../lib/usage-details-summary";
 
 interface ConsumerTabByVariableProps {
   dsFileKey: string;
@@ -36,7 +30,7 @@ interface VariableKpis {
   uniqueConsumers: number;
 }
 
-type VariableSortField = "name" | "type" | "impact" | "nodes" | "bindings" | "usedIn";
+type VariableSortField = "name" | "type" | "impact" | "nodes" | "usedIn";
 const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
 
 function isParentConsumerUsage(consumerId: string): boolean {
@@ -96,47 +90,20 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   };
 }
 
-function renderUsageBreakdown(usageSummary: VariableUsageScopeSummary | undefined) {
-  if (!usageSummary) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-
-  return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap gap-1.5">
-        <Badge variant="neutral" className="text-[10px]">Page {usageSummary.usageScope.page}</Badge>
-        <Badge variant="neutral" className="text-[10px]">Local {usageSummary.usageScope.localComponent}</Badge>
-        <Badge variant="neutral" className="text-[10px]">Nested {usageSummary.usageScope.nestedLocalComponent}</Badge>
-      </div>
-      <Badge
-        variant="neutral"
-        className="text-[10px]"
-        title="Field-level binding occurrences across the consumer; a single node can contribute more than one binding."
-      >
-        {usageSummary.bindingOccurrenceCount} binding occurrences
-      </Badge>
-    </div>
-  );
-}
-
 export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTabByVariableProps) {
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
   const [reports, setReports] = useState<VariableUsageReport[]>([]);
-  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
   const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
-  const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
   const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
 
   const loadReports = async () => {
     setLoading(true);
     setError(null);
-    setUsageDetailsWarning(null);
     try {
-      const [reportResult, consumersResult, tokenCatalogResult] = await Promise.allSettled([
+      const [reportResult, tokenCatalogResult] = await Promise.allSettled([
         fetchReportByVariable(dsFileKey),
-        listConsumers(dsFileKey),
         fetchTokenCatalog(),
       ]);
 
@@ -145,13 +112,6 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       }
 
       setReports(reportResult.value.data || []);
-      if (consumersResult.status === "fulfilled") {
-        setConsumers(consumersResult.value.data || []);
-      } else {
-        console.warn("[consumer-tab-by-variable] Consumer usage details unavailable", consumersResult.reason);
-        setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
-        setConsumers([]);
-      }
       if (tokenCatalogResult.status === "fulfilled") {
         setTokenCatalog(tokenCatalogResult.value);
       } else {
@@ -187,24 +147,25 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     });
   }, [reports, searchQuery, severityFilter]);
 
-  const usageSummaryByVariable = useMemo(
-    () => buildVariableUsageScopeSummary(consumers),
-    [consumers],
-  );
+  const visibleReports = useMemo(() => {
+    return filteredReports.filter((report) =>
+      report.consumers.some((consumer) => !isParentConsumerUsage(consumer.consumerId)),
+    );
+  }, [filteredReports]);
+
   const tokenPathByLookup = useMemo(
     () => buildTokenPathLookup(tokenCatalog?.entries || []),
     [tokenCatalog],
   );
 
   const sortedReports = useMemo(() => {
-    return [...filteredReports].sort((a, b) => {
+    return [...visibleReports].sort((a, b) => {
       const valueFor = (report: VariableUsageReport): string | number => {
         const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
         if (sort.field === "name") return report.variableName.toLowerCase();
         if (sort.field === "type") return report.variableType.toLowerCase();
         if (sort.field === "impact") return report.impactLevel.level;
         if (sort.field === "nodes") return report.totalNodes;
-        if (sort.field === "bindings") return usageSummaryByVariable.get(report.variableKey)?.bindingOccurrenceCount ?? Number.NEGATIVE_INFINITY;
         if (sort.field === "usedIn") return visibleConsumers.length;
         return visibleConsumers.length;
       };
@@ -214,7 +175,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return sort.dir === "asc" ? comparison : comparison * -1;
     });
-  }, [filteredReports, sort, usageSummaryByVariable]);
+  }, [visibleReports, sort]);
 
   function resolveTokenPathForReport(report: VariableUsageReport): string | null {
     const directTokenPath = tokenCatalog?.byVariableId?.[report.variableKey]?.path;
@@ -263,7 +224,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
             searchPlaceholder="Search variables"
             rightSlot={
               <Badge variant="neutral" className="shrink-0">
-                {filteredReports.length} of {reports.length} variables
+                {visibleReports.length} of {reports.length} variables
               </Badge>
             }
           >
@@ -279,14 +240,6 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
               <option value="LOW">Low</option>
             </Select>
           </FilterBar>
-
-          {usageDetailsWarning ? (
-            <StatusAlert
-              variant="warning"
-              title="Usage details unavailable"
-              description={usageDetailsWarning}
-            />
-          ) : null}
 
           {error ? <ApiErrorMessage error={error} /> : null}
 
@@ -314,11 +267,6 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                   ariaLabel="Sort by instances"
                 />
                 <SortableTableHead
-                  label="Bindings"
-                  onSort={() => toggleSort("bindings")}
-                  ariaLabel="Sort by bindings"
-                />
-                <SortableTableHead
                   label="Used in"
                   onSort={() => toggleSort("usedIn")}
                   ariaLabel="Sort by used in"
@@ -329,18 +277,18 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`variable-loading-${index}`}>
-                    <TableCell colSpan={6} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       Loading variable usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={Network}
-                      title="No matching variables"
-                      description="Try adjusting the current filters."
+                      title="No variable usage data"
+                      description="Try adjusting the current filters or sync consumer files with real variable usage."
                       compact
                     />
                   </TableCell>
@@ -377,9 +325,6 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                         <span className="tabular-nums text-foreground">{report.totalNodes}</span>
                       </TableCell>
                       <TableCell>
-                        {renderUsageBreakdown(usageSummaryByVariable.get(report.variableKey))}
-                      </TableCell>
-                      <TableCell>
                         <div className="flex flex-wrap gap-2">
                           {topConsumers.map((usage) => (
                             <a
@@ -387,16 +332,16 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                               href={usage.sampleLinks[0] || "#"}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-foreground transition-colors hover:text-primary"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-foreground transition-colors hover:text-primary"
                             >
                               <span className="truncate max-w-[140px]">{usage.consumerName}</span>
-                              <span className="text-muted-foreground">
+                              <span className="text-foreground/70">
                                 {usage.nodeCount || 0}
                               </span>
                             </a>
                           ))}
                           {visibleConsumers.length > topConsumers.length ? (
-                            <span className="px-2 py-1 text-xs text-muted-foreground">
+                            <span className="px-2 py-1 text-muted-foreground">
                               +{visibleConsumers.length - topConsumers.length} more
                             </span>
                           ) : null}

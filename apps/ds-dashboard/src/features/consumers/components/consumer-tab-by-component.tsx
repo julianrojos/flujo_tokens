@@ -40,7 +40,7 @@ interface ComponentKpis {
   uniqueConsumers: number;
 }
 
-type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "usedIn" | "consumers";
+type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "consumers";
 
 function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   const consumerIds = new Set<string>();
@@ -249,7 +249,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
         if (sort.field === "variant") return displayInfo.variantLabel.toLowerCase();
         if (sort.field === "instances") return report.totalInstances;
         if (sort.field === "wrappers") return usageSummaryByComponent.get(report.componentKey)?.wrapperCount ?? Number.NEGATIVE_INFINITY;
-        if (sort.field === "usedIn") return report.consumers.length;
         if (sort.field === "consumers") return countUniqueConsumers(report);
         return displayInfo.componentLabel.toLowerCase();
       };
@@ -359,11 +358,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                   ariaLabel="Sort by wrappers"
                 />
                 <SortableTableHead
-                  label="Used in"
-                  onSort={() => toggleSort("usedIn")}
-                  ariaLabel="Sort by used in"
-                />
-                <SortableTableHead
                   label="Consumers"
                   onSort={() => toggleSort("consumers")}
                   ariaLabel="Sort by consumers"
@@ -374,14 +368,14 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`component-loading-${index}`}>
-                    <TableCell colSpan={6} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       Loading component usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching components"
@@ -411,9 +405,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                       </TableCell>
                       <TableCell>
                         {renderUsageBreakdown(usageSummaryByComponent.get(report.componentKey))}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {report.consumers.length} {report.consumers.length === 1 ? "file" : "files"}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
