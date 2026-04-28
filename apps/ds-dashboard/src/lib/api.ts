@@ -108,6 +108,21 @@ function toNonEmptyString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      return toRecord(parsed);
+    } catch {
+      return null;
+    }
+  }
+  return toRecord(value);
+}
+
 function normalizeUsageScopeSummary(value: unknown) {
   const record = toRecord(value);
   return {
@@ -122,7 +137,7 @@ function normalizeUsageScope(value: unknown): UsageScope {
 }
 
 function normalizeUsageDetails(value: unknown): DsSyncRun['usageDetails'] {
-  const record = toRecord(value);
+  const record = parseJsonRecord(value);
   if (!record) return null;
 
   const normalizeArray = (input: unknown): unknown[] => (
@@ -196,7 +211,7 @@ function normalizeUsageDetails(value: unknown): DsSyncRun['usageDetails'] {
                 variableKey: normalizedBinding?.variableKey == null ? null : toNonEmptyString(normalizedBinding?.variableKey),
                 variableName: normalizedBinding?.variableName == null ? null : toNonEmptyString(normalizedBinding?.variableName),
                 variableType: normalizedBinding?.variableType == null ? null : toNonEmptyString(normalizedBinding?.variableType),
-                status: normalizedBinding?.status === 'resolved' ? 'resolved' : 'unresolved',
+                status: normalizedBinding?.status === 'resolved' ? ('resolved' as const) : ('unresolved' as const),
                 resolvedTokenPath: normalizedBinding?.resolvedTokenPath == null ? null : toNonEmptyString(normalizedBinding?.resolvedTokenPath),
               };
             }).filter((binding) => binding.field.length > 0 && binding.variableId.length > 0)
