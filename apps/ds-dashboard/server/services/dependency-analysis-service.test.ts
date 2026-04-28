@@ -197,7 +197,7 @@ describe('DependencyAnalysisService', () => {
     assert.strictEqual(report.variableKey, 'VariableID:parent:only');
     assert.strictEqual(report.variableName, 'parent-only-color');
     assert.strictEqual(report.variableType, 'COLOR');
-    assert.strictEqual(report.totalNodes, 4);
+    assert.strictEqual(report.totalNodes, 0);
     assert.strictEqual(report.consumers.length, 1);
     assert.strictEqual(
       report.consumers[0].consumerId,

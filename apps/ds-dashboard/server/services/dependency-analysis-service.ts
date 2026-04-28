@@ -324,14 +324,14 @@ export class DependencyAnalysisService {
         });
       }
 
-      const totalNodesWithParent = totalNodes + parentNodeCount;
+      const totalNodesWithoutParent = totalNodes;
       // Exclude the parent file from the file count: the parent IS the DS,
       // not an adopting consumer file. Including it inflates adoption metrics.
       const consumerFileCount = consumers.filter(
         (c) => !c.consumerId.startsWith(PARENT_CONSUMER_ID_PREFIX),
       ).length;
 
-      const impactLevel = this.computeImpactLevel(totalNodesWithParent, consumerFileCount, opts);
+      const impactLevel = this.computeImpactLevel(totalNodesWithoutParent, consumerFileCount, opts);
       const sampleLinks = parentUsage
         ? this.buildSampleLinks(dsFileKey, parentUsage.sample_node_ids_json, opts.maxSampleLinks)
         : usages.length > 0
@@ -344,7 +344,7 @@ export class DependencyAnalysisService {
         variableKey: varId,
         variableName: usages[0]?.variable_name || fallbackName,
         variableType: usages[0]?.variable_type || fallbackType,
-        totalNodes: totalNodesWithParent,
+        totalNodes: totalNodesWithoutParent,
         consumers,
         impactLevel,
         sampleLinks,
