@@ -203,7 +203,6 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   let mutationPhase: "none" | "consumers" | "design-system" | "filesystem" = "none";
   let dependencyRepo = injectedDependencyRepo ?? null;
   let preflightConsumers = undefined;
-  let preflightFailed = false;
   let pendingOpId = undefined;
   let pendingOpsRepo = injectedPendingOpsRepo ?? null;
   const markPendingOpCompleted = async () => {
@@ -236,20 +235,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
       }
     } catch (error) {
       console.warn("[handleDeleteDesignSystemRoute] Preflight DB check failed:", error);
-      preflightFailed = true;
     }
-  }
-
-  if (preflightFailed) {
-    return failJson(c, 500, {
-      code: "design_system.delete_failed",
-      userMessage: "Failed to delete the design system.",
-      recoverable: true,
-      context: {
-        systemId: routeSystemId,
-        reason: "Preflight DB check failed before delete could start.",
-      },
-    });
   }
 
   if (normalizedFigmaFileId && !pendingOpsRepo) {

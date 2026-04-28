@@ -132,7 +132,7 @@ test("handleDeleteDesignSystemRoute records a pending delete op even when there 
   }
 });
 
-test("handleDeleteDesignSystemRoute fails fast when preflight DB check fails", async () => {
+test("handleDeleteDesignSystemRoute continues when preflight DB check fails", async () => {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ds-delete-preflight-fail-"));
   try {
     const targetPath = path.join(repoRoot, "design-systems", "alpha", "old.txt");
@@ -169,7 +169,7 @@ test("handleDeleteDesignSystemRoute fails fast when preflight DB check fails", a
         },
         async delete() {
           calls.push("delete");
-          throw new Error("should not reach delete after preflight failure");
+          return true;
         },
         async setDefaultSystemId() {
           calls.push("set-default");
@@ -208,10 +208,17 @@ test("handleDeleteDesignSystemRoute fails fast when preflight DB check fails", a
 
     const result = await handleDeleteDesignSystemRoute(c as never, deps as never);
 
-    assert.equal(result.status, 500);
-    assert.equal(fs.existsSync(targetPath), true);
-    assert.deepEqual(calls, ["preflight"]);
-    assert.equal((result.payload as Record<string, unknown>).code, "design_system.delete_failed");
+    assert.equal(result.status, 200);
+    assert.equal(fs.existsSync(targetPath), false);
+    assert.deepEqual(calls, [
+      "preflight",
+      "pending-start",
+      "cleanup",
+      "delete",
+      "set-default",
+      "pending-complete",
+    ]);
+    assert.equal((result.payload as Record<string, unknown>).ok, true);
   } finally {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   }
