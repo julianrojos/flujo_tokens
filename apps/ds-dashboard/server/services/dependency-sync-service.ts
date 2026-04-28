@@ -39,7 +39,6 @@ export interface SyncResult {
 
 export interface SystemConfig {
   figmaApiToken: string;
-  name?: string;
 }
 
 /**

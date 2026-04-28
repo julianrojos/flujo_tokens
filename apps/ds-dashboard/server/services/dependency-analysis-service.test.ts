@@ -179,6 +179,38 @@ describe('DependencyAnalysisService', () => {
     assert.strictEqual(report.sampleLinks.length, 2);
   });
 
+  test('reportByVariable includes parent-only variable usage for token reports', async () => {
+    await repository.replaceParentVariableUsage('test-ds-parent-only', [
+      {
+        variable_key: 'VariableID:parent:only',
+        variable_name: 'parent-only-color',
+        variable_type: 'COLOR',
+        node_count: 4,
+        sample_node_ids_json: JSON.stringify(['parent-node-1']),
+      },
+    ]);
+
+    const reports = await analysisService.reportByVariable('test-ds-parent-only');
+
+    assert.strictEqual(reports.length, 1);
+    const report = reports[0];
+    assert.strictEqual(report.variableKey, 'VariableID:parent:only');
+    assert.strictEqual(report.variableName, 'parent-only-color');
+    assert.strictEqual(report.variableType, 'COLOR');
+    assert.strictEqual(report.totalNodes, 4);
+    assert.strictEqual(report.consumers.length, 1);
+    assert.strictEqual(
+      report.consumers[0].consumerId,
+      'parent:test-ds-parent-only',
+    );
+    assert.strictEqual(report.consumers[0].consumerName, 'Parent file');
+    assert.strictEqual(report.consumers[0].nodeCount, 4);
+    assert.deepStrictEqual(report.consumers[0].sampleNodeIds, [
+      'parent-node-1',
+    ]);
+    assert.strictEqual(report.sampleLinks.length, 1);
+  });
+
   test('reportByVariable tolerates malformed sample_node_ids_json', async () => {
     const consumer = await repository.addConsumer({
       ds_file_key: 'test-ds-malformed-json',

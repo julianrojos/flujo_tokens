@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import type { ConnInfo } from 'hono/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import type { Sql } from 'postgres';
 import { isLoopbackAddress } from '../lib/loopback-utils.js';
 import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
@@ -88,35 +87,6 @@ function validateReportQuery(query: Record<string, unknown>) {
   }
 
   return errors;
-}
-
-function withParentFileName(
-  reports: Array<{
-    consumers: Array<{ consumerId: string; consumerName: string }>;
-  }>,
-  parentFileName: string,
-) {
-  if (!parentFileName.trim()) return reports;
-  return reports.map((report) => ({
-    ...report,
-    consumers: report.consumers.map((consumer) =>
-      consumer.consumerName === 'Parent file'
-        ? { ...consumer, consumerName: parentFileName }
-        : consumer,
-      ),
-  }));
-}
-
-async function resolveParentFileNameByDsFileKey(db: Sql, dsFileKey: string): Promise<string> {
-  const normalizedDsFileKey = String(dsFileKey || '').trim();
-  if (!normalizedDsFileKey) return '';
-  const rows = (await db`
-    SELECT name
-    FROM design_systems
-    WHERE figma_file_id = ${normalizedDsFileKey}
-    LIMIT 1
-  `) as Array<{ name?: string | null }>;
-  return String(rows[0]?.name || '').trim();
 }
 
 type RouteDeps = {
@@ -559,11 +529,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const parentFileName = await resolveParentFileNameByDsFileKey(deps.db, query.dsFileKey);
-      const reports = withParentFileName(
-        await analysisService.reportByVariable(query.dsFileKey, query.variableKey),
-        parentFileName,
-      );
+      const reports = await analysisService.reportByVariable(query.dsFileKey, query.variableKey);
 
       return c.json({
         ok: true,
