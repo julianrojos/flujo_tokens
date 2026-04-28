@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildComponentLocalDependencySummary } from "./usage-details-summary";
+import { buildComponentLocalDependencySummary, buildVariableBindingFieldSummary } from "./usage-details-summary";
 import type { ConsumerWithUsageDetails } from "./usage-details-summary";
 
 function makeConsumer(
@@ -11,6 +11,11 @@ function makeConsumer(
   childComponentKey: string,
   childComponentName: string,
   usageCount: number,
+  tokenBindings: Array<{
+    field: string;
+    variableKey: string;
+    variableId: string;
+  }> = [],
 ): ConsumerWithUsageDetails {
   return {
     id,
@@ -44,7 +49,24 @@ function makeConsumer(
           },
         ],
         componentPropertyUsages: [],
-        tokenBindingDetails: [],
+        tokenBindingDetails: tokenBindings.length > 0
+          ? [
+              {
+                nodeId: "10:1",
+                nodeName: "Node",
+                usageScope: "page",
+                bindings: tokenBindings.map((binding) => ({
+                  field: binding.field,
+                  variableId: binding.variableId,
+                  variableKey: binding.variableKey,
+                  variableName: "Variable",
+                  variableType: "COLOR",
+                  status: "resolved" as const,
+                  resolvedTokenPath: null,
+                })),
+              },
+            ]
+          : [],
         usageShape: {
           components: { page: 0, localComponent: 1, nestedLocalComponent: 0 },
           tokens: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
@@ -69,5 +91,25 @@ describe("buildComponentLocalDependencySummary", () => {
       usageCount: 3,
       consumerCount: 2,
     });
+  });
+});
+
+describe("buildVariableBindingFieldSummary", () => {
+  it("aggregates binding fields per variable", () => {
+    const summary = buildVariableBindingFieldSummary([
+      makeConsumer("consumer-a", "parent-1", "Componenete_1", "child-1", "Variant=Accent", 1, [
+        { field: "fills", variableKey: "variable-1", variableId: "var-1" },
+        { field: "fills", variableKey: "variable-1", variableId: "var-1-b" },
+        { field: "strokes", variableKey: "variable-1", variableId: "var-1-c" },
+      ]),
+      makeConsumer("consumer-b", "parent-1", "Componenete_1", "child-1", "Variant=Accent", 1, [
+        { field: "fills", variableKey: "variable-1", variableId: "var-1-d" },
+      ]),
+    ]);
+
+    assert.deepEqual(summary.get("variable-1"), [
+      { field: "fills", count: 3 },
+      { field: "strokes", count: 1 },
+    ]);
   });
 });

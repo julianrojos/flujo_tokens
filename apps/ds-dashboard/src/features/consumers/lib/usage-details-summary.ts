@@ -37,6 +37,11 @@ export interface VariableUsageScopeSummary {
   usageScope: UsageScopeSummary;
 }
 
+export interface VariableBindingFieldCount {
+  field: string;
+  count: number;
+}
+
 function createEmptyScopeSummary(): UsageScopeSummary {
   return { page: 0, localComponent: 0, nestedLocalComponent: 0 };
 }
@@ -195,6 +200,38 @@ export function buildVariableUsageScopeSummary(
         bindingOccurrenceCount: entry.bindingOccurrenceCount,
         usageScope: entry.usageScope,
       },
+    ]),
+  );
+}
+
+export function buildVariableBindingFieldSummary(
+  consumers: ConsumerWithUsageDetails[],
+): Map<string, VariableBindingFieldCount[]> {
+  const aggregates = new Map<string, Map<string, number>>();
+
+  for (const consumer of consumers) {
+    const usageDetails = consumer.latestSync?.usageDetails;
+    if (!usageDetails) continue;
+
+    for (const entry of usageDetails.tokenBindingDetails) {
+      for (const binding of entry.bindings) {
+        if (!binding.variableKey) continue;
+        const field = String(binding.field || "").trim();
+        if (!field) continue;
+
+        const current = aggregates.get(binding.variableKey) || new Map<string, number>();
+        current.set(field, (current.get(field) || 0) + 1);
+        aggregates.set(binding.variableKey, current);
+      }
+    }
+  }
+
+  return new Map(
+    Array.from(aggregates.entries(), ([variableKey, fields]) => [
+      variableKey,
+      Array.from(fields.entries())
+        .map(([field, count]) => ({ field, count }))
+        .sort((left, right) => right.count - left.count || left.field.localeCompare(right.field)),
     ]),
   );
 }

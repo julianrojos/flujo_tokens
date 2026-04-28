@@ -9,14 +9,16 @@ import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Select } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByVariable, fetchTokenCatalog } from "@/lib/api";
+import { fetchReportByVariable, fetchTokenCatalog, listConsumers } from "@/lib/api";
 import { toTokenDetail } from "@/lib/routes";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { VariableUsageReport, ImpactLevel } from "@/types/consumers";
 import type { TokenCatalog, TokenCatalogEntry } from "@/types/token-catalog";
+import type { ConsumerWithUsageDetails } from "../lib/usage-details-summary";
+import { buildVariableBindingFieldSummary } from "../lib/usage-details-summary";
 
 interface ConsumerTabByVariableProps {
   dsFileKey: string;
@@ -30,7 +32,7 @@ interface VariableKpis {
   uniqueConsumers: number;
 }
 
-type VariableSortField = "name" | "type" | "impact" | "nodes" | "usedIn";
+type VariableSortField = "name" | "property" | "impact" | "nodes" | "usedIn";
 const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
 
 function isParentConsumerUsage(consumerId: string): boolean {
@@ -93,6 +95,7 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
 export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTabByVariableProps) {
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
   const [reports, setReports] = useState<VariableUsageReport[]>([]);
+  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
   const [tokenCatalog, setTokenCatalog] = useState<TokenCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -102,9 +105,10 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     setLoading(true);
     setError(null);
     try {
-      const [reportResult, tokenCatalogResult] = await Promise.allSettled([
+      const [reportResult, tokenCatalogResult, consumersResult] = await Promise.allSettled([
         fetchReportByVariable(dsFileKey),
         fetchTokenCatalog(),
+        listConsumers(dsFileKey),
       ]);
 
       if (reportResult.status === "rejected") {
@@ -116,6 +120,11 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
         setTokenCatalog(tokenCatalogResult.value);
       } else {
         setTokenCatalog(null);
+      }
+      if (consumersResult.status === "fulfilled") {
+        setConsumers(consumersResult.value.data || []);
+      } else {
+        setConsumers([]);
       }
     } catch (cause) {
       setError(
@@ -139,8 +148,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       const matchesSearch =
         !lowered ||
         report.variableName.toLowerCase().includes(lowered) ||
-        report.variableKey.toLowerCase().includes(lowered) ||
-        report.variableType.toLowerCase().includes(lowered);
+        report.variableKey.toLowerCase().includes(lowered);
       const matchesSeverity =
         severityFilter === "all" || report.impactLevel.level === severityFilter;
       return matchesSearch && matchesSeverity;
@@ -157,13 +165,21 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     () => buildTokenPathLookup(tokenCatalog?.entries || []),
     [tokenCatalog],
   );
+  const bindingFieldsByVariable = useMemo(
+    () => buildVariableBindingFieldSummary(consumers),
+    [consumers],
+  );
 
   const sortedReports = useMemo(() => {
     return [...visibleReports].sort((a, b) => {
       const valueFor = (report: VariableUsageReport): string | number => {
         const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
+        const fieldSummary = (bindingFieldsByVariable.get(report.variableKey) || [])
+          .slice(0, 3)
+          .map((entry) => `${entry.field}:${entry.count}`)
+          .join(", ");
         if (sort.field === "name") return report.variableName.toLowerCase();
-        if (sort.field === "type") return report.variableType.toLowerCase();
+        if (sort.field === "property") return fieldSummary.toLowerCase();
         if (sort.field === "impact") return report.impactLevel.level;
         if (sort.field === "nodes") return report.totalNodes;
         if (sort.field === "usedIn") return visibleConsumers.length;
@@ -252,9 +268,9 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                   ariaLabel="Sort by variable"
                 />
                 <SortableTableHead
-                  label="Type"
-                  onSort={() => toggleSort("type")}
-                  ariaLabel="Sort by type"
+                  label="Property"
+                  onSort={() => toggleSort("property")}
+                  ariaLabel="Sort by property"
                 />
                 <SortableTableHead
                   label="Impact"
@@ -314,9 +330,16 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs lowercase text-foreground">
-                          {report.variableType}
-                        </span>
+                        <div className="flex flex-wrap gap-1.5 font-mono text-xs">
+                          {(bindingFieldsByVariable.get(report.variableKey) || []).map((entry) => (
+                            <span key={entry.field} className="text-foreground">
+                              {entry.field}
+                            </span>
+                          ))}
+                          {bindingFieldsByVariable.get(report.variableKey)?.length ? null : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <ImpactLevelBadge level={report.impactLevel.level} />
