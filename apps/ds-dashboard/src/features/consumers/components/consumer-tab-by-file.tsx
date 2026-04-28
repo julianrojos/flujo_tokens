@@ -11,7 +11,6 @@ import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toConsumerDetail } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 import { ExternalLink, Inbox, Network } from "lucide-react";
 import {
   Table,
@@ -25,7 +24,6 @@ import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport } from "@/types/consumers";
-import type { SyncStatusFilter } from "../lib/consumer-filter-query";
 import { useSortState } from "@/lib/use-sort-state";
 
 interface ConsumerTabByFileProps {
@@ -86,10 +84,9 @@ function applyFilters(
   reports: FileReport[],
   filters: {
     searchQuery: string;
-    statusFilter: SyncStatusFilter;
   },
 ): FileReport[] {
-  const { searchQuery, statusFilter } = filters;
+  const { searchQuery } = filters;
   const normalizedQuery = searchQuery.toLowerCase().trim();
 
   return reports.filter((report) => {
@@ -99,12 +96,6 @@ function applyFilters(
       const keyMatch = report.consumerFileKey.toLowerCase().includes(normalizedQuery);
       if (!nameMatch && !keyMatch) return false;
     }
-
-    // Status filter
-    if (statusFilter !== "all" && report.status !== statusFilter) {
-      return false;
-    }
-
     return true;
   });
 }
@@ -158,7 +149,7 @@ function renderAdoptionCell(report: FileReport) {
 }
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
-  const { statusFilter, setStatusFilter, searchQuery, setSearchQuery } = useConsumerFilterParams();
+  const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<FileReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -251,8 +242,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   // Apply filters and sorting
   const filteredReports = useMemo(() => applyFilters(reports, {
     searchQuery,
-    statusFilter,
-  }), [reports, searchQuery, statusFilter]);
+  }), [reports, searchQuery]);
   const sortedReports = useMemo(() => {
     const getSyncedAtMs = (value: string | null | undefined): number => {
       if (!value) return Number.NEGATIVE_INFINITY;
@@ -338,25 +328,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                 </Button>
               </div>
             }
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => setStatusFilter(status)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    statusFilter === status
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 bg-[var(--app-surface-1)] text-muted-foreground hover:border-border hover:text-foreground",
-                  )}
-                >
-                  {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
-            </div>
-          </FilterBar>
+          />
 
           {error ? <ApiErrorMessage error={error} /> : null}
 
