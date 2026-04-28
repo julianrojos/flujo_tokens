@@ -207,7 +207,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncingConsumerId, setSyncingConsumerId] = useState<string | null>(null);
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
@@ -253,18 +252,13 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     void loadReports();
   }, [dsFileKey, reloadToken]);
 
-  const handleSync = async (consumerId?: string, force = false) => {
-    if (consumerId) {
-      setSyncingConsumerId(consumerId);
-    } else {
-      setSyncing(true);
-    }
+  const handleSync = async (force = false) => {
+    setSyncing(true);
 
     setError(null);
     try {
       await syncConsumers({
         dsFileKey,
-        consumerIds: consumerId ? [consumerId] : undefined,
         force,
         // Keep parent-file "Used In" data fresh for token detail views.
         // Tradeoff: adds one extra parent-file scan per sync request.
@@ -278,7 +272,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       }));
     } finally {
       setSyncing(false);
-      setSyncingConsumerId(null);
     }
   };
 
@@ -405,7 +398,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => void handleSync(undefined, true)}
+                  onClick={() => void handleSync(true)}
                   disabled={syncing}
                 >
                   Force re-sync all
@@ -548,17 +541,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                     <TableCell>{renderAdoptionCell(report)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            syncingConsumerId === report.consumerId ||
-                            removingConsumerId === report.consumerId
-                          }
-                          onClick={() => void handleSync(report.consumerId)}
-                        >
-                          {syncingConsumerId === report.consumerId ? "Syncing..." : "Sync"}
-                        </Button>
                         <Button
                           size="sm"
                           variant="outline"

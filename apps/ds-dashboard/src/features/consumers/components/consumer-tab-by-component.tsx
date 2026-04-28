@@ -534,13 +534,13 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                               >
                                 {usage.consumerName}
                               </a>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-foreground">
                                 {usage.instanceCount || 0}
                               </span>
                             </div>
                           ))}
                           {report.consumers.length > topConsumers.length ? (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-foreground">
                               +{report.consumers.length - topConsumers.length} more
                             </span>
                           ) : null}
