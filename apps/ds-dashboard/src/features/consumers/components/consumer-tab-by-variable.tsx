@@ -358,7 +358,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
                               className="inline-flex items-center gap-1 px-2 py-1 text-foreground transition-colors hover:text-primary"
                             >
                               <span className="truncate max-w-[140px]">{usage.consumerName}</span>
-                              <span className="text-foreground/70">
+                              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-border/60 bg-[var(--app-surface-1)] px-1.5 py-0.5 text-[10px] tabular-nums text-foreground/70">
                                 {usage.nodeCount || 0}
                               </span>
                             </a>
