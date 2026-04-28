@@ -99,9 +99,11 @@ async function loadComponentTabByComponentData(dsFileKey: string): Promise<Compo
 
 function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   const consumerIds = new Set<string>();
+  let totalComponents = 0;
   let totalInstances = 0;
 
   for (const report of reports) {
+    totalComponents += 1;
     totalInstances += report.totalInstances;
     for (const consumer of report.consumers) {
       consumerIds.add(consumer.consumerId);
@@ -109,7 +111,7 @@ function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   }
 
   return {
-    totalComponents: reports.length,
+    totalComponents,
     totalInstances,
     uniqueConsumers: consumerIds.size,
   };

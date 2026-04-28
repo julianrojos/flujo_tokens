@@ -29,8 +29,6 @@ interface ConsumerTabByVariableProps {
 }
 
 interface VariableKpis {
-  totalVariables: number;
-  totalNodes: number;
   highImpactVariables: number;
   uniqueConsumers: number;
 }
@@ -81,11 +79,9 @@ function buildTokenPathLookup(entries: TokenCatalogEntry[]): Map<string, string>
 
 function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   const consumerIds = new Set<string>();
-  let totalNodes = 0;
   let highImpactVariables = 0;
 
   for (const report of reports) {
-    totalNodes += report.totalNodes;
     if (report.impactLevel.level === "CRITICAL" || report.impactLevel.level === "HIGH") {
       highImpactVariables += 1;
     }
@@ -96,8 +92,6 @@ function computeKpis(reports: VariableUsageReport[]): VariableKpis {
   }
 
   return {
-    totalVariables: reports.length,
-    totalNodes,
     highImpactVariables,
     uniqueConsumers: consumerIds.size,
   };
@@ -124,6 +118,7 @@ async function loadVariableTabByVariableData(dsFileKey: string): Promise<Consume
 export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTabByVariableProps) {
   const { searchQuery, severityFilter, setSearchQuery, setSeverityFilter } = useConsumerFilterParams();
   const [sort, toggleSort] = useSortState<VariableSortField>({ field: "name", dir: "asc" });
+  const [propertyFilter, setPropertyFilter] = useState("all");
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
   const query = useQuery<ConsumerTabByVariableData>({
@@ -171,9 +166,39 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     () => buildVariableBindingFieldSummary(consumers),
     [consumers],
   );
+  const propertyOptions = useMemo(() => {
+    const values = new Set<string>();
+
+    for (const report of visibleReports) {
+      for (const entry of bindingFieldsByVariable.get(report.variableKey) || []) {
+        const field = String(entry.field || "").trim();
+        if (field) values.add(field);
+      }
+    }
+
+    return Array.from(values).sort((left, right) => left.localeCompare(right));
+  }, [bindingFieldsByVariable, visibleReports]);
+
+  const propertyFilteredReports = useMemo(() => {
+    if (propertyFilter === "all") {
+      return visibleReports;
+    }
+
+    return visibleReports.filter((report) =>
+      (bindingFieldsByVariable.get(report.variableKey) || []).some(
+        (entry) => entry.field === propertyFilter,
+      ),
+    );
+  }, [bindingFieldsByVariable, propertyFilter, visibleReports]);
+
+  useEffect(() => {
+    if (propertyFilter === "all") return;
+    if (propertyOptions.includes(propertyFilter)) return;
+    setPropertyFilter("all");
+  }, [propertyFilter, propertyOptions]);
 
   const sortedReports = useMemo(() => {
-    return [...visibleReports].sort((a, b) => {
+    return [...propertyFilteredReports].sort((a, b) => {
       const valueFor = (report: VariableUsageReport): string | number => {
         const visibleConsumers = report.consumers.filter((consumer) => !isParentConsumerUsage(consumer.consumerId));
         const fieldSummary = (bindingFieldsByVariable.get(report.variableKey) || [])
@@ -193,7 +218,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return sort.dir === "asc" ? comparison : comparison * -1;
     });
-  }, [visibleReports, sort]);
+  }, [bindingFieldsByVariable, propertyFilteredReports, sort]);
   const pageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedReports.length)),
     [sortedReports.length],
@@ -221,7 +246,7 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
       }
     }
     setCurrentPage(1);
-  }, [pageSize, pageSizeOptions, searchQuery, severityFilter, sortedReports.length]);
+  }, [pageSize, pageSizeOptions, propertyFilter, searchQuery, severityFilter, sortedReports.length]);
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
@@ -251,6 +276,16 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
   }
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
+  const totalVariablesUsed = visibleReports.length;
+  const designSystemVariablesUsed = useMemo(() => {
+    return visibleReports.filter((report) => resolveTokenPathForReport(report) != null).length;
+  }, [tokenCatalog, tokenPathByLookup, visibleReports]);
+  const designSystemVariablesUsePercentage = useMemo(() => {
+    if (totalVariablesUsed === 0) {
+      return null;
+    }
+    return designSystemVariablesUsed / totalVariablesUsed;
+  }, [designSystemVariablesUsed, totalVariablesUsed]);
 
   if (!loading && reports.length === 0) {
     return (
@@ -268,9 +303,23 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
     <div className="space-y-5">
       <StatsOverview
         items={[
-          { id: "variables-total", label: "Total variables", value: kpis.totalVariables },
+          {
+            id: "variables-ds-use",
+            label: "Design system variables use",
+            value: (
+              <span className="inline-flex items-baseline gap-2">
+                <span className="tabular-nums text-foreground">{designSystemVariablesUsed}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  (
+                  {designSystemVariablesUsePercentage != null
+                    ? `${Math.round(designSystemVariablesUsePercentage * 100)}%`
+                    : "—"}
+                  )
+                </span>
+              </span>
+            ),
+          },
           { id: "variables-high", label: "High impact", value: kpis.highImpactVariables },
-          { id: "variables-nodes", label: "Total nodes", value: kpis.totalNodes },
           { id: "variables-consumers", label: "Unique consumers", value: kpis.uniqueConsumers },
         ]}
       />
@@ -312,6 +361,18 @@ export function ConsumerTabByVariable({ dsFileKey, reloadToken = 0 }: ConsumerTa
               <option value="HIGH">High</option>
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
+            </Select>
+            <Select
+              value={propertyFilter}
+              onChange={(event) => setPropertyFilter(event.target.value)}
+              className="w-40"
+            >
+              <option value="all">Property: All</option>
+              {propertyOptions.map((field) => (
+                <option key={field} value={field}>
+                  {field}
+                </option>
+              ))}
             </Select>
           </FilterBar>
 

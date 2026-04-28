@@ -43,7 +43,6 @@ interface RemoveCandidate {
 
 interface KpiData {
   total: number;
-  syncedToday: number;
   withWarnings: number;
   neverSynced: number;
 }
@@ -57,20 +56,12 @@ const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
 
 function computeKpis(reports: FileReport[]): KpiData {
-  const now = Date.now();
-  const twentyFourHoursMs = 24 * 60 * 60 * 1000;
-  let syncedToday = 0;
   let withWarnings = 0;
   let neverSynced = 0;
 
   for (const report of reports) {
     if (!report.lastSyncedAt) {
       neverSynced += 1;
-    } else {
-      const syncedAt = new Date(report.lastSyncedAt).getTime();
-      if (Number.isFinite(syncedAt) && now - syncedAt < twentyFourHoursMs) {
-        syncedToday += 1;
-      }
     }
     if (report.warningCount > 0) {
       withWarnings += 1;
@@ -79,7 +70,6 @@ function computeKpis(reports: FileReport[]): KpiData {
 
   return {
     total: reports.length,
-    syncedToday,
     withWarnings,
     neverSynced,
   };
@@ -348,7 +338,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       <StatsOverview
         items={[
           { id: "consumers-total", label: "Total files", value: kpis.total },
-          { id: "consumers-synced", label: "Synced today", value: kpis.syncedToday },
           { id: "consumers-warnings", label: "With warnings", value: kpis.withWarnings },
           { id: "consumers-never", label: "Never synced", value: kpis.neverSynced },
         ]}
