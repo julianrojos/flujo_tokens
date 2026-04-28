@@ -1,31 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Network } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, FilterBar, StatsOverview } from "@/components/composites";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
   buildComponentLookupMap,
+  buildComponentSlugFallback,
   extractComponentParentAlias,
   normalizeComponentLookupKey,
   resolveKnownComponentSlug,
 } from "@/lib/component-identity";
 import { fetchComponentCatalog, fetchReportByComponent, listConsumers } from "@/lib/api";
 import { toComponentDetail } from "@/lib/routes";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { useSortState } from "@/lib/use-sort-state";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import type { ComponentUsageReport } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import {
+  buildComponentLocalDependencySummary,
   buildComponentUsageScopeSummary,
   type ComponentUsageScopeSummary,
   type ConsumerWithUsageDetails,
+  type ComponentLocalDependencySummary,
 } from "../lib/usage-details-summary";
 import { getComponentTableDisplayInfo } from "../lib/component-table-display";
 
@@ -40,7 +45,51 @@ interface ComponentKpis {
   uniqueConsumers: number;
 }
 
-type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "consumers";
+interface ComponentTabByComponentData {
+  reports: ComponentUsageReport[];
+  consumers: ConsumerWithUsageDetails[];
+  componentCatalogItems: ComponentCatalogItem[];
+  usageDetailsWarning: string | null;
+}
+
+type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "uses" | "consumers";
+
+async function loadComponentTabByComponentData(dsFileKey: string): Promise<ComponentTabByComponentData> {
+  const [reportResult, consumersResult, componentCatalogResult] = await Promise.allSettled([
+    fetchReportByComponent(dsFileKey),
+    listConsumers(dsFileKey),
+    fetchComponentCatalog(),
+  ]);
+
+  if (reportResult.status === "rejected") {
+    throw reportResult.reason;
+  }
+
+  const consumersWarning =
+    consumersResult.status === "rejected"
+      ? "[consumer-tab-by-component] Consumer usage details unavailable"
+      : null;
+  const consumersWarningReason =
+    consumersResult.status === "rejected" ? consumersResult.reason : null;
+  const componentCatalogItems =
+    componentCatalogResult.status === "fulfilled"
+      ? componentCatalogResult.value.components || []
+      : [];
+
+  if (consumersWarning) {
+    console.warn(consumersWarning, consumersWarningReason);
+  }
+
+  return {
+    reports: reportResult.value.data || [],
+    consumers:
+      consumersResult.status === "fulfilled" ? consumersResult.value.data || [] : [],
+    componentCatalogItems,
+    usageDetailsWarning: consumersWarning
+      ? "Usage details are temporarily unavailable for this view."
+      : null,
+  };
+}
 
 function computeKpis(reports: ComponentUsageReport[]): ComponentKpis {
   const consumerIds = new Set<string>();
@@ -85,57 +134,25 @@ function renderUsageBreakdown(usageSummary: ComponentUsageScopeSummary | undefin
 
 export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerTabByComponentProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
-  const [reports, setReports] = useState<ComponentUsageReport[]>([]);
-  const [consumers, setConsumers] = useState<ConsumerWithUsageDetails[]>([]);
-  const [componentCatalogItems, setComponentCatalogItems] = useState<ComponentCatalogItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
-  const [usageDetailsWarning, setUsageDetailsWarning] = useState<string | null>(null);
   const [sort, toggleSort] = useSortState<ComponentSortField>({ field: "component", dir: "asc" });
+  const query = useQuery<ComponentTabByComponentData>({
+    queryKey: ["consumer-tab-by-component", dsFileKey, reloadToken],
+    enabled: Boolean(dsFileKey),
+    queryFn: async () => loadComponentTabByComponentData(dsFileKey),
+    ...QUERY_DEFAULTS,
+  });
 
-  const loadReports = async () => {
-    setLoading(true);
-    setError(null);
-    setUsageDetailsWarning(null);
-    try {
-      const [reportResult, consumersResult, componentCatalogResult] = await Promise.allSettled([
-        fetchReportByComponent(dsFileKey),
-        listConsumers(dsFileKey),
-        fetchComponentCatalog(),
-      ]);
-
-      if (reportResult.status === "rejected") {
-        throw reportResult.reason;
-      }
-
-      setReports(reportResult.value.data || []);
-      if (consumersResult.status === "fulfilled") {
-        setConsumers(consumersResult.value.data || []);
-      } else {
-        console.warn("[consumer-tab-by-component] Consumer usage details unavailable", consumersResult.reason);
-        setUsageDetailsWarning("Usage details are temporarily unavailable for this view.");
-        setConsumers([]);
-      }
-      if (componentCatalogResult.status === "fulfilled") {
-        setComponentCatalogItems(componentCatalogResult.value.components || []);
-      } else {
-        setComponentCatalogItems([]);
-      }
-    } catch (cause) {
-      setError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Load reports failed",
-          fallbackMessage: "Unable to load component usage reports.",
-        }),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadReports();
-  }, [dsFileKey, reloadToken]);
+  const reports = query.data?.reports ?? [];
+  const consumers = query.data?.consumers ?? [];
+  const componentCatalogItems = query.data?.componentCatalogItems ?? [];
+  const loading = query.isLoading;
+  const usageDetailsWarning = query.data?.usageDetailsWarning ?? null;
+  const error = query.error
+    ? toApiErrorDisplay(query.error, {
+        fallbackTitle: "Load reports failed",
+        fallbackMessage: "Unable to load component usage reports.",
+      })
+    : null;
 
   const filteredReports = useMemo(() => {
     const lowered = searchQuery.toLowerCase().trim();
@@ -150,6 +167,10 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
 
   const usageSummaryByComponent = useMemo(
     () => buildComponentUsageScopeSummary(consumers),
+    [consumers],
+  );
+  const localDependencySummaryByComponent = useMemo(
+    () => buildComponentLocalDependencySummary(consumers),
     [consumers],
   );
   const componentSlugByLookup = useMemo(
@@ -241,6 +262,86 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     return rowMetaByKey.get(report.componentKey) ?? getTableRowMeta(report);
   };
 
+  const resolveDependencySlug = (dependency: ComponentLocalDependencySummary): string | null => {
+    const candidates = [
+      dependency.componentKey,
+      dependency.componentName,
+      extractComponentParentAlias(dependency.componentName),
+      buildComponentSlugFallback(dependency.componentName),
+    ];
+
+    for (const candidate of candidates) {
+      const key = normalizeComponentLookupKey(String(candidate || "").trim());
+      if (!key) continue;
+      if (componentSlugByLookup[key]) {
+        return componentSlugByLookup[key];
+      }
+      const slug = resolveKnownComponentSlug({
+        lookup: componentSlugByLookup,
+        parentName: extractComponentParentAlias(String(candidate || "")),
+        variantName: String(candidate || ""),
+      });
+      if (slug) return slug;
+    }
+
+    return null;
+  };
+
+  function renderDependencyCell(report: ComponentUsageReport) {
+    const dependencyMap = localDependencySummaryByComponent.get(report.componentKey);
+    if (!dependencyMap || dependencyMap.size === 0) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+
+    const dependencies = Array.from(dependencyMap.values())
+      .sort((left, right) => right.usageCount - left.usageCount)
+      .slice(0, 3);
+    const totalDependencyCount = dependencyMap.size;
+    const dependencyItems = dependencies
+      .map((dependency) => ({
+        dependency,
+        slug: resolveDependencySlug(dependency),
+      }));
+
+    return (
+      <div className="space-y-1">
+        <div className="flex flex-wrap gap-2">
+          {dependencyItems.map(({ dependency, slug }) => {
+            const dependencyName = dependency.componentName || componentDisplayNameBySlug.get(slug || "") || slug || dependency.componentKey;
+            const chip = <span className="truncate max-w-[160px]">{dependencyName}</span>;
+
+            if (!slug) {
+              return (
+                <span
+                  key={dependency.componentKey}
+                  className="inline-flex max-w-full items-center text-foreground"
+                >
+                  {chip}
+                </span>
+              );
+            }
+
+            return (
+              <Link
+                key={dependency.componentKey}
+                to={toComponentDetail(slug)}
+                className="inline-flex max-w-full items-center text-foreground transition-colors hover:text-primary"
+                aria-label={`Open ${dependencyName} detail`}
+              >
+                {chip}
+              </Link>
+            );
+          })}
+        </div>
+        {totalDependencyCount > dependencyItems.length ? (
+          <span className="text-xs text-muted-foreground">
+            +{totalDependencyCount - dependencyItems.length} more
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   const sortedReports = useMemo(() => {
     return [...filteredReports].sort((a, b) => {
       const valueFor = (report: ComponentUsageReport): string | number => {
@@ -249,6 +350,12 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
         if (sort.field === "variant") return displayInfo.variantLabel.toLowerCase();
         if (sort.field === "instances") return report.totalInstances;
         if (sort.field === "wrappers") return usageSummaryByComponent.get(report.componentKey)?.wrapperCount ?? Number.NEGATIVE_INFINITY;
+        if (sort.field === "uses") {
+          return Array.from(localDependencySummaryByComponent.get(report.componentKey)?.values() ?? []).reduce(
+            (sum, dependency) => sum + dependency.usageCount,
+            0,
+          );
+        }
         if (sort.field === "consumers") return countUniqueConsumers(report);
         return displayInfo.componentLabel.toLowerCase();
       };
@@ -266,6 +373,7 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     filteredReports,
     sort,
     usageSummaryByComponent,
+    localDependencySummaryByComponent,
     rowMetaByKey,
   ]);
 
@@ -358,6 +466,11 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                   ariaLabel="Sort by wrappers"
                 />
                 <SortableTableHead
+                  label="Reused in"
+                  onSort={() => toggleSort("uses")}
+                  ariaLabel="Sort by reused in"
+                />
+                <SortableTableHead
                   label="Consumers"
                   onSort={() => toggleSort("consumers")}
                   ariaLabel="Sort by consumers"
@@ -368,14 +481,14 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`component-loading-${index}`}>
-                    <TableCell colSpan={5} className="text-muted-foreground">
+                    <TableCell colSpan={6} className="text-muted-foreground">
                       Loading component usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={6} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching components"
@@ -405,6 +518,9 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                       </TableCell>
                       <TableCell>
                         {renderUsageBreakdown(usageSummaryByComponent.get(report.componentKey))}
+                      </TableCell>
+                      <TableCell>
+                        {renderDependencyCell(report)}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">

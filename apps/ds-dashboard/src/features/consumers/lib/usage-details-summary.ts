@@ -25,6 +25,13 @@ export interface ComponentUsageScopeSummary {
   usageScope: UsageScopeSummary;
 }
 
+export interface ComponentLocalDependencySummary {
+  componentKey: string;
+  componentName: string;
+  usageCount: number;
+  consumerCount: number;
+}
+
 export interface VariableUsageScopeSummary {
   bindingOccurrenceCount: number;
   usageScope: UsageScopeSummary;
@@ -93,6 +100,61 @@ export function buildComponentUsageScopeSummary(
         wrapperCount: entry.wrapperKeys.size,
         usageScope: entry.usageScope,
       },
+    ]),
+  );
+}
+
+export function buildComponentLocalDependencySummary(
+  consumers: ConsumerWithUsageDetails[],
+): Map<string, Map<string, ComponentLocalDependencySummary>> {
+  const aggregates = new Map<
+    string,
+    Map<
+      string,
+      {
+        usageCount: number;
+        localComponentName: string;
+        consumerIds: Set<string>;
+      }
+    >
+  >();
+
+  for (const consumer of consumers) {
+    const usageDetails = consumer.latestSync?.usageDetails;
+    if (!usageDetails) continue;
+
+    for (const entry of usageDetails.localComponentGraph) {
+      if (!entry.parentComponentKey || !entry.childComponentKey) continue;
+      const parentEntry = aggregates.get(entry.childComponentKey) || new Map();
+      const current = parentEntry.get(entry.parentComponentKey) || {
+        usageCount: 0,
+        localComponentName: entry.parentComponentName,
+        consumerIds: new Set<string>(),
+      };
+      current.usageCount += entry.usageCount;
+      if (!current.localComponentName) {
+        current.localComponentName = entry.parentComponentName;
+      }
+      current.consumerIds.add(consumer.id);
+      parentEntry.set(entry.parentComponentKey, current);
+      aggregates.set(entry.childComponentKey, parentEntry);
+    }
+  }
+
+  return new Map(
+    Array.from(aggregates.entries(), ([childComponentKey, children]) => [
+      childComponentKey,
+      new Map(
+        Array.from(children.entries(), ([parentComponentKey, entry]) => [
+          parentComponentKey,
+          {
+            componentKey: parentComponentKey,
+            componentName: entry.localComponentName,
+            usageCount: entry.usageCount,
+            consumerCount: entry.consumerIds.size,
+          },
+        ]),
+      ),
     ]),
   );
 }
