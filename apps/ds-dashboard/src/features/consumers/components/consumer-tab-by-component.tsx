@@ -308,7 +308,12 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
         <div className="flex flex-wrap gap-2">
           {dependencyItems.map(({ dependency, slug }) => {
             const dependencyName = dependency.componentName || componentDisplayNameBySlug.get(slug || "") || slug || dependency.componentKey;
-            const chip = <span className="truncate max-w-[160px]">{dependencyName}</span>;
+            const chip = (
+              <span className="inline-flex max-w-[160px] items-baseline gap-1">
+                <span className="truncate">{dependencyName}</span>
+                <span className="tabular-nums text-foreground/70">{dependency.usageCount}</span>
+              </span>
+            );
 
             if (!slug) {
               return (
