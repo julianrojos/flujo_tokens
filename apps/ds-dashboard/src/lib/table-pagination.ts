@@ -6,10 +6,10 @@
 export const PAGE_SIZE_THRESHOLD = 25;
 
 /**
- * Expose the "All" option only for larger datasets so the select stays compact
- * on small tables and avoids implying that "All" is a primary choice.
+ * Expose the "All" option once the dataset is large enough that showing every
+ * row remains a useful explicit choice.
  */
-export const PAGE_SIZE_ALL_THRESHOLD = 175;
+export const PAGE_SIZE_ALL_THRESHOLD = 176;
 
 export function shouldShowPageSizeSelect(totalItems: number): boolean {
   return totalItems > PAGE_SIZE_THRESHOLD;
