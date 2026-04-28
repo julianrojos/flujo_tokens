@@ -123,6 +123,18 @@ function parseJsonRecord(value: unknown): Record<string, unknown> | null {
   return toRecord(value);
 }
 
+function extractVariableKeyFromVariableId(variableId: string): string | null {
+  const normalized = String(variableId || "").trim();
+  if (!normalized) return null;
+
+  const match = normalized.match(/^VariableID:([^/]+)(?:\/.*)?$/);
+  if (match?.[1]) {
+    return match[1].trim() || null;
+  }
+
+  return null;
+}
+
 function normalizeUsageScopeSummary(value: unknown) {
   const record = toRecord(value);
   return {
@@ -205,13 +217,16 @@ function normalizeUsageDetails(value: unknown): DsSyncRun['usageDetails'] {
         bindings: Array.isArray(item?.bindings)
           ? item.bindings.map((binding) => {
               const normalizedBinding = toRecord(binding);
-              return {
-                field: toNonEmptyString(normalizedBinding?.field),
-                variableId: toNonEmptyString(normalizedBinding?.variableId),
-                variableKey: normalizedBinding?.variableKey == null ? null : toNonEmptyString(normalizedBinding?.variableKey),
-                variableName: normalizedBinding?.variableName == null ? null : toNonEmptyString(normalizedBinding?.variableName),
-                variableType: normalizedBinding?.variableType == null ? null : toNonEmptyString(normalizedBinding?.variableType),
-                status: normalizedBinding?.status === 'resolved' ? ('resolved' as const) : ('unresolved' as const),
+            return {
+              field: toNonEmptyString(normalizedBinding?.field),
+              variableId: toNonEmptyString(normalizedBinding?.variableId),
+              variableKey:
+                normalizedBinding?.variableKey == null
+                  ? extractVariableKeyFromVariableId(toNonEmptyString(normalizedBinding?.variableId))
+                  : toNonEmptyString(normalizedBinding?.variableKey),
+              variableName: normalizedBinding?.variableName == null ? null : toNonEmptyString(normalizedBinding?.variableName),
+              variableType: normalizedBinding?.variableType == null ? null : toNonEmptyString(normalizedBinding?.variableType),
+              status: normalizedBinding?.status === 'resolved' ? ('resolved' as const) : ('unresolved' as const),
                 resolvedTokenPath: normalizedBinding?.resolvedTokenPath == null ? null : toNonEmptyString(normalizedBinding?.resolvedTokenPath),
               };
             }).filter((binding) => binding.field.length > 0 && binding.variableId.length > 0)
