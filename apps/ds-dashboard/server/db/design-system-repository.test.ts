@@ -55,6 +55,7 @@ describe('DesignSystemRepository', () => {
                 id: 'test-sys-01',
                 name: 'Test System 01',
                 appName: 'Test App',
+                databaseProvider: 'supabase',
                 collections: ['primitives', 'semantic'],
                 detectedComponentsCount: 12,
                 importedComponentsCount: 9,
@@ -66,6 +67,7 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(entry.id, 'test-sys-01');
             assert.strictEqual(entry.name, 'Test System 01');
             assert.strictEqual(entry.appName, 'Test App');
+            assert.strictEqual(entry.databaseProvider, 'supabase');
             assert.deepStrictEqual(entry.collections, ['primitives', 'semantic']);
             assert.strictEqual(entry.detectedComponentsCount, 12);
             assert.strictEqual(entry.importedComponentsCount, 9);
@@ -87,6 +89,7 @@ describe('DesignSystemRepository', () => {
             assert.ok(entry);
             assert.strictEqual(entry?.id, 'test-sys-01');
             assert.strictEqual(entry?.name, 'Test System 01');
+            assert.strictEqual(entry?.databaseProvider, 'supabase');
             assert.strictEqual(entry?.detectedComponentsCount, 12);
             assert.strictEqual(entry?.importedComponentsCount, 9);
             assert.strictEqual(entry?.pendingComponentsCount, 3);
@@ -103,15 +106,18 @@ describe('DesignSystemRepository', () => {
             const updated = await repo.update('test-sys-01', {
                 name: 'Updated Test System',
                 appName: 'Updated App',
+                databaseProvider: 'local',
             });
 
             assert.ok(updated);
             assert.strictEqual(updated?.name, 'Updated Test System');
             assert.strictEqual(updated?.appName, 'Updated App');
+            assert.strictEqual(updated?.databaseProvider, 'local');
 
             // Verify persistence
             const fetched = await repo.getById('test-sys-01');
             assert.strictEqual(fetched?.name, 'Updated Test System');
+            assert.strictEqual(fetched?.databaseProvider, 'local');
         });
 
         it('returns null when updating non-existent system', async () => {

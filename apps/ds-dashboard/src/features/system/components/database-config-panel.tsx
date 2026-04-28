@@ -1,4 +1,4 @@
-import { Database, RefreshCw, Server } from 'lucide-react';
+import { Database, Server } from 'lucide-react';
 
 import { ApiErrorMessage } from '@/components/api-error-message';
 import { FormField } from '@/components/common';
@@ -22,28 +22,10 @@ import {
   DEFAULT_LOCAL_DATABASE_URL,
   useDatabaseConfigPanel,
 } from '../hooks/use-database-config-panel';
-
-const providerOptions: Array<{
-  value: DatabaseProvider;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: 'local',
-    label: 'Local Postgres',
-    description: 'Development database on localhost.',
-  },
-  {
-    value: 'supabase',
-    label: 'Supabase',
-    description: 'Hosted Postgres with SSL.',
-  },
-  {
-    value: 'custom',
-    label: 'Custom Postgres',
-    description: 'Any compatible Postgres URL.',
-  },
-];
+import {
+  databaseProviderLabel,
+  databaseProviderOptions,
+} from '../lib/database-provider-meta';
 
 function statusText(config: DatabaseConfig | null): string {
   if (!config) return 'Loading database configuration...';
@@ -79,7 +61,7 @@ function ProviderSelector({
   return (
     <fieldset className="grid gap-2 md:grid-cols-3">
       <legend className="sr-only">Database provider</legend>
-      {providerOptions.map((option) => {
+      {databaseProviderOptions.map((option) => {
         const selected = provider === option.value;
         return (
           <label
@@ -112,59 +94,78 @@ function ProviderSelector({
   );
 }
 
-function ConnectionNotice({
+function DatabaseStatus({
+  config,
   validation,
 }: {
+  config: DatabaseConfig | null;
   validation: DatabaseValidationResult | null;
 }) {
-  if (!validation) return null;
-  return (
-    <StatusAlert variant="success" title="Connection verified" role="status">
-      <p className="mt-1 text-xs">
-        {validation.database} as {validation.user}. SSL{' '}
-        {validation.ssl ? 'enabled' : 'not enabled'}; prepared statements{' '}
-        {validation.preparedStatements ? 'enabled' : 'disabled'}.
-      </p>
-      {!validation.vectorExtensionInstalled ? (
-        <p className="mt-1 text-xs">
-          pgvector is not installed yet. The dashboard migrations will try to
-          enable it on restart.
-        </p>
-      ) : null}
-    </StatusAlert>
-  );
-}
+  if (!config) return null;
 
-function RestartNotice({ config }: { config: DatabaseConfig | null }) {
-  if (!config?.restartRequired) return null;
+  const hasValidation = Boolean(validation);
+  const variant: 'success' | 'warning' | 'info' = config.restartRequired
+    ? 'warning'
+    : hasValidation
+      ? 'success'
+      : 'info';
+  const title = config.restartRequired
+    ? 'Restart pending'
+    : hasValidation
+      ? 'Changes saved'
+      : 'Database ready';
+
   return (
-    <StatusAlert variant="warning" title="Restart required">
-      <p className="mt-1 text-xs">
-        Saved configuration points to {config.databaseUrlMasked}. Active
-        connection is still {config.activeDatabaseUrlMasked}.
-      </p>
+    <StatusAlert variant={variant} title={title}>
+      <div className="space-y-1 text-xs">
+        <p>
+          Saved changes for:{' '}
+          <strong>{databaseProviderLabel(config.provider)}</strong>
+        </p>
+        <p>
+          Active provider:{' '}
+          <strong>{databaseProviderLabel(config.activeProvider)}</strong>
+        </p>
+        <p>
+          State:{' '}
+          <strong>{config.restartRequired ? 'Restart required' : 'Ready'}</strong>
+        </p>
+        {config.restartRequired ? (
+          <p>
+            Saved configuration points to {config.databaseUrlMasked}. Active
+            connection is still {config.activeDatabaseUrlMasked}.
+          </p>
+        ) : null}
+        {validation ? (
+          <p>
+            Connection verified: {validation.database} as {validation.user}. SSL{' '}
+            {validation.ssl ? 'enabled' : 'not enabled'}; prepared statements{' '}
+            {validation.preparedStatements ? 'enabled' : 'disabled'}.
+          </p>
+        ) : null}
+        {validation && !validation.vectorExtensionInstalled ? (
+          <p>
+            pgvector is not installed yet. The dashboard migrations will try to
+            enable it on restart.
+          </p>
+        ) : null}
+      </div>
     </StatusAlert>
   );
 }
 
 function DatabaseActions({
-  showRestart,
   isBusy,
   isValidating,
   isSaving,
-  isRestarting,
   onValidate,
-  onSave,
-  onRestart,
+  onApplyChanges,
 }: {
-  showRestart: boolean;
   isBusy: boolean;
   isValidating: boolean;
   isSaving: boolean;
-  isRestarting: boolean;
   onValidate: () => void;
-  onSave: () => void;
-  onRestart: () => void;
+  onApplyChanges: () => void;
 }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
@@ -173,24 +174,13 @@ function DatabaseActions({
         variant="outline"
         onClick={onValidate}
         disabled={isBusy}
-      >
+        >
         <Server className="mr-2 h-4 w-4" aria-hidden="true" />
         {isValidating ? 'Testing...' : 'Test connection'}
       </Button>
-      <Button type="button" onClick={onSave} disabled={isBusy}>
-        {isSaving ? 'Saving...' : 'Save database'}
+      <Button type="button" onClick={onApplyChanges} disabled={isBusy}>
+        {isSaving ? 'Saving...' : 'Save and restart'}
       </Button>
-      {showRestart ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onRestart}
-          disabled={isRestarting}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-          {isRestarting ? 'Restarting...' : 'Restart API'}
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -241,17 +231,13 @@ export function DatabaseConfigPanel() {
             disabled={isBusy}
           />
         </FormField>
-        <ConnectionNotice validation={state.validation} />
-        <RestartNotice config={state.config} />
+        <DatabaseStatus config={state.config} validation={state.validation} />
         <DatabaseActions
-          showRestart={Boolean(state.config?.restartRequired)}
           isBusy={isBusy}
           isValidating={state.isValidating}
           isSaving={state.isSaving}
-          isRestarting={state.isRestarting}
           onValidate={() => void state.handleValidate()}
-          onSave={() => void state.handleSave()}
-          onRestart={() => void state.handleRestart()}
+          onApplyChanges={() => void state.handleApplyChanges()}
         />
       </CardContent>
     </Card>

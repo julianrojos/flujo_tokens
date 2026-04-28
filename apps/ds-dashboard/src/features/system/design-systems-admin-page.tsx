@@ -25,9 +25,9 @@ import { type ApiErrorDisplay, toApiErrorDisplay } from '@/lib/api-error-ux';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { ROUTE_PATTERNS } from '@/lib/routes';
 import { NewSystemPage } from './new-system-page';
-import { DatabaseConfigPanel } from './components/database-config-panel';
 import { DesignSystemUpdateActions } from './design-system-update-actions';
 import { buildUpdateActionsProps } from './design-systems-admin-page-logic';
+import { SystemDatabaseModePanel } from './components/system-database-mode-panel';
 
 type RowDraft = {
   name: string;
@@ -521,7 +521,7 @@ export function DesignSystemsAdminPage() {
             />
           </section>
 
-          <DatabaseConfigPanel />
+          <SystemDatabaseModePanel system={targetSystem} />
         </div>
       ) : null}
 

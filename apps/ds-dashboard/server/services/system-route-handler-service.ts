@@ -3,6 +3,7 @@ import {
   buildDeleteDesignSystemConfigMutation,
   buildUpdateDesignSystemConfigMutation,
 } from "./system-route-service.ts";
+import { resolveDatabaseProvider } from "../db/pg-db-service.js";
 import {
   buildCreateDesignSystemSuccessPayload,
   buildDeleteDesignSystemSuccessPayload,
@@ -64,6 +65,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
   }
 
   const { nextSystem, nextConfig } = mutation;
+  nextSystem.databaseProvider = resolveDatabaseProvider(process.env);
   try {
     ensureSystemFilesystemScaffold({ nextSystem, repoRoot, fsSync });
   } catch (error) {
@@ -107,6 +109,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     pendingComponentsCount: nextSystem.pendingComponentsCount,
     importedComponentNames: nextSystem.importedComponentNames,
     pendingComponentNames: nextSystem.pendingComponentNames,
+    databaseProvider: nextSystem.databaseProvider,
   });
   await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
@@ -142,7 +145,13 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     return failJson(c, mutation.error.status, mutation.error.payload);
   }
   const { updated, nextConfig } = mutation;
-  await designSystemRepository.update(routeSystemId, {
+  const hasImportSnapshotFields =
+    Object.prototype.hasOwnProperty.call(body, "detectedComponentsCount") ||
+    Object.prototype.hasOwnProperty.call(body, "importedComponentsCount") ||
+    Object.prototype.hasOwnProperty.call(body, "pendingComponentsCount") ||
+    Object.prototype.hasOwnProperty.call(body, "importedComponentNames") ||
+    Object.prototype.hasOwnProperty.call(body, "pendingComponentNames");
+  const updatePatch = {
     name: updated.name,
     appName: updated.appName,
     detectedComponentsCount: updated.detectedComponentsCount,
@@ -150,7 +159,11 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     pendingComponentsCount: updated.pendingComponentsCount,
     importedComponentNames: updated.importedComponentNames,
     pendingComponentNames: updated.pendingComponentNames,
-  });
+    ...(hasImportSnapshotFields
+      ? { databaseProvider: resolveDatabaseProvider(process.env) }
+      : {}),
+  };
+  await designSystemRepository.update(routeSystemId, updatePatch);
   await designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
     buildUpdateDesignSystemSuccessPayload({

@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   handleDeleteDesignSystemRoute,
+  handleUpdateDesignSystemRoute,
 } from "./system-route-handler-service.ts";
 
 function createRouteContext(repoRoot: string) {
@@ -599,4 +600,68 @@ test("handleDeleteDesignSystemRoute leaves pending op open when filesystem clean
   } finally {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   }
+});
+
+test("handleUpdateDesignSystemRoute preserves database provider on ordinary edits", async () => {
+  const updateCalls: Array<Record<string, unknown>> = [];
+  const defaultCalls: Array<string | null> = [];
+  const c = {
+    req: {
+      param(name: string) {
+        assert.equal(name, "id");
+        return "alpha";
+      },
+    },
+    json(payload: unknown, status = 200) {
+      return { payload, status };
+    },
+  };
+
+  const deps = {
+    failJson: (ctx: typeof c, status: number, payload: unknown) => ctx.json(payload, status),
+    readJsonBody: async () => ({ name: "Alpha renamed" }),
+    designSystemRepository: {
+      async getConfig() {
+        return {
+          defaultSystem: "alpha",
+          systems: [
+            {
+              id: "alpha",
+              name: "Alpha",
+              databaseProvider: "supabase",
+            },
+          ],
+        };
+      },
+      async update(systemId: string, patch: Record<string, unknown>) {
+        updateCalls.push({ systemId, patch });
+        return {
+          id: systemId,
+          name: String(patch.name || ""),
+          databaseProvider: "supabase",
+        };
+      },
+      async setDefaultSystemId(id: string | null) {
+        defaultCalls.push(id);
+      },
+    },
+    ensureRelativeDir: (value: string, fallback: string) => String(value || "").trim() || fallback,
+    summarizeDesignSystemsConfig: (config: unknown) => config as Record<string, unknown>,
+  };
+
+  const result = await handleUpdateDesignSystemRoute(c as never, deps as never);
+
+  assert.equal(result.status, 200);
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0]?.patch, {
+    name: "Alpha renamed",
+    appName: "Alpha renamed",
+    detectedComponentsCount: null,
+    importedComponentsCount: null,
+    pendingComponentsCount: null,
+    importedComponentNames: [],
+    pendingComponentNames: [],
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(updateCalls[0]?.patch || {}, "databaseProvider"), false);
+  assert.deepEqual(defaultCalls, ["alpha"]);
 });

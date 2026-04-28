@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   DEFAULT_LOCAL_DATABASE_URL,
   getDatabaseUrlForProviderChange,
+  shouldRestartAfterSave,
 } from './use-database-config-panel.js';
 
 describe('useDatabaseConfigPanel helpers', () => {
@@ -27,6 +28,19 @@ describe('useDatabaseConfigPanel helpers', () => {
         isDraftDirty: true,
       }),
       'postgresql://postgres:secret@db.demo.supabase.co:5432/postgres?sslmode=require',
+    );
+  });
+
+  it('restarts after save when the saved config requires it even if provider stays the same', () => {
+    assert.equal(
+      shouldRestartAfterSave({
+        saveResponse: {
+          restartRequired: true,
+          provider: 'local',
+        },
+        requestedProvider: 'local',
+      }),
+      true,
     );
   });
 });

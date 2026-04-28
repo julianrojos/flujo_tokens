@@ -94,11 +94,14 @@ export function resolveSafeSystemPathsForDeletion(
 /**
  * Summarize design systems config
  */
-export function summarizeDesignSystemsConfig(config: { systems?: Array<{ id?: string; name?: string }>; defaultSystem?: string }): Record<string, unknown> {
+export function summarizeDesignSystemsConfig(config: { systems?: Array<{ id?: string; name?: string; databaseProvider?: string }>; defaultSystem?: string }): Record<string, unknown> {
   return {
     systems: (Array.isArray(config.systems) ? config.systems : []).map((system) => ({
       id: String(system?.id || ''),
       name: String(system?.name || ''),
+      ...(String(system?.databaseProvider || '').trim()
+        ? { databaseProvider: String(system?.databaseProvider || '').trim() }
+        : {}),
     })),
     defaultSystem: String(config.defaultSystem || ''),
   };

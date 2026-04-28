@@ -38,6 +38,16 @@ export function getDatabaseUrlForProviderChange(args: {
     : defaultUrlForProvider(args.nextProvider);
 }
 
+export function shouldRestartAfterSave(args: {
+  saveResponse: Pick<DatabaseConfig, 'restartRequired' | 'provider'>;
+  requestedProvider: DatabaseProvider;
+}): boolean {
+  return (
+    args.saveResponse.restartRequired ||
+    args.requestedProvider !== args.saveResponse.provider
+  );
+}
+
 function buildLocalValidationError(message: string): ApiErrorDisplay {
   return {
     title: 'Database URL required',
@@ -72,8 +82,7 @@ export interface DatabaseConfigPanelState {
   setDatabaseUrl: (value: string) => void;
   handleProviderChange: (provider: DatabaseProvider) => void;
   handleValidate: () => Promise<void>;
-  handleSave: () => Promise<void>;
-  handleRestart: () => Promise<void>;
+  handleApplyChanges: () => Promise<void>;
 }
 
 export function useDatabaseConfigPanel(): DatabaseConfigPanelState {
@@ -152,6 +161,9 @@ export function useDatabaseConfigPanel(): DatabaseConfigPanelState {
 
   const restartMutation = useMutation({
     mutationFn: restartApiServer,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: databaseConfigQueryKey });
+    },
     onError: (cause) => {
       setLocalError(
         toApiErrorDisplay(cause, {
@@ -211,7 +223,7 @@ export function useDatabaseConfigPanel(): DatabaseConfigPanelState {
     });
   };
 
-  const handleSave = async () => {
+  const handleApplyChanges = async () => {
     if (!canSubmit) {
       setLocalError(
         buildLocalValidationError('Paste the full database URL before saving.'),
@@ -219,15 +231,18 @@ export function useDatabaseConfigPanel(): DatabaseConfigPanelState {
       return;
     }
     setLocalError(null);
-    await saveMutation.mutateAsync({
+    const saveResponse = await saveMutation.mutateAsync({
       provider,
       databaseUrl: databaseUrl.trim(),
     });
-  };
-
-  const handleRestart = async () => {
-    setLocalError(null);
-    await restartMutation.mutateAsync();
+    if (
+      shouldRestartAfterSave({
+        saveResponse: saveResponse.config,
+        requestedProvider: provider,
+      })
+    ) {
+      await restartMutation.mutateAsync();
+    }
   };
 
   return {
@@ -250,7 +265,6 @@ export function useDatabaseConfigPanel(): DatabaseConfigPanelState {
     setDatabaseUrl,
     handleProviderChange,
     handleValidate,
-    handleSave,
-    handleRestart,
+    handleApplyChanges,
   };
 }

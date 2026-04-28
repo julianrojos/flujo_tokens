@@ -6,11 +6,13 @@
 
 import type { Sql } from 'postgres';
 import * as path from 'node:path';
+import type { DatabaseProvider } from './pg-db-service.js';
 
 export interface DesignSystemRow {
   id: string;
   name: string;
   app_name: string | null;
+  database_provider: string | null;
   figma_file_id: string | null;
   figma_api_token: string | null;
   collections: unknown;
@@ -27,6 +29,7 @@ export interface DesignSystemEntry {
   id: string;
   name: string;
   appName?: string;
+  databaseProvider?: DatabaseProvider;
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
@@ -109,6 +112,7 @@ function rowToEntry(row: DesignSystemRow): DesignSystemEntry {
     id: row.id,
     name: row.name,
     appName: row.app_name ?? undefined,
+    databaseProvider: normalizeDatabaseProvider(row.database_provider),
     figmaFileId: row.figma_file_id ?? undefined,
     figmaApiToken: row.figma_api_token ?? undefined,
     collections,
@@ -118,6 +122,20 @@ function rowToEntry(row: DesignSystemRow): DesignSystemEntry {
     importedComponentNames,
     pendingComponentNames,
   };
+}
+
+function normalizeDatabaseProvider(
+  value: unknown,
+): DatabaseProvider | undefined {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (
+    normalized === 'local' ||
+    normalized === 'supabase' ||
+    normalized === 'custom'
+  ) {
+    return normalized;
+  }
+  return undefined;
 }
 
 function normalizeCollections(value: unknown): string[] | undefined {
@@ -219,7 +237,7 @@ export class DesignSystemRepository {
 
   async getAll(): Promise<DesignSystemEntry[]> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections,
+            SELECT id, name, app_name, database_provider, figma_file_id, figma_api_token, collections,
                    detected_components_count, imported_components_count, pending_components_count,
                    imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
@@ -230,7 +248,7 @@ export class DesignSystemRepository {
 
   async getById(id: string): Promise<DesignSystemEntry | null> {
     const rows = (await this.sql`
-            SELECT id, name, app_name, figma_file_id, figma_api_token, collections,
+            SELECT id, name, app_name, database_provider, figma_file_id, figma_api_token, collections,
                    detected_components_count, imported_components_count, pending_components_count,
                    imported_component_names, pending_component_names, created_at, updated_at
             FROM design_systems
@@ -247,12 +265,12 @@ export class DesignSystemRepository {
     const pendingComponentNames = serializeNameList(entry.pendingComponentNames);
     await this.sql`
             INSERT INTO design_systems (
-              id, name, app_name, figma_file_id, figma_api_token, collections,
+              id, name, app_name, database_provider, figma_file_id, figma_api_token, collections,
               detected_components_count, imported_components_count, pending_components_count,
               imported_component_names, pending_component_names, created_at, updated_at
             )
             VALUES (
-              ${entry.id}, ${entry.name}, ${entry.appName ?? null}, ${entry.figmaFileId ?? null}, ${entry.figmaApiToken ?? null},
+              ${entry.id}, ${entry.name}, ${entry.appName ?? null}, ${entry.databaseProvider ?? null}, ${entry.figmaFileId ?? null}, ${entry.figmaApiToken ?? null},
               ${collections},
               ${entry.detectedComponentsCount ?? null}, ${entry.importedComponentsCount ?? null}, ${entry.pendingComponentsCount ?? null},
               ${importedComponentNames}, ${pendingComponentNames}, ${now}, ${now}
@@ -278,21 +296,44 @@ export class DesignSystemRepository {
     const collections = serializeCollections(updated.collections);
     const importedComponentNames = serializeNameList(updated.importedComponentNames);
     const pendingComponentNames = serializeNameList(updated.pendingComponentNames);
-    await this.sql`
-            UPDATE design_systems
-            SET name = ${updated.name},
-                app_name = ${updated.appName ?? null},
-                figma_file_id = ${updated.figmaFileId ?? null},
-                figma_api_token = ${updated.figmaApiToken ?? null},
-                collections = ${collections},
-                detected_components_count = ${updated.detectedComponentsCount ?? null},
-                imported_components_count = ${updated.importedComponentsCount ?? null},
-                pending_components_count = ${updated.pendingComponentsCount ?? null},
-                imported_component_names = ${importedComponentNames},
-                pending_component_names = ${pendingComponentNames},
-                updated_at = ${now}
-            WHERE id = ${id}
-        `;
+    const hasDatabaseProviderPatch = Object.prototype.hasOwnProperty.call(
+      patch,
+      'databaseProvider',
+    );
+    if (hasDatabaseProviderPatch) {
+      await this.sql`
+              UPDATE design_systems
+              SET name = ${updated.name},
+                  app_name = ${updated.appName ?? null},
+                  database_provider = ${updated.databaseProvider ?? null},
+                  figma_file_id = ${updated.figmaFileId ?? null},
+                  figma_api_token = ${updated.figmaApiToken ?? null},
+                  collections = ${collections},
+                  detected_components_count = ${updated.detectedComponentsCount ?? null},
+                  imported_components_count = ${updated.importedComponentsCount ?? null},
+                  pending_components_count = ${updated.pendingComponentsCount ?? null},
+                  imported_component_names = ${importedComponentNames},
+                  pending_component_names = ${pendingComponentNames},
+                  updated_at = ${now}
+              WHERE id = ${id}
+          `;
+    } else {
+      await this.sql`
+              UPDATE design_systems
+              SET name = ${updated.name},
+                  app_name = ${updated.appName ?? null},
+                  figma_file_id = ${updated.figmaFileId ?? null},
+                  figma_api_token = ${updated.figmaApiToken ?? null},
+                  collections = ${collections},
+                  detected_components_count = ${updated.detectedComponentsCount ?? null},
+                  imported_components_count = ${updated.importedComponentsCount ?? null},
+                  pending_components_count = ${updated.pendingComponentsCount ?? null},
+                  imported_component_names = ${importedComponentNames},
+                  pending_component_names = ${pendingComponentNames},
+                  updated_at = ${now}
+              WHERE id = ${id}
+          `;
+    }
 
     return updated;
   }

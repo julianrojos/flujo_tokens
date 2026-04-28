@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   normalizeFigmaApiTokenRef,
   resolveSafeSystemPathsForDeletion,
+  summarizeDesignSystemsConfig,
 } from "./system-utils.js";
 
 describe("resolveSafeSystemPathsForDeletion", () => {
@@ -34,5 +35,31 @@ describe("normalizeFigmaApiTokenRef", () => {
 
   it("uses fallback env key as canonical reference", () => {
     assert.equal(normalizeFigmaApiTokenRef("", "FIGMA_TOKEN"), "${FIGMA_TOKEN}");
+  });
+});
+
+describe("summarizeDesignSystemsConfig", () => {
+  it("preserves database provider metadata when present", () => {
+    const summary = summarizeDesignSystemsConfig({
+      systems: [
+        {
+          id: "sys-01",
+          name: "System 01",
+          databaseProvider: "supabase",
+        },
+      ],
+      defaultSystem: "sys-01",
+    });
+
+    assert.deepEqual(summary, {
+      systems: [
+        {
+          id: "sys-01",
+          name: "System 01",
+          databaseProvider: "supabase",
+        },
+      ],
+      defaultSystem: "sys-01",
+    });
   });
 });

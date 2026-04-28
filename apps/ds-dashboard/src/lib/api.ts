@@ -328,7 +328,11 @@ export interface CreateDesignSystemResponse {
     name: string;
   };
   config: {
-    systems: Array<{ id: string; name: string }>;
+    systems: Array<{
+      id: string;
+      name: string;
+      databaseProvider?: DatabaseProvider;
+    }>;
     defaultSystem: string;
   };
 }
@@ -337,6 +341,7 @@ export interface DesignSystemConfigEntry {
   id: string;
   name: string;
   appName?: string;
+  databaseProvider?: DatabaseProvider;
   figmaFileId?: string;
   figmaApiToken?: string;
   collections?: string[];
@@ -385,7 +390,11 @@ export interface MutateDesignSystemResponse {
     name: string;
   };
   config: {
-    systems: Array<{ id: string; name: string }>;
+    systems: Array<{
+      id: string;
+      name: string;
+      databaseProvider?: DatabaseProvider;
+    }>;
     defaultSystem: string;
   };
   deletedConsumersCount?: number;
