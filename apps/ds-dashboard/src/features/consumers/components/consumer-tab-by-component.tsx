@@ -311,7 +311,9 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
             const chip = (
               <span className="inline-flex max-w-[160px] items-baseline gap-1">
                 <span className="truncate">{dependencyName}</span>
-                <span className="tabular-nums text-foreground/70">{dependency.usageCount}</span>
+                <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-border/60 bg-[var(--app-surface-1)] px-1.5 py-0.5 text-[10px] tabular-nums text-foreground/70">
+                  {dependency.usageCount}
+                </span>
               </span>
             );
 
@@ -539,7 +541,7 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                               >
                                 {usage.consumerName}
                               </a>
-                              <span className="text-foreground">
+                              <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-border/60 bg-[var(--app-surface-1)] px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">
                                 {usage.instanceCount || 0}
                               </span>
                             </div>
