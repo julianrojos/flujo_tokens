@@ -12,8 +12,9 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
   buildComponentLookupMap,
+  extractComponentParentAlias,
+  normalizeComponentLookupKey,
   resolveKnownComponentSlug,
-  splitComponentName,
 } from "@/lib/component-identity";
 import { fetchComponentCatalog, fetchReportByComponent, listConsumers } from "@/lib/api";
 import { toComponentDetail } from "@/lib/routes";
@@ -26,6 +27,7 @@ import {
   type ComponentUsageScopeSummary,
   type ConsumerWithUsageDetails,
 } from "../lib/usage-details-summary";
+import { getComponentTableDisplayInfo } from "../lib/component-table-display";
 
 interface ConsumerTabByComponentProps {
   dsFileKey: string;
@@ -154,22 +156,102 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     () => buildComponentLookupMap(componentCatalogItems),
     [componentCatalogItems],
   );
+  const componentDisplayNameBySlug = useMemo(
+    () => new Map(componentCatalogItems.map((item) => [item.slug, item.display_name])),
+    [componentCatalogItems],
+  );
+  const componentDisplayNameByVariant = useMemo(() => {
+    const lookup = new Map<string, string>();
+    const ambiguous = new Set<string>();
+
+    for (const item of componentCatalogItems) {
+      const parentDisplayName = String(item.display_name || "").trim();
+      if (!parentDisplayName) continue;
+
+      for (const variant of item.figma?.variants || []) {
+        const variantName = String(variant?.name || "").trim();
+        if (!variantName) continue;
+
+        const candidates = new Set<string>([variantName]);
+        const parsedVariant = getComponentTableDisplayInfo({ componentName: variantName });
+        if (parsedVariant.variantLabel) {
+          candidates.add(parsedVariant.variantLabel);
+        }
+
+        for (const candidate of candidates) {
+          const key = normalizeComponentLookupKey(candidate);
+          if (!key || ambiguous.has(key)) continue;
+          const current = lookup.get(key);
+          if (!current) {
+            lookup.set(key, parentDisplayName);
+            continue;
+          }
+          if (current !== parentDisplayName) {
+            lookup.delete(key);
+            ambiguous.add(key);
+          }
+        }
+      }
+    }
+
+    return lookup;
+  }, [componentCatalogItems]);
+
+  const getTableRowMeta = (report: ComponentUsageReport) => {
+    const normalizedComponentName = normalizeComponentLookupKey(report.componentName);
+    const slugFromName = resolveKnownComponentSlug({
+      lookup: componentSlugByLookup,
+      parentName: extractComponentParentAlias(report.componentName),
+      variantName: report.componentName,
+    });
+    const parentDisplayName = slugFromName
+      ? componentDisplayNameBySlug.get(slugFromName)
+      : componentDisplayNameByVariant.get(normalizedComponentName);
+    const displayInfo = getComponentTableDisplayInfo({
+      componentName: report.componentName,
+      parentDisplayName,
+    });
+    const resolvedComponentSlug =
+      slugFromName ||
+      (parentDisplayName
+        ? resolveKnownComponentSlug({
+            lookup: componentSlugByLookup,
+            parentName: parentDisplayName,
+            variantName: report.componentName,
+          })
+        : undefined);
+
+    return { displayInfo, resolvedComponentSlug };
+  };
+
+  const rowMetaByKey = useMemo(() => {
+    const metaByKey = new Map<string, ReturnType<typeof getTableRowMeta>>();
+    for (const report of reports) {
+      metaByKey.set(report.componentKey, getTableRowMeta(report));
+    }
+    return metaByKey;
+  }, [
+    reports,
+    componentSlugByLookup,
+    componentDisplayNameBySlug,
+    componentDisplayNameByVariant,
+  ]);
+
+  const getRowMeta = (report: ComponentUsageReport) => {
+    return rowMetaByKey.get(report.componentKey) ?? getTableRowMeta(report);
+  };
 
   const sortedReports = useMemo(() => {
     return [...filteredReports].sort((a, b) => {
-      const getVariantLabel = (report: ComponentUsageReport): string => {
-        const { variantLabel } = splitComponentName(report.componentName);
-        return variantLabel?.toLowerCase() ?? "";
-      };
       const valueFor = (report: ComponentUsageReport): string | number => {
-        const { parentName } = splitComponentName(report.componentName);
-        if (sort.field === "component") return parentName.toLowerCase();
-        if (sort.field === "variant") return getVariantLabel(report);
+        const { displayInfo } = getRowMeta(report);
+        if (sort.field === "component") return displayInfo.componentLabel.toLowerCase();
+        if (sort.field === "variant") return displayInfo.variantLabel.toLowerCase();
         if (sort.field === "instances") return report.totalInstances;
         if (sort.field === "wrappers") return usageSummaryByComponent.get(report.componentKey)?.wrapperCount ?? Number.NEGATIVE_INFINITY;
         if (sort.field === "usedIn") return report.consumers.length;
         if (sort.field === "consumers") return countUniqueConsumers(report);
-        return parentName.toLowerCase();
+        return displayInfo.componentLabel.toLowerCase();
       };
 
       const aValue = valueFor(a);
@@ -177,19 +259,19 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       const dirAdjusted = sort.dir === "asc" ? comparison : comparison * -1;
       if (dirAdjusted !== 0) return dirAdjusted;
-      return splitComponentName(a.componentName).parentName.localeCompare(
-        splitComponentName(b.componentName).parentName,
-      );
+      const aMeta = getRowMeta(a);
+      const bMeta = getRowMeta(b);
+      return aMeta.displayInfo.componentLabel.localeCompare(bMeta.displayInfo.componentLabel);
     });
-  }, [filteredReports, sort, usageSummaryByComponent]);
+  }, [
+    filteredReports,
+    sort,
+    usageSummaryByComponent,
+    rowMetaByKey,
+  ]);
 
   function renderComponentCell(report: ComponentUsageReport) {
-    const { parentName, variantLabel } = splitComponentName(report.componentName);
-    const resolvedComponentSlug = resolveKnownComponentSlug({
-      lookup: componentSlugByLookup,
-      parentName,
-      variantName: variantLabel,
-    });
+    const { displayInfo, resolvedComponentSlug } = getRowMeta(report);
 
     if (resolvedComponentSlug) {
       return (
@@ -198,12 +280,12 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
           className="text-foreground hover:text-primary"
           aria-label={`Open ${report.componentName} detail`}
         >
-          {parentName}
+          {displayInfo.componentLabel}
         </Link>
       );
     }
 
-    return <span className="text-foreground">{parentName}</span>;
+    return <span className="text-foreground">{displayInfo.componentLabel}</span>;
   }
 
   const kpis = useMemo(() => computeKpis(reports), [reports]);
@@ -311,15 +393,15 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               ) : (
                 sortedReports.map((report) => {
                   const topConsumers = report.consumers.slice(0, 3);
-                  const { variantLabel } = splitComponentName(report.componentName);
+                  const { displayInfo } = getRowMeta(report);
                   return (
                     <TableRow key={report.componentKey}>
                       <TableCell>
                         {renderComponentCell(report)}
                       </TableCell>
                       <TableCell>
-                        {variantLabel ? (
-                          <Badge variant="neutral">{variantLabel}</Badge>
+                        {displayInfo.variantLabel ? (
+                          <Badge variant="neutral">{displayInfo.variantLabel}</Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
