@@ -29,8 +29,6 @@ import type { ComponentUsageReport } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import {
   buildComponentLocalDependencySummary,
-  buildComponentUsageScopeSummary,
-  type ComponentUsageScopeSummary,
   type ConsumerWithUsageDetails,
   type ComponentLocalDependencySummary,
 } from "../lib/usage-details-summary";
@@ -55,7 +53,7 @@ interface ComponentTabByComponentData {
   usageDetailsWarning: string | null;
 }
 
-type ComponentSortField = "component" | "variant" | "instances" | "wrappers" | "uses" | "consumers";
+type ComponentSortField = "component" | "variant" | "instances" | "uses" | "consumers";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -121,25 +119,6 @@ function countUniqueConsumers(report: ComponentUsageReport): number {
   return new Set(report.consumers.map((consumer) => consumer.consumerId)).size;
 }
 
-function renderUsageBreakdown(usageSummary: ComponentUsageScopeSummary | undefined) {
-  if (!usageSummary) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-
-  return (
-    <div className="space-y-1">
-      <Badge variant="neutral" className="text-[10px]" title="Unique local component wrappers across consumers">
-        {usageSummary.wrapperCount} wrappers across files
-      </Badge>
-      <div className="flex flex-wrap gap-1.5">
-        <Badge variant="neutral" className="text-[10px]">Page {usageSummary.usageScope.page}</Badge>
-        <Badge variant="neutral" className="text-[10px]">Local {usageSummary.usageScope.localComponent}</Badge>
-        <Badge variant="neutral" className="text-[10px]">Nested {usageSummary.usageScope.nestedLocalComponent}</Badge>
-      </div>
-    </div>
-  );
-}
-
 export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerTabByComponentProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [sort, toggleSort] = useSortState<ComponentSortField>({ field: "component", dir: "asc" });
@@ -175,10 +154,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
     });
   }, [reports, searchQuery]);
 
-  const usageSummaryByComponent = useMemo(
-    () => buildComponentUsageScopeSummary(consumers),
-    [consumers],
-  );
   const localDependencySummaryByComponent = useMemo(
     () => buildComponentLocalDependencySummary(consumers),
     [consumers],
@@ -366,7 +341,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
         if (sort.field === "component") return displayInfo.componentLabel.toLowerCase();
         if (sort.field === "variant") return displayInfo.variantLabel.toLowerCase();
         if (sort.field === "instances") return report.totalInstances;
-        if (sort.field === "wrappers") return usageSummaryByComponent.get(report.componentKey)?.wrapperCount ?? Number.NEGATIVE_INFINITY;
         if (sort.field === "uses") {
           return Array.from(localDependencySummaryByComponent.get(report.componentKey)?.values() ?? []).reduce(
             (sum, dependency) => sum + dependency.usageCount,
@@ -389,7 +363,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
   }, [
     filteredReports,
     sort,
-    usageSummaryByComponent,
     localDependencySummaryByComponent,
     rowMetaByKey,
   ]);
@@ -563,11 +536,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                   ariaLabel="Sort by instances"
                 />
                 <SortableTableHead
-                  label="Wrappers"
-                  onSort={() => toggleSort("wrappers")}
-                  ariaLabel="Sort by wrappers"
-                />
-                <SortableTableHead
                   label="Reused in"
                   onSort={() => toggleSort("uses")}
                   ariaLabel="Sort by reused in"
@@ -583,14 +551,14 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`component-loading-${index}`}>
-                    <TableCell colSpan={6} className="text-muted-foreground">
+                    <TableCell colSpan={5} className="text-muted-foreground">
                       Loading component usage...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-0">
+                  <TableCell colSpan={5} className="p-0">
                     <EmptyState
                       icon={Network}
                       title="No matching components"
@@ -617,9 +585,6 @@ export function ConsumerTabByComponent({ dsFileKey, reloadToken = 0 }: ConsumerT
                       </TableCell>
                       <TableCell>
                         <span className="tabular-nums text-foreground">{report.totalInstances}</span>
-                      </TableCell>
-                      <TableCell>
-                        {renderUsageBreakdown(usageSummaryByComponent.get(report.componentKey))}
                       </TableCell>
                       <TableCell>
                         {renderDependencyCell(report)}
