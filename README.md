@@ -1,9 +1,9 @@
 # Design System Tooling
 
-This repository has two independent workflows:
+This repository has two main workflows:
 
 1. Token compilation from JSON (DTCG) to CSS custom properties.
-2. Component documentation from Figma to Markdown.
+2. Component documentation from DB-backed data to Markdown.
 
 For the end-to-end component docs workflow entry point, see `MASTER_WORKFLOW.md`.
 
@@ -60,7 +60,7 @@ If the command fails, fix the local tooling or test environment before continuin
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the active system database. Supports `--source auto|mcp|rest`, `--force`, `--merge`, and `--dry-run`.
-- **`npm run ds:token-usage-index`**: Refreshes the database-backed token usage index from the active system database, component spec files (`design-systems/<id>/docs/_spec/components/*.yml`), and CSS alias chains (`output/primitives.css`, `output/tokens.css`) so the dashboard can show where each token/custom property is used.
+- **`npm run ds:token-usage-index`**: Refreshes the database-backed token usage index from the active system database and CSS alias chains (`output/primitives.css`, `output/tokens.css`) so the dashboard can show where each token/custom property is used.
 
 ### Team/CI Test Entry Points
 
@@ -165,6 +165,7 @@ MCP command resolution for token sync:
 - Default: `npx -y MCP Management`
 - Override full command: `FIGMA_MCP_COMMAND` (treated as literal command path; pass args in `FIGMA_MCP_COMMAND_ARGS`)
 - Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
+
 ### Troubleshooting: MCP token sync
 
 | Síntoma                                        | Causa probable                                                      | Solución                                                                                                        |
@@ -259,35 +260,50 @@ npm run ds:token-usage-index -- --strict-unresolved true
 
 - Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
 
-### Documentation Scripts
+## 2) Component Documentation Workflow
 
-System context (DB-backed):
+### Requirements
 
+- A compatible agent CLI installed: `codex`, `claude`, or `gemini`.
+- For Dashboard AI provider flows (`/ai-docs`), Ollama is also supported as a model provider.
+- Figma MCP configured for the selected agent.
+- For Figma write operations, Figma Desktop + MCP Management running.
 - Component/docs runners resolve default paths from the active design system in PostgreSQL.
 - Canonical docs/spec roots are `design-systems/<id>/docs/components` and `design-systems/<id>/docs/_spec/components`.
 - Use `--system <id>` to target a specific system explicitly.
 - If `--system` is omitted, the default configured system is used.
 - `--system` without value (for example `--system ""`) is rejected.
+- Agent selection options:
+  - Pass `--agent codex|claude|gemini`
+  - Or set `DS_AGENT=codex|claude|gemini`
+  - Default is `auto`
+- If non-interactive execution is unavailable, the command stores a fallback prompt in `docs/_generated/agent_prompts/`.
+- Component docs are edited in the dashboard and read back through the API.
+- Markdown is rendered from DB-backed data and can be downloaded; it is not the source of truth.
 
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component as a standalone operation.
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
-- **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
-- **`npm run dashboard:build`**: Builds the local dashboard app.
+### Capture and dashboard scripts
 
-### Documentation folders
+| Command | Purpose |
+| --- | --- |
+| `npm run ds:capture-visual-proof` | Captures screenshot evidence for one component as a standalone operation. |
+| `npm run ds:capture-from-url` | Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). |
+| `npm run dashboard:dev` | Starts the local dashboard UI and its API supervisor; this is the only public dashboard entry point. |
+| `npm run dashboard:build` | Builds the local dashboard app. |
 
-- `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
+### Artifacts and runtime state
+
+- `design-systems/<id>/docs/components/`: downloadable component markdown artifacts (e.g. `alert.md`)
 - `DATABASE_URL`: operational storage for dashboard sync/capture state
 - dashboard token usage index: computed from PostgreSQL and consumed by the dashboard API
 
-### Local dashboard (React, local-only)
+### Dashboard UI (local React app)
 
-The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
+The dashboard app under `apps/ds-dashboard` has two left sidebar sections:
 
-- `Tokens & Properties` (custom properties + token inventory from the active system database, plus `Used In` from the dashboard token usage index API)
-- `Componentes` (component pipeline state from the dashboard PostgreSQL database via the local API)
+- `Tokens & Properties` (custom properties + token inventory from the active system database, plus `Used In` from token usage data)
+- `Components` (component pipeline state from the dashboard database)
 
-No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
+No external server is required. It runs locally and reads repository artifacts via the API.
 
 Tokens accessibility checker:
 
@@ -314,18 +330,15 @@ Before opening the Tokens view, ensure token usage data is generated at least on
 npm run ds:token-usage-index
 ```
 
-The dashboard also exposes a `Sync Usage Index` action in the Tokens page that runs this command locally.
+The Tokens page also exposes a `Sync Usage Index` action.
 
-The dashboard reads component docs from the API and lets you edit the spec/editorial fields directly in the UI.
-For AI provider-based doc generation in Dashboard (`/ai-docs`), Ollama is also supported.
-
-Agent configuration for dashboard API:
+Agent configuration for the dashboard dev supervisor:
 
 - Select agent explicitly: `DS_AGENT=codex|claude|gemini`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CODEX_BIN=/abs/path/to/codex`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
-- `auto` mode is still supported (`DS_AGENT` unset): tries `codex`, then `claude`, then `gemini`.
+- Optional explicit binary path (recommended when the dashboard process does not inherit your shell PATH): `CODEX_BIN=/abs/path/to/codex`
+- Optional explicit binary path (recommended when the dashboard process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
+- Optional explicit binary path (recommended when the dashboard process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
+- `auto` mode is supported (`DS_AGENT` unset); it uses the fallback order above.
 - If `codex` is not in PATH, set `CODEX_BIN` (or `DS_CODEX_PATH`) explicitly.
 
 Examples:
@@ -346,71 +359,33 @@ Build:
 npm run dashboard:build
 ```
 
-### Documentation governance (rules)
+### Documentation governance
 
-Component pages are governed by rules in `.agents/rules/` and must include:
-
-- `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
-- Figma node IDs are allowed in source links (for example in `node-id` URLs)
-- `component_name` normalization contract:
+- Keep the order: spec first, rendered markdown second.
+- Do not render markdown without a valid spec.
+- `component_name` normalization:
   - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
   - infer default file paths with `snake_case` (`status_bar`)
   - explicit path flags (`--output`, `--spec-file`) always take precedence
-- Canonical spec/markdown order is enforced:
-  - `(1) spec` -> `(2) markdown`
-  - do not run markdown generation without a valid spec
-  - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
-  - optional spec `related_components` is validated:
-    - values must be `snake_case` slugs, unique, and must not self-reference
-    - in `ready` specs, every entry must resolve to an existing component spec
-  - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
-  - component index state must be refreshed coherently (dashboard PostgreSQL DB + `design-systems/<id>/docs/components/overview.md`)
-  - keep spec and markdown aligned 1:1 by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
-- Evidence-gated mutations are enforced for component docs/specs:
-  - default mode is deny-by-default for key/value mutations
-  - known values can only change when verifiable evidence proves they are wrong, incomplete, outdated, or missing
-  - known values cannot be downgraded to unknown markers (`TBD`, empty, etc.) without explicit forced override
-  - component-targeted generation is scope-limited to target file + index artifacts; out-of-scope writes are blocked and rolled back
-- Editorial quality gates:
-  - no `TODO` / `XXX` / `{placeholder}` / `<placeholder>`
-  - internal markdown links must resolve to existing local targets
-- Deterministic placement contract:
-  - prefer `figma.component_set_node_id` from the spec
-  - in `ready` specs, `figma.component_set_node_id` is mandatory
-  - runtime resolution order: `--component-set-id` -> `spec.figma.component_set_node_id` -> name lookup (`draft` only)
-- Workflow pattern docs are supported as a workflow subtype:
-  - recommended path: `docs/workflows/patterns/*.md`
-  - expected focus: problem, decision guide, composition, behavior, accessibility, i18n, governance, and metrics
-  - component APIs remain canonical in `design-systems/<id>/docs/components/*.md` and should be linked, not duplicated
-- Internationalization expectations:
-  - component `Usage Guidelines -> Behavior` should cover RTL/LTR, text expansion, and locale-dependent formats
-  - interactive docs should state reduced-motion and zoom behavior (or `TBD` with a tracked gap)
+- `component markdown` artifacts are derived outputs in `design-systems/<id>/docs/components/*.md` and should be linked, not duplicated.
+- Detailed governance rules live in `.agents/rules/` and `MASTER_WORKFLOW.md`.
 
-For markdown rendered to Figma, prefer the supported subset:
+### Import and capture from Figma
 
-- Headings (`#`, `##`, `###`), paragraphs, flat lists, markdown tables, inline emphasis
-- Avoid code fences, blockquotes, images, nested lists, and deep headings (`####+`)
+```bash
+npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
+npm run ds:capture-visual-proof -- --component-name <Name>
+```
 
-### Requirements
+Use `ds:capture-from-url` for import flows; it can add spec exhibits automatically. Use `ds:capture-visual-proof` only for isolated screenshots.
 
-- A compatible agent CLI installed: `codex`, `claude`, or `gemini`
-- For Dashboard AI provider flows (`/ai-docs`), `ollama` is also supported as a model provider.
-- Figma MCP configured for the selected agent
-- For Figma write operations, Figma Desktop + MCP Management running
+Recommended sequence before rendering:
 
-Agent selection options:
+```bash
+npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
+```
 
-- Pass `--agent codex|claude|gemini`
-- Or set `DS_AGENT=codex|claude|gemini`
-- Default is `auto` (tries `codex`, then `claude`, then `gemini`)
-
-If non-interactive execution is unavailable, the command stores a fallback prompt in:
-
-- `docs/_generated/agent_prompts/`
-
-Component docs are edited in the dashboard and read back through the API.
-
-### 1) Capture screenshot evidence (standalone)
+### Capture screenshot evidence (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \
@@ -436,17 +411,18 @@ Useful flags:
 - `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
-### 2) Import and capture from Figma
+### Documentation governance
 
-```bash
-npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
-npm run ds:capture-visual-proof -- --component-name <Name>
-```
+- Keep the order: spec first, rendered markdown second.
+- Do not render markdown without a valid spec.
+- `component_name` normalization:
+  - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
+  - infer default file paths with `snake_case` (`status_bar`)
+  - explicit path flags (`--output`, `--spec-file`) always take precedence
+- `component markdown` artifacts are derived outputs in `design-systems/<id>/docs/components/*.md` and should be linked, not duplicated.
+- Detailed governance rules live in `.agents/rules/` and `MASTER_WORKFLOW.md`.
 
-Useful flags are documented above in the capture sections; prefer `ds:capture-from-url` for import flows and `ds:capture-visual-proof` for one-off screenshots.
+For markdown rendered to Figma, prefer the supported subset:
 
-Recommended sequence before rendering:
-
-```bash
-npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<name>" --system <id>
-```
+- Headings (`#`, `##`, `###`), paragraphs, flat lists, markdown tables, inline emphasis
+- Avoid code fences, blockquotes, images, nested lists, and deep headings (`####+`)
