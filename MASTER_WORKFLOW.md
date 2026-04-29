@@ -58,6 +58,6 @@ npm run test:tooling:core
 
 - Never skip stage order (`spec` -> `markdown`).
 - Always target the correct design system (`--system <id>`) for multi-system repositories.
-- For `doc_status: ready`, visual proof must include a concrete screenshot URL.
+- The backend only allows `doc_status: ready` when visual proof includes a concrete screenshot URL.
 - If no CLI is available, the dashboard stores a fallback prompt in `docs/_generated/agent_prompts/`.
 - Use consistent terms: spec, rendered markdown, visual proof, dashboard.
