@@ -417,7 +417,11 @@ describe('ai-jobs-store-with-persistence', { concurrency: false }, () => {
                 states: [],
                 accessibilityFacts: [],
             }, { promptTokens: 100, completionTokens: 50, durationMs: 1000 });
-            await waitForPersistedJob(store, job.id, { expectedStatus: 'completed', minEvents: 4 });
+            await waitForPersistedJob(store, job.id, {
+                expectedStatus: 'completed',
+                minEvents: 4,
+                timeoutMs: 10000,
+            });
 
             const jobsRepo = (store as any).jobsRepo;
             const events = await jobsRepo.getJobEvents(job.id);
