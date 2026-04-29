@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TokenTreeNode } from "@/types/token-tree";
-import { normalizeToHex6 } from "../accessibility/color-utils";
+import { normalizeToHex6 } from "@/lib/color-utils";
 import { countTokens, shouldRenderNodeByQuery } from "./tree-utils";
 
 interface TokenTreeNodeProps {
@@ -114,6 +114,7 @@ export function TokenTreeNodeItem({
               {swatchColor ? (
                 <span
                   className="h-3.5 w-3.5 shrink-0 rounded-full border border-border/80"
+                  // User-provided token color swatch; data-driven, not design-token styling.
                   style={{ backgroundColor: swatchColor }}
                   aria-label={`Token color ${swatchColor}`}
                   title={swatchColor}
@@ -164,6 +165,7 @@ export function TokenTreeNodeItem({
               {swatchColor ? (
                 <span
                   className="h-3.5 w-3.5 shrink-0 rounded-full border border-border/80"
+                  // User-provided token color swatch; data-driven, not design-token styling.
                   style={{ backgroundColor: swatchColor }}
                   aria-label={`Token color ${swatchColor}`}
                   title={swatchColor}
