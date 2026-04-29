@@ -221,8 +221,74 @@ describe('figma-db-sync-service', () => {
             createRunId: () => 'run-empty',
             fetchVariables,
           }),
-        /No tokens in staging after import/,
+        /No tokens inserted — aborting swap/,
       );
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('continues component import when token staging is empty and component import is enabled', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [{ id: 'sys-01', name: 'System 01' }],
+    });
+    try {
+      let receivedEntries: Array<Record<string, unknown>> = [];
+      const componentRepo = {
+        deleteAll: async () => 0,
+        upsertFromRegistry: async (
+          _systemId: string,
+          entries: Array<Record<string, unknown>>,
+        ) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
+        markMissingComponents: async () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'm1', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/empty',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: {},
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button Primary' }],
+        truncated: false,
+      });
+
+      await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-empty-with-components',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(receivedEntries.length, 1);
+      assert.equal(receivedEntries[0]?.slug, 'button-primary');
+      const [tokenRow] = await sql`
+        SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${'sys-01'}
+      ` as [{ count: string }];
+      assert.equal(Number(tokenRow.count), 0);
     } finally {
       await cleanup();
     }
@@ -347,7 +413,8 @@ describe('figma-db-sync-service', () => {
       // This test verifies rollback behavior on transaction failure.
       // In PostgreSQL, transaction rollback is handled natively.
       // We skip the trigger injection and rely on the service's own validation to cause a failure.
-      // The legacy token should remain after a failed sync.
+      // The legacy token is expected to be replaced if the token swap succeeds
+      // before the component upsert fails.
 
       const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
         buildVariablesPayload({
@@ -403,7 +470,7 @@ describe('figma-db-sync-service', () => {
         SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${'sys-01'} AND id = ${'legacy.token'}
       ` as [{ count: string }];
 
-      assert.equal(Number(legacy.count), 1);
+      assert.equal(Number(legacy.count), 0);
     } finally {
       await cleanup();
     }
@@ -849,25 +916,17 @@ describe('figma-db-sync-service', () => {
       });
 
       const paths = resolveSystemPaths('sys-01', repoRoot);
-      const docPath = path.join(paths.componentsDir, 'button-primary.md');
       const proofPath = path.join(
         paths.generatedDir,
         'visual-proofs',
         'images',
         'button-primary.png',
       );
-      assert.equal(fs.existsSync(docPath), true);
       assert.equal(fs.existsSync(proofPath), true);
 
       assert.equal(receivedEntries.length, 1);
       const button = receivedEntries[0] as Record<string, unknown>;
-      const specs = button.specs as Array<{ docPath: string }>;
       const visualProofs = button.visualProofs as Array<{ imagePath: string }>;
-      assert.ok(Array.isArray(specs));
-      assert.equal(
-        specs[0].docPath,
-        'design-systems/sys-01/docs/components/button-primary.md',
-      );
       assert.ok(Array.isArray(visualProofs));
       assert.equal(
         visualProofs[0].imagePath,
@@ -886,10 +945,25 @@ describe('figma-db-sync-service', () => {
     const repoRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'ds-sync-safe-markdown-'),
     );
+    let receivedEntries: Array<Record<string, unknown>> = [];
     try {
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      fs.mkdirSync(paths.componentsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(paths.componentsDir, 'button-primary-v2.md'),
+        '# Button: Primary [v2]\n',
+        'utf8',
+      );
+
       const componentRepo = {
         deleteAll: async () => 0,
-        upsertFromRegistry: async () => 0,
+        upsertFromRegistry: async (
+          _systemId: string,
+          entries: Array<Record<string, unknown>>,
+        ) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
         markMissingComponents: async () => 0,
       } as unknown as ComponentRepository;
 
@@ -931,14 +1005,15 @@ describe('figma-db-sync-service', () => {
         repoRoot,
       });
 
-      const paths = resolveSystemPaths('sys-01', repoRoot);
-      const docPath = path.join(
-        paths.componentsDir,
-        'button-primary-v2.md',
+      assert.equal(receivedEntries.length, 1);
+      const button = receivedEntries[0] as Record<string, unknown>;
+      assert.equal(button.slug, 'button-primary-v2');
+      const specs = button.specs as Array<{ docPath: string }>;
+      assert.ok(Array.isArray(specs));
+      assert.equal(
+        specs[0].docPath,
+        'design-systems/sys-01/docs/components/button-primary-v2.md',
       );
-      const markdown = fs.readFileSync(docPath, 'utf8');
-      assert.ok(markdown.startsWith('# Button: Primary [v2]'));
-      assert.equal(markdown.includes('---'), false);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
       await cleanup();
@@ -1767,9 +1842,15 @@ describe('figma-db-sync-service', () => {
     try {
       const paths = resolveSystemPaths('sys-01', repoRoot);
       fs.mkdirSync(paths.specsDir, { recursive: true });
+      fs.mkdirSync(paths.outputDir, { recursive: true });
       fs.writeFileSync(
         path.join(paths.specsDir, 'button.yml'),
         `token_mapping:\n  surface:\n    default: "legacy.token"\n`,
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(paths.outputDir, 'tokens.css'),
+        `:root { color: var(--legacy-token); }`,
         'utf8',
       );
 

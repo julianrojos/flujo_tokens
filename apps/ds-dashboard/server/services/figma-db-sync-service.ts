@@ -2552,7 +2552,12 @@ export async function syncDesignSystemFromPlugin(
       >`SELECT COUNT(*) as count FROM tokens WHERE ds_id = ${dsId}`;
       const tokenCount = Number(tokenCountResult[0]?.count ?? 0);
       if (tokenCount === 0) {
-        throw new Error('No tokens inserted — aborting swap');
+        if (!includeComponents) {
+          throw new Error('No tokens inserted — aborting swap');
+        }
+        console.warn(
+          '[syncDesignSystemFromPlugin] No tokens inserted; continuing because component import is enabled.',
+        );
       }
 
       const orphanAliasResult = await tx<{ count: bigint }[]>`
