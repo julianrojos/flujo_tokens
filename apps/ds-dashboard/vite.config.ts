@@ -69,12 +69,4 @@ export default defineConfig({
       },
     },
   },
-  preview: {
-    proxy: {
-      "/api": {
-        target: OPS_API_PROXY_TARGET,
-        changeOrigin: true,
-      },
-    },
-  },
 });

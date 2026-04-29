@@ -5,6 +5,7 @@
  */
 
 import { spawn, type SpawnOptions } from 'node:child_process';
+import path from 'node:path';
 import type { Context } from 'hono';
 
 import {
@@ -273,11 +274,11 @@ export function handleRestartApiRoute(
     return failJson(c, 409, {
       code: 'server.restart_requires_supervisor',
       userMessage:
-        'API is running under the combined dev supervisor. Restart `npm --prefix apps/ds-dashboard run dev` from your terminal.',
+        'The dashboard is running under the combined dev supervisor. Restart `npm run dashboard:dev` from the repository root.',
       recoverable: true,
       requestId,
       context: {
-        restartCommand: 'npm --prefix apps/ds-dashboard run dev',
+        restartCommand: 'npm run dashboard:dev',
       },
     });
   }
@@ -300,14 +301,15 @@ export function handleRestartApiRoute(
   const exitProcessFn =
     deps.exitProcessFn ?? ((code?: number) => process.exit(code));
   const cwd = deps.processCwd ?? process.cwd();
+  const repoRoot = path.resolve(cwd, '..', '..');
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
   // Configurable exit delay with minimum safe threshold
   const exitDelayMs = Math.max(deps.exitDelayMs ?? 400, 300);
 
   try {
-    const child = spawnFn(npmCommand, ['run', 'dev:api'], {
-      cwd,
+    const child = spawnFn(npmCommand, ['run', 'dashboard:dev'], {
+      cwd: repoRoot,
       detached: true,
       stdio: 'ignore',
       shell: false,
@@ -348,9 +350,9 @@ export function handleRestartApiRoute(
   return c.json(
     {
       ok: true,
-      mode: 'standalone',
-      restartCommand: 'npm --prefix apps/ds-dashboard run dev:api',
-      message: 'API restart requested.',
+      mode: 'combined',
+      restartCommand: 'npm run dashboard:dev',
+      message: 'Dashboard restart requested.',
       requestId,
     },
     202,

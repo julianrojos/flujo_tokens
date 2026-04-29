@@ -1,21 +1,14 @@
 # ds-dashboard server
 
-This directory contains the independent Hono API backend for the Design System Dashboard.
+This directory contains the Hono API backend used by the Design System Dashboard.
 
-## Testing the API in isolation
-
-You can run and test the API completely decoupled from the Vite frontend.
+The supported local entry point is the combined dashboard supervisor:
 
 ```bash
-# Levantar solo la API (sin Vite) en el puerto 8787
-npm run dev:api
-
-# Correr tests de rutas (o tests unitarios)
-npx tsx --test server/routes/*.test.ts
-
-# Testear endpoints con curl directamente
-curl http://localhost:8787/api/component-catalog
+npm run dashboard:dev
 ```
+
+That command starts the API and the Vite frontend together.
 
 ## Host binding (LAN / Docker)
 
@@ -27,13 +20,13 @@ To expose the API over your network (LAN, Docker port mapping, VM), set:
 DS_DASHBOARD_API_HOST=0.0.0.0
 ```
 
-You can place it in `apps/ds-dashboard/.env` or export it before starting `dev:api`.
+You can place it in `apps/ds-dashboard/.env` or export it before starting `dashboard:dev`.
 
 ## Database connection
 
 Tooling commands that persist capture/registry data use `DATABASE_URL`.
 
-Set it in `apps/ds-dashboard/.env` or export it before starting `dev:api`:
+Set it in `apps/ds-dashboard/.env` or export it before starting `dashboard:dev`:
 
 ```bash
 DB_PROVIDER=local

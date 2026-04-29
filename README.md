@@ -14,13 +14,7 @@ TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom propertie
 ### Requirements
 
 - Node.js 18+
-- npm or yarn
-
-### Installation
-
-```bash
-npm install
-```
+- npm
 
 ### Monorepo Execution Policy
 
@@ -171,13 +165,6 @@ MCP command resolution for token sync:
 - Default: `npx -y MCP Management`
 - Override full command: `FIGMA_MCP_COMMAND` (treated as literal command path; pass args in `FIGMA_MCP_COMMAND_ARGS`)
 - Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
-
-Migration note:
-
-- Legacy setups that used `FIGMA_MCP_COMMAND="node /path/to/server.js"` must be split into:
-  - `FIGMA_MCP_COMMAND=node`
-  - `FIGMA_MCP_COMMAND_ARGS="/path/to/server.js"`
-
 ### Troubleshooting: MCP token sync
 
 | Síntoma                                        | Causa probable                                                      | Solución                                                                                                        |
@@ -286,7 +273,6 @@ System context (DB-backed):
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and generates capture artifacts. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
-- **`npm run dashboard:preview`**: Previews the dashboard production build locally.
 
 ### Documentation folders
 
@@ -309,12 +295,6 @@ Tokens accessibility checker:
 - The button opens a contrast modal with two semantic color selects (background and foreground for text/icon).
 - The modal computes WCAG 2.2 contrast results dynamically (ratio + Level A informational note + Level AA/AAA pass-fail indicators).
 
-Setup:
-
-```bash
-npm --prefix apps/ds-dashboard install
-```
-
 Run:
 
 ```bash
@@ -326,12 +306,6 @@ If the server is not running yet, start it with:
 
 ```bash
 npm run db:up
-```
-
-API-only mode:
-
-```bash
-npm --prefix apps/ds-dashboard run dev:api
 ```
 
 Before opening the Tokens view, ensure token usage data is generated at least once:
@@ -352,25 +326,24 @@ Agent configuration for dashboard API:
 - Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
 - Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
 - `auto` mode is still supported (`DS_AGENT` unset): tries `codex`, then `claude`, then `gemini`.
-- Migration note: IDE extension discovery fallback for Codex was removed. If `codex` is not in PATH, set `CODEX_BIN` (or `DS_CODEX_PATH`) explicitly.
+- If `codex` is not in PATH, set `CODEX_BIN` (or `DS_CODEX_PATH`) explicitly.
 
 Examples:
 
 ```bash
 # Force Claude for dashboard markdown regeneration
-DS_AGENT=claude CLAUDE_BIN="/abs/path/to/claude" npm --prefix apps/ds-dashboard run dev:api
+DS_AGENT=claude CLAUDE_BIN="/abs/path/to/claude" npm run dashboard:dev
 
 # Force Gemini
-DS_AGENT=gemini GEMINI_BIN="/abs/path/to/gemini" npm --prefix apps/ds-dashboard run dev:api
+DS_AGENT=gemini GEMINI_BIN="/abs/path/to/gemini" npm run dashboard:dev
 ```
 
-If the editor shows `No compatible agent CLI found (codex/claude/gemini)`, restart the API with one of the commands above.
+If the editor shows `No compatible agent CLI found (codex/claude/gemini)`, restart `npm run dashboard:dev` with one of the commands above.
 
-Build/preview:
+Build:
 
 ```bash
 npm run dashboard:build
-npm run dashboard:preview
 ```
 
 ### Documentation governance (rules)

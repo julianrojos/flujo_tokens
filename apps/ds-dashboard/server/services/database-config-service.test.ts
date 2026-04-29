@@ -156,6 +156,7 @@ describe('database-config-service', () => {
 
     assert.equal(result.restartRequired, true);
     assert.equal(result.activeProvider, 'local');
+    assert.equal(result.restartCommand, 'npm run dashboard:dev');
     assert.equal(env.DB_PROVIDER, 'local');
   });
 

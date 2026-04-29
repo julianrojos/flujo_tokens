@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   classifyApiPort,
   resolveApiRuntimeConfig,
-} from "./dev-with-api.mjs";
+} from "./dev-supervisor.mjs";
 import { resolveDashboardDatabaseUrl } from "./dev-db.mjs";
 
 test("resolveApiRuntimeConfig uses fixed default port", () => {

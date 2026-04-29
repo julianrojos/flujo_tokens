@@ -319,7 +319,7 @@ export async function saveDatabaseConfig(
   return {
     ...nextPayload,
     saved: true,
-    restartCommand: 'npm --prefix apps/ds-dashboard run dev',
+    restartCommand: 'npm run dashboard:dev',
   };
 }
 

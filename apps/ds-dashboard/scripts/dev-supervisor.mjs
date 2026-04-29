@@ -1,10 +1,15 @@
 import { execFile, spawn } from "node:child_process";
+import fs from "node:fs";
 import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ensureLocalDatabaseReady,
   resolveDashboardDatabaseUrl,
 } from "./dev-db.mjs";
 
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(packageRoot, "..", "..");
 const processes = [];
 let shuttingDown = false;
 const DEFAULT_API_HOST = "127.0.0.1";
@@ -34,7 +39,7 @@ export function resolveApiRuntimeConfig(env = process.env) {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(
-        `[dev-with-api] Invalid DS_DASHBOARD_API_URL="${explicitUrl}" (${message}). Falling back to host/port settings.`,
+        `[dev-supervisor] Invalid DS_DASHBOARD_API_URL="${explicitUrl}" (${message}). Falling back to host/port settings.`,
       );
     }
   }
@@ -95,7 +100,7 @@ export async function classifyApiPort({
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.debug(`[dev-with-api] Health probe failed for ${apiHealthUrl}: ${message}`);
+    console.debug(`[dev-supervisor] Health probe failed for ${apiHealthUrl}: ${message}`);
   }
 
   return { kind: "occupied" };
@@ -123,9 +128,10 @@ function shutdown(code = 0) {
   }, 1_500);
 }
 
-function startScript(name, runtimeConfig) {
+function startManagedProcess(command, args, runtimeConfig, extraEnv = {}) {
   const databaseUrl = resolveDashboardDatabaseUrl(process.env);
-  const child = spawn("npm", ["run", name], {
+  const child = spawn(command, args, {
+    cwd: packageRoot,
     stdio: "inherit",
     shell: false,
     env: {
@@ -136,7 +142,7 @@ function startScript(name, runtimeConfig) {
       DS_DASHBOARD_API_URL: runtimeConfig.apiBaseUrl,
       DS_DASHBOARD_API_PORT: String(runtimeConfig.port),
       DS_DASHBOARD_API_HOST: runtimeConfig.host,
-      ...(name === "dev:api" ? { DS_DASHBOARD_SUPERVISED: "1" } : {}),
+      ...extraEnv,
     },
   });
   processes.push(child);
@@ -149,6 +155,25 @@ function startScript(name, runtimeConfig) {
     shutdown(typeof code === "number" ? code : 1);
   });
   return child;
+}
+
+function startApiProcess(runtimeConfig) {
+  return startManagedProcess(
+    process.execPath,
+    ["--env-file-if-exists=.env", "--import", "tsx", "server/index.ts"],
+    runtimeConfig,
+    { DS_DASHBOARD_SUPERVISED: "1" },
+  );
+}
+
+function startViteProcess(runtimeConfig) {
+  const viteBin = path.resolve(repoRoot, "node_modules", "vite", "bin", "vite.js");
+  if (!fs.existsSync(viteBin)) {
+    throw new Error(
+      `vite binary not found at ${viteBin}. Run npm install from the repository root before starting dashboard:dev.`,
+    );
+  }
+  return startManagedProcess(process.execPath, [viteBin], runtimeConfig);
 }
 
 function sleep(ms) {
@@ -212,13 +237,13 @@ async function restartExistingDashboardApiIfNeeded(runtimeConfig) {
   const pids = await listListeningPids(runtimeConfig.port);
   if (pids.length === 0) {
     console.warn(
-      `[dev-with-api] Dashboard API already running at ${runtimeConfig.apiBaseUrl}, but no PID could be resolved to restart it. Reusing the running API.`,
+      `[dev-supervisor] Dashboard API already running at ${runtimeConfig.apiBaseUrl}, but no PID could be resolved to restart it. Reusing the running API.`,
     );
     return null;
   }
 
   console.log(
-    `[dev-with-api] Restarting existing dashboard API on port ${runtimeConfig.port} (PIDs: ${pids.join(", ")}).`,
+    `[dev-supervisor] Restarting existing dashboard API on port ${runtimeConfig.port} (PIDs: ${pids.join(", ")}).`,
   );
   await terminatePids(pids, "SIGTERM", 600);
   const remaining = await listListeningPids(runtimeConfig.port);
@@ -228,7 +253,7 @@ async function restartExistingDashboardApiIfNeeded(runtimeConfig) {
   const stillOccupied = !(await isPortAvailable(runtimeConfig.port, runtimeConfig.host));
   if (stillOccupied) {
     console.error(
-      `[dev-with-api] Could not restart API on port ${runtimeConfig.port}. Stop the process manually or set DS_DASHBOARD_API_PORT to another port.`,
+      `[dev-supervisor] Could not restart API on port ${runtimeConfig.port}. Stop the process manually or set DS_DASHBOARD_API_PORT to another port.`,
     );
     return false;
   }
@@ -261,7 +286,7 @@ async function main() {
     const databaseUrl = resolveDashboardDatabaseUrl(process.env);
     if (!String(process.env.DATABASE_URL || "").trim()) {
       console.log(
-        `[dev-with-api] DATABASE_URL was not set; using local default ${databaseUrl}.`,
+        `[dev-supervisor] DATABASE_URL was not set; using local default ${databaseUrl}.`,
       );
     }
     const dbReady = await ensureLocalDatabaseReady({
@@ -271,7 +296,7 @@ async function main() {
     if (!dbReady.ok) {
       if (dbReady.error) {
         console.error(
-          `[dev-with-api] Could not prepare the local PostgreSQL database: ${
+          `[dev-supervisor] Could not prepare the local PostgreSQL database: ${
             dbReady.error instanceof Error
               ? dbReady.error.message
               : String(dbReady.error)
@@ -281,12 +306,12 @@ async function main() {
       const { probe } = dbReady;
       if (probe.code === "EPERM") {
         console.error(
-          `[dev-with-api] PostgreSQL connection blocked by local permissions (EPERM) at ${probe.host}:${probe.port}. Allow local network/socket access for this terminal session or run the command in a regular system terminal.`,
+          `[dev-supervisor] PostgreSQL connection blocked by local permissions (EPERM) at ${probe.host}:${probe.port}. Allow local network/socket access for this terminal session or run the command in a regular system terminal.`,
         );
         process.exit(1);
       }
       console.error(
-        `[dev-with-api] PostgreSQL is not reachable at ${databaseUrl} (${probe.code || "UNKNOWN"}). Start it with npm run db:up, or set DATABASE_URL to a reachable database before running npm run dashboard:dev.`,
+        `[dev-supervisor] PostgreSQL is not reachable at ${databaseUrl} (${probe.code || "UNKNOWN"}). Start it with npm run db:up, or set DATABASE_URL to a reachable database before running npm run dashboard:dev.`,
       );
       process.exit(1);
     }
@@ -296,14 +321,14 @@ async function main() {
     if (portStatus.kind === "already-running") {
       if (!restartExistingApi) {
         console.log(
-          `[dev-with-api] Dashboard API is already running at ${runtimeConfig.apiBaseUrl}. Reusing it for Vite.`,
+          `[dev-supervisor] Dashboard API is already running at ${runtimeConfig.apiBaseUrl}. Reusing it for Vite.`,
         );
-        startScript("dev:vite", runtimeConfig);
+        startViteProcess(runtimeConfig);
         return;
       }
       const restarted = await restartExistingDashboardApiIfNeeded(runtimeConfig);
       if (restarted === null) {
-        startScript("dev:vite", runtimeConfig);
+        startViteProcess(runtimeConfig);
         return;
       }
       if (!restarted) {
@@ -313,21 +338,21 @@ async function main() {
 
     if (portStatus.kind === "occupied") {
       console.error(
-        `[dev-with-api] Port ${runtimeConfig.port} is in use by another process. Stop it or set DS_DASHBOARD_API_PORT to a free port and retry (for example ${runtimeConfig.port + 1}).`,
+        `[dev-supervisor] Port ${runtimeConfig.port} is in use by another process. Stop it or set DS_DASHBOARD_API_PORT to a free port and retry (for example ${runtimeConfig.port + 1}).`,
       );
       process.exit(1);
     }
 
-    startScript("dev:api", runtimeConfig);
+    startApiProcess(runtimeConfig);
     const ready = await waitForServer(runtimeConfig.apiHealthUrl, 10_000);
     if (!ready) {
-      console.error(`[dev-with-api] API server not ready at ${runtimeConfig.apiHealthUrl}`);
+      console.error(`[dev-supervisor] API server not ready at ${runtimeConfig.apiHealthUrl}`);
       shutdown(1);
       return;
     }
-    startScript("dev:vite", runtimeConfig);
+    startViteProcess(runtimeConfig);
   } catch (error) {
-    console.error("[dev-with-api] Fatal error:", error);
+    console.error("[dev-supervisor] Fatal error:", error);
     shutdown(1);
   }
 }

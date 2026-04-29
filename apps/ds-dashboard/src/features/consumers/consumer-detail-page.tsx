@@ -341,7 +341,7 @@ export function ConsumerDetailPage() {
 
   // Compute worst impact level for overview
   const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
-  const usageDetails = consumer.latestSync?.usageDetails ?? null;
+  const usageDetails = consumer?.latestSync?.usageDetails ?? null;
 
   if (loading) {
     return (

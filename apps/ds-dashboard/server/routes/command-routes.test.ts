@@ -123,7 +123,7 @@ describe('command-routes', () => {
   });
 
   describe('/api/admin/restart-api', () => {
-    it('requests standalone restart when allowed', async () => {
+    it('requests dashboard restart when allowed', async () => {
       const spawnCalls: any[] = [];
       let exitCalled = false;
       const app = createTestApp({
@@ -145,7 +145,10 @@ describe('command-routes', () => {
       assert.equal(res.status, 202);
       const payload = await res.json();
       assert.equal((payload as any).ok, true);
+      assert.equal((payload as any).restartCommand, 'npm run dashboard:dev');
       assert.equal(spawnCalls.length, 1);
+      assert.equal(spawnCalls[0][1][0], 'run');
+      assert.equal(spawnCalls[0][1][1], 'dashboard:dev');
       assert.equal(exitCalled, true);
     });
 
