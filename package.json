@@ -4,7 +4,6 @@
   "description": "CSS custom properties generator from JSON tokens",
   "type": "module",
   "dependencies": {
-    "js-yaml": "^4.1.0",
     "@flujo/shared": "workspace:*"
   },
   "workspaces": [
@@ -20,7 +19,6 @@
     "generate": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/cli/index.ts",
     "generate:strict": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/cli/index.ts --mode-strict",
     "ds:tokens-from-figma": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/tokens-from-figma-runner.ts",
-    "ds:tokens-from-figma:mcp": "npm run ds:tokens-from-figma -- --source mcp",
     "ds:figma-mcp-status": "node --import tsx tooling/scripts/ds-figma-mcp-status.ts",
     "ds:token-usage-index": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/token-usage-index-runner.ts",
     "ds:capture-from-url": "npm run assert:repo-root && npm run assert:tsx-runtime && tsx tooling/src/runners/capture-from-figma-url-runner.ts",
@@ -37,15 +35,13 @@
     "test:dashboard:routes": "npm --prefix apps/ds-dashboard run test:server:routes",
     "test:changed-surface": "npm run test:plugin:bridge && npm run test:dashboard:routes",
     "test:dashboard": "npm --prefix apps/ds-dashboard run test",
-    "dashboard:dev": "HOST=localhost npm --prefix apps/ds-dashboard run dev",
-    "dashboard:dev:host": "npm --prefix apps/ds-dashboard run dev",
+    "dashboard:dev": "npm --prefix apps/ds-dashboard run dev",
     "dashboard:build": "npm --prefix apps/ds-dashboard run build",
     "dashboard:preview": "npm --prefix apps/ds-dashboard run preview",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down"
   },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "prettier": "^3.3.3",
     "tsx": "^4.7.0",
