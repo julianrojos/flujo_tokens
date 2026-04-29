@@ -10,10 +10,36 @@ import { createTestDatabase } from '../db/test-db-helpers.js';
 import { AiJobsStoreWithPersistence } from './ai-jobs-store-with-persistence.js';
 import type { AiJobInput, AiJobState } from './ai-component-doc-schema.js';
 
-/** Wait briefly for fire-and-forget async DB writes to settle */
-const drainWrites = () => new Promise<void>((r) => setTimeout(r, 30));
+async function waitForPersistedJob(
+    store: AiJobsStoreWithPersistence,
+    jobId: string,
+    options: {
+        expectedStatus?: AiJobState['status'];
+        minEvents?: number;
+        timeoutMs?: number;
+    } = {},
+): Promise<AiJobState> {
+    const deadline = Date.now() + (options.timeoutMs ?? 5000);
+    let last: AiJobState | null = null;
 
-describe('ai-jobs-store-with-persistence', () => {
+    while (Date.now() < deadline) {
+        last = await store.getJobPersistent(jobId);
+        if (
+            last &&
+            (!options.expectedStatus || last.status === options.expectedStatus) &&
+            (!options.minEvents || last.events.length >= options.minEvents)
+        ) {
+            return last;
+        }
+        await new Promise<void>((r) => setTimeout(r, 25));
+    }
+
+    throw new Error(
+        `Timed out waiting for job ${jobId} to persist${options.expectedStatus ? ` with status ${options.expectedStatus}` : ''}${options.minEvents ? ` and at least ${options.minEvents} event(s)` : ''}`,
+    );
+}
+
+describe('ai-jobs-store-with-persistence', { concurrency: false }, () => {
     let sql: Sql;
     let cleanup: () => Promise<void>;
     let store: AiJobsStoreWithPersistence;
@@ -36,11 +62,11 @@ describe('ai-jobs-store-with-persistence', () => {
         };
     }
 
-    describe('enqueue()', () => {
+    describe('enqueue()', { concurrency: false }, () => {
         it('persists job to DB on enqueue', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             const persisted = await store.getJobPersistent(job.id);
             assert.ok(persisted);
@@ -51,7 +77,7 @@ describe('ai-jobs-store-with-persistence', () => {
         it('persists job.queued event to DB', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             const persisted = await store.getJobPersistent(job.id);
             assert.ok(persisted);
@@ -77,7 +103,7 @@ describe('ai-jobs-store-with-persistence', () => {
             });
 
             const job = store.enqueue(createTestInput({ idempotencyKey: 'existing-key' }));
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             assert.notStrictEqual(job.id, 'persisted-job');
             assert.strictEqual(job.status, 'queued');
@@ -108,7 +134,7 @@ describe('ai-jobs-store-with-persistence', () => {
             });
 
             const job = store.enqueue(createTestInput({ idempotencyKey: 'failed-key' }));
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             assert.notStrictEqual(job.id, 'failed-job');
             assert.strictEqual(job.status, 'queued');
@@ -133,7 +159,7 @@ describe('ai-jobs-store-with-persistence', () => {
             });
 
             const job = store.enqueue(createTestInput({ idempotencyKey: 'cancelled-key' }));
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             assert.notStrictEqual(job.id, 'cancelled-job');
             assert.strictEqual(job.status, 'queued');
@@ -189,12 +215,14 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('pushEvent()', () => {
+    describe('pushEvent()', { concurrency: false }, () => {
         it('persists event to DB after job snapshot', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             await store.pushEvent(job.id, 'job.started', { provider: 'anthropic' });
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 2 });
 
             const jobsRepo = (store as any).jobsRepo;
             const events = await jobsRepo.getJobEvents(job.id);
@@ -205,10 +233,11 @@ describe('ai-jobs-store-with-persistence', () => {
         it('persists events with correct seq order', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             await store.pushEvent(job.id, 'job.started', { provider: 'anthropic' });
             await store.pushEvent(job.id, 'job.custom', {});
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 3 });
 
             const jobsRepo = (store as any).jobsRepo;
             const events = await jobsRepo.getJobEvents(job.id);
@@ -234,7 +263,7 @@ describe('ai-jobs-store-with-persistence', () => {
             });
 
             const job = await store.getOrRehydrateActiveJobByIdempotencyKeyPersistent('dup-key');
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued' });
 
             assert.equal(job?.id, 'persisted-job');
             assert.equal(store.findById('persisted-job')?.status, 'queued');
@@ -242,7 +271,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('complete()', () => {
+    describe('complete()', { concurrency: false }, () => {
         it('persists completed state to DB', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
@@ -262,7 +291,7 @@ describe('ai-jobs-store-with-persistence', () => {
                 completionTokens: 50,
                 durationMs: 1000,
             });
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'completed', minEvents: 2 });
 
             const persisted = await store.getJobPersistent(job.id);
             assert.ok(persisted);
@@ -272,13 +301,13 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('fail()', () => {
+    describe('fail()', { concurrency: false }, () => {
         it('persists failed state to DB', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
 
             store.fail(job.id, 'Test error', 'ai.test.error', true);
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'failed', minEvents: 2 });
 
             const persisted = await store.getJobPersistent(job.id);
             assert.ok(persisted);
@@ -289,7 +318,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('markStaleRunningJobsAsFailed()', () => {
+    describe('markStaleRunningJobsAsFailed()', { concurrency: false }, () => {
         it('marks stale jobs as failed on startup', async () => {
             const staleTime = Date.now() - 400000; // 400 seconds ago
             const jobsRepo = (store as any).jobsRepo;
@@ -305,7 +334,7 @@ describe('ai-jobs-store-with-persistence', () => {
             });
 
             const store2 = new AiJobsStoreWithPersistence({ sql, staleThresholdMs: 300000 });
-            await drainWrites();
+            await waitForPersistedJob(store2, 'stale-job', { expectedStatus: 'failed' });
             const job = await store2.getJobPersistent('stale-job');
 
             assert.ok(job);
@@ -314,7 +343,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('loadJobsFromDb()', () => {
+    describe('loadJobsFromDb()', { concurrency: false }, () => {
         it('loads jobs from DB into memory', async () => {
             const jobsRepo = (store as any).jobsRepo;
             const now = Date.now();
@@ -338,7 +367,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('recovery post-restart (S-06)', () => {
+    describe('recovery post-restart (S-06)', { concurrency: false }, () => {
         it('rehydrates nextEventSeq to avoid UNIQUE violations', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
@@ -351,7 +380,7 @@ describe('ai-jobs-store-with-persistence', () => {
                 states: [],
                 accessibilityFacts: [],
             }, { promptTokens: 100, completionTokens: 50, durationMs: 1000 });
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'completed', minEvents: 2 });
 
             const store2 = new AiJobsStoreWithPersistence({ sql });
             await store2.loadJobsFromDb();
@@ -363,7 +392,7 @@ describe('ai-jobs-store-with-persistence', () => {
         it('rehydrates queued jobs and triggers dequeue', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'queued', minEvents: 1 });
 
             const store2 = new AiJobsStoreWithPersistence({ sql });
             await store2.loadJobsFromDb();
@@ -373,7 +402,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('upsert non-destructive (S-02)', () => {
+    describe('upsert non-destructive (S-02)', { concurrency: false }, () => {
         it('does not delete job events on upsert', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
@@ -388,7 +417,7 @@ describe('ai-jobs-store-with-persistence', () => {
                 states: [],
                 accessibilityFacts: [],
             }, { promptTokens: 100, completionTokens: 50, durationMs: 1000 });
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'completed', minEvents: 4 });
 
             const jobsRepo = (store as any).jobsRepo;
             const events = await jobsRepo.getJobEvents(job.id);
@@ -396,7 +425,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('recovery dequeue multiple (S-01)', () => {
+    describe('recovery dequeue multiple (S-01)', { concurrency: false }, () => {
         it('drains queue until concurrency limit reached', async () => {
             const jobsRepo = (store as any).jobsRepo;
             for (let i = 0; i < 5; i++) {
@@ -419,7 +448,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('centralized concurrency limit (S-02)', () => {
+    describe('centralized concurrency limit (S-02)', { concurrency: false }, () => {
         it('uses getMaxConcurrentPerProvider instead of hardcoded value', () => {
             const maxConcurrent = (store as any).getMaxConcurrentPerProvider();
             assert.ok(typeof maxConcurrent === 'number');
@@ -427,7 +456,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('rehydratedCount metric (S-03)', () => {
+    describe('rehydratedCount metric (S-03)', { concurrency: false }, () => {
         it('reports actual rehydrated count not scanned count', async () => {
             const jobsRepo = (store as any).jobsRepo;
             await jobsRepo.upsertJob({
@@ -444,7 +473,7 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('selective snapshot persistence (S-05)', () => {
+    describe('selective snapshot persistence (S-05)', { concurrency: false }, () => {
         it('uses append-only path for non-terminal event after completion', async () => {
             const input = createTestInput();
             const job = store.enqueue(input);
@@ -464,7 +493,7 @@ describe('ai-jobs-store-with-persistence', () => {
                 completionTokens: 50,
                 durationMs: 1000,
             });
-            await drainWrites();
+            await waitForPersistedJob(store, job.id, { expectedStatus: 'completed' });
 
             const jobsRepo = (store as any).jobsRepo;
             let persistTransitionCalls = 0;

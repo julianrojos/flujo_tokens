@@ -30,16 +30,16 @@ function makeMockRepo(
 }
 
 describe('computeDocStatusesDb', () => {
-    it('returns empty components when no components exist', () => {
+    it('returns empty components when no components exist', async () => {
         const repo = makeMockRepo([]);
-        const result = computeDocStatusesDb(repo);
+        const result = await computeDocStatusesDb(repo);
 
         assert.equal(result.connected, true);
         assert.equal(result.sourceScope, 'docs_from_db');
         assert.equal(result.components.length, 0);
     });
 
-    it('maps fresh status from component_docs (appliedAt >= syncedAt)', () => {
+    it('maps fresh status from component_docs (appliedAt >= syncedAt)', async () => {
         const nowSec = Math.floor(Date.now() / 1000);
         const repo = makeMockRepo([
             {
@@ -49,7 +49,7 @@ describe('computeDocStatusesDb', () => {
                 appliedAt: nowSec,
             },
         ]);
-        const result = computeDocStatusesDb(repo);
+        const result = await computeDocStatusesDb(repo);
 
         assert.equal(result.components.length, 1);
         assert.equal(result.components[0].componentId, '1');
@@ -58,11 +58,11 @@ describe('computeDocStatusesDb', () => {
         assert.ok(result.components[0].generatedAt);
     });
 
-    it('maps missing status when no component_docs row', () => {
+    it('maps missing status when no component_docs row', async () => {
         const repo = makeMockRepo([
             { id: 3, slug: 'modal', status: 'missing', appliedAt: null },
         ]);
-        const result = computeDocStatusesDb(repo);
+        const result = await computeDocStatusesDb(repo);
 
         assert.equal(result.components.length, 1);
         assert.equal(result.components[0].status, 'missing');

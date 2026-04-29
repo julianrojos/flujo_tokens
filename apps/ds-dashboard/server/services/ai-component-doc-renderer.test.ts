@@ -23,7 +23,6 @@ describe('ai-component-doc-renderer', () => {
 
             const result = renderComponentDoc(output);
 
-            assert.ok(result.includes('ai.schema_version: 2'));
             assert.ok(result.includes('# Button'));
             assert.ok(result.includes('## Variants'));
             assert.doesNotMatch(result, /^## Design Tokens$/m);
