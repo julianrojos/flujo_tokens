@@ -40,7 +40,14 @@ export async function handleReloadUI(
 
     // Short delay to let the response message be sent before reload
     setTimeout(() => {
-      figma.showUI(__html__, {
+      const pluginGlobal = globalThis as typeof globalThis & {
+        figma?: { showUI: (html: string, options: { width: number; height: number }) => void };
+        __html__?: string;
+      };
+      if (!pluginGlobal.figma || typeof pluginGlobal.figma.showUI !== 'function') {
+        return;
+      }
+      pluginGlobal.figma.showUI(pluginGlobal.__html__ ?? '', {
         width: 320,
         height: 460,
       });
