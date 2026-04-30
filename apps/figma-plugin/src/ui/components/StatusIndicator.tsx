@@ -9,6 +9,7 @@
 import React from 'react';
 import { COLOR, FONT, SPACE, RADIUS } from '../styles/tokens';
 import type { ConnectionState } from '../../services/mcp-client';
+import { getMcpConnectionStateCopy } from '@flujo/shared';
 
 interface StatusIndicatorProps {
   connectionState: ConnectionState | null;
@@ -19,13 +20,20 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
   label: string;
   sublabel: string;
 } {
+  const { label, sublabel } = getMcpConnectionStateCopy(state);
   switch (state) {
-    case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'MCP session is active for this file' };
-    case 'connecting':   return { color: COLOR.mismatch,     label: 'Connecting…',   sublabel: 'Checking Dashboard and MCP session' };
-    case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'No active MCP session for this file' };
-    case 'mismatch':     return { color: COLOR.mismatch,     label: 'Port mismatch', sublabel: 'Session active on a different MCP port' };
-    case 'fallback':     return { color: COLOR.fallback,     label: 'Fallback port', sublabel: 'Session active on fallback MCP port' };
-    default:             return { color: COLOR.unknown,      label: 'Checking…',     sublabel: '' };
+    case 'connected':
+      return { color: COLOR.connected, label, sublabel };
+    case 'connecting':
+      return { color: COLOR.mismatch, label, sublabel };
+    case 'disconnected':
+      return { color: COLOR.disconnected, label, sublabel };
+    case 'mismatch':
+      return { color: COLOR.mismatch, label, sublabel };
+    case 'fallback':
+      return { color: COLOR.fallback, label, sublabel };
+    default:
+      return { color: COLOR.unknown, label, sublabel };
   }
 }
 

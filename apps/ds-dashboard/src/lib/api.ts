@@ -25,6 +25,11 @@ import { normalizeEnvRef } from '@/lib/env-ref';
 import { resolveDsFileKeyFromConfig } from '@/lib/design-system-keys';
 import { bumpEditDocsStorageEpoch } from '@/lib/edit-docs-storage-namespace';
 import { getDashboardApiBaseUrl } from '@/lib/api-base';
+import type {
+  McpConnectionPayload,
+  McpErrorLike,
+} from '@flujo/shared';
+import { isTimeoutLikeError } from '@flujo/shared';
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -1281,6 +1286,74 @@ async function fetchFigmaMcpCapabilities(
     );
   } finally {
     globalThis.clearTimeout(timeoutId);
+  }
+}
+
+function isMcpCapabilitiesPayload(value: unknown): value is McpConnectionPayload {
+  const record = value as {
+    ok?: unknown;
+    mcp?: {
+      connected?: unknown;
+      code?: unknown;
+      message?: unknown;
+      currentPort?: unknown;
+      portFallbackUsed?: unknown;
+      activePort?: unknown;
+    } | null;
+  } | null;
+
+  if (record?.ok === true && record.mcp) {
+    return (
+      typeof record.mcp.connected === 'boolean' &&
+      typeof record.mcp.code === 'string' &&
+      typeof record.mcp.message === 'string' &&
+      Number.isFinite(Number(record.mcp.currentPort)) &&
+      typeof record.mcp.portFallbackUsed === 'boolean' &&
+      Number.isFinite(Number(record.mcp.activePort))
+    );
+  }
+
+  if (record?.ok === false) {
+    return (
+      typeof (record as { code?: unknown }).code === 'string' &&
+      typeof (record as { message?: unknown }).message === 'string'
+    );
+  }
+
+  return false;
+}
+
+export async function getFigmaMcpCapabilities(
+  timeoutMs: number = 10_000,
+): Promise<McpConnectionPayload> {
+  try {
+    const payload = await fetchFigmaMcpCapabilities(timeoutMs);
+    if (isMcpCapabilitiesPayload(payload)) {
+      return payload;
+    }
+    return {
+      ok: false,
+      code: 'capabilities.invalid_response',
+      message:
+        'Dashboard API is reachable, but /api/figma-mcp/capabilities returned an invalid response.',
+    } satisfies McpErrorLike;
+  } catch (error) {
+    if (
+      (error instanceof ApiError && error.status === 408) ||
+      isTimeoutLikeError(error)
+    ) {
+      return {
+        ok: false,
+        code: 'capabilities.timeout',
+        message: 'MCP status request timed out.',
+      } satisfies McpErrorLike;
+    }
+    return {
+      ok: false,
+      code: 'capabilities.fetch_failed',
+      message:
+        error instanceof Error ? error.message : 'Failed to fetch capabilities',
+    } satisfies McpErrorLike;
   }
 }
 

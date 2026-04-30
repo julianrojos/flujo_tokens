@@ -4,18 +4,18 @@
  * Handles communication with dashboard API for MCP management.
  */
 
+import {
+  deriveMcpConnectionState,
+  isTimeoutLikeError,
+  type McpCapabilitiesLike,
+  type McpConnectionState,
+  type McpErrorLike,
+} from '@flujo/shared';
 import { DEFAULT_API_BASE_URL } from '../config/runtime-config';
 
-export interface McpCapabilities {
-  ok: true;
-  mcp: {
-    connected: boolean;
-    code: string;
-    message: string;
-    currentPort: number;
-    portFallbackUsed: boolean;
+export interface McpCapabilities extends McpCapabilitiesLike {
+  mcp: McpCapabilitiesLike['mcp'] & {
     availablePorts: number[];
-    activePort: number;
   };
   transport?: {
     mode?: 'direct' | 'ws' | 'none';
@@ -29,19 +29,9 @@ export interface McpCapabilities {
   };
 }
 
-export interface McpError {
-  ok: false;
-  code: string;
-  message: string;
-}
+export type McpError = McpErrorLike;
 
-
-export interface ConnectionState {
-  configuredPort: number;
-  connectedPort: number | null;
-  state: 'connected' | 'connecting' | 'disconnected' | 'mismatch' | 'fallback';
-  cause?: string;
-}
+export type ConnectionState = McpConnectionState;
 
 
 export interface HeartbeatResponse {
@@ -56,23 +46,6 @@ export interface HeartbeatResponse {
 }
 
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
-
-function isTimeoutLikeError(error: unknown): boolean {
-  if (!error) return false;
-  const name =
-    typeof error === 'object' && error !== null && 'name' in error
-      ? String((error as { name?: unknown }).name || '').toLowerCase()
-      : '';
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  return (
-    name.includes('abort') ||
-    name.includes('timeout') ||
-    message.includes('signal timed out') ||
-    message.includes('timed out') ||
-    message.includes('aborterror') ||
-    message.includes('timeouterror')
-  );
-}
 
 function isMcpCapabilitiesPayload(
   value: Partial<McpCapabilities> | Partial<McpError>
@@ -243,59 +216,7 @@ export class McpClientService {
    * Compute connection state from capabilities.
    */
   computeConnectionState(capabilities: McpCapabilities | McpError): ConnectionState {
-    if (!capabilities.ok) {
-      if (capabilities.code === 'capabilities.timeout') {
-        return {
-          configuredPort: this.lastKnownConfiguredPort,
-          connectedPort: null,
-          state: 'connecting',
-          cause: capabilities.message,
-        };
-      }
-      return {
-        configuredPort: this.lastKnownConfiguredPort,
-        connectedPort: null,
-        state: 'disconnected',
-        cause: capabilities.message,
-      };
-    }
-
-    const configuredPort = capabilities.mcp.activePort;
-    const connectedPort = capabilities.mcp.currentPort;
-    const isConnected = capabilities.mcp.connected;
-
-    if (!isConnected) {
-      return {
-        configuredPort,
-        connectedPort: null,
-        state: 'disconnected',
-        cause: capabilities.mcp.message,
-      };
-    }
-
-    if (configuredPort === connectedPort) {
-      if (capabilities.mcp.portFallbackUsed) {
-        return {
-          configuredPort,
-          connectedPort,
-          state: 'fallback',
-          cause: `Connected on fallback port ${connectedPort}`,
-        };
-      }
-      return {
-        configuredPort,
-        connectedPort,
-        state: 'connected',
-      };
-    }
-
-    // Ports don't match - this is a mismatch state
-    return {
-      configuredPort,
-      connectedPort,
-      state: 'mismatch',
-      cause: `Bridge connected to ${connectedPort}, dashboard configured for ${configuredPort}`,
-    };
+    return deriveMcpConnectionState(capabilities, this.lastKnownConfiguredPort);
   }
 
   getLastKnownConfiguredPort(): number {
