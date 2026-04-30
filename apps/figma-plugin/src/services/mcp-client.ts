@@ -55,7 +55,6 @@ export interface HeartbeatResponse {
   pluginBuild?: string | null;
 }
 
-const LOCAL_API_BASES = ['http://localhost:8787', 'http://127.0.0.1:8787'] as const;
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
 
 function isTimeoutLikeError(error: unknown): boolean {
@@ -99,9 +98,6 @@ export class McpClientService {
 
   private buildApiBaseCandidates(apiBase: string): string[] {
     const normalized = apiBase.replace(/\/$/, '');
-    if (LOCAL_API_BASES.includes(normalized as (typeof LOCAL_API_BASES)[number])) {
-      return [normalized, ...LOCAL_API_BASES.filter((base) => base !== normalized)];
-    }
     return [normalized];
   }
 

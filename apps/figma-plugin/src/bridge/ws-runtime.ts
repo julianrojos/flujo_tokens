@@ -94,7 +94,6 @@ export class WebSocketRuntime {
   private pendingCodeRequests: Map<string, PendingCodeRequest> = new Map();
   private pluginMessageListener: ((event: MessageEvent) => void) | null = null;
   private pluginMessageTarget: MessageTargetLike | null = null;
-  private preferredLoopbackHost: 'localhost' | '127.0.0.1' = 'localhost';
 
   constructor(config?: Partial<WSRuntimeConfig>) {
     this.config = { ...DEFAULT_WS_CONFIG, ...config };
@@ -157,8 +156,9 @@ export class WebSocketRuntime {
   }
 
   /**
-   * Build direct WebSocket candidates for loopback hosts.
-   * Keeps direct-only behavior while tolerating localhost/127.0.0.1 mismatches.
+   * Build direct WebSocket candidates from the configured endpoint.
+   * The manifest allowlist is generated from the same source, so there is
+   * no secondary loopback fallback here.
    */
   private getDirectWsCandidateUrls(): string[] {
     const directWsUrl = this.validateDirectWsUrl();
@@ -166,20 +166,7 @@ export class WebSocketRuntime {
 
     try {
       const parsed = new URL(directWsUrl);
-      if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
-        return [directWsUrl];
-      }
-
-      const fallbackHost = this.preferredLoopbackHost === 'localhost' ? '127.0.0.1' : 'localhost';
-      const preferred = new URL(directWsUrl);
-      preferred.hostname = this.preferredLoopbackHost;
-      const fallback = new URL(directWsUrl);
-      fallback.hostname = fallbackHost;
-      const candidates = [preferred.toString()];
-      if (fallback.toString() !== preferred.toString()) {
-        candidates.push(fallback.toString());
-      }
-      return candidates;
+      return [parsed.toString()];
     } catch {
       return [directWsUrl];
     }
@@ -202,7 +189,7 @@ export class WebSocketRuntime {
 
     this.ensurePluginMessageListener();
 
-    // Direct mode with loopback fallback candidates.
+    // Direct mode with a single configured endpoint.
     const directWsCandidates = this.getDirectWsCandidateUrls();
     if (directWsCandidates.length === 0) {
       console.error(`[DirectWS] Invalid or missing directWsUrl: ${this.config.directWsUrl}`);
@@ -269,9 +256,6 @@ export class WebSocketRuntime {
         // Don't mark as 'connected' yet - wait for handshake/bootstrap to complete
         // addConnection already marks as 'connecting' if handshakeComplete is false
         this.isConnecting = false;
-        if (actualHost === 'localhost' || actualHost === '127.0.0.1') {
-          this.preferredLoopbackHost = actualHost;
-        }
 
         // Send session info in direct mode (this triggers handshake)
         void this.sendSessionInfo(ws);

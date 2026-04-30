@@ -21,6 +21,7 @@ class MockWebSocket {
   public onclose: ((event: { code: number; reason: string }) => void) | null = null;
   public onerror: (() => void) | null = null;
   public onmessage: ((event: { data: string }) => void) | null = null;
+  static readonly urls: string[] = [];
   private listeners: Record<string, Array<(event: unknown) => void>> = {
     open: [],
     close: [],
@@ -29,10 +30,11 @@ class MockWebSocket {
   };
 
   constructor(public url: string) {
+    MockWebSocket.urls.push(url);
     // Simulate connection delay
     setTimeout(() => {
-      this.readyState = MockWebSocket.OPEN;
-      this.emit('open', {});
+      this.readyState = MockWebSocket.CLOSED;
+      this.emit('error', {});
     }, 10);
   }
 
@@ -92,14 +94,16 @@ describe('WebSocketRuntime', () => {
   let runtime: WebSocketRuntime;
 
   beforeEach(() => {
+    MockWebSocket.urls.length = 0;
     runtime = new WebSocketRuntime({
       ...DEFAULT_WS_CONFIG,
       connectionTimeout: 100,
       requestTimeout: 500,
       reconnectDelay: 50,
       reconnectMaxDelay: 200,
-      maxReconnectAttempts: 2,
+      maxReconnectAttempts: 0,
       handshakeTimeout: 500,
+      directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
     });
 
     setMockWebSocketCtor(MockWebSocket);
@@ -111,13 +115,9 @@ describe('WebSocketRuntime', () => {
   });
 
   describe('start', () => {
-    it('should start scanning for connections', async () => {
+    it('should start direct mode with a single localhost candidate', async () => {
       await runtime.start();
-      // Runtime should be in connecting or connected state
-      const status = runtime.getStatus();
-      expect(
-        ['connecting', 'connected', 'disconnected'].includes(status.state)
-      ).toBe(true);
+      expect(MockWebSocket.urls).toEqual(['ws://localhost:8787/ws/figma-plugin']);
     });
   });
 
