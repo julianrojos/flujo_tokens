@@ -5,12 +5,24 @@ export type McpConnectionStateValue =
   | "mismatch"
   | "fallback";
 
-export interface McpConnectionState {
+/** Plugin is active and the transport is healthy. */
+export type McpConnectionStateConnected = {
+  state: "connected";
+  configuredPort: number;
+  connectedPort: number;
+};
+
+/** Any non-connected state: always carries a human-readable cause. */
+export type McpConnectionStatePending = {
+  state: "connecting" | "disconnected" | "mismatch" | "fallback";
   configuredPort: number;
   connectedPort: number | null;
-  state: McpConnectionStateValue;
-  cause?: string;
-}
+  cause: string;
+};
+
+export type McpConnectionState =
+  | McpConnectionStateConnected
+  | McpConnectionStatePending;
 
 export interface McpCapabilitiesLike {
   ok: true;

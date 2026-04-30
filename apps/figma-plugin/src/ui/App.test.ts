@@ -76,6 +76,7 @@ describe('App polling and heartbeat behavior', () => {
       configuredPort: 9223,
       connectedPort: null,
       state: 'disconnected',
+      cause: 'not connected',
     });
     getLastKnownConfiguredPortMock.mockReturnValue(9223);
     sendHeartbeatMock.mockResolvedValue({ ok: true, alive: true });

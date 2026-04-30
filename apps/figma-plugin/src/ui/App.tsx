@@ -66,6 +66,7 @@ const App: React.FC = () => {
         configuredPort: client.getLastKnownConfiguredPort(),
         connectedPort: null,
         state: 'connecting',
+        cause: 'Checking MCP status',
       };
     });
     try {
@@ -105,7 +106,7 @@ const App: React.FC = () => {
           return prev;
         }
         connectingSinceRef.current = null;
-        return { configuredPort: client.getLastKnownConfiguredPort(), connectedPort: null, state: 'disconnected' };
+        return { configuredPort: client.getLastKnownConfiguredPort(), connectedPort: null, state: 'disconnected', cause: 'Request failed' };
       });
     } finally {
       fetchingRef.current = false;
