@@ -1,28 +1,45 @@
-import {
-  getMcpConnectionStateCopy,
-  type McpConnectionState,
-  type McpConnectionStateValue,
-} from '@flujo/shared';
+import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+
+import { getMcpConnectionStateCopy, type McpConnectionState } from '@flujo/shared';
 
 import { cn } from '@/lib/utils';
 
-const toneClassByState: Record<McpConnectionStateValue, string> = {
-  connected: 'bg-status-success',
-  connecting: 'bg-status-warning',
-  disconnected: 'bg-status-error',
-  mismatch: 'bg-status-warning',
-  fallback: 'bg-status-warning',
-};
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
 
-export function getConnectionStatusTone(state: McpConnectionStateValue): 'success' | 'warning' | 'error' {
-  switch (state) {
-    case 'connected':
-      return 'success';
-    case 'disconnected':
-      return 'error';
-    default:
-      return 'warning';
-  }
+export const connectionStatusDotVariants = cva(
+  'inline-flex shrink-0 rounded-full ring-1 ring-border/40 transition-colors',
+  {
+    variants: {
+      tone: {
+        success: 'bg-status-success',
+        warning: 'bg-status-warning',
+        error: 'bg-status-error',
+      },
+      size: {
+        sm: 'h-1.5 w-1.5',
+        md: 'h-2 w-2',
+      },
+    },
+    defaultVariants: {
+      tone: 'warning',
+      size: 'sm',
+    },
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Helpers (exported for tests and external consumers)
+// ---------------------------------------------------------------------------
+
+export function getConnectionStatusTone(
+  state: McpConnectionState['state'],
+): 'success' | 'warning' | 'error' {
+  if (state === 'connected') return 'success';
+  if (state === 'disconnected') return 'error';
+  return 'warning';
 }
 
 export function getConnectionStatusTitle(snapshot: McpConnectionState): string {
@@ -30,27 +47,32 @@ export function getConnectionStatusTitle(snapshot: McpConnectionState): string {
   return copy.sublabel ? `${copy.label}: ${copy.sublabel}` : copy.label;
 }
 
-interface FigmaMcpConnectionStatusDotProps {
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export interface FigmaMcpConnectionStatusDotProps
+  extends VariantProps<typeof connectionStatusDotVariants> {
   snapshot: McpConnectionState;
   className?: string;
 }
 
-export function FigmaMcpConnectionStatusDot({
-  snapshot,
-  className,
-}: FigmaMcpConnectionStatusDotProps) {
+export const FigmaMcpConnectionStatusDot = React.forwardRef<
+  HTMLSpanElement,
+  FigmaMcpConnectionStatusDotProps
+>(({ snapshot, size, className }, ref) => {
   const tone = getConnectionStatusTone(snapshot.state);
   const copy = getMcpConnectionStateCopy(snapshot.state);
   const title = getConnectionStatusTitle(snapshot);
 
   return (
     <span
+      ref={ref}
       role="img"
       aria-label={title}
       title={title}
       className={cn(
-        'inline-flex h-1.5 w-1.5 shrink-0 rounded-full ring-1 ring-border/40 transition-colors',
-        toneClassByState[snapshot.state],
+        connectionStatusDotVariants({ tone, size }),
         snapshot.state === 'connecting' && 'animate-pulse',
         className,
       )}
@@ -59,4 +81,5 @@ export function FigmaMcpConnectionStatusDot({
       data-label={copy.label}
     />
   );
-}
+});
+FigmaMcpConnectionStatusDot.displayName = 'FigmaMcpConnectionStatusDot';

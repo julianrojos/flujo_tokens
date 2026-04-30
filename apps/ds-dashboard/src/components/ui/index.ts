@@ -1,4 +1,5 @@
 export { Badge, badgeVariants } from "./badge";
+export { Checkbox } from "./checkbox";
 export { Button, buttonVariants } from "./button";
 export {
   Card,
@@ -12,6 +13,7 @@ export {
 export { Input, inputVariants } from "./input";
 export {
   FigmaMcpConnectionStatusDot,
+  connectionStatusDotVariants,
   getConnectionStatusTitle,
   getConnectionStatusTone,
 } from "./connection-status-dot";

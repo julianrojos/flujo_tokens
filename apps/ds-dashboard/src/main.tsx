@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 import { DesignSystemProvider } from "./lib/design-system-context";
+import { FigmaMcpStatusProvider } from "./lib/figma-mcp-status-context";
 import { queryClient } from "./lib/query-client";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <DesignSystemProvider>
-          <App />
+          <FigmaMcpStatusProvider>
+            <App />
+          </FigmaMcpStatusProvider>
         </DesignSystemProvider>
       </BrowserRouter>
     </QueryClientProvider>

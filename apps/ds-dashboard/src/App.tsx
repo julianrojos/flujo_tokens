@@ -31,7 +31,7 @@ import { SystemTabsLayout } from '@/features/system/system-tabs-layout';
 import { AppBreadcrumb } from '@/components/app-breadcrumb';
 import { SystemSwitcher } from '@/components/system-switcher';
 import { FigmaMcpConnectionStatusDot } from '@/components/ui/connection-status-dot';
-import { useFigmaMcpConnectionState } from '@/hooks/use-figma-mcp-connection-state';
+import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
 import {
   Sidebar,
   SidebarContent,
@@ -269,7 +269,7 @@ export default function App() {
   const [searchIndexLoading, setSearchIndexLoading] = useState(false);
   const [searchIndexError, setSearchIndexError] = useState<string | null>(null);
   const [searchIndexWarning, setSearchIndexWarning] = useState<string | null>(null);
-  const connectionState = useFigmaMcpConnectionState();
+  const { connectionState } = useFigmaMcpStatus();
   const indexLoadedForSystemRef = useRef<string | null>(null);
   const componentsPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
