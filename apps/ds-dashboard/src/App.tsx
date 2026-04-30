@@ -30,6 +30,8 @@ import { HealthDashboardPage } from '@/features/health/health-dashboard-page';
 import { SystemTabsLayout } from '@/features/system/system-tabs-layout';
 import { AppBreadcrumb } from '@/components/app-breadcrumb';
 import { SystemSwitcher } from '@/components/system-switcher';
+import { FigmaMcpConnectionStatusDot } from '@/components/ui/connection-status-dot';
+import { useFigmaMcpConnectionState } from '@/hooks/use-figma-mcp-connection-state';
 import {
   Sidebar,
   SidebarContent,
@@ -267,6 +269,7 @@ export default function App() {
   const [searchIndexLoading, setSearchIndexLoading] = useState(false);
   const [searchIndexError, setSearchIndexError] = useState<string | null>(null);
   const [searchIndexWarning, setSearchIndexWarning] = useState<string | null>(null);
+  const connectionState = useFigmaMcpConnectionState();
   const indexLoadedForSystemRef = useRef<string | null>(null);
   const componentsPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
@@ -581,9 +584,31 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                  <div className="flex items-center gap-2">
+                    <FigmaMcpConnectionStatusDot snapshot={connectionState} />
+                    <button
+                      type="button"
+                      className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
+                      onClick={() => setSearchOpen(true)}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Search
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </header>
+
+              <div className="mb-4 flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <AppBreadcrumb />
+                </div>
+                <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                  <FigmaMcpConnectionStatusDot snapshot={connectionState} />
                   <button
                     type="button"
-                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
+                    className="items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-white lg:flex"
                     onClick={() => setSearchOpen(true)}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -592,22 +617,6 @@ export default function App() {
                     </span>
                   </button>
                 </div>
-              </header>
-
-              <div className="mb-4 flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <AppBreadcrumb />
-                </div>
-                <button
-                  type="button"
-                  className="hidden shrink-0 items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-white lg:flex"
-                  onClick={() => setSearchOpen(true)}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    Search
-                  </span>
-                </button>
               </div>
 
               <RouteErrorBoundary

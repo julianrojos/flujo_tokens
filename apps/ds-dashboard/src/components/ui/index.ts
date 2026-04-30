@@ -10,6 +10,11 @@ export {
   cardVariants,
 } from "./card";
 export { Input, inputVariants } from "./input";
+export {
+  FigmaMcpConnectionStatusDot,
+  getConnectionStatusTitle,
+  getConnectionStatusTone,
+} from "./connection-status-dot";
 export { Loader, loaderVariants } from "./loader";
 export { MarkdownViewer, markdownViewerVariants } from "./markdown-viewer";
 export { Select, selectVariants } from "./select";
