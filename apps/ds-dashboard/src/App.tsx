@@ -29,8 +29,11 @@ import {
 import { HealthDashboardPage } from '@/features/health/health-dashboard-page';
 import { SystemTabsLayout } from '@/features/system/system-tabs-layout';
 import { AppBreadcrumb } from '@/components/app-breadcrumb';
+import {
+  FigmaConnectionModal,
+  FigmaConnectionSidebarButton,
+} from '@/components/figma-connection';
 import { SystemSwitcher } from '@/components/system-switcher';
-import { FigmaMcpConnectionStatusDot } from '@/components/ui/connection-status-dot';
 import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
 import {
   Sidebar,
@@ -39,6 +42,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarFooter,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -260,6 +264,7 @@ function SystemConsumersRedirect() {
 export default function App() {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isFigmaConnectionModalOpen, setIsFigmaConnectionModalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tokenSearchItems, setTokenSearchItems] = useState<SearchItem[]>([]);
@@ -539,6 +544,14 @@ export default function App() {
                 </SidebarGroup>
               ))}
             </SidebarContent>
+
+            <SidebarFooter className="flex justify-center">
+              <FigmaConnectionSidebarButton
+                onClick={() => setIsFigmaConnectionModalOpen(true)}
+                connectionState={connectionState}
+                collapsed={sidebarCollapsed}
+              />
+            </SidebarFooter>
           </Sidebar>
 
           <SidebarInset>
@@ -584,19 +597,16 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2">
-                    <FigmaMcpConnectionStatusDot snapshot={connectionState} />
-                    <button
-                      type="button"
-                      className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
-                      onClick={() => setSearchOpen(true)}
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <Search className="h-4 w-4" />
-                        Search
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
+                    onClick={() => setSearchOpen(true)}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Search
+                    </span>
+                  </button>
                 </div>
               </header>
 
@@ -605,7 +615,6 @@ export default function App() {
                   <AppBreadcrumb />
                 </div>
                 <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                  <FigmaMcpConnectionStatusDot snapshot={connectionState} />
                   <button
                     type="button"
                     className="items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-white lg:flex"
@@ -678,6 +687,11 @@ export default function App() {
           </SidebarInset>
         </SidebarProvider>
       </div>
+
+      <FigmaConnectionModal
+        open={isFigmaConnectionModalOpen}
+        onClose={() => setIsFigmaConnectionModalOpen(false)}
+      />
 
       <Modal
         open={searchOpen}

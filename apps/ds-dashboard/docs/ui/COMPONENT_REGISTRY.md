@@ -206,18 +206,18 @@ Rules:
 
 ---
 
-### FigmaMcpConnectionStatusDot
+### FigmaConnectionStatusDot
 
 **Path:** `src/components/ui/connection-status-dot.tsx`
 
-**Variants (CVA):** `tone` — `success | warning | error`; `size` — `sm | md`
+**Variants (CVA):** `tone` — `success | warning | error`; `size` — `sm`
 
 ```tsx
 import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
 
 const { connectionState } = useFigmaMcpStatus();
 
-<FigmaMcpConnectionStatusDot snapshot={connectionState} size="sm" />
+<FigmaConnectionStatusDot snapshot={connectionState} size="sm" />
 ```
 
 **When to use:** Inline status dot showing live Figma MCP connection health (sidebar, headers). Consume `connectionState` from `useFigmaMcpStatus()` — do not create a separate poller.
@@ -850,7 +850,7 @@ None as of v1.
 
 | Version | Date       | Changes                                                                                                                                                       |
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.4     | 2026-04-30 | Added `Checkbox` and `FigmaMcpConnectionStatusDot` to Tier 1 Primitives; exported `connectionStatusDotVariants` |
+| 1.4     | 2026-04-30 | Added `Checkbox` and `FigmaConnectionStatusDot` to Tier 1 Primitives; exported `connectionStatusDotVariants` |
 | 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `edit-component-docs`)             |
 | 1.2     | 2026-04-14 | Added missing `ui/composites` entries (`ImpactLevelBadge`, `AiJobCreateForm`, `AiJobStatusCard`) and expanded Tier 2 coverage for decomposed feature sections |
 | 1.1     | 2026-04-14 | Consolidated content from `docs/ui/COMPONENT_REGISTRY.md`, normalized paths to `src/...`, and refreshed Tier 2 routes                                         |

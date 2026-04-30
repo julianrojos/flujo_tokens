@@ -12,7 +12,7 @@ export {
 } from "./card";
 export { Input, inputVariants } from "./input";
 export {
-  FigmaMcpConnectionStatusDot,
+  FigmaConnectionStatusDot,
   connectionStatusDotVariants,
   getConnectionStatusTitle,
   getConnectionStatusTone,

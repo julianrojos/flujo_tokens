@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/common';
-import { FigmaMcpConnectionTestButton } from '@/components/figma-mcp-connection-test-button';
 import {
   Modal,
   ModalCloseButton,
@@ -106,7 +105,6 @@ export function WizardStepBasics({
   derived,
   actions,
 }: WizardStepBasicsProps) {
-  const [autoTriggerToken, setAutoTriggerToken] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
   const [isScanResultsOpen, setIsScanResultsOpen] = useState(false);
@@ -253,17 +251,6 @@ export function WizardStepBasics({
                 actions.onFieldChange('figmaAccessToken', e.target.value)
               }
               placeholder="env:FIGMA_TOKEN"
-              onBlur={() => {
-                if (form.figmaFileUrl.trim() && form.figmaAccessToken.trim()) {
-                  setAutoTriggerToken((n) => n + 1);
-                }
-              }}
-            />
-            <FigmaMcpConnectionTestButton
-              figmaUrl={form.figmaFileUrl}
-              figmaToken={form.figmaAccessToken}
-              autoTriggerToken={autoTriggerToken}
-              className="w-full"
             />
           </FormField>
 

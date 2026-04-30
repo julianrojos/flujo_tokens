@@ -30,7 +30,6 @@ export interface UseFigmaMcpConnectionTestProps {
   onDesignContextCompactChange?: (
     result: FigmaMcpDesignContextCompactResponse | null,
   ) => void;
-  autoTriggerToken?: number;
 }
 
 export type ConnectionHealthTone = 'success' | 'warning' | 'error' | 'muted';
@@ -97,7 +96,6 @@ export function useFigmaMcpConnectionTest({
   suggestResolve = false,
   showDesignContextCompact = false,
   onDesignContextCompactChange,
-  autoTriggerToken,
 }: UseFigmaMcpConnectionTestProps): UseFigmaMcpConnectionTestReturn {
   const { heartbeat } = useFigmaMcpStatus();
 
@@ -117,7 +115,6 @@ export function useFigmaMcpConnectionTest({
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextGenerationRef = useRef(0);
   const pollGenerationRef = useRef(0);
-  const lastTestedPairRef = useRef('');
 
   const normalizedUrl = useMemo(() => String(figmaUrl || '').trim(), [figmaUrl]);
   const normalizedToken = useMemo(
@@ -168,20 +165,6 @@ export function useFigmaMcpConnectionTest({
     },
     [],
   );
-
-  // ---- auto-trigger --------------------------------------------------------
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!autoTriggerToken) return;
-    if (!normalizedUrl || !normalizedToken) return;
-    if (disabled) return;
-    const pair = `${normalizedUrl}\0${normalizedToken}`;
-    if (pair === lastTestedPairRef.current) return;
-    void handleTest();
-  }, [autoTriggerToken]);
-  // Auto-trigger fires only when the token increments; closure values are
-  // always fresh because the effect runs after the render that updated them.
 
   // -------------------------------------------------------------------------
   // Internal: polling control
@@ -304,12 +287,6 @@ export function useFigmaMcpConnectionTest({
   }, [normalizedUrl, showDesignContextCompact, setDesignContextResult]);
 
   const handleTest = useCallback(async () => {
-    const dedupPair =
-      normalizedUrl && normalizedToken
-        ? `${normalizedUrl}\0${normalizedToken}`
-        : '';
-    if (dedupPair) lastTestedPairRef.current = dedupPair;
-
     stopPolling();
     const generation = pollGenerationRef.current;
     setIsResetting(false);

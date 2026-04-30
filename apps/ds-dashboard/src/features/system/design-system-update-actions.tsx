@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { FigmaMcpConnectionTestButton } from '@/components/figma-mcp-connection-test-button';
 import { FormField } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +36,6 @@ export function DesignSystemUpdateActions({
 
   const [sharedFigmaUrl, setSharedFigmaUrl] = useState(suggestedUrl);
   const [sharedToken, setSharedToken] = useState('');
-  const [autoTriggerToken, setAutoTriggerToken] = useState(0);
 
   const [componentsState, componentsActions] = useOperationRunner(
     `ds-admin-components-${systemId}`,
@@ -117,21 +115,6 @@ export function DesignSystemUpdateActions({
             disabled={
               disabled || componentsState.isRunning || variablesState.isRunning
             }
-            onBlur={() => {
-              if (sharedFigmaUrl.trim() && sharedToken.trim()) {
-                setAutoTriggerToken((n) => n + 1);
-              }
-            }}
-          />
-          <FigmaMcpConnectionTestButton
-            figmaUrl={sharedFigmaUrl}
-            figmaToken={sharedToken}
-            autoTriggerToken={autoTriggerToken}
-            className="w-full"
-            disabled={
-              disabled || componentsState.isRunning || variablesState.isRunning
-            }
-            showDesignContextCompact
           />
         </FormField>
       </div>

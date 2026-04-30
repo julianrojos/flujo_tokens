@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // ---------------------------------------------------------------------------
 
 export const connectionStatusDotVariants = cva(
-  'inline-flex shrink-0 rounded-full ring-1 ring-border/40 transition-colors',
+  'inline-flex shrink-0 rounded-full transition-colors',
   {
     variants: {
       tone: {
@@ -19,8 +19,7 @@ export const connectionStatusDotVariants = cva(
         error: 'bg-status-error',
       },
       size: {
-        sm: 'h-1.5 w-1.5',
-        md: 'h-2 w-2',
+        sm: 'h-[10px] w-[10px]',
       },
     },
     defaultVariants: {
@@ -51,15 +50,15 @@ export function getConnectionStatusTitle(snapshot: McpConnectionState): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export interface FigmaMcpConnectionStatusDotProps
+export interface FigmaConnectionStatusDotProps
   extends VariantProps<typeof connectionStatusDotVariants> {
   snapshot: McpConnectionState;
   className?: string;
 }
 
-export const FigmaMcpConnectionStatusDot = React.forwardRef<
+export const FigmaConnectionStatusDot = React.forwardRef<
   HTMLSpanElement,
-  FigmaMcpConnectionStatusDotProps
+  FigmaConnectionStatusDotProps
 >(({ snapshot, size, className }, ref) => {
   const tone = getConnectionStatusTone(snapshot.state);
   const copy = getMcpConnectionStateCopy(snapshot.state);
@@ -82,4 +81,4 @@ export const FigmaMcpConnectionStatusDot = React.forwardRef<
     />
   );
 });
-FigmaMcpConnectionStatusDot.displayName = 'FigmaMcpConnectionStatusDot';
+FigmaConnectionStatusDot.displayName = 'FigmaConnectionStatusDot';

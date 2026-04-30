@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
 import {
   captureFigmaScreenshot,
@@ -472,11 +471,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
                 disabled={loading}
               />
             </div>
-            <FigmaMcpConnectionTestButton
-              figmaUrl={url}
-              figmaToken={figmaToken}
-              className="w-full"
-            />
             <label className="flex cursor-pointer items-center gap-2 text-xs">
               <input
                 type="checkbox"
