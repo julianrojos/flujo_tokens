@@ -10,6 +10,26 @@ npm run dashboard:dev
 
 That command starts the API and the Vite frontend together.
 
+For a backend-only process, use:
+
+```bash
+npm run start
+```
+
+To test a split deployment locally, run:
+
+```bash
+npm run preview:split
+```
+
+## Frontend API base URL
+
+Local development keeps using relative `/api` calls through the Vite proxy.
+For a separate frontend deployment, set `VITE_API_URL` in the frontend build
+environment so it points at the backend origin.
+If the frontend is hosted on a different origin, set
+`DS_DASHBOARD_ALLOWED_ORIGINS` on the backend to the frontend origin(s).
+
 ## Host binding (LAN / Docker)
 
 By default, the API binds to loopback only (`127.0.0.1`) for safer local usage.
@@ -45,6 +65,16 @@ DATABASE_URL=$SUPABASE_DATABASE_URL
 Supabase is treated as hosted PostgreSQL. The server requires SSL for Supabase
 connections and disables prepared statements automatically when the URL points
 to the Supabase pooler (`pooler.supabase.*` or port `6543`).
+
+## CORS
+
+The API allows every origin by default in local development. For production,
+set `DS_DASHBOARD_ALLOWED_ORIGINS` to a comma-separated list of frontend
+origins, for example:
+
+```bash
+DS_DASHBOARD_ALLOWED_ORIGINS=https://dashboard.example
+```
 
 If `DATABASE_URL` is missing, the dashboard dev supervisor falls back to the
 local database URL above. In production, missing database configuration is a

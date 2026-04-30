@@ -3,6 +3,7 @@ import {
   API_ERROR_CODES,
   getApiErrorMeta,
 } from "@/lib/api-errors";
+import { getDashboardApiBaseUrl } from "@/lib/api-base";
 
 export interface ApiErrorDisplay {
   title: string;
@@ -33,6 +34,25 @@ function isFetchFailureMessage(message: string): boolean {
     normalized.includes("the operation was aborted") ||
     normalized.includes("connection refused")
   );
+}
+
+export function resolveApiUnavailableDisplay(apiBaseUrl: string): {
+  message: string;
+  action: string;
+} {
+  if (apiBaseUrl) {
+    return {
+      message:
+        `The dashboard API at ${apiBaseUrl} is not reachable. Make sure the backend is running, PostgreSQL is available, and then restart \`npm run preview:split\`.`,
+      action: "Check the backend and PostgreSQL, then restart preview:split.",
+    };
+  }
+
+  return {
+    message:
+      "The dashboard API is not reachable. Make sure `npm run db:up` is running and then restart `npm run dashboard:dev`.",
+    action: "Check PostgreSQL and restart the dashboard.",
+  };
 }
 
 function resolveTitle(code: string, status: number, fallbackTitle: string) {
@@ -141,12 +161,12 @@ export function toApiErrorDisplay(
     toTrimmedString(error instanceof Error ? error.message : error) || options.fallbackMessage;
 
   if (isFetchFailureMessage(message)) {
+    const apiUnavailableDisplay = resolveApiUnavailableDisplay(getDashboardApiBaseUrl());
     return {
       title: "API unavailable",
-      message:
-        "The dashboard API is not reachable. Make sure `npm run db:up` is running and then restart `npm run dashboard:dev`.",
+      message: apiUnavailableDisplay.message,
       reason: null,
-      action: "Check PostgreSQL and restart the dashboard.",
+      action: apiUnavailableDisplay.action,
       code: null,
       requestId: null,
       retryable: true,

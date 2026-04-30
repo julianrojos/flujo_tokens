@@ -5,7 +5,7 @@
   "description": "Figma plugin for managing MCP connection to dashboard server",
   "main": "dist/code.js",
   "scripts": {
-    "build": "vite build --config vite.config.code.mts && vite build --config vite.config.ui.mts && node scripts/inline-ui-html.mjs",
+    "build": "node scripts/render-manifest.mjs && vite build --config vite.config.code.mts && vite build --config vite.config.ui.mts && node scripts/inline-ui-html.mjs",
     "dev": "vite",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",

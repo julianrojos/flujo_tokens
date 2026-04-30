@@ -63,3 +63,119 @@ test("create-server-http-app: wires routes and middleware with derived helpers",
   assert.deepEqual(calls.registerAllRoutes?.deps, { wired: true });
   assert.equal(calls.registerUnhandledErrorMiddleware?.deps.failJson, failJson);
 });
+
+test("create-server-http-app: applies configured CORS allowlist", async () => {
+  const result = createServerHttpApp({
+    queueMetrics: () => ({ active: 0 }),
+    nowIso: () => "2026-01-01T00:00:00.000Z",
+    createApiRequestId: () => "req_1",
+    buildApiErrorPayload: () => ({ ok: false }),
+    writeStructuredLog: () => {},
+    env: {
+      DS_DASHBOARD_ALLOWED_ORIGINS: "https://dashboard.example",
+    },
+    routeDeps: { repoRoot: "/repo" } as never,
+    registerAllRoutesFn() {},
+    registerUnhandledErrorMiddlewareFn() {},
+  });
+
+  const allowedResponse = await result.app.fetch(
+    new Request("http://dashboard-api.test/anything", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://dashboard.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    }),
+  );
+
+  assert.equal(allowedResponse.status, 204);
+  assert.equal(
+    allowedResponse.headers.get("access-control-allow-origin"),
+    "https://dashboard.example",
+  );
+  assert.match(
+    allowedResponse.headers.get("access-control-allow-headers") || "",
+    /x-ds-system/i,
+  );
+  assert.equal(allowedResponse.headers.get("vary"), "Origin");
+  assert.match(
+    allowedResponse.headers.get("access-control-allow-methods") || "",
+    /GET/,
+  );
+
+  const allowedGetResponse = await result.app.fetch(
+    new Request("http://dashboard-api.test/api/design-systems", {
+      method: "GET",
+      headers: {
+        Origin: "https://dashboard.example",
+      },
+    }),
+  );
+
+  assert.equal(
+    allowedGetResponse.headers.get("access-control-allow-origin"),
+    "https://dashboard.example",
+  );
+
+  const privateNetworkResponse = await result.app.fetch(
+    new Request("http://dashboard-api.test/anything", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://dashboard.example",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Private-Network": "true",
+      },
+    }),
+  );
+
+  assert.equal(privateNetworkResponse.status, 204);
+  assert.equal(
+    privateNetworkResponse.headers.get("access-control-allow-private-network"),
+    "true",
+  );
+
+  const blockedResponse = await result.app.fetch(
+    new Request("http://dashboard-api.test/anything", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    }),
+  );
+
+  assert.equal(blockedResponse.status, 204);
+  assert.equal(
+    blockedResponse.headers.get("access-control-allow-origin"),
+    null,
+  );
+});
+
+test("create-server-http-app: rejects malformed wildcard origin patterns", async () => {
+  const result = createServerHttpApp({
+    queueMetrics: () => ({ active: 0 }),
+    nowIso: () => "2026-01-01T00:00:00.000Z",
+    createApiRequestId: () => "req_1",
+    buildApiErrorPayload: () => ({ ok: false }),
+    writeStructuredLog: () => {},
+    env: {
+      DS_DASHBOARD_ALLOWED_ORIGINS: "https://*..example",
+    },
+    routeDeps: { repoRoot: "/repo" } as never,
+    registerAllRoutesFn() {},
+    registerUnhandledErrorMiddlewareFn() {},
+  });
+
+  const response = await result.app.fetch(
+    new Request("http://dashboard-api.test/anything", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://dashboard.example",
+        "Access-Control-Request-Method": "GET",
+      },
+    }),
+  );
+
+  assert.equal(response.headers.get("access-control-allow-origin"), null);
+});

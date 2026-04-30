@@ -4,6 +4,8 @@
  * Handles communication with dashboard API for MCP management.
  */
 
+import { DEFAULT_API_BASE_URL } from '../config/runtime-config';
+
 export interface McpCapabilities {
   ok: true;
   mcp: {
@@ -53,7 +55,6 @@ export interface HeartbeatResponse {
   pluginBuild?: string | null;
 }
 
-const DEFAULT_API_BASE = 'http://localhost:8787';
 const LOCAL_API_BASES = ['http://localhost:8787', 'http://127.0.0.1:8787'] as const;
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -90,7 +91,7 @@ export class McpClientService {
   private lastKnownConfiguredPort = 9223;
   private readonly CACHE_TTL_MS = 60_000; // 60 seconds
 
-  constructor(apiBase: string = DEFAULT_API_BASE, internalToken?: string) {
+  constructor(apiBase: string = DEFAULT_API_BASE_URL, internalToken?: string) {
     this.apiBase = apiBase.replace(/\/$/, '');
     this.apiBaseCandidates = this.buildApiBaseCandidates(this.apiBase);
     this.internalToken = internalToken;

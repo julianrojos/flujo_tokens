@@ -41,6 +41,12 @@ Then run the needed root test/typecheck scripts (for example `npm run typecheck:
 
 Component tooling resolves system context from the PostgreSQL database referenced by `DATABASE_URL`.
 When `DATABASE_URL` is missing, the dashboard dev supervisor uses the local default database URL for development and tests. In production, the dashboard expects `DATABASE_URL` to be set explicitly.
+If the dashboard frontend is deployed separately from the API, set `VITE_API_URL` to the backend origin for the frontend build; leave it unset in local development so the Vite proxy keeps handling `/api`.
+If the frontend and API are on different origins in production, set `DS_DASHBOARD_ALLOWED_ORIGINS` on the backend to the frontend origin(s) so CORS stays explicit.
+For the Figma plugin UI, use `VITE_API_URL` and `VITE_DIRECT_WS_URL` at build time; if `VITE_DIRECT_WS_URL` is omitted it is derived from `VITE_API_URL` when possible, and both values fall back to the local dashboard defaults.
+The plugin build now also regenerates `apps/figma-plugin/manifest.json` from those values when present, so production deploys only need to set the backend and bridge origins once.
+The dashboard backend can be started with `npm --prefix apps/ds-dashboard run start` when you want to run it outside the combined local supervisor.
+To preview a split deployment locally, run `npm --prefix apps/ds-dashboard run preview:split`.
 
 Bootstrap checklist:
 

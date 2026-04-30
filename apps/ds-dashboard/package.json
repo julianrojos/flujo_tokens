@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env scripts/dev-supervisor.mjs",
+    "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "preview:split": "node --env-file-if-exists=.env scripts/split-preview.mjs",
     "test": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test tests/*.test.ts scripts/*.test.mjs",
     "test:server:routes": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/routes/*.test.ts",
     "test:server:services": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test server/services/*.test.ts",

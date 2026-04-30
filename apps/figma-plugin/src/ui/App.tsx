@@ -13,7 +13,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatusIndicator } from './components/StatusIndicator';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
 import { getWSRuntime } from '../bridge/ws-runtime';
-import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../bridge/constants';
+import { DEFAULT_TRANSPORT_MODE } from '../bridge/constants';
+import {
+  resolveFigmaPluginRuntimeConfig,
+  type FigmaPluginRuntimeEnv,
+} from '../config/runtime-config';
 import { PLUGIN_VERSION, PLUGIN_BUILD } from '../version';
 import { COLOR, FONT, UI_WIDTH } from './styles/tokens';
 
@@ -23,11 +27,16 @@ const SYNC_RETRY_DELAYS_MS = [1500, 4000] as const;
 
 const App: React.FC = () => {
   const CONNECTING_GRACE_MS = 5_000;
+  const runtimeEnv = (import.meta as ImportMeta & { env?: FigmaPluginRuntimeEnv }).env;
+  const runtimeConfig = resolveFigmaPluginRuntimeConfig({
+    env: runtimeEnv,
+    globalConfig: (window as Window & { FIGMA_PLUGIN_CONFIG?: { apiBaseUrl?: string; directWsUrl?: string } }).FIGMA_PLUGIN_CONFIG ?? null,
+  });
   const [docName, setDocName] = useState('');
   const [fileKey, setFileKey] = useState<string | null>(null);
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
 
-  const client = getPluginMcpClient();
+  const client = getPluginMcpClient(runtimeConfig.apiBaseUrl);
   // Guards against concurrent capabilities requests stacking up when MCP
   // takes longer than the 10 s polling interval to respond.
   const fetchingRef = useRef(false);
@@ -209,13 +218,9 @@ const App: React.FC = () => {
 
   // Start the WebSocket bridge runtime so MCP can detect this open plugin session.
   useEffect(() => {
-    // Allow directWsUrl to be configured via global config (for multi-instance deployments)
-    // Falls back to default from constants if not configured
-    const directWsUrl = (window as any).FIGMA_PLUGIN_CONFIG?.directWsUrl || DEFAULT_DIRECT_WS_URL;
-
     const runtime = getWSRuntime({
       transportMode: DEFAULT_TRANSPORT_MODE,
-      directWsUrl,
+      directWsUrl: runtimeConfig.directWsUrl,
       pluginVersion: PLUGIN_VERSION,
       pluginBuild: PLUGIN_BUILD,
     });
@@ -236,7 +241,7 @@ const App: React.FC = () => {
       disposed = true;
       runtime.stop();
     };
-  }, []);
+  }, [runtimeConfig.directWsUrl]);
 
   return (
     <div style={{ width: UI_WIDTH, backgroundColor: COLOR.bg, fontFamily: FONT.family, display: 'flex', flexDirection: 'column', textAlign: 'center' }}>

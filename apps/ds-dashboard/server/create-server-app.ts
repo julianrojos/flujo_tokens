@@ -343,6 +343,7 @@ export async function createServerApp(
     createApiRequestId,
     buildApiErrorPayload: buildApiErrorPayloadAdapter,
     writeStructuredLog: writeStructuredLogAdapter,
+    env,
     routeDeps: buildCreateServerAppRouteDeps({
       createApiRequestId,
       queueJobAcceptedPayload,

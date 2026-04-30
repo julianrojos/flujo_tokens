@@ -7,6 +7,8 @@
  * Data flow: Plugin (code.ts) <-> UI (ws-runtime.ts) <-> WebSocket Server
  */
 
+import { DEFAULT_DIRECT_WS_URL } from '../config/runtime-config';
+
 // ============================================================================
 // WebSocket Message Envelopes
 // ============================================================================
@@ -1065,7 +1067,7 @@ export interface WSRuntimeConfig {
 
 export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
   transportMode: 'direct',
-  directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
+  directWsUrl: DEFAULT_DIRECT_WS_URL,
   connectionTimeout: 3000,
   requestTimeout: 15000,
   reconnectDelay: 500,

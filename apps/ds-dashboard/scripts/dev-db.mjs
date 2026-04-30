@@ -178,8 +178,10 @@ function runNpmScript(repoRoot, scriptName) {
   return new Promise((resolve, reject) => {
     const child = execFile(
       'npm',
-      ['run', scriptName],
+      ['--prefix', repoRoot, 'run', scriptName],
       {
+        // Keep the repo root explicit so nested callers resolve the workspace
+        // script through the same directory even when their inherited cwd differs.
         cwd: repoRoot,
         env: process.env,
       },

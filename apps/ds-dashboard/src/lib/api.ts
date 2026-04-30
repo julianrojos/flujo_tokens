@@ -24,6 +24,7 @@ import { API_ERROR_CODES, type ApiErrorCode } from '@/lib/api-errors';
 import { normalizeEnvRef } from '@/lib/env-ref';
 import { resolveDsFileKeyFromConfig } from '@/lib/design-system-keys';
 import { bumpEditDocsStorageEpoch } from '@/lib/edit-docs-storage-namespace';
+import { getDashboardApiBaseUrl } from '@/lib/api-base';
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -307,7 +308,7 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const extraHeaders = init?.headers
     ? Object.fromEntries(new Headers(init.headers).entries())
     : {};
-  const response = await fetch(url, {
+  const response = await fetch(`${getDashboardApiBaseUrl()}${url}`, {
     ...init,
     headers: {
       Accept: 'application/json',
