@@ -186,6 +186,45 @@ Rules:
 
 ---
 
+### Checkbox
+
+**Path:** `src/components/ui/checkbox.tsx`
+
+**Props:** All native `<input type="checkbox">` attributes + optional `label` (renders a wrapper `<label>`).
+
+```tsx
+<Checkbox
+  id="confirm"
+  checked={confirmed}
+  onChange={(e) => setConfirmed(e.target.checked)}
+  label="I understand the impact and want to continue"
+/>
+```
+
+**When to use:** Boolean on/off toggles inside forms or confirmation dialogs.
+**When NOT to use:** Multi-select groups (use a list of Checkboxes with a `<fieldset>`), simple toggles that are not part of a form (use Switch).
+
+---
+
+### FigmaMcpConnectionStatusDot
+
+**Path:** `src/components/ui/connection-status-dot.tsx`
+
+**Variants (CVA):** `tone` — `success | warning | error`; `size` — `sm | md`
+
+```tsx
+import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
+
+const { connectionState } = useFigmaMcpStatus();
+
+<FigmaMcpConnectionStatusDot snapshot={connectionState} size="sm" />
+```
+
+**When to use:** Inline status dot showing live Figma MCP connection health (sidebar, headers). Consume `connectionState` from `useFigmaMcpStatus()` — do not create a separate poller.
+**When NOT to use:** Text labels or full status alerts (use `StatusAlert` or `Badge`), decorative purposes without a real connection snapshot.
+
+---
+
 ### Input
 
 **Path:** `src/components/ui/input.tsx`
@@ -811,6 +850,7 @@ None as of v1.
 
 | Version | Date       | Changes                                                                                                                                                       |
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.4     | 2026-04-30 | Added `Checkbox` and `FigmaMcpConnectionStatusDot` to Tier 1 Primitives; exported `connectionStatusDotVariants` |
 | 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `edit-component-docs`)             |
 | 1.2     | 2026-04-14 | Added missing `ui/composites` entries (`ImpactLevelBadge`, `AiJobCreateForm`, `AiJobStatusCard`) and expanded Tier 2 coverage for decomposed feature sections |
 | 1.1     | 2026-04-14 | Consolidated content from `docs/ui/COMPONENT_REGISTRY.md`, normalized paths to `src/...`, and refreshed Tier 2 routes                                         |
