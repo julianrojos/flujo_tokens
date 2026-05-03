@@ -1,5 +1,6 @@
 import type { McpConnectionState } from '@flujo/shared';
 
+import { Button } from '@/components/ui/button';
 import { FigmaConnectionStatusDot, getConnectionStatusTitle } from '@/components/ui/connection-status-dot';
 import { cn } from '@/lib/utils';
 
@@ -17,10 +18,12 @@ export function FigmaConnectionSidebarButton({
   const connectionStatusTitle = getConnectionStatusTitle(connectionState);
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       className={cn(
-        'inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-3 py-2 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur transition hover:bg-accent hover:text-foreground',
+        'h-auto gap-1.5 rounded-full border border-border/70 bg-sidebar/80 px-3 py-2 text-sidebar-foreground shadow-sm backdrop-blur hover:bg-sidebar/90 hover:text-sidebar-foreground',
         collapsed && 'px-2',
       )}
       onClick={onClick}
@@ -29,6 +32,6 @@ export function FigmaConnectionSidebarButton({
     >
       <FigmaConnectionStatusDot snapshot={connectionState} />
       {collapsed ? null : <span>Figma connection</span>}
-    </button>
+    </Button>
   );
 }

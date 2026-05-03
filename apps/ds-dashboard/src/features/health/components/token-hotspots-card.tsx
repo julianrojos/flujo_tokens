@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
+import { useDesignSystem } from "@/lib/design-system-context";
 import { toTokenDetail } from "@/lib/routes";
 import { getTopTokenHotspots } from "../lib/token-hotspots";
 import {
@@ -13,17 +14,25 @@ import {
 
 const TOP_TOKENS_LIMIT = 12;
 
-function getUsageTooltip(componentSlugs: string[]): string {
+function getUsageTooltip(componentSlugs: string[], parentFileName: string): string {
   if (componentSlugs.length === 0) return "No component slugs available";
-  return `Used in: ${componentSlugs.join(", ")}`;
+  const displayNames = componentSlugs.map((slug) =>
+    slug === "Parent file" ? parentFileName : slug,
+  );
+  return `Used in: ${displayNames.join(", ")}`;
 }
 
 export function TokenHotspotsCard() {
   const { systemId } = useParams<{ systemId: string }>();
   const resolvedSystemId = String(systemId || "").trim();
+  const { systems } = useDesignSystem();
   const usageIndexQuery = useTokenUsageIndexQuery(resolvedSystemId);
   const tokenCatalogQuery = useTokenCatalogQuery(resolvedSystemId);
   const variableReportsQuery = useTokenVariableReportsQuery(resolvedSystemId);
+  const parentFileName = useMemo(() => {
+    const currentSystem = systems.find((system) => system.id === resolvedSystemId);
+    return currentSystem?.name?.trim() || "Parent file";
+  }, [resolvedSystemId, systems]);
 
   const rows = useMemo(
     () => getTopTokenHotspots({
@@ -97,7 +106,7 @@ export function TokenHotspotsCard() {
         <div className="space-y-3">
           {rows.map((row) => {
             const width = maxUsageCount > 0 ? Math.max(4, (row.usageCount / maxUsageCount) * 100) : 0;
-            const tooltip = getUsageTooltip(row.componentSlugs);
+            const tooltip = getUsageTooltip(row.componentSlugs, parentFileName);
             return (
               <div
                 key={row.path}
