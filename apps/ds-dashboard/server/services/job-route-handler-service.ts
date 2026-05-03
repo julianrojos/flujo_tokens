@@ -11,6 +11,7 @@ import {
   parseJobEventsCursor,
   parseJobEventsPage,
 } from "../lib/job-route-service.ts";
+import { DesignSystemSyncJobRepository } from "../db/design-system-sync-job-repository.ts";
 import type { JobDeps } from "../lib/register-all-routes-service.ts";
 
 export type JobRouteDeps = JobDeps;
@@ -24,24 +25,76 @@ export interface JobRouteEntry {
   [key: string]: unknown;
 }
 
-export function handleGetJobRoute(c: Context, deps: JobRouteDeps): Response {
-  const { failJson, queueJobs, listQueueJobEvents, queueJobSnapshot, isQueueJobFinalStatus } = deps;
+function isMissingDesignSystemSyncJobsTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return /(?:relation|table)\s+"?design_system_sync_jobs"?\s+does not exist/i.test(
+    message,
+  );
+}
+
+export async function handleGetJobRoute(c: Context, deps: JobRouteDeps): Promise<Response> {
+  const {
+    failJson,
+    queueJobs,
+    listQueueJobEvents,
+    queueJobSnapshot,
+    isQueueJobFinalStatus,
+    db,
+  } = deps;
   const jobId = decodeJobId(c.req.param("jobId"));
   const job = queueJobs.get(jobId) as JobRouteEntry | undefined;
-  if (!job) {
-    return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
+  if (job) {
+    const { since, limit } = parseJobEventsPage(c.req.query("since"), c.req.query("limit"));
+    const events = listQueueJobEvents(job, { since, limit });
+    return c.json(
+      buildQueueJobStatePayload({
+        job,
+        events,
+        queueJobSnapshotFn: queueJobSnapshot,
+        isQueueJobFinalStatusFn: isQueueJobFinalStatus,
+      }),
+    );
   }
 
-  const { since, limit } = parseJobEventsPage(c.req.query("since"), c.req.query("limit"));
-  const events = listQueueJobEvents(job, { since, limit });
-  return c.json(
-    buildQueueJobStatePayload({
-      job,
-      events,
-      queueJobSnapshotFn: queueJobSnapshot,
-      isQueueJobFinalStatusFn: isQueueJobFinalStatus,
-    }),
-  );
+  if (db) {
+    const syncJobRepo = new DesignSystemSyncJobRepository(db);
+    try {
+      const syncJob = await syncJobRepo.getJob(jobId);
+      if (!syncJob) {
+        return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
+      }
+      return c.json({
+        ok: true,
+        job: {
+          id: syncJob.id,
+          label: syncJob.label,
+          operation: syncJob.operation,
+          status: syncJob.status,
+          createdAt: syncJob.createdAt,
+          startedAt: syncJob.startedAt,
+          finishedAt: syncJob.finishedAt,
+          systemId: syncJob.systemId,
+          requestId: syncJob.requestId,
+          sourceEventId: syncJob.sourceEventId,
+          result: syncJob.result,
+        },
+        done: isQueueJobFinalStatus(syncJob.status),
+        events: [],
+        nextCursor: 0,
+      });
+    } catch (error) {
+      if (isMissingDesignSystemSyncJobsTableError(error)) {
+        return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
+      }
+      return failJson(c, 500, {
+        code: 'internal.job_lookup_failed',
+        userMessage: 'Failed to load queued job state.',
+        recoverable: false,
+      }) as Response;
+    }
+  }
+
+  return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId)) as Response;
 }
 
 export function handleDeleteJobRoute(c: Context, deps: JobRouteDeps): Response {

@@ -11,6 +11,8 @@ import {
   handleCaptureFigmaScreenshotRoute,
   handleRestartApiRoute,
   handleRunScriptRoute,
+  handleSyncDesignSystemRoute,
+  handleSyncDesignSystemStepRoute,
   handleSyncFigmaTokensRoute,
   type CommandRouteHandlerDeps,
   type HandleRestartApiDeps,
@@ -185,6 +187,12 @@ export function registerCommandRoutes(
   );
   app.post('/api/sync-figma-tokens', (c: Context) =>
     handleSyncFigmaTokensRoute(c, commandDeps),
+  );
+  app.post('/api/sync-design-system', (c: Context) =>
+    handleSyncDesignSystemRoute(c, commandDeps),
+  );
+  app.post('/api/sync-design-system/step/:step', (c: Context) =>
+    handleSyncDesignSystemStepRoute(c, commandDeps),
   );
   app.post('/api/capture-figma-screenshot', (c: Context) =>
     handleCaptureFigmaScreenshotRoute(c, commandDeps),

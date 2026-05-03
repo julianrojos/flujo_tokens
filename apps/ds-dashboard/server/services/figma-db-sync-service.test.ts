@@ -1712,7 +1712,7 @@ describe('figma-db-sync-service', () => {
       assert.equal(result.usageReindexStatus, 'failed');
       assert.equal(result.usageReindexReason, 'no_sources');
       assert.equal(result.usageReindexed, 0);
-      assert.ok(result.usageReindexWarnings.length > 0);
+      assert.equal(result.usageReindexWarnings.length, 0);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
       await cleanup();

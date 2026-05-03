@@ -67,6 +67,96 @@ test("job-routes: /api/jobs/:jobId returns snapshot and events", async () => {
   assert.equal(payload.nextCursor, 1);
 });
 
+test("job-routes: /api/jobs/:jobId falls back to persisted design system sync job", async () => {
+  const persistedRow = {
+    job_id: "sync_job_1",
+    system_id: "core",
+    operation_name: "sync:design-system",
+    label: "sync design system (figma→db)",
+    status: "success",
+    request_id: "req_1",
+    started_at: new Date("2026-05-03T10:00:00.000Z"),
+    finished_at: new Date("2026-05-03T10:01:00.000Z"),
+    result_json: {
+      ok: true,
+      code: 0,
+      summary: "Sync completed.",
+      payload: {
+        ok: true,
+        status: "completed",
+        steps: {
+          components: { status: "completed", summary: "Components synced.", warnings: [], counts: { captured: 1 } },
+          variables: { status: "completed", summary: "Variables synced.", warnings: [], counts: { tokens: 3 } },
+        },
+        warnings: [],
+      },
+    },
+    created_at: new Date("2026-05-03T10:00:00.000Z"),
+    updated_at: new Date("2026-05-03T10:01:00.000Z"),
+  };
+  const db = async () => [persistedRow];
+  const { app } = createTestApp({ db });
+
+  const res = await app.request("/api/jobs/sync_job_1", { method: "GET" });
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.job.id, "sync_job_1");
+  assert.equal(payload.job.status, "success");
+  assert.equal(payload.job.result.summary, "Sync completed.");
+  assert.equal(payload.done, true);
+});
+
+test("job-routes: /api/jobs/:jobId returns 404 when persisted sync job lookup fails", async () => {
+  const db = async () => {
+    throw new Error("relation \"design_system_sync_jobs\" does not exist");
+  };
+  const { app } = createTestApp({ db });
+
+  const res = await app.request("/api/jobs/sync_job_missing_table", { method: "GET" });
+  assert.equal(res.status, 404);
+  const payload = await res.json();
+  assert.equal(payload.code, "queue.job_not_found");
+});
+
+test("job-routes: /api/jobs/:jobId returns 500 for other persisted sync job lookup failures", async () => {
+  const db = async () => {
+    throw new Error("permission denied for relation design_system_sync_jobs");
+  };
+  const { app } = createTestApp({ db });
+
+  const res = await app.request("/api/jobs/sync_job_lookup_error", { method: "GET" });
+  assert.equal(res.status, 500);
+  const payload = await res.json();
+  assert.equal(payload.code, "internal.job_lookup_failed");
+});
+
+test("job-routes: /api/jobs/:jobId returns running persisted design system sync job", async () => {
+  const persistedRow = {
+    job_id: "sync_job_2",
+    system_id: "core",
+    operation_name: "sync:design-system",
+    label: "sync design system (figma→db)",
+    status: "running",
+    request_id: "req_2",
+    started_at: new Date("2026-05-03T10:00:00.000Z"),
+    finished_at: null,
+    result_json: null,
+    created_at: new Date("2026-05-03T10:00:00.000Z"),
+    updated_at: new Date("2026-05-03T10:00:30.000Z"),
+  };
+  const db = async () => [persistedRow];
+  const { app } = createTestApp({ db });
+
+  const res = await app.request("/api/jobs/sync_job_2", { method: "GET" });
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.job.id, "sync_job_2");
+  assert.equal(payload.job.status, "running");
+  assert.equal(payload.done, false);
+});
+
 test("job-routes: /api/jobs/:jobId delete returns conflict when not cancelable", async () => {
   const { app, deps } = createTestApp({
     cancelQueueJob: () => ({ ok: false, message: "cannot cancel" }),

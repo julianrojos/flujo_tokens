@@ -1819,7 +1819,7 @@ function mapPluginBridgeError(
   return error instanceof Error ? error : new Error(message);
 }
 
-function buildTokenUsageRowsFromFilesystem(options: {
+export function buildTokenUsageRowsFromFilesystem(options: {
   dsId: string;
   repoRoot: string;
   tokenCatalog: {
@@ -1836,26 +1836,24 @@ function buildTokenUsageRowsFromFilesystem(options: {
 }): { rows: UsageOccurrenceRow[]; warnings: string[]; noSources: boolean } {
   const { dsId, repoRoot, tokenCatalog, aliases } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
-  const warnings: string[] = [];
   const rows: UsageOccurrenceRow[] = [];
 
   const cssFiles = [
     path.join(paths.outputDir, 'primitives.css'),
     path.join(paths.outputDir, 'tokens.css'),
   ];
-  const existingCssFiles = cssFiles.filter((filePath) => {
-    const exists = fs.existsSync(filePath);
-    if (!exists)
-      warnings.push(`Missing CSS source for usage scan: ${filePath}`);
-    return exists;
-  });
+  const existingCssFiles = cssFiles.filter((filePath) => fs.existsSync(filePath));
   if (existingCssFiles.length === 0) {
     return {
       rows: [],
-      warnings,
+      warnings: [],
       noSources: true,
     };
   }
+
+  const warnings = cssFiles
+    .filter((filePath) => !fs.existsSync(filePath))
+    .map((filePath) => `Missing CSS source for usage scan: ${filePath}`);
 
   const cssRefs = extractCssReferences(existingCssFiles, tokenCatalog);
   const aliasChains = buildAliasChains(existingCssFiles, tokenCatalog);

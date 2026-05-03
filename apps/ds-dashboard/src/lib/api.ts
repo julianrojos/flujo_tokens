@@ -703,6 +703,26 @@ type QueuedRefreshAcceptedPayload = {
   stderr?: string;
 };
 
+export interface QueueJobResponse {
+  ok: boolean;
+  job: {
+    id: string;
+    label?: string;
+    operation?: string;
+    status: string;
+    createdAt?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    systemId?: string;
+    requestId?: string | null;
+    sourceEventId?: string | null;
+    result?: Record<string, unknown> | null;
+  };
+  done: boolean;
+  events: Array<Record<string, unknown>>;
+  nextCursor: number;
+}
+
 type QueueWaitOptions = {
   timeoutMs?: number;
   pollIntervalMs?: number;
@@ -850,6 +870,21 @@ export async function cancelQueueJob(
       method: 'DELETE',
     },
   );
+}
+
+export async function getQueueJob(jobId: string): Promise<QueueJobResponse> {
+  const trimmedJobId = toNonEmptyString(jobId);
+  if (!trimmedJobId) {
+    throw new ApiError({
+      status: 400,
+      statusText: 'Bad Request',
+      code: 'validation.missing_required_fields' as ApiErrorCode,
+      userMessage: 'Job id is required to load a queued operation.',
+      recoverable: true,
+      context: { field: 'jobId' },
+    });
+  }
+  return requestJson<QueueJobResponse>(`/api/jobs/${encodeURIComponent(trimmedJobId)}`);
 }
 
 async function waitForQueuedJob(
@@ -1123,6 +1158,26 @@ export interface SyncFigmaTokensResult {
   importMode?: 'full' | 'partial';
   selectedCount?: number;
   notSelectedCount?: number;
+}
+
+export interface SyncDesignSystemStepResult {
+  jobId?: string;
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  summary: string;
+  warnings: string[];
+  counts: Record<string, number>;
+  raw?: Record<string, unknown>;
+}
+
+export interface SyncDesignSystemResult {
+  ok: boolean;
+  jobId?: string;
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  steps: {
+    components: SyncDesignSystemStepResult;
+    variables: SyncDesignSystemStepResult;
+  };
+  warnings: string[];
 }
 
 export interface ScanComponentsArgs {
@@ -1933,6 +1988,161 @@ export async function syncFigmaTokens(
     currentSlug: latestSlug,
   });
   return typed;
+}
+
+function toSyncDesignSystemStepResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncDesignSystemStepResult {
+  const payload = toRecord(value) || {};
+  const counts = toRecord(payload.counts) || {};
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter(
+        (warning): warning is string => typeof warning === 'string',
+      )
+    : [];
+  return {
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    status:
+      payload.status === 'completed_with_warnings' ||
+      payload.status === 'failed'
+        ? payload.status
+        : 'completed',
+    summary: toNonEmptyString(payload.summary) || 'Sync completed.',
+    warnings,
+    counts: {
+      captured: Number(counts.captured) || 0,
+      failed: Number(counts.failed) || 0,
+      skipped: Number(counts.skipped) || 0,
+      targets: Number(counts.targets) || 0,
+      tokens: Number(counts.tokens) || 0,
+      tokenModeValues: Number(counts.tokenModeValues) || 0,
+      aliases: Number(counts.aliases) || 0,
+      components: Number(counts.components) || 0,
+      usageRestored: Number(counts.usageRestored) || 0,
+      usageDropped: Number(counts.usageDropped) || 0,
+      primitives: Number(counts.primitives) || 0,
+      usageIndexed: Number(counts.usageIndexed) || 0,
+    },
+    raw: payload,
+  };
+}
+
+function toSyncDesignSystemResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncDesignSystemResult {
+  const payload = toRecord(value) || {};
+  const steps = toRecord(payload.steps) || {};
+  const components = toSyncDesignSystemStepResult(steps.components);
+  const variables = toSyncDesignSystemStepResult(steps.variables);
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter(
+        (warning): warning is string => typeof warning === 'string',
+      )
+    : [...components.warnings, ...variables.warnings];
+  return {
+    ok: payload.ok !== false,
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    status:
+      payload.status === 'completed_with_warnings' ||
+      payload.status === 'failed'
+        ? payload.status
+        : 'completed',
+    steps: {
+      components,
+      variables,
+    },
+    warnings,
+  };
+}
+
+export async function syncDesignSystem(
+  args: {
+    url?: string;
+    fileKey?: string;
+    figmaToken?: string;
+    dryRun?: boolean;
+  },
+  options?: {
+    systemId?: string;
+    onQueued?: (jobId?: string) => void;
+  },
+): Promise<SyncDesignSystemResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    '/api/sync-design-system',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    },
+  );
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  options?.onQueued?.(toNonEmptyString(accepted.jobId) || undefined);
+  if (!statusUrl) {
+    return toSyncDesignSystemResult(accepted);
+  }
+
+  const finalState = await waitForQueuedJob(statusUrl);
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  return toSyncDesignSystemResult(
+    payload || {},
+    toNonEmptyString(job?.id) ||
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) ||
+      undefined,
+  );
+}
+
+export async function syncDesignSystemStep(
+  step: 'components' | 'variables' | 'tokens',
+  args: {
+    url?: string;
+    fileKey?: string;
+    figmaToken?: string;
+    dryRun?: boolean;
+  },
+  options?: {
+    systemId?: string;
+    onQueued?: (jobId?: string) => void;
+  },
+): Promise<SyncDesignSystemStepResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    `/api/sync-design-system/step/${encodeURIComponent(step)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    },
+  );
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  options?.onQueued?.(toNonEmptyString(accepted.jobId) || undefined);
+  if (!statusUrl) {
+    return toSyncDesignSystemStepResult(
+      accepted,
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined,
+    );
+  }
+
+  const finalState = await waitForQueuedJob(statusUrl);
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  return toSyncDesignSystemStepResult(
+    payload || {},
+    toNonEmptyString(job?.id) ||
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) ||
+      undefined,
+  );
 }
 
 // ============================================================================

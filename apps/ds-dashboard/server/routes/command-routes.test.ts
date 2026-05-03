@@ -257,6 +257,284 @@ describe('command-routes', () => {
     });
   });
 
+  describe('/api/sync-design-system', () => {
+    it('returns a queued job that records component and variable step results', async () => {
+      let queuedArgs: any = null;
+      const runCalls: any[] = [];
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async (args: any) => {
+          runCalls.push(args);
+          assert.equal(typeof args.emitChunk, 'function');
+          return {
+            ok: true,
+            code: 0,
+            summary: 'Success',
+            payload: {
+              ok: true,
+              source: { file_key: 'abc123' },
+              captured: [
+                {
+                  slug: 'button',
+                  node_id: '1:2',
+                  doc_path: 'design-systems/core/docs/components/button.md',
+                  local_image_path: 'apps/ds-dashboard/tmp/button.png',
+                },
+              ],
+              targets: [
+                {
+                  slug: 'button',
+                  node_id: '1:2',
+                  doc_path: 'design-systems/core/docs/components/button.md',
+                },
+              ],
+            },
+          };
+        },
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 11,
+          tokenModeValues: 4,
+          aliases: 2,
+          components: 0,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 1,
+          usageReindexStatus: 'failed' as const,
+          usageReindexReason: 'missing_repo_root' as const,
+          usageReindexWarnings: ['Token usage reindex requested but repoRoot is missing.'],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
+          dryRun: false,
+          importMode: 'full' as const,
+          selectedCount: 0,
+          notSelectedCount: 0,
+        }),
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_job' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(typeof queuedArgs?.execute, 'function');
+      assert.equal(runCalls.length, 0);
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(runCalls.length, 1);
+      assert.equal(runResult.code, 0);
+      assert.equal(runResult.payload?.status, 'completed_with_warnings');
+      assert.equal(runResult.payload?.steps?.components?.status, 'completed');
+      assert.equal(runResult.payload?.steps?.variables?.status, 'completed_with_warnings');
+      assert.ok(Array.isArray(runResult.payload?.warnings));
+      assert.ok(runResult.payload?.warnings.includes('Token usage reindex requested but repoRoot is missing.'));
+    });
+
+    it('marks the overall sync as completed_with_warnings when components fail but variables complete', async () => {
+      let queuedArgs: any = null;
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async () => ({
+          ok: false,
+          code: 1,
+          summary: 'Component capture failed.',
+          payload: {
+            ok: false,
+            failed: [
+              {
+                slug: 'button',
+                reason: 'missing permission',
+              },
+            ],
+            warnings: ['Component capture failed.'],
+          },
+        }),
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 2,
+          tokenModeValues: 1,
+          aliases: 0,
+          components: 1,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'not-requested' as const,
+          usageReindexReason: 'none' as const,
+          usageReindexWarnings: [],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
+          dryRun: false,
+          importMode: 'full' as const,
+          selectedCount: 0,
+          notSelectedCount: 0,
+        }),
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_job_warning' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(runResult.payload?.status, 'completed_with_warnings');
+      assert.equal(runResult.payload?.steps?.components?.status, 'failed');
+      assert.equal(runResult.payload?.steps?.variables?.status, 'completed');
+    });
+
+    it('marks the overall sync as failed when both steps fail', async () => {
+      let queuedArgs: any = null;
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async () => ({
+          ok: false,
+          code: 1,
+          summary: 'Component capture failed.',
+          payload: {
+            ok: false,
+            failed: [
+              {
+                slug: 'button',
+                reason: 'missing permission',
+              },
+            ],
+            warnings: ['Component capture failed.'],
+          },
+        }),
+        syncDesignSystemFromPluginFn: async () => {
+          throw new Error('Variable sync failed.');
+        },
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_job_failed' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, false);
+      assert.equal(runResult.payload?.status, 'failed');
+      assert.equal(runResult.payload?.steps?.components?.status, 'failed');
+      assert.equal(runResult.payload?.steps?.variables?.status, 'failed');
+    });
+  });
+
+  describe('/api/sync-design-system/step/:step', () => {
+    it('returns a queued job for rerunning a single failed component step', async () => {
+      let queuedArgs: any = null;
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async () => ({
+          ok: true,
+          code: 0,
+          summary: 'Success',
+          payload: {
+            ok: true,
+            source: { file_key: 'abc123' },
+            captured: [
+              {
+                slug: 'button',
+                node_id: '1:2',
+                doc_path: 'design-systems/core/docs/components/button.md',
+                local_image_path: 'apps/ds-dashboard/tmp/button.png',
+              },
+            ],
+            targets: [
+              {
+                slug: 'button',
+                node_id: '1:2',
+                doc_path: 'design-systems/core/docs/components/button.md',
+              },
+            ],
+          },
+        }),
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_step_job' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system/step/components', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(typeof queuedArgs?.execute, 'function');
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(runResult.payload?.status, 'completed');
+      assert.equal(runResult.payload?.summary, 'Components synced.');
+    });
+  });
+
   describe('/api/sync-figma-tokens', () => {
     it('returns 400 for invalid tokensSource', async () => {
       const app = createTestApp({

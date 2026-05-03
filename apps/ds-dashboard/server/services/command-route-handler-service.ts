@@ -22,15 +22,211 @@ import {
 import {
   resolveFileKeyForSystem,
   syncDesignSystemFromPlugin,
+  buildTokenUsageRowsFromFilesystem,
 } from './figma-db-sync-service.ts';
+import { generateTokenCssFromDb } from './generate-token-css-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 import { DependencyRepository } from '../db/dependency-repository.js';
+import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
+
+function shouldUseTsxLoader(scriptPath: string): boolean {
+  const normalizedPath = String(scriptPath || '').trim().toLowerCase();
+  return (
+    normalizedPath.endsWith('.ts') ||
+    normalizedPath.endsWith('.tsx') ||
+    normalizedPath.endsWith('.mts') ||
+    normalizedPath.endsWith('.cts')
+  );
+}
+
+function buildNodeCommandArgs(
+  scriptPath: string,
+  scriptArgs: string[],
+): string[] {
+  const normalizedScriptPath = String(scriptPath || '').trim();
+  const extraArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
+  return shouldUseTsxLoader(normalizedScriptPath)
+    ? ['--import', 'tsx', normalizedScriptPath, ...extraArgs]
+    : [normalizedScriptPath, ...extraArgs];
+}
+
+function toTrimmedString(value: unknown): string {
+  return String(value || '').trim();
+}
+
+function toNonNegativeInt(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.floor(parsed);
+}
+
+function summarizeCapturedStep(result: unknown): {
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  summary: string;
+  warnings: string[];
+  counts: Record<string, number>;
+  raw: Record<string, unknown>;
+} {
+  const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+  const captured = Array.isArray(payload.captured) ? payload.captured.length : 0;
+  const failed = Array.isArray(payload.failed) ? payload.failed.length : 0;
+  const skipped = Array.isArray(payload.skipped) ? payload.skipped.length : 0;
+  const targets = Array.isArray(payload.targets)
+    ? payload.targets.length
+    : toNonNegativeInt(payload.targets_total);
+  const warnings: string[] = [];
+  if (failed > 0) {
+    warnings.push(`${failed} component(s) failed to import.`);
+  }
+  if (payload.figma_error && typeof payload.figma_error === 'object') {
+    const figmaError = payload.figma_error as Record<string, unknown>;
+    const message = toTrimmedString(figmaError.message);
+    if (message) warnings.push(message);
+  }
+  if (Array.isArray(payload.warnings)) {
+    for (const warning of payload.warnings) {
+      const message = toTrimmedString(warning);
+      if (message) warnings.push(message);
+    }
+  }
+  if (payload.ok === false) {
+    const message = toTrimmedString(payload.error) || toTrimmedString(payload.message);
+    if (message) warnings.push(message);
+  }
+
+  const status =
+    payload.ok === false
+      ? 'failed'
+      : failed > 0
+        ? captured > 0
+          ? 'completed_with_warnings'
+          : 'failed'
+        : 'completed';
+
+  return {
+    status,
+    summary:
+      status === 'failed'
+        ? 'Components sync failed.'
+        : status === 'completed_with_warnings'
+          ? 'Components synced with warnings.'
+          : 'Components synced.',
+    warnings,
+    counts: { captured, failed, skipped, targets },
+    raw: payload,
+  };
+}
+
+function summarizeVariablesStep(result: unknown): {
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  summary: string;
+  warnings: string[];
+  counts: Record<string, number>;
+  raw: Record<string, unknown>;
+} {
+  const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+  const warnings: string[] = [];
+  if (payload.componentsTruncated === true) {
+    warnings.push('Component list was truncated by the plugin search limit.');
+  }
+  if (Array.isArray(payload.warnings)) {
+    for (const warning of payload.warnings) {
+      const message = toTrimmedString(warning);
+      if (message) warnings.push(message);
+    }
+  }
+  if (payload.ok === false) {
+    const message = toTrimmedString(payload.error) || toTrimmedString(payload.message);
+    if (message) warnings.push(message);
+  }
+  const status =
+    payload.ok === false
+      ? 'failed'
+      : warnings.length > 0
+        ? 'completed_with_warnings'
+        : 'completed';
+  return {
+    status,
+    summary:
+      status === 'failed'
+        ? 'Variables sync failed.'
+        : status === 'completed_with_warnings'
+          ? 'Variables synced with warnings.'
+          : 'Variables synced.',
+    warnings,
+    counts: {
+      tokens: toNonNegativeInt(payload.tokens),
+      tokenModeValues: toNonNegativeInt(payload.tokenModeValues),
+      aliases: toNonNegativeInt(payload.aliases),
+      components: toNonNegativeInt(payload.components),
+      usageRestored: toNonNegativeInt(payload.usageRestored),
+      usageDropped: toNonNegativeInt(payload.usageDropped),
+    },
+    raw: payload,
+  };
+}
+
+function resolveOverallSyncStatus(args: {
+  components: 'completed' | 'completed_with_warnings' | 'failed';
+  variables: 'completed' | 'completed_with_warnings' | 'failed';
+}): 'completed' | 'completed_with_warnings' | 'failed' {
+  if (args.components === 'failed' && args.variables === 'failed') {
+    return 'failed';
+  }
+  if (
+    args.components === 'completed_with_warnings' ||
+    args.variables === 'completed_with_warnings' ||
+    (args.components === 'failed' && args.variables === 'completed') ||
+    (args.components === 'completed' && args.variables === 'failed')
+  ) {
+    return 'completed_with_warnings';
+  }
+  return 'completed';
+}
+
+function resolveQueueStatusFromSyncStatus(
+  status: 'completed' | 'completed_with_warnings' | 'failed' | 'running' | 'queued',
+): 'queued' | 'running' | 'success' | 'error' {
+  if (status === 'queued' || status === 'running') {
+    return status;
+  }
+  return status === 'failed' ? 'error' : 'success';
+}
+
+async function persistDesignSystemSyncJobState(
+  db: import('postgres').Sql | undefined,
+  input: {
+    jobId: string;
+    systemId: string;
+    operationName: string;
+    label: string;
+    status: 'queued' | 'running' | 'success' | 'error';
+    requestId?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+    result?: Record<string, unknown> | null;
+  },
+): Promise<void> {
+  if (!db || typeof db !== 'function') return;
+  const repo = new DesignSystemSyncJobRepository(db);
+  await repo.upsertJob({
+    jobId: input.jobId,
+    systemId: input.systemId,
+    operationName: input.operationName,
+    label: input.label,
+    status: input.status,
+    requestId: input.requestId ?? null,
+    startedAt: input.startedAt ?? null,
+    finishedAt: input.finishedAt ?? null,
+    result: input.result ?? null,
+  });
+}
 
 function failBuildCommandConfig(
   c: Context,
@@ -797,6 +993,476 @@ export async function handleSyncFigmaTokensRoute(
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
+export async function handleSyncDesignSystemStepRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    readJsonBody,
+    toBooleanString,
+    toNumberString,
+    enqueueQueueJob,
+    sha256Text,
+    runQueuedSpawnCommand,
+    componentRepo,
+    db,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
+    queueJobAcceptedPayload,
+  } = deps;
+
+  const requestId = createApiRequestId();
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  const body = await readJsonBody(c);
+  const step = String(c.req.param('step') || '').trim().toLowerCase();
+
+  if (step !== 'components' && step !== 'variables' && step !== 'tokens') {
+    return failJson(c, 400, {
+      code: 'validation.invalid_sync_step',
+      userMessage: `Unsupported sync step "${step}".`,
+      recoverable: true,
+      context: { step },
+      requestId,
+    });
+  }
+
+  if ((step === 'variables' || step === 'tokens') && !db) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  if (step !== 'tokens' && !componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
+  const fallbackFigmaUrl = sysCtx.figmaFileId
+    ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
+    : '';
+  const figmaUrl = rawFigmaUrl || fallbackFigmaUrl;
+  if (!figmaUrl && step !== 'tokens') {
+    return failJson(c, 400, {
+      code: 'validation.figma_url_required',
+      userMessage: 'figmaUrl is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaUrl' },
+      requestId,
+    });
+  }
+
+  const figmaToken = toTrimmedString(body.figmaToken ?? body.figma_token);
+  const dryRun = toBooleanString(body.dryRun, false) === 'true';
+  let resolveSyncJobId!: (jobId: string) => void;
+  const syncJobIdPromise = new Promise<string>((resolve) => {
+    resolveSyncJobId = resolve;
+  });
+  const figmaFileId = resolveFileKeyForSystem(sysCtx.figmaFileId, body) ||
+    sysCtx.figmaFileId ||
+    '';
+
+  const job = enqueueQueueJob({
+    label: `sync design system step (${step})`,
+    systemId: sysCtx.systemId,
+    operationName: `sync:design-system:${step}`,
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        systemId: sysCtx.systemId,
+        figmaUrl,
+        figmaFileId,
+        dryRun,
+        figmaToken: Boolean(figmaToken),
+        step,
+      }),
+    ),
+    execute: async ({
+      emitChunk,
+      setProcess,
+    }: {
+      emitChunk: (kind: string, message: string) => void;
+      setProcess: (process: unknown) => void;
+    }) => {
+      const syncJobId = await syncJobIdPromise;
+      const startedAt = new Date().toISOString();
+      await persistDesignSystemSyncJobState(db, {
+        jobId: syncJobId,
+        systemId: sysCtx.systemId,
+        operationName: `sync:design-system:${step}`,
+        label: `sync design system step (${step})`,
+        status: 'running',
+        requestId,
+        startedAt,
+      }).catch((error) => {
+        console.warn(
+          '[handleSyncDesignSystemStepRoute] Failed to persist running sync job state:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+      if (step === 'components') {
+        emitChunk('system', 'Rerunning component sync...');
+        const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
+          body: {
+            figmaUrl,
+            figmaToken,
+            includeVariants: false,
+            continueOnError: true,
+            dryRun: false,
+            variantLimit: 6,
+            scale: 2,
+            format: 'png',
+            mainCaptureMode: 'rest',
+            componentKind: 'component_set',
+            tokensSource: 'mcp',
+          },
+          toBooleanString,
+          toNumberString,
+        });
+        if (!captureConfig.ok) {
+          const result = {
+            ok: false,
+            code: 1,
+            summary: captureConfig.errorArgs.userMessage,
+            payload: {
+              ok: false,
+              status: 'failed',
+              summary: captureConfig.errorArgs.userMessage,
+              warnings: [captureConfig.errorArgs.userMessage],
+              counts: { captured: 0, failed: 0, skipped: 0, targets: 0 },
+            },
+          };
+          void persistDesignSystemSyncJobState(db, {
+            jobId: syncJobId,
+            systemId: sysCtx.systemId,
+            operationName: `sync:design-system:${step}`,
+            label: `sync design system step (${step})`,
+            status: 'error',
+            requestId,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            result,
+          }).catch((error) => {
+            console.warn(
+              '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+          return result;
+        }
+
+        const commandArgs = buildNodeCommandArgs(
+          sysCtx.captureFromFigmaUrlScriptPath,
+          [...captureConfig.commandArgs, '--system', sysCtx.systemId],
+        );
+        const commandResult = await runQueuedSpawnCommand({
+          cwd: sysCtx.repoRoot,
+          command: 'node',
+          commandArgs,
+          commandEnv: captureConfig.commandEnv,
+          commandLabel: `node ${commandArgs.join(' ')}`,
+          emitChunk,
+          registerProcess: setProcess,
+          parseJsonStdout: true,
+          allowNonZeroJson: true,
+        });
+        const payload =
+          (commandResult as { payload?: unknown }).payload &&
+          typeof (commandResult as { payload?: unknown }).payload === 'object'
+            ? (commandResult as { payload?: Record<string, unknown> }).payload
+            : { ok: commandResult.ok };
+        if (commandResult.ok) {
+          const persisted = await persistCapturePayloadToComponentRepo({
+            payload,
+            componentRepo,
+            systemId: sysCtx.systemId,
+            repoRoot: sysCtx.repoRoot,
+          });
+          if (persisted.upserted > 0) {
+            emitChunk(
+              'result',
+              `Persisted ${persisted.upserted} captured component proof(s) to DB.`,
+            );
+          }
+          if (persisted.skipped > 0) {
+            emitChunk(
+              'warning',
+              `Skipped ${persisted.skipped} captured component proof(s) without a local image path.`,
+            );
+          }
+        }
+        const summary = summarizeCapturedStep({
+          ...payload,
+          ok: commandResult.ok,
+          message: (commandResult as { summary?: string }).summary,
+        });
+        for (const warning of summary.warnings) {
+          emitChunk('warning', warning);
+        }
+        emitChunk('result', summary.summary);
+        const result = {
+          ok: summary.status !== 'failed',
+          code: summary.status === 'failed' ? 1 : 0,
+          summary: summary.summary,
+          payload: summary,
+        };
+        void persistDesignSystemSyncJobState(db, {
+          jobId: syncJobId,
+          systemId: sysCtx.systemId,
+          operationName: `sync:design-system:${step}`,
+          label: `sync design system step (${step})`,
+          status: summary.status === 'failed' ? 'error' : 'success',
+          requestId,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          result,
+        }).catch((error) => {
+          console.warn(
+            '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+        return result;
+      }
+
+      if (step === 'tokens') {
+        emitChunk('system', 'Generating CSS from token registry...');
+        try {
+          const cssResult = await generateTokenCssFromDb({
+            db: db!,
+            dsId: sysCtx.systemId,
+            repoRoot: sysCtx.repoRoot,
+          });
+          emitChunk(
+            'result',
+            `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s).`,
+          );
+
+          emitChunk('system', 'Indexing token usage from generated CSS...');
+          const tokenRows = (await db!`
+            SELECT id, css_var, slash_path AS path, raw_value AS "$value", type, collection
+            FROM tokens
+            WHERE ds_id = ${sysCtx.systemId}
+          `) as Array<{ id: string; css_var: string; path: string; '$value': string; type: string; collection: string }>;
+
+          const tokenCatalog = {
+            entries: tokenRows.map((t) => ({
+              id: t.id,
+              path: t.id,
+              $value: t['$value'],
+              type: t.type,
+              collection: t.collection,
+              cssVar: t.css_var,
+            })),
+          };
+
+          const aliasRows = (await db!`
+            SELECT from_path, to_path, modes
+            FROM figma_aliases
+            WHERE ds_id = ${sysCtx.systemId}
+          `) as Array<{ from_path: string; to_path: string; modes: unknown }>;
+
+          const usageBuild = buildTokenUsageRowsFromFilesystem({
+            dsId: sysCtx.systemId,
+            repoRoot: sysCtx.repoRoot,
+            tokenCatalog,
+            aliases: aliasRows.map((a) => ({
+              fromPath: a.from_path,
+              toPath: a.to_path,
+              modes: Array.isArray(a.modes) ? (a.modes as string[]) : [],
+            })),
+          });
+
+          if (!usageBuild.noSources) {
+            await db!.begin(async (tx) => {
+              await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${sysCtx.systemId}`;
+              for (const usage of usageBuild.rows) {
+                await tx`
+                  INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+                  VALUES (${sysCtx.systemId}, ${usage.tokenId}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
+                  ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
+                `;
+              }
+            });
+            emitChunk('result', `Indexed ${usageBuild.rows.length} usage occurrence(s).`);
+          }
+
+          const warnings = usageBuild.noSources ? [] : usageBuild.warnings;
+          const tokensStatus = warnings.length > 0 ? 'completed_with_warnings' : 'completed';
+          const tokensSummary =
+            tokensStatus === 'completed_with_warnings'
+              ? 'CSS generated with warnings.'
+              : 'CSS generated and usage indexed.';
+          const jobResult = {
+            ok: true,
+            code: 0,
+            summary: tokensSummary,
+            payload: {
+              status: tokensStatus,
+              summary: tokensSummary,
+              warnings,
+              counts: {
+                primitives: cssResult.primitivesCount,
+                tokens: cssResult.tokensCount,
+                usageIndexed: usageBuild.rows.length,
+              },
+            },
+          };
+          void persistDesignSystemSyncJobState(db, {
+            jobId: syncJobId,
+            systemId: sysCtx.systemId,
+            operationName: 'sync:design-system:tokens',
+            label: 'sync design system step (tokens)',
+            status: 'success',
+            requestId,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            result: jobResult,
+          }).catch((error) => {
+            console.warn(
+              '[handleSyncDesignSystemStepRoute] Failed to persist tokens step job state:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+          return jobResult;
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          emitChunk('warning', `Token CSS generation failed: ${reason}`);
+          const jobResult = {
+            ok: false,
+            code: 1,
+            summary: 'Token CSS generation failed.',
+            payload: {
+              status: 'failed',
+              summary: 'Token CSS generation failed.',
+              warnings: [reason],
+              counts: { primitives: 0, tokens: 0, usageIndexed: 0 },
+            },
+          };
+          void persistDesignSystemSyncJobState(db, {
+            jobId: syncJobId,
+            systemId: sysCtx.systemId,
+            operationName: 'sync:design-system:tokens',
+            label: 'sync design system step (tokens)',
+            status: 'error',
+            requestId,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            result: jobResult,
+          }).catch((e) => {
+            console.warn(
+              '[handleSyncDesignSystemStepRoute] Failed to persist tokens step error state:',
+              e instanceof Error ? e.message : String(e),
+            );
+          });
+          return jobResult;
+        }
+      }
+
+      emitChunk('system', 'Rerunning variable sync...');
+      const result = await syncDesignSystemFromPluginFn({
+        db,
+        componentRepo,
+        dsId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents: false,
+        selectedComponentNodeIds: undefined,
+        requireComponentProofs: false,
+        requireVariantProofsWhenPresent: false,
+        captureComponentProofs: false,
+        captureComponentProofVariants: false,
+        repoRoot: sysCtx.repoRoot,
+        reindexUsageFromFilesystem: !dryRun,
+        usageReindexStrict: true,
+      });
+      if (result.usageReindexed > 0) {
+        emitChunk(
+          'result',
+          `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
+        );
+      }
+      // noSources means the tokens step hasn't run yet — skip these warnings
+      if (result.usageReindexWarnings.length > 0 && result.usageReindexReason !== 'no_sources') {
+        for (const warning of result.usageReindexWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (
+        result.usageReindexStatus === 'failed' &&
+        result.usageReindexReason !== 'none' &&
+        result.usageReindexReason !== 'no_sources'
+      ) {
+        emitChunk(
+          'warning',
+          `Token usage reindex status: failed (${result.usageReindexReason}).`,
+        );
+      }
+      const variablesStepWarnings =
+        result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
+      const summary = summarizeVariablesStep({
+        ...result,
+        ok: true,
+        warnings: variablesStepWarnings,
+        componentsTruncated: result.componentsTruncated,
+      });
+      for (const warning of summary.warnings) {
+        emitChunk('warning', warning);
+      }
+      emitChunk('result', summary.summary);
+      const jobResult = {
+        ok: summary.status !== 'failed',
+        code: summary.status === 'failed' ? 1 : 0,
+        summary: summary.summary,
+        payload: summary,
+      };
+      void persistDesignSystemSyncJobState(db, {
+        jobId: syncJobId,
+        systemId: sysCtx.systemId,
+        operationName: `sync:design-system:${step}`,
+        label: `sync design system step (${step})`,
+        status: summary.status === 'failed' ? 'error' : 'success',
+        requestId,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        result: jobResult,
+      }).catch((error) => {
+        console.warn(
+          '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+      return jobResult;
+    },
+  });
+
+  resolveSyncJobId(job.id);
+  void persistDesignSystemSyncJobState(db, {
+    jobId: job.id,
+    systemId: sysCtx.systemId,
+    operationName: `sync:design-system:${step}`,
+    label: `sync design system step (${step})`,
+    status: 'queued',
+    requestId,
+  }).catch((error) => {
+    console.warn(
+      '[handleSyncDesignSystemStepRoute] Failed to persist queued sync job state:',
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+
+  return c.json(queueJobAcceptedPayload(job), 202);
+}
+
 export async function handleCaptureFigmaScreenshotRoute(
   c: Context,
   deps: CommandRouteHandlerDeps,
@@ -876,5 +1542,337 @@ export async function handleCaptureFigmaScreenshotRoute(
       }
     },
   });
+  return c.json(queueJobAcceptedPayload(job), 202);
+}
+
+export async function handleSyncDesignSystemRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    readJsonBody,
+    toBooleanString,
+    toNumberString,
+    enqueueQueueJob,
+    sha256Text,
+    runQueuedSpawnCommand,
+    componentRepo,
+    db,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
+    queueJobAcceptedPayload,
+  } = deps;
+
+  const requestId = createApiRequestId();
+  const sysCtx = await getSystemContext(c.req.header('x-ds-system') ?? '');
+  const body = await readJsonBody(c);
+
+  if (!db || !componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
+  const fallbackFigmaUrl = sysCtx.figmaFileId
+    ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
+    : '';
+  const figmaUrl = rawFigmaUrl || fallbackFigmaUrl;
+  if (!figmaUrl) {
+    return failJson(c, 400, {
+      code: 'validation.figma_url_required',
+      userMessage: 'figmaUrl is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaUrl' },
+      requestId,
+    });
+  }
+
+  const figmaToken = toTrimmedString(body.figmaToken ?? body.figma_token);
+  const dryRun = toBooleanString(body.dryRun, false) === 'true';
+
+  const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
+    body: {
+      figmaUrl,
+      figmaToken,
+      includeVariants: false,
+      continueOnError: true,
+      dryRun: false,
+      variantLimit: 6,
+      scale: 2,
+      format: 'png',
+      mainCaptureMode: 'rest',
+      componentKind: 'component_set',
+      tokensSource: 'mcp',
+    },
+    toBooleanString,
+    toNumberString,
+  });
+  if (!captureConfig.ok) {
+    return failJson(c, 400, {
+      ...captureConfig.errorArgs,
+      requestId,
+    });
+  }
+
+  const componentsCommandArgs = buildNodeCommandArgs(
+    sysCtx.captureFromFigmaUrlScriptPath,
+    [...captureConfig.commandArgs, '--system', sysCtx.systemId],
+  );
+  const componentsCommandLabel = `node ${componentsCommandArgs.join(' ')}`;
+  const figmaFileId = resolveFileKeyForSystem(sysCtx.figmaFileId, body) ||
+    sysCtx.figmaFileId ||
+    '';
+  let resolveSyncJobId!: (jobId: string) => void;
+  const syncJobIdPromise = new Promise<string>((resolve) => {
+    resolveSyncJobId = resolve;
+  });
+
+  const runComponentsStep = async (
+    emitChunk: (kind: string, message: string) => void,
+    setProcess: (process: unknown) => void,
+  ) => {
+    try {
+      emitChunk('system', 'Starting component sync...');
+      const commandResult = await runQueuedSpawnCommand({
+        cwd: sysCtx.repoRoot,
+        command: 'node',
+        commandArgs: componentsCommandArgs,
+        commandEnv: captureConfig.commandEnv,
+        commandLabel: componentsCommandLabel,
+        emitChunk,
+        registerProcess: setProcess,
+        parseJsonStdout: true,
+        allowNonZeroJson: true,
+      });
+      const rawPayload = (commandResult as { payload?: unknown }).payload;
+      const payload =
+        rawPayload && typeof rawPayload === 'object'
+          ? (rawPayload as Record<string, unknown>)
+          : { ok: commandResult.ok };
+      if (commandResult.ok) {
+        const persisted = await persistCapturePayloadToComponentRepo({
+          payload,
+          componentRepo,
+          systemId: sysCtx.systemId,
+          repoRoot: sysCtx.repoRoot,
+        });
+        if (persisted.upserted > 0) {
+          emitChunk(
+            'result',
+            `Persisted ${persisted.upserted} captured component proof(s) to DB.`,
+          );
+        }
+        if (persisted.skipped > 0) {
+          emitChunk(
+            'warning',
+            `Skipped ${persisted.skipped} captured component proof(s) without a local image path.`,
+          );
+        }
+      }
+      return summarizeCapturedStep({
+        ...payload,
+        ok: commandResult.ok,
+        message: (commandResult as { summary?: string }).summary,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return {
+        status: 'failed' as const,
+        summary: 'Components sync failed.',
+        warnings: [reason],
+        counts: { captured: 0, failed: 0, skipped: 0, targets: 0 },
+        raw: { ok: false, error: reason },
+      };
+    }
+  };
+
+  const runVariablesStep = async (emitChunk: (kind: string, message: string) => void) => {
+    try {
+      emitChunk('system', 'Starting variable sync...');
+      const result = await syncDesignSystemFromPluginFn({
+        db,
+        componentRepo,
+        dsId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents: false,
+        selectedComponentNodeIds: undefined,
+        requireComponentProofs: false,
+        requireVariantProofsWhenPresent: false,
+        captureComponentProofs: false,
+        captureComponentProofVariants: false,
+        repoRoot: sysCtx.repoRoot,
+        reindexUsageFromFilesystem: !dryRun,
+        usageReindexStrict: true,
+      });
+      if (result.usageReindexed > 0) {
+        emitChunk(
+          'result',
+          `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
+        );
+      }
+      // noSources means the tokens step hasn't run yet — expected on first sync
+      if (result.usageReindexWarnings.length > 0 && result.usageReindexReason !== 'no_sources') {
+        for (const warning of result.usageReindexWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (
+        result.usageReindexStatus === 'failed' &&
+        result.usageReindexReason !== 'none' &&
+        result.usageReindexReason !== 'no_sources'
+      ) {
+        emitChunk(
+          'warning',
+          `Token usage reindex status: failed (${result.usageReindexReason}).`,
+        );
+      }
+      const variablesWarnings =
+        result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
+      return summarizeVariablesStep({
+        ok: true,
+        ...result,
+        warnings: variablesWarnings,
+        componentsTruncated: result.componentsTruncated,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return {
+        status: 'failed' as const,
+        summary: 'Variables sync failed.',
+        warnings: [reason],
+        counts: {
+          tokens: 0,
+          tokenModeValues: 0,
+          aliases: 0,
+          components: 0,
+          usageRestored: 0,
+          usageDropped: 0,
+        },
+        raw: { ok: false, error: reason },
+      };
+    }
+  };
+
+  const job = enqueueQueueJob({
+    label: 'sync design system (figma→db)',
+    systemId: sysCtx.systemId,
+    operationName: 'sync:design-system',
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        systemId: sysCtx.systemId,
+        figmaUrl,
+        figmaFileId,
+        dryRun,
+        figmaToken: Boolean(figmaToken),
+      }),
+    ),
+    execute: async ({
+      emitChunk,
+      setProcess,
+    }: {
+      emitChunk: (kind: string, message: string) => void;
+      setProcess: (process: unknown) => void;
+    }) => {
+      const syncJobId = await syncJobIdPromise;
+      const startedAt = new Date().toISOString();
+      await persistDesignSystemSyncJobState(db, {
+        jobId: syncJobId,
+        systemId: sysCtx.systemId,
+        operationName: 'sync:design-system',
+        label: 'sync design system (figma→db)',
+        status: 'running',
+        requestId,
+        startedAt,
+      }).catch((error) => {
+        console.warn(
+          '[handleSyncDesignSystemRoute] Failed to persist running sync job state:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+      emitChunk('system', `Syncing design system "${sysCtx.systemId}" from Figma...`);
+      emitChunk('system', 'Running components and variables in parallel...');
+
+      const [componentsStep, variablesStep] = await Promise.all([
+        runComponentsStep(emitChunk, setProcess),
+        runVariablesStep(emitChunk),
+      ]);
+
+      const overallStatus = resolveOverallSyncStatus({
+        components: componentsStep.status,
+        variables: variablesStep.status,
+      });
+      const warnings = [...componentsStep.warnings, ...variablesStep.warnings];
+
+      const summary =
+        overallStatus === 'failed'
+          ? 'Sync failed.'
+          : overallStatus === 'completed_with_warnings'
+            ? 'Sync completed with warnings.'
+            : 'Sync completed.';
+      emitChunk('result', summary);
+
+      const result = {
+        ok: overallStatus !== 'failed',
+        code: overallStatus === 'failed' ? 1 : 0,
+        summary,
+        payload: {
+          ok: overallStatus !== 'failed',
+          status: overallStatus,
+          steps: {
+            components: componentsStep,
+            variables: variablesStep,
+          },
+          warnings,
+        },
+      };
+      void persistDesignSystemSyncJobState(db, {
+        jobId: syncJobId,
+        systemId: sysCtx.systemId,
+        operationName: 'sync:design-system',
+        label: 'sync design system (figma→db)',
+        status: resolveQueueStatusFromSyncStatus(
+          overallStatus === 'failed'
+            ? 'failed'
+            : overallStatus === 'completed_with_warnings'
+              ? 'completed_with_warnings'
+              : 'completed',
+        ),
+        requestId,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        result,
+      }).catch((error) => {
+        console.warn(
+          '[handleSyncDesignSystemRoute] Failed to persist final sync job state:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
+      return result;
+    },
+  });
+
+  resolveSyncJobId(job.id);
+  void persistDesignSystemSyncJobState(db, {
+    jobId: job.id,
+    systemId: sysCtx.systemId,
+    operationName: 'sync:design-system',
+    label: 'sync design system (figma→db)',
+    status: 'queued',
+    requestId,
+  }).catch((error) => {
+    console.warn(
+      '[handleSyncDesignSystemRoute] Failed to persist queued sync job state:',
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+
   return c.json(queueJobAcceptedPayload(job), 202);
 }

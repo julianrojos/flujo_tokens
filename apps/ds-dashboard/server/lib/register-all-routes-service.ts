@@ -44,6 +44,7 @@ export interface JobDeps {
   toQueueTerminalEvent: (args: unknown) => unknown;
   buildApiErrorPayload: (args: unknown) => unknown;
   MAX_RETAINED_EVENTS: number;
+  db?: import('postgres').Sql;
 }
 
 export interface CommandDeps {
@@ -179,6 +180,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       toQueueTerminalEvent: deps.toQueueTerminalEvent,
       buildApiErrorPayload: deps.buildApiErrorPayload,
       MAX_RETAINED_EVENTS: deps.MAX_RETAINED_EVENTS,
+      db: deps.db,
     },
     commandDeps: {
       failJson: deps.failJson,
