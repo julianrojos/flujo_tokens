@@ -1,9 +1,12 @@
+import { getConnectionStatusTitle } from '@/components/ui/connection-status-dot';
 import {
   Modal,
   ModalCloseButton,
   ModalContent,
+  ModalFooter,
   ModalHeader,
 } from '@/components/ui/overlay';
+import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
 import { FigmaConnectionPanel } from './figma-connection-panel';
 
 interface FigmaConnectionModalProps {
@@ -12,9 +15,11 @@ interface FigmaConnectionModalProps {
 }
 
 export function FigmaConnectionModal({ open, onClose }: FigmaConnectionModalProps) {
+  const { connectionState } = useFigmaMcpStatus();
+
   return (
     <Modal open={open} onClose={onClose} aria-labelledby="figma-connection-modal-title">
-      <ModalContent size="lg">
+      <ModalContent size="md">
         <ModalHeader className="items-start justify-between gap-4">
           <h2
             id="figma-connection-modal-title"
@@ -24,7 +29,8 @@ export function FigmaConnectionModal({ open, onClose }: FigmaConnectionModalProp
           </h2>
           <ModalCloseButton onClick={onClose} label="Close Figma connection modal" />
         </ModalHeader>
-        <FigmaConnectionPanel />
+        <FigmaConnectionPanel connectionStatusTitle={getConnectionStatusTitle(connectionState)} />
+        <ModalFooter />
       </ModalContent>
     </Modal>
   );

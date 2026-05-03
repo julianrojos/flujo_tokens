@@ -61,6 +61,7 @@ export interface UseFigmaMcpConnectionTestReturn {
   waitSecondsLeft: number;
   isNotConnected: boolean;
   isPluginVersionMismatch: boolean;
+  hasTestedConnection: boolean;
   contextTokens: FigmaMcpDesignContextCompactResponse extends { tokens?: { items?: Array<infer T> } }
     ? T[]
     : never[];
@@ -111,6 +112,7 @@ export function useFigmaMcpConnectionTest({
   const [isLoadingContext, setIsLoadingContext] = useState(false);
   const [contextResult, setContextResult] =
     useState<FigmaMcpDesignContextCompactResponse | null>(null);
+  const [hasTestedConnection, setHasTestedConnection] = useState(false);
 
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextGenerationRef = useRef(0);
@@ -145,6 +147,7 @@ export function useFigmaMcpConnectionTest({
     setWaitDeadlineMs(null);
     setIsLoadingContext(false);
     setDesignContextResult(null);
+    setHasTestedConnection(false);
   }, [normalizedUrl, normalizedToken, setDesignContextResult]);
 
   // ---- countdown clock ----------------------------------------------------
@@ -242,7 +245,7 @@ export function useFigmaMcpConnectionTest({
   // -------------------------------------------------------------------------
 
   const fetchDesignContextCompact = useCallback(async () => {
-    if (!showDesignContextCompact) return;
+    if (!showDesignContextCompact || !hasTestedConnection) return;
     const generation = contextGenerationRef.current + 1;
     contextGenerationRef.current = generation;
     setIsLoadingContext(true);
@@ -284,29 +287,26 @@ export function useFigmaMcpConnectionTest({
     } finally {
       if (generation === contextGenerationRef.current) setIsLoadingContext(false);
     }
-  }, [normalizedUrl, showDesignContextCompact, setDesignContextResult]);
+  }, [normalizedUrl, showDesignContextCompact, hasTestedConnection, setDesignContextResult]);
 
   const handleTest = useCallback(async () => {
     stopPolling();
     const generation = pollGenerationRef.current;
+    setHasTestedConnection(true);
     setIsResetting(false);
     setIsWaiting(false);
     setResetDeadlineMs(null);
     setWaitDeadlineMs(null);
     setIsLoading(true);
     setResult(null);
+    contextGenerationRef.current += 1;
+    setIsLoadingContext(false);
+    setDesignContextResult(null);
 
     try {
       const payload = await pingFigmaMcp(buildPingArgs());
       if (generation !== pollGenerationRef.current) return;
       setResult(payload);
-      if (payload.connected && showDesignContextCompact) {
-        void fetchDesignContextCompact();
-      } else if (!payload.connected && showDesignContextCompact) {
-        contextGenerationRef.current += 1;
-        setIsLoadingContext(false);
-        setDesignContextResult(null);
-      }
     } catch (error) {
       if (generation !== pollGenerationRef.current) return;
       if (error instanceof ApiError) {
@@ -330,9 +330,6 @@ export function useFigmaMcpConnectionTest({
   }, [
     normalizedUrl,
     normalizedToken,
-    showDesignContextCompact,
-    fetchDesignContextCompact,
-    setDesignContextResult,
   ]);
 
   const handleResolveConnection = useCallback(async () => {
@@ -349,6 +346,7 @@ export function useFigmaMcpConnectionTest({
     setResult(null);
     setIsLoadingContext(false);
     setDesignContextResult(null);
+    setHasTestedConnection(false);
 
     try {
       await reconnectFigmaMcp();
@@ -394,6 +392,7 @@ export function useFigmaMcpConnectionTest({
     detectedPluginVersion !== EXPECTED_MCP_PLUGIN_VERSION;
 
   const isNotConnected = result?.code === 'mcp.not_connected';
+  const isTransportConnected = result?.connected === true;
 
   const connectionHealth = ((): ConnectionHealth => {
     if (isPluginVersionMismatch) {
@@ -402,16 +401,16 @@ export function useFigmaMcpConnectionTest({
         text: `Version mismatch: plugin ${detectedPluginVersion} vs expected ${EXPECTED_MCP_PLUGIN_VERSION}. Reimport the Figma plugin.`,
       };
     }
-    if (result?.connected && !heartbeatAlive) {
-      return {
-        tone: 'warning',
-        text: 'Transport is connected, but plugin heartbeat is missing. Reload the Figma plugin.',
-      };
-    }
-    if (result?.connected && heartbeatAlive) {
+    if (isTransportConnected && heartbeatAlive) {
       return {
         tone: 'success',
         text: 'Healthy: plugin heartbeat + transport are active.',
+      };
+    }
+    if (isTransportConnected && !heartbeatAlive) {
+      return {
+        tone: 'warning',
+        text: 'Transport is connected, but plugin heartbeat is missing. Reload the Figma plugin.',
       };
     }
     if (heartbeatAlive && !result?.connected) {
@@ -430,7 +429,9 @@ export function useFigmaMcpConnectionTest({
   })();
 
   const canResolve =
-    result?.connected !== true && (suggestResolve || !result || isNotConnected);
+    hasTestedConnection &&
+    result?.connected !== true &&
+    (suggestResolve || heartbeatAlive || isNotConnected || isPluginVersionMismatch);
   const isRecoveryActive = isResetting || isWaiting;
   const activeRecoveryStep = isResetting ? 0 : isWaiting ? 1 : -1;
   const resetSecondsLeft = remainingSeconds(resetDeadlineMs, clockMs);
@@ -468,6 +469,7 @@ export function useFigmaMcpConnectionTest({
     waitSecondsLeft,
     isNotConnected,
     isPluginVersionMismatch,
+    hasTestedConnection,
     contextTokens,
     aliasCount,
     apiHealthHref,

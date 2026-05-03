@@ -42,7 +42,7 @@ export function FigmaConnectionActions({
   const { onTest, onInspectSelection, onOpenResolveModal } = uiActions;
 
   return (
-    <div className="mt-4 flex w-full flex-wrap items-start justify-start gap-2">
+    <div className="flex w-full flex-wrap items-start justify-start gap-2">
       <Button
         type="button"
         variant="outline"

@@ -3,6 +3,7 @@ import {
   useFigmaMcpConnectionTest,
   type UseFigmaMcpConnectionTestProps,
 } from '@/hooks/use-figma-mcp-connection-test';
+import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
 import { FigmaConnectionActions } from './figma-connection-actions';
 import { FigmaConnectionHealthSummary } from './figma-connection-health-summary';
 import { FigmaConnectionRecoveryStepper } from './figma-connection-recovery-stepper';
@@ -42,6 +43,7 @@ export function FigmaConnectionTestButton({
     waitSecondsLeft,
     isNotConnected,
     isPluginVersionMismatch,
+    hasTestedConnection,
     contextTokens,
     aliasCount,
     apiHealthHref,
@@ -52,11 +54,13 @@ export function FigmaConnectionTestButton({
     closeResolveModal,
     setResolveConfirmed,
   } = useFigmaMcpConnectionTest(hookProps);
+  const { connectionState } = useFigmaMcpStatus();
 
   const { disabled = false, showDesignContextCompact = false } = hookProps;
+  const canInspectSelection = showDesignContextCompact && hasTestedConnection;
 
   return (
-    <div className={cn('min-w-0 w-full space-y-1', className)}>
+    <div className={cn('min-w-0 w-full space-y-3', className)}>
       <FigmaConnectionActions
         size={size}
         buttonLabel={buttonLabel}
@@ -68,7 +72,7 @@ export function FigmaConnectionTestButton({
           isLoadingContext,
           canResolve,
           isRecoveryActive,
-          showDesignContextCompact,
+          showDesignContextCompact: canInspectSelection,
           isConnected: result?.connected === true,
         }}
         uiActions={{
@@ -87,7 +91,9 @@ export function FigmaConnectionTestButton({
         waitSecondsLeft={waitSecondsLeft}
       />
 
-      <FigmaConnectionHealthSummary connectionHealth={connectionHealth} />
+      {connectionState.state !== 'connected' ? (
+        <FigmaConnectionHealthSummary connectionHealth={connectionHealth} />
+      ) : null}
 
       <FigmaConnectionResultDetail
         result={result}
@@ -98,7 +104,7 @@ export function FigmaConnectionTestButton({
         apiHealthHref={apiHealthHref}
       />
 
-      {showDesignContextCompact && (isLoadingContext || contextResult) ? (
+      {canInspectSelection && (isLoadingContext || contextResult) ? (
         <FigmaConnectionDesignContextPanel
           contextState={{
             isLoadingContext,
