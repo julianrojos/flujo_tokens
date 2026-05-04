@@ -33,6 +33,14 @@ import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repo
 import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
+import { runCaptureFromFigmaUrl } from '../../../../tooling/src/services/capture-orchestrator-main.js';
+import {
+  computeContentFingerprint,
+  diffFigmaVsDb,
+  type DbComponentRef,
+  type FigmaNodeSnapshot,
+} from './figma-diff-service.js';
+import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
 
@@ -259,6 +267,181 @@ async function persistDesignSystemSyncJobState(
   });
 }
 
+function toFigmaNodeSnapshots(
+  sourceCandidates: Array<Record<string, unknown>>,
+): FigmaNodeSnapshot[] {
+  const snapshots: FigmaNodeSnapshot[] = [];
+  for (const candidate of sourceCandidates) {
+    const nodeId = toTrimmedString(
+      candidate.node_id ?? candidate.nodeId ?? candidate.nodeID,
+    );
+    if (!nodeId) continue;
+    const name = toTrimmedString(candidate.name) || nodeId;
+    const type = toTrimmedString(candidate.type ?? candidate.kind) || 'component';
+    const pageName =
+      toTrimmedString(candidate.page_name ?? candidate.pageName ?? candidate.page) ||
+      undefined;
+    const variantCount = toNonNegativeInt(
+      candidate.variant_count ?? candidate.variantCount,
+    );
+    snapshots.push({
+      nodeId,
+      name,
+      type,
+      pageName,
+      variantCount,
+      contentFingerprint:
+        toTrimmedString(candidate.contentFingerprint) ||
+        computeContentFingerprint({
+          name,
+          type,
+          pageName,
+          variantCount,
+        }),
+    });
+  }
+  return snapshots;
+}
+
+function slugifyComponentName(name: string): string {
+  return (
+    stripDiacritics(String(name || '').trim())
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 120) || 'component'
+  );
+}
+
+function uniqueSlug(baseSlug: string, used: Set<string>): string {
+  if (!used.has(baseSlug)) {
+    used.add(baseSlug);
+    return baseSlug;
+  }
+  let counter = 2;
+  while (used.has(`${baseSlug}-${counter}`)) counter += 1;
+  const next = `${baseSlug}-${counter}`;
+  used.add(next);
+  return next;
+}
+
+function allocateComponentSlug(
+  preferredSlug: string,
+  usedSlugs: Set<string>,
+  currentSlug?: string,
+): string {
+  const normalizedCurrentSlug = toTrimmedString(currentSlug);
+  if (normalizedCurrentSlug) {
+    usedSlugs.delete(normalizedCurrentSlug);
+  }
+  return uniqueSlug(
+    toTrimmedString(preferredSlug) || 'component',
+    usedSlugs,
+  );
+}
+
+async function resolveSyncDesignSystemFigmaToken(params: {
+  db?: import('postgres').Sql;
+  systemId: string;
+  figmaToken: string;
+}): Promise<string> {
+  const directToken = toTrimmedString(params.figmaToken);
+  if (directToken) {
+    return directToken;
+  }
+  if (!params.db) {
+    return '';
+  }
+  const rows = (await params.db`
+    SELECT figma_api_token
+    FROM design_systems
+    WHERE id = ${params.systemId}
+    LIMIT 1
+  `) as Array<{ figma_api_token: string | null }>;
+  return toTrimmedString(resolveEnvRef(String(rows[0]?.figma_api_token || '').trim()));
+}
+
+async function buildSyncDiffSnapshot(params: {
+  systemId: string;
+  repoRoot: string;
+  figmaUrl: string;
+  figmaToken: string;
+  componentRepo: import('../db/component-repository.js').ComponentRepository;
+  runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
+}): Promise<
+  | {
+      ok: true;
+      sourceCandidates: Array<Record<string, unknown>>;
+      diff: ReturnType<typeof diffFigmaVsDb>;
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  const {
+    systemId,
+    repoRoot,
+    figmaUrl,
+    figmaToken,
+    componentRepo,
+    runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
+  } = params;
+
+  try {
+    const captureResult = await runCaptureFromFigmaUrlFn(
+      {
+        system: systemId,
+        url: figmaUrl,
+        'figma-token': figmaToken,
+        dryRun: 'true',
+        'component-kind': 'all',
+        'include-variants': 'false',
+        'include-spec-exhibits': 'false',
+        'continue-on-error': 'true',
+        'main-capture-mode': 'rest',
+        'tokens-source': 'mcp',
+      },
+      {
+        projectRoot: repoRoot,
+      },
+    );
+
+    if (!captureResult.ok) {
+      return {
+        ok: false,
+        error: toTrimmedString(
+          captureResult.error ?? captureResult.message ?? 'Figma scan failed.',
+        ),
+      };
+    }
+
+    const report = captureResult.report;
+    const sourceCandidates = Array.isArray(
+      report && typeof report === 'object'
+        ? (report as Record<string, unknown>).source_candidates
+        : null,
+    )
+      ? ((report as Record<string, unknown>).source_candidates as Array<Record<string, unknown>>)
+      : [];
+    const dbComponents = await componentRepo.getComponentsForDiff(systemId);
+    return {
+      ok: true,
+      sourceCandidates,
+      diff: diffFigmaVsDb(
+        toFigmaNodeSnapshots(sourceCandidates),
+        dbComponents as DbComponentRef[],
+      ),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function failBuildCommandConfig(
   c: Context,
   deps: {
@@ -323,6 +506,7 @@ export interface CommandRouteHandlerDeps {
   enqueueQueueJob: (args: unknown) => { id: string };
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
+  runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('postgres').Sql;
@@ -1023,6 +1207,403 @@ export async function handleSyncFigmaTokensRoute(
     },
   });
   return c.json(queueJobAcceptedPayload(job), 202);
+}
+
+export async function handleSyncDesignSystemDryRunRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    readJsonBody,
+    componentRepo,
+    db,
+    runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
+  } = deps;
+
+  const requestId = createApiRequestId();
+  const systemHeader = c.req.param('systemId') ?? c.req.header('x-ds-system') ?? '';
+  const sysCtx = await getSystemContext(systemHeader);
+  const body = await readJsonBody(c);
+  const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
+  const figmaUrl = rawFigmaUrl ||
+    (sysCtx.figmaFileId
+      ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
+      : '');
+  if (!figmaUrl) {
+    return failJson(c, 400, {
+      code: 'validation.figma_url_required',
+      userMessage: 'figmaUrl is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaUrl' },
+      requestId,
+    });
+  }
+
+  let figmaToken = toTrimmedString(body.figmaToken ?? body.figma_token);
+  if (!figmaToken) {
+    try {
+      figmaToken = await resolveSyncDesignSystemFigmaToken({
+        db,
+        systemId: sysCtx.systemId,
+        figmaToken: figmaToken,
+      });
+    } catch (error) {
+      return failJson(c, 500, {
+        code: 'internal.figma_token_lookup_failed',
+        userMessage: 'Unable to resolve Figma token from the database.',
+        recoverable: false,
+        requestId,
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  if (!figmaToken) {
+    return failJson(c, 400, {
+      code: 'validation.figma_token_required',
+      userMessage: 'figmaToken is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaToken' },
+      requestId,
+    });
+  }
+
+  if (!componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const snapshotResult = await buildSyncDiffSnapshot({
+    systemId: sysCtx.systemId,
+    repoRoot: sysCtx.repoRoot,
+    figmaUrl,
+    figmaToken,
+    componentRepo,
+    runCaptureFromFigmaUrlFn,
+  });
+
+  if (!snapshotResult.ok) {
+    return c.json(
+      {
+        ok: false,
+        error: 'figma_fetch_failed',
+        details: snapshotResult.error,
+        requestId,
+      },
+      422,
+    );
+  }
+
+  return c.json(
+    {
+      ok: true,
+      requestId,
+      diff: snapshotResult.diff,
+    },
+    200,
+  );
+}
+
+export async function handleSyncDesignSystemApplyRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    readJsonBody,
+    componentRepo,
+    db,
+    runCaptureFromFigmaUrlFn,
+  } = deps;
+
+  const requestId = createApiRequestId();
+  const systemHeader = c.req.param('systemId') ?? c.req.header('x-ds-system') ?? '';
+  const sysCtx = await getSystemContext(systemHeader);
+  const body = await readJsonBody(c);
+  const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
+  const figmaUrl = rawFigmaUrl ||
+    (sysCtx.figmaFileId
+      ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
+      : '');
+  if (!figmaUrl) {
+    return failJson(c, 400, {
+      code: 'validation.figma_url_required',
+      userMessage: 'figmaUrl is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaUrl' },
+      requestId,
+    });
+  }
+
+  let figmaToken = toTrimmedString(body.figmaToken ?? body.figma_token);
+  if (!figmaToken) {
+    try {
+      figmaToken = await resolveSyncDesignSystemFigmaToken({
+        db,
+        systemId: sysCtx.systemId,
+        figmaToken: figmaToken,
+      });
+    } catch (error) {
+      return failJson(c, 500, {
+        code: 'internal.figma_token_lookup_failed',
+        userMessage: 'Unable to resolve Figma token from the database.',
+        recoverable: false,
+        requestId,
+        details: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  if (!figmaToken) {
+    return failJson(c, 400, {
+      code: 'validation.figma_token_required',
+      userMessage: 'figmaToken is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaToken' },
+      requestId,
+    });
+  }
+
+  if (!componentRepo || !db) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const startedAt = new Date().toISOString();
+  await persistDesignSystemSyncJobState(db, {
+    jobId: requestId,
+    systemId: sysCtx.systemId,
+    operationName: 'sync:design-system:apply',
+    label: 'sync design system apply',
+    status: 'running',
+    requestId,
+    startedAt,
+  }).catch((error) => {
+    console.warn(
+      '[handleSyncDesignSystemApplyRoute] Failed to persist running sync job state:',
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+
+  const snapshotResult = await buildSyncDiffSnapshot({
+    systemId: sysCtx.systemId,
+    repoRoot: sysCtx.repoRoot,
+    figmaUrl,
+    figmaToken,
+    componentRepo,
+    runCaptureFromFigmaUrlFn,
+  });
+
+  if (!snapshotResult.ok) {
+    const finishedAt = new Date().toISOString();
+    await persistDesignSystemSyncJobState(db, {
+      jobId: requestId,
+      systemId: sysCtx.systemId,
+      operationName: 'sync:design-system:apply',
+      label: 'sync design system apply',
+      status: 'error',
+      requestId,
+      startedAt,
+      finishedAt,
+      result: {
+        ok: false,
+        error: 'figma_fetch_failed',
+        details: snapshotResult.error,
+      },
+    }).catch((error) => {
+      console.warn(
+        '[handleSyncDesignSystemApplyRoute] Failed to persist failed sync job state:',
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+    return c.json(
+      {
+        ok: false,
+        error: 'figma_fetch_failed',
+        details: snapshotResult.error,
+        requestId,
+      },
+      422,
+    );
+  }
+
+  const usedSlugs = new Set(
+    await componentRepo.getExistingSlugs(sysCtx.systemId),
+  );
+
+  const createdEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
+  const updatedEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
+  const figmaSourceUrl =
+    figmaUrl || `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId || '')}`;
+
+  for (const entry of snapshotResult.diff.new_in_figma) {
+    const slug = allocateComponentSlug(
+      slugifyComponentName(entry.name),
+      usedSlugs,
+    );
+    createdEntries.push({
+      slug,
+      name: entry.name,
+      status: 'draft',
+      docType: 'component',
+      figmaNodeId: entry.nodeId,
+      contentFingerprint: entry.contentFingerprint,
+      figma: {
+        fileUrl: figmaSourceUrl,
+        componentSetNodeId: entry.nodeId,
+        pageName: entry.pageName,
+      },
+    });
+  }
+
+  for (const entry of snapshotResult.diff.updated_in_figma) {
+    updatedEntries.push({
+      slug: allocateComponentSlug(
+        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+        usedSlugs,
+        entry.db.slug,
+      ),
+      name: entry.figma.name,
+      status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
+        | 'draft'
+        | 'ready'
+        | 'needs-review'
+        | 'missing',
+      docType: 'component',
+      figmaNodeId: entry.figma.nodeId,
+      contentFingerprint: entry.figma.contentFingerprint,
+      figma: {
+        fileUrl: figmaSourceUrl,
+        componentSetNodeId: entry.figma.nodeId,
+        pageName: entry.figma.pageName,
+      },
+    });
+  }
+
+  for (const entry of snapshotResult.diff.unchanged) {
+    if (entry.db.status !== 'missing') continue;
+    updatedEntries.push({
+      slug: allocateComponentSlug(
+        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+        usedSlugs,
+        entry.db.slug,
+      ),
+      name: entry.figma.name,
+      status: 'draft',
+      docType: 'component',
+      figmaNodeId: entry.figma.nodeId,
+      contentFingerprint: entry.figma.contentFingerprint,
+      figma: {
+        fileUrl: figmaSourceUrl,
+        componentSetNodeId: entry.figma.nodeId,
+        pageName: entry.figma.pageName,
+      },
+    });
+  }
+
+  const upsertEntries = [...createdEntries, ...updatedEntries];
+  let upserted = 0;
+  try {
+    if (upsertEntries.length > 0) {
+      upserted = await componentRepo.upsertFromRegistry(
+        sysCtx.systemId,
+        upsertEntries,
+      );
+    }
+
+    const missingNodeIds = snapshotResult.sourceCandidates
+      .map((candidate) =>
+        toTrimmedString(candidate.node_id ?? candidate.nodeId ?? candidate.nodeID),
+      )
+      .filter((nodeId) => nodeId.length > 0);
+    const markedMissing = await componentRepo.markMissingComponents(
+      sysCtx.systemId,
+      missingNodeIds,
+    );
+
+    const finishedAt = new Date().toISOString();
+    const summary = {
+      created: createdEntries.length,
+      updated: updatedEntries.length,
+      unchanged: snapshotResult.diff.unchanged.length,
+      missing: snapshotResult.diff.missing_in_figma.length,
+      upserted,
+      markedMissing,
+    };
+    await persistDesignSystemSyncJobState(db, {
+      jobId: requestId,
+      systemId: sysCtx.systemId,
+      operationName: 'sync:design-system:apply',
+      label: 'sync design system apply',
+      status: 'success',
+      requestId,
+      startedAt,
+      finishedAt,
+      result: {
+        ok: true,
+        summary,
+      },
+    }).catch((error) => {
+      console.warn(
+        '[handleSyncDesignSystemApplyRoute] Failed to persist finished sync job state:',
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+
+    return c.json(
+      {
+        ok: true,
+        requestId,
+        summary,
+      },
+      200,
+    );
+  } catch (error) {
+    const finishedAt = new Date().toISOString();
+    const message = error instanceof Error ? error.message : String(error);
+    await persistDesignSystemSyncJobState(db, {
+      jobId: requestId,
+      systemId: sysCtx.systemId,
+      operationName: 'sync:design-system:apply',
+      label: 'sync design system apply',
+      status: 'error',
+      requestId,
+      startedAt,
+      finishedAt,
+      result: {
+        ok: false,
+        error: 'sync_apply_failed',
+        details: message,
+        upserted,
+      },
+    }).catch((persistError) => {
+      console.warn(
+        '[handleSyncDesignSystemApplyRoute] Failed to persist failed sync job state:',
+        persistError instanceof Error ? persistError.message : String(persistError),
+      );
+    });
+
+    return c.json(
+      {
+        ok: false,
+        error: 'sync_apply_failed',
+        details: message,
+        requestId,
+      },
+      500,
+    );
+  }
 }
 
 export async function handleSyncDesignSystemStepRoute(

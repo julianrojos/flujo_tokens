@@ -11,6 +11,8 @@ import {
   handleCaptureFigmaScreenshotRoute,
   handleRestartApiRoute,
   handleRunScriptRoute,
+  handleSyncDesignSystemApplyRoute,
+  handleSyncDesignSystemDryRunRoute,
   handleSyncDesignSystemRoute,
   handleSyncDesignSystemStepRoute,
   handleSyncFigmaTokensRoute,
@@ -50,6 +52,7 @@ export interface CommandRoutesDeps {
   runQueuedSpawnCommand: (
     options: unknown,
   ) => Promise<Record<string, unknown> & { ok: boolean }>;
+  runCaptureFromFigmaUrlFn?: CommandRouteHandlerDeps['runCaptureFromFigmaUrlFn'];
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
@@ -136,6 +139,7 @@ function toCommandRouteHandlerDeps(
         deps.runQueuedSpawnCommand(options),
         'runQueuedSpawnCommand',
       ),
+    runCaptureFromFigmaUrlFn: deps.runCaptureFromFigmaUrlFn,
     queueNpmScript: (args) =>
       assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
     queueNodeJsonCommand: (args) =>
@@ -191,6 +195,12 @@ export function registerCommandRoutes(
   );
   app.post('/api/sync-figma-tokens', (c: Context) =>
     handleSyncFigmaTokensRoute(c, commandDeps),
+  );
+  app.post('/api/:systemId/sync/dry-run', (c: Context) =>
+    handleSyncDesignSystemDryRunRoute(c, commandDeps),
+  );
+  app.post('/api/:systemId/sync/apply', (c: Context) =>
+    handleSyncDesignSystemApplyRoute(c, commandDeps),
   );
   app.post('/api/sync-design-system', (c: Context) =>
     handleSyncDesignSystemRoute(c, commandDeps),

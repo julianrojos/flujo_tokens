@@ -2676,15 +2676,19 @@ export async function syncDesignSystemFromPlugin(
       // If truncated, marking missing would create false positives for components not fetched yet.
       // If partial import, skip missing reconciliation entirely — unselected ≠ missing.
       if (importMode === 'full' && !componentsTruncated) {
-        const syncedSlugs = componentEntries.map((e) => e.slug);
-        const markedMissing = await componentRepo.markMissingComponents(
-          dsId,
-          syncedSlugs,
-        );
-        if (markedMissing > 0) {
-          console.log(
-            `  Marked ${markedMissing} component(s) as missing (removed from Figma).`,
+        const syncedNodeIds = componentEntries
+          .map((e) => String(e.figmaNodeId || e.figma?.componentSetNodeId || '').trim())
+          .filter((nodeId) => nodeId.length > 0);
+        if (syncedNodeIds.length > 0) {
+          const markedMissing = await componentRepo.markMissingComponents(
+            dsId,
+            syncedNodeIds,
           );
+          if (markedMissing > 0) {
+            console.log(
+              `  Marked ${markedMissing} component(s) as missing (removed from Figma).`,
+            );
+          }
         }
       } else if (importMode === 'partial') {
         console.log(

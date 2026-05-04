@@ -135,16 +135,41 @@ describe('pg-db-service', () => {
         'idx_ai_jobs_status',
         'idx_ai_jobs_idempotency_key',
         'idx_job_events_job_id',
+        'idx_components_ds_figma_node_id',
       ];
 
       for (const indexName of expectedIndexes) {
         const rows = await sql`
-          SELECT indexname FROM pg_indexes
+          SELECT indexname, indexdef FROM pg_indexes
           WHERE schemaname = current_schema()
           AND indexname = ${indexName}
         `;
         assert.ok(rows.length > 0, `${indexName} index should exist`);
+        if (indexName === 'idx_components_ds_figma_node_id') {
+          assert.match(
+            String(rows[0].indexdef || ''),
+            /WHERE\s+\(?figma_node_id IS NOT NULL\)?/i,
+          );
+        }
       }
+    });
+
+    it('adds figma node identity and fingerprint columns to components', async () => {
+      const columns = await sql`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        AND table_name = 'components'
+      `;
+      const columnNames = columns.map((c) => c.column_name);
+
+      assert.ok(
+        columnNames.includes('figma_node_id'),
+        'figma_node_id should exist',
+      );
+      assert.ok(
+        columnNames.includes('figma_content_fingerprint'),
+        'figma_content_fingerprint should exist',
+      );
     });
   });
 

@@ -40,6 +40,7 @@ export interface CaptureReport {
   requested: Record<string, unknown>;
   tokens_bootstrap: unknown;
   total_candidates: number;
+  source_candidates: SourceCandidate[];
   targets_total: number;
   targets: MappedCaptureTarget[];
   captured: unknown[];
@@ -108,6 +109,7 @@ export function createCaptureReport(params: {
     requested,
     tokens_bootstrap: tokenBootstrap,
     total_candidates: sourceCandidates.length,
+    source_candidates: sourceCandidates,
     targets_total: targets.length,
     targets: targets.map((target) => mapCaptureTargetForReport(target)),
     captured: [],

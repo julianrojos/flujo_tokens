@@ -145,6 +145,8 @@ export interface ComponentVisualProofEntry {
 export interface ComponentCatalogEntry {
   slug: string;
   name: string;
+  figmaNodeId?: string;
+  contentFingerprint?: string;
   status?: 'draft' | 'ready' | 'needs-review' | 'missing';
   docType?: 'component' | 'pattern' | 'guideline';
   specs?: Array<{
@@ -271,6 +273,15 @@ export interface ComponentBasicInfo {
   name: string;
   displayName: string | null;
   figmaComponentSetNodeId: string | null;
+}
+
+export interface ComponentDiffEntry {
+  id: number;
+  nodeId: string;
+  slug: string;
+  name: string;
+  status: ComponentEntry['status'];
+  contentFingerprint: string | null;
 }
 
 export class ComponentRepository {
@@ -1147,6 +1158,49 @@ export class ComponentRepository {
     };
   }
 
+  async getComponentsForDiff(dsId: string): Promise<ComponentDiffEntry[]> {
+    const rows = (await this.sql`
+      SELECT id, slug, name, status, figma_node_id, figma_content_fingerprint
+      FROM components
+      WHERE ds_id = ${dsId}
+        AND figma_node_id IS NOT NULL
+      ORDER BY name
+    `) as Array<{
+      id: number;
+      slug: string;
+      name: string;
+      status: string;
+      figma_node_id: string | null;
+      figma_content_fingerprint: string | null;
+    }>;
+
+    return rows
+      .map((row) => ({
+        id: Number(row.id),
+        nodeId: String(row.figma_node_id || '').trim(),
+        slug: String(row.slug || '').trim(),
+        name: String(row.name || '').trim(),
+        status: row.status as ComponentEntry['status'],
+        contentFingerprint: row.figma_content_fingerprint ?? null,
+      }))
+      .filter((row) => row.nodeId.length > 0);
+  }
+
+  async getExistingSlugs(dsId: string): Promise<string[]> {
+    const rows = (await this.sql`
+      SELECT slug
+      FROM components
+      WHERE ds_id = ${dsId}
+        AND slug IS NOT NULL
+        AND LENGTH(TRIM(slug)) > 0
+      ORDER BY slug
+    `) as Array<{ slug: string | null }>;
+
+    return rows
+      .map((row) => String(row.slug || '').trim())
+      .filter((slug) => slug.length > 0);
+  }
+
   private async getSpecs(componentId: number): Promise<ComponentSpecEntry[]> {
     const rows = (await this.sql`
       SELECT id, component_id, doc_path, doc_status, coverage
@@ -1226,23 +1280,71 @@ export class ComponentRepository {
 
     for (const entry of entries) {
       const now = new Date();
+      const figmaNodeId = String(entry.figmaNodeId || '').trim() || null;
+      const figmaContentFingerprint =
+        String(entry.contentFingerprint || '').trim() || null;
+      const figmaComponentSetNodeId =
+        figmaNodeId ??
+        (String(entry.figma?.componentSetNodeId || '').trim() || null);
 
-      await this.sql`
-        INSERT INTO components (ds_id, slug, name, status, doc_type, figma_file_url, figma_component_set_node_id, figma_page_name, created_at, updated_at)
-        VALUES (${dsId}, ${entry.slug}, ${entry.name}, ${entry.status ?? 'draft'}, ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null}, ${entry.figma?.componentSetNodeId ?? null}, ${entry.figma?.pageName ?? null}, ${now}, ${now})
-        ON CONFLICT(ds_id, slug) DO UPDATE SET
-          name = EXCLUDED.name,
-          status = EXCLUDED.status,
-          doc_type = EXCLUDED.doc_type,
-          figma_file_url = EXCLUDED.figma_file_url,
-          figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
-          figma_page_name = EXCLUDED.figma_page_name,
-          updated_at = EXCLUDED.updated_at
-      `;
+      if (figmaNodeId) {
+        await this.sql`
+          INSERT INTO components (
+            ds_id, slug, name, status, doc_type, figma_file_url,
+            figma_component_set_node_id, figma_node_id, figma_content_fingerprint,
+            figma_page_name, created_at, updated_at
+          )
+          VALUES (
+            ${dsId}, ${entry.slug}, ${entry.name}, ${entry.status ?? 'draft'},
+            ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null},
+            ${figmaComponentSetNodeId}, ${figmaNodeId}, ${figmaContentFingerprint},
+            ${entry.figma?.pageName ?? null}, ${now}, ${now}
+          )
+          ON CONFLICT(ds_id, figma_node_id) WHERE figma_node_id IS NOT NULL DO UPDATE SET
+            slug = EXCLUDED.slug,
+            name = EXCLUDED.name,
+            status = EXCLUDED.status,
+            doc_type = EXCLUDED.doc_type,
+            figma_file_url = EXCLUDED.figma_file_url,
+            figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
+            figma_content_fingerprint = EXCLUDED.figma_content_fingerprint,
+            figma_page_name = EXCLUDED.figma_page_name,
+            updated_at = EXCLUDED.updated_at
+        `;
+      } else {
+        await this.sql`
+          INSERT INTO components (
+            ds_id, slug, name, status, doc_type, figma_file_url,
+            figma_component_set_node_id, figma_page_name, created_at, updated_at
+          )
+          VALUES (
+            ${dsId}, ${entry.slug}, ${entry.name}, ${entry.status ?? 'draft'},
+            ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null},
+            ${figmaComponentSetNodeId}, ${entry.figma?.pageName ?? null},
+            ${now}, ${now}
+          )
+          ON CONFLICT(ds_id, slug) DO UPDATE SET
+            name = EXCLUDED.name,
+            status = EXCLUDED.status,
+            doc_type = EXCLUDED.doc_type,
+            figma_file_url = EXCLUDED.figma_file_url,
+            figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
+            figma_page_name = EXCLUDED.figma_page_name,
+            updated_at = EXCLUDED.updated_at
+        `;
+      }
 
-      const compRows = (await this.sql`
-        SELECT id FROM components WHERE ds_id = ${dsId} AND slug = ${entry.slug}
-      `) as Array<{ id: number }>;
+      const compRows = (await (figmaNodeId
+        ? this.sql`
+            SELECT id
+            FROM components
+            WHERE ds_id = ${dsId} AND figma_node_id = ${figmaNodeId}
+          `
+        : this.sql`
+            SELECT id
+            FROM components
+            WHERE ds_id = ${dsId} AND slug = ${entry.slug}
+          `)) as Array<{ id: number }>;
 
       if (compRows.length === 0) continue;
 
@@ -1501,38 +1603,33 @@ export class ComponentRepository {
 
   async markMissingComponents(
     dsId: string,
-    existingSlugs: string[],
+    existingNodeIds: string[],
   ): Promise<number> {
-    if (existingSlugs.length === 0) {
-      const result = await this.sql`
-        UPDATE components
-        SET status = 'missing', updated_at = now()
-        WHERE ds_id = ${dsId} AND status != 'missing'
-      `;
-      return result.count ?? 0;
-    }
-
-    const existingSlugSet = new Set(existingSlugs);
+    const normalizedExistingNodeIds = new Set(
+      existingNodeIds.map((nodeId) => String(nodeId || '').trim()).filter((nodeId) => nodeId.length > 0),
+    );
     const activeRows = (await this.sql`
-      SELECT slug
+      SELECT figma_node_id
       FROM components
-      WHERE ds_id = ${dsId} AND status != 'missing'
-    `) as Array<{ slug: string }>;
+      WHERE ds_id = ${dsId}
+        AND status != 'missing'
+        AND figma_node_id IS NOT NULL
+    `) as Array<{ figma_node_id: string }>;
 
-    const missingSlugs = activeRows
-      .map((row) => row.slug)
-      .filter((slug) => !existingSlugSet.has(slug));
-    if (missingSlugs.length === 0) {
+    const missingNodeIds = activeRows
+      .map((row) => row.figma_node_id)
+      .filter((nodeId) => !normalizedExistingNodeIds.has(nodeId));
+    if (missingNodeIds.length === 0) {
       return 0;
     }
 
     let changed = 0;
     for (
       let i = 0;
-      i < missingSlugs.length;
+      i < missingNodeIds.length;
       i += ComponentRepository.IN_BATCH_SIZE
     ) {
-      const batch = missingSlugs.slice(
+      const batch = missingNodeIds.slice(
         i,
         i + ComponentRepository.IN_BATCH_SIZE,
       );
@@ -1540,7 +1637,7 @@ export class ComponentRepository {
         UPDATE components
         SET status = 'missing', updated_at = now()
         WHERE ds_id = ${dsId}
-          AND slug = ANY(${batch})
+          AND figma_node_id = ANY(${batch})
           AND status != 'missing'
       `;
       changed += result.count ?? 0;

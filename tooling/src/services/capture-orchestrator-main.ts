@@ -52,6 +52,7 @@ import {
 import { buildCaptureTargets } from './capture-target-builder.js';
 import { createCaptureReport } from './capture-report.js';
 import { executeCaptureBatchAndRefresh } from './capture-batch-execution.js';
+import { computeContentFingerprint } from '../../../apps/ds-dashboard/server/services/figma-diff-service.js';
 import type {
   FigmaDescriptor,
   CaptureContext,
@@ -62,6 +63,27 @@ import type { PipelineContext } from './pipeline-context.js';
 import type { ParsedFigmaFileUrl } from './figma-component-map.js';
 import type { ExtractedComponentSpec } from '../types/spec.js';
 import type { CaptureTarget } from '../types/capture-targets.js';
+
+interface ComponentMapShape {
+  pages?: Array<{
+    name?: unknown;
+    children?: Array<{ id?: unknown; nodeId?: unknown }>;
+  }>;
+  components?: Array<{
+    id?: unknown;
+    nodeId?: unknown;
+    type?: unknown;
+  }>;
+  componentSets?: Array<{
+    id?: unknown;
+    nodeId?: unknown;
+    type?: unknown;
+  }>;
+  tree_contains?: Array<{
+    parent_node_id?: unknown;
+    child_node_id?: unknown;
+  }>;
+}
 
 type CapturePipelinePhase =
   | 'validate_input'
@@ -86,6 +108,171 @@ function throwWithPipelinePhase(
   const wrapped = new Error(String(error));
   (wrapped as Error & { pipeline_phase?: string }).pipeline_phase = phase;
   throw wrapped;
+}
+
+function buildPageNameByNodeId(
+  componentMap: ComponentMapShape | null,
+): Map<string, string> {
+  const pageNameByNodeId = new Map<string, string>();
+  const pages = Array.isArray(componentMap?.pages) ? componentMap.pages : [];
+  for (const page of pages) {
+    const pageName = String(page?.name || '').trim();
+    if (!pageName) continue;
+    const children = Array.isArray(page?.children) ? page.children : [];
+    for (const child of children) {
+      const nodeId = String(child?.id || child?.nodeId || '').trim();
+      if (!nodeId || pageNameByNodeId.has(nodeId)) continue;
+      pageNameByNodeId.set(nodeId, pageName);
+    }
+  }
+  return pageNameByNodeId;
+}
+
+function buildVariantCountByNodeId(
+  componentMap: ComponentMapShape | null,
+): Map<string, number> {
+  const nodeTypeByNodeId = new Map<string, string>();
+  const registerNode = (
+    node: {
+      id?: unknown;
+      nodeId?: unknown;
+      type?: unknown;
+    },
+    fallbackType: 'component' | 'component_set',
+  ) => {
+    const nodeId = String(node?.id || node?.nodeId || '').trim();
+    if (!nodeId) return;
+    const type = String(node?.type || '').trim().toLowerCase() || fallbackType;
+    nodeTypeByNodeId.set(nodeId, type);
+  };
+
+  const components = Array.isArray(componentMap?.components)
+    ? componentMap.components
+    : [];
+  const componentSets = Array.isArray(componentMap?.componentSets)
+    ? componentMap.componentSets
+    : [];
+  const relations = Array.isArray(componentMap?.tree_contains)
+    ? componentMap.tree_contains
+    : [];
+
+  for (const component of components) {
+    registerNode(component, 'component');
+  }
+  for (const componentSet of componentSets) {
+    registerNode(componentSet, 'component_set');
+  }
+
+  const childrenByParent = new Map<string, Set<string>>();
+  for (const relation of relations) {
+    const parentNodeId = String(relation?.parent_node_id || '').trim();
+    const childNodeId = String(relation?.child_node_id || '').trim();
+    if (!parentNodeId || !childNodeId) continue;
+    const childSet = childrenByParent.get(parentNodeId) ?? new Set<string>();
+    childSet.add(childNodeId);
+    childrenByParent.set(parentNodeId, childSet);
+  }
+
+  const variantCountByNodeId = new Map<string, number>();
+  for (const componentSet of componentSets) {
+    const nodeId = String(componentSet?.id || componentSet?.nodeId || '').trim();
+    if (!nodeId) continue;
+    const childNodeIds = Array.from(childrenByParent.get(nodeId) ?? []);
+    const variantCount = childNodeIds.filter(
+      (childNodeId) => nodeTypeByNodeId.get(childNodeId) === 'component',
+    ).length;
+    variantCountByNodeId.set(nodeId, variantCount);
+  }
+
+  return variantCountByNodeId;
+}
+
+function resolveCandidateVariantCount(
+  candidate: SourceCandidate,
+  componentMap: ComponentMapShape | null,
+  variantCountByNodeId: Map<string, number>,
+): number {
+  const explicitVariantCount = [
+    candidate.variant_count,
+    candidate.variantCount,
+    candidate.variants_count,
+    candidate.variantsCount,
+  ].find((value) => Number.isFinite(Number(value)));
+  if (explicitVariantCount !== undefined) {
+    return Math.max(0, Math.floor(Number(explicitVariantCount)));
+  }
+
+  if (Array.isArray(candidate.variants)) {
+    return candidate.variants.length;
+  }
+
+  const nodeId = String(candidate.node_id || '').trim();
+  if (!nodeId) {
+    return 0;
+  }
+
+  const candidateType = String(candidate.type || candidate.kind || '').trim().toLowerCase();
+  if (candidateType === 'component_set') {
+    const resolved = variantCountByNodeId.get(nodeId);
+    return typeof resolved === 'number' ? resolved : 0;
+  }
+
+  if (candidateType === 'component') {
+    return 0;
+  }
+
+  const componentSetCandidate = Array.isArray(componentMap?.componentSets)
+    ? componentMap.componentSets.find(
+        (item) => String(item?.id || item?.nodeId || '').trim() === nodeId,
+      )
+    : null;
+  if (componentSetCandidate) {
+    const resolved = variantCountByNodeId.get(nodeId);
+    return typeof resolved === 'number' ? resolved : 0;
+  }
+
+  const componentCandidate = Array.isArray(componentMap?.components)
+    ? componentMap.components.find(
+        (item) => String(item?.id || item?.nodeId || '').trim() === nodeId,
+      )
+    : null;
+  if (componentCandidate) {
+    return 0;
+  }
+
+  return 0;
+}
+
+function attachContentFingerprints(
+  sourceCandidates: SourceCandidate[],
+  componentMap: ComponentMapShape | null,
+): SourceCandidate[] {
+  const pageNameByNodeId = buildPageNameByNodeId(componentMap);
+  const variantCountByNodeId = buildVariantCountByNodeId(componentMap);
+  return sourceCandidates.map((candidate) => {
+    const nodeId = String(candidate.node_id || '').trim();
+    const pageName =
+      String(candidate.page_name || pageNameByNodeId.get(nodeId) || '').trim() ||
+      undefined;
+    const type = String(candidate.type || candidate.kind || '').trim() || 'unknown';
+    const variantCount = resolveCandidateVariantCount(
+      candidate,
+      componentMap,
+      variantCountByNodeId,
+    );
+    const contentFingerprint = computeContentFingerprint({
+      name: String(candidate.name || '').trim(),
+      type,
+      pageName,
+      variantCount,
+    });
+    return {
+      ...candidate,
+      page_name: pageName,
+      variantCount,
+      contentFingerprint,
+    };
+  });
 }
 
 /**
@@ -294,11 +481,7 @@ export async function runCaptureFromFigmaUrl(
   const allComponentSets = Array.isArray(componentMap?.componentSets)
     ? componentMap.componentSets
     : [];
-  const treeContains = (
-    componentMap as {
-      tree_contains?: Array<{ child_node_id?: unknown }>;
-    } | null
-  )?.tree_contains;
+  const treeContains = componentMap?.tree_contains;
   const nestedComponentNodeIds = new Set(
     Array.isArray(treeContains)
       ? treeContains.map((relation) => String(relation?.child_node_id || '').trim())
@@ -446,6 +629,7 @@ export async function runCaptureFromFigmaUrl(
       }
     }
   }
+  sourceCandidates = attachContentFingerprints(sourceCandidates, componentMap);
   const applySlugOverride = Boolean(componentSlugOverride && hasNodeIdFromUrl);
 
   const captureScriptPath = path.join(

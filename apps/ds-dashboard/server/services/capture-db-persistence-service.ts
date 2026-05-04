@@ -549,9 +549,13 @@ export async function persistRegistryEntriesToComponentRepo(
   }
   const normalized = entries;
   const upserted = await componentRepo.upsertFromRegistry(systemId, normalized);
-  await componentRepo.markMissingComponents(
-    systemId,
-    normalized.map((entry) => entry.slug),
-  );
+  const existingNodeIds = normalized
+    .map((entry) =>
+      String(entry.figmaNodeId || entry.figma?.componentSetNodeId || '').trim(),
+    )
+    .filter((nodeId) => nodeId.length > 0);
+  if (existingNodeIds.length > 0) {
+    await componentRepo.markMissingComponents(systemId, existingNodeIds);
+  }
   return { attempted: normalized.length, upserted };
 }

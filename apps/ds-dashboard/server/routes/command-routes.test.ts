@@ -49,6 +49,8 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
     componentRepo: {
       getAll: () => [],
+      getComponentsForDiff: () => [],
+      getExistingSlugs: () => [],
       upsertFromRegistry: () => 0,
     },
     databaseUrl: 'postgres://ds:local@localhost:5432/ds_dashboard',
@@ -121,6 +123,375 @@ describe('command-routes', () => {
       assert.equal((payload as any).code, 'validation.unsupported_script_name');
     });
 
+  });
+
+  describe('/api/:systemId/sync/dry-run', () => {
+    it('returns a diff without mutating the component repository', async () => {
+      const getComponentsForDiffCalls: string[] = [];
+      const db = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async (dsId: string) => {
+            getComponentsForDiffCalls.push(dsId);
+            return [
+              {
+                id: 1,
+                nodeId: '1:1',
+                slug: 'button',
+                name: 'Button',
+                status: 'ready',
+                contentFingerprint: 'Button||component||Home||0',
+              },
+              {
+                id: 2,
+                nodeId: '2:2',
+                slug: 'badge',
+                name: 'Badge',
+                status: 'ready',
+                contentFingerprint: 'Badge||component||Home||0',
+              },
+            ];
+          },
+          upsertFromRegistry: () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
+              {
+                node_id: '1:1',
+                name: 'Button',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Button||component||Home||0',
+              },
+              {
+                node_id: '2:2',
+                name: 'Badge',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Badge||component||Home||0',
+              },
+              {
+                node_id: '3:3',
+                name: 'Card',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Card||component||Home||0',
+              },
+              {
+                node_id: '',
+                name: 'Ignored',
+                type: 'component',
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.deepEqual(getComponentsForDiffCalls, ['core']);
+      assert.equal((payload as any).diff.new_in_figma.length, 1);
+      assert.equal((payload as any).diff.updated_in_figma.length, 0);
+      assert.equal((payload as any).diff.unchanged.length, 2);
+      assert.equal((payload as any).diff.missing_in_figma.length, 0);
+      assert.equal((payload as any).diff.new_in_figma[0].nodeId, '3:3');
+    });
+
+    it('returns a figma_fetch_failed response when the scan fails', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: false,
+          error: 'Figma API 503',
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 422);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).error, 'figma_fetch_failed');
+      assert.match(String((payload as any).details || ''), /Figma API 503/);
+    });
+  });
+
+  describe('/api/:systemId/sync/apply', () => {
+    it('applies the diff and persists a sync job summary', async () => {
+      const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
+      const markMissingCalls: Array<{ dsId: string; nodeIds: string[] }> = [];
+      const db = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        componentRepo: {
+          getAll: async () => [
+            {
+              id: 1,
+              dsId: 'core',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              docType: 'component',
+              editorialExists: false,
+            },
+            {
+              id: 2,
+              dsId: 'core',
+              slug: 'badge',
+              name: 'Badge',
+              status: 'draft',
+              docType: 'component',
+              editorialExists: false,
+            },
+            {
+              id: 3,
+              dsId: 'core',
+              slug: 'legacy-note',
+              name: 'Legacy Note',
+              status: 'draft',
+              docType: 'component',
+              editorialExists: false,
+            },
+          ],
+          getExistingSlugs: async () => ['button', 'badge', 'legacy-note'],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '1:1',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              contentFingerprint: 'Button||component||Home||0',
+            },
+            {
+              id: 2,
+              nodeId: '2:2',
+              slug: 'badge',
+              name: 'Badge',
+              status: 'draft',
+              contentFingerprint: 'Badge||component||Home||0',
+            },
+            {
+              id: 3,
+              nodeId: '3:3',
+              slug: 'legacy-note',
+              name: 'Legacy Note',
+              status: 'missing',
+              contentFingerprint: 'Legacy Note||component||Home||0',
+            },
+          ],
+          upsertFromRegistry: async (dsId: string, entries: unknown[]) => {
+            upsertCalls.push({ dsId, entries });
+            return entries.length;
+          },
+          markMissingComponents: async (dsId: string, nodeIds: string[]) => {
+            markMissingCalls.push({ dsId, nodeIds });
+            return 1;
+          },
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
+              {
+                node_id: '1:1',
+                name: 'Button',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Button||component||Home||0',
+              },
+              {
+                node_id: '2:2',
+                name: 'Badge Updated',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Badge Updated||component||Home||1',
+              },
+              {
+                node_id: '4:4',
+                name: 'Card',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Card||component||Home||0',
+              },
+              {
+                node_id: '3:3',
+                name: 'Legacy Note',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Legacy Note||component||Home||0',
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any).summary.created, 1);
+      assert.equal((payload as any).summary.updated, 2);
+      assert.equal((payload as any).summary.unchanged, 2);
+      assert.equal((payload as any).summary.missing, 0);
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(upsertCalls[0]?.dsId, 'core');
+      assert.equal(upsertCalls[0]?.entries.length, 3);
+      assert.equal(markMissingCalls.length, 1);
+      assert.equal(markMissingCalls[0]?.dsId, 'core');
+      assert.deepEqual(markMissingCalls[0]?.nodeIds.sort(), ['1:1', '2:2', '3:3', '4:4']);
+    });
+
+    it('deduplicates slugs when an updated component falls back to a colliding slug', async () => {
+      const upsertCalls: Array<{ dsId: string; entries: Array<{ slug: string }> }> = [];
+      const db = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        componentRepo: {
+          getAll: async () => [
+            {
+              id: 1,
+              dsId: 'core',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              docType: 'component',
+              editorialExists: false,
+            },
+            {
+              id: 2,
+              dsId: 'core',
+              slug: 'badge',
+              name: 'Badge',
+              status: 'draft',
+              docType: 'component',
+              editorialExists: false,
+            },
+          ],
+          getExistingSlugs: async () => ['button', 'badge'],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '1:1',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              contentFingerprint: 'Button||component||Home||0',
+            },
+            {
+              id: 2,
+              nodeId: '2:2',
+              slug: '',
+              name: 'Badge',
+              status: 'draft',
+              contentFingerprint: 'Badge||component||Home||0',
+            },
+          ],
+          upsertFromRegistry: async (dsId: string, entries: Array<{ slug: string }>) => {
+            upsertCalls.push({ dsId, entries });
+            return entries.length;
+          },
+          markMissingComponents: async () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
+              {
+                node_id: '1:1',
+                name: 'Button',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Button||component||Home||0',
+              },
+              {
+                node_id: '2:2',
+                name: 'Button',
+                type: 'component',
+                page_name: 'Home',
+                contentFingerprint: 'Button||component||Home||0',
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 200);
+      assert.equal(upsertCalls.length, 1);
+      assert.deepEqual(
+        upsertCalls[0]?.entries.map((entry) => entry.slug),
+        ['button-2'],
+      );
+    });
+
+    it('returns a figma_fetch_failed response when the apply scan fails', async () => {
+      const app = createTestApp({
+        db: (async () => []) as unknown as any,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: async () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: async () => 0,
+          markMissingComponents: async () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: false,
+          error: 'Figma API 503',
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 422);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).error, 'figma_fetch_failed');
+      assert.match(String((payload as any).details || ''), /Figma API 503/);
+    });
   });
 
   describe('/api/admin/restart-api', () => {

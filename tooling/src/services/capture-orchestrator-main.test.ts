@@ -145,6 +145,327 @@ describe('runCaptureFromFigmaUrl', () => {
     assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates.length, 1);
     assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.node_id, '111:222');
     assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.name, 'Primary Button');
+    assert.equal(
+      typeof buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.contentFingerprint,
+      'string',
+    );
+    assert.ok(
+      String(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.contentFingerprint || '').length > 0,
+    );
+  });
+
+  it('derives variant count for component sets from the component map', async () => {
+    const buildCaptureTargetsCalls: Array<{ sourceCandidates: Array<Record<string, unknown>> }> = [];
+
+    const result = await runCaptureFromFigmaUrl(
+      {
+        url: 'https://www.figma.com/design/abc123/Test-File',
+        'figma-token': 'figma-token',
+        'component-kind': 'all',
+        'main-capture-mode': 'rest',
+        'tokens-source': 'mcp',
+        'skip-db-persistence': 'true',
+      },
+      {
+        createPipelineContext: async () => ({
+          system: {
+            id: 'sys-01',
+            repoRoot: '/repo',
+            figmaFileId: 'abc123',
+            captureFromFigmaUrlScriptPath: 'tooling/src/runners/capture-from-figma-url-runner.ts',
+            paths: {
+              docs: '/repo/design-systems/sys-01/docs',
+              generated: '/repo/design-systems/sys-01/output',
+            },
+          } as any,
+          paths: {
+            docsRootOverride: '/repo/design-systems/sys-01/docs',
+            proofDir: '/repo/design-systems/sys-01/output/visual-proofs',
+            proofImageDir: '/repo/design-systems/sys-01/output/visual-proofs/images',
+            resolvedSpecRoot: '/repo/design-systems/sys-01/docs',
+          } as any,
+          flags: {
+            componentSlugOverride: '',
+            componentKind: 'all',
+            includeVariants: false,
+            continueOnError: true,
+            dryRun: false,
+            includeSpecExhibits: false,
+            variantLimit: 6,
+            scale: 2,
+            format: 'png',
+            agent: 'auto',
+            mainCaptureMode: 'rest',
+            tokensSource: 'mcp',
+            force: false,
+            skipValidation: false,
+            allowNonEvidenceUpdates: false,
+            skipDbPersistence: true,
+          },
+          argsRaw: {},
+          id: 'sys-01',
+          fileKey: 'abc123',
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          fileSlug: 'Test-File',
+          fileName: 'Test-File',
+          surface: 'design',
+          rootNodeId: '',
+        } as any),
+        orchestrateTokenSyncFn: async () => ({ tokenBootstrap: { ok: true } }),
+        createCaptureServicesFn: () => ({
+          readComponentRegistry: async () => [],
+          readMarkdownContent: () => '',
+          markdownExists: () => false,
+          specExists: () => true,
+          runScriptJson: () => ({}),
+          fetchFigmaFile: async () => ({}) as any,
+          fetchFigmaNodes: async () => ({}) as any,
+          fetchFigmaImages: async () => ({}) as any,
+          stderrWrite: () => {},
+          extractComponentSpec: (() => ({})) as any,
+        }),
+        configureFigmaContextFn: () => ({
+          ensureFilePayload: async () => ({ document: { id: 'root', type: 'CANVAS', name: 'Root' } }),
+          resolveContext: async () => ({
+            componentMap: {
+              fileKey: 'abc123',
+              fileName: 'Test-File',
+              fileSlug: 'Test-File',
+              surface: 'design',
+              rootNodeId: '',
+              figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+              components: [
+                {
+                  id: '111:223',
+                  name: 'Primary Button / Default',
+                  nodeId: '111-223',
+                  type: 'component',
+                  description: '',
+                },
+              ],
+              componentSets: [
+                {
+                  id: '111:222',
+                  name: 'Primary Button',
+                  nodeId: '111-222',
+                  type: 'component_set',
+                  description: '',
+                },
+              ],
+              pages: [
+                {
+                  id: 'page-1',
+                  name: 'Components',
+                  nodeId: 'page-1',
+                  type: 'page',
+                  children: [
+                    {
+                      id: '111:222',
+                      name: 'Primary Button',
+                      nodeId: '111-222',
+                      type: 'component_set',
+                      description: '',
+                    },
+                    {
+                      id: '111:223',
+                      name: 'Primary Button / Default',
+                      nodeId: '111-223',
+                      type: 'component',
+                      description: '',
+                    },
+                  ],
+                },
+              ],
+              tree_contains: [
+                {
+                  parent_node_id: '111:222',
+                  child_node_id: '111:223',
+                },
+              ],
+              instance_uses: [],
+              unresolved_instance_uses: [],
+              dependency_edges: [],
+            },
+            singleNodeCandidate: null,
+          }),
+          getFilePayload: () => null,
+        }),
+        buildCaptureTargetsFn: async ({ sourceCandidates }) => {
+          buildCaptureTargetsCalls.push({ sourceCandidates: sourceCandidates as Array<Record<string, unknown>> });
+          return { targets: [], skipped: [] };
+        },
+        executeCaptureBatchAndRefreshFn: () => ({
+          ok: true,
+          captured: [],
+          failed: [],
+        }),
+      },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(buildCaptureTargetsCalls.length, 1);
+    assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates.length, 1);
+    assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.node_id, '111:222');
+    assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.variantCount, 1);
+    assert.equal(
+      buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.contentFingerprint,
+      'Primary Button||component_set||Components||1',
+    );
+  });
+
+  it('falls back to a stable zero variant count when the component map cannot resolve variants', async () => {
+    const buildCaptureTargetsCalls: Array<{ sourceCandidates: Array<Record<string, unknown>> }> = [];
+
+    const result = await runCaptureFromFigmaUrl(
+      {
+        url: 'https://www.figma.com/design/abc123/Test-File',
+        'figma-token': 'figma-token',
+        'component-kind': 'all',
+        'main-capture-mode': 'rest',
+        'tokens-source': 'mcp',
+        'skip-db-persistence': 'true',
+      },
+      {
+        createPipelineContext: async () => ({
+          system: {
+            id: 'sys-01',
+            repoRoot: '/repo',
+            figmaFileId: 'abc123',
+            captureFromFigmaUrlScriptPath: 'tooling/src/runners/capture-from-figma-url-runner.ts',
+            paths: {
+              docs: '/repo/design-systems/sys-01/docs',
+              generated: '/repo/design-systems/sys-01/output',
+            },
+          } as any,
+          paths: {
+            docsRootOverride: '/repo/design-systems/sys-01/docs',
+            proofDir: '/repo/design-systems/sys-01/output/visual-proofs',
+            proofImageDir: '/repo/design-systems/sys-01/output/visual-proofs/images',
+            resolvedSpecRoot: '/repo/design-systems/sys-01/docs',
+          } as any,
+          flags: {
+            componentSlugOverride: '',
+            componentKind: 'all',
+            includeVariants: false,
+            continueOnError: true,
+            dryRun: false,
+            includeSpecExhibits: false,
+            variantLimit: 6,
+            scale: 2,
+            format: 'png',
+            agent: 'auto',
+            mainCaptureMode: 'rest',
+            tokensSource: 'mcp',
+            force: false,
+            skipValidation: false,
+            allowNonEvidenceUpdates: false,
+            skipDbPersistence: true,
+          },
+          argsRaw: {},
+          id: 'sys-01',
+          fileKey: 'abc123',
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          fileSlug: 'Test-File',
+          fileName: 'Test-File',
+          surface: 'design',
+          rootNodeId: '',
+        } as any),
+        orchestrateTokenSyncFn: async () => ({ tokenBootstrap: { ok: true } }),
+        fetchFigmaNodesFn: async ({ nodeIds }) => ({
+          nodes: Object.fromEntries(
+            nodeIds.map((nodeId) => [
+              nodeId,
+              {
+                document: {
+                  id: nodeId,
+                  type: 'COMPONENT_SET',
+                  name: 'Primary Button',
+                },
+              },
+            ]),
+          ),
+        }),
+        createCaptureServicesFn: () => ({
+          readComponentRegistry: async () => [
+            {
+              slug: 'primary-button',
+              figma: {
+                component_set_node_id: '111:222',
+              },
+            },
+          ],
+          readMarkdownContent: () => '',
+          markdownExists: () => false,
+          specExists: () => true,
+          runScriptJson: () => ({}),
+          fetchFigmaFile: async () => ({}) as any,
+          fetchFigmaNodes: async ({ nodeIds }) => ({
+            nodes: Object.fromEntries(
+              nodeIds.map((nodeId) => [
+                nodeId,
+                {
+                  document: {
+                    id: nodeId,
+                    type: 'COMPONENT_SET',
+                    name: 'Primary Button',
+                  },
+                },
+              ]),
+            ),
+          }) as any,
+          fetchFigmaImages: async () => ({}) as any,
+          stderrWrite: () => {},
+          extractComponentSpec: (() => ({})) as any,
+        }),
+        configureFigmaContextFn: () => ({
+          ensureFilePayload: async () => ({ document: { id: 'root', type: 'CANVAS', name: 'Root' } }),
+          resolveContext: async () => ({
+            componentMap: {
+              fileKey: 'abc123',
+              fileName: 'Test-File',
+              fileSlug: 'Test-File',
+              surface: 'design',
+              rootNodeId: '',
+              figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+              components: [],
+              componentSets: [],
+              pages: [],
+              tree_contains: [],
+              instance_uses: [],
+              unresolved_instance_uses: [],
+              dependency_edges: [],
+            },
+            singleNodeCandidate: null,
+          }),
+          getFilePayload: () => null,
+        }),
+        fetchFigmaFileComponentsFn: async () => ({
+          status: 200,
+          error: false,
+          meta: {
+            components: [],
+          },
+        }),
+        buildCaptureTargetsFn: async ({ sourceCandidates }) => {
+          buildCaptureTargetsCalls.push({ sourceCandidates: sourceCandidates as Array<Record<string, unknown>> });
+          return { targets: [], skipped: [] };
+        },
+        executeCaptureBatchAndRefreshFn: () => ({
+          ok: true,
+          captured: [],
+          failed: [],
+        }),
+      },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(buildCaptureTargetsCalls.length, 1);
+    assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates.length, 1);
+    assert.equal(buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.variantCount, 0);
+    assert.equal(
+      buildCaptureTargetsCalls[0]?.sourceCandidates[0]?.contentFingerprint,
+      'primary-button||component_set||||0',
+    );
   });
 
   it('does not use published components or registry candidates for filtered component kinds', async () => {

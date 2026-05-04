@@ -110,6 +110,95 @@ describe('ComponentRepository', () => {
             assert.strictEqual(button.specs[0].coverage, 90);
         });
 
+        it('upserts by figma node id and updates the existing row on rename', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('figma-node-sys', 'Figma Node Test')`;
+
+            await repo.upsertFromRegistry('figma-node-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: '111:222',
+                    contentFingerprint: 'Button||COMPONENT||Components||1',
+                },
+            ]);
+
+            await repo.upsertFromRegistry('figma-node-sys', [
+                {
+                    slug: 'button-primary',
+                    name: 'Button Primary',
+                    status: 'needs-review',
+                    docType: 'component',
+                    figmaNodeId: '111:222',
+                    contentFingerprint: 'Button Primary||COMPONENT||Components||2',
+                },
+            ]);
+
+            const rows = await sql`
+              SELECT slug, name, status, figma_node_id, figma_content_fingerprint, figma_component_set_node_id
+              FROM components
+              WHERE ds_id = 'figma-node-sys'
+            `;
+
+            assert.strictEqual(rows.length, 1);
+            assert.strictEqual(rows[0].slug, 'button-primary');
+            assert.strictEqual(rows[0].name, 'Button Primary');
+            assert.strictEqual(rows[0].status, 'needs-review');
+            assert.strictEqual(rows[0].figma_node_id, '111:222');
+            assert.strictEqual(rows[0].figma_component_set_node_id, '111:222');
+            assert.strictEqual(
+                rows[0].figma_content_fingerprint,
+                'Button Primary||COMPONENT||Components||2',
+            );
+        });
+
+        it('returns only figma-node-backed components for diffing', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('diff-sys', 'Diff Test')`;
+
+            await repo.upsertFromRegistry('diff-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    figmaNodeId: '10:1',
+                    contentFingerprint: 'Button||COMPONENT||Components||0',
+                },
+                {
+                    slug: 'manual-note',
+                    name: 'Manual Note',
+                    status: 'draft',
+                },
+            ]);
+
+            const diffRows = await repo.getComponentsForDiff('diff-sys');
+            assert.strictEqual(diffRows.length, 1);
+            assert.strictEqual(diffRows[0].nodeId, '10:1');
+            assert.strictEqual(diffRows[0].slug, 'button');
+            assert.strictEqual(diffRows[0].contentFingerprint, 'Button||COMPONENT||Components||0');
+        });
+
+        it('returns all non-empty slugs for deduplication', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('slug-sys', 'Slug Test')`;
+
+            await repo.upsertFromRegistry('slug-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    figmaNodeId: '10:1',
+                },
+                {
+                    slug: 'manual-note',
+                    name: 'Manual Note',
+                    status: 'draft',
+                },
+            ]);
+
+            const slugs = await repo.getExistingSlugs('slug-sys');
+            assert.deepStrictEqual(slugs.sort(), ['button', 'manual-note']);
+        });
+
         it('handles multiple components', async () => {
             await repo.upsertFromRegistry('test-sys', [
                 { slug: 'card', name: 'Card', status: 'ready' },
@@ -382,40 +471,72 @@ describe('ComponentRepository', () => {
     });
 
     describe('markMissingComponents', () => {
-        it('marks all non-missing components when existingSlugs is empty', async () => {
+        it('marks only components with figma node ids when existingNodeIds is empty', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('missing-all-sys', 'Missing All Test')`;
             await repo.upsertFromRegistry('missing-all-sys', [
-                { slug: 'button', name: 'Button', status: 'ready' },
-                { slug: 'card', name: 'Card', status: 'draft' },
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    figmaNodeId: '10:1',
+                },
+                {
+                    slug: 'card',
+                    name: 'Card',
+                    status: 'draft',
+                    figmaNodeId: '10:2',
+                },
+                {
+                    slug: 'manual-note',
+                    name: 'Manual Note',
+                    status: 'draft',
+                },
             ]);
 
             const changed = await repo.markMissingComponents('missing-all-sys', []);
             assert.strictEqual(changed, 2);
 
-            const rows = await sql`SELECT slug, status FROM components WHERE ds_id = 'missing-all-sys' ORDER BY slug`;
+            const rows = await sql`
+              SELECT slug, status, figma_node_id
+              FROM components
+              WHERE ds_id = 'missing-all-sys'
+              ORDER BY slug
+            `;
             assert.deepStrictEqual(
-                rows.map((r) => ({ slug: r.slug, status: r.status })),
+                rows.map((r) => ({
+                    slug: r.slug,
+                    status: r.status,
+                    figmaNodeId: r.figma_node_id,
+                })),
                 [
-                    { slug: 'button', status: 'missing' },
-                    { slug: 'card', status: 'missing' },
+                    { slug: 'button', status: 'missing', figmaNodeId: '10:1' },
+                    { slug: 'card', status: 'missing', figmaNodeId: '10:2' },
+                    { slug: 'manual-note', status: 'draft', figmaNodeId: null },
                 ]
             );
         });
 
-        it('marks only missing slugs when existingSlugs exceeds batch size', async () => {
+        it('marks only missing node ids when existingNodeIds exceeds batch size', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('missing-batch-sys', 'Missing Batch Test')`;
             const componentEntries = Array.from({ length: 620 }, (_, index) => ({
                 slug: `component-${String(index + 1).padStart(3, '0')}`,
                 name: `Component ${index + 1}`,
                 status: 'ready',
+                figmaNodeId: `10:${index + 1}`,
             }));
             await repo.upsertFromRegistry('missing-batch-sys', componentEntries);
 
-            const keepSlugs = componentEntries.slice(0, 10).map((entry) => entry.slug);
-            const changed = await repo.markMissingComponents('missing-batch-sys', keepSlugs);
+            const keepNodeIds = componentEntries.slice(0, 10).map((entry) => entry.figmaNodeId as string);
+            const changed = await repo.markMissingComponents('missing-batch-sys', keepNodeIds);
             assert.strictEqual(changed, 610);
 
-            const [keptCount] = await sql`SELECT COUNT(*)::int as count FROM components WHERE ds_id = 'missing-batch-sys' AND status != 'missing'`;
+            const [keptCount] = await sql`
+              SELECT COUNT(*)::int as count
+              FROM components
+              WHERE ds_id = 'missing-batch-sys'
+                AND status != 'missing'
+                AND figma_node_id IS NOT NULL
+            `;
             assert.strictEqual(keptCount.count, 10);
         });
     });
