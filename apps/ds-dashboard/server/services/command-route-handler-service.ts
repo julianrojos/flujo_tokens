@@ -365,6 +365,22 @@ function allocateComponentSlug(
   );
 }
 
+function resolveExistingComponentSlug(args: {
+  currentSlug: string;
+  fallbackName: string;
+  usedSlugs: Set<string>;
+}): string {
+  const current = toTrimmedString(args.currentSlug);
+  if (current) {
+    args.usedSlugs.add(current);
+    return current;
+  }
+  return allocateComponentSlug(
+    slugifyComponentName(args.fallbackName),
+    args.usedSlugs,
+  );
+}
+
 async function resolveSyncDesignSystemFigmaToken(params: {
   db?: import('postgres').Sql;
   systemId: string;
@@ -1500,11 +1516,11 @@ export async function handleSyncDesignSystemApplyRoute(
     if (seenDbComponentIds.has(entry.db.id)) continue;
     seenDbComponentIds.add(entry.db.id);
     updatedEntries.push({
-      slug: allocateComponentSlug(
-        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+      slug: resolveExistingComponentSlug({
+        currentSlug: entry.db.slug,
+        fallbackName: entry.figma.name,
         usedSlugs,
-        entry.db.slug,
-      ),
+      }),
       name: entry.figma.name,
       status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
         | 'draft'
@@ -1529,11 +1545,11 @@ export async function handleSyncDesignSystemApplyRoute(
     const needsBootstrap = !String(entry.db.contentFingerprint || '').trim();
     if (entry.db.status !== 'missing' && !needsRelink && !needsBootstrap) continue;
     updatedEntries.push({
-      slug: allocateComponentSlug(
-        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+      slug: resolveExistingComponentSlug({
+        currentSlug: entry.db.slug,
+        fallbackName: entry.figma.name,
         usedSlugs,
-        entry.db.slug,
-      ),
+      }),
       name: entry.figma.name,
       status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
         | 'draft'

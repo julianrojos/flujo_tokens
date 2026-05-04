@@ -274,11 +274,16 @@ async function buildApiError(response: Response): Promise<ApiError> {
   const structured = toRecord(envelope?.error);
   const structuredMessage = toNonEmptyString(structured?.userMessage);
   const topLevelMessage = toNonEmptyString(envelope?.message);
+  const topLevelDetails = toNonEmptyString(envelope?.details);
   const textMessage = bodyText.trim();
   const fallbackMessage =
     `${response.status} ${response.statusText}`.trim() || 'Request failed.';
   const userMessage =
-    structuredMessage || topLevelMessage || textMessage || fallbackMessage;
+    structuredMessage ||
+    topLevelMessage ||
+    topLevelDetails ||
+    textMessage ||
+    fallbackMessage;
 
   const structuredCode = toNonEmptyString(structured?.code);
   const code = (structuredCode || `http.${response.status}`) as ApiErrorCode;
