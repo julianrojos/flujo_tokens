@@ -294,7 +294,21 @@ export async function runCaptureFromFigmaUrl(
   const allComponentSets = Array.isArray(componentMap?.componentSets)
     ? componentMap.componentSets
     : [];
-  const allSourceItems = [...allComponents, ...allComponentSets];
+  const treeContains = (
+    componentMap as {
+      tree_contains?: Array<{ child_node_id?: unknown }>;
+    } | null
+  )?.tree_contains;
+  const nestedComponentNodeIds = new Set(
+    Array.isArray(treeContains)
+      ? treeContains.map((relation) => String(relation?.child_node_id || '').trim())
+      : [],
+  );
+  const rootComponents = allComponents.filter((component) => {
+    const nodeId = String(component.id || '').trim();
+    return nodeId.length > 0 && !nestedComponentNodeIds.has(nodeId);
+  });
+  const allSourceItems = [...rootComponents, ...allComponentSets];
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
 
   // Build source candidates from components
