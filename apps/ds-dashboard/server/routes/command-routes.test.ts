@@ -531,7 +531,7 @@ describe('command-routes', () => {
               slug: 'boton',
               name: 'Botón',
               status: 'ready',
-              contentFingerprint: 'Botón||COMPONENT||Page 1||0',
+              contentFingerprint: null,
             },
           ],
           upsertFromRegistry: async (dsId: string, entries: Array<{ figmaNodeId?: string }>) => {

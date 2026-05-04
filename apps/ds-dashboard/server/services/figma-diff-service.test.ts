@@ -101,6 +101,68 @@ describe('figma-diff-service', () => {
     assert.deepStrictEqual(result.missing_in_figma, []);
   });
 
+  it('treats fingerprints that differ only by type casing as unchanged', () => {
+    const figmaSnapshot: FigmaNodeSnapshot = {
+      nodeId: '10:3',
+      name: 'Card',
+      type: 'component',
+      pageName: 'Components',
+      variantCount: 0,
+      contentFingerprint: computeContentFingerprint({
+        name: 'Card',
+        type: 'component',
+        pageName: 'Components',
+        variantCount: 0,
+      }),
+    };
+    const dbComponent: DbComponentRef = {
+      id: 1,
+      nodeId: '10:3',
+      slug: 'card',
+      name: 'Card',
+      status: 'ready',
+      contentFingerprint: 'Card||COMPONENT||Components||0',
+    };
+
+    const result = diffFigmaVsDb([figmaSnapshot], [dbComponent]);
+
+    assert.deepStrictEqual(result.new_in_figma, []);
+    assert.deepStrictEqual(result.updated_in_figma, []);
+    assert.deepStrictEqual(result.unchanged, [{ figma: figmaSnapshot, db: dbComponent }]);
+    assert.deepStrictEqual(result.missing_in_figma, []);
+  });
+
+  it('treats component and component_set fingerprint types as different', () => {
+    const figmaSnapshot: FigmaNodeSnapshot = {
+      nodeId: '1:23',
+      name: 'Botón',
+      type: 'component',
+      pageName: 'Page 1',
+      variantCount: 0,
+      contentFingerprint: computeContentFingerprint({
+        name: 'Botón',
+        type: 'component',
+        pageName: 'Page 1',
+        variantCount: 0,
+      }),
+    };
+    const dbComponent: DbComponentRef = {
+      id: 1,
+      nodeId: '1:23',
+      slug: 'boton',
+      name: 'Botón',
+      status: 'ready',
+      contentFingerprint: 'Botón||component_set||Page 1||0',
+    };
+
+    const result = diffFigmaVsDb([figmaSnapshot], [dbComponent]);
+
+    assert.deepStrictEqual(result.new_in_figma, []);
+    assert.deepStrictEqual(result.updated_in_figma, [{ figma: figmaSnapshot, db: dbComponent }]);
+    assert.deepStrictEqual(result.unchanged, []);
+    assert.deepStrictEqual(result.missing_in_figma, []);
+  });
+
   it('classifies DB component not in Figma scan as missing_in_figma', () => {
     const dbComponent: DbComponentRef = {
       id: 1,
@@ -181,7 +243,7 @@ describe('figma-diff-service', () => {
     assert.deepStrictEqual(result.missing_in_figma, []);
   });
 
-  it('treats DB component with null fingerprint as updated (conservative)', () => {
+  it('treats DB component with null fingerprint as unchanged bootstrap', () => {
     const figmaSnapshot: FigmaNodeSnapshot = {
       nodeId: '10:5',
       name: 'Badge',
@@ -206,8 +268,8 @@ describe('figma-diff-service', () => {
 
     const result = diffFigmaVsDb([figmaSnapshot], [dbComponent]);
 
-    assert.deepStrictEqual(result.updated_in_figma, [{ figma: figmaSnapshot, db: dbComponent }]);
-    assert.deepStrictEqual(result.unchanged, []);
+    assert.deepStrictEqual(result.updated_in_figma, []);
+    assert.deepStrictEqual(result.unchanged, [{ figma: figmaSnapshot, db: dbComponent }]);
     assert.deepStrictEqual(result.missing_in_figma, []);
   });
 

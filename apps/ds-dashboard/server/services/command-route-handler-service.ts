@@ -1521,23 +1521,24 @@ export async function handleSyncDesignSystemApplyRoute(
 
   for (const entry of snapshotResult.diff.unchanged) {
     const needsRelink = String(entry.db.nodeId || '').trim() !== String(entry.figma.nodeId || '').trim();
-    if (entry.db.status !== 'missing' && !needsRelink) continue;
-      updatedEntries.push({
-        slug: allocateComponentSlug(
-          String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
-          usedSlugs,
-          entry.db.slug,
-        ),
-        name: entry.figma.name,
-        status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
-          | 'draft'
-          | 'ready'
-          | 'needs-review'
-          | 'missing',
-        docType: 'component',
-        figmaNodeId: entry.figma.nodeId,
-        contentFingerprint: entry.figma.contentFingerprint,
-        figma: {
+    const needsBootstrap = !String(entry.db.contentFingerprint || '').trim();
+    if (entry.db.status !== 'missing' && !needsRelink && !needsBootstrap) continue;
+    updatedEntries.push({
+      slug: allocateComponentSlug(
+        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+        usedSlugs,
+        entry.db.slug,
+      ),
+      name: entry.figma.name,
+      status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
+        | 'draft'
+        | 'ready'
+        | 'needs-review'
+        | 'missing',
+      docType: 'component',
+      figmaNodeId: entry.figma.nodeId,
+      contentFingerprint: entry.figma.contentFingerprint,
+      figma: {
         fileUrl: figmaSourceUrl,
         componentSetNodeId: entry.figma.nodeId,
         pageName: entry.figma.pageName,

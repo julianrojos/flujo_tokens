@@ -50,6 +50,21 @@ function isKnownDbNodeId(db: DbComponentRef): boolean {
   return normalizeNodeId(db.nodeId).length > 0;
 }
 
+function normalizeContentFingerprint(value: string): string {
+  const parts = String(value || '').trim().split('||');
+  if (parts.length < 4) {
+    return String(value || '').trim();
+  }
+  const [name, type, pageName, variantCount, ...rest] = parts;
+  return [
+    name.trim(),
+    type.trim().toLowerCase(),
+    pageName.trim(),
+    variantCount.trim(),
+    ...rest.map((part) => part.trim()),
+  ].join('||');
+}
+
 export function computeContentFingerprint(snapshot: {
   name: string;
   type: string;
@@ -99,8 +114,14 @@ export function diffFigmaVsDb(
 
     seenDbIds.add(dbComponent.id);
     if (
-      !dbComponent.contentFingerprint ||
-      dbComponent.contentFingerprint !== figmaSnapshot.contentFingerprint
+      !String(dbComponent.contentFingerprint || '').trim()
+    ) {
+      unchanged.push({ figma: figmaSnapshot, db: dbComponent });
+      continue;
+    }
+    if (
+      normalizeContentFingerprint(dbComponent.contentFingerprint) !==
+      normalizeContentFingerprint(figmaSnapshot.contentFingerprint)
     ) {
       updatedInFigma.push({ figma: figmaSnapshot, db: dbComponent });
       continue;
