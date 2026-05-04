@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormField } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StatusAlert } from '@/components/ui/status-alert';
 import { useOperationRunner } from '@/hooks/use-operation-runner';
 import {
   cancelQueueJob,
@@ -25,6 +26,8 @@ import {
   type SyncStepStatus,
   type SyncStepSummary,
 } from '@/features/system/design-system-sync-logic';
+import { SyncDiffPreview } from '@/features/system/SyncDiffPreview';
+import { useDesignSystemSyncPreview } from '@/features/system/hooks/use-design-system-sync-preview';
 
 function toSuggestedFigmaUrl(figmaFileId: string | null | undefined): string {
   const trimmed = String(figmaFileId || '').trim();
@@ -408,7 +411,7 @@ function statusToneClasses(status: SyncStepStatus): string {
       return 'border-border/70 bg-muted/40 text-foreground';
     case 'idle':
     default:
-      return 'border-border/70 bg-[var(--app-surface-1)] text-muted-foreground';
+      return 'border-border/70 bg-surface-1 text-muted-foreground';
   }
 }
 
@@ -485,7 +488,24 @@ export function DesignSystemUpdateActions({
   const pendingSyncPersistRef = useRef<{
     jobId?: string;
     error?: string;
-  } | null>(null);
+    } | null>(null);
+  const {
+    diffResult: syncDiffResult,
+    notice: syncDiffNotice,
+    error: syncDiffError,
+    isPreviewing: isSyncDiffPreviewing,
+    isApplying: isSyncDiffApplying,
+    runPreview: runSyncDiffPreview,
+    runApply: runSyncDiffApply,
+    resetPreview: resetSyncDiffPreview,
+  } = useDesignSystemSyncPreview({
+    systemId,
+    figmaUrl: sharedFigmaUrl,
+    figmaToken: sharedToken,
+    onApplySuccess: () => {
+      setLastSyncedAt(new Date().toISOString());
+    },
+  });
 
   const [componentsState, componentsActions] = useOperationRunner(
     `ds-admin-components-${systemId}`,
@@ -650,6 +670,7 @@ export function DesignSystemUpdateActions({
       const nextRunId = syncRunIdRef.current + 1;
       syncRunIdRef.current = nextRunId;
       setSyncError('');
+      resetSyncDiffPreview();
 
       if (!url) {
         setSyncError('Figma URL is required to sync the design system.');
@@ -848,7 +869,14 @@ export function DesignSystemUpdateActions({
         );
       }
     },
-    [persistSyncState, sharedFigmaUrl, sharedToken, systemId, updateStepState],
+    [
+      persistSyncState,
+      resetSyncDiffPreview,
+      sharedFigmaUrl,
+      sharedToken,
+      systemId,
+      updateStepState,
+    ],
   );
 
   const retryFailedStep = useCallback(
@@ -860,6 +888,7 @@ export function DesignSystemUpdateActions({
       }
 
       setSyncError('');
+      resetSyncDiffPreview();
       updateStepState(step, {
         status: 'queued',
         summary: null,
@@ -936,7 +965,14 @@ export function DesignSystemUpdateActions({
         }));
       }
     },
-    [persistSyncState, sharedFigmaUrl, sharedToken, systemId, updateStepState],
+    [
+      persistSyncState,
+      resetSyncDiffPreview,
+      sharedFigmaUrl,
+      sharedToken,
+      systemId,
+      updateStepState,
+    ],
   );
 
   const handleUpdateComponents = useCallback(async () => {
@@ -975,7 +1011,10 @@ export function DesignSystemUpdateActions({
           <Input
             id="design-system-update-figma-url"
             value={sharedFigmaUrl}
-            onChange={(event) => setSharedFigmaUrl(event.target.value)}
+            onChange={(event) => {
+              resetSyncDiffPreview();
+              setSharedFigmaUrl(event.target.value);
+            }}
             placeholder="https://www.figma.com/design/…"
             disabled={
               disabled ||
@@ -994,7 +1033,10 @@ export function DesignSystemUpdateActions({
             id="design-system-update-figma-token"
             type="password"
             value={sharedToken}
-            onChange={(event) => setSharedToken(event.target.value)}
+            onChange={(event) => {
+              resetSyncDiffPreview();
+              setSharedToken(event.target.value);
+            }}
             placeholder="Figma token (optional)"
             autoComplete="off"
             disabled={
@@ -1008,7 +1050,24 @@ export function DesignSystemUpdateActions({
       </div>
 
       <div className="mt-5 space-y-4">
-        <div className="rounded-lg border border-border bg-[var(--app-surface-1)] p-4">
+        <SyncDiffPreview
+          diffResult={syncDiffResult}
+          notice={syncDiffNotice}
+          error={syncDiffError}
+          disabled={
+            disabled ||
+            isSyncRunning ||
+            componentsState.isRunning ||
+            variablesState.isRunning
+          }
+          isPreviewing={isSyncDiffPreviewing}
+          isApplying={isSyncDiffApplying}
+          onPreview={() => void runSyncDiffPreview()}
+          onApply={() => void runSyncDiffApply()}
+          onReset={resetSyncDiffPreview}
+        />
+
+        <div className="rounded-lg border border-border bg-surface-1 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
               <p className="text-sm font-semibold titles-color">
@@ -1040,7 +1099,9 @@ export function DesignSystemUpdateActions({
           </div>
 
           {syncError ? (
-            <p className="mt-3 text-sm text-status-error">{syncError}</p>
+            <div className="mt-3">
+              <StatusAlert variant="error" title="Sync error" description={syncError} />
+            </div>
           ) : null}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1114,7 +1175,7 @@ export function DesignSystemUpdateActions({
                         return (
                           <div
                             key={`${step}-${detail}`}
-                            className="rounded border border-border/60 bg-[var(--app-surface-1)] px-2 py-1.5"
+                            className="rounded border border-border/60 bg-surface-1 px-2 py-1.5"
                           >
                             <dt className="text-muted-foreground">
                               {label.trim()}
@@ -1152,7 +1213,7 @@ export function DesignSystemUpdateActions({
             })}
           </div>
 
-          <div className="mt-4 rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
+          <div className="mt-4 rounded border border-border/70 bg-surface-1 p-3">
             <p className="text-sm font-semibold titles-color">
               {overallSyncSummary}
             </p>

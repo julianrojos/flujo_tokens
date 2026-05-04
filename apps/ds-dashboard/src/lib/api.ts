@@ -2145,6 +2145,104 @@ export async function syncDesignSystemStep(
   );
 }
 
+export interface SyncDesignSystemNodeSnapshot {
+  nodeId: string;
+  name: string;
+  type: string;
+  pageName?: string;
+  variantCount: number;
+  contentFingerprint: string;
+}
+
+export interface SyncDesignSystemDiffDbComponentRef {
+  id: number;
+  nodeId: string;
+  slug: string;
+  name: string;
+  status: string;
+  contentFingerprint: string | null;
+}
+
+export interface SyncDesignSystemDiffResult {
+  new_in_figma: SyncDesignSystemNodeSnapshot[];
+  updated_in_figma: Array<{
+    figma: SyncDesignSystemNodeSnapshot;
+    db: SyncDesignSystemDiffDbComponentRef;
+  }>;
+  unchanged: Array<{
+    figma: SyncDesignSystemNodeSnapshot;
+    db: SyncDesignSystemDiffDbComponentRef;
+  }>;
+  missing_in_figma: SyncDesignSystemDiffDbComponentRef[];
+}
+
+export interface SyncDesignSystemDryRunResponse {
+  ok: boolean;
+  requestId?: string;
+  diff: SyncDesignSystemDiffResult;
+  error?: string;
+  details?: string;
+}
+
+export interface SyncDesignSystemApplySummary {
+  created: number;
+  updated: number;
+  unchanged: number;
+  missing: number;
+  upserted: number;
+  markedMissing: number;
+}
+
+export interface SyncDesignSystemApplyResponse {
+  ok: boolean;
+  requestId?: string;
+  summary: SyncDesignSystemApplySummary;
+  error?: string;
+  details?: string;
+}
+
+function buildSyncDesignSystemRequest(
+  systemId: string,
+  body: Record<string, unknown>,
+): RequestInit {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-ds-system': String(systemId || '').trim(),
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+export async function previewSyncDesignSystem(args: {
+  systemId: string;
+  figmaUrl: string;
+  figmaToken?: string;
+}): Promise<SyncDesignSystemDryRunResponse> {
+  return requestJson<SyncDesignSystemDryRunResponse>(
+    `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/dry-run`,
+    buildSyncDesignSystemRequest(args.systemId, {
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+    }),
+  );
+}
+
+export async function applySyncDesignSystem(args: {
+  systemId: string;
+  figmaUrl: string;
+  figmaToken?: string;
+}): Promise<SyncDesignSystemApplyResponse> {
+  return requestJson<SyncDesignSystemApplyResponse>(
+    `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/apply`,
+    buildSyncDesignSystemRequest(args.systemId, {
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+    }),
+  );
+}
+
 // ============================================================================
 // Consumer File Management (Cross-file Dependency Tracking)
 // ============================================================================
