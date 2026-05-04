@@ -167,21 +167,3 @@ export function resolveOverallSyncStatus(args: {
   if (values.every((v) => v === 'completed')) return 'completed';
   return 'idle';
 }
-
-export function resolveOverallSyncHeadline(status: SyncStepStatus): string {
-  switch (status) {
-    case 'running':
-      return 'Syncing design system...';
-    case 'completed':
-      return 'Design system synced successfully';
-    case 'completed_with_warnings':
-      return 'Sync completed with warnings';
-    case 'failed':
-      return 'Sync failed';
-    case 'queued':
-      return 'Sync queued';
-    case 'idle':
-    default:
-      return 'Ready to sync';
-  }
-}

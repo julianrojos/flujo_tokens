@@ -20,7 +20,6 @@ import {
   resolveUpdateButtonLabel,
 } from '@/features/system/design-system-update-actions-logic';
 import {
-  resolveOverallSyncHeadline,
   resolveOverallSyncStatus,
   type SyncStepKey,
   type SyncStepStatus,
@@ -583,11 +582,6 @@ export function DesignSystemUpdateActions({
     [syncSteps.components.status, syncSteps.variables.status, syncSteps.tokens.status],
   );
 
-  const overallSyncSummary = useMemo(
-    () => resolveOverallSyncHeadline(overallSyncStatus),
-    [overallSyncStatus],
-  );
-
   const isSyncRunning = overallSyncStatus === 'running';
 
   const updateStepState = useCallback(
@@ -879,6 +873,15 @@ export function DesignSystemUpdateActions({
     ],
   );
 
+  const handleApplyAndRunSync = useCallback(async () => {
+    try {
+      await runSyncDiffApply();
+    } catch {
+      return;
+    }
+    await startSync();
+  }, [runSyncDiffApply, startSync]);
+
   const retryFailedStep = useCallback(
     async (step: SyncStepKey) => {
       const url = String(sharedFigmaUrl || '').trim();
@@ -1063,7 +1066,7 @@ export function DesignSystemUpdateActions({
           isPreviewing={isSyncDiffPreviewing}
           isApplying={isSyncDiffApplying}
           onPreview={() => void runSyncDiffPreview()}
-          onApply={() => void runSyncDiffApply()}
+          onApply={() => void handleApplyAndRunSync()}
           onReset={resetSyncDiffPreview}
         />
 
@@ -1079,23 +1082,15 @@ export function DesignSystemUpdateActions({
                   : 'Components and variables run in parallel. CSS is generated after. Partial failure is reported per step.'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {isSyncRunning && activeSyncJobId ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void cancelSync()}
-                >
-                  Cancel
-                </Button>
-              ) : null}
+            {isSyncRunning && activeSyncJobId ? (
               <Button
-                onClick={() => void startSync()}
-                disabled={disabled || isSyncRunning}
+                variant="outline"
+                size="sm"
+                onClick={() => void cancelSync()}
               >
-                {isSyncRunning ? 'Syncing...' : 'Sync design system'}
+                Cancel
               </Button>
-            </div>
+            ) : null}
           </div>
 
           {syncError ? (
@@ -1213,19 +1208,6 @@ export function DesignSystemUpdateActions({
             })}
           </div>
 
-          <div className="mt-4 rounded border border-border/70 bg-surface-1 p-3">
-            <p className="text-sm font-semibold titles-color">
-              {overallSyncSummary}
-            </p>
-            {overallSyncStatus !== 'idle' ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Overall status:{' '}
-                <span className="font-medium text-foreground">
-                  {overallSyncStatus.replace(/_/g, ' ')}
-                </span>
-              </p>
-            ) : null}
-          </div>
         </div>
 
         <div className="space-y-2">

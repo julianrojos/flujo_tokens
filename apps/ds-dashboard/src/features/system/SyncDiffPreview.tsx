@@ -292,7 +292,7 @@ export function SyncDiffPreview({
               disabled={disabled || isPreviewing || isApplying}
               loading={isApplying}
             >
-              Apply changes
+              Sync design system
             </Button>
           </>
         ) : (
