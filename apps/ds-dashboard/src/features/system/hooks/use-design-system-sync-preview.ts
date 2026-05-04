@@ -4,9 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   applySyncDesignSystem,
   previewSyncDesignSystem,
+  syncDesignSystemStep,
   type SyncDesignSystemApplyResponse,
   type SyncDesignSystemDiffResult,
   type SyncDesignSystemDryRunResponse,
+  type SyncDesignSystemStepResult,
 } from '@/lib/api';
 import { toApiErrorDisplay, type ApiErrorDisplay } from '@/lib/api-error-ux';
 
@@ -48,6 +50,8 @@ export interface UseDesignSystemSyncPreviewArgs {
 
 export interface DesignSystemSyncPreviewState {
   diffResult: SyncDesignSystemDiffResult | null;
+  variablesPreview: SyncDesignSystemStepResult | null;
+  variablesPreviewWarning: string | null;
   notice: string | null;
   error: ApiErrorDisplay | null;
   isPreviewing: boolean;
@@ -62,11 +66,15 @@ export function useDesignSystemSyncPreview(
 ): DesignSystemSyncPreviewState {
   const queryClient = useQueryClient();
   const [diffResult, setDiffResult] = useState<SyncDesignSystemDiffResult | null>(null);
+  const [variablesPreview, setVariablesPreview] = useState<SyncDesignSystemStepResult | null>(null);
+  const [variablesPreviewWarning, setVariablesPreviewWarning] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
 
   const resetPreview = useCallback(() => {
     setDiffResult(null);
+    setVariablesPreview(null);
+    setVariablesPreviewWarning(null);
     setNotice(null);
     setError(null);
   }, []);
@@ -76,24 +84,65 @@ export function useDesignSystemSyncPreview(
   }, [args.systemId, resetPreview]);
 
   const previewMutation = useMutation({
-    mutationFn: async (): Promise<SyncDesignSystemDryRunResponse> => {
+    mutationFn: async (): Promise<{
+      dryRun: SyncDesignSystemDryRunResponse;
+      variables: SyncDesignSystemStepResult | null;
+      variablesWarning: string | null;
+    }> => {
       const figmaUrl = String(args.figmaUrl || '').trim();
       if (!figmaUrl) {
         throw new Error('Figma URL is required to preview the sync diff.');
       }
-      return previewSyncDesignSystem({
-        systemId: args.systemId,
-        figmaUrl,
-        figmaToken: String(args.figmaToken || '').trim() || undefined,
-      });
+      const figmaToken = String(args.figmaToken || '').trim() || undefined;
+      const [dryRunResult, variablesResult] = await Promise.allSettled([
+        previewSyncDesignSystem({
+          systemId: args.systemId,
+          figmaUrl,
+          figmaToken,
+        }),
+        syncDesignSystemStep(
+          'variables',
+          {
+            url: figmaUrl,
+            figmaToken,
+            dryRun: true,
+          },
+          {
+            systemId: args.systemId,
+          },
+        ),
+      ]);
+      if (dryRunResult.status === 'rejected') {
+        throw dryRunResult.reason;
+      }
+      if (variablesResult.status === 'rejected') {
+        const reason =
+          variablesResult.reason instanceof Error
+            ? variablesResult.reason.message
+            : String(variablesResult.reason || 'Variables preview failed.');
+        return {
+          dryRun: dryRunResult.value,
+          variables: null,
+          variablesWarning: `Variables preview unavailable: ${reason}`,
+        };
+      }
+      return {
+        dryRun: dryRunResult.value,
+        variables: variablesResult.value,
+        variablesWarning: null,
+      };
     },
     onSuccess: (response) => {
       setError(null);
-      setDiffResult(response.diff);
-      setNotice(buildPreviewNotice(response.diff));
+      setDiffResult(response.dryRun.diff);
+      setVariablesPreview(response.variables);
+      setVariablesPreviewWarning(response.variablesWarning);
+      setNotice(buildPreviewNotice(response.dryRun.diff));
     },
     onError: (cause) => {
       setDiffResult(null);
+      setVariablesPreview(null);
+      setVariablesPreviewWarning(null);
       setNotice(null);
       setError(toPreviewErrorDisplay(cause));
     },
@@ -115,6 +164,8 @@ export function useDesignSystemSyncPreview(
       setError(null);
       setNotice(`Applied changes: ${buildApplyNotice(response.summary)}.`);
       setDiffResult(null);
+      setVariablesPreview(null);
+      setVariablesPreviewWarning(null);
       args.onApplySuccess?.(response);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['component-catalog'] }),
@@ -129,11 +180,13 @@ export function useDesignSystemSyncPreview(
 
   return {
     diffResult,
+    variablesPreview,
+    variablesPreviewWarning,
     notice,
     error,
     isPreviewing: previewMutation.isPending,
     isApplying: applyMutation.isPending,
-    runPreview: async () => previewMutation.mutateAsync(),
+    runPreview: async () => (await previewMutation.mutateAsync()).dryRun,
     runApply: async () => applyMutation.mutateAsync(),
     resetPreview,
   };

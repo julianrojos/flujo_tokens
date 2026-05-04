@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import type {
   SyncDesignSystemDiffResult,
   SyncDesignSystemNodeSnapshot,
   SyncDesignSystemDiffDbComponentRef,
+  SyncDesignSystemStepResult,
 } from '@/lib/api';
 import type { ApiErrorDisplay } from '@/lib/api-error-ux';
 
@@ -26,6 +27,9 @@ type BucketKey = keyof SyncDesignSystemDiffResult;
 
 interface SyncDiffPreviewProps {
   diffResult: SyncDesignSystemDiffResult | null;
+  variablesPreview?: SyncDesignSystemStepResult | null;
+  variablesPreviewWarning?: string | null;
+  syncExecutionPanel?: ReactNode;
   notice?: string | null;
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
@@ -155,6 +159,9 @@ function renderBucketItem(
 
 export function SyncDiffPreview({
   diffResult,
+  variablesPreview = null,
+  variablesPreviewWarning = null,
+  syncExecutionPanel = null,
   notice,
   error,
   isPreviewing = false,
@@ -202,6 +209,47 @@ export function SyncDiffPreview({
           <StatusAlert variant="success">
             <StatusAlertTitle>Preview ready</StatusAlertTitle>
             <StatusAlertDescription>{notice}</StatusAlertDescription>
+          </StatusAlert>
+        ) : null}
+
+        {variablesPreview ? (
+          <div className="rounded border border-border/70 bg-surface-1 p-3">
+            <p className="text-sm font-semibold titles-color">Variables preview</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {variablesPreview.summary}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge
+                variant={
+                  variablesPreview.status === 'failed'
+                    ? 'error'
+                    : variablesPreview.status === 'completed_with_warnings'
+                      ? 'warning'
+                      : 'success'
+                }
+              >
+                {variablesPreview.status.replace(/_/g, ' ')}
+              </Badge>
+              {Object.entries(variablesPreview.counts).map(([label, value]) => (
+                <Badge key={label} variant="neutral">
+                  {label}: {value}
+                </Badge>
+              ))}
+            </div>
+            {variablesPreview.warnings.length > 0 ? (
+              <ul className="mt-2 space-y-1 text-xs text-status-warning">
+                {variablesPreview.warnings.map((warning) => (
+                  <li key={warning}>• {warning}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        {variablesPreviewWarning ? (
+          <StatusAlert variant="warning">
+            <StatusAlertTitle>Variables preview unavailable</StatusAlertTitle>
+            <StatusAlertDescription>{variablesPreviewWarning}</StatusAlertDescription>
           </StatusAlert>
         ) : null}
 
@@ -264,6 +312,8 @@ export function SyncDiffPreview({
             })}
           </div>
         )}
+
+        {syncExecutionPanel}
       </CardContent>
 
       <CardFooter className="flex flex-wrap justify-end gap-2">

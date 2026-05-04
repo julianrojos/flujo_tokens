@@ -490,6 +490,8 @@ export function DesignSystemUpdateActions({
     } | null>(null);
   const {
     diffResult: syncDiffResult,
+    variablesPreview: syncVariablesPreview,
+    variablesPreviewWarning: syncVariablesPreviewWarning,
     notice: syncDiffNotice,
     error: syncDiffError,
     isPreviewing: isSyncDiffPreviewing,
@@ -876,7 +878,10 @@ export function DesignSystemUpdateActions({
   const handleApplyAndRunSync = useCallback(async () => {
     try {
       await runSyncDiffApply();
-    } catch {
+    } catch (cause) {
+      const reason =
+        cause instanceof Error ? cause.message : String(cause || 'Apply step failed.');
+      setSyncError(`Sync did not start because apply failed: ${reason}`);
       return;
     }
     await startSync();
@@ -1055,6 +1060,148 @@ export function DesignSystemUpdateActions({
       <div className="mt-5 space-y-4">
         <SyncDiffPreview
           diffResult={syncDiffResult}
+          variablesPreview={syncVariablesPreview}
+          variablesPreviewWarning={syncVariablesPreviewWarning}
+          syncExecutionPanel={(
+            <div className="rounded-lg border border-border bg-surface-1 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold titles-color">
+                    Sync design system
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {lastSyncedAt
+                      ? `Last synced ${toRelativeTime(lastSyncedAt)} · Components and variables in parallel, then CSS generation`
+                      : 'Components and variables run in parallel. CSS is generated after. Partial failure is reported per step.'}
+                  </p>
+                </div>
+                {isSyncRunning && activeSyncJobId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void cancelSync()}
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
+
+              {syncError ? (
+                <div className="mt-3">
+                  <StatusAlert variant="error" title="Sync error" description={syncError} />
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {(['components', 'variables', 'tokens'] as SyncStepKey[]).map((step) => {
+                  const state = syncSteps[step];
+                  const summary = state.summary;
+                  const canRetry = state.status === 'failed' && !isSyncRunning;
+                  const hasProgress =
+                    state.progress &&
+                    (state.progress.total > 0 || state.progress.completed > 0);
+                  return (
+                    <section
+                      key={step}
+                      className="rounded border border-border/70 bg-card p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-titles font-semibold titles-color">
+                            {resolveStepLabel(step)}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {summary?.headline ??
+                              (state.status === 'running'
+                                ? 'Running'
+                                : state.status === 'queued'
+                                  ? 'Queued'
+                                  : 'Waiting to run')}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusToneClasses(state.status)}`}
+                        >
+                          {state.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+
+                      {hasProgress ? (
+                        <div className="mt-3">
+                          <div className="h-2 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-foreground/70 transition-all"
+                              style={{ width: toProgressWidth(state.progress) }}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {state.progress?.completed ?? 0} /{' '}
+                            {state.progress?.total ?? 0} completed
+                            {state.progress?.currentSlug ? (
+                              <>
+                                {' '}
+                                · current:{' '}
+                                <span className="font-medium text-foreground">
+                                  {state.progress.currentSlug}
+                                </span>
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                      ) : (state.status === 'running' || state.status === 'queued') ? (
+                        <div className="mt-3">
+                          <div className="h-2 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full w-full animate-pulse rounded-full bg-foreground/30" />
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {summary ? (
+                        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          {summary.details.map((detail) => {
+                            const [label, value] = detail.split(':', 2);
+                            return (
+                              <div
+                                key={`${step}-${detail}`}
+                                className="rounded border border-border/60 bg-surface-1 px-2 py-1.5"
+                              >
+                                <dt className="text-muted-foreground">
+                                  {label.trim()}
+                                </dt>
+                                <dd className="font-medium text-foreground">
+                                  {value?.trim() || '0'}
+                                </dd>
+                              </div>
+                            );
+                          })}
+                        </dl>
+                      ) : null}
+
+                      {summary?.warnings.length ? (
+                        <ul className="mt-3 space-y-1 text-xs text-status-warning">
+                          {summary.warnings.map((warning) => (
+                            <li key={`${step}-${warning}`}>• {warning}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+
+                      {canRetry ? (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void retryFailedStep(step)}
+                          >
+                            Rerun failed step
+                          </Button>
+                        </div>
+                      ) : null}
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           notice={syncDiffNotice}
           error={syncDiffError}
           disabled={
@@ -1069,146 +1216,6 @@ export function DesignSystemUpdateActions({
           onApply={() => void handleApplyAndRunSync()}
           onReset={resetSyncDiffPreview}
         />
-
-        <div className="rounded-lg border border-border bg-surface-1 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold titles-color">
-                Sync design system
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {lastSyncedAt
-                  ? `Last synced ${toRelativeTime(lastSyncedAt)} · Components and variables in parallel, then CSS generation`
-                  : 'Components and variables run in parallel. CSS is generated after. Partial failure is reported per step.'}
-              </p>
-            </div>
-            {isSyncRunning && activeSyncJobId ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void cancelSync()}
-              >
-                Cancel
-              </Button>
-            ) : null}
-          </div>
-
-          {syncError ? (
-            <div className="mt-3">
-              <StatusAlert variant="error" title="Sync error" description={syncError} />
-            </div>
-          ) : null}
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(['components', 'variables', 'tokens'] as SyncStepKey[]).map((step) => {
-              const state = syncSteps[step];
-              const summary = state.summary;
-              const canRetry = state.status === 'failed' && !isSyncRunning;
-              const hasProgress =
-                state.progress &&
-                (state.progress.total > 0 || state.progress.completed > 0);
-              return (
-                <section
-                  key={step}
-                  className="rounded border border-border/70 bg-card p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-titles font-semibold titles-color">
-                        {resolveStepLabel(step)}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {summary?.headline ??
-                          (state.status === 'running'
-                            ? 'Running'
-                            : state.status === 'queued'
-                              ? 'Queued'
-                              : 'Waiting to run')}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusToneClasses(state.status)}`}
-                    >
-                      {state.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-
-                  {hasProgress ? (
-                    <div className="mt-3">
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-foreground/70 transition-all"
-                          style={{ width: toProgressWidth(state.progress) }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {state.progress?.completed ?? 0} /{' '}
-                        {state.progress?.total ?? 0} completed
-                        {state.progress?.currentSlug ? (
-                          <>
-                            {' '}
-                            · current:{' '}
-                            <span className="font-medium text-foreground">
-                              {state.progress.currentSlug}
-                            </span>
-                          </>
-                        ) : null}
-                      </p>
-                    </div>
-                  ) : (state.status === 'running' || state.status === 'queued') ? (
-                    <div className="mt-3">
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full w-full animate-pulse rounded-full bg-foreground/30" />
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {summary ? (
-                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      {summary.details.map((detail) => {
-                        const [label, value] = detail.split(':', 2);
-                        return (
-                          <div
-                            key={`${step}-${detail}`}
-                            className="rounded border border-border/60 bg-surface-1 px-2 py-1.5"
-                          >
-                            <dt className="text-muted-foreground">
-                              {label.trim()}
-                            </dt>
-                            <dd className="font-medium text-foreground">
-                              {value?.trim() || '0'}
-                            </dd>
-                          </div>
-                        );
-                      })}
-                    </dl>
-                  ) : null}
-
-                  {summary?.warnings.length ? (
-                    <ul className="mt-3 space-y-1 text-xs text-status-warning">
-                      {summary.warnings.map((warning) => (
-                        <li key={`${step}-${warning}`}>• {warning}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-
-                  {canRetry ? (
-                    <div className="mt-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void retryFailedStep(step)}
-                      >
-                        Rerun failed step
-                      </Button>
-                    </div>
-                  ) : null}
-                </section>
-              );
-            })}
-          </div>
-
-        </div>
 
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
