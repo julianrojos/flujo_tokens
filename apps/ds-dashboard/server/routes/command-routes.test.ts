@@ -51,6 +51,7 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
       getAll: () => [],
       upsertFromRegistry: () => 0,
     },
+    databaseUrl: 'postgres://ds:local@localhost:5432/ds_dashboard',
     hasPluginSocketForFile: () => true,
     toBooleanString: (value: unknown, fallback: boolean) => {
       if (typeof value === 'boolean') return value ? 'true' : 'false';
@@ -342,6 +343,11 @@ describe('command-routes', () => {
 
       assert.equal(runResult.ok, true);
       assert.equal(runCalls.length, 1);
+      assert.equal(runCalls[0]?.commandArgs?.includes('--component-kind'), true);
+      assert.equal(runCalls[0]?.commandArgs?.includes('all'), true);
+      assert.equal(runCalls[0]?.commandEnv?.DATABASE_URL, 'postgres://ds:local@localhost:5432/ds_dashboard');
+      assert.equal(runCalls[0]?.commandEnv?.TEST_DATABASE_URL, 'postgres://ds:local@localhost:5432/ds_dashboard');
+      assert.equal(runCalls[0]?.commandEnv?.DB_PROVIDER, 'local');
       assert.equal(runResult.code, 0);
       assert.equal(runResult.payload?.status, 'completed_with_warnings');
       assert.equal(runResult.payload?.steps?.components?.status, 'completed');
@@ -422,6 +428,166 @@ describe('command-routes', () => {
       assert.equal(runResult.payload?.steps?.variables?.status, 'completed');
     });
 
+    it('treats an empty successful component capture run as completed_with_warnings', async () => {
+      let queuedArgs: any = null;
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async () => ({
+          ok: true,
+          code: 0,
+          summary: 'No components found.',
+          payload: {
+            ok: true,
+            captured: [],
+            failed: [],
+            skipped: [],
+            targets: [],
+            warnings: ['No components were available to capture.'],
+          },
+        }),
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 2,
+          tokenModeValues: 1,
+          aliases: 0,
+          components: 0,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'not-requested' as const,
+          usageReindexReason: 'none' as const,
+          usageReindexWarnings: [],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
+          dryRun: false,
+          importMode: 'full' as const,
+          selectedCount: 0,
+          notSelectedCount: 0,
+        }),
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_job_empty_components' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(runResult.payload?.status, 'completed_with_warnings');
+      assert.equal(runResult.payload?.steps?.components?.status, 'completed_with_warnings');
+      assert.ok(Array.isArray(runResult.payload?.warnings));
+      assert.ok(
+        runResult.payload?.warnings.includes(
+          'No capture targets were resolved from the Figma file.',
+        ),
+      );
+    });
+
+    it('treats skipped component candidates as warnings instead of no components', async () => {
+      let queuedArgs: any = null;
+      const componentRepo = {
+        getAll: () => [],
+        upsertFromRegistry: () => 1,
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo,
+        runQueuedSpawnCommand: async () => ({
+          ok: true,
+          code: 0,
+          summary: 'Skipped capture candidates.',
+          payload: {
+            ok: true,
+            captured: [],
+            failed: [],
+            skipped: [
+              {
+                node_id: '1:2',
+                reason: 'slug-resolution-failed',
+              },
+            ],
+            targets: [],
+            warnings: ['Component candidate skipped during capture.'],
+          },
+        }),
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 2,
+          tokenModeValues: 1,
+          aliases: 0,
+          components: 0,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'not-requested' as const,
+          usageReindexReason: 'none' as const,
+          usageReindexWarnings: [],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
+          dryRun: false,
+          importMode: 'full' as const,
+          selectedCount: 0,
+          notSelectedCount: 0,
+        }),
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_job_skipped_components' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(runResult.payload?.status, 'completed_with_warnings');
+      assert.equal(runResult.payload?.steps?.components?.status, 'completed_with_warnings');
+      assert.ok(Array.isArray(runResult.payload?.warnings));
+      assert.ok(
+        runResult.payload?.warnings.includes(
+          '1 component candidate(s) were skipped during capture.',
+        ),
+      );
+      assert.ok(
+        !runResult.payload?.warnings.includes(
+          'No capture targets were resolved from the Figma file.',
+        ),
+      );
+    });
+
     it('marks the overall sync as failed when both steps fail', async () => {
       let queuedArgs: any = null;
       const componentRepo = {
@@ -478,6 +644,7 @@ describe('command-routes', () => {
   describe('/api/sync-design-system/step/:step', () => {
     it('returns a queued job for rerunning a single failed component step', async () => {
       let queuedArgs: any = null;
+      const runCalls: any[] = [];
       const componentRepo = {
         getAll: () => [],
         upsertFromRegistry: () => 1,
@@ -490,30 +657,33 @@ describe('command-routes', () => {
         }),
         db: {} as any,
         componentRepo,
-        runQueuedSpawnCommand: async () => ({
-          ok: true,
-          code: 0,
-          summary: 'Success',
-          payload: {
+        runQueuedSpawnCommand: async (args: any) => {
+          runCalls.push(args);
+          return {
             ok: true,
-            source: { file_key: 'abc123' },
-            captured: [
-              {
-                slug: 'button',
-                node_id: '1:2',
-                doc_path: 'design-systems/core/docs/components/button.md',
-                local_image_path: 'apps/ds-dashboard/tmp/button.png',
-              },
-            ],
-            targets: [
-              {
-                slug: 'button',
-                node_id: '1:2',
-                doc_path: 'design-systems/core/docs/components/button.md',
-              },
-            ],
-          },
-        }),
+            code: 0,
+            summary: 'Success',
+            payload: {
+              ok: true,
+              source: { file_key: 'abc123' },
+              captured: [
+                {
+                  slug: 'button',
+                  node_id: '1:2',
+                  doc_path: 'design-systems/core/docs/components/button.md',
+                  local_image_path: 'apps/ds-dashboard/tmp/button.png',
+                },
+              ],
+              targets: [
+                {
+                  slug: 'button',
+                  node_id: '1:2',
+                  doc_path: 'design-systems/core/docs/components/button.md',
+                },
+              ],
+            },
+          };
+        },
         enqueueQueueJob: (args: any) => {
           queuedArgs = args;
           return { id: 'sync_design_system_step_job' };
@@ -523,6 +693,7 @@ describe('command-routes', () => {
       const res = await app.request('/api/sync-design-system/step/components', { method: 'POST' });
       assert.equal(res.status, 202);
       assert.equal(typeof queuedArgs?.execute, 'function');
+      assert.equal(runCalls.length, 0);
 
       const runResult = await queuedArgs.execute({
         emitChunk: () => {},
@@ -530,6 +701,11 @@ describe('command-routes', () => {
       });
 
       assert.equal(runResult.ok, true);
+      assert.equal(runCalls.length, 1);
+      assert.equal(runCalls[0]?.commandArgs?.includes('--component-kind'), true);
+      assert.equal(runCalls[0]?.commandArgs?.includes('all'), true);
+      assert.equal(runCalls[0]?.commandEnv?.DATABASE_URL, 'postgres://ds:local@localhost:5432/ds_dashboard');
+      assert.equal(runCalls[0]?.commandEnv?.DB_PROVIDER, 'local');
       assert.equal(runResult.payload?.status, 'completed');
       assert.equal(runResult.payload?.summary, 'Components synced.');
     });

@@ -15,7 +15,7 @@ type RepositoryModule = {
 };
 
 type DbModule = {
-  bootstrapDatabase: (args: { databaseUrl: string }) => Promise<unknown>;
+  bootstrapDatabase: (databaseUrl: string, options?: unknown) => Promise<unknown>;
   resolveDashboardDbUrl: (env: NodeJS.ProcessEnv) => string;
 };
 
@@ -96,9 +96,9 @@ export function createDesignSystemRepository(
   const getState = () => {
     if (!statePromise) {
       statePromise = (async () => {
-        const db = await dbSource.bootstrapDatabase({
-          databaseUrl: dbSource.resolveDashboardDbUrl(process.env),
-        });
+        const db = await dbSource.bootstrapDatabase(
+          dbSource.resolveDashboardDbUrl(process.env),
+        );
         const repository = new source.DesignSystemRepository(db, repoRoot) as DesignSystemRepository;
         return { db, repository };
       })();

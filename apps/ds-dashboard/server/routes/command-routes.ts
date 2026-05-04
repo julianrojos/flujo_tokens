@@ -47,12 +47,15 @@ export interface CommandRoutesDeps {
   };
   enqueueQueueJob: (args: unknown) => { id: string };
   sha256Text: (value: string) => string;
-  runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
+  runQueuedSpawnCommand: (
+    options: unknown,
+  ) => Promise<Record<string, unknown> & { ok: boolean }>;
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   db?: import('postgres').Sql;
+  databaseUrl?: string;
   syncDesignSystemFromPluginFn?: CommandRouteHandlerDeps['syncDesignSystemFromPluginFn'];
   hasPluginSocketForFile?: CommandRouteHandlerDeps['hasPluginSocketForFile'];
   toBooleanString: (value: unknown, fallback: boolean) => string;
@@ -102,14 +105,14 @@ function assertQueueJobAcceptedPayload(
 async function assertQueuedSpawnResult(
   value: Promise<unknown>,
   source: string,
-): Promise<{ ok: boolean }> {
+): Promise<Record<string, unknown> & { ok: boolean }> {
   const resolved = await value;
   if (!isRecord(resolved) || typeof resolved.ok !== 'boolean') {
     throw new TypeError(
       `CommandRoutesDeps.${source} must resolve to an object with boolean ok.`,
     );
   }
-  return { ok: resolved.ok };
+  return resolved as Record<string, unknown> & { ok: boolean };
 }
 
 function toCommandRouteHandlerDeps(
@@ -140,6 +143,7 @@ function toCommandRouteHandlerDeps(
     componentRepo: deps.componentRepo,
     tokenRepo: deps.tokenRepo,
     db: deps.db,
+    databaseUrl: deps.databaseUrl,
     syncDesignSystemFromPluginFn: deps.syncDesignSystemFromPluginFn,
     hasPluginSocketForFile: deps.hasPluginSocketForFile,
     toBooleanString: deps.toBooleanString,

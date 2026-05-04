@@ -13,6 +13,7 @@ import {
   isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
 } from '../lib/command-route-service.ts';
+import { resolveDatabaseProvider } from '../db/pg-db-service.js';
 import {
   buildCaptureFigmaScreenshotQueueArgs,
   buildRefreshScriptQueueArgs,
@@ -66,7 +67,25 @@ function toNonNegativeInt(value: unknown): number {
   return Math.floor(parsed);
 }
 
-function summarizeCapturedStep(result: unknown): {
+function buildCommandEnv(
+  baseEnv: Record<string, string> | undefined,
+  databaseUrl: string | undefined,
+): Record<string, string> | undefined {
+  const normalizedDatabaseUrl = String(databaseUrl || '').trim();
+  if (!normalizedDatabaseUrl) {
+    return baseEnv;
+  }
+  return {
+    ...(baseEnv || {}),
+    DATABASE_URL: normalizedDatabaseUrl,
+    TEST_DATABASE_URL: normalizedDatabaseUrl,
+    DB_PROVIDER: resolveDatabaseProvider({
+      DATABASE_URL: normalizedDatabaseUrl,
+    }),
+  };
+}
+
+export function summarizeCapturedStep(result: unknown): {
   status: 'completed' | 'completed_with_warnings' | 'failed';
   summary: string;
   warnings: string[];
@@ -81,8 +100,15 @@ function summarizeCapturedStep(result: unknown): {
     ? payload.targets.length
     : toNonNegativeInt(payload.targets_total);
   const warnings: string[] = [];
+  const noTargets = targets === 0 && captured === 0 && failed === 0;
   if (failed > 0) {
     warnings.push(`${failed} component(s) failed to import.`);
+  }
+  if (skipped > 0) {
+    warnings.push(`${skipped} component candidate(s) were skipped during capture.`);
+  }
+  if (noTargets && skipped === 0 && payload.ok !== false) {
+    warnings.push('No capture targets were resolved from the Figma file.');
   }
   if (payload.figma_error && typeof payload.figma_error === 'object') {
     const figmaError = payload.figma_error as Record<string, unknown>;
@@ -95,18 +121,23 @@ function summarizeCapturedStep(result: unknown): {
       if (message) warnings.push(message);
     }
   }
-  if (payload.ok === false) {
+  const hardFailure = payload.ok === false;
+  if (hardFailure) {
     const message = toTrimmedString(payload.error) || toTrimmedString(payload.message);
     if (message) warnings.push(message);
   }
 
   const status =
-    payload.ok === false
+    hardFailure
       ? 'failed'
       : failed > 0
-        ? captured > 0
-          ? 'completed_with_warnings'
-          : 'failed'
+      ? captured > 0
+        ? 'completed_with_warnings'
+        : 'failed'
+      : skipped > 0
+        ? 'completed_with_warnings'
+        : noTargets && !hardFailure
+      ? 'completed_with_warnings'
         : 'completed';
 
   return {
@@ -276,6 +307,7 @@ export interface CommandRouteHandlerDeps {
         figmaFileId?: string;
         captureFromFigmaUrlScriptPath: string;
       }>;
+  databaseUrl?: string;
   queueNpmScript: (args: unknown) => { id: string };
   queueJobAcceptedPayload: (job: { id: string }) => {
     ok: boolean;
@@ -1001,6 +1033,7 @@ export async function handleSyncDesignSystemStepRoute(
     failJson,
     createApiRequestId,
     getSystemContext,
+    databaseUrl,
     readJsonBody,
     toBooleanString,
     toNumberString,
@@ -1122,7 +1155,7 @@ export async function handleSyncDesignSystemStepRoute(
             scale: 2,
             format: 'png',
             mainCaptureMode: 'rest',
-            componentKind: 'component_set',
+            componentKind: 'all',
             tokensSource: 'mcp',
           },
           toBooleanString,
@@ -1168,19 +1201,22 @@ export async function handleSyncDesignSystemStepRoute(
           cwd: sysCtx.repoRoot,
           command: 'node',
           commandArgs,
-          commandEnv: captureConfig.commandEnv,
+          commandEnv: buildCommandEnv(captureConfig.commandEnv, databaseUrl),
           commandLabel: `node ${commandArgs.join(' ')}`,
           emitChunk,
           registerProcess: setProcess,
           parseJsonStdout: true,
           allowNonZeroJson: true,
         });
-        const payload =
+      const payload =
           (commandResult as { payload?: unknown }).payload &&
           typeof (commandResult as { payload?: unknown }).payload === 'object'
             ? (commandResult as { payload?: Record<string, unknown> }).payload
             : { ok: commandResult.ok };
-        if (commandResult.ok) {
+        const shouldPersistCapturedPayload =
+          commandResult.ok ||
+          (Array.isArray(payload.captured) && payload.captured.length > 0);
+        if (shouldPersistCapturedPayload) {
           const persisted = await persistCapturePayloadToComponentRepo({
             payload,
             componentRepo,
@@ -1471,6 +1507,7 @@ export async function handleCaptureFigmaScreenshotRoute(
     failJson,
     createApiRequestId,
     getSystemContext,
+    databaseUrl,
     readJsonBody,
     toBooleanString,
     toNumberString,
@@ -1553,6 +1590,7 @@ export async function handleSyncDesignSystemRoute(
     failJson,
     createApiRequestId,
     getSystemContext,
+    databaseUrl,
     readJsonBody,
     toBooleanString,
     toNumberString,
@@ -1607,7 +1645,7 @@ export async function handleSyncDesignSystemRoute(
       scale: 2,
       format: 'png',
       mainCaptureMode: 'rest',
-      componentKind: 'component_set',
+      componentKind: 'all',
       tokensSource: 'mcp',
     },
     toBooleanString,
@@ -1643,7 +1681,7 @@ export async function handleSyncDesignSystemRoute(
         cwd: sysCtx.repoRoot,
         command: 'node',
         commandArgs: componentsCommandArgs,
-        commandEnv: captureConfig.commandEnv,
+        commandEnv: buildCommandEnv(captureConfig.commandEnv, databaseUrl),
         commandLabel: componentsCommandLabel,
         emitChunk,
         registerProcess: setProcess,

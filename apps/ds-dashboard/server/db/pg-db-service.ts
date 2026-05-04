@@ -223,6 +223,9 @@ export function openDatabase(
     connect_timeout: options?.connect_timeout ?? 10,
     ...(options?.prepare !== undefined ? { prepare: options.prepare } : {}),
     ...(options?.ssl !== undefined ? { ssl: options.ssl } : {}),
+    // Redirect PostgreSQL NOTICEs to stderr so they never pollute stdout,
+    // which child processes rely on for structured JSON output.
+    onnotice: (notice) => process.stderr.write(`[DB Notice] ${notice.message ?? JSON.stringify(notice)}\n`),
   });
 }
 

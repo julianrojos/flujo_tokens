@@ -88,9 +88,9 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
     runQueuedSpawnCommand: async (options) => {
       const result = await deps.runQueuedSpawnCommand(options);
       if (!isRecord(result) || typeof result.ok !== 'boolean') {
-        throw new TypeError('commandDeps.runQueuedSpawnCommand must resolve to { ok: boolean }');
+        throw new TypeError('commandDeps.runQueuedSpawnCommand must resolve to an object with boolean ok');
       }
-      return { ok: result.ok };
+      return result as Record<string, unknown> & { ok: boolean };
     },
     queueNpmScript: (args) => {
       const job = deps.queueNpmScript(args);
@@ -110,6 +110,7 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
     tokenRepo: deps.tokenRepo,
     healthRepo: deps.healthRepo,
     db: deps.db,
+    databaseUrl: deps.databaseUrl,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,

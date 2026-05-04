@@ -22,6 +22,7 @@ export interface SystemDeps {
   summarizeDesignSystemsConfig: (config: unknown) => unknown;
   resolveSafeSystemPathsForDeletion: (args: unknown) => unknown;
   repoRoot: string;
+  databaseUrl?: string;
   fsSync: unknown;
 }
 
@@ -52,6 +53,7 @@ export interface CommandDeps {
   createApiRequestId: () => string;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   getSystemContext: (systemHeader: string) => unknown;
+  databaseUrl?: string;
   queueJobAcceptedPayload: (job: unknown) => unknown;
   enqueueQueueJob: (args: unknown) => unknown;
   sha256Text: (value: string) => string;
@@ -187,6 +189,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       createApiRequestId: deps.createApiRequestId,
       readJsonBody: deps.readJsonBody,
       getSystemContext: deps.getSystemContext,
+      databaseUrl: deps.databaseUrl,
       queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
       enqueueQueueJob: deps.enqueueQueueJob,
       sha256Text: deps.sha256Text,
