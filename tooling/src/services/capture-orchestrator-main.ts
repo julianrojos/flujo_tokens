@@ -382,9 +382,9 @@ export async function runCaptureFromFigmaUrl(
   }
 
   if (allowFallbackSources && !hasNodeIdFromUrl) {
-    // Registry candidates are always merged, even when the tree already yielded
-    // candidates, because they carry known component_set node IDs from prior
-    // captures that may no longer be present in the current tree traversal.
+    // Registry candidates are merged only after a live Figma node preflight.
+    // This keeps the fallback available when discovery is empty, while
+    // dropping stale component_set IDs that no longer resolve in Figma.
     const registryCandidates = componentRows
       .map(
         (row): SourceCandidate => ({
@@ -397,16 +397,53 @@ export async function runCaptureFromFigmaUrl(
           type: 'component_set',
         }),
       )
-      .filter((candidate) => String(candidate.node_id || '').trim());
+      .filter((candidate) => {
+        const nodeId = String(candidate.node_id || '').trim();
+        return nodeId.length > 0;
+      });
 
     if (registryCandidates.length > 0) {
-      const merged = new Map<string, SourceCandidate>();
-      for (const candidate of [...sourceCandidates, ...registryCandidates]) {
-        const nodeId = String(candidate.node_id || '').trim();
-        if (!nodeId || merged.has(nodeId)) continue;
-        merged.set(nodeId, candidate);
+      let existingRegistryNodeIds = new Set<string>();
+      try {
+        const registryNodeIds = Array.from(
+          new Set(
+            registryCandidates
+              .map((candidate) => String(candidate.node_id || '').trim())
+              .filter((nodeId) => nodeId.length > 0),
+          ),
+        );
+        const registryNodePayload = await fetchFigmaNodesFn({
+          fileKey: descriptor.fileKey,
+          nodeIds: registryNodeIds,
+          token: figmaToken,
+        });
+        existingRegistryNodeIds = new Set(
+          Object.entries(registryNodePayload?.nodes || {})
+            .filter(([, node]) => Boolean((node as { document?: unknown } | undefined)?.document))
+            .map(([nodeId]) => String(nodeId || '').trim())
+            .filter((nodeId) => nodeId.length > 0),
+        );
+      } catch (error) {
+        console.warn(
+          `[runCaptureFromFigmaUrl] Registry node preflight failed; skipping persisted registry candidates: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        existingRegistryNodeIds = new Set();
       }
-      sourceCandidates = Array.from(merged.values());
+
+      const filteredRegistryCandidates = registryCandidates.filter((candidate) => {
+        const nodeId = String(candidate.node_id || '').trim();
+        return nodeId.length > 0 && existingRegistryNodeIds.has(nodeId);
+      });
+
+      if (filteredRegistryCandidates.length > 0) {
+        const merged = new Map<string, SourceCandidate>();
+        for (const candidate of [...sourceCandidates, ...filteredRegistryCandidates]) {
+          const nodeId = String(candidate.node_id || '').trim();
+          if (!nodeId || merged.has(nodeId)) continue;
+          merged.set(nodeId, candidate);
+        }
+        sourceCandidates = Array.from(merged.values());
+      }
     }
   }
   const applySlugOverride = Boolean(componentSlugOverride && hasNodeIdFromUrl);
