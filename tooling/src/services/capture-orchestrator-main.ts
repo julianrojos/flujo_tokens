@@ -13,6 +13,7 @@ import {
 } from './figma-component-map.js';
 import {
   fetchFigmaFile,
+  fetchFigmaFileComponents,
   fetchFigmaImages,
   fetchFigmaNodes,
 } from './figma-api.js';
@@ -95,6 +96,7 @@ export interface RunCaptureFromFigmaUrlDeps {
   resolveSystemContextSafeFn?: typeof resolveSystemContextSafe;
   parseFigmaFileUrlFn?: typeof parseFigmaFileUrl;
   fetchFigmaFileFn?: typeof fetchFigmaFile;
+  fetchFigmaFileComponentsFn?: typeof fetchFigmaFileComponents;
   fetchFigmaNodesFn?: typeof fetchFigmaNodes;
   fetchFigmaImagesFn?: typeof fetchFigmaImages;
   buildFigmaComponentMapFn?: typeof buildFigmaComponentMap;
@@ -118,6 +120,7 @@ export interface RunCaptureFromFigmaUrlDeps {
   resolveDocsPathsFn?: typeof resolveDocsPaths;
   stderrWrite?: (data: string) => void;
   createPipelineContext?: typeof createPipelineContext;
+  createCaptureServicesFn?: typeof createCaptureServices;
   orchestrateTokenSyncFn?: typeof orchestrateTokenSync;
   configureFigmaContextFn?: typeof configureFigmaContext;
 }
@@ -145,6 +148,7 @@ export async function runCaptureFromFigmaUrl(
     resolveSystemContextSafeFn = resolveSystemContextSafe,
     parseFigmaFileUrlFn = parseFigmaFileUrl,
     fetchFigmaFileFn = fetchFigmaFile,
+    fetchFigmaFileComponentsFn = fetchFigmaFileComponents,
     fetchFigmaNodesFn = fetchFigmaNodes,
     fetchFigmaImagesFn = fetchFigmaImages,
     buildFigmaComponentMapFn = buildFigmaComponentMap,
@@ -168,6 +172,7 @@ export async function runCaptureFromFigmaUrl(
     resolveDocsPathsFn = resolveDocsPaths,
     stderrWrite: stderrWriteFn = process.stderr.write.bind(process.stderr),
     createPipelineContext: createPipelineContextFn = createPipelineContext,
+    createCaptureServicesFn = createCaptureServices,
     orchestrateTokenSyncFn = orchestrateTokenSync,
     configureFigmaContextFn = configureFigmaContext,
   } = deps;
@@ -273,10 +278,11 @@ export async function runCaptureFromFigmaUrl(
 
   phase = 'build_targets';
   let services: ReturnType<typeof createCaptureServices>;
+  let componentRows: Awaited<ReturnType<ReturnType<typeof createCaptureServices>['readComponentRegistry']>>;
   let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
   try {
-    services = createCaptureServices({ context });
-    const componentRows = await services.readComponentRegistry();
+    services = createCaptureServicesFn({ context });
+    componentRows = await services.readComponentRegistry();
     slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
   } catch (error) {
     throwWithPipelinePhase(error, phase);
@@ -285,6 +291,10 @@ export async function runCaptureFromFigmaUrl(
   const allComponents = Array.isArray(componentMap?.components)
     ? componentMap.components
     : [];
+  const allComponentSets = Array.isArray(componentMap?.componentSets)
+    ? componentMap.componentSets
+    : [];
+  const allSourceItems = [...allComponents, ...allComponentSets];
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
 
   // Build source candidates from components
@@ -296,7 +306,7 @@ export async function runCaptureFromFigmaUrl(
     ) as SourceCandidate[];
   } else if (componentKind && componentKind !== 'all') {
     // Filter by requested component kind
-    sourceCandidates = allComponents
+    sourceCandidates = allSourceItems
       .filter((component) => {
         const kind = classifyTargetKindFn(component.type);
         return isKindAllowedFn(kind, componentKind);
@@ -310,8 +320,8 @@ export async function runCaptureFromFigmaUrl(
         }),
       );
   } else {
-    // All components mode
-    sourceCandidates = allComponents.map(
+    // All components and component sets mode
+    sourceCandidates = allSourceItems.map(
       (component): SourceCandidate => ({
         node_id: component.id,
         name: component.name,
@@ -319,6 +329,71 @@ export async function runCaptureFromFigmaUrl(
         type: component.type,
       }),
     );
+  }
+
+  if (sourceCandidates.length > 1) {
+    const deduped = new Map<string, SourceCandidate>();
+    for (const candidate of sourceCandidates) {
+      const nodeId = String(candidate.node_id || '').trim();
+      if (!nodeId || deduped.has(nodeId)) continue;
+      deduped.set(nodeId, candidate);
+    }
+    sourceCandidates = Array.from(deduped.values());
+  }
+
+  const allowFallbackSources =
+    !componentKind || componentKind === 'all';
+
+  if (allowFallbackSources && !hasNodeIdFromUrl && sourceCandidates.length === 0) {
+    try {
+      const componentsResponse = await fetchFigmaFileComponentsFn({
+        fileKey: descriptor.fileKey,
+        token: figmaToken,
+      });
+      const publishedComponents = Array.isArray(componentsResponse?.meta?.components)
+        ? componentsResponse.meta.components
+        : [];
+      sourceCandidates = publishedComponents.map(
+        (component): SourceCandidate => ({
+          node_id: String(component.node_id || '').trim(),
+          name: String(component.name || '').trim(),
+          kind: 'component',
+          type: 'component',
+          componentSetId: String(component.componentSetId || '').trim() || undefined,
+        }),
+      ).filter((candidate) => String(candidate.node_id || '').trim());
+    } catch (error) {
+      throwWithPipelinePhase(error, phase);
+    }
+  }
+
+  if (allowFallbackSources && !hasNodeIdFromUrl) {
+    // Registry candidates are always merged, even when the tree already yielded
+    // candidates, because they carry known component_set node IDs from prior
+    // captures that may no longer be present in the current tree traversal.
+    const registryCandidates = componentRows
+      .map(
+        (row): SourceCandidate => ({
+          node_id: String(
+            (row as { figma?: { component_set_node_id?: string | null } })
+              .figma?.component_set_node_id || '',
+          ).trim(),
+          name: String((row as { slug?: string }).slug || '').trim(),
+          kind: 'component_set',
+          type: 'component_set',
+        }),
+      )
+      .filter((candidate) => String(candidate.node_id || '').trim());
+
+    if (registryCandidates.length > 0) {
+      const merged = new Map<string, SourceCandidate>();
+      for (const candidate of [...sourceCandidates, ...registryCandidates]) {
+        const nodeId = String(candidate.node_id || '').trim();
+        if (!nodeId || merged.has(nodeId)) continue;
+        merged.set(nodeId, candidate);
+      }
+      sourceCandidates = Array.from(merged.values());
+    }
   }
   const applySlugOverride = Boolean(componentSlugOverride && hasNodeIdFromUrl);
 

@@ -63,18 +63,31 @@ export function summarizeComponentsSyncResult(
     warnings.push(`${result.failed.length} component(s) failed to import.`);
     warnings.push(...summarizeComponentFailure(result.failed));
   }
+  if (skippedCount > 0) {
+    warnings.push(`${skippedCount} component candidate(s) were skipped during capture.`);
+  }
   if (result.figma_error?.message) {
     warnings.push(String(result.figma_error.message));
   }
   if (result.ok === false && warnings.length === 0) {
     warnings.push(String(result.error || result.message || 'Components sync failed.'));
   }
+  if (
+    capturedCount === 0 &&
+    failedCount === 0 &&
+    skippedCount === 0 &&
+    result.ok !== false
+  ) {
+    warnings.push('No capture targets were resolved from the Figma file.');
+  }
 
   let status: SyncStepStatus = 'completed';
-  if (result.ok === false) {
-    status = 'failed';
-  } else if (failedCount > 0) {
+  if (failedCount > 0) {
     status = capturedCount > 0 ? 'completed_with_warnings' : 'failed';
+  } else if (skippedCount > 0) {
+    status = 'completed_with_warnings';
+  } else if (result.ok === false) {
+    status = 'failed';
   }
 
   const headline =
@@ -172,4 +185,3 @@ export function resolveOverallSyncHeadline(status: SyncStepStatus): string {
       return 'Ready to sync';
   }
 }
-

@@ -59,10 +59,17 @@ export function resolveInferredSlug(params: {
     nodeId,
     candidateName,
   } = params;
+  const normalizedNodeSlug = String(nodeId || '')
+    .trim()
+    .replace(/:/g, '_')
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
 
   return (
     (applySlugOverride ? componentSlugOverride : '') ||
     slugByNodeFromRegistry?.get(nodeId) ||
-    normalizeNameToSlug(candidateName)
+    normalizeNameToSlug(candidateName) ||
+    (normalizedNodeSlug ? `component_${normalizedNodeSlug}` : '')
   );
 }

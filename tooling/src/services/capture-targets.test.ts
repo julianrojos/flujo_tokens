@@ -77,4 +77,14 @@ describe('capture-targets', () => {
       'manual-alert',
     );
   });
+
+  it('falls back to a stable node-id based slug when the name is not sluggable', () => {
+    assert.equal(
+      resolveInferredSlug({
+        nodeId: '123:456',
+        candidateName: '!!!',
+      }),
+      'component_123_456',
+    );
+  });
 });

@@ -35,6 +35,25 @@ describe('design-system sync logic', () => {
     assert.equal(summary.warnings[0], '1 component(s) failed to import.');
   });
 
+  it('keeps a failed empty component sync as failed without a no-targets warning', () => {
+    const summary = summarizeComponentsSyncResult({
+      ok: false,
+      targets_total: 0,
+      targets: [],
+      captured: [],
+      failed: [],
+      skipped: [],
+      error: 'Figma API 503',
+    });
+
+    assert.equal(summary.status, 'failed');
+    assert.equal(summary.headline, 'Components sync failed');
+    assert.ok(summary.warnings.includes('Figma API 503'));
+    assert.ok(
+      !summary.warnings.includes('No capture targets were resolved from the Figma file.'),
+    );
+  });
+
   it('marks variables sync as completed when the import is clean', () => {
     const summary = summarizeVariablesSyncResult({
       ok: true,
