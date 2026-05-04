@@ -5,11 +5,11 @@ import { buildCaptureFromFigmaPayload } from "./figma-capture-payload";
 
 test("buildCaptureFromFigmaPayload trims inputs and applies defaults", () => {
   const payload = buildCaptureFromFigmaPayload({
-    figmaUrl: "  https://www.figma.com/design/abc/Test  ",
+    figmaUrl: "  https://www.figma.com/design/abc/Test?node-id=1-2  ",
     figmaToken: "  secret-token  ",
   });
 
-  assert.equal(payload.figmaUrl, "https://www.figma.com/design/abc/Test");
+  assert.equal(payload.figmaUrl, "https://www.figma.com/design/abc/Test?node-id=1-2");
   assert.equal(payload.figmaToken, "secret-token");
   assert.equal(payload.includeVariants, false);
   assert.equal(payload.variantLimit, 6);

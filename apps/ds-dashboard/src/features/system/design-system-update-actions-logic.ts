@@ -13,6 +13,28 @@ export interface BuildUpdateVariablesPayloadArgs {
   figmaToken?: string;
 }
 
+function stripNodeIdFromFigmaUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    for (const key of ["node-id", "node_id", "nodeId"]) {
+      url.searchParams.delete(key);
+    }
+    const rawHash = String(url.hash || "").replace(/^#/, "");
+    if (rawHash) {
+      const hashParams = new URLSearchParams(rawHash.replace(/^[/?]+/, ""));
+      for (const key of ["node-id", "node_id", "nodeId"]) {
+        hashParams.delete(key);
+      }
+      url.hash = hashParams.toString() ? `#${hashParams.toString()}` : "";
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 export function buildUpdateComponentsPayload(
   args: BuildUpdateComponentsPayloadArgs,
 ): { ok: true; payload: CaptureFigmaScreenshotPayload } | { ok: false; error: string } {
@@ -27,7 +49,7 @@ export function buildUpdateComponentsPayload(
   return {
     ok: true,
     payload: buildCaptureFromFigmaPayload({
-      figmaUrl,
+      figmaUrl: stripNodeIdFromFigmaUrl(figmaUrl),
       figmaToken: args.figmaToken,
       includeVariants: false,
       variantLimit: 6,
@@ -35,7 +57,7 @@ export function buildUpdateComponentsPayload(
       continueOnError: true,
       dryRun: false,
       mainCaptureMode: "rest",
-      componentKind: "component_set",
+      componentKind: "all",
       tokensSource: "mcp",
       injectDocSpecs: false,
     }),
