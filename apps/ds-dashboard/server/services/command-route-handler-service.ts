@@ -1472,6 +1472,7 @@ export async function handleSyncDesignSystemApplyRoute(
 
   const createdEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
   const updatedEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
+  const seenDbComponentIds = new Set<number>();
   const figmaSourceUrl =
     figmaUrl || `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId || '')}`;
 
@@ -1496,6 +1497,8 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   for (const entry of snapshotResult.diff.updated_in_figma) {
+    if (seenDbComponentIds.has(entry.db.id)) continue;
+    seenDbComponentIds.add(entry.db.id);
     updatedEntries.push({
       slug: allocateComponentSlug(
         String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
@@ -1520,6 +1523,8 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   for (const entry of snapshotResult.diff.unchanged) {
+    if (seenDbComponentIds.has(entry.db.id)) continue;
+    seenDbComponentIds.add(entry.db.id);
     const needsRelink = String(entry.db.nodeId || '').trim() !== String(entry.figma.nodeId || '').trim();
     const needsBootstrap = !String(entry.db.contentFingerprint || '').trim();
     if (entry.db.status !== 'missing' && !needsRelink && !needsBootstrap) continue;

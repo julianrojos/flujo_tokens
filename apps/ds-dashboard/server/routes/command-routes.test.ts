@@ -566,6 +566,83 @@ describe('command-routes', () => {
       assert.equal(upsertCalls[0]?.entries[0]?.status, 'ready');
     });
 
+    it('deduplicates apply updates when multiple figma candidates match the same DB slug row', async () => {
+      const upsertCalls: Array<{ dsId: string; entries: Array<{ slug?: string; figmaNodeId?: string }> }> = [];
+      const db = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        componentRepo: {
+          getAll: async () => [
+            {
+              id: 1,
+              dsId: 'core',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              docType: 'component',
+              editorialExists: false,
+            },
+          ],
+          getExistingSlugs: async () => ['boton'],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              contentFingerprint: null,
+            },
+          ],
+          upsertFromRegistry: async (
+            dsId: string,
+            entries: Array<{ slug?: string; figmaNodeId?: string }>,
+          ) => {
+            upsertCalls.push({ dsId, entries });
+            return entries.length;
+          },
+          markMissingComponents: async () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
+              {
+                node_id: '1:23',
+                name: 'Botón',
+                type: 'component',
+                page_name: 'Page 1',
+                contentFingerprint: 'Botón||component||Page 1||0',
+              },
+              {
+                node_id: '1:24',
+                name: 'Boton',
+                type: 'component',
+                page_name: 'Page 1',
+                contentFingerprint: 'Boton||component||Page 1||0',
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(upsertCalls[0]?.entries.length, 1);
+    });
+
     it('returns a figma_fetch_failed response when the apply scan fails', async () => {
       const app = createTestApp({
         db: (async () => []) as unknown as any,
