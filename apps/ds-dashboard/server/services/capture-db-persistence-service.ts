@@ -6,6 +6,12 @@ import type { ComponentCatalogEntry } from '../db/component-repository.js';
 
 type CapturePayloadObject = Record<string, unknown>;
 
+type SourceCandidatePayload = {
+  node_id?: unknown;
+  nodeId?: unknown;
+  name?: unknown;
+};
+
 type CaptureTargetPayload = {
   slug?: unknown;
   node_id?: unknown;
@@ -63,6 +69,24 @@ function asRecord(value: unknown): CapturePayloadObject | null {
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function buildSourceCandidateNameByNodeId(
+  value: unknown,
+): Map<string, string> {
+  const byNodeId = new Map<string, string>();
+  if (!Array.isArray(value)) return byNodeId;
+
+  for (const entry of value) {
+    const record = asRecord(entry) as SourceCandidatePayload | null;
+    if (!record) continue;
+    const nodeId = firstNonEmptyString(record.node_id, record.nodeId);
+    const name = firstNonEmptyString(record.name);
+    if (!nodeId || !name || byNodeId.has(nodeId)) continue;
+    byNodeId.set(nodeId, name);
+  }
+
+  return byNodeId;
 }
 
 function validateCapturePayloadShape(payloadObj: CapturePayloadObject): void {
@@ -424,6 +448,9 @@ export async function persistCapturePayloadToComponentRepo(
 
   const source = asRecord(payloadObj.source);
   const figmaFileUrl = buildFigmaFileUrl(source);
+  const sourceCandidateNameByNodeId = buildSourceCandidateNameByNodeId(
+    payloadObj.source_candidates,
+  );
   const capturedRows = asArray(payloadObj.captured).map((entry) => asRecord(entry)).filter(Boolean) as CaptureRowPayload[];
   const existingRows =
     typeof componentRepo.getAll === 'function'
@@ -486,10 +513,15 @@ export async function persistCapturePayloadToComponentRepo(
     const variants = toVariantRows(row.variants, root);
     const capturedAt = toIsoString(row.captured_at) || nowIso();
     const capturedAtEpoch = toUnixEpochSeconds(capturedAt);
+    const nameFromSourceCandidate =
+      sourceCandidateNameByNodeId.get(nodeId);
 
     const entry: ComponentCatalogEntry = {
       slug,
-      name: existing?.name || slugToDisplayName(slug),
+      name:
+        firstNonEmptyString(existing?.name) ||
+        nameFromSourceCandidate ||
+        slugToDisplayName(slug),
       status: 'draft',
       docType: 'component',
       figma: {

@@ -114,6 +114,56 @@ describe('capture-db-persistence-service', () => {
     assert.equal(entries[0].visualProofs[0].variants?.[0].image_height, 60);
   });
 
+  it('uses source candidate names when captured rows omit a display name', async () => {
+    const upsertCalls: unknown[] = [];
+    const componentRepo = {
+      getAll: () => [],
+      getBySlug: () => null,
+      upsertFromRegistry: (_dsId: string, entries: unknown[]) => {
+        upsertCalls.push(entries);
+        return entries.length;
+      },
+    } as any;
+
+    const result = await persistCapturePayloadToComponentRepo({
+      payload: {
+        source: { file_key: 'ABC123' },
+        source_candidates: [
+          {
+            node_id: '1:2',
+            name: 'botón',
+            type: 'component',
+          },
+        ],
+        targets: [
+          {
+            slug: 'boton',
+            node_id: '1:2',
+            doc_path: 'design-systems/sys-01/docs/components/boton.md',
+          },
+        ],
+        captured: [
+          {
+            slug: 'boton',
+            node_id: '1:2',
+            doc_path: 'design-systems/sys-01/docs/components/boton.md',
+            local_image_path: '/repo/design-systems/sys-01/docs/_generated/visual-proofs/images/boton.png',
+            variants_count: 0,
+          },
+        ],
+      },
+      componentRepo,
+      systemId: 'sys-01',
+      repoRoot: '/repo',
+      nowIso: () => '2026-03-31T10:00:00.000Z',
+    });
+
+    assert.deepEqual(result, { attempted: 1, upserted: 1, skipped: 0 });
+    assert.equal(upsertCalls.length, 1);
+    const entries = upsertCalls[0] as Array<Record<string, any>>;
+    assert.equal(entries[0].name, 'botón');
+  });
+
   it('skips rows without local image path', async () => {
     let upsertCount = 0;
     const componentRepo = {
@@ -367,7 +417,7 @@ describe('capture-db-persistence-service', () => {
     }
   });
 
-  it('reconciles empty catalog payload by marking existing components as missing', async () => {
+  it('does not reconcile missing components when catalog payload is empty', async () => {
     const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
     const missingCalls: Array<{ dsId: string; slugs: string[] }> = [];
     const componentRepo = {
@@ -391,9 +441,7 @@ describe('capture-db-persistence-service', () => {
     assert.equal(upsertCalls.length, 1);
     assert.equal(upsertCalls[0]?.dsId, 'sys-01');
     assert.deepEqual(upsertCalls[0]?.entries, []);
-    assert.equal(missingCalls.length, 1);
-    assert.equal(missingCalls[0]?.dsId, 'sys-01');
-    assert.deepEqual(missingCalls[0]?.slugs, []);
+    assert.equal(missingCalls.length, 0);
   });
 
   it('throws when catalog entries payload is not an array', async () => {
