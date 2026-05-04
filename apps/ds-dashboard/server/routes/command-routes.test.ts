@@ -213,6 +213,37 @@ describe('command-routes', () => {
       assert.equal((payload as any).diff.new_in_figma[0].nodeId, '3:3');
     });
 
+    it('normalizes node-id out of the Figma URL before scanning', async () => {
+      const receivedArgs: Array<{ url?: string }> = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File?node-id=1-2&foo=bar',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async (args: Record<string, unknown>) => {
+          receivedArgs.push({ url: String(args.url || '') });
+          return {
+            ok: true,
+            report: { source_candidates: [] },
+          };
+        },
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      assert.equal(receivedArgs.length, 1);
+      assert.equal(
+        receivedArgs[0]?.url,
+        'https://www.figma.com/design/abc123/Test-File?foo=bar',
+      );
+    });
+
     it('returns a figma_fetch_failed response when the scan fails', async () => {
       const app = createTestApp({
         readJsonBody: async () => ({
@@ -464,6 +495,75 @@ describe('command-routes', () => {
         upsertCalls[0]?.entries.map((entry) => entry.slug),
         ['button-2'],
       );
+    });
+
+    it('relinks unchanged legacy components that match by slug but have no node id', async () => {
+      const upsertCalls: Array<{ dsId: string; entries: Array<{ figmaNodeId?: string; status?: string }> }> = [];
+      const db = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        componentRepo: {
+          getAll: async () => [
+            {
+              id: 1,
+              dsId: 'core',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              docType: 'component',
+              editorialExists: false,
+            },
+          ],
+          getExistingSlugs: async () => ['boton'],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              contentFingerprint: 'Botón||COMPONENT||Page 1||0',
+            },
+          ],
+          upsertFromRegistry: async (dsId: string, entries: Array<{ figmaNodeId?: string }>) => {
+            upsertCalls.push({ dsId, entries });
+            return entries.length;
+          },
+          markMissingComponents: async () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
+              {
+                node_id: '1:23',
+                name: 'Botón',
+                type: 'component',
+                page_name: 'Page 1',
+                contentFingerprint: 'Botón||component||Page 1||0',
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any).summary.updated, 1);
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(upsertCalls[0]?.entries[0]?.figmaNodeId, '1:23');
+      assert.equal(upsertCalls[0]?.entries[0]?.status, 'ready');
     });
 
     it('returns a figma_fetch_failed response when the apply scan fails', async () => {

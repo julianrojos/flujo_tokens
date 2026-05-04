@@ -1160,10 +1160,15 @@ export class ComponentRepository {
 
   async getComponentsForDiff(dsId: string): Promise<ComponentDiffEntry[]> {
     const rows = (await this.sql`
-      SELECT id, slug, name, status, figma_node_id, figma_content_fingerprint
+      SELECT
+        id,
+        slug,
+        name,
+        status,
+        COALESCE(figma_node_id, figma_component_set_node_id) AS figma_node_id,
+        figma_content_fingerprint
       FROM components
       WHERE ds_id = ${dsId}
-        AND figma_node_id IS NOT NULL
       ORDER BY name
     `) as Array<{
       id: number;
@@ -1182,8 +1187,7 @@ export class ComponentRepository {
         name: String(row.name || '').trim(),
         status: row.status as ComponentEntry['status'],
         contentFingerprint: row.figma_content_fingerprint ?? null,
-      }))
-      .filter((row) => row.nodeId.length > 0);
+      }));
   }
 
   async getExistingSlugs(dsId: string): Promise<string[]> {
@@ -1609,11 +1613,11 @@ export class ComponentRepository {
       existingNodeIds.map((nodeId) => String(nodeId || '').trim()).filter((nodeId) => nodeId.length > 0),
     );
     const activeRows = (await this.sql`
-      SELECT figma_node_id
+      SELECT COALESCE(figma_node_id, figma_component_set_node_id) AS figma_node_id
       FROM components
       WHERE ds_id = ${dsId}
         AND status != 'missing'
-        AND figma_node_id IS NOT NULL
+        AND COALESCE(figma_node_id, figma_component_set_node_id) IS NOT NULL
     `) as Array<{ figma_node_id: string }>;
 
     const missingNodeIds = activeRows
@@ -1637,7 +1641,7 @@ export class ComponentRepository {
         UPDATE components
         SET status = 'missing', updated_at = now()
         WHERE ds_id = ${dsId}
-          AND figma_node_id = ANY(${batch})
+          AND COALESCE(figma_node_id, figma_component_set_node_id) = ANY(${batch})
           AND status != 'missing'
       `;
       changed += result.count ?? 0;
@@ -1685,7 +1689,9 @@ export class ComponentRepository {
       const rows = (await this.sql`
         SELECT id, slug
         FROM components
-        WHERE ds_id = ${dsId} AND figma_component_set_node_id = ${figmaComponentSetNodeId} AND status != 'missing'
+        WHERE ds_id = ${dsId}
+          AND COALESCE(figma_node_id, figma_component_set_node_id) = ${figmaComponentSetNodeId}
+          AND status != 'missing'
         LIMIT 1
       `) as Array<{ id: number | string; slug: string }>;
       return rows.length > 0
@@ -1696,7 +1702,8 @@ export class ComponentRepository {
     const rows = (await this.sql`
       SELECT id, slug
       FROM components
-      WHERE figma_component_set_node_id = ${figmaComponentSetNodeId} AND status != 'missing'
+      WHERE COALESCE(figma_node_id, figma_component_set_node_id) = ${figmaComponentSetNodeId}
+        AND status != 'missing'
       ORDER BY updated_at DESC
       LIMIT 1
     `) as Array<{ id: number | string; slug: string }>;

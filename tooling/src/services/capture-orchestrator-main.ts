@@ -482,16 +482,20 @@ export async function runCaptureFromFigmaUrl(
     ? componentMap.componentSets
     : [];
   const treeContains = componentMap?.tree_contains;
+  // Components that are children of a COMPONENT_SET are variants, not top-level
+  // design system components. Exclude them from source candidates so that only
+  // the parent COMPONENT_SET (or standalone COMPONENTs with no parent set)
+  // appear in the diff/capture targets. This avoids counting every button variant
+  // as a separate component.
   const nestedComponentNodeIds = new Set(
-    Array.isArray(treeContains)
-      ? treeContains.map((relation) => String(relation?.child_node_id || '').trim())
-      : [],
+    (Array.isArray(treeContains) ? treeContains : [])
+      .map((rel) => String(rel.child_node_id || '').trim())
+      .filter(Boolean),
   );
-  const rootComponents = allComponents.filter((component) => {
-    const nodeId = String(component.id || '').trim();
-    return nodeId.length > 0 && !nestedComponentNodeIds.has(nodeId);
-  });
-  const allSourceItems = [...rootComponents, ...allComponentSets];
+  const topLevelComponents = allComponents.filter(
+    (c) => !nestedComponentNodeIds.has(String(c.id || '').trim()),
+  );
+  const allSourceItems = [...topLevelComponents, ...allComponentSets];
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
 
   // Build source candidates from components
@@ -541,7 +545,7 @@ export async function runCaptureFromFigmaUrl(
   const allowFallbackSources =
     !componentKind || componentKind === 'all';
 
-  if (allowFallbackSources && !hasNodeIdFromUrl && sourceCandidates.length === 0) {
+  if (allowFallbackSources && !hasNodeIdFromUrl) {
     try {
       const componentsResponse = await fetchFigmaFileComponentsFn({
         fileKey: descriptor.fileKey,
@@ -550,15 +554,33 @@ export async function runCaptureFromFigmaUrl(
       const publishedComponents = Array.isArray(componentsResponse?.meta?.components)
         ? componentsResponse.meta.components
         : [];
-      sourceCandidates = publishedComponents.map(
-        (component): SourceCandidate => ({
-          node_id: String(component.node_id || '').trim(),
-          name: String(component.name || '').trim(),
-          kind: 'component',
-          type: 'component',
-          componentSetId: String(component.componentSetId || '').trim() || undefined,
-        }),
-      ).filter((candidate) => String(candidate.node_id || '').trim());
+      const publishedSourceCandidates = publishedComponents
+        .filter((component) => {
+          // Skip variants: a published component with a componentSetId is a
+          // child of a COMPONENT_SET and should not appear as a top-level target.
+          const setId = String(component.componentSetId || '').trim();
+          if (setId) return false;
+          const nodeId = String(component.node_id || '').trim();
+          return nodeId && !nestedComponentNodeIds.has(nodeId);
+        })
+        .map(
+          (component): SourceCandidate => ({
+            node_id: String(component.node_id || '').trim(),
+            name: String(component.name || '').trim(),
+            kind: 'component',
+            type: 'component',
+          }),
+        );
+
+      if (publishedSourceCandidates.length > 0) {
+        const merged = new Map<string, SourceCandidate>();
+        for (const candidate of [...sourceCandidates, ...publishedSourceCandidates]) {
+          const nodeId = String(candidate.node_id || '').trim();
+          if (!nodeId || merged.has(nodeId)) continue;
+          merged.set(nodeId, candidate);
+        }
+        sourceCandidates = Array.from(merged.values());
+      }
     } catch (error) {
       throwWithPipelinePhase(error, phase);
     }

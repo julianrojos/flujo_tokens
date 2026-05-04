@@ -153,7 +153,7 @@ describe('ComponentRepository', () => {
             );
         });
 
-        it('returns only figma-node-backed components for diffing', async () => {
+        it('returns figma-node-backed, legacy, and manual components for diffing', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('diff-sys', 'Diff Test')`;
 
             await repo.upsertFromRegistry('diff-sys', [
@@ -169,13 +169,21 @@ describe('ComponentRepository', () => {
                     name: 'Manual Note',
                     status: 'draft',
                 },
+                {
+                    slug: 'legacy-button',
+                    name: 'Legacy Button',
+                    status: 'ready',
+                    figma: { componentSetNodeId: '20:5' },
+                },
             ]);
 
             const diffRows = await repo.getComponentsForDiff('diff-sys');
-            assert.strictEqual(diffRows.length, 1);
-            assert.strictEqual(diffRows[0].nodeId, '10:1');
-            assert.strictEqual(diffRows[0].slug, 'button');
-            assert.strictEqual(diffRows[0].contentFingerprint, 'Button||COMPONENT||Components||0');
+            assert.strictEqual(diffRows.length, 3);
+            const bySlug = new Map(diffRows.map((row) => [row.slug, row]));
+            assert.strictEqual(bySlug.get('button')?.nodeId, '10:1');
+            assert.strictEqual(bySlug.get('button')?.contentFingerprint, 'Button||COMPONENT||Components||0');
+            assert.strictEqual(bySlug.get('legacy-button')?.nodeId, '20:5');
+            assert.strictEqual(bySlug.get('manual-note')?.nodeId, '');
         });
 
         it('returns all non-empty slugs for deduplication', async () => {

@@ -124,6 +124,37 @@ describe('figma-diff-service', () => {
     assert.deepStrictEqual(result.missing_in_figma, [dbComponent]);
   });
 
+  it('matches legacy DB components by slug when node id does not match', () => {
+    const figmaSnapshot: FigmaNodeSnapshot = {
+      nodeId: '1:23',
+      name: 'Botón',
+      slug: 'boton',
+      type: 'COMPONENT',
+      pageName: 'Page 1',
+      variantCount: 0,
+      contentFingerprint: computeContentFingerprint({
+        name: 'Botón',
+        type: 'COMPONENT',
+        pageName: 'Page 1',
+        variantCount: 0,
+      }),
+    };
+    const dbComponent: DbComponentRef = {
+      id: 1,
+      nodeId: '',
+      slug: 'boton',
+      name: 'Botón',
+      status: 'ready',
+      contentFingerprint: figmaSnapshot.contentFingerprint,
+    };
+
+    const result = diffFigmaVsDb([figmaSnapshot], [dbComponent]);
+
+    assert.deepStrictEqual(result.new_in_figma, []);
+    assert.deepStrictEqual(result.unchanged, [{ figma: figmaSnapshot, db: dbComponent }]);
+    assert.deepStrictEqual(result.missing_in_figma, []);
+  });
+
   it('skips Figma candidates with empty node id', () => {
     const result = diffFigmaVsDb(
       [

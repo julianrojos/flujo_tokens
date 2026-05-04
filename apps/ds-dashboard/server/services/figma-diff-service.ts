@@ -1,3 +1,5 @@
+import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
+
 export type FigmaDiffBucket =
   | 'new_in_figma'
   | 'updated_in_figma'
@@ -8,6 +10,7 @@ export interface FigmaNodeSnapshot {
   nodeId: string;
   name: string;
   type: string;
+  slug?: string;
   pageName?: string;
   variantCount?: number;
   contentFingerprint: string;
@@ -33,6 +36,16 @@ function normalizeNodeId(value: string): string {
   return String(value || '').trim();
 }
 
+function normalizeSlug(value: string): string {
+  return (
+    stripDiacritics(String(value || '').trim())
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  );
+}
+
 function isKnownDbNodeId(db: DbComponentRef): boolean {
   return normalizeNodeId(db.nodeId).length > 0;
 }
@@ -56,13 +69,19 @@ export function diffFigmaVsDb(
   dbComponents: readonly DbComponentRef[],
 ): FigmaDiffResult {
   const dbByNodeId = new Map<string, DbComponentRef>();
+  const dbBySlug = new Map<string, DbComponentRef>();
   for (const dbComponent of dbComponents) {
     const nodeId = normalizeNodeId(dbComponent.nodeId);
-    if (!nodeId || dbByNodeId.has(nodeId)) continue;
-    dbByNodeId.set(nodeId, dbComponent);
+    if (nodeId && !dbByNodeId.has(nodeId)) {
+      dbByNodeId.set(nodeId, dbComponent);
+    }
+    const slug = normalizeSlug(dbComponent.slug);
+    if (slug && !dbBySlug.has(slug)) {
+      dbBySlug.set(slug, dbComponent);
+    }
   }
 
-  const seenDbNodeIds = new Set<string>();
+  const seenDbIds = new Set<number>();
   const newInFigma: FigmaNodeSnapshot[] = [];
   const updatedInFigma: Array<{ figma: FigmaNodeSnapshot; db: DbComponentRef }> = [];
   const unchanged: Array<{ figma: FigmaNodeSnapshot; db: DbComponentRef }> = [];
@@ -71,13 +90,14 @@ export function diffFigmaVsDb(
     const nodeId = normalizeNodeId(figmaSnapshot.nodeId);
     if (!nodeId) continue;
 
-    const dbComponent = dbByNodeId.get(nodeId);
+    const slug = normalizeSlug(figmaSnapshot.slug || figmaSnapshot.name);
+    const dbComponent = dbByNodeId.get(nodeId) ?? (slug ? dbBySlug.get(slug) : undefined);
     if (!dbComponent) {
       newInFigma.push(figmaSnapshot);
       continue;
     }
 
-    seenDbNodeIds.add(nodeId);
+    seenDbIds.add(dbComponent.id);
     if (
       !dbComponent.contentFingerprint ||
       dbComponent.contentFingerprint !== figmaSnapshot.contentFingerprint
@@ -93,7 +113,7 @@ export function diffFigmaVsDb(
     if (!isKnownDbNodeId(dbComponent)) {
       return false;
     }
-    return !seenDbNodeIds.has(normalizeNodeId(dbComponent.nodeId));
+    return !seenDbIds.has(dbComponent.id);
   });
 
   return {

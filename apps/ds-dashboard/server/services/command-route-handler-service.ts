@@ -75,6 +75,28 @@ function toNonNegativeInt(value: unknown): number {
   return Math.floor(parsed);
 }
 
+function stripNodeIdFromFigmaUrl(rawUrl: string): string {
+  const value = String(rawUrl || '').trim();
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    for (const key of ['node-id', 'node_id', 'nodeId']) {
+      url.searchParams.delete(key);
+    }
+    const rawHash = String(url.hash || '').replace(/^#/, '');
+    if (rawHash) {
+      const hashParams = new URLSearchParams(rawHash.replace(/^[/?]+/, ''));
+      for (const key of ['node-id', 'node_id', 'nodeId']) {
+        hashParams.delete(key);
+      }
+      url.hash = hashParams.toString() ? `#${hashParams.toString()}` : '';
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function buildCommandEnv(
   baseEnv: Record<string, string> | undefined,
   databaseUrl: string | undefined,
@@ -284,10 +306,12 @@ function toFigmaNodeSnapshots(
     const variantCount = toNonNegativeInt(
       candidate.variant_count ?? candidate.variantCount,
     );
+    const slug = slugifyComponentName(name);
     snapshots.push({
       nodeId,
       name,
       type,
+      slug,
       pageName,
       variantCount,
       contentFingerprint:
@@ -395,7 +419,7 @@ async function buildSyncDiffSnapshot(params: {
         system: systemId,
         url: figmaUrl,
         'figma-token': figmaToken,
-        dryRun: 'true',
+        'dry-run': 'true',
         'component-kind': 'all',
         'include-variants': 'false',
         'include-spec-exhibits': 'false',
@@ -1228,10 +1252,12 @@ export async function handleSyncDesignSystemDryRunRoute(
   const sysCtx = await getSystemContext(systemHeader);
   const body = await readJsonBody(c);
   const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
-  const figmaUrl = rawFigmaUrl ||
+  const figmaUrl = stripNodeIdFromFigmaUrl(
+    rawFigmaUrl ||
     (sysCtx.figmaFileId
       ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
-      : '');
+      : ''),
+  );
   if (!figmaUrl) {
     return failJson(c, 400, {
       code: 'validation.figma_url_required',
@@ -1329,10 +1355,12 @@ export async function handleSyncDesignSystemApplyRoute(
   const sysCtx = await getSystemContext(systemHeader);
   const body = await readJsonBody(c);
   const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
-  const figmaUrl = rawFigmaUrl ||
+  const figmaUrl = stripNodeIdFromFigmaUrl(
+    rawFigmaUrl ||
     (sysCtx.figmaFileId
       ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
-      : '');
+      : ''),
+  );
   if (!figmaUrl) {
     return failJson(c, 400, {
       code: 'validation.figma_url_required',
@@ -1492,19 +1520,24 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   for (const entry of snapshotResult.diff.unchanged) {
-    if (entry.db.status !== 'missing') continue;
-    updatedEntries.push({
-      slug: allocateComponentSlug(
-        String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
-        usedSlugs,
-        entry.db.slug,
-      ),
-      name: entry.figma.name,
-      status: 'draft',
-      docType: 'component',
-      figmaNodeId: entry.figma.nodeId,
-      contentFingerprint: entry.figma.contentFingerprint,
-      figma: {
+    const needsRelink = String(entry.db.nodeId || '').trim() !== String(entry.figma.nodeId || '').trim();
+    if (entry.db.status !== 'missing' && !needsRelink) continue;
+      updatedEntries.push({
+        slug: allocateComponentSlug(
+          String(entry.db.slug || '').trim() || slugifyComponentName(entry.figma.name),
+          usedSlugs,
+          entry.db.slug,
+        ),
+        name: entry.figma.name,
+        status: (entry.db.status === 'missing' ? 'draft' : entry.db.status) as
+          | 'draft'
+          | 'ready'
+          | 'needs-review'
+          | 'missing',
+        docType: 'component',
+        figmaNodeId: entry.figma.nodeId,
+        contentFingerprint: entry.figma.contentFingerprint,
+        figma: {
         fileUrl: figmaSourceUrl,
         componentSetNodeId: entry.figma.nodeId,
         pageName: entry.figma.pageName,
