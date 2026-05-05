@@ -464,6 +464,7 @@ export function DesignSystemUpdateActions({
     () => cloneEmptySyncState(),
   );
   const [syncError, setSyncError] = useState<string>('');
+  const [hasTriggeredSyncInView, setHasTriggeredSyncInView] = useState(false);
   const [activeSyncJobId, setActiveSyncJobId] = useState<string | null>(null);
   const [activeSyncOperation, setActiveSyncOperation] = useState<'full' | SyncStepKey | null>(null);
   const syncRunIdRef = useRef(0);
@@ -512,12 +513,14 @@ export function DesignSystemUpdateActions({
   useEffect(() => {
     const persisted = loadPersistedSyncState(systemId);
     if (!persisted) {
+      setHasTriggeredSyncInView(false);
       setSyncSteps(cloneEmptySyncState());
       setSyncError('');
       setActiveSyncJobId(null);
       setActiveSyncOperation(null);
       return;
     }
+    setHasTriggeredSyncInView(false);
     setSyncSteps(persisted.steps);
     setSyncError(persisted.error || '');
     if (!persisted.jobId) return;
@@ -628,6 +631,10 @@ export function DesignSystemUpdateActions({
   ]);
 
   const syncOutcome = useMemo(() => {
+    if (!hasTriggeredSyncInView) {
+      return null;
+    }
+
     if (isSyncRunning || isSyncDiffApplying || isSyncDiffPreviewing) {
       return null;
     }
@@ -686,6 +693,7 @@ export function DesignSystemUpdateActions({
 
     return null;
   }, [
+    hasTriggeredSyncInView,
     isSyncDiffApplying,
     isSyncDiffPreviewing,
     isSyncRunning,
@@ -769,6 +777,7 @@ export function DesignSystemUpdateActions({
       const url = String(sharedFigmaUrl || '').trim();
       const nextRunId = syncRunIdRef.current + 1;
       syncRunIdRef.current = nextRunId;
+      setHasTriggeredSyncInView(true);
       setSyncError('');
       resetSyncDiffPreview();
 
@@ -974,6 +983,7 @@ export function DesignSystemUpdateActions({
   );
 
   const handleApplyAndRunSync = useCallback(async () => {
+    setHasTriggeredSyncInView(true);
     try {
       await runSyncDiffApply();
     } catch (cause) {
@@ -1016,6 +1026,7 @@ export function DesignSystemUpdateActions({
   const retryFailedSteps = useCallback(async () => {
     const url = String(sharedFigmaUrl || '').trim();
     const needsUrl = failedSteps.some((step) => step !== 'tokens');
+    setHasTriggeredSyncInView(true);
     if (needsUrl && !url) {
       setSyncError('Figma URL is required to sync the design system.');
       return;

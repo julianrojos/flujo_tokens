@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,22 @@ import type {
 import type { ApiErrorDisplay } from '@/lib/api-error-ux';
 
 type BucketKey = keyof SyncDesignSystemDiffResult;
+type VariablePreviewItem = {
+  id: string;
+  label: string;
+  detail?: string;
+};
+
+type VariablesDiffPreview = Record<BucketKey, VariablePreviewItem[]>;
+type VariablesDiffPreviewBuild = {
+  diff: VariablesDiffPreview | null;
+  counts: Record<BucketKey, number>;
+  hasBucketSignals: boolean;
+};
+type VariableBucketResolution = {
+  items: VariablePreviewItem[];
+  aliasUsed: string | null;
+};
 
 interface SyncDiffPreviewProps {
   diffResult: SyncDesignSystemDiffResult | null;
@@ -96,29 +112,29 @@ const bucketMeta: Record<
   }
 > = {
   new_in_figma: {
-    title: 'Nuevos',
-    description: 'Componentes en Figma que no existen aún en la base de datos.',
+    title: 'New',
+    description: 'Items in Figma that do not exist in the database yet.',
     badgeVariant: 'success',
     itemKind: 'figma',
     defaultOpen: true,
   },
   updated_in_figma: {
-    title: 'Actualizados',
-    description: 'Componentes que existen en ambos lados pero cambiaron en Figma.',
+    title: 'Updated',
+    description: 'Items that exist in both places but changed in Figma.',
     badgeVariant: 'warning',
     itemKind: 'pair',
     defaultOpen: true,
   },
   unchanged: {
-    title: 'Sin cambios',
-    description: 'Componentes que coinciden entre Figma y la base de datos.',
+    title: 'Unchanged',
+    description: 'Items that match between Figma and the database.',
     badgeVariant: 'neutral',
     itemKind: 'pair',
     defaultOpen: false,
   },
   missing_in_figma: {
-    title: 'Desaparecidos',
-    description: 'Componentes presentes en la base de datos pero ausentes en Figma.',
+    title: 'Missing',
+    description: 'Items present in the database but missing in Figma.',
     badgeVariant: 'error',
     itemKind: 'db',
     defaultOpen: true,
@@ -126,7 +142,7 @@ const bucketMeta: Record<
 };
 
 function countLabel(count: number): string {
-  return `${count} ${count === 1 ? 'elemento' : 'elementos'}`;
+  return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
 
 function formatSnapshot(snapshot: SyncDesignSystemNodeSnapshot): string {
@@ -202,6 +218,185 @@ function renderBucketItem(
   );
 }
 
+const variableBucketAliases: Record<BucketKey, string[]> = {
+  new_in_figma: ['new_in_figma', 'new', 'added', 'created'],
+  updated_in_figma: ['updated_in_figma', 'updated', 'modified', 'changed'],
+  unchanged: ['unchanged', 'same'],
+  missing_in_figma: ['missing_in_figma', 'missing', 'deleted', 'removed'],
+};
+
+function toVariablePreviewItem(value: unknown, bucket: BucketKey): VariablePreviewItem | null {
+  if (typeof value === 'string') {
+    const label = value.trim();
+    if (!label) return null;
+    return {
+      id: `${bucket}-${label}`,
+      label,
+    };
+  }
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const label =
+    String(
+      row.name ??
+        row.path ??
+        row.slug ??
+        row.id ??
+        row.key ??
+        row.variableId ??
+        row.variable_id ??
+        '',
+    ).trim() || null;
+  if (!label) return null;
+  const detail =
+    String(
+      row.collection ??
+        row.mode ??
+        row.reason ??
+        row.status ??
+        row.type ??
+        '',
+    ).trim() || undefined;
+  const identity =
+    String(row.id ?? row.key ?? row.variableId ?? row.variable_id ?? label).trim() || label;
+  return {
+    id: `${bucket}-${identity}`,
+    label,
+    detail,
+  };
+}
+
+function readVariableBucketItems(raw: Record<string, unknown>, bucket: BucketKey): VariableBucketResolution {
+  for (const alias of variableBucketAliases[bucket]) {
+    const candidate = raw[alias];
+    if (!Array.isArray(candidate)) continue;
+    const items = candidate
+      .map((entry) => toVariablePreviewItem(entry, bucket))
+      .filter((entry): entry is VariablePreviewItem => entry !== null);
+    if (items.length > 0) return { items, aliasUsed: alias };
+  }
+  return { items: [], aliasUsed: null };
+}
+
+function readVariableBucketCount(
+  raw: Record<string, unknown>,
+  counts: Record<string, number>,
+  bucket: BucketKey,
+  preferredAlias: string | null,
+  fallbackLength: number,
+): number {
+  if (preferredAlias) {
+    const preferredRawValue = raw[preferredAlias];
+    if (
+      typeof preferredRawValue === 'number' &&
+      Number.isFinite(preferredRawValue) &&
+      preferredRawValue >= 0
+    ) {
+      return Math.floor(preferredRawValue);
+    }
+    const preferredCountValue = counts[preferredAlias];
+    if (
+      typeof preferredCountValue === 'number' &&
+      Number.isFinite(preferredCountValue) &&
+      preferredCountValue >= 0
+    ) {
+      return Math.floor(preferredCountValue);
+    }
+  }
+
+  for (const alias of variableBucketAliases[bucket]) {
+    const rawValue = raw[alias];
+    if (typeof rawValue === 'number' && Number.isFinite(rawValue) && rawValue >= 0) {
+      return Math.floor(rawValue);
+    }
+    const countValue = counts[alias];
+    if (typeof countValue === 'number' && Number.isFinite(countValue) && countValue >= 0) {
+      return Math.floor(countValue);
+    }
+  }
+  return fallbackLength;
+}
+
+function buildVariablesDiffPreview(
+  variablesPreview: SyncDesignSystemStepResult | null,
+): VariablesDiffPreviewBuild {
+  if (!variablesPreview) {
+    return {
+      diff: null,
+      counts: {
+        new_in_figma: 0,
+        updated_in_figma: 0,
+        unchanged: 0,
+        missing_in_figma: 0,
+      },
+      hasBucketSignals: false,
+    };
+  }
+
+  const raw =
+    variablesPreview.raw && typeof variablesPreview.raw === 'object'
+      ? (variablesPreview.raw as Record<string, unknown>)
+      : {};
+  const counts =
+    variablesPreview.counts && typeof variablesPreview.counts === 'object'
+      ? variablesPreview.counts
+      : {};
+
+  const newBucket = readVariableBucketItems(raw, 'new_in_figma');
+  const updatedBucket = readVariableBucketItems(raw, 'updated_in_figma');
+  const unchangedBucket = readVariableBucketItems(raw, 'unchanged');
+  const missingBucket = readVariableBucketItems(raw, 'missing_in_figma');
+  const hasBucketSignals = (Object.keys(variableBucketAliases) as BucketKey[]).some((bucket) =>
+    variableBucketAliases[bucket].some((alias) => {
+      const rawValue = raw[alias];
+      if (Array.isArray(rawValue)) return true;
+      if (typeof rawValue === 'number' && Number.isFinite(rawValue)) return true;
+      const countValue = counts[alias];
+      return typeof countValue === 'number' && Number.isFinite(countValue);
+    }),
+  );
+
+  return {
+    diff: {
+      new_in_figma: newBucket.items,
+      updated_in_figma: updatedBucket.items,
+      unchanged: unchangedBucket.items,
+      missing_in_figma: missingBucket.items,
+    },
+    counts: {
+      new_in_figma: readVariableBucketCount(
+        raw,
+        counts,
+        'new_in_figma',
+        newBucket.aliasUsed,
+        newBucket.items.length,
+      ),
+      updated_in_figma: readVariableBucketCount(
+        raw,
+        counts,
+        'updated_in_figma',
+        updatedBucket.aliasUsed,
+        updatedBucket.items.length,
+      ),
+      unchanged: readVariableBucketCount(
+        raw,
+        counts,
+        'unchanged',
+        unchangedBucket.aliasUsed,
+        unchangedBucket.items.length,
+      ),
+      missing_in_figma: readVariableBucketCount(
+        raw,
+        counts,
+        'missing_in_figma',
+        missingBucket.aliasUsed,
+        missingBucket.items.length,
+      ),
+    },
+    hasBucketSignals,
+  };
+}
+
 export function SyncDiffPreview({
   diffResult,
   variablesPreview = null,
@@ -223,7 +418,17 @@ export function SyncDiffPreview({
   onRetryFailedSteps,
 }: SyncDiffPreviewProps) {
   const previewReady = diffResult !== null;
+  const variablesDiffPreview = useMemo(
+    () => buildVariablesDiffPreview(variablesPreview),
+    [variablesPreview],
+  );
   const [openBuckets, setOpenBuckets] = useState<Record<BucketKey, boolean>>({
+    new_in_figma: true,
+    updated_in_figma: true,
+    unchanged: false,
+    missing_in_figma: true,
+  });
+  const [openVariableBuckets, setOpenVariableBuckets] = useState<Record<BucketKey, boolean>>({
     new_in_figma: true,
     updated_in_figma: true,
     unchanged: false,
@@ -234,22 +439,10 @@ export function SyncDiffPreview({
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h3 className="text-base font-titles font-semibold titles-color">Sync diff preview</h3>
+          <h3 className="text-sm font-titles font-semibold titles-color">Sync diff preview</h3>
           <p className="text-sm text-muted-foreground">
             Compare Figma against the database before applying changes.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {previewReady ? (
-            <>
-              <Badge variant="success">{diffResult.new_in_figma.length}</Badge>
-              <Badge variant="warning">{diffResult.updated_in_figma.length}</Badge>
-              <Badge variant="neutral">{diffResult.unchanged.length}</Badge>
-              <Badge variant="error">{diffResult.missing_in_figma.length}</Badge>
-            </>
-          ) : (
-            <Badge variant="neutral">Ready to scan</Badge>
-          )}
         </div>
       </div>
 
@@ -259,40 +452,6 @@ export function SyncDiffPreview({
             <StatusAlertTitle>Preview ready</StatusAlertTitle>
             <StatusAlertDescription>{notice}</StatusAlertDescription>
           </StatusAlert>
-        ) : null}
-
-        {variablesPreview ? (
-          <div className="rounded border border-border/70 bg-surface-1 p-3">
-            <p className="text-sm font-semibold titles-color">Variables preview</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {variablesPreview.summary}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge
-                variant={
-                  variablesPreview.status === 'failed'
-                    ? 'error'
-                    : variablesPreview.status === 'completed_with_warnings'
-                      ? 'warning'
-                      : 'success'
-                }
-              >
-                {variablesPreview.status.replace(/_/g, ' ')}
-              </Badge>
-              {Object.entries(variablesPreview.counts).map(([label, value]) => (
-                <Badge key={label} variant="neutral">
-                  {label}: {value}
-                </Badge>
-              ))}
-            </div>
-            {variablesPreview.warnings.length > 0 ? (
-              <ul className="mt-2 space-y-1 text-xs text-status-warning">
-                {variablesPreview.warnings.map((warning) => (
-                  <li key={warning}>• {warning}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
         ) : null}
 
         {variablesPreviewWarning ? (
@@ -343,6 +502,87 @@ export function SyncDiffPreview({
           </StatusAlert>
         ) : (
           <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <h4 className="text-sm font-titles font-semibold titles-color">Variables</h4>
+                <p className="text-xs text-muted-foreground">
+                  {variablesPreview?.summary || 'Variables dry-run summary is unavailable.'}
+                </p>
+              </div>
+              {!variablesDiffPreview.hasBucketSignals ? (
+                <StatusAlert variant="info">
+                  <StatusAlertTitle>Variables diff unavailable</StatusAlertTitle>
+                  <StatusAlertDescription>
+                    This preview response does not include variable bucket data yet.
+                  </StatusAlertDescription>
+                </StatusAlert>
+              ) : (
+                (
+                  ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
+                ).map((bucket) => {
+                  const meta = bucketMeta[bucket];
+                  const items = variablesDiffPreview.diff?.[bucket] || [];
+                  const count = variablesDiffPreview.counts[bucket];
+                  const open = openVariableBuckets[bucket];
+                  return (
+                    <details
+                      key={`variables-${bucket}`}
+                      className="rounded border border-border/70 bg-surface-1 p-3"
+                      open={open}
+                      onToggle={(event) => {
+                        const nextOpen = event.currentTarget.open;
+                        setOpenVariableBuckets((current) => ({
+                          ...current,
+                          [bucket]: nextOpen,
+                        }));
+                      }}
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-sm font-titles font-semibold leading-none titles-color">{meta.title}</h5>
+                            <Badge variant={meta.badgeVariant}>{count}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        </div>
+                      </summary>
+                      <div className="mt-3">
+                        {items.length > 0 ? (
+                          <ul className="space-y-2">
+                            {items.map((item) => (
+                              <li
+                                key={item.id}
+                                className="rounded border border-border/60 bg-surface-1 px-3 py-2"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="font-medium text-foreground">{item.label}</span>
+                                  {item.detail ? (
+                                    <span className="text-xs text-muted-foreground">{item.detail}</span>
+                                  ) : null}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {count > 0
+                              ? `${countLabel(count)} detected, but this preview response does not include per-variable rows.`
+                              : 'No items in this bucket.'}
+                          </p>
+                        )}
+                      </div>
+                    </details>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
+              <p className="text-xs text-muted-foreground">
+                Compare component identity and fingerprint changes against the database.
+              </p>
+            </div>
             {(
               ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
             ).map((bucket) => {
@@ -365,7 +605,7 @@ export function SyncDiffPreview({
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold titles-color">{meta.title}</span>
+                          <h5 className="text-sm font-titles font-semibold leading-none titles-color">{meta.title}</h5>
                         <Badge variant={meta.badgeVariant}>{items.length}</Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">{meta.description}</p>
