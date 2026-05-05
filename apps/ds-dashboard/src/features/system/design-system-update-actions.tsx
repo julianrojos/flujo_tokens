@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormField } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { StatusAlert } from '@/components/ui/status-alert';
 import { useOperationRunner } from '@/hooks/use-operation-runner';
 import {
   cancelQueueJob,
@@ -176,16 +175,6 @@ export function loadPersistedSyncState(
   } catch {
     return null;
   }
-}
-
-function toRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export function extractQueueJobState(
@@ -397,33 +386,10 @@ function serializeSyncState(
   return JSON.stringify(payload);
 }
 
-function statusToneClasses(status: SyncStepStatus): string {
-  switch (status) {
-    case 'completed':
-      return 'border-status-success-border/40 bg-status-success-bg/15 text-status-success';
-    case 'completed_with_warnings':
-      return 'border-status-warning/40 bg-status-warning/10 text-status-warning';
-    case 'failed':
-      return 'border-status-error/40 bg-status-error-bg/15 text-status-error';
-    case 'running':
-    case 'queued':
-      return 'border-border/70 bg-muted/40 text-foreground';
-    case 'idle':
-    default:
-      return 'border-border/70 bg-surface-1 text-muted-foreground';
-  }
-}
-
 function resolveStepLabel(step: SyncStepKey): string {
   if (step === 'components') return 'Components';
   if (step === 'variables') return 'Variables';
   return 'Build tokens';
-}
-
-function toProgressWidth(progress: CaptureFigmaProgress | null): string {
-  if (!progress || progress.total <= 0) return '0%';
-  const ratio = Math.min(1, progress.completed / progress.total);
-  return `${Math.max(0, ratio * 100)}%`;
 }
 
 function buildFailedSummary(
@@ -436,6 +402,25 @@ function buildFailedSummary(
     details: [],
     warnings: [message],
   };
+}
+
+function toProgressPercentFromStep(step: SyncStepState): number {
+  const progress = step.progress;
+  if (progress && progress.total > 0) {
+    const raw = Math.round((progress.completed / progress.total) * 100);
+    return Math.min(100, Math.max(0, raw));
+  }
+  if (step.status === 'completed') return 100;
+  if (step.status === 'failed') return 100;
+  if (step.status === 'running') return 55;
+  if (step.status === 'queued') return 15;
+  return 0;
+}
+
+function toProgressDetail(step: SyncStepState): string | null {
+  const progress = step.progress;
+  if (!progress || progress.total <= 0) return null;
+  return `${progress.completed}/${progress.total}`;
 }
 
 function toStepStateFromBackend(
@@ -479,11 +464,9 @@ export function DesignSystemUpdateActions({
     () => cloneEmptySyncState(),
   );
   const [syncError, setSyncError] = useState<string>('');
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [activeSyncJobId, setActiveSyncJobId] = useState<string | null>(null);
   const [activeSyncOperation, setActiveSyncOperation] = useState<'full' | SyncStepKey | null>(null);
   const syncRunIdRef = useRef(0);
-  const syncStepsRef = useRef(syncSteps);
   const pendingSyncPersistRef = useRef<{
     jobId?: string;
     error?: string;
@@ -503,9 +486,7 @@ export function DesignSystemUpdateActions({
     systemId,
     figmaUrl: sharedFigmaUrl,
     figmaToken: sharedToken,
-    onApplySuccess: () => {
-      setLastSyncedAt(new Date().toISOString());
-    },
+    onApplySuccess: () => {},
   });
 
   const [componentsState, componentsActions] = useOperationRunner(
@@ -539,9 +520,6 @@ export function DesignSystemUpdateActions({
     }
     setSyncSteps(persisted.steps);
     setSyncError(persisted.error || '');
-    if (persisted.updatedAt && !persisted.error) {
-      setLastSyncedAt(persisted.updatedAt);
-    }
     if (!persisted.jobId) return;
 
     let cancelled = false;
@@ -585,6 +563,136 @@ export function DesignSystemUpdateActions({
   );
 
   const isSyncRunning = overallSyncStatus === 'running';
+  const lastSyncProgressPercentRef = useRef(0);
+
+  const syncProgress = useMemo(() => {
+    if (isSyncDiffPreviewing) {
+      return { active: true, percent: 20, label: 'Previewing sync diff…' };
+    }
+    if (isSyncDiffApplying) {
+      return { active: true, percent: 40, label: 'Applying component reconciliation…' };
+    }
+    if (!isSyncRunning) {
+      lastSyncProgressPercentRef.current = 0;
+      return { active: false, percent: 0, label: '' };
+    }
+
+    const componentsPercent = toProgressPercentFromStep(syncSteps.components);
+    const variablesPercent = toProgressPercentFromStep(syncSteps.variables);
+    const tokensPercent = toProgressPercentFromStep(syncSteps.tokens);
+    const parallelPhasePercent = Math.round((componentsPercent + variablesPercent) / 2);
+    const weightedPercent = Math.round(parallelPhasePercent * 0.7 + tokensPercent * 0.3);
+    const safePercent = Math.min(99, Math.max(5, weightedPercent));
+
+    if (syncSteps.tokens.status === 'running' || syncSteps.tokens.status === 'queued') {
+      const nextPercent = Math.max(70, safePercent);
+      const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, nextPercent);
+      lastSyncProgressPercentRef.current = monotonicPercent;
+      return {
+        active: true,
+        percent: monotonicPercent,
+        label: 'Generating CSS tokens…',
+        detail: toProgressDetail(syncSteps.tokens) || undefined,
+      };
+    }
+    if (syncSteps.components.status === 'running' || syncSteps.variables.status === 'running') {
+      const componentDetail = toProgressDetail(syncSteps.components);
+      const variableDetail = toProgressDetail(syncSteps.variables);
+      const detail = [componentDetail ? `Components ${componentDetail}` : null, variableDetail ? `Variables ${variableDetail}` : null]
+        .filter(Boolean)
+        .join(' · ');
+      const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, safePercent);
+      lastSyncProgressPercentRef.current = monotonicPercent;
+      return {
+        active: true,
+        percent: monotonicPercent,
+        label: 'Syncing components and variables…',
+        detail: detail || undefined,
+      };
+    }
+    if (syncSteps.components.status === 'queued' || syncSteps.variables.status === 'queued') {
+      const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, 10);
+      lastSyncProgressPercentRef.current = monotonicPercent;
+      return { active: true, percent: monotonicPercent, label: 'Queueing sync job…' };
+    }
+    const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, 95);
+    lastSyncProgressPercentRef.current = monotonicPercent;
+    return { active: true, percent: monotonicPercent, label: 'Finalizing sync…' };
+  }, [
+    isSyncDiffApplying,
+    isSyncDiffPreviewing,
+    isSyncRunning,
+    syncSteps.components,
+    syncSteps.tokens,
+    syncSteps.variables,
+  ]);
+
+  const syncOutcome = useMemo(() => {
+    if (isSyncRunning || isSyncDiffApplying || isSyncDiffPreviewing) {
+      return null;
+    }
+
+    const hasExecutedStep =
+      syncSteps.components.status !== 'idle' ||
+      syncSteps.variables.status !== 'idle' ||
+      syncSteps.tokens.status !== 'idle';
+
+    if (!hasExecutedStep) {
+      return null;
+    }
+
+    if (syncError) {
+      return {
+        status: 'error' as const,
+        message: syncError,
+      };
+    }
+
+    const failedStep = (['components', 'variables', 'tokens'] as SyncStepKey[])
+      .map((step) => {
+        const state = syncSteps[step];
+        if (state.status !== 'failed') return null;
+        const reason = state.summary?.warnings?.[0] || state.summary?.headline || '';
+        return String(reason || '').trim() || null;
+      })
+      .find((value) => String(value || '').trim().length > 0);
+
+    if (failedStep) {
+      return {
+        status: 'error' as const,
+        message: failedStep,
+      };
+    }
+
+    if (overallSyncStatus === 'failed') {
+      return {
+        status: 'error' as const,
+        message: 'Sync failed for one or more steps.',
+      };
+    }
+
+    if (
+      overallSyncStatus === 'completed' ||
+      overallSyncStatus === 'completed_with_warnings'
+    ) {
+      return {
+        status: 'success' as const,
+        message:
+          overallSyncStatus === 'completed_with_warnings'
+            ? 'Design system sync completed with warnings.'
+            : 'Design system sync completed successfully.',
+      };
+    }
+
+    return null;
+  }, [
+    isSyncDiffApplying,
+    isSyncDiffPreviewing,
+    isSyncRunning,
+    overallSyncStatus,
+    syncError,
+    syncSteps,
+  ]);
 
   const updateStepState = useCallback(
     (
@@ -627,10 +735,6 @@ export function DesignSystemUpdateActions({
     pendingSyncPersistRef.current = null;
     persistSyncState(syncSteps, pending.jobId, pending.error);
   }, [persistSyncState, syncSteps]);
-
-  useEffect(() => {
-    syncStepsRef.current = syncSteps;
-  }, [syncSteps]);
 
   const cancelSync = useCallback(async () => {
     const jobId = activeSyncJobId;
@@ -796,17 +900,11 @@ export function DesignSystemUpdateActions({
 
           const overallFailed =
             result.status === 'failed' || tokensResult.status === 'failed';
-          const overallWarnings =
-            result.status === 'completed_with_warnings' ||
-            tokensResult.status === 'completed_with_warnings';
           const syncError =
             overallFailed
               ? result.warnings[0] || tokensResult.warnings[0] || 'Sync failed.'
               : '';
           setSyncError(syncError);
-          if (!overallFailed && !overallWarnings) {
-            setLastSyncedAt(new Date().toISOString());
-          }
           pendingSyncPersistRef.current = { jobId: tokensResult.jobId, error: syncError };
           setSyncSteps((prev) => ({
             ...prev,
@@ -887,102 +985,6 @@ export function DesignSystemUpdateActions({
     await startSync();
   }, [runSyncDiffApply, startSync]);
 
-  const retryFailedStep = useCallback(
-    async (step: SyncStepKey) => {
-      const url = String(sharedFigmaUrl || '').trim();
-      if (!url && step !== 'tokens') {
-        setSyncError('Figma URL is required to sync the design system.');
-        return;
-      }
-
-      setSyncError('');
-      resetSyncDiffPreview();
-      updateStepState(step, {
-        status: 'queued',
-        summary: null,
-        progress: {
-          status: 'queued',
-          completed: 0,
-          total: 0,
-          remaining: 0,
-          message: 'Queued',
-        },
-      });
-
-      const runningState: SyncStepState = {
-        status: 'running',
-        summary: null,
-        progress: {
-          status: 'running',
-          completed: 0,
-          total: 0,
-          remaining: 0,
-          message: 'Running',
-        },
-      };
-
-      const stepArgs =
-        step === 'tokens'
-          ? {}
-          : { url, figmaToken: String(sharedToken || '').trim() || undefined };
-
-      try {
-        updateStepState(step, runningState);
-        const result = await syncDesignSystemStep(
-          step,
-          stepArgs,
-          {
-            systemId,
-            onQueued: (jobId) => {
-              const nextStepState = {
-                ...runningState,
-                jobId,
-              };
-              const nextSteps = {
-                ...syncStepsRef.current,
-                [step]: nextStepState,
-              };
-              setActiveSyncJobId(jobId ?? null);
-              setActiveSyncOperation(step);
-              syncStepsRef.current = nextSteps;
-              setSyncSteps(nextSteps);
-              persistSyncState(nextSteps, jobId, '');
-            },
-          },
-        );
-        setActiveSyncJobId(null);
-        setActiveSyncOperation(null);
-        const nextState = toStepStateFromBackend(step, result);
-        pendingSyncPersistRef.current = { jobId: result.jobId, error: '' };
-        updateStepState(step, nextState);
-      } catch (cause) {
-        setActiveSyncJobId(null);
-        setActiveSyncOperation(null);
-        const message =
-          cause instanceof Error ? cause.message : String(cause || 'Sync failed.');
-        const failedState: SyncStepState = {
-          status: 'failed',
-          summary: buildFailedSummary(step, message),
-          progress: null,
-        };
-        setSyncError(message);
-        pendingSyncPersistRef.current = { error: message };
-        setSyncSteps((prev) => ({
-          ...prev,
-          [step]: failedState,
-        }));
-      }
-    },
-    [
-      persistSyncState,
-      resetSyncDiffPreview,
-      sharedFigmaUrl,
-      sharedToken,
-      systemId,
-      updateStepState,
-    ],
-  );
-
   const handleUpdateComponents = useCallback(async () => {
     const built = buildUpdateComponentsPayload({
       figmaUrl: sharedFigmaUrl,
@@ -1003,6 +1005,92 @@ export function DesignSystemUpdateActions({
   }, [variablesActions, sharedFigmaUrl, sharedToken]);
 
   const canRunVariablesUpdate = !disabled && !variablesState.isRunning;
+  const failedSteps = useMemo(
+    () =>
+      (['components', 'variables', 'tokens'] as SyncStepKey[]).filter(
+        (step) => syncSteps[step].status === 'failed',
+      ),
+    [syncSteps],
+  );
+
+  const retryFailedSteps = useCallback(async () => {
+    const url = String(sharedFigmaUrl || '').trim();
+    const needsUrl = failedSteps.some((step) => step !== 'tokens');
+    if (needsUrl && !url) {
+      setSyncError('Figma URL is required to sync the design system.');
+      return;
+    }
+
+    if (failedSteps.length === 0) return;
+    if (failedSteps.includes('components') && failedSteps.includes('variables')) {
+      await startSync();
+      return;
+    }
+
+    setSyncError('');
+    resetSyncDiffPreview();
+
+    for (const step of failedSteps) {
+      const stepArgs =
+        step === 'tokens'
+          ? {}
+          : { url, figmaToken: String(sharedToken || '').trim() || undefined };
+      const runningState: SyncStepState = {
+        status: 'running',
+        summary: null,
+        progress: {
+          status: 'running',
+          completed: 0,
+          total: 0,
+          remaining: 0,
+          message: 'Running',
+        },
+      };
+
+      try {
+        updateStepState(step, runningState);
+        const result = await syncDesignSystemStep(step, stepArgs, {
+          systemId,
+          onQueued: (jobId) => {
+            setActiveSyncJobId(jobId ?? null);
+            setActiveSyncOperation(step);
+            pendingSyncPersistRef.current = { jobId, error: '' };
+            setSyncSteps((prev) => ({
+              ...prev,
+              [step]: { ...runningState, jobId },
+            }));
+          },
+        });
+        setActiveSyncJobId(null);
+        setActiveSyncOperation(null);
+        const nextState = toStepStateFromBackend(step, result);
+        pendingSyncPersistRef.current = { jobId: result.jobId, error: '' };
+        setSyncSteps((prev) => ({ ...prev, [step]: nextState }));
+      } catch (cause) {
+        setActiveSyncJobId(null);
+        setActiveSyncOperation(null);
+        const message =
+          cause instanceof Error ? cause.message : String(cause || `Retry ${step} failed.`);
+        const failedState: SyncStepState = {
+          status: 'failed',
+          summary: buildFailedSummary(step, message),
+          progress: null,
+        };
+        setSyncError(message);
+        pendingSyncPersistRef.current = { error: message };
+        setSyncSteps((prev) => ({ ...prev, [step]: failedState }));
+        break;
+      }
+    }
+  }, [
+    failedSteps,
+    resetSyncDiffPreview,
+    sharedFigmaUrl,
+    sharedToken,
+    startSync,
+    systemId,
+    updateStepState,
+  ]);
 
   return (
     <div>
@@ -1062,146 +1150,9 @@ export function DesignSystemUpdateActions({
           diffResult={syncDiffResult}
           variablesPreview={syncVariablesPreview}
           variablesPreviewWarning={syncVariablesPreviewWarning}
-          syncExecutionPanel={(
-            <div className="rounded-lg border border-border bg-surface-1 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold titles-color">
-                    Sync design system
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {lastSyncedAt
-                      ? `Last synced ${toRelativeTime(lastSyncedAt)} · Components and variables in parallel, then CSS generation`
-                      : 'Components and variables run in parallel. CSS is generated after. Partial failure is reported per step.'}
-                  </p>
-                </div>
-                {isSyncRunning && activeSyncJobId ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void cancelSync()}
-                  >
-                    Cancel
-                  </Button>
-                ) : null}
-              </div>
-
-              {syncError ? (
-                <div className="mt-3">
-                  <StatusAlert variant="error" title="Sync error" description={syncError} />
-                </div>
-              ) : null}
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {(['components', 'variables', 'tokens'] as SyncStepKey[]).map((step) => {
-                  const state = syncSteps[step];
-                  const summary = state.summary;
-                  const canRetry = state.status === 'failed' && !isSyncRunning;
-                  const hasProgress =
-                    state.progress &&
-                    (state.progress.total > 0 || state.progress.completed > 0);
-                  return (
-                    <section
-                      key={step}
-                      className="rounded border border-border/70 bg-card p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-titles font-semibold titles-color">
-                            {resolveStepLabel(step)}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {summary?.headline ??
-                              (state.status === 'running'
-                                ? 'Running'
-                                : state.status === 'queued'
-                                  ? 'Queued'
-                                  : 'Waiting to run')}
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusToneClasses(state.status)}`}
-                        >
-                          {state.status.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-
-                      {hasProgress ? (
-                        <div className="mt-3">
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-foreground/70 transition-all"
-                              style={{ width: toProgressWidth(state.progress) }}
-                            />
-                          </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {state.progress?.completed ?? 0} /{' '}
-                            {state.progress?.total ?? 0} completed
-                            {state.progress?.currentSlug ? (
-                              <>
-                                {' '}
-                                · current:{' '}
-                                <span className="font-medium text-foreground">
-                                  {state.progress.currentSlug}
-                                </span>
-                              </>
-                            ) : null}
-                          </p>
-                        </div>
-                      ) : (state.status === 'running' || state.status === 'queued') ? (
-                        <div className="mt-3">
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full w-full animate-pulse rounded-full bg-foreground/30" />
-                          </div>
-                        </div>
-                      ) : null}
-
-                      {summary ? (
-                        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          {summary.details.map((detail) => {
-                            const [label, value] = detail.split(':', 2);
-                            return (
-                              <div
-                                key={`${step}-${detail}`}
-                                className="rounded border border-border/60 bg-surface-1 px-2 py-1.5"
-                              >
-                                <dt className="text-muted-foreground">
-                                  {label.trim()}
-                                </dt>
-                                <dd className="font-medium text-foreground">
-                                  {value?.trim() || '0'}
-                                </dd>
-                              </div>
-                            );
-                          })}
-                        </dl>
-                      ) : null}
-
-                      {summary?.warnings.length ? (
-                        <ul className="mt-3 space-y-1 text-xs text-status-warning">
-                          {summary.warnings.map((warning) => (
-                            <li key={`${step}-${warning}`}>• {warning}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-
-                      {canRetry ? (
-                        <div className="mt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void retryFailedStep(step)}
-                          >
-                            Rerun failed step
-                          </Button>
-                        </div>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          syncErrorMessage={syncError || null}
+          syncProgress={syncProgress}
+          syncOutcome={syncOutcome}
           notice={syncDiffNotice}
           error={syncDiffError}
           disabled={
@@ -1212,9 +1163,13 @@ export function DesignSystemUpdateActions({
           }
           isPreviewing={isSyncDiffPreviewing}
           isApplying={isSyncDiffApplying}
+          isSyncRunning={isSyncRunning}
+          canRetryFailedSteps={failedSteps.length > 0}
           onPreview={() => void runSyncDiffPreview()}
           onApply={() => void handleApplyAndRunSync()}
           onReset={resetSyncDiffPreview}
+          onCancelSync={() => void cancelSync()}
+          onRetryFailedSteps={() => void retryFailedSteps()}
         />
 
         <div className="space-y-2">

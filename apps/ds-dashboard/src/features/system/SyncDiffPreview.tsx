@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,15 +21,68 @@ interface SyncDiffPreviewProps {
   diffResult: SyncDesignSystemDiffResult | null;
   variablesPreview?: SyncDesignSystemStepResult | null;
   variablesPreviewWarning?: string | null;
-  syncExecutionPanel?: ReactNode;
+  syncErrorMessage?: string | null;
+  syncProgress?: {
+    active: boolean;
+    percent: number;
+    label: string;
+    detail?: string;
+  } | null;
+  syncOutcome?: {
+    status: 'success' | 'error';
+    message: string;
+  } | null;
   notice?: string | null;
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
   isApplying?: boolean;
+  isSyncRunning?: boolean;
+  canRetryFailedSteps?: boolean;
   disabled?: boolean;
   onPreview: () => void;
   onApply: () => void;
   onReset: () => void;
+  onCancelSync?: () => void;
+  onRetryFailedSteps?: () => void;
+}
+
+function SyncProgressBar({
+  percent,
+  label,
+  detail,
+}: {
+  percent: number;
+  label: string;
+  detail?: string;
+}) {
+  const clampedPercent = Math.min(100, Math.max(0, percent));
+  const labelId = useId();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span id={labelId} className="text-muted-foreground">
+          {label}
+          {detail ? <span className="ml-2 text-xs text-muted-foreground/90">{detail}</span> : null}
+        </span>
+        <span className="font-medium tabular-nums">{clampedPercent}%</span>
+      </div>
+      <div
+        role="progressbar"
+        aria-labelledby={labelId}
+        aria-valuetext={`${clampedPercent}%`}
+        aria-valuenow={clampedPercent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-2 w-full overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+          style={{ width: `${clampedPercent}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 const bucketMeta: Record<
@@ -153,15 +206,21 @@ export function SyncDiffPreview({
   diffResult,
   variablesPreview = null,
   variablesPreviewWarning = null,
-  syncExecutionPanel = null,
+  syncErrorMessage = null,
+  syncProgress = null,
+  syncOutcome = null,
   notice,
   error,
   isPreviewing = false,
   isApplying = false,
+  isSyncRunning = false,
+  canRetryFailedSteps = false,
   disabled = false,
   onPreview,
   onApply,
   onReset,
+  onCancelSync,
+  onRetryFailedSteps,
 }: SyncDiffPreviewProps) {
   const previewReady = diffResult !== null;
   const [openBuckets, setOpenBuckets] = useState<Record<BucketKey, boolean>>({
@@ -243,6 +302,30 @@ export function SyncDiffPreview({
           </StatusAlert>
         ) : null}
 
+        {syncErrorMessage && syncOutcome?.status !== 'error' ? (
+          <StatusAlert variant="error">
+            <StatusAlertTitle>Sync error</StatusAlertTitle>
+            <StatusAlertDescription>{syncErrorMessage}</StatusAlertDescription>
+          </StatusAlert>
+        ) : null}
+
+        {syncProgress?.active ? (
+          <SyncProgressBar
+            percent={syncProgress.percent}
+            label={syncProgress.label}
+            detail={syncProgress.detail}
+          />
+        ) : null}
+
+        {syncOutcome ? (
+          <StatusAlert variant={syncOutcome.status === 'success' ? 'success' : 'error'}>
+            <StatusAlertTitle>
+              {syncOutcome.status === 'success' ? 'Success' : 'Sync failed'}
+            </StatusAlertTitle>
+            <StatusAlertDescription>{syncOutcome.message}</StatusAlertDescription>
+          </StatusAlert>
+        ) : null}
+
         {error ? (
           <StatusAlert variant="error">
             <StatusAlertTitle>{error.title}</StatusAlertTitle>
@@ -302,11 +385,29 @@ export function SyncDiffPreview({
             })}
           </div>
         )}
-
-        {syncExecutionPanel}
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
+        {isSyncRunning && onCancelSync ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancelSync}
+            disabled={disabled || isPreviewing || isApplying}
+          >
+            Cancel sync
+          </Button>
+        ) : null}
+        {!isSyncRunning && canRetryFailedSteps && onRetryFailedSteps ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRetryFailedSteps}
+            disabled={disabled || isPreviewing || isApplying}
+          >
+            Retry failed steps
+          </Button>
+        ) : null}
         {previewReady ? (
           <>
             <Button
