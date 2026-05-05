@@ -3,14 +3,6 @@ import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   StatusAlert,
   StatusAlertDescription,
   StatusAlertTitle,
@@ -180,31 +172,29 @@ export function SyncDiffPreview({
   });
 
   return (
-    <Card variant="default" className="border-border/80">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle>Sync diff preview</CardTitle>
-            <CardDescription>
-              Compare Figma against the database before applying changes.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {previewReady ? (
-              <>
-                <Badge variant="success">{diffResult.new_in_figma.length}</Badge>
-                <Badge variant="warning">{diffResult.updated_in_figma.length}</Badge>
-                <Badge variant="neutral">{diffResult.unchanged.length}</Badge>
-                <Badge variant="error">{diffResult.missing_in_figma.length}</Badge>
-              </>
-            ) : (
-              <Badge variant="neutral">Ready to scan</Badge>
-            )}
-          </div>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-base font-titles font-semibold titles-color">Sync diff preview</h3>
+          <p className="text-sm text-muted-foreground">
+            Compare Figma against the database before applying changes.
+          </p>
         </div>
-      </CardHeader>
+        <div className="flex flex-wrap gap-2">
+          {previewReady ? (
+            <>
+              <Badge variant="success">{diffResult.new_in_figma.length}</Badge>
+              <Badge variant="warning">{diffResult.updated_in_figma.length}</Badge>
+              <Badge variant="neutral">{diffResult.unchanged.length}</Badge>
+              <Badge variant="error">{diffResult.missing_in_figma.length}</Badge>
+            </>
+          ) : (
+            <Badge variant="neutral">Ready to scan</Badge>
+          )}
+        </div>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="space-y-4">
         {notice ? (
           <StatusAlert variant="success">
             <StatusAlertTitle>Preview ready</StatusAlertTitle>
@@ -314,9 +304,9 @@ export function SyncDiffPreview({
         )}
 
         {syncExecutionPanel}
-      </CardContent>
+      </div>
 
-      <CardFooter className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         {previewReady ? (
           <>
             <Button
@@ -355,7 +345,7 @@ export function SyncDiffPreview({
             Preview sync diff
           </Button>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+    </section>
   );
 }
