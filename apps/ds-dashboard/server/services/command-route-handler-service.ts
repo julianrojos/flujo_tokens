@@ -28,6 +28,8 @@ import {
 import { generateTokenCssFromDb } from './generate-token-css-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
+import { fetchVariablesDirect } from './figma-direct-bridge-service.ts';
+import { getSharedResponseCache } from './response-cache.ts';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
@@ -67,6 +69,19 @@ function buildNodeCommandArgs(
 
 function toTrimmedString(value: unknown): string {
   return String(value || '').trim();
+}
+
+function buildFreshVariablesFetchFn(
+  defaultFileKey: string,
+): (fileKey?: string | null) => Promise<import('../../../../tooling/src/utils/figma.ts').FigmaVariablesResponse> {
+  return async (fileKey?: string | null) => {
+    const effectiveFileKey =
+      toTrimmedString(fileKey) || toTrimmedString(defaultFileKey);
+    if (effectiveFileKey) {
+      getSharedResponseCache().invalidateFile(effectiveFileKey);
+    }
+    return fetchVariablesDirect(effectiveFileKey || null);
+  };
 }
 
 function toNonNegativeInt(value: unknown): number {
@@ -2046,6 +2061,7 @@ export async function handleSyncDesignSystemStepRoute(
         componentRepo,
         dsId: sysCtx.systemId,
         figmaFileId,
+        fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
         dryRun,
         includeComponents: false,
         selectedComponentNodeIds: undefined,
@@ -2374,6 +2390,7 @@ export async function handleSyncDesignSystemRoute(
         componentRepo,
         dsId: sysCtx.systemId,
         figmaFileId,
+        fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
         dryRun,
         includeComponents: false,
         selectedComponentNodeIds: undefined,

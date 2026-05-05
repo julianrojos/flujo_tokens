@@ -110,6 +110,10 @@ function throwWithPipelinePhase(
   throw wrapped;
 }
 
+function normalizeFigmaNodeId(value: unknown): string {
+  return String(value || '').trim().replace(/-/g, ':');
+}
+
 function buildPageNameByNodeId(
   componentMap: ComponentMapShape | null,
 ): Map<string, string> {
@@ -573,8 +577,59 @@ export async function runCaptureFromFigmaUrl(
         );
 
       if (publishedSourceCandidates.length > 0) {
+        const knownTreeNodeIds = new Set(
+          allSourceItems
+            .map((item) => normalizeFigmaNodeId(item.id))
+            .filter((nodeId) => nodeId.length > 0),
+        );
+        const publishedKnownInTree = publishedSourceCandidates.filter((candidate) =>
+          knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
+        );
+        const publishedUnknownInTree = publishedSourceCandidates.filter(
+          (candidate) => !knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
+        );
+
+        let publishedValidatedUnknown = [] as SourceCandidate[];
+        if (publishedUnknownInTree.length > 0) {
+          try {
+            const candidateNodeIds = Array.from(
+              new Set(
+                publishedUnknownInTree
+                  .map((candidate) => normalizeFigmaNodeId(candidate.node_id))
+                  .filter((nodeId) => nodeId.length > 0),
+              ),
+            );
+            const nodesPayload = await fetchFigmaNodesFn({
+              fileKey: descriptor.fileKey,
+              nodeIds: candidateNodeIds,
+              token: figmaToken,
+            });
+            const existingNodeIds = new Set(
+              Object.entries(nodesPayload?.nodes || {})
+                .filter(([, node]) =>
+                  Boolean((node as { document?: unknown } | undefined)?.document),
+                )
+                .map(([nodeId]) => normalizeFigmaNodeId(nodeId))
+                .filter((nodeId) => nodeId.length > 0),
+            );
+            publishedValidatedUnknown = publishedUnknownInTree.filter((candidate) =>
+              existingNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
+            );
+          } catch (error) {
+            console.warn(
+              `[runCaptureFromFigmaUrl] Published component node preflight failed; keeping only tree-backed candidates: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            publishedValidatedUnknown = [];
+          }
+        }
+
+        const publishedValidated = [
+          ...publishedKnownInTree,
+          ...publishedValidatedUnknown,
+        ];
+
         const merged = new Map<string, SourceCandidate>();
-        for (const candidate of [...sourceCandidates, ...publishedSourceCandidates]) {
+        for (const candidate of [...sourceCandidates, ...publishedValidated]) {
           const nodeId = String(candidate.node_id || '').trim();
           if (!nodeId || merged.has(nodeId)) continue;
           merged.set(nodeId, candidate);
@@ -613,7 +668,7 @@ export async function runCaptureFromFigmaUrl(
         const registryNodeIds = Array.from(
           new Set(
             registryCandidates
-              .map((candidate) => String(candidate.node_id || '').trim())
+              .map((candidate) => normalizeFigmaNodeId(candidate.node_id))
               .filter((nodeId) => nodeId.length > 0),
           ),
         );
@@ -625,7 +680,7 @@ export async function runCaptureFromFigmaUrl(
         existingRegistryNodeIds = new Set(
           Object.entries(registryNodePayload?.nodes || {})
             .filter(([, node]) => Boolean((node as { document?: unknown } | undefined)?.document))
-            .map(([nodeId]) => String(nodeId || '').trim())
+            .map(([nodeId]) => normalizeFigmaNodeId(nodeId))
             .filter((nodeId) => nodeId.length > 0),
         );
       } catch (error) {
@@ -636,7 +691,7 @@ export async function runCaptureFromFigmaUrl(
       }
 
       const filteredRegistryCandidates = registryCandidates.filter((candidate) => {
-        const nodeId = String(candidate.node_id || '').trim();
+        const nodeId = normalizeFigmaNodeId(candidate.node_id);
         return nodeId.length > 0 && existingRegistryNodeIds.has(nodeId);
       });
 
