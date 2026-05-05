@@ -370,8 +370,8 @@ function resolveExistingComponentSlug(args: {
   fallbackName: string;
   usedSlugs: Set<string>;
 }): string {
-  const current = toTrimmedString(args.currentSlug);
-  if (current) {
+  const current = String(args.currentSlug ?? '');
+  if (current.trim().length > 0) {
     args.usedSlugs.add(current);
     return current;
   }

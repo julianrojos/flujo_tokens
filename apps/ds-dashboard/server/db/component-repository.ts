@@ -1183,7 +1183,7 @@ export class ComponentRepository {
       .map((row) => ({
         id: Number(row.id),
         nodeId: String(row.figma_node_id || '').trim(),
-        slug: String(row.slug || '').trim(),
+        slug: String(row.slug || ''),
         name: String(row.name || '').trim(),
         status: row.status as ComponentEntry['status'],
         contentFingerprint: row.figma_content_fingerprint ?? null,
@@ -1201,8 +1201,8 @@ export class ComponentRepository {
     `) as Array<{ slug: string | null }>;
 
     return rows
-      .map((row) => String(row.slug || '').trim())
-      .filter((slug) => slug.length > 0);
+      .map((row) => String(row.slug || ''))
+      .filter((slug) => slug.trim().length > 0);
   }
 
   private async getSpecs(componentId: number): Promise<ComponentSpecEntry[]> {
@@ -1292,6 +1292,20 @@ export class ComponentRepository {
         (String(entry.figma?.componentSetNodeId || '').trim() || null);
 
       if (figmaNodeId) {
+        await this.sql`
+          UPDATE components
+          SET
+            figma_node_id = ${figmaNodeId},
+            figma_content_fingerprint = COALESCE(
+              figma_content_fingerprint,
+              ${figmaContentFingerprint}
+            ),
+            updated_at = ${now}
+          WHERE ds_id = ${dsId}
+            AND figma_node_id IS NULL
+            AND figma_component_set_node_id = ${figmaNodeId}
+        `;
+
         await this.sql`
           INSERT INTO components (
             ds_id, slug, name, status, doc_type, figma_file_url,
