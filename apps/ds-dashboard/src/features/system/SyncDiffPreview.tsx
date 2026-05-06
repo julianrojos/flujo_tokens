@@ -505,7 +505,7 @@ export function SyncDiffPreview({
             </StatusAlertDescription>
           </StatusAlert>
         ) : (
-          <div className="space-y-3">
+          <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
             <div className="space-y-3">
               <div className="space-y-1">
                 <h4 className="text-sm font-titles font-semibold titles-color">Variables</h4>
@@ -583,52 +583,54 @@ export function SyncDiffPreview({
               )}
             </div>
 
-            <div className="space-y-1">
-              <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
-              <p className="text-xs text-muted-foreground">
-                Compare component identity and fingerprint changes against the database.
-              </p>
-            </div>
-            {(
-              ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
-            ).map((bucket) => {
-              const meta = bucketMeta[bucket];
-              const items = diffResult[bucket];
-              const open = openBuckets[bucket];
-              return (
-                <details
-                  key={bucket}
-                  className="rounded border border-border/70 bg-surface-1 p-3"
-                  open={open}
-                  onToggle={(event) => {
-                    const nextOpen = event.currentTarget.open;
-                    setOpenBuckets((current) => ({
-                      ...current,
-                      [bucket]: nextOpen,
-                    }));
-                  }}
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
+                <p className="text-xs text-muted-foreground">
+                  Compare component identity and fingerprint changes against the database.
+                </p>
+              </div>
+              {(
+                ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
+              ).map((bucket) => {
+                const meta = bucketMeta[bucket];
+                const items = diffResult[bucket];
+                const open = openBuckets[bucket];
+                return (
+                  <details
+                    key={bucket}
+                    className="rounded border border-border/70 bg-surface-1 p-3"
+                    open={open}
+                    onToggle={(event) => {
+                      const nextOpen = event.currentTarget.open;
+                      setOpenBuckets((current) => ({
+                        ...current,
+                        [bucket]: nextOpen,
+                      }));
+                    }}
+                  >
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
                           <h5 className="text-sm font-titles font-semibold leading-none titles-color">{meta.title}</h5>
-                        <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+                          <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{meta.description}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{meta.description}</p>
+                    </summary>
+                    <div className="mt-3">
+                      {items.length > 0 ? (
+                        <ul className="space-y-2">
+                          {items.map((item) => renderBucketItem(bucket, item))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No items in this bucket.</p>
+                      )}
                     </div>
-                  </summary>
-                  <div className="mt-3">
-                    {items.length > 0 ? (
-                      <ul className="space-y-2">
-                        {items.map((item) => renderBucketItem(bucket, item))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No items in this bucket.</p>
-                    )}
-                  </div>
-                </details>
-              );
-            })}
+                  </details>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
