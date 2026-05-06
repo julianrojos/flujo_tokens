@@ -333,10 +333,14 @@ function buildVariablesDiffPreview(
     };
   }
 
-  const raw =
+  const summaryRaw =
     variablesPreview.raw && typeof variablesPreview.raw === 'object'
       ? (variablesPreview.raw as Record<string, unknown>)
       : {};
+  const raw =
+    summaryRaw.raw && typeof summaryRaw.raw === 'object'
+      ? (summaryRaw.raw as Record<string, unknown>)
+      : summaryRaw;
   const counts =
     variablesPreview.counts && typeof variablesPreview.counts === 'object'
       ? variablesPreview.counts
@@ -513,7 +517,9 @@ export function SyncDiffPreview({
                 <StatusAlert variant="info">
                   <StatusAlertTitle>Variables diff unavailable</StatusAlertTitle>
                   <StatusAlertDescription>
-                    This preview response does not include variable bucket data yet.
+                    {variablesPreviewWarning
+                      ? 'The variables preview response is incomplete. Check plugin/API warnings and retry.'
+                      : 'This response does not include variable diff buckets. Restart the API server to load the latest backend changes.'}
                   </StatusAlertDescription>
                 </StatusAlert>
               ) : (

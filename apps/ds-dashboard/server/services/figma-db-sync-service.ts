@@ -1755,6 +1755,27 @@ export interface SyncFromPluginResult {
   importMode: 'full' | 'partial';
   selectedCount: number;
   notSelectedCount: number;
+  new_in_figma?: Array<{
+    path: string;
+    collection: string;
+    type: string;
+  }>;
+  updated_in_figma?: Array<{
+    path: string;
+    collection: string;
+    type: string;
+    reason: string;
+  }>;
+  unchanged?: Array<{
+    path: string;
+    collection: string;
+    type: string;
+  }>;
+  missing_in_figma?: Array<{
+    path: string;
+    collection: string;
+    type: string;
+  }>;
 }
 
 type UsageOccurrenceRow = {
@@ -1764,6 +1785,92 @@ type UsageOccurrenceRow = {
   owner: string;
   detail: string;
 };
+
+type DbTokenSnapshot = {
+  path: string;
+  collection: string;
+  type: string;
+  rawValue: string;
+};
+
+function buildVariablesDiffBuckets(args: {
+  figmaTokens: TokenRow[];
+  dbTokens: DbTokenSnapshot[];
+}): Pick<
+  SyncFromPluginResult,
+  'new_in_figma' | 'updated_in_figma' | 'unchanged' | 'missing_in_figma'
+> {
+  const figmaByPath = new Map(
+    args.figmaTokens.map((token) => [token.id, token] as const),
+  );
+  const dbByPath = new Map(
+    args.dbTokens.map((token) => [token.path, token] as const),
+  );
+
+  const newInFigma: Array<{ path: string; collection: string; type: string }> = [];
+  const updatedInFigma: Array<{ path: string; collection: string; type: string; reason: string }> = [];
+  const unchanged: Array<{ path: string; collection: string; type: string }> = [];
+  const missingInFigma: Array<{ path: string; collection: string; type: string }> = [];
+
+  for (const [path, figmaToken] of figmaByPath.entries()) {
+    const dbToken = dbByPath.get(path);
+    if (!dbToken) {
+      newInFigma.push({
+        path,
+        collection: figmaToken.collection,
+        type: figmaToken.type,
+      });
+      continue;
+    }
+
+    if (
+      figmaToken.rawValue !== dbToken.rawValue ||
+      figmaToken.collection !== dbToken.collection ||
+      figmaToken.type !== dbToken.type
+    ) {
+      updatedInFigma.push({
+        path,
+        collection: figmaToken.collection,
+        type: figmaToken.type,
+        reason:
+          figmaToken.rawValue !== dbToken.rawValue
+            ? 'value_changed'
+            : 'metadata_changed',
+      });
+      continue;
+    }
+
+    unchanged.push({
+      path,
+      collection: figmaToken.collection,
+      type: figmaToken.type,
+    });
+  }
+
+  for (const [path, dbToken] of dbByPath.entries()) {
+    if (figmaByPath.has(path)) continue;
+    missingInFigma.push({
+      path,
+      collection: dbToken.collection,
+      type: dbToken.type,
+    });
+  }
+
+  const byPath = <T extends { path: string }>(left: T, right: T) =>
+    left.path.localeCompare(right.path);
+
+  newInFigma.sort(byPath);
+  updatedInFigma.sort(byPath);
+  unchanged.sort(byPath);
+  missingInFigma.sort(byPath);
+
+  return {
+    new_in_figma: newInFigma,
+    updated_in_figma: updatedInFigma,
+    unchanged,
+    missing_in_figma: missingInFigma,
+  };
+}
 
 function mapPluginBridgeError(
   error: unknown,
@@ -1966,6 +2073,36 @@ export async function syncDesignSystemFromPlugin(
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(
     variablesResponse.meta,
   );
+  const variablesDiffBuckets: Pick<
+    SyncFromPluginResult,
+    'new_in_figma' | 'updated_in_figma' | 'unchanged' | 'missing_in_figma'
+  > = dryRun
+    ? buildVariablesDiffBuckets({
+        figmaTokens: tokens,
+        dbTokens: (
+          (await db`
+            SELECT id, collection, type, raw_value
+            FROM tokens
+            WHERE ds_id = ${dsId}
+          `) as Array<{
+            id: string;
+            collection: string;
+            type: string;
+            raw_value: string;
+          }>
+        ).map((row) => ({
+          path: String(row.id || '').trim(),
+          collection: String(row.collection || '').trim(),
+          type: String(row.type || '').trim(),
+          rawValue: String(row.raw_value || '').trim(),
+        })),
+      })
+    : {
+        new_in_figma: undefined,
+        updated_in_figma: undefined,
+        unchanged: undefined,
+        missing_in_figma: undefined,
+      };
   const variableIdToTokenPath = buildVariableIdToTokenPathMap(
     variablesResponse.meta,
   );
@@ -2723,6 +2860,7 @@ export async function syncDesignSystemFromPlugin(
       importMode,
       selectedCount,
       notSelectedCount,
+      ...variablesDiffBuckets,
     };
   }
 
@@ -2744,6 +2882,7 @@ export async function syncDesignSystemFromPlugin(
     importMode,
     selectedCount,
     notSelectedCount,
+    ...variablesDiffBuckets,
   };
 }
 

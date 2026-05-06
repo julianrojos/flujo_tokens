@@ -567,6 +567,89 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  it('marks all DB tokens as missing_in_figma during dry-run when Figma returns zero variables', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [{ id: 'sys-empty-figma-vars', name: 'System Empty Vars' }],
+    });
+    try {
+      await sql`
+        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+        VALUES
+          (${'color.base'}, ${'sys-empty-figma-vars'}, ${'color/base'}, ${'--color-base'}, ${'COLOR'}, ${'Primitives'}, ${'#FFFFFF'}),
+          (${'spacing.sm'}, ${'sys-empty-figma-vars'}, ${'spacing/sm'}, ${'--spacing-sm'}, ${'FLOAT'}, ${'Primitives'}, ${'8'})
+      `;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {},
+          variables: {},
+        });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-empty-figma-vars',
+        figmaFileId: 'file-empty-vars',
+        includeComponents: false,
+        dryRun: true,
+        createRunId: () => 'run-empty-vars-dry-run',
+        fetchVariables,
+      });
+
+      assert.equal(result.new_in_figma?.length ?? 0, 0);
+      assert.equal(result.updated_in_figma?.length ?? 0, 0);
+      assert.equal(result.unchanged?.length ?? 0, 0);
+      assert.equal(result.missing_in_figma?.length ?? 0, 2);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('omits variable diff buckets in non-dry-run sync results', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [{ id: 'sys-no-buckets-prod', name: 'System No Buckets Prod' }],
+    });
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'm1', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-no-buckets-prod',
+        figmaFileId: 'file-prod-no-buckets',
+        includeComponents: false,
+        dryRun: false,
+        createRunId: () => 'run-prod-no-buckets',
+        fetchVariables,
+      });
+
+      assert.equal(result.new_in_figma, undefined);
+      assert.equal(result.updated_in_figma, undefined);
+      assert.equal(result.unchanged, undefined);
+      assert.equal(result.missing_in_figma, undefined);
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('does not call deleteAll during component sync', async () => {
     const { sql, cleanup } = await createTestDatabase({
       designSystems: [{ id: 'sys-01', name: 'System 01' }],
