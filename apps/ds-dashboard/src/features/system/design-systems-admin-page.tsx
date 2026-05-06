@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { FormField } from '@/components/common';
@@ -150,7 +150,7 @@ export function DesignSystemsAdminPage() {
     };
   }, [targetSystem]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -183,11 +183,18 @@ export function DesignSystemsAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [replaceSystems]);
 
   useEffect(() => {
     void load();
+    // Intentionally run once on mount to avoid reload loops when context callbacks
+    // change identity across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRunSuccess = useCallback(() => {
+    void load();
+  }, [load]);
 
   const setBusy = (id: string, value: boolean) => {
     setBusyIds((prev) => ({ ...prev, [id]: value }));
@@ -518,6 +525,7 @@ export function DesignSystemsAdminPage() {
                 figmaFileId: String(targetSystem.figmaFileId || ''),
                 disabled: !!busyIds[targetSystem.id],
               })}
+              onRunSuccess={handleRunSuccess}
             />
           </section>
 

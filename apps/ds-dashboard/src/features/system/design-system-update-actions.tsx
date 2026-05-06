@@ -914,6 +914,9 @@ export function DesignSystemUpdateActions({
               ? result.warnings[0] || tokensResult.warnings[0] || 'Sync failed.'
               : '';
           setSyncError(syncError);
+          if (!overallFailed) {
+            onRunSuccess?.();
+          }
           pendingSyncPersistRef.current = { jobId: tokensResult.jobId, error: syncError };
           setSyncSteps((prev) => ({
             ...prev,
@@ -979,6 +982,7 @@ export function DesignSystemUpdateActions({
       sharedToken,
       systemId,
       updateStepState,
+      onRunSuccess,
     ],
   );
 
