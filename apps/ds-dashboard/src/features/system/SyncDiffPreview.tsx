@@ -133,7 +133,7 @@ const bucketMeta: Record<
     defaultOpen: false,
   },
   missing_in_figma: {
-    title: 'Missing',
+    title: 'Deleted',
     description: 'Items present in the database but missing in Figma.',
     badgeVariant: 'error',
     itemKind: 'db',
@@ -427,16 +427,16 @@ export function SyncDiffPreview({
     [variablesPreview],
   );
   const [openBuckets, setOpenBuckets] = useState<Record<BucketKey, boolean>>({
-    new_in_figma: true,
-    updated_in_figma: true,
+    new_in_figma: false,
+    updated_in_figma: false,
     unchanged: false,
-    missing_in_figma: true,
+    missing_in_figma: false,
   });
   const [openVariableBuckets, setOpenVariableBuckets] = useState<Record<BucketKey, boolean>>({
-    new_in_figma: true,
-    updated_in_figma: true,
+    new_in_figma: false,
+    updated_in_figma: false,
     unchanged: false,
-    missing_in_figma: true,
+    missing_in_figma: false,
   });
 
   return (
@@ -509,9 +509,12 @@ export function SyncDiffPreview({
             <div className="space-y-3">
               <div className="space-y-1">
                 <h4 className="text-sm font-titles font-semibold titles-color">Variables</h4>
-                <p className="text-xs text-muted-foreground">
-                  {variablesPreview?.summary || 'Variables dry-run summary is unavailable.'}
-                </p>
+                {!variablesDiffPreview.hasBucketSignals &&
+                String(variablesPreview?.summary || '').trim() ? (
+                  <p className="text-xs text-muted-foreground">
+                    {variablesPreview?.summary}
+                  </p>
+                ) : null}
               </div>
               {!variablesDiffPreview.hasBucketSignals ? (
                 <StatusAlert variant="info">
@@ -586,9 +589,6 @@ export function SyncDiffPreview({
             <div className="space-y-3">
               <div className="space-y-1">
                 <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
-                <p className="text-xs text-muted-foreground">
-                  Compare component identity and fingerprint changes against the database.
-                </p>
               </div>
               {(
                 ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]

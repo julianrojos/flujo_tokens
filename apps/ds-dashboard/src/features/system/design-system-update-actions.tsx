@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FormField } from '@/components/common';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useOperationRunner } from '@/hooks/use-operation-runner';
 import {
   cancelQueueJob,
   getQueueJob,
@@ -13,11 +11,6 @@ import {
   type SyncDesignSystemStepResult,
   type SyncDesignSystemResult,
 } from '@/lib/api';
-import {
-  buildUpdateComponentsPayload,
-  buildUpdateVariablesPayload,
-  resolveUpdateButtonLabel,
-} from '@/features/system/design-system-update-actions-logic';
 import {
   resolveOverallSyncStatus,
   type SyncStepKey,
@@ -489,19 +482,6 @@ export function DesignSystemUpdateActions({
     figmaToken: sharedToken,
     onApplySuccess: () => {},
   });
-
-  const [componentsState, componentsActions] = useOperationRunner(
-    `ds-admin-components-${systemId}`,
-    '/api/capture-figma-screenshot',
-    onRunSuccess,
-    { systemId },
-  );
-  const [variablesState, variablesActions] = useOperationRunner(
-    `ds-admin-variables-${systemId}`,
-    '/api/sync-figma-tokens',
-    onRunSuccess,
-    { systemId },
-  );
 
   useEffect(() => {
     if (!suggestedUrl) return;
@@ -999,26 +979,6 @@ export function DesignSystemUpdateActions({
     await startSync();
   }, [runSyncDiffApply, startSync]);
 
-  const handleUpdateComponents = useCallback(async () => {
-    const built = buildUpdateComponentsPayload({
-      figmaUrl: sharedFigmaUrl,
-      figmaToken: sharedToken,
-    });
-    if (!built.ok) {
-      return;
-    }
-    await componentsActions.run(built.payload);
-  }, [componentsActions, sharedFigmaUrl, sharedToken]);
-
-  const handleUpdateVariables = useCallback(async () => {
-    const payload = buildUpdateVariablesPayload({
-      figmaUrl: sharedFigmaUrl,
-      figmaToken: sharedToken,
-    });
-    await variablesActions.run(payload);
-  }, [variablesActions, sharedFigmaUrl, sharedToken]);
-
-  const canRunVariablesUpdate = !disabled && !variablesState.isRunning;
   const failedSteps = useMemo(
     () =>
       (['components', 'variables', 'tokens'] as SyncStepKey[]).filter(
@@ -1127,12 +1087,7 @@ export function DesignSystemUpdateActions({
               setSharedFigmaUrl(event.target.value);
             }}
             placeholder="https://www.figma.com/design/…"
-            disabled={
-              disabled ||
-              isSyncRunning ||
-              componentsState.isRunning ||
-              variablesState.isRunning
-            }
+            disabled={disabled || isSyncRunning}
           />
         </FormField>
         <FormField
@@ -1150,12 +1105,7 @@ export function DesignSystemUpdateActions({
             }}
             placeholder="Figma token (optional)"
             autoComplete="off"
-            disabled={
-              disabled ||
-              isSyncRunning ||
-              componentsState.isRunning ||
-              variablesState.isRunning
-            }
+            disabled={disabled || isSyncRunning}
           />
         </FormField>
       </div>
@@ -1170,12 +1120,7 @@ export function DesignSystemUpdateActions({
           syncOutcome={syncOutcome}
           notice={syncDiffNotice}
           error={syncDiffError}
-          disabled={
-            disabled ||
-            isSyncRunning ||
-            componentsState.isRunning ||
-            variablesState.isRunning
-          }
+          disabled={disabled || isSyncRunning}
           isPreviewing={isSyncDiffPreviewing}
           isApplying={isSyncDiffApplying}
           isSyncRunning={isSyncRunning}
@@ -1186,32 +1131,6 @@ export function DesignSystemUpdateActions({
           onCancelSync={() => void cancelSync()}
           onRetryFailedSteps={() => void retryFailedSteps()}
         />
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Advanced direct updates
-          </p>
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              onClick={() => void handleUpdateComponents()}
-              disabled={disabled || isSyncRunning || componentsState.isRunning}
-            >
-              {resolveUpdateButtonLabel({
-                type: 'components',
-                isRunning: componentsState.isRunning,
-              })}
-            </Button>
-            <Button
-              onClick={() => void handleUpdateVariables()}
-              disabled={!canRunVariablesUpdate || isSyncRunning}
-            >
-              {resolveUpdateButtonLabel({
-                type: 'variables',
-                isRunning: variablesState.isRunning,
-              })}
-            </Button>
-          </div>
-        </div>
       </div>
     </div>
   );
