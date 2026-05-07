@@ -169,10 +169,9 @@ function renderBucketItem(
   if (meta.itemKind === 'figma') {
     const snapshot = item as SyncDesignSystemNodeSnapshot;
     return (
-      <li key={`${snapshot.nodeId}-${snapshot.contentFingerprint}`} className="rounded border border-border/60 bg-surface-1 px-3 py-2">
+      <li key={`${snapshot.nodeId}-${snapshot.contentFingerprint}`} className="bg-surface-1 px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-medium text-foreground">{formatSnapshot(snapshot)}</span>
-          <span className="text-xs text-muted-foreground">{snapshot.nodeId}</span>
+          <span className="text-sm text-foreground">{formatSnapshot(snapshot)}</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {snapshot.pageName ? `${snapshot.pageName} · ` : ''}
@@ -185,10 +184,9 @@ function renderBucketItem(
   if (meta.itemKind === 'db') {
     const snapshot = item as SyncDesignSystemDiffDbComponentRef;
     return (
-      <li key={`${snapshot.nodeId}-${snapshot.id}`} className="rounded border border-border/60 bg-surface-1 px-3 py-2">
+      <li key={`${snapshot.nodeId}-${snapshot.id}`} className="bg-surface-1 px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-medium text-foreground">{formatDbSnapshot(snapshot)}</span>
-          <span className="text-xs text-muted-foreground">{snapshot.nodeId}</span>
+          <span className="text-sm text-foreground">{formatDbSnapshot(snapshot)}</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {snapshot.slug} · {snapshot.status}
@@ -202,10 +200,9 @@ function renderBucketItem(
     db: SyncDesignSystemDiffDbComponentRef;
   };
   return (
-    <li key={`${pair.figma.nodeId}-${pair.db.id}`} className="rounded border border-border/60 bg-surface-1 px-3 py-2">
+    <li key={`${pair.figma.nodeId}-${pair.db.id}`} className="bg-surface-1 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-foreground">{formatSnapshot(pair.figma)}</span>
-        <span className="text-xs text-muted-foreground">{pair.figma.nodeId}</span>
+        <span className="text-sm text-foreground">{formatSnapshot(pair.figma)}</span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         DB: {formatDbSnapshot(pair.db)}
@@ -549,7 +546,7 @@ export function SyncDiffPreview({
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <h5 className="text-sm font-titles font-semibold leading-none titles-color">{meta.title}</h5>
+                            <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
                             <Badge variant={meta.badgeVariant}>{count}</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground">{meta.description}</p>
@@ -561,13 +558,10 @@ export function SyncDiffPreview({
                             {items.map((item) => (
                               <li
                                 key={item.id}
-                                className="rounded border border-border/60 bg-surface-1 px-3 py-2"
+                                className="bg-surface-1 px-3 py-2"
                               >
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="font-medium text-foreground">{item.label}</span>
-                                  {item.detail ? (
-                                    <span className="text-xs text-muted-foreground">{item.detail}</span>
-                                  ) : null}
+                                  <span className="text-sm text-foreground">{item.label}</span>
                                 </div>
                               </li>
                             ))}
@@ -612,7 +606,7 @@ export function SyncDiffPreview({
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h5 className="text-sm font-titles font-semibold leading-none titles-color">{meta.title}</h5>
+                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
                           <Badge variant={meta.badgeVariant}>{items.length}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{meta.description}</p>

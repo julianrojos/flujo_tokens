@@ -125,26 +125,15 @@ export function DesignSystemsAdminPage() {
   );
   const componentImportSnapshot = useMemo(() => {
     if (!targetSystem) return null;
-    const detected = targetSystem.detectedComponentsCount;
-    const imported = targetSystem.importedComponentsCount;
-    const pending = targetSystem.pendingComponentsCount;
     const importedNames = Array.isArray(targetSystem.importedComponentNames)
       ? targetSystem.importedComponentNames
       : [];
     const pendingNames = Array.isArray(targetSystem.pendingComponentNames)
       ? targetSystem.pendingComponentNames
       : [];
-    const hasSnapshot =
-      typeof detected === 'number' ||
-      typeof imported === 'number' ||
-      typeof pending === 'number' ||
-      importedNames.length > 0 ||
-      pendingNames.length > 0;
+    const hasSnapshot = importedNames.length > 0 || pendingNames.length > 0;
     if (!hasSnapshot) return null;
     return {
-      detected,
-      imported,
-      pending,
       importedNames,
       pendingNames,
     };
@@ -435,32 +424,10 @@ export function DesignSystemsAdminPage() {
 
               {componentImportSnapshot ? (
                 <section className="space-y-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-titles font-semibold titles-color">
-                        Import Coverage
-                      </h3>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-[var(--app-surface-1)] px-2.5 py-1 text-xs text-foreground">
-                        <span className="text-muted-foreground">Detected</span>
-                        <strong className="font-semibold text-foreground">
-                          {componentImportSnapshot.detected ?? '—'}
-                        </strong>
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-status-success-border/40 bg-status-success-bg/15 px-2.5 py-1 text-xs text-status-success">
-                        <span>Imported</span>
-                        <strong className="font-semibold text-status-success">
-                          {componentImportSnapshot.imported ?? '—'}
-                        </strong>
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-status-warning/40 bg-status-warning/10 px-2.5 py-1 text-xs text-status-warning">
-                        <span>Pending</span>
-                        <strong className="font-semibold text-status-warning">
-                          {componentImportSnapshot.pending ?? '—'}
-                        </strong>
-                      </span>
-                    </div>
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-titles font-semibold titles-color">
+                      Import Coverage
+                    </h3>
                   </div>
                   <div className="grid gap-3 lg:grid-cols-2">
                     <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
