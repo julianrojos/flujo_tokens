@@ -446,8 +446,6 @@ export function NewSystemPage() {
         description="Import from Figma"
       />
 
-      <DatabaseConfigPanel />
-
       {saveError && !isDuplicateSystemNameError(saveError) ? (
         <ApiErrorMessage error={saveError} />
       ) : null}
@@ -481,6 +479,8 @@ export function NewSystemPage() {
           }}
         />
       )}
+
+      <DatabaseConfigPanel />
 
       <Modal open={modalOpen} onClose={() => undefined}>
         <ModalContent size="md" className="max-h-[78vh] overflow-hidden">
