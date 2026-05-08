@@ -1,7 +1,8 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   StatusAlert,
   StatusAlertDescription,
@@ -55,7 +56,7 @@ interface SyncDiffPreviewProps {
   canRetryFailedSteps?: boolean;
   disabled?: boolean;
   onPreview: () => void;
-  onApply: () => void;
+  onApply: (selectedNodeIds: string[] | undefined) => void;
   onReset: () => void;
   onCancelSync?: () => void;
   onRetryFailedSteps?: () => void;
@@ -140,21 +141,44 @@ const bucketMeta: Record<
   },
 };
 
+const SELECTABLE_COMPONENT_BUCKETS = new Set<BucketKey>(['new_in_figma', 'updated_in_figma']);
+
+function getSelectableBucketNodeIds(
+  bucket: BucketKey,
+  items: SyncDesignSystemDiffResult[BucketKey],
+): string[] {
+  if (bucket === 'new_in_figma') {
+    return (items as SyncDesignSystemNodeSnapshot[]).map((i) => i.nodeId);
+  }
+  if (bucket === 'updated_in_figma') {
+    return (
+      items as Array<{ figma: SyncDesignSystemNodeSnapshot; db: SyncDesignSystemDiffDbComponentRef }>
+    ).map((i) => i.figma.nodeId);
+  }
+  return [];
+}
+
+function buildInitialSelection(diff: SyncDesignSystemDiffResult | null): Set<string> {
+  if (!diff) return new Set();
+  const ids = new Set<string>();
+  for (const item of diff.new_in_figma) ids.add(item.nodeId);
+  for (const item of diff.updated_in_figma) ids.add(item.figma.nodeId);
+  return ids;
+}
+
 function countLabel(count: number): string {
   return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
 
 function formatSnapshot(snapshot: SyncDesignSystemNodeSnapshot): string {
-  const parts = [snapshot.name, snapshot.nodeId];
-  if (snapshot.pageName) {
-    parts.push(snapshot.pageName);
-  }
-  return parts.join(' · ');
+  return snapshot.name;
 }
 
 function formatDbSnapshot(snapshot: SyncDesignSystemDiffDbComponentRef): string {
-  return [snapshot.name, snapshot.slug, snapshot.nodeId].join(' · ');
+  return [snapshot.name, snapshot.slug].join(' · ');
 }
+
+type ItemSelectionProps = { selected: boolean; onToggle: () => void } | null;
 
 function renderBucketItem(
   bucket: BucketKey,
@@ -162,20 +186,34 @@ function renderBucketItem(
     | SyncDesignSystemNodeSnapshot
     | { figma: SyncDesignSystemNodeSnapshot; db: SyncDesignSystemDiffDbComponentRef }
     | SyncDesignSystemDiffDbComponentRef,
+  selectionProps: ItemSelectionProps = null,
 ) {
   const meta = bucketMeta[bucket];
+
+  const checkbox = selectionProps ? (
+    <Checkbox
+      checked={selectionProps.selected}
+      onCheckedChange={() => selectionProps.onToggle()}
+      aria-label="Select component"
+      className="mt-0.5 shrink-0"
+      onClick={(e) => e.stopPropagation()}
+    />
+  ) : null;
 
   if (meta.itemKind === 'figma') {
     const snapshot = item as SyncDesignSystemNodeSnapshot;
     return (
-      <li key={`${snapshot.nodeId}-${snapshot.contentFingerprint}`} className="bg-surface-1 px-3 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm text-foreground">{formatSnapshot(snapshot)}</span>
+      <li key={`${snapshot.nodeId}-${snapshot.contentFingerprint}`} className="bg-surface-1 py-2">
+        <div className="flex items-start gap-2">
+          {checkbox}
+          <div className="min-w-0 flex-1">
+            <span className="text-sm text-foreground">{formatSnapshot(snapshot)}</span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {snapshot.pageName ? `${snapshot.pageName} · ` : ''}
+              variants {snapshot.variantCount}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {snapshot.pageName ? `${snapshot.pageName} · ` : ''}
-          {snapshot.type} · variants {snapshot.variantCount}
-        </p>
       </li>
     );
   }
@@ -183,13 +221,16 @@ function renderBucketItem(
   if (meta.itemKind === 'db') {
     const snapshot = item as SyncDesignSystemDiffDbComponentRef;
     return (
-      <li key={`${snapshot.nodeId}-${snapshot.id}`} className="bg-surface-1 px-3 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm text-foreground">{formatDbSnapshot(snapshot)}</span>
+      <li key={`${snapshot.nodeId}-${snapshot.id}`} className="bg-surface-1 py-2">
+        <div className="flex items-start gap-2">
+          {checkbox}
+          <div className="min-w-0 flex-1">
+            <span className="text-sm text-foreground">{formatDbSnapshot(snapshot)}</span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {snapshot.slug} · {snapshot.status}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {snapshot.slug} · {snapshot.status}
-        </p>
       </li>
     );
   }
@@ -199,17 +240,20 @@ function renderBucketItem(
     db: SyncDesignSystemDiffDbComponentRef;
   };
   return (
-    <li key={`${pair.figma.nodeId}-${pair.db.id}`} className="bg-surface-1 px-3 py-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm text-foreground">{formatSnapshot(pair.figma)}</span>
+    <li key={`${pair.figma.nodeId}-${pair.db.id}`} className="bg-surface-1 py-2">
+      <div className="flex items-start gap-2">
+        {checkbox}
+        <div className="min-w-0 flex-1">
+          <span className="text-sm text-foreground">{formatSnapshot(pair.figma)}</span>
+          <p className="mt-1 text-xs text-muted-foreground">
+            DB: {formatDbSnapshot(pair.db)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {pair.figma.pageName ? `${pair.figma.pageName} · ` : ''}
+            variants {pair.figma.variantCount}
+          </p>
+        </div>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        DB: {formatDbSnapshot(pair.db)}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {pair.figma.pageName ? `${pair.figma.pageName} · ` : ''}
-        {pair.figma.type} · variants {pair.figma.variantCount}
-      </p>
     </li>
   );
 }
@@ -434,6 +478,45 @@ export function SyncDiffPreview({
     missing_in_figma: false,
   });
 
+  // Component selection state — resets whenever the diff result changes
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(() =>
+    buildInitialSelection(diffResult),
+  );
+  useEffect(() => {
+    setSelectedNodeIds(buildInitialSelection(diffResult));
+  }, [diffResult]);
+
+  const totalSelectableCount = useMemo(() => {
+    if (!diffResult) return 0;
+    return diffResult.new_in_figma.length + diffResult.updated_in_figma.length;
+  }, [diffResult]);
+
+  const canApply = totalSelectableCount === 0 || selectedNodeIds.size > 0;
+
+  function toggleNodeId(nodeId: string) {
+    setSelectedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }
+
+  function toggleBucket(bucket: BucketKey) {
+    if (!diffResult) return;
+    const ids = getSelectableBucketNodeIds(bucket, diffResult[bucket]);
+    const allSelected = ids.every((id) => selectedNodeIds.has(id));
+    setSelectedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const id of ids) next.delete(id);
+      } else {
+        for (const id of ids) next.add(id);
+      }
+      return next;
+    });
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -542,7 +625,7 @@ export function SyncDiffPreview({
                             {items.map((item) => (
                               <li
                                 key={item.id}
-                                className="bg-surface-1 px-3 py-2"
+                                className="bg-surface-1 py-2"
                               >
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <span className="text-sm text-foreground">{item.label}</span>
@@ -565,8 +648,13 @@ export function SyncDiffPreview({
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
                 <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
+                {totalSelectableCount > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedNodeIds.size} / {totalSelectableCount} selected
+                  </span>
+                ) : null}
               </div>
               {(
                 ['new_in_figma', 'updated_in_figma', 'missing_in_figma', 'unchanged'] as BucketKey[]
@@ -574,6 +662,16 @@ export function SyncDiffPreview({
                 const meta = bucketMeta[bucket];
                 const items = diffResult[bucket];
                 const open = openBuckets[bucket];
+                const isSelectable = SELECTABLE_COMPONENT_BUCKETS.has(bucket);
+                const bucketNodeIds = isSelectable
+                  ? getSelectableBucketNodeIds(bucket, items)
+                  : [];
+                const allBucketSelected =
+                  bucketNodeIds.length > 0 &&
+                  bucketNodeIds.every((id) => selectedNodeIds.has(id));
+                const someBucketSelected =
+                  !allBucketSelected &&
+                  bucketNodeIds.some((id) => selectedNodeIds.has(id));
                 return (
                   <details
                     key={bucket}
@@ -588,18 +686,46 @@ export function SyncDiffPreview({
                     }}
                   >
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
-                          <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+                      <div className="flex items-start gap-2">
+                        {isSelectable && bucketNodeIds.length > 0 ? (
+                          <Checkbox
+                            checked={allBucketSelected ? true : someBucketSelected ? 'indeterminate' : false}
+                            onCheckedChange={() => toggleBucket(bucket)}
+                            aria-label={`Select all ${meta.title.toLowerCase()} components`}
+                            className="mt-0.5 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : null}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
+                            <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{meta.description}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">{meta.description}</p>
                       </div>
                     </summary>
                     <div className="mt-3">
                       {items.length > 0 ? (
                         <ul className="space-y-2">
-                          {items.map((item) => renderBucketItem(bucket, item))}
+                          {items.map((item) => {
+                            if (!isSelectable) {
+                              return renderBucketItem(bucket, item);
+                            }
+                            const nodeId =
+                              bucket === 'new_in_figma'
+                                ? (item as SyncDesignSystemNodeSnapshot).nodeId
+                                : (
+                                    item as {
+                                      figma: SyncDesignSystemNodeSnapshot;
+                                      db: SyncDesignSystemDiffDbComponentRef;
+                                    }
+                                  ).figma.nodeId;
+                            return renderBucketItem(bucket, item, {
+                              selected: selectedNodeIds.has(nodeId),
+                              onToggle: () => toggleNodeId(nodeId),
+                            });
+                          })}
                         </ul>
                       ) : (
                         <p className="text-sm text-muted-foreground">No items in this bucket.</p>
@@ -655,8 +781,10 @@ export function SyncDiffPreview({
             </Button>
             <Button
               type="button"
-              onClick={onApply}
-              disabled={disabled || isPreviewing || isApplying}
+              onClick={() =>
+                onApply(totalSelectableCount > 0 ? [...selectedNodeIds] : undefined)
+              }
+              disabled={disabled || isPreviewing || isApplying || !canApply}
               loading={isApplying}
             >
               Sync design system

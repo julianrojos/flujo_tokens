@@ -1501,6 +1501,57 @@ export async function handleSyncDesignSystemApplyRoute(
     await componentRepo.getExistingSlugs(sysCtx.systemId),
   );
 
+  const rawSelected = body.selectedComponentNodeIds;
+  const hasSelectionParam = Array.isArray(rawSelected);
+  const selectedComponentNodeIds = hasSelectionParam
+    ? (rawSelected as unknown[]).filter(
+        (id): id is string => typeof id === 'string' && id.trim().length > 0,
+      )
+    : undefined;
+
+  if (hasSelectionParam && selectedComponentNodeIds.length === 0) {
+    const finishedAt = new Date().toISOString();
+    const summary = {
+      created: 0,
+      updated: 0,
+      unchanged: snapshotResult.diff.unchanged.length,
+      missing: snapshotResult.diff.missing_in_figma.length,
+      upserted: 0,
+      markedMissing: 0,
+    };
+    await persistDesignSystemSyncJobState(db, {
+      jobId: requestId,
+      systemId: sysCtx.systemId,
+      operationName: 'sync:design-system:apply',
+      label: 'sync design system apply',
+      status: 'success',
+      requestId,
+      startedAt,
+      finishedAt,
+      result: {
+        ok: true,
+        summary,
+      },
+    }).catch((error) => {
+      console.warn(
+        '[handleSyncDesignSystemApplyRoute] Failed to persist completed sync job state (empty selection):',
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+    return c.json(
+      {
+        ok: true,
+        summary,
+        requestId,
+      },
+      200,
+    );
+  }
+
+  const selectedNodeSet = hasSelectionParam
+    ? new Set(selectedComponentNodeIds)
+    : null;
+
   const createdEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
   const updatedEntries: Array<import('../db/component-repository.js').ComponentCatalogEntry> = [];
   const seenDbComponentIds = new Set<number>();
@@ -1508,6 +1559,7 @@ export async function handleSyncDesignSystemApplyRoute(
     figmaUrl || `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId || '')}`;
 
   for (const entry of snapshotResult.diff.new_in_figma) {
+    if (selectedNodeSet && !selectedNodeSet.has(entry.nodeId)) continue;
     const slug = allocateComponentSlug(
       slugifyComponentName(entry.name),
       usedSlugs,
@@ -1528,6 +1580,7 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   for (const entry of snapshotResult.diff.updated_in_figma) {
+    if (selectedNodeSet && !selectedNodeSet.has(entry.figma.nodeId)) continue;
     if (seenDbComponentIds.has(entry.db.id)) continue;
     seenDbComponentIds.add(entry.db.id);
     updatedEntries.push({

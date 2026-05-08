@@ -965,10 +965,10 @@ export function DesignSystemUpdateActions({
     ],
   );
 
-  const handleApplyAndRunSync = useCallback(async () => {
+  const handleApplyAndRunSync = useCallback(async (selectedNodeIds?: string[]) => {
     setHasTriggeredSyncInView(true);
     try {
-      await runSyncDiffApply();
+      await runSyncDiffApply(selectedNodeIds);
     } catch (cause) {
       const reason =
         cause instanceof Error ? cause.message : String(cause || 'Apply step failed.');
@@ -1124,7 +1124,7 @@ export function DesignSystemUpdateActions({
           isSyncRunning={isSyncRunning}
           canRetryFailedSteps={failedSteps.length > 0}
           onPreview={() => void runSyncDiffPreview()}
-          onApply={() => void handleApplyAndRunSync()}
+          onApply={(selectedNodeIds) => void handleApplyAndRunSync(selectedNodeIds)}
           onReset={resetSyncDiffPreview}
           onCancelSync={() => void cancelSync()}
           onRetryFailedSteps={() => void retryFailedSteps()}

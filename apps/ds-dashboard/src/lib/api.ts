@@ -2238,12 +2238,16 @@ export async function applySyncDesignSystem(args: {
   systemId: string;
   figmaUrl: string;
   figmaToken?: string;
+  selectedComponentNodeIds?: string[];
 }): Promise<SyncDesignSystemApplyResponse> {
   return requestJson<SyncDesignSystemApplyResponse>(
     `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/apply`,
     buildSyncDesignSystemRequest(args.systemId, {
       figmaUrl: args.figmaUrl,
       figmaToken: args.figmaToken,
+      ...(args.selectedComponentNodeIds !== undefined && {
+        selectedComponentNodeIds: args.selectedComponentNodeIds,
+      }),
     }),
   );
 }

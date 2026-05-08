@@ -34,7 +34,7 @@ export interface DesignSystemSyncPreviewState {
   isPreviewing: boolean;
   isApplying: boolean;
   runPreview: () => Promise<SyncDesignSystemDryRunResponse | undefined>;
-  runApply: () => Promise<SyncDesignSystemApplyResponse | undefined>;
+  runApply: (selectedNodeIds?: string[]) => Promise<SyncDesignSystemApplyResponse | undefined>;
   resetPreview: () => void;
 }
 
@@ -122,7 +122,7 @@ export function useDesignSystemSyncPreview(
   });
 
   const applyMutation = useMutation({
-    mutationFn: async (): Promise<SyncDesignSystemApplyResponse> => {
+    mutationFn: async (selectedNodeIds?: string[]): Promise<SyncDesignSystemApplyResponse> => {
       const figmaUrl = String(args.figmaUrl || '').trim();
       if (!figmaUrl) {
         throw new Error('Figma URL is required to apply the sync diff.');
@@ -131,6 +131,7 @@ export function useDesignSystemSyncPreview(
         systemId: args.systemId,
         figmaUrl,
         figmaToken: String(args.figmaToken || '').trim() || undefined,
+        selectedComponentNodeIds: selectedNodeIds,
       });
     },
     onSuccess: async (response) => {
@@ -157,7 +158,7 @@ export function useDesignSystemSyncPreview(
     isPreviewing: previewMutation.isPending,
     isApplying: applyMutation.isPending,
     runPreview: async () => (await previewMutation.mutateAsync()).dryRun,
-    runApply: async () => applyMutation.mutateAsync(),
+    runApply: async (selectedNodeIds?: string[]) => applyMutation.mutateAsync(selectedNodeIds),
     resetPreview,
   };
 }
