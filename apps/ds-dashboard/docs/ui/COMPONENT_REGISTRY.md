@@ -190,19 +190,34 @@ Rules:
 
 **Path:** `src/components/ui/checkbox.tsx`
 
-**Props:** All native `<input type="checkbox">` attributes + optional `label` (renders a wrapper `<label>`).
+**Props:** All native `<input type="checkbox">` attributes plus:
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `label` | `ReactNode` | Renders the input inside a clickable `<label>` row. `className` targets the wrapper. |
+| `inputClassName` | `string` | Always targets the inner `<input>`, regardless of `label`. |
+| `indeterminate` | `boolean` | Sets the native `indeterminate` DOM property — the "dash" state for partial selections. Synced via a callback ref. |
 
 ```tsx
+{/* Basic controlled checkbox */}
 <Checkbox
   id="confirm"
   checked={confirmed}
   onChange={(e) => setConfirmed(e.target.checked)}
   label="I understand the impact and want to continue"
 />
+
+{/* Select-all with indeterminate state */}
+<Checkbox
+  checked={allSelected}
+  indeterminate={someSelected && !allSelected}
+  onChange={() => allSelected ? deselectAll() : selectAll()}
+  aria-label="Select all items"
+/>
 ```
 
-**When to use:** Boolean on/off toggles inside forms or confirmation dialogs.
-**When NOT to use:** Multi-select groups (use a list of Checkboxes with a `<fieldset>`), simple toggles that are not part of a form (use Switch).
+**When to use:** Boolean on/off toggles in forms, confirmation dialogs, and multi-select list headers.
+**When NOT to use:** Simple toggles that are not part of a form (use Switch).
 
 ---
 
@@ -850,6 +865,7 @@ None as of v1.
 
 | Version | Date       | Changes                                                                                                                                                       |
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.5     | 2026-05-08 | `Checkbox`: added `indeterminate` prop (callback-ref pattern), CVA base variants, exported `checkboxVariants` |
 | 1.4     | 2026-04-30 | Added `Checkbox` and `FigmaConnectionStatusDot` to Tier 1 Primitives; exported `connectionStatusDotVariants` |
 | 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `edit-component-docs`)             |
 | 1.2     | 2026-04-14 | Added missing `ui/composites` entries (`ImpactLevelBadge`, `AiJobCreateForm`, `AiJobStatusCard`) and expanded Tier 2 coverage for decomposed feature sections |
