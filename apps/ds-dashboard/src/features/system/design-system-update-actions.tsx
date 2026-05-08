@@ -469,7 +469,6 @@ export function DesignSystemUpdateActions({
     diffResult: syncDiffResult,
     variablesPreview: syncVariablesPreview,
     variablesPreviewWarning: syncVariablesPreviewWarning,
-    notice: syncDiffNotice,
     error: syncDiffError,
     isPreviewing: isSyncDiffPreviewing,
     isApplying: isSyncDiffApplying,
@@ -1118,7 +1117,6 @@ export function DesignSystemUpdateActions({
           syncErrorMessage={syncError || null}
           syncProgress={syncProgress}
           syncOutcome={syncOutcome}
-          notice={syncDiffNotice}
           error={syncDiffError}
           disabled={disabled || isSyncRunning}
           isPreviewing={isSyncDiffPreviewing}

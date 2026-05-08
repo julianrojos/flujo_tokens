@@ -12,28 +12,6 @@ import {
 } from '@/lib/api';
 import { toApiErrorDisplay, type ApiErrorDisplay } from '@/lib/api-error-ux';
 
-function countLabel(count: number, singular: string, plural: string): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function buildPreviewNotice(diff: SyncDesignSystemDiffResult): string {
-  return [
-    countLabel(diff.new_in_figma.length, 'new component', 'new components'),
-    countLabel(diff.updated_in_figma.length, 'updated component', 'updated components'),
-    countLabel(diff.unchanged.length, 'unchanged component', 'unchanged components'),
-    countLabel(diff.missing_in_figma.length, 'missing component', 'missing components'),
-  ].join(' · ');
-}
-
-function buildApplyNotice(summary: SyncDesignSystemApplyResponse['summary']): string {
-  return [
-    countLabel(summary.created, 'created component', 'created components'),
-    countLabel(summary.updated, 'updated component', 'updated components'),
-    countLabel(summary.unchanged, 'unchanged component', 'unchanged components'),
-    countLabel(summary.missing, 'missing component', 'missing components'),
-  ].join(' · ');
-}
-
 function toPreviewErrorDisplay(cause: unknown): ApiErrorDisplay {
   return toApiErrorDisplay(cause, {
     fallbackTitle: 'Sync preview unavailable',
@@ -52,7 +30,6 @@ export interface DesignSystemSyncPreviewState {
   diffResult: SyncDesignSystemDiffResult | null;
   variablesPreview: SyncDesignSystemStepResult | null;
   variablesPreviewWarning: string | null;
-  notice: string | null;
   error: ApiErrorDisplay | null;
   isPreviewing: boolean;
   isApplying: boolean;
@@ -68,14 +45,12 @@ export function useDesignSystemSyncPreview(
   const [diffResult, setDiffResult] = useState<SyncDesignSystemDiffResult | null>(null);
   const [variablesPreview, setVariablesPreview] = useState<SyncDesignSystemStepResult | null>(null);
   const [variablesPreviewWarning, setVariablesPreviewWarning] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
 
   const resetPreview = useCallback(() => {
     setDiffResult(null);
     setVariablesPreview(null);
     setVariablesPreviewWarning(null);
-    setNotice(null);
     setError(null);
   }, []);
 
@@ -137,13 +112,11 @@ export function useDesignSystemSyncPreview(
       setDiffResult(response.dryRun.diff);
       setVariablesPreview(response.variables);
       setVariablesPreviewWarning(response.variablesWarning);
-      setNotice(buildPreviewNotice(response.dryRun.diff));
     },
     onError: (cause) => {
       setDiffResult(null);
       setVariablesPreview(null);
       setVariablesPreviewWarning(null);
-      setNotice(null);
       setError(toPreviewErrorDisplay(cause));
     },
   });
@@ -162,7 +135,6 @@ export function useDesignSystemSyncPreview(
     },
     onSuccess: async (response) => {
       setError(null);
-      setNotice(`Applied changes: ${buildApplyNotice(response.summary)}.`);
       setDiffResult(null);
       setVariablesPreview(null);
       setVariablesPreviewWarning(null);
@@ -173,7 +145,6 @@ export function useDesignSystemSyncPreview(
       ]);
     },
     onError: (cause) => {
-      setNotice(null);
       setError(toPreviewErrorDisplay(cause));
     },
   });
@@ -182,7 +153,6 @@ export function useDesignSystemSyncPreview(
     diffResult,
     variablesPreview,
     variablesPreviewWarning,
-    notice,
     error,
     isPreviewing: previewMutation.isPending,
     isApplying: applyMutation.isPending,

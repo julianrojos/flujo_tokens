@@ -48,7 +48,6 @@ interface SyncDiffPreviewProps {
     status: 'success' | 'error';
     message: string;
   } | null;
-  notice?: string | null;
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
   isApplying?: boolean;
@@ -405,7 +404,6 @@ export function SyncDiffPreview({
   syncErrorMessage = null,
   syncProgress = null,
   syncOutcome = null,
-  notice,
   error,
   isPreviewing = false,
   isApplying = false,
@@ -448,13 +446,6 @@ export function SyncDiffPreview({
       </div>
 
       <div className="space-y-4">
-        {notice ? (
-          <StatusAlert variant="success">
-            <StatusAlertTitle>Preview ready</StatusAlertTitle>
-            <StatusAlertDescription>{notice}</StatusAlertDescription>
-          </StatusAlert>
-        ) : null}
-
         {variablesPreviewWarning ? (
           <StatusAlert variant="warning">
             <StatusAlertTitle>Variables preview unavailable</StatusAlertTitle>
@@ -494,14 +485,7 @@ export function SyncDiffPreview({
           </StatusAlert>
         ) : null}
 
-        {!previewReady ? (
-          <StatusAlert variant="info">
-            <StatusAlertTitle>Run a dry-run first</StatusAlertTitle>
-            <StatusAlertDescription>
-              Inspect the diff before mutating the database. The apply step re-scans Figma before writing, so the preview stays auditable.
-            </StatusAlertDescription>
-          </StatusAlert>
-        ) : (
+        {previewReady ? (
           <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
             <div className="space-y-3">
               <div className="space-y-1">
@@ -524,7 +508,7 @@ export function SyncDiffPreview({
                 </StatusAlert>
               ) : (
                 (
-                  ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
+                  ['new_in_figma', 'updated_in_figma', 'missing_in_figma', 'unchanged'] as BucketKey[]
                 ).map((bucket) => {
                   const meta = bucketMeta[bucket];
                   const items = variablesDiffPreview.diff?.[bucket] || [];
@@ -585,7 +569,7 @@ export function SyncDiffPreview({
                 <h4 className="text-sm font-titles font-semibold titles-color">Components</h4>
               </div>
               {(
-                ['new_in_figma', 'updated_in_figma', 'unchanged', 'missing_in_figma'] as BucketKey[]
+                ['new_in_figma', 'updated_in_figma', 'missing_in_figma', 'unchanged'] as BucketKey[]
               ).map((bucket) => {
                 const meta = bucketMeta[bucket];
                 const items = diffResult[bucket];
@@ -626,7 +610,7 @@ export function SyncDiffPreview({
               })}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
