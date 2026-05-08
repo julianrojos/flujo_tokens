@@ -166,6 +166,16 @@ function buildInitialSelection(diff: SyncDesignSystemDiffResult | null): Set<str
   return ids;
 }
 
+function buildSelectionResetKey(diff: SyncDesignSystemDiffResult | null): string {
+  if (!diff) return '';
+  const newIds = diff.new_in_figma.map((item) => item.nodeId).join('|');
+  const updatedIds = diff.updated_in_figma
+    .map((item) => item.figma.nodeId)
+    .join('|');
+  return `${newIds}::${updatedIds}`;
+}
+
+
 function countLabel(count: number): string {
   return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
@@ -178,7 +188,10 @@ function formatDbSnapshot(snapshot: SyncDesignSystemDiffDbComponentRef): string 
   return [snapshot.name, snapshot.slug].join(' · ');
 }
 
-type ItemSelectionProps = { selected: boolean; onToggle: () => void } | null;
+type ItemSelectionProps = {
+  selected: boolean;
+  onChange: (checked: boolean) => void;
+} | null;
 
 function renderBucketItem(
   bucket: BucketKey,
@@ -193,10 +206,9 @@ function renderBucketItem(
   const checkbox = selectionProps ? (
     <Checkbox
       checked={selectionProps.selected}
-      onCheckedChange={() => selectionProps.onToggle()}
+      onChange={(event) => selectionProps.onChange(event.currentTarget.checked)}
       aria-label="Select component"
       className="mt-0.5 shrink-0"
-      onClick={(e) => e.stopPropagation()}
     />
   ) : null;
 
@@ -482,9 +494,17 @@ export function SyncDiffPreview({
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(() =>
     buildInitialSelection(diffResult),
   );
+  const selectionResetKey = useMemo(
+    () => buildSelectionResetKey(diffResult),
+    [diffResult],
+  );
+  const initialSelectedNodeIds = useMemo(
+    () => buildInitialSelection(diffResult),
+    [selectionResetKey],
+  );
   useEffect(() => {
-    setSelectedNodeIds(buildInitialSelection(diffResult));
-  }, [diffResult]);
+    setSelectedNodeIds(initialSelectedNodeIds);
+  }, [initialSelectedNodeIds]);
 
   const totalSelectableCount = useMemo(() => {
     if (!diffResult) return 0;
@@ -493,25 +513,23 @@ export function SyncDiffPreview({
 
   const canApply = totalSelectableCount === 0 || selectedNodeIds.size > 0;
 
-  function toggleNodeId(nodeId: string) {
+  function setNodeSelected(nodeId: string, checked: boolean) {
     setSelectedNodeIds((prev) => {
       const next = new Set(prev);
-      if (next.has(nodeId)) next.delete(nodeId);
-      else next.add(nodeId);
+      if (checked) next.add(nodeId);
+      else next.delete(nodeId);
       return next;
     });
   }
 
-  function toggleBucket(bucket: BucketKey) {
+  function setBucketSelected(bucket: BucketKey, checked: boolean) {
     if (!diffResult) return;
     const ids = getSelectableBucketNodeIds(bucket, diffResult[bucket]);
-    const allSelected = ids.every((id) => selectedNodeIds.has(id));
     setSelectedNodeIds((prev) => {
       const next = new Set(prev);
-      if (allSelected) {
-        for (const id of ids) next.delete(id);
-      } else {
-        for (const id of ids) next.add(id);
+      for (const id of ids) {
+        if (checked) next.add(id);
+        else next.delete(id);
       }
       return next;
     });
@@ -689,11 +707,18 @@ export function SyncDiffPreview({
                       <div className="flex items-start gap-2">
                         {isSelectable && bucketNodeIds.length > 0 ? (
                           <Checkbox
-                            checked={allBucketSelected ? true : someBucketSelected ? 'indeterminate' : false}
-                            onCheckedChange={() => toggleBucket(bucket)}
+                            checked={allBucketSelected}
+                            indeterminate={someBucketSelected}
+                            onChange={(event) =>
+                              setBucketSelected(bucket, event.currentTarget.checked)
+                            }
                             aria-label={`Select all ${meta.title.toLowerCase()} components`}
                             className="mt-0.5 shrink-0"
                             onClick={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === ' ' || e.key === 'Enter') e.stopPropagation();
+                            }}
                           />
                         ) : null}
                         <div className="space-y-1">
@@ -723,7 +748,7 @@ export function SyncDiffPreview({
                                   ).figma.nodeId;
                             return renderBucketItem(bucket, item, {
                               selected: selectedNodeIds.has(nodeId),
-                              onToggle: () => toggleNodeId(nodeId),
+                              onChange: (checked) => setNodeSelected(nodeId, checked),
                             });
                           })}
                         </ul>
