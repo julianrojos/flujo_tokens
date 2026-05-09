@@ -432,7 +432,8 @@ export function DesignSystemsAdminPage() {
                   <div className="grid gap-3 lg:grid-cols-2">
                     <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                        Imported Components
+                        Imported Components:{' '}
+                        {componentImportSnapshot.importedNames.length}
                       </h3>
                       {componentImportSnapshot.importedNames.length > 0 ? (
                         <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
@@ -455,7 +456,8 @@ export function DesignSystemsAdminPage() {
                     </section>
                     <section className="rounded border border-border/70 bg-[var(--app-surface-1)] p-3">
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
-                        Pending Components
+                        Pending Components:{' '}
+                        {componentImportSnapshot.pendingNames.length}
                       </h3>
                       {componentImportSnapshot.pendingNames.length > 0 ? (
                         <ul className="mt-2 max-h-40 space-y-1 overflow-auto pr-1 text-xs text-muted-foreground">
