@@ -53,6 +53,7 @@ export interface CommandRoutesDeps {
     options: unknown,
   ) => Promise<Record<string, unknown> & { ok: boolean }>;
   runCaptureFromFigmaUrlFn?: CommandRouteHandlerDeps['runCaptureFromFigmaUrlFn'];
+  searchComponentsDirectFn?: CommandRouteHandlerDeps['searchComponentsDirectFn'];
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
@@ -140,6 +141,7 @@ function toCommandRouteHandlerDeps(
         'runQueuedSpawnCommand',
       ),
     runCaptureFromFigmaUrlFn: deps.runCaptureFromFigmaUrlFn,
+    searchComponentsDirectFn: deps.searchComponentsDirectFn,
     queueNpmScript: (args) =>
       assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
     queueNodeJsonCommand: (args) =>

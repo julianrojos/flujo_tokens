@@ -28,7 +28,10 @@ import {
 import { generateTokenCssFromDb } from './generate-token-css-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
-import { fetchVariablesDirect } from './figma-direct-bridge-service.ts';
+import {
+  fetchVariablesDirect,
+  searchComponentsDirect,
+} from './figma-direct-bridge-service.ts';
 import { getSharedResponseCache } from './response-cache.ts';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repository.js';
@@ -421,9 +424,11 @@ async function buildSyncDiffSnapshot(params: {
   systemId: string;
   repoRoot: string;
   figmaUrl: string;
+  figmaFileId?: string;
   figmaToken: string;
   componentRepo: import('../db/component-repository.js').ComponentRepository;
   runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
+  searchComponentsDirectFn?: typeof searchComponentsDirect;
 }): Promise<
   | {
       ok: true;
@@ -439,12 +444,116 @@ async function buildSyncDiffSnapshot(params: {
     systemId,
     repoRoot,
     figmaUrl,
+    figmaFileId,
     figmaToken,
     componentRepo,
     runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
+    searchComponentsDirectFn = searchComponentsDirect,
   } = params;
 
   try {
+    const resolvedFileKey = resolveFileKeyForSystem(figmaFileId, { figmaUrl });
+    const manager = getPluginConnectionManager();
+    const activeFileKeys = new Set(
+      manager
+        .getActiveFileKeys()
+        .map((fileKey) => toTrimmedString(fileKey))
+        .filter((fileKey) => fileKey.length > 0),
+    );
+    const hasSingleUnkeyedSocket =
+      manager.getConnectionCount() === 1 && activeFileKeys.size === 0;
+    const shouldTryPluginFastPath =
+      Boolean(resolvedFileKey) &&
+      (activeFileKeys.has(resolvedFileKey) || hasSingleUnkeyedSocket);
+
+    if (shouldTryPluginFastPath) {
+      try {
+        const scanSessionId = `sync-diff-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        const pluginComponents: Array<{
+          nodeId: string;
+          name: string;
+          type: 'COMPONENT' | 'COMPONENT_SET';
+          pageName?: string;
+          variantCount?: number;
+        }> = [];
+        let offset = 0;
+        let hasMore = true;
+        let pages = 0;
+        while (hasMore) {
+          pages += 1;
+          const page = await searchComponentsDirectFn(resolvedFileKey || null, {
+            compact: true,
+            includeVariants: false,
+            limit: 1000,
+            offset,
+            scanSessionId,
+          });
+          if (Array.isArray(page.components) && page.components.length > 0) {
+            pluginComponents.push(...page.components);
+          }
+          hasMore = page.hasMore === true;
+          offset = typeof page.nextOffset === 'number'
+            ? page.nextOffset
+            : offset + (Array.isArray(page.components) ? page.components.length : 0);
+          if (!hasMore) break;
+          if (pages >= 100) {
+            throw new Error(
+              'Plugin fast-path pagination limit reached before completion.',
+            );
+          }
+        }
+
+        const byNodeId = new Map<string, FigmaNodeSnapshot>();
+        for (const component of pluginComponents) {
+          const nodeId = toTrimmedString(component.nodeId);
+          if (!nodeId || byNodeId.has(nodeId)) continue;
+          const name = toTrimmedString(component.name) || nodeId;
+          const type = toTrimmedString(component.type) || 'COMPONENT';
+          const pageName = toTrimmedString(component.pageName) || undefined;
+          const variantCount = toNonNegativeInt(component.variantCount);
+          byNodeId.set(nodeId, {
+            nodeId,
+            name,
+            type,
+            slug: slugifyComponentName(name),
+            pageName,
+            variantCount,
+            contentFingerprint: computeContentFingerprint({
+              name,
+              type,
+              pageName,
+              variantCount,
+            }),
+          });
+        }
+
+        if (byNodeId.size > 0) {
+          const dbComponents = await componentRepo.getComponentsForDiff(systemId);
+          return {
+            ok: true,
+            sourceCandidates: Array.from(byNodeId.values()).map((snapshot) => ({
+              node_id: snapshot.nodeId,
+              name: snapshot.name,
+              type: snapshot.type,
+              page_name: snapshot.pageName || '',
+              variant_count: snapshot.variantCount,
+              contentFingerprint: snapshot.contentFingerprint,
+            })),
+            diff: diffFigmaVsDb(
+              Array.from(byNodeId.values()),
+              dbComponents as DbComponentRef[],
+            ),
+          };
+        }
+      } catch (error) {
+        console.warn(
+          `[buildSyncDiffSnapshot] Plugin fast path failed; falling back to capture pipeline: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     const captureResult = await runCaptureFromFigmaUrlFn(
       {
         system: systemId,
@@ -562,6 +671,7 @@ export interface CommandRouteHandlerDeps {
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
+  searchComponentsDirectFn?: typeof searchComponentsDirect;
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('postgres').Sql;
@@ -1276,6 +1386,7 @@ export async function handleSyncDesignSystemDryRunRoute(
     componentRepo,
     db,
     runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
+    searchComponentsDirectFn = searchComponentsDirect,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -1340,9 +1451,11 @@ export async function handleSyncDesignSystemDryRunRoute(
     systemId: sysCtx.systemId,
     repoRoot: sysCtx.repoRoot,
     figmaUrl,
+    figmaFileId: sysCtx.figmaFileId,
     figmaToken,
     componentRepo,
     runCaptureFromFigmaUrlFn,
+    searchComponentsDirectFn,
   });
 
   if (!snapshotResult.ok) {
@@ -1379,6 +1492,7 @@ export async function handleSyncDesignSystemApplyRoute(
     componentRepo,
     db,
     runCaptureFromFigmaUrlFn,
+    searchComponentsDirectFn = searchComponentsDirect,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -1459,9 +1573,11 @@ export async function handleSyncDesignSystemApplyRoute(
     systemId: sysCtx.systemId,
     repoRoot: sysCtx.repoRoot,
     figmaUrl,
+    figmaFileId: sysCtx.figmaFileId,
     figmaToken,
     componentRepo,
     runCaptureFromFigmaUrlFn,
+    searchComponentsDirectFn,
   });
 
   if (!snapshotResult.ok) {

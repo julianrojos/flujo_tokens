@@ -268,6 +268,174 @@ describe('command-routes', () => {
       assert.equal((payload as any).error, 'figma_fetch_failed');
       assert.match(String((payload as any).details || ''), /Figma API 503/);
     });
+
+    it('uses plugin fast path when matching file socket is active', async () => {
+      resetPluginConnectionManager();
+      const manager = getPluginConnectionManager();
+      const socket = makeSocket(() => {
+        // searchComponentsDirect is injected in this test, so websocket is only
+        // used to mark the file key as active for fast-path eligibility.
+      });
+      const socketId = manager.register(socket, {
+        fileKey: 'abc123',
+        docName: 'Test file',
+        pluginVersion: '1.0.0',
+        pluginBuild: 'test',
+        timestamp: Date.now(),
+      });
+
+      try {
+        let captureCalls = 0;
+        const offsets: number[] = [];
+        const app = createTestApp({
+          readJsonBody: async () => ({
+            figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+            figmaToken: 'token_123',
+          }),
+          componentRepo: {
+            getAll: () => [],
+            getExistingSlugs: () => [],
+            getComponentsForDiff: async () => [
+              {
+                id: 1,
+                nodeId: '1:1',
+                slug: 'button',
+                name: 'Button',
+                status: 'ready',
+                contentFingerprint: 'Button||component_set||Page 1||2',
+              },
+            ],
+            upsertFromRegistry: () => 0,
+          },
+          searchComponentsDirectFn: async (
+            _fileKey: string | null,
+            params: { offset?: number },
+          ) => {
+            const offset = Number(params.offset || 0);
+            offsets.push(offset);
+            if (offset === 0) {
+              return {
+                success: true as const,
+                components: [
+                  {
+                    key: 'k-1',
+                    nodeId: '1:1',
+                    name: 'Button',
+                    type: 'COMPONENT_SET' as const,
+                    pageName: 'Page 1',
+                    variantCount: 2,
+                  },
+                ],
+                count: 1,
+                truncated: false,
+                total: 2,
+                totalIsEstimated: false,
+                limit: 1000,
+                hasMore: true,
+                nextOffset: 1,
+              };
+            }
+            return {
+              success: true as const,
+              components: [
+                {
+                  key: 'k-2',
+                  nodeId: '2:2',
+                  name: 'Card',
+                  type: 'COMPONENT' as const,
+                  pageName: 'Page 1',
+                  variantCount: 0,
+                },
+              ],
+              count: 1,
+              truncated: false,
+              total: 2,
+              totalIsEstimated: false,
+              limit: 1000,
+              hasMore: false,
+              nextOffset: null,
+            };
+          },
+          runCaptureFromFigmaUrlFn: async () => {
+            captureCalls += 1;
+            return { ok: false, error: 'should_not_run' };
+          },
+        });
+
+        const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+        assert.equal(res.status, 200);
+        const payload = await res.json();
+        assert.equal((payload as any).ok, true);
+        assert.deepEqual(offsets, [0, 1]);
+        assert.equal(captureCalls, 0);
+        assert.equal((payload as any).diff.new_in_figma.length, 1);
+        assert.equal((payload as any).diff.unchanged.length, 1);
+      } finally {
+        manager.unregister(socketId, 'test-cleanup');
+        resetPluginConnectionManager();
+      }
+    });
+
+    it('falls back to REST path when resolved file key is empty, even with active socket', async () => {
+      resetPluginConnectionManager();
+      const manager = getPluginConnectionManager();
+      const socket = makeSocket(() => {
+        // Socket exists but should not be used because fileKey cannot be resolved.
+      });
+      const socketId = manager.register(socket, {
+        fileKey: 'other_file_999',
+        docName: 'Other file',
+        pluginVersion: '1.0.0',
+        pluginBuild: 'test',
+        timestamp: Date.now(),
+      });
+
+      try {
+        let captureCalls = 0;
+        let pluginCalls = 0;
+        const app = createTestApp({
+          readJsonBody: async () => ({
+            figmaUrl: 'not-a-valid-figma-url',
+            figmaToken: 'token_123',
+          }),
+          componentRepo: {
+            getAll: () => [],
+            getExistingSlugs: () => [],
+            getComponentsForDiff: async () => [],
+            upsertFromRegistry: () => 0,
+          },
+          searchComponentsDirectFn: async () => {
+            pluginCalls += 1;
+            return {
+              success: true as const,
+              components: [],
+              count: 0,
+              truncated: false,
+              total: 0,
+              totalIsEstimated: false,
+              limit: 1000,
+              hasMore: false,
+              nextOffset: null,
+            };
+          },
+          runCaptureFromFigmaUrlFn: async () => {
+            captureCalls += 1;
+            return {
+              ok: true,
+              report: { source_candidates: [] },
+            };
+          },
+        });
+
+        const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+        assert.equal(res.status, 200);
+        assert.equal(pluginCalls, 0);
+        assert.equal(captureCalls, 1);
+      } finally {
+        manager.unregister(socketId, 'test-cleanup');
+        resetPluginConnectionManager();
+      }
+    });
   });
 
   describe('/api/:systemId/sync/apply', () => {

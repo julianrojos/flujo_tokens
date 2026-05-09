@@ -454,15 +454,40 @@ export async function runCaptureFromFigmaUrl(
     buildFigmaComponentMapFn,
   });
 
+  const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
+  const allowFallbackSources = !componentKind || componentKind === 'all';
+
   phase = 'resolve_context';
   let componentMap: Awaited<ReturnType<typeof resolveContext>>['componentMap'];
   let singleNodeCandidate: Awaited<
     ReturnType<typeof resolveContext>
   >['singleNodeCandidate'];
+  let publishedComponentsResponse: Awaited<
+    ReturnType<typeof fetchFigmaFileComponentsFn>
+  > | null = null;
   try {
-    const resolved = await resolveContext();
-    componentMap = resolved.componentMap;
-    singleNodeCandidate = resolved.singleNodeCandidate;
+    const fallbackComponentsPromise =
+      allowFallbackSources && !hasNodeIdFromUrl
+        ? fetchFigmaFileComponentsFn({
+            fileKey: descriptor.fileKey,
+            token: figmaToken,
+          })
+        : Promise.resolve(null);
+    const [resolvedResult, publishedResult] = await Promise.allSettled([
+      resolveContext(),
+      fallbackComponentsPromise,
+    ]);
+
+    if (resolvedResult.status === 'rejected') {
+      throwWithPipelinePhase(resolvedResult.reason, phase);
+    }
+    if (publishedResult.status === 'rejected') {
+      throwWithPipelinePhase(publishedResult.reason, phase);
+    }
+
+    componentMap = resolvedResult.value.componentMap;
+    singleNodeCandidate = resolvedResult.value.singleNodeCandidate;
+    publishedComponentsResponse = publishedResult.value;
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
@@ -500,7 +525,6 @@ export async function runCaptureFromFigmaUrl(
     (c) => !nestedComponentNodeIds.has(String(c.id || '').trim()),
   );
   const allSourceItems = [...topLevelComponents, ...allComponentSets];
-  const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
 
   // Build source candidates from components
   let sourceCandidates: SourceCandidate[];
@@ -546,15 +570,9 @@ export async function runCaptureFromFigmaUrl(
     sourceCandidates = Array.from(deduped.values());
   }
 
-  const allowFallbackSources =
-    !componentKind || componentKind === 'all';
-
   if (allowFallbackSources && !hasNodeIdFromUrl) {
     try {
-      const componentsResponse = await fetchFigmaFileComponentsFn({
-        fileKey: descriptor.fileKey,
-        token: figmaToken,
-      });
+      const componentsResponse = publishedComponentsResponse;
       const publishedComponents = Array.isArray(componentsResponse?.meta?.components)
         ? componentsResponse.meta.components
         : [];
