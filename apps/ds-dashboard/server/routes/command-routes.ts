@@ -13,6 +13,7 @@ import {
   handleRunScriptRoute,
   handleSyncDesignSystemApplyRoute,
   handleSyncDesignSystemDryRunRoute,
+  handleSyncDesignSystemVariablesDryRunRoute,
   handleSyncDesignSystemRoute,
   handleSyncDesignSystemStepRoute,
   handleSyncFigmaTokensRoute,
@@ -200,6 +201,9 @@ export function registerCommandRoutes(
   );
   app.post('/api/:systemId/sync/dry-run', (c: Context) =>
     handleSyncDesignSystemDryRunRoute(c, commandDeps),
+  );
+  app.post('/api/:systemId/sync/variables/dry-run', (c: Context) =>
+    handleSyncDesignSystemVariablesDryRunRoute(c, commandDeps),
   );
   app.post('/api/:systemId/sync/apply', (c: Context) =>
     handleSyncDesignSystemApplyRoute(c, commandDeps),

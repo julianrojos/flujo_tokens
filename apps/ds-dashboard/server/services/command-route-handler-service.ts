@@ -49,6 +49,7 @@ import {
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
+const SYNC_DIFF_PREVIEW_CACHE_TTL_MS = 30_000;
 const syncDiffDryRunInflightByKey = new Map<
   string,
   Promise<
@@ -56,6 +57,46 @@ const syncDiffDryRunInflightByKey = new Map<
         ok: true;
         sourceCandidates: Array<Record<string, unknown>>;
         diff: ReturnType<typeof diffFigmaVsDb>;
+        pathUsed: 'plugin' | 'rest';
+      }
+    | {
+        ok: false;
+        error: string;
+      }
+  >
+>();
+const syncDiffDryRunResultCacheByKey = new Map<
+  string,
+  {
+    systemId: string;
+    expiresAt: number;
+    value:
+      | {
+          ok: true;
+          sourceCandidates: Array<Record<string, unknown>>;
+          diff: ReturnType<typeof diffFigmaVsDb>;
+          pathUsed: 'plugin' | 'rest';
+        }
+      | {
+          ok: false;
+          error: string;
+        };
+  }
+>();
+const syncVariablesDryRunResultCacheByKey = new Map<
+  string,
+  {
+    systemId: string;
+    expiresAt: number;
+    value: ReturnType<typeof summarizeVariablesStep>;
+  }
+>();
+const syncVariablesDryRunInflightByKey = new Map<
+  string,
+  Promise<
+    | {
+        ok: true;
+        summary: ReturnType<typeof summarizeVariablesStep>;
       }
     | {
         ok: false;
@@ -91,6 +132,104 @@ function buildSyncDiffDryRunInflightKey(input: {
     figmaUrl: toTrimmedString(input.figmaUrl),
     figmaFileId: toTrimmedString(input.figmaFileId),
     figmaToken: toTrimmedString(input.figmaToken),
+  });
+}
+
+function buildSyncVariablesDryRunInflightKey(input: {
+  systemId: string;
+  repoRoot: string;
+  figmaUrl: string;
+  figmaFileId?: string;
+}): string {
+  return JSON.stringify({
+    systemId: toTrimmedString(input.systemId),
+    repoRoot: toTrimmedString(input.repoRoot),
+    figmaUrl: toTrimmedString(input.figmaUrl),
+    figmaFileId: toTrimmedString(input.figmaFileId),
+  });
+}
+
+function getCachedSyncDiffPreviewResult(
+  key: string,
+):
+  | {
+      ok: true;
+      sourceCandidates: Array<Record<string, unknown>>;
+      diff: ReturnType<typeof diffFigmaVsDb>;
+      pathUsed: 'plugin' | 'rest';
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+  | null {
+  const cached = syncDiffDryRunResultCacheByKey.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    syncDiffDryRunResultCacheByKey.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedSyncDiffPreviewResult(
+  key: string,
+  systemId: string,
+  value:
+    | {
+        ok: true;
+        sourceCandidates: Array<Record<string, unknown>>;
+        diff: ReturnType<typeof diffFigmaVsDb>;
+        pathUsed: 'plugin' | 'rest';
+      }
+    | {
+        ok: false;
+        error: string;
+      },
+): void {
+  syncDiffDryRunResultCacheByKey.set(key, {
+    systemId: toTrimmedString(systemId),
+    expiresAt: Date.now() + SYNC_DIFF_PREVIEW_CACHE_TTL_MS,
+    value,
+  });
+}
+
+function clearSyncDiffPreviewCacheForSystem(systemId: string): void {
+  const normalizedSystemId = toTrimmedString(systemId);
+  if (!normalizedSystemId) return;
+  for (const [key, entry] of syncDiffDryRunResultCacheByKey.entries()) {
+    if (entry.systemId === normalizedSystemId) {
+      syncDiffDryRunResultCacheByKey.delete(key);
+    }
+  }
+  for (const [key, entry] of syncVariablesDryRunResultCacheByKey.entries()) {
+    if (entry.systemId === normalizedSystemId) {
+      syncVariablesDryRunResultCacheByKey.delete(key);
+    }
+  }
+}
+
+function getCachedSyncVariablesPreviewResult(
+  key: string,
+): ReturnType<typeof summarizeVariablesStep> | null {
+  const cached = syncVariablesDryRunResultCacheByKey.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    syncVariablesDryRunResultCacheByKey.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedSyncVariablesPreviewResult(
+  key: string,
+  systemId: string,
+  value: ReturnType<typeof summarizeVariablesStep>,
+): void {
+  syncVariablesDryRunResultCacheByKey.set(key, {
+    systemId: toTrimmedString(systemId),
+    expiresAt: Date.now() + SYNC_DIFF_PREVIEW_CACHE_TTL_MS,
+    value,
   });
 }
 
@@ -479,6 +618,7 @@ async function buildSyncDiffSnapshot(params: {
       ok: true;
       sourceCandidates: Array<Record<string, unknown>>;
       diff: ReturnType<typeof diffFigmaVsDb>;
+      pathUsed: 'plugin' | 'rest';
     }
   | {
       ok: false;
@@ -578,6 +718,7 @@ async function buildSyncDiffSnapshot(params: {
           const dbComponents = await componentRepo.getComponentsForDiff(systemId);
           return {
             ok: true,
+            pathUsed: 'plugin' as const,
             sourceCandidates: Array.from(byNodeId.values()).map((snapshot) => ({
               node_id: snapshot.nodeId,
               name: snapshot.name,
@@ -642,6 +783,7 @@ async function buildSyncDiffSnapshot(params: {
     const dbComponents = await componentRepo.getComponentsForDiff(systemId);
     return {
       ok: true,
+      pathUsed: 'rest' as const,
       sourceCandidates,
       diff: diffFigmaVsDb(
         toFigmaNodeSnapshots(sourceCandidates),
@@ -1504,6 +1646,18 @@ export async function handleSyncDesignSystemDryRunRoute(
     figmaFileId: sysCtx.figmaFileId,
     figmaToken,
   });
+  const cachedSnapshot = getCachedSyncDiffPreviewResult(inflightKey);
+  if (cachedSnapshot?.ok) {
+    return c.json(
+      {
+        ok: true,
+        requestId,
+        diff: cachedSnapshot.diff,
+        _debug: { pathUsed: cachedSnapshot.pathUsed },
+      },
+      200,
+    );
+  }
   let inflightSnapshot = syncDiffDryRunInflightByKey.get(inflightKey);
   if (!inflightSnapshot) {
     inflightSnapshot = buildSyncDiffSnapshot({
@@ -1524,6 +1678,7 @@ export async function handleSyncDesignSystemDryRunRoute(
         ok: true;
         sourceCandidates: Array<Record<string, unknown>>;
         diff: ReturnType<typeof diffFigmaVsDb>;
+        pathUsed: 'plugin' | 'rest';
       }
     | {
         ok: false;
@@ -1538,6 +1693,8 @@ export async function handleSyncDesignSystemDryRunRoute(
   }
 
   if (!snapshotResult.ok) {
+    // Errors are intentionally NOT cached — transient failures (Figma 503,
+    // network hiccup) should not poison the cache for the full TTL.
     return c.json(
       {
         ok: false,
@@ -1549,11 +1706,158 @@ export async function handleSyncDesignSystemDryRunRoute(
     );
   }
 
+  setCachedSyncDiffPreviewResult(inflightKey, sysCtx.systemId, snapshotResult);
   return c.json(
     {
       ok: true,
       requestId,
       diff: snapshotResult.diff,
+      _debug: { pathUsed: snapshotResult.pathUsed },
+    },
+    200,
+  );
+}
+
+export async function handleSyncDesignSystemVariablesDryRunRoute(
+  c: Context,
+  deps: CommandRouteHandlerDeps,
+): Promise<Response> {
+  const {
+    failJson,
+    createApiRequestId,
+    getSystemContext,
+    readJsonBody,
+    componentRepo,
+    db,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
+  } = deps;
+
+  const requestId = createApiRequestId();
+  const systemHeader = c.req.param('systemId') ?? c.req.header('x-ds-system') ?? '';
+  const sysCtx = await getSystemContext(systemHeader);
+  const body = await readJsonBody(c);
+  const rawFigmaUrl = toTrimmedString(body.figmaUrl ?? body.url);
+  const figmaUrl = stripNodeIdFromFigmaUrl(
+    rawFigmaUrl ||
+    (sysCtx.figmaFileId
+      ? `https://www.figma.com/design/${encodeURIComponent(sysCtx.figmaFileId)}`
+      : ''),
+  );
+  if (!figmaUrl) {
+    return failJson(c, 400, {
+      code: 'validation.figma_url_required',
+      userMessage: 'figmaUrl is required in request body.',
+      recoverable: true,
+      context: { field: 'figmaUrl' },
+      requestId,
+    });
+  }
+
+  if (!componentRepo || !db) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const figmaFileId = resolveFileKeyForSystem(sysCtx.figmaFileId, body) ||
+    sysCtx.figmaFileId ||
+    '';
+  const inflightKey = buildSyncVariablesDryRunInflightKey({
+    systemId: sysCtx.systemId,
+    repoRoot: sysCtx.repoRoot,
+    figmaUrl,
+    figmaFileId,
+  });
+
+  const cachedVariables = getCachedSyncVariablesPreviewResult(inflightKey);
+  if (cachedVariables) {
+    return c.json({ ...cachedVariables, requestId }, 200);
+  }
+
+  let inflightVariables = syncVariablesDryRunInflightByKey.get(inflightKey);
+  if (!inflightVariables) {
+    inflightVariables = (async () => {
+      try {
+        const result = await syncDesignSystemFromPluginFn({
+          db,
+          componentRepo,
+          dsId: sysCtx.systemId,
+          figmaFileId,
+          fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
+          dryRun: true,
+          includeComponents: false,
+          selectedComponentNodeIds: undefined,
+          requireComponentProofs: false,
+          requireVariantProofsWhenPresent: false,
+          captureComponentProofs: false,
+          captureComponentProofVariants: false,
+          repoRoot: sysCtx.repoRoot,
+          reindexUsageFromFilesystem: false,
+          usageReindexStrict: true,
+        });
+
+        const variablesWarnings =
+          result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
+        const summary = summarizeVariablesStep({
+          ...result,
+          ok: true,
+          warnings: variablesWarnings,
+          componentsTruncated: result.componentsTruncated,
+        });
+
+        return {
+          ok: true as const,
+          summary,
+        };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    })();
+    syncVariablesDryRunInflightByKey.set(inflightKey, inflightVariables);
+  }
+
+  let variablesResult:
+    | {
+        ok: true;
+        summary: ReturnType<typeof summarizeVariablesStep>;
+      }
+    | {
+        ok: false;
+        error: string;
+      };
+  try {
+    variablesResult = await inflightVariables;
+  } finally {
+    if (syncVariablesDryRunInflightByKey.get(inflightKey) === inflightVariables) {
+      syncVariablesDryRunInflightByKey.delete(inflightKey);
+    }
+  }
+
+  if (!variablesResult.ok) {
+    // Errors are intentionally NOT cached — transient failures (plugin disconnect,
+    // network hiccup) should not poison the cache for the full TTL.
+    return c.json(
+      {
+        ok: false,
+        error: 'figma_fetch_failed',
+        details: variablesResult.error,
+        requestId,
+      },
+      422,
+    );
+  }
+
+  setCachedSyncVariablesPreviewResult(inflightKey, sysCtx.systemId, variablesResult.summary);
+  return c.json(
+    {
+      ...variablesResult.summary,
+      requestId,
     },
     200,
   );
@@ -1909,6 +2213,8 @@ export async function handleSyncDesignSystemApplyRoute(
         error instanceof Error ? error.message : String(error),
       );
     });
+
+    clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
 
     return c.json(
       {

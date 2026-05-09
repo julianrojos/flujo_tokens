@@ -441,7 +441,7 @@ describe('command-routes', () => {
       let captureCalls = 0;
       const app = createTestApp({
         readJsonBody: async () => ({
-          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File-Dedupe',
           figmaToken: 'token_123',
         }),
         componentRepo: {
@@ -476,6 +476,110 @@ describe('command-routes', () => {
       const bodyB = await resB.json();
       assert.deepStrictEqual(bodyB, bodyA);
       assert.equal(captureCalls, 1);
+    });
+  });
+
+  describe('/api/:systemId/sync/variables/dry-run', () => {
+    it('returns a direct variables preview without queue polling', async () => {
+      const db = (async () => []) as unknown as any;
+      let capturedOptions: Record<string, unknown> | null = null;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        syncDesignSystemFromPluginFn: async (options: Record<string, unknown>) => {
+          capturedOptions = options;
+          return {
+            tokens: 12,
+            tokenModeValues: 24,
+            aliases: 3,
+            components: 0,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'skipped',
+            usageReindexReason: 'none',
+            usageReindexWarnings: [],
+            dryRun: true,
+            new_in_figma: [],
+            updated_in_figma: [],
+            unchanged: [],
+            missing_in_figma: [],
+          };
+        },
+      });
+
+      const res = await app.request('/api/core/sync/variables/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).status, 'completed');
+      assert.equal((payload as any).counts.tokens, 12);
+      assert.equal((payload as any).counts.tokenModeValues, 24);
+      assert.equal((payload as any).counts.aliases, 3);
+      assert.equal(capturedOptions?.dryRun, true);
+      assert.equal(capturedOptions?.includeComponents, false);
+      assert.equal(capturedOptions?.captureComponentProofs, false);
+    });
+
+    it('deduplicates concurrent variables dry-run requests with the same payload', async () => {
+      const db = (async () => []) as unknown as any;
+      let syncCalls = 0;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File-Variables-Dedupe',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        syncDesignSystemFromPluginFn: async () => {
+          syncCalls += 1;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          return {
+            tokens: 5,
+            tokenModeValues: 8,
+            aliases: 1,
+            components: 0,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'skipped',
+            usageReindexReason: 'none',
+            usageReindexWarnings: [],
+            dryRun: true,
+            new_in_figma: [],
+            updated_in_figma: [],
+            unchanged: [],
+            missing_in_figma: [],
+          };
+        },
+      });
+
+      const [resA, resB] = await Promise.all([
+        app.request('/api/core/sync/variables/dry-run', { method: 'POST' }),
+        app.request('/api/core/sync/variables/dry-run', { method: 'POST' }),
+      ]);
+
+      assert.equal(resA.status, 200);
+      assert.equal(resB.status, 200);
+      const bodyA = await resA.json();
+      const bodyB = await resB.json();
+      assert.deepStrictEqual(bodyB, bodyA);
+      assert.equal(syncCalls, 1);
     });
   });
 
