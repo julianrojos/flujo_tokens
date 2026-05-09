@@ -436,6 +436,47 @@ describe('command-routes', () => {
         resetPluginConnectionManager();
       }
     });
+
+    it('deduplicates concurrent dry-run requests with the same payload', async () => {
+      let captureCalls = 0;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        searchComponentsDirectFn: async () => {
+          throw new Error('force_fallback_capture_path');
+        },
+        runCaptureFromFigmaUrlFn: async () => {
+          captureCalls += 1;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          return {
+            ok: true,
+            report: {
+              source_candidates: [],
+            },
+          };
+        },
+      });
+
+      const [resA, resB] = await Promise.all([
+        app.request('/api/core/sync/dry-run', { method: 'POST' }),
+        app.request('/api/core/sync/dry-run', { method: 'POST' }),
+      ]);
+
+      assert.equal(resA.status, 200);
+      assert.equal(resB.status, 200);
+      const bodyA = await resA.json();
+      const bodyB = await resB.json();
+      assert.deepStrictEqual(bodyB, bodyA);
+      assert.equal(captureCalls, 1);
+    });
   });
 
   describe('/api/:systemId/sync/apply', () => {

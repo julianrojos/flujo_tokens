@@ -39,6 +39,7 @@ import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
 import { runCaptureFromFigmaUrl } from '../../../../tooling/src/services/capture-orchestrator-main.js';
+import { fetchFigmaFile } from '../../../../tooling/src/services/figma-api.js';
 import {
   computeContentFingerprint,
   diffFigmaVsDb,
@@ -48,6 +49,50 @@ import {
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
+const syncDiffDryRunInflightByKey = new Map<
+  string,
+  Promise<
+    | {
+        ok: true;
+        sourceCandidates: Array<Record<string, unknown>>;
+        diff: ReturnType<typeof diffFigmaVsDb>;
+      }
+    | {
+        ok: false;
+        error: string;
+      }
+  >
+>();
+const syncDiffApplyInflightByKey = new Map<
+  string,
+  Promise<
+    | {
+        ok: true;
+        sourceCandidates: Array<Record<string, unknown>>;
+        diff: ReturnType<typeof diffFigmaVsDb>;
+      }
+    | {
+        ok: false;
+        error: string;
+      }
+  >
+>();
+
+function buildSyncDiffDryRunInflightKey(input: {
+  systemId: string;
+  repoRoot: string;
+  figmaUrl: string;
+  figmaFileId?: string;
+  figmaToken: string;
+}): string {
+  return JSON.stringify({
+    systemId: toTrimmedString(input.systemId),
+    repoRoot: toTrimmedString(input.repoRoot),
+    figmaUrl: toTrimmedString(input.figmaUrl),
+    figmaFileId: toTrimmedString(input.figmaFileId),
+    figmaToken: toTrimmedString(input.figmaToken),
+  });
+}
 
 function shouldUseTsxLoader(scriptPath: string): boolean {
   const normalizedPath = String(scriptPath || '').trim().toLowerCase();
@@ -569,6 +614,11 @@ async function buildSyncDiffSnapshot(params: {
       },
       {
         projectRoot: repoRoot,
+        // Limit document tree depth to avoid downloading full component internals.
+        // depth=8 covers all realistic nesting patterns (page→section→frame→group→
+        // component_set→component) while excluding internal geometry nodes, reducing
+        // the Figma file payload by ~95% compared to an unbounded fetch.
+        fetchFigmaFileFn: (opts) => fetchFigmaFile({ ...opts, depth: 8 }),
       },
     );
 
@@ -1447,16 +1497,45 @@ export async function handleSyncDesignSystemDryRunRoute(
     });
   }
 
-  const snapshotResult = await buildSyncDiffSnapshot({
+  const inflightKey = buildSyncDiffDryRunInflightKey({
     systemId: sysCtx.systemId,
     repoRoot: sysCtx.repoRoot,
     figmaUrl,
     figmaFileId: sysCtx.figmaFileId,
     figmaToken,
-    componentRepo,
-    runCaptureFromFigmaUrlFn,
-    searchComponentsDirectFn,
   });
+  let inflightSnapshot = syncDiffDryRunInflightByKey.get(inflightKey);
+  if (!inflightSnapshot) {
+    inflightSnapshot = buildSyncDiffSnapshot({
+      systemId: sysCtx.systemId,
+      repoRoot: sysCtx.repoRoot,
+      figmaUrl,
+      figmaFileId: sysCtx.figmaFileId,
+      figmaToken,
+      componentRepo,
+      runCaptureFromFigmaUrlFn,
+      searchComponentsDirectFn,
+    });
+    syncDiffDryRunInflightByKey.set(inflightKey, inflightSnapshot);
+  }
+
+  let snapshotResult:
+    | {
+        ok: true;
+        sourceCandidates: Array<Record<string, unknown>>;
+        diff: ReturnType<typeof diffFigmaVsDb>;
+      }
+    | {
+        ok: false;
+        error: string;
+      };
+  try {
+    snapshotResult = await inflightSnapshot;
+  } finally {
+    if (syncDiffDryRunInflightByKey.get(inflightKey) === inflightSnapshot) {
+      syncDiffDryRunInflightByKey.delete(inflightKey);
+    }
+  }
 
   if (!snapshotResult.ok) {
     return c.json(
@@ -1569,16 +1648,47 @@ export async function handleSyncDesignSystemApplyRoute(
     );
   });
 
-  const snapshotResult = await buildSyncDiffSnapshot({
+  const applyInflightKey = buildSyncDiffDryRunInflightKey({
     systemId: sysCtx.systemId,
     repoRoot: sysCtx.repoRoot,
     figmaUrl,
     figmaFileId: sysCtx.figmaFileId,
     figmaToken,
-    componentRepo,
-    runCaptureFromFigmaUrlFn,
-    searchComponentsDirectFn,
   });
+  let applyInflightSnapshot = syncDiffApplyInflightByKey.get(applyInflightKey);
+  if (!applyInflightSnapshot) {
+    applyInflightSnapshot = buildSyncDiffSnapshot({
+      systemId: sysCtx.systemId,
+      repoRoot: sysCtx.repoRoot,
+      figmaUrl,
+      figmaFileId: sysCtx.figmaFileId,
+      figmaToken,
+      componentRepo,
+      runCaptureFromFigmaUrlFn,
+      searchComponentsDirectFn,
+    });
+    syncDiffApplyInflightByKey.set(applyInflightKey, applyInflightSnapshot);
+  }
+
+  let snapshotResult:
+    | {
+        ok: true;
+        sourceCandidates: Array<Record<string, unknown>>;
+        diff: ReturnType<typeof diffFigmaVsDb>;
+      }
+    | {
+        ok: false;
+        error: string;
+      };
+  try {
+    snapshotResult = await applyInflightSnapshot;
+  } finally {
+    if (
+      syncDiffApplyInflightByKey.get(applyInflightKey) === applyInflightSnapshot
+    ) {
+      syncDiffApplyInflightByKey.delete(applyInflightKey);
+    }
+  }
 
   if (!snapshotResult.ok) {
     const finishedAt = new Date().toISOString();

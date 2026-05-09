@@ -1389,6 +1389,151 @@ describe('runCaptureFromFigmaUrl', () => {
     );
   });
 
+  it('chunks unified node preflight requests when candidate volume exceeds API-safe batch size', async () => {
+    const preflightCalls: string[][] = [];
+    const publishedCount = 260;
+    const registryCount = 260;
+
+    const result = await runCaptureFromFigmaUrl(
+      {
+        url: 'https://www.figma.com/design/abc123/Test-File',
+        'figma-token': 'figma-token',
+        'component-kind': 'all',
+        'dry-run': 'true',
+        'main-capture-mode': 'rest',
+        'tokens-source': 'mcp',
+        'skip-db-persistence': 'true',
+      },
+      {
+        createPipelineContext: async () => ({
+          system: {
+            id: 'sys-01',
+            repoRoot: '/repo',
+            figmaFileId: 'abc123',
+            captureFromFigmaUrlScriptPath: 'tooling/src/runners/capture-from-figma-url-runner.ts',
+            paths: {
+              docs: '/repo/design-systems/sys-01/docs',
+              generated: '/repo/design-systems/sys-01/output',
+            },
+          } as any,
+          paths: {
+            docsRootOverride: '/repo/design-systems/sys-01/docs',
+            proofDir: '/repo/design-systems/sys-01/output/visual-proofs',
+            proofImageDir: '/repo/design-systems/sys-01/output/visual-proofs/images',
+            resolvedSpecRoot: '/repo/design-systems/sys-01/docs',
+          } as any,
+          flags: {
+            componentSlugOverride: '',
+            componentKind: 'all',
+            includeVariants: false,
+            continueOnError: true,
+            dryRun: true,
+            includeSpecExhibits: false,
+            variantLimit: 6,
+            scale: 2,
+            format: 'png',
+            agent: 'auto',
+            mainCaptureMode: 'rest',
+            tokensSource: 'mcp',
+            force: false,
+            skipValidation: false,
+            allowNonEvidenceUpdates: false,
+            skipDbPersistence: true,
+          },
+          argsRaw: {},
+          id: 'sys-01',
+          fileKey: 'abc123',
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          fileSlug: 'Test-File',
+          fileName: 'Test-File',
+          surface: 'design',
+          rootNodeId: '',
+        } as any),
+        orchestrateTokenSyncFn: async () => ({ tokenBootstrap: { ok: true } }),
+        createCaptureServicesFn: () => ({
+          readComponentRegistry: async () =>
+            Array.from({ length: registryCount }, (_, index) => ({
+              slug: `registry-${index + 1}`,
+              figma: {
+                component_set_node_id: `2:${index + 1}`,
+              },
+            })),
+          readMarkdownContent: () => '',
+          markdownExists: () => false,
+          specExists: () => true,
+          runScriptJson: () => ({}),
+          fetchFigmaFile: async () => ({}) as any,
+          fetchFigmaNodes: async () => ({}) as any,
+          fetchFigmaImages: async () => ({}) as any,
+          stderrWrite: () => {},
+          extractComponentSpec: (() => ({})) as any,
+        }),
+        configureFigmaContextFn: () => ({
+          ensureFilePayload: async () => ({ document: { id: 'root', type: 'CANVAS', name: 'Root' } }),
+          resolveContext: async () => ({
+            componentMap: {
+              fileKey: 'abc123',
+              fileName: 'Test-File',
+              fileSlug: 'Test-File',
+              surface: 'design',
+              rootNodeId: '',
+              figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+              components: [],
+              componentSets: [],
+              pages: [],
+              tree_contains: [],
+              instance_uses: [],
+              unresolved_instance_uses: [],
+              dependency_edges: [],
+            },
+            singleNodeCandidate: null,
+          }),
+          getFilePayload: () => null,
+        }),
+        fetchFigmaFileComponentsFn: async () => ({
+          status: 200,
+          error: false,
+          meta: {
+            components: Array.from({ length: publishedCount }, (_, index) => ({
+              key: `published-${index + 1}`,
+              name: `Published ${index + 1}`,
+              node_id: `1:${index + 1}`,
+              description: '',
+            })),
+          },
+        }),
+        fetchFigmaNodesFn: async ({ nodeIds }) => {
+          preflightCalls.push([...nodeIds]);
+          return {
+            nodes: Object.fromEntries(
+              nodeIds.map((nodeId) => [
+                nodeId,
+                {
+                  document: {
+                    id: nodeId,
+                    type: 'COMPONENT',
+                    name: `Node ${nodeId}`,
+                  },
+                },
+              ]),
+            ),
+          };
+        },
+      },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(preflightCalls.length, 2);
+    assert.equal(Math.max(...preflightCalls.map((call) => call.length)), 500);
+    assert.equal(
+      new Set(preflightCalls.flat().map((nodeId) => String(nodeId))).size,
+      publishedCount + registryCount,
+    );
+    const report = (result as { report?: { source_candidates?: unknown[] } }).report;
+    assert.equal(Array.isArray(report?.source_candidates), true);
+    assert.equal(report?.source_candidates?.length, publishedCount + registryCount);
+  });
+
 
   it('skips persisted registry component set node ids when Figma no longer returns the node', async () => {
     const buildCaptureTargetsCalls: Array<{ sourceCandidates: Array<Record<string, unknown>> }> = [];

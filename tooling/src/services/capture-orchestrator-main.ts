@@ -94,6 +94,8 @@ type CapturePipelinePhase =
   | 'capture_batch'
   | 'dry_run';
 
+const FIGMA_NODES_PREFLIGHT_BATCH_SIZE = 500;
+
 function throwWithPipelinePhase(
   error: unknown,
   phase: CapturePipelinePhase,
@@ -112,6 +114,40 @@ function throwWithPipelinePhase(
 
 function normalizeFigmaNodeId(value: unknown): string {
   return String(value || '').trim().replace(/-/g, ':');
+}
+
+async function fetchExistingNodeIdsInBatches(
+  params: {
+    fileKey: string;
+    token: string;
+    nodeIds: string[];
+  },
+  deps: {
+    fetchFigmaNodesFn: typeof fetchFigmaNodes;
+  },
+): Promise<Set<string>> {
+  const { fileKey, token } = params;
+  const nodeIds = Array.from(
+    new Set(params.nodeIds.map((nodeId) => normalizeFigmaNodeId(nodeId)).filter(Boolean)),
+  );
+  const existingNodeIds = new Set<string>();
+  for (let index = 0; index < nodeIds.length; index += FIGMA_NODES_PREFLIGHT_BATCH_SIZE) {
+    const chunk = nodeIds.slice(index, index + FIGMA_NODES_PREFLIGHT_BATCH_SIZE);
+    if (chunk.length === 0) continue;
+    const nodesPayload = await deps.fetchFigmaNodesFn({
+      fileKey,
+      nodeIds: chunk,
+      token,
+    });
+    for (const [nodeId, node] of Object.entries(nodesPayload?.nodes || {})) {
+      if (!((node as { document?: unknown } | undefined)?.document)) continue;
+      const normalized = normalizeFigmaNodeId(nodeId);
+      if (normalized) {
+        existingNodeIds.add(normalized);
+      }
+    }
+  }
+  return existingNodeIds;
 }
 
 function buildPageNameByNodeId(
@@ -457,6 +493,22 @@ export async function runCaptureFromFigmaUrl(
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
   const allowFallbackSources = !componentKind || componentKind === 'all';
 
+  phase = 'build_targets';
+  let services: ReturnType<typeof createCaptureServices>;
+  let componentRegistryPromise: Promise<
+    Awaited<
+      ReturnType<
+        ReturnType<typeof createCaptureServices>['readComponentRegistry']
+      >
+    >
+  >;
+  try {
+    services = createCaptureServicesFn({ context });
+    componentRegistryPromise = services.readComponentRegistry();
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
+
   phase = 'resolve_context';
   let componentMap: Awaited<ReturnType<typeof resolveContext>>['componentMap'];
   let singleNodeCandidate: Awaited<
@@ -465,6 +517,10 @@ export async function runCaptureFromFigmaUrl(
   let publishedComponentsResponse: Awaited<
     ReturnType<typeof fetchFigmaFileComponentsFn>
   > | null = null;
+  let componentRows: Awaited<
+    ReturnType<ReturnType<typeof createCaptureServices>['readComponentRegistry']>
+  >;
+  let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
   try {
     const fallbackComponentsPromise =
       allowFallbackSources && !hasNodeIdFromUrl
@@ -473,9 +529,11 @@ export async function runCaptureFromFigmaUrl(
             token: figmaToken,
           })
         : Promise.resolve(null);
-    const [resolvedResult, publishedResult] = await Promise.allSettled([
+    const [resolvedResult, publishedResult, componentRowsResult] =
+      await Promise.allSettled([
       resolveContext(),
       fallbackComponentsPromise,
+      componentRegistryPromise,
     ]);
 
     if (resolvedResult.status === 'rejected') {
@@ -484,25 +542,20 @@ export async function runCaptureFromFigmaUrl(
     if (publishedResult.status === 'rejected') {
       throwWithPipelinePhase(publishedResult.reason, phase);
     }
+    if (componentRowsResult.status === 'rejected') {
+      throwWithPipelinePhase(componentRowsResult.reason, 'build_targets');
+    }
 
     componentMap = resolvedResult.value.componentMap;
     singleNodeCandidate = resolvedResult.value.singleNodeCandidate;
     publishedComponentsResponse = publishedResult.value;
+    componentRows = componentRowsResult.value;
+    slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
 
   phase = 'build_targets';
-  let services: ReturnType<typeof createCaptureServices>;
-  let componentRows: Awaited<ReturnType<ReturnType<typeof createCaptureServices>['readComponentRegistry']>>;
-  let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
-  try {
-    services = createCaptureServicesFn({ context });
-    componentRows = await services.readComponentRegistry();
-    slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
-  } catch (error) {
-    throwWithPipelinePhase(error, phase);
-  }
 
   const allComponents = Array.isArray(componentMap?.components)
     ? componentMap.components
@@ -594,76 +647,10 @@ export async function runCaptureFromFigmaUrl(
           }),
         );
 
-      if (publishedSourceCandidates.length > 0) {
-        const knownTreeNodeIds = new Set(
-          allSourceItems
-            .map((item) => normalizeFigmaNodeId(item.id))
-            .filter((nodeId) => nodeId.length > 0),
-        );
-        const publishedKnownInTree = publishedSourceCandidates.filter((candidate) =>
-          knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
-        );
-        const publishedUnknownInTree = publishedSourceCandidates.filter(
-          (candidate) => !knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
-        );
-
-        let publishedValidatedUnknown = [] as SourceCandidate[];
-        if (publishedUnknownInTree.length > 0) {
-          try {
-            const candidateNodeIds = Array.from(
-              new Set(
-                publishedUnknownInTree
-                  .map((candidate) => normalizeFigmaNodeId(candidate.node_id))
-                  .filter((nodeId) => nodeId.length > 0),
-              ),
-            );
-            const nodesPayload = await fetchFigmaNodesFn({
-              fileKey: descriptor.fileKey,
-              nodeIds: candidateNodeIds,
-              token: figmaToken,
-            });
-            const existingNodeIds = new Set(
-              Object.entries(nodesPayload?.nodes || {})
-                .filter(([, node]) =>
-                  Boolean((node as { document?: unknown } | undefined)?.document),
-                )
-                .map(([nodeId]) => normalizeFigmaNodeId(nodeId))
-                .filter((nodeId) => nodeId.length > 0),
-            );
-            publishedValidatedUnknown = publishedUnknownInTree.filter((candidate) =>
-              existingNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
-            );
-          } catch (error) {
-            console.warn(
-              `[runCaptureFromFigmaUrl] Published component node preflight failed; keeping only tree-backed candidates: ${error instanceof Error ? error.message : String(error)}`,
-            );
-            publishedValidatedUnknown = [];
-          }
-        }
-
-        const publishedValidated = [
-          ...publishedKnownInTree,
-          ...publishedValidatedUnknown,
-        ];
-
-        const merged = new Map<string, SourceCandidate>();
-        for (const candidate of [...sourceCandidates, ...publishedValidated]) {
-          const nodeId = String(candidate.node_id || '').trim();
-          if (!nodeId || merged.has(nodeId)) continue;
-          merged.set(nodeId, candidate);
-        }
-        sourceCandidates = Array.from(merged.values());
-      }
-    } catch (error) {
-      throwWithPipelinePhase(error, phase);
-    }
-  }
-
-  if (allowFallbackSources && !hasNodeIdFromUrl) {
-    // Registry candidates are merged only after a live Figma node preflight.
-    // This keeps the fallback available when discovery is empty, while
-    // dropping stale component_set IDs that no longer resolve in Figma.
-    const registryCandidates = componentRows
+      // Registry candidates are merged only after a live Figma node preflight.
+      // This keeps the fallback available when discovery is empty, while
+      // dropping stale component_set IDs that no longer resolve in Figma.
+      const registryCandidates = componentRows
       .map(
         (row): SourceCandidate => ({
           node_id: String(
@@ -680,48 +667,79 @@ export async function runCaptureFromFigmaUrl(
         return nodeId.length > 0;
       });
 
-    if (registryCandidates.length > 0) {
-      let existingRegistryNodeIds = new Set<string>();
-      try {
-        const registryNodeIds = Array.from(
-          new Set(
-            registryCandidates
-              .map((candidate) => normalizeFigmaNodeId(candidate.node_id))
-              .filter((nodeId) => nodeId.length > 0),
-          ),
-        );
-        const registryNodePayload = await fetchFigmaNodesFn({
-          fileKey: descriptor.fileKey,
-          nodeIds: registryNodeIds,
-          token: figmaToken,
-        });
-        existingRegistryNodeIds = new Set(
-          Object.entries(registryNodePayload?.nodes || {})
-            .filter(([, node]) => Boolean((node as { document?: unknown } | undefined)?.document))
-            .map(([nodeId]) => normalizeFigmaNodeId(nodeId))
-            .filter((nodeId) => nodeId.length > 0),
-        );
-      } catch (error) {
-        console.warn(
-          `[runCaptureFromFigmaUrl] Registry node preflight failed; skipping persisted registry candidates: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        existingRegistryNodeIds = new Set();
+      const knownTreeNodeIds = new Set(
+        allSourceItems
+          .map((item) => normalizeFigmaNodeId(item.id))
+          .filter((nodeId) => nodeId.length > 0),
+      );
+      const publishedKnownInTree = publishedSourceCandidates.filter((candidate) =>
+        knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
+      );
+      const publishedUnknownInTree = publishedSourceCandidates.filter(
+        (candidate) => !knownTreeNodeIds.has(normalizeFigmaNodeId(candidate.node_id)),
+      );
+
+      let existingPreflightNodeIds = new Set<string>();
+      const preflightNodeIds = Array.from(
+        new Set(
+          [
+            ...publishedUnknownInTree.map((candidate) =>
+              normalizeFigmaNodeId(candidate.node_id),
+            ),
+            ...registryCandidates.map((candidate) =>
+              normalizeFigmaNodeId(candidate.node_id),
+            ),
+          ].filter((nodeId) => nodeId.length > 0),
+        ),
+      );
+
+      if (preflightNodeIds.length > 0) {
+        try {
+          existingPreflightNodeIds = await fetchExistingNodeIdsInBatches(
+            {
+              fileKey: descriptor.fileKey,
+              token: figmaToken,
+              nodeIds: preflightNodeIds,
+            },
+            {
+              fetchFigmaNodesFn,
+            },
+          );
+        } catch (error) {
+          console.warn(
+            `[runCaptureFromFigmaUrl] Node preflight failed; keeping only tree-backed published candidates and skipping persisted registry candidates: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          existingPreflightNodeIds = new Set();
+        }
       }
+
+      const publishedValidatedUnknown = publishedUnknownInTree.filter((candidate) => {
+        const nodeId = normalizeFigmaNodeId(candidate.node_id);
+        return nodeId.length > 0 && existingPreflightNodeIds.has(nodeId);
+      });
+      const publishedValidated = [
+        ...publishedKnownInTree,
+        ...publishedValidatedUnknown,
+      ];
 
       const filteredRegistryCandidates = registryCandidates.filter((candidate) => {
         const nodeId = normalizeFigmaNodeId(candidate.node_id);
-        return nodeId.length > 0 && existingRegistryNodeIds.has(nodeId);
+        return nodeId.length > 0 && existingPreflightNodeIds.has(nodeId);
       });
 
-      if (filteredRegistryCandidates.length > 0) {
-        const merged = new Map<string, SourceCandidate>();
-        for (const candidate of [...sourceCandidates, ...filteredRegistryCandidates]) {
-          const nodeId = String(candidate.node_id || '').trim();
-          if (!nodeId || merged.has(nodeId)) continue;
-          merged.set(nodeId, candidate);
-        }
-        sourceCandidates = Array.from(merged.values());
+      const merged = new Map<string, SourceCandidate>();
+      for (const candidate of [
+        ...sourceCandidates,
+        ...publishedValidated,
+        ...filteredRegistryCandidates,
+      ]) {
+        const nodeId = String(candidate.node_id || '').trim();
+        if (!nodeId || merged.has(nodeId)) continue;
+        merged.set(nodeId, candidate);
       }
+      sourceCandidates = Array.from(merged.values());
+    } catch (error) {
+      throwWithPipelinePhase(error, phase);
     }
   }
   sourceCandidates = attachContentFingerprints(sourceCandidates, componentMap);
@@ -738,50 +756,58 @@ export async function runCaptureFromFigmaUrl(
   let targets: CaptureTarget[];
   let skipped: unknown[];
   try {
-    const targetBuild = await buildCaptureTargetsFn({
-      sourceCandidates,
-      descriptor: descriptorWithSource,
-      ctx: ctx as unknown as CaptureContext | Record<string, unknown>,
-      docsRootOverride: paths.docsRootOverride ?? undefined,
-      applySlugOverride,
-      componentSlugOverride,
-      slugByNodeFromRegistry,
-      includeSpecExhibits,
-      figmaToken,
-      ensureFilePayload,
-      fetchFigmaNodes: fetchFigmaNodesFn,
-      fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: {
-        fileKey: string;
-        nodeIds: string[];
-        token: string;
-        format?: string;
-        scale?: number;
-      }) => Promise<{ images?: Record<string, string> }>,
-      extractComponentSpec: extractComponentSpecFn as unknown as (
-        node: unknown,
-      ) => import('./capture-target-builder.js').ExtractedComponentSpec,
-      resolveSpecExhibitNodeIds:
-        resolveSpecExhibitNodeIdsFn as unknown as (options: {
-          figmaFilePayload: unknown;
-          targetNodeId: string;
-        }) => {
-          specsNodeId?: string;
-          anatomyNodeId?: string;
-          propertiesNodeId?: string;
-          layoutNodeId?: string;
-        } | null,
-      buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (
-        descriptor: FigmaDescriptor | Record<string, unknown>,
-        nodeId: string,
-      ) => string,
-      classifyTargetKind: classifyTargetKindFn as unknown as (
-        kind?: string | null,
-      ) => CaptureTargetKind,
-      stderrWrite: stderrWriteFn,
-      specExistsFn: services.specExists,
-    });
-    targets = targetBuild.targets as CaptureTarget[];
-    skipped = targetBuild.skipped as unknown[];
+    if (dryRun) {
+      // Skip expensive per-component Figma node fetches in dry-run mode.
+      // The sync diff preview consumes only `sourceCandidates` from the report;
+      // fully-resolved capture targets are not needed until an actual capture run.
+      targets = [];
+      skipped = [];
+    } else {
+      const targetBuild = await buildCaptureTargetsFn({
+        sourceCandidates,
+        descriptor: descriptorWithSource,
+        ctx: ctx as unknown as CaptureContext | Record<string, unknown>,
+        docsRootOverride: paths.docsRootOverride ?? undefined,
+        applySlugOverride,
+        componentSlugOverride,
+        slugByNodeFromRegistry,
+        includeSpecExhibits,
+        figmaToken,
+        ensureFilePayload,
+        fetchFigmaNodes: fetchFigmaNodesFn,
+        fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: {
+          fileKey: string;
+          nodeIds: string[];
+          token: string;
+          format?: string;
+          scale?: number;
+        }) => Promise<{ images?: Record<string, string> }>,
+        extractComponentSpec: extractComponentSpecFn as unknown as (
+          node: unknown,
+        ) => import('./capture-target-builder.js').ExtractedComponentSpec,
+        resolveSpecExhibitNodeIds:
+          resolveSpecExhibitNodeIdsFn as unknown as (options: {
+            figmaFilePayload: unknown;
+            targetNodeId: string;
+          }) => {
+            specsNodeId?: string;
+            anatomyNodeId?: string;
+            propertiesNodeId?: string;
+            layoutNodeId?: string;
+          } | null,
+        buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (
+          descriptor: FigmaDescriptor | Record<string, unknown>,
+          nodeId: string,
+        ) => string,
+        classifyTargetKind: classifyTargetKindFn as unknown as (
+          kind?: string | null,
+        ) => CaptureTargetKind,
+        stderrWrite: stderrWriteFn,
+        specExistsFn: services.specExists,
+      });
+      targets = targetBuild.targets as CaptureTarget[];
+      skipped = targetBuild.skipped as unknown[];
+    }
   } catch (error) {
     throwWithPipelinePhase(error, phase);
   }
