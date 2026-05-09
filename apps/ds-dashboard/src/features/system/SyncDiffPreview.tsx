@@ -51,6 +51,7 @@ interface SyncDiffPreviewProps {
   } | null;
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
+  isVariablesPreviewing?: boolean;
   isApplying?: boolean;
   isSyncRunning?: boolean;
   canRetryFailedSteps?: boolean;
@@ -60,6 +61,7 @@ interface SyncDiffPreviewProps {
   onReset: () => void;
   onCancelSync?: () => void;
   onRetryFailedSteps?: () => void;
+  onRetryVariablesPreview?: () => void;
 }
 
 function SyncProgressBar({
@@ -462,6 +464,7 @@ export function SyncDiffPreview({
   syncOutcome = null,
   error,
   isPreviewing = false,
+  isVariablesPreviewing = false,
   isApplying = false,
   isSyncRunning = false,
   canRetryFailedSteps = false,
@@ -471,6 +474,7 @@ export function SyncDiffPreview({
   onReset,
   onCancelSync,
   onRetryFailedSteps,
+  onRetryVariablesPreview,
 }: SyncDiffPreviewProps) {
   const previewReady = diffResult !== null;
   const variablesDiffPreview = useMemo(
@@ -600,12 +604,28 @@ export function SyncDiffPreview({
               </div>
               {!variablesDiffPreview.hasBucketSignals ? (
                 <StatusAlert variant="info">
-                  <StatusAlertTitle>Variables diff unavailable</StatusAlertTitle>
+                  <StatusAlertTitle>
+                    {isVariablesPreviewing
+                      ? 'Loading variables preview'
+                      : 'Variables diff unavailable'}
+                  </StatusAlertTitle>
                   <StatusAlertDescription>
-                    {variablesPreviewWarning
+                    {isVariablesPreviewing
+                      ? 'Component diff is ready. Variables preview is still running in the background.'
+                      : variablesPreviewWarning
                       ? 'The variables preview response is incomplete. Check plugin/API warnings and retry.'
                       : 'This response does not include variable diff buckets. Restart the API server to load the latest backend changes.'}
                   </StatusAlertDescription>
+                  {!isVariablesPreviewing && variablesPreviewWarning && onRetryVariablesPreview ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={onRetryVariablesPreview}
+                    >
+                      Retry variables
+                    </Button>
+                  ) : null}
                 </StatusAlert>
               ) : (
                 (

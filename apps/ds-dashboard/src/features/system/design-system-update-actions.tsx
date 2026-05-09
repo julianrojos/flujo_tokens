@@ -471,8 +471,10 @@ export function DesignSystemUpdateActions({
     variablesPreviewWarning: syncVariablesPreviewWarning,
     error: syncDiffError,
     isPreviewing: isSyncDiffPreviewing,
+    isVariablesPreviewing: isSyncVariablesPreviewing,
     isApplying: isSyncDiffApplying,
     runPreview: runSyncDiffPreview,
+    retryVariablesPreview: retrySyncVariablesPreview,
     runApply: runSyncDiffApply,
     resetPreview: resetSyncDiffPreview,
   } = useDesignSystemSyncPreview({
@@ -551,6 +553,9 @@ export function DesignSystemUpdateActions({
     if (isSyncDiffPreviewing) {
       return { active: true, percent: 20, label: 'Previewing sync diff…' };
     }
+    if (isSyncVariablesPreviewing) {
+      return { active: true, percent: 30, label: 'Previewing variables diff…' };
+    }
     if (isSyncDiffApplying) {
       return { active: true, percent: 40, label: 'Applying component reconciliation…' };
     }
@@ -603,6 +608,7 @@ export function DesignSystemUpdateActions({
   }, [
     isSyncDiffApplying,
     isSyncDiffPreviewing,
+    isSyncVariablesPreviewing,
     isSyncRunning,
     syncSteps.components,
     syncSteps.tokens,
@@ -614,7 +620,7 @@ export function DesignSystemUpdateActions({
       return null;
     }
 
-    if (isSyncRunning || isSyncDiffApplying || isSyncDiffPreviewing) {
+    if (isSyncRunning || isSyncDiffApplying || isSyncDiffPreviewing || isSyncVariablesPreviewing) {
       return null;
     }
 
@@ -675,6 +681,7 @@ export function DesignSystemUpdateActions({
     hasTriggeredSyncInView,
     isSyncDiffApplying,
     isSyncDiffPreviewing,
+    isSyncVariablesPreviewing,
     isSyncRunning,
     overallSyncStatus,
     syncError,
@@ -1120,6 +1127,7 @@ export function DesignSystemUpdateActions({
           error={syncDiffError}
           disabled={disabled || isSyncRunning}
           isPreviewing={isSyncDiffPreviewing}
+          isVariablesPreviewing={isSyncVariablesPreviewing}
           isApplying={isSyncDiffApplying}
           isSyncRunning={isSyncRunning}
           canRetryFailedSteps={failedSteps.length > 0}
@@ -1128,6 +1136,7 @@ export function DesignSystemUpdateActions({
           onReset={resetSyncDiffPreview}
           onCancelSync={() => void cancelSync()}
           onRetryFailedSteps={() => void retryFailedSteps()}
+          onRetryVariablesPreview={retrySyncVariablesPreview}
         />
       </div>
     </div>
