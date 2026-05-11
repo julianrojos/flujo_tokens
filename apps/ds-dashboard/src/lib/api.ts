@@ -1172,6 +1172,11 @@ export interface SyncDesignSystemStepResult {
   warnings: string[];
   counts: Record<string, number>;
   raw?: Record<string, unknown>;
+  _debug?: {
+    fileVersion?: string;
+    durationMs?: number;
+    cacheHit?: boolean;
+  };
 }
 
 export interface SyncDesignSystemResult {
@@ -2187,6 +2192,13 @@ export interface SyncDesignSystemDryRunResponse {
   diff: SyncDesignSystemDiffResult;
   error?: string;
   details?: string;
+  _debug?: {
+    pathUsed?: 'plugin' | 'rest';
+    fileVersion?: string;
+    componentsDurationMs?: number;
+    versionLookupDurationMs?: number;
+    cacheHit?: boolean;
+  };
 }
 
 export interface SyncDesignSystemApplySummary {

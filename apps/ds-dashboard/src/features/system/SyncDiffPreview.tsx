@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/status-alert';
 import type {
   SyncDesignSystemDiffResult,
+  SyncDesignSystemDryRunResponse,
   SyncDesignSystemNodeSnapshot,
   SyncDesignSystemDiffDbComponentRef,
   SyncDesignSystemStepResult,
@@ -49,6 +50,8 @@ interface SyncDiffPreviewProps {
     status: 'success' | 'error';
     message: string;
   } | null;
+  previewDebug?: SyncDesignSystemDryRunResponse['_debug'] | null;
+  variablesPreviewDebug?: SyncDesignSystemStepResult['_debug'] | null;
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
   isVariablesPreviewing?: boolean;
@@ -462,6 +465,8 @@ export function SyncDiffPreview({
   syncErrorMessage = null,
   syncProgress = null,
   syncOutcome = null,
+  previewDebug = null,
+  variablesPreviewDebug = null,
   error,
   isPreviewing = false,
   isVariablesPreviewing = false,
@@ -517,6 +522,12 @@ export function SyncDiffPreview({
   }, [diffResult]);
 
   const canApply = totalSelectableCount === 0 || selectedNodeIds.size > 0;
+  const componentsDurationMs = Number(previewDebug?.componentsDurationMs);
+  const variablesDurationMs = Number(variablesPreviewDebug?.durationMs);
+  const hasComponentsDuration = Number.isFinite(componentsDurationMs) && componentsDurationMs >= 0;
+  const hasVariablesDuration = Number.isFinite(variablesDurationMs) && variablesDurationMs >= 0;
+  const hasPathUsed = String(previewDebug?.pathUsed || '').trim().length > 0;
+  const hasTelemetry = hasPathUsed || hasComponentsDuration || hasVariablesDuration;
 
   function setNodeSelected(nodeId: string, checked: boolean) {
     setSelectedNodeIds((prev) => {
@@ -548,6 +559,13 @@ export function SyncDiffPreview({
           <p className="text-sm text-muted-foreground">
             Compare Figma against the database before applying changes.
           </p>
+          {hasTelemetry ? (
+            <p className="text-xs text-muted-foreground">
+              {hasPathUsed ? `Path: ${String(previewDebug?.pathUsed)}` : 'Path: n/a'}
+              {hasComponentsDuration ? ` · Components: ${componentsDurationMs} ms` : ''}
+              {hasVariablesDuration ? ` · Variables: ${variablesDurationMs} ms` : ''}
+            </p>
+          ) : null}
         </div>
       </div>
 

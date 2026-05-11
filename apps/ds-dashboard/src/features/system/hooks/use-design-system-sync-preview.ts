@@ -12,95 +12,117 @@ import {
 } from '@/lib/api';
 import { toApiErrorDisplay, type ApiErrorDisplay } from '@/lib/api-error-ux';
 
-const PREVIEW_CACHE_TTL_MS = 30_000;
-
-type CachedPreviewDiffEntry = {
-  systemId: string;
-  expiresAt: number;
-  dryRun: SyncDesignSystemDryRunResponse;
-};
-
 type CachedVariablesPreviewEntry = {
   systemId: string;
-  expiresAt: number;
+  fileVersion: string;
+  cachedAt: number;
   value: SyncDesignSystemStepResult | null;
   warning: string | null;
+  debug:
+    | {
+        fileVersion?: string;
+        durationMs?: number;
+        cacheHit?: boolean;
+      }
+    | null;
 };
 
-const previewDiffCache = new Map<string, CachedPreviewDiffEntry>();
+const VARIABLES_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
+const VARIABLES_PREVIEW_CACHE_MAX_ENTRIES = 200;
+const VARIABLES_PREVIEW_CACHE_MAX_ENTRIES_PER_SYSTEM = 20;
 const variablesPreviewCache = new Map<string, CachedVariablesPreviewEntry>();
 
-function buildPreviewCacheKey(input: {
-  systemId: string;
-  figmaUrl: string;
-  figmaToken?: string;
-}): string {
-  return JSON.stringify({
-    systemId: String(input.systemId || '').trim(),
-    figmaUrl: String(input.figmaUrl || '').trim(),
-    figmaToken: String(input.figmaToken || '').trim(),
-  });
-}
-
-function getCachedPreviewDiff(
-  cacheKey: string,
-): SyncDesignSystemDryRunResponse | null {
-  const now = Date.now();
-  const cached = previewDiffCache.get(cacheKey);
-  if (!cached) return null;
-  if (cached.expiresAt <= now) {
-    previewDiffCache.delete(cacheKey);
-    return null;
+function pruneVariablesPreviewCacheByAge(nowMs: number): void {
+  for (const [key, entry] of variablesPreviewCache.entries()) {
+    if (nowMs - entry.cachedAt > VARIABLES_PREVIEW_CACHE_TTL_MS) {
+      variablesPreviewCache.delete(key);
+    }
   }
-  return cached.dryRun;
 }
 
-function setCachedPreviewDiff(
-  cacheKey: string,
-  systemId: string,
-  dryRun: SyncDesignSystemDryRunResponse,
-): void {
-  previewDiffCache.set(cacheKey, {
-    systemId: String(systemId || '').trim(),
-    expiresAt: Date.now() + PREVIEW_CACHE_TTL_MS,
-    dryRun,
-  });
+function pruneVariablesPreviewCacheBySystemLimit(systemId: string): void {
+  const normalizedSystemId = String(systemId || '').trim();
+  if (!normalizedSystemId) return;
+  const keysForSystem: string[] = [];
+  for (const [key, entry] of variablesPreviewCache.entries()) {
+    if (entry.systemId === normalizedSystemId) {
+      keysForSystem.push(key);
+    }
+  }
+  while (keysForSystem.length > VARIABLES_PREVIEW_CACHE_MAX_ENTRIES_PER_SYSTEM) {
+    const oldestKey = keysForSystem.shift();
+    if (!oldestKey) break;
+    variablesPreviewCache.delete(oldestKey);
+  }
+}
+
+function pruneVariablesPreviewCacheByGlobalLimit(): void {
+  while (variablesPreviewCache.size > VARIABLES_PREVIEW_CACHE_MAX_ENTRIES) {
+    const oldestKey = variablesPreviewCache.keys().next().value;
+    if (!oldestKey) break;
+    variablesPreviewCache.delete(oldestKey);
+  }
 }
 
 function getCachedVariablesPreview(
-  cacheKey: string,
+  systemId: string,
+  fileVersion: string,
 ): CachedVariablesPreviewEntry | null {
-  const now = Date.now();
+  const nowMs = Date.now();
+  pruneVariablesPreviewCacheByAge(nowMs);
+  const cacheKey = JSON.stringify({
+    systemId: String(systemId || '').trim(),
+    fileVersion: String(fileVersion || '').trim(),
+  });
   const cached = variablesPreviewCache.get(cacheKey);
   if (!cached) return null;
-  if (cached.expiresAt <= now) {
+  if (nowMs - cached.cachedAt > VARIABLES_PREVIEW_CACHE_TTL_MS) {
     variablesPreviewCache.delete(cacheKey);
     return null;
   }
-  return cached;
+  variablesPreviewCache.delete(cacheKey);
+  const touched: CachedVariablesPreviewEntry = {
+    ...cached,
+    cachedAt: nowMs,
+  };
+  variablesPreviewCache.set(cacheKey, touched);
+  return touched;
 }
 
 function setCachedVariablesPreview(
-  cacheKey: string,
   systemId: string,
+  fileVersion: string,
   value: SyncDesignSystemStepResult | null,
   warning: string | null,
+  debug:
+    | {
+        fileVersion?: string;
+        durationMs?: number;
+        cacheHit?: boolean;
+      }
+    | null,
 ): void {
+  const nowMs = Date.now();
+  pruneVariablesPreviewCacheByAge(nowMs);
+  const normalizedSystemId = String(systemId || '').trim();
+  const cacheKey = JSON.stringify({
+    systemId: normalizedSystemId,
+    fileVersion: String(fileVersion || '').trim(),
+  });
   variablesPreviewCache.set(cacheKey, {
-    systemId: String(systemId || '').trim(),
-    expiresAt: Date.now() + PREVIEW_CACHE_TTL_MS,
+    systemId: normalizedSystemId,
+    fileVersion: String(fileVersion || '').trim(),
+    cachedAt: nowMs,
     value,
     warning,
+    debug,
   });
+  pruneVariablesPreviewCacheBySystemLimit(normalizedSystemId);
+  pruneVariablesPreviewCacheByGlobalLimit();
 }
 
 function clearPreviewCacheForSystem(systemId: string): void {
   const normalizedSystemId = String(systemId || '').trim();
-  for (const [key, entry] of previewDiffCache.entries()) {
-    if (entry.systemId === normalizedSystemId) {
-      previewDiffCache.delete(key);
-    }
-  }
   for (const [key, entry] of variablesPreviewCache.entries()) {
     if (entry.systemId === normalizedSystemId) {
       variablesPreviewCache.delete(key);
@@ -130,6 +152,8 @@ export interface DesignSystemSyncPreviewState {
   isPreviewing: boolean;
   isVariablesPreviewing: boolean;
   isApplying: boolean;
+  previewDebug: SyncDesignSystemDryRunResponse['_debug'] | null;
+  variablesPreviewDebug: SyncDesignSystemStepResult['_debug'] | null;
   runPreview: () => Promise<SyncDesignSystemDryRunResponse | undefined>;
   retryVariablesPreview: () => void;
   runApply: (selectedNodeIds?: string[]) => Promise<SyncDesignSystemApplyResponse | undefined>;
@@ -146,6 +170,8 @@ export function useDesignSystemSyncPreview(
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isVariablesPreviewing, setIsVariablesPreviewing] = useState(false);
+  const [previewDebug, setPreviewDebug] = useState<SyncDesignSystemDryRunResponse['_debug'] | null>(null);
+  const [variablesPreviewDebug, setVariablesPreviewDebug] = useState<SyncDesignSystemStepResult['_debug'] | null>(null);
   const latestPreviewRunRef = useRef(0);
   // Keeps diffResult accessible inside runPreview without adding it to the
   // useCallback dep array (which would recreate the function on every diff change).
@@ -161,6 +187,8 @@ export function useDesignSystemSyncPreview(
     setError(null);
     setIsPreviewing(false);
     setIsVariablesPreviewing(false);
+    setPreviewDebug(null);
+    setVariablesPreviewDebug(null);
   }, []);
 
   useEffect(() => {
@@ -169,19 +197,25 @@ export function useDesignSystemSyncPreview(
 
   const runVariablesPreview = useCallback(
     async (input: {
-      cacheKey: string;
       figmaUrl: string;
       figmaToken?: string;
+      fileVersion: string;
       runId: number;
-      allowCache: boolean;
+      allowVersionCache: boolean;
     }): Promise<void> => {
-      const cached = input.allowCache
-        ? getCachedVariablesPreview(input.cacheKey)
+      const normalizedFileVersion = String(input.fileVersion || '').trim();
+      const cached = input.allowVersionCache && normalizedFileVersion
+        ? getCachedVariablesPreview(args.systemId, normalizedFileVersion)
         : null;
       if (cached) {
         if (latestPreviewRunRef.current === input.runId) {
           setVariablesPreview(cached.value);
           setVariablesPreviewWarning(cached.warning);
+          setVariablesPreviewDebug({
+            ...(cached.debug || {}),
+            fileVersion: normalizedFileVersion,
+            cacheHit: true,
+          });
           setIsVariablesPreviewing(false);
         }
         return;
@@ -193,10 +227,21 @@ export function useDesignSystemSyncPreview(
           figmaUrl: input.figmaUrl,
           figmaToken: input.figmaToken,
         });
-        setCachedVariablesPreview(input.cacheKey, args.systemId, variables, null);
+        const responseFileVersion =
+          String(variables._debug?.fileVersion || normalizedFileVersion).trim();
+        if (responseFileVersion) {
+          setCachedVariablesPreview(
+            args.systemId,
+            responseFileVersion,
+            variables,
+            null,
+            variables._debug || null,
+          );
+        }
         if (latestPreviewRunRef.current !== input.runId) return;
         setVariablesPreview(variables);
         setVariablesPreviewWarning(null);
+        setVariablesPreviewDebug(variables._debug || null);
       } catch (cause) {
         const reason =
           cause instanceof Error
@@ -206,6 +251,7 @@ export function useDesignSystemSyncPreview(
         if (latestPreviewRunRef.current !== input.runId) return;
         setVariablesPreview(null);
         setVariablesPreviewWarning(warning);
+        setVariablesPreviewDebug(null);
       } finally {
         if (latestPreviewRunRef.current === input.runId) {
           setIsVariablesPreviewing(false);
@@ -226,11 +272,6 @@ export function useDesignSystemSyncPreview(
     }
 
     const figmaToken = String(args.figmaToken || '').trim() || undefined;
-    const cacheKey = buildPreviewCacheKey({
-      systemId: args.systemId,
-      figmaUrl,
-      figmaToken,
-    });
     const runId = latestPreviewRunRef.current + 1;
     const hadPreviousDiff = diffResultRef.current !== null;
     latestPreviewRunRef.current = runId;
@@ -240,27 +281,23 @@ export function useDesignSystemSyncPreview(
     setIsVariablesPreviewing(true);
 
     try {
-      const cachedDryRun = getCachedPreviewDiff(cacheKey);
-      const dryRun = cachedDryRun
-        ? cachedDryRun
-        : await previewSyncDesignSystem({
-            systemId: args.systemId,
-            figmaUrl,
-            figmaToken,
-          });
-      if (!cachedDryRun) {
-        setCachedPreviewDiff(cacheKey, args.systemId, dryRun);
-      }
+      const dryRun = await previewSyncDesignSystem({
+        systemId: args.systemId,
+        figmaUrl,
+        figmaToken,
+      });
       if (latestPreviewRunRef.current !== runId) {
         return dryRun;
       }
       setDiffResult(dryRun.diff);
+      setPreviewDebug(dryRun._debug || null);
+      const fileVersion = String(dryRun._debug?.fileVersion || '').trim();
       void runVariablesPreview({
-        cacheKey,
         figmaUrl,
         figmaToken,
+        fileVersion,
         runId,
-        allowCache: true,
+        allowVersionCache: true,
       });
       return dryRun;
     } catch (cause) {
@@ -269,6 +306,8 @@ export function useDesignSystemSyncPreview(
           setDiffResult(null);
           setVariablesPreview(null);
           setVariablesPreviewWarning(null);
+          setPreviewDebug(null);
+          setVariablesPreviewDebug(null);
         }
         setError(toPreviewErrorDisplay(cause));
         setIsVariablesPreviewing(false);
@@ -287,13 +326,19 @@ export function useDesignSystemSyncPreview(
     const figmaUrl = String(args.figmaUrl || '').trim();
     if (!figmaUrl) return;
     const figmaToken = String(args.figmaToken || '').trim() || undefined;
-    const cacheKey = buildPreviewCacheKey({ systemId: args.systemId, figmaUrl, figmaToken });
+    const fileVersion = String(previewDebug?.fileVersion || '').trim();
     const runId = latestPreviewRunRef.current + 1;
     latestPreviewRunRef.current = runId;
     setIsVariablesPreviewing(true);
     setVariablesPreviewWarning(null);
-    void runVariablesPreview({ cacheKey, figmaUrl, figmaToken, runId, allowCache: false });
-  }, [args.figmaToken, args.figmaUrl, args.systemId, runVariablesPreview]);
+    void runVariablesPreview({
+      figmaUrl,
+      figmaToken,
+      fileVersion,
+      runId,
+      allowVersionCache: false,
+    });
+  }, [args.figmaToken, args.figmaUrl, args.systemId, previewDebug?.fileVersion, runVariablesPreview]);
 
   const applyMutation = useMutation({
     mutationFn: async (selectedNodeIds?: string[]): Promise<SyncDesignSystemApplyResponse> => {
@@ -313,6 +358,8 @@ export function useDesignSystemSyncPreview(
       setDiffResult(null);
       setVariablesPreview(null);
       setVariablesPreviewWarning(null);
+      setPreviewDebug(null);
+      setVariablesPreviewDebug(null);
       clearPreviewCacheForSystem(args.systemId);
       args.onApplySuccess?.(response);
       await Promise.all([
@@ -333,6 +380,8 @@ export function useDesignSystemSyncPreview(
     isPreviewing,
     isVariablesPreviewing,
     isApplying: applyMutation.isPending,
+    previewDebug,
+    variablesPreviewDebug,
     runPreview,
     retryVariablesPreview,
     runApply: async (selectedNodeIds?: string[]) => applyMutation.mutateAsync(selectedNodeIds),
