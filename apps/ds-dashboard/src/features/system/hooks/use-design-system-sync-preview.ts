@@ -147,6 +147,12 @@ export function useDesignSystemSyncPreview(
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isVariablesPreviewing, setIsVariablesPreviewing] = useState(false);
   const latestPreviewRunRef = useRef(0);
+  // Keeps diffResult accessible inside runPreview without adding it to the
+  // useCallback dep array (which would recreate the function on every diff change).
+  const diffResultRef = useRef(diffResult);
+  useEffect(() => {
+    diffResultRef.current = diffResult;
+  }, [diffResult]);
 
   const resetPreview = useCallback(() => {
     setDiffResult(null);
@@ -226,6 +232,7 @@ export function useDesignSystemSyncPreview(
       figmaToken,
     });
     const runId = latestPreviewRunRef.current + 1;
+    const hadPreviousDiff = diffResultRef.current !== null;
     latestPreviewRunRef.current = runId;
     setError(null);
     setVariablesPreviewWarning(null);
@@ -258,9 +265,11 @@ export function useDesignSystemSyncPreview(
       return dryRun;
     } catch (cause) {
       if (latestPreviewRunRef.current === runId) {
-        setDiffResult(null);
-        setVariablesPreview(null);
-        setVariablesPreviewWarning(null);
+        if (!hadPreviousDiff) {
+          setDiffResult(null);
+          setVariablesPreview(null);
+          setVariablesPreviewWarning(null);
+        }
         setError(toPreviewErrorDisplay(cause));
         setIsVariablesPreviewing(false);
       }

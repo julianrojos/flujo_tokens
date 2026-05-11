@@ -477,6 +477,7 @@ export function SyncDiffPreview({
   onRetryVariablesPreview,
 }: SyncDiffPreviewProps) {
   const previewReady = diffResult !== null;
+  const isPreviewRefreshing = isPreviewing && previewReady;
   const variablesDiffPreview = useMemo(
     () => buildVariablesDiffPreview(variablesPreview),
     [variablesPreview],
@@ -571,6 +572,15 @@ export function SyncDiffPreview({
             label={syncProgress.label}
             detail={syncProgress.detail}
           />
+        ) : null}
+
+        {isPreviewRefreshing ? (
+          <StatusAlert variant="info">
+            <StatusAlertTitle>Updating preview</StatusAlertTitle>
+            <StatusAlertDescription>
+              Showing the previous diff while the new scan completes.
+            </StatusAlertDescription>
+          </StatusAlert>
         ) : null}
 
         {syncOutcome ? (
