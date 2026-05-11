@@ -271,6 +271,16 @@ function buildNoPluginSocketForFileMessage(figmaFileId: string): string {
   );
 }
 
+function hasUsablePluginSocketForFile(
+  manager: ReturnType<typeof getPluginConnectionManager>,
+  fileKey: string,
+): boolean {
+  const normalizedFileKey = toTrimmedString(fileKey);
+  if (!normalizedFileKey) return false;
+  if (manager.getPreferredSocketId(normalizedFileKey)) return true;
+  return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
+}
+
 function shouldUseTsxLoader(scriptPath: string): boolean {
   const normalizedPath = String(scriptPath || '').trim().toLowerCase();
   return (
@@ -784,13 +794,12 @@ async function resolveFigmaFileVersion(args: {
   fileVersion: string;
   durationMs: number;
 }> {
-  const nowMs = Date.now();
-  pruneFigmaFileVersionCache(nowMs);
-  const cacheKey = buildFigmaFileVersionCacheKey(args);
-  const cached = figmaFileVersionCacheByKey.get(cacheKey);
-  if (cached && nowMs - cached.cachedAt <= FIGMA_FILE_VERSION_CACHE_TTL_MS) {
+  const cachedVersion = getFreshCachedFigmaFileVersion({
+    fileKey: args.fileKey,
+  });
+  if (cachedVersion) {
     return {
-      fileVersion: cached.fileVersion,
+      fileVersion: cachedVersion,
       durationMs: 0,
     };
   }
@@ -1625,19 +1634,7 @@ export async function handleSyncFigmaTokensRoute(
   const canUsePluginSocket =
     typeof hasPluginSocketForFile === 'function'
       ? hasPluginSocketForFile(figmaFileId)
-      : (() => {
-          const manager = getPluginConnectionManager();
-          // Best-effort precheck:
-          // 1) Prefer an OPEN socket bound to this exact file key.
-          // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
-          // The socket can still disconnect before sync starts; service-level error mapping
-          // provides the user-facing message in that case.
-          if (manager.getPreferredSocketId(figmaFileId)) return true;
-          return (
-            manager.getConnectionCount() === 1 &&
-            manager.getActiveFileKeys().length === 0
-          );
-        })();
+      : hasUsablePluginSocketForFile(getPluginConnectionManager(), figmaFileId);
   if (!canUsePluginSocket) {
     console.warn(
       `[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`,
@@ -2007,11 +2004,11 @@ export async function handleSyncDesignSystemDryRunRoute(
   }
 
   const manager = getPluginConnectionManager();
-  const hasExactFileSocket =
+  const hasUsableSocket =
     typeof hasPluginSocketForFile === 'function'
       ? hasPluginSocketForFile(resolvedFileKey)
-      : Boolean(manager.getPreferredSocketId(resolvedFileKey));
-  if (!hasExactFileSocket) {
+      : hasUsablePluginSocketForFile(manager, resolvedFileKey);
+  if (!hasUsableSocket) {
     return failJson(c, 409, {
       code: 'sync.no_plugin_socket_for_file',
       userMessage: buildNoPluginSocketForFileMessage(resolvedFileKey),
@@ -2198,11 +2195,11 @@ export async function handleSyncDesignSystemVariablesDryRunRoute(
   }
 
   const manager = getPluginConnectionManager();
-  const hasExactFileSocket =
+  const hasUsableSocket =
     typeof hasPluginSocketForFile === 'function'
       ? hasPluginSocketForFile(figmaFileId)
-      : Boolean(manager.getPreferredSocketId(figmaFileId));
-  if (!hasExactFileSocket) {
+      : hasUsablePluginSocketForFile(manager, figmaFileId);
+  if (!hasUsableSocket) {
     return failJson(c, 409, {
       code: 'sync.no_plugin_socket_for_file',
       userMessage: buildNoPluginSocketForFileMessage(figmaFileId),
