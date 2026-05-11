@@ -74,7 +74,7 @@ function normalizeScanSessionId(value: unknown): string {
 
 function getSearchComponentsCacheKey(
   params: SearchComponentsParams,
-  scanSessionId: string
+  scanSessionId: string,
 ): string {
   const nameContains = (params.nameContains ?? '').toLowerCase();
   const namePattern = params.namePattern ?? '';
@@ -871,9 +871,7 @@ export async function handleSearchComponents(
     const scanSessionId = normalizeScanSessionId(params.scanSessionId);
     const enableCache = scanSessionId.length > 0;
     const cacheKey = enableCache ? getSearchComponentsCacheKey(params, scanSessionId) : '';
-    if (enableCache) {
-      clearStaleSearchComponentsSnapshot();
-    }
+    clearStaleSearchComponentsSnapshot();
     const cached = enableCache ? getCachedSearchComponentsSnapshot(cacheKey) : null;
     let totalMatches = 0;
     let totalIsEstimated = false;

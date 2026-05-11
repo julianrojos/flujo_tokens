@@ -4,12 +4,16 @@
  * Tests for command API route handlers.
  */
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { beforeEach, afterEach, describe, it } from 'node:test';
 
 import { Hono } from 'hono';
 
 import { registerCommandRoutes } from './command-routes.js';
 import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from '../services/plugin-connection-manager.js';
+import {
+  clearComponentSnapshotCache,
+  setCachedComponentSnapshot,
+} from '../services/component-snapshot-cache.js';
 
 function createFailJson() {
   return (c: any, statusCode: number, args: Record<string, unknown>) => {
@@ -115,6 +119,16 @@ function makeSocket(onSend: (data: string) => void): PluginWebSocket {
 }
 
 describe('command-routes', () => {
+  beforeEach(() => {
+    resetPluginConnectionManager();
+    clearComponentSnapshotCache();
+  });
+
+  afterEach(() => {
+    resetPluginConnectionManager();
+    clearComponentSnapshotCache();
+  });
+
   describe('/api/run', () => {
     it('rejects missing script name', async () => {
       const app = createTestApp();
@@ -457,6 +471,71 @@ describe('command-routes', () => {
         manager.unregister(socketId, 'test-cleanup');
         resetPluginConnectionManager();
       }
+    });
+
+    it('reuses a cached component snapshot for the same file version', async () => {
+      setCachedComponentSnapshot({
+        fileKey: 'abc123',
+        fileVersion: 'v_cached_snapshot',
+        includeVariants: false,
+        compact: true,
+        components: [
+          {
+            node_id: '1:1',
+            name: 'Button',
+            type: 'COMPONENT_SET',
+            page_name: 'Page 1',
+            variant_count: 2,
+          },
+          {
+            node_id: '2:2',
+            name: 'Card',
+            type: 'COMPONENT',
+            page_name: 'Page 1',
+            variant_count: 0,
+          },
+        ],
+      });
+
+      let pluginCalls = 0;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '1:1',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              contentFingerprint: 'Button||component_set||Page 1||2',
+            },
+          ],
+          upsertFromRegistry: () => 0,
+        },
+        searchComponentsDirectFn: async () => {
+          pluginCalls += 1;
+          throw new Error('search should not run when snapshot cache is warm');
+        },
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_cached_snapshot',
+          durationMs: 1,
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any)._debug?.pathUsed, 'cache');
+      assert.equal(pluginCalls, 0);
+      assert.equal((payload as any).diff.new_in_figma.length, 1);
+      assert.equal((payload as any).diff.unchanged.length, 1);
     });
 
     it('returns 400 when file key cannot be resolved from URL/system context', async () => {

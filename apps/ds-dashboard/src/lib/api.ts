@@ -2193,7 +2193,7 @@ export interface SyncDesignSystemDryRunResponse {
   error?: string;
   details?: string;
   _debug?: {
-    pathUsed?: 'plugin' | 'rest';
+    pathUsed?: 'plugin' | 'rest' | 'cache';
     fileVersion?: string;
     componentsDurationMs?: number;
     versionLookupDurationMs?: number;
