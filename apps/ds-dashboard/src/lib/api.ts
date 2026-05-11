@@ -2250,12 +2250,14 @@ export async function previewSyncDesignSystemVariables(args: {
   systemId: string;
   figmaUrl: string;
   figmaToken?: string;
+  fileVersion?: string;
 }): Promise<SyncDesignSystemStepResult> {
   return requestJson<SyncDesignSystemStepResult>(
     `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/variables/dry-run`,
     buildSyncDesignSystemRequest(args.systemId, {
       figmaUrl: args.figmaUrl,
       figmaToken: args.figmaToken,
+      fileVersion: args.fileVersion,
     }),
   );
 }

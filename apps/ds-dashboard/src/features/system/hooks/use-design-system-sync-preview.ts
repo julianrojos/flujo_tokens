@@ -148,6 +148,7 @@ export interface DesignSystemSyncPreviewState {
   diffResult: SyncDesignSystemDiffResult | null;
   variablesPreview: SyncDesignSystemStepResult | null;
   variablesPreviewWarning: string | null;
+  hasRequestedVariablesPreview: boolean;
   error: ApiErrorDisplay | null;
   isPreviewing: boolean;
   isVariablesPreviewing: boolean;
@@ -155,6 +156,7 @@ export interface DesignSystemSyncPreviewState {
   previewDebug: SyncDesignSystemDryRunResponse['_debug'] | null;
   variablesPreviewDebug: SyncDesignSystemStepResult['_debug'] | null;
   runPreview: () => Promise<SyncDesignSystemDryRunResponse | undefined>;
+  loadVariablesPreview: () => void;
   retryVariablesPreview: () => void;
   runApply: (selectedNodeIds?: string[]) => Promise<SyncDesignSystemApplyResponse | undefined>;
   resetPreview: () => void;
@@ -167,6 +169,7 @@ export function useDesignSystemSyncPreview(
   const [diffResult, setDiffResult] = useState<SyncDesignSystemDiffResult | null>(null);
   const [variablesPreview, setVariablesPreview] = useState<SyncDesignSystemStepResult | null>(null);
   const [variablesPreviewWarning, setVariablesPreviewWarning] = useState<string | null>(null);
+  const [hasRequestedVariablesPreview, setHasRequestedVariablesPreview] = useState(false);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isVariablesPreviewing, setIsVariablesPreviewing] = useState(false);
@@ -179,11 +182,16 @@ export function useDesignSystemSyncPreview(
   useEffect(() => {
     diffResultRef.current = diffResult;
   }, [diffResult]);
+  const previewDebugRef = useRef(previewDebug);
+  useEffect(() => {
+    previewDebugRef.current = previewDebug;
+  }, [previewDebug]);
 
   const resetPreview = useCallback(() => {
     setDiffResult(null);
     setVariablesPreview(null);
     setVariablesPreviewWarning(null);
+    setHasRequestedVariablesPreview(false);
     setError(null);
     setIsPreviewing(false);
     setIsVariablesPreviewing(false);
@@ -226,6 +234,7 @@ export function useDesignSystemSyncPreview(
           systemId: args.systemId,
           figmaUrl: input.figmaUrl,
           figmaToken: input.figmaToken,
+          fileVersion: normalizedFileVersion || undefined,
         });
         const responseFileVersion =
           String(variables._debug?.fileVersion || normalizedFileVersion).trim();
@@ -276,9 +285,12 @@ export function useDesignSystemSyncPreview(
     const hadPreviousDiff = diffResultRef.current !== null;
     latestPreviewRunRef.current = runId;
     setError(null);
+    setHasRequestedVariablesPreview(false);
+    setVariablesPreview(null);
     setVariablesPreviewWarning(null);
+    setVariablesPreviewDebug(null);
     setIsPreviewing(true);
-    setIsVariablesPreviewing(true);
+    setIsVariablesPreviewing(false);
 
     try {
       const dryRun = await previewSyncDesignSystem({
@@ -291,14 +303,6 @@ export function useDesignSystemSyncPreview(
       }
       setDiffResult(dryRun.diff);
       setPreviewDebug(dryRun._debug || null);
-      const fileVersion = String(dryRun._debug?.fileVersion || '').trim();
-      void runVariablesPreview({
-        figmaUrl,
-        figmaToken,
-        fileVersion,
-        runId,
-        allowVersionCache: true,
-      });
       return dryRun;
     } catch (cause) {
       if (latestPreviewRunRef.current === runId) {
@@ -306,6 +310,7 @@ export function useDesignSystemSyncPreview(
           setDiffResult(null);
           setVariablesPreview(null);
           setVariablesPreviewWarning(null);
+          setHasRequestedVariablesPreview(false);
           setPreviewDebug(null);
           setVariablesPreviewDebug(null);
         }
@@ -322,13 +327,16 @@ export function useDesignSystemSyncPreview(
 
   // Retries just the variables step without re-fetching the component diff.
   // Bypasses the client cache so that a plugin reconnect is picked up immediately.
-  const retryVariablesPreview = useCallback((): void => {
+  const loadVariablesPreview = useCallback((allowVersionCache: boolean): void => {
     const figmaUrl = String(args.figmaUrl || '').trim();
     if (!figmaUrl) return;
+    const currentPreviewDebug = previewDebugRef.current;
+    if (!currentPreviewDebug && !diffResultRef.current) return;
     const figmaToken = String(args.figmaToken || '').trim() || undefined;
-    const fileVersion = String(previewDebug?.fileVersion || '').trim();
+    const fileVersion = String(currentPreviewDebug?.fileVersion || '').trim();
     const runId = latestPreviewRunRef.current + 1;
     latestPreviewRunRef.current = runId;
+    setHasRequestedVariablesPreview(true);
     setIsVariablesPreviewing(true);
     setVariablesPreviewWarning(null);
     void runVariablesPreview({
@@ -336,9 +344,13 @@ export function useDesignSystemSyncPreview(
       figmaToken,
       fileVersion,
       runId,
-      allowVersionCache: false,
+      allowVersionCache,
     });
-  }, [args.figmaToken, args.figmaUrl, args.systemId, previewDebug?.fileVersion, runVariablesPreview]);
+  }, [args.figmaToken, args.figmaUrl, runVariablesPreview]);
+
+  const retryVariablesPreview = useCallback((): void => {
+    loadVariablesPreview(false);
+  }, [loadVariablesPreview]);
 
   const applyMutation = useMutation({
     mutationFn: async (selectedNodeIds?: string[]): Promise<SyncDesignSystemApplyResponse> => {
@@ -376,6 +388,7 @@ export function useDesignSystemSyncPreview(
     diffResult,
     variablesPreview,
     variablesPreviewWarning,
+    hasRequestedVariablesPreview,
     error,
     isPreviewing,
     isVariablesPreviewing,
@@ -383,6 +396,7 @@ export function useDesignSystemSyncPreview(
     previewDebug,
     variablesPreviewDebug,
     runPreview,
+    loadVariablesPreview: () => loadVariablesPreview(true),
     retryVariablesPreview,
     runApply: async (selectedNodeIds?: string[]) => applyMutation.mutateAsync(selectedNodeIds),
     resetPreview,

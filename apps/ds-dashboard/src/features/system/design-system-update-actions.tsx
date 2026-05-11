@@ -476,9 +476,11 @@ export function DesignSystemUpdateActions({
     previewDebug: syncDiffPreviewDebug,
     variablesPreviewDebug: syncVariablesPreviewDebug,
     runPreview: runSyncDiffPreview,
+    loadVariablesPreview: loadSyncVariablesPreview,
     retryVariablesPreview: retrySyncVariablesPreview,
     runApply: runSyncDiffApply,
     resetPreview: resetSyncDiffPreview,
+    hasRequestedVariablesPreview: hasRequestedSyncVariablesPreview,
   } = useDesignSystemSyncPreview({
     systemId,
     figmaUrl: sharedFigmaUrl,
@@ -1133,9 +1135,11 @@ export function DesignSystemUpdateActions({
           isPreviewing={isSyncDiffPreviewing}
           isVariablesPreviewing={isSyncVariablesPreviewing}
           isApplying={isSyncDiffApplying}
+          hasRequestedVariablesPreview={hasRequestedSyncVariablesPreview}
           isSyncRunning={isSyncRunning}
           canRetryFailedSteps={failedSteps.length > 0}
           onPreview={() => void runSyncDiffPreview()}
+          onLoadVariablesPreview={() => loadSyncVariablesPreview()}
           onApply={(selectedNodeIds) => void handleApplyAndRunSync(selectedNodeIds)}
           onReset={resetSyncDiffPreview}
           onCancelSync={() => void cancelSync()}

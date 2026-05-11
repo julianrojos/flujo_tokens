@@ -55,11 +55,13 @@ interface SyncDiffPreviewProps {
   error?: ApiErrorDisplay | null;
   isPreviewing?: boolean;
   isVariablesPreviewing?: boolean;
+  hasRequestedVariablesPreview?: boolean;
   isApplying?: boolean;
   isSyncRunning?: boolean;
   canRetryFailedSteps?: boolean;
   disabled?: boolean;
   onPreview: () => void;
+  onLoadVariablesPreview?: () => void;
   onApply: (selectedNodeIds: string[] | undefined) => void;
   onReset: () => void;
   onCancelSync?: () => void;
@@ -470,11 +472,13 @@ export function SyncDiffPreview({
   error,
   isPreviewing = false,
   isVariablesPreviewing = false,
+  hasRequestedVariablesPreview = false,
   isApplying = false,
   isSyncRunning = false,
   canRetryFailedSteps = false,
   disabled = false,
   onPreview,
+  onLoadVariablesPreview,
   onApply,
   onReset,
   onCancelSync,
@@ -635,15 +639,31 @@ export function SyncDiffPreview({
                   <StatusAlertTitle>
                     {isVariablesPreviewing
                       ? 'Loading variables preview'
-                      : 'Variables diff unavailable'}
+                      : hasRequestedVariablesPreview
+                      ? 'Variables diff unavailable'
+                      : 'Variables preview not loaded'}
                   </StatusAlertTitle>
                   <StatusAlertDescription>
                     {isVariablesPreviewing
                       ? 'Component diff is ready. Variables preview is still running in the background.'
+                      : !hasRequestedVariablesPreview
+                      ? 'Load variables preview on demand to inspect token/variable changes.'
                       : variablesPreviewWarning
                       ? 'The variables preview response is incomplete. Check plugin/API warnings and retry.'
                       : 'This response does not include variable diff buckets. Restart the API server to load the latest backend changes.'}
                   </StatusAlertDescription>
+                  {!isVariablesPreviewing &&
+                  !hasRequestedVariablesPreview &&
+                  onLoadVariablesPreview ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={onLoadVariablesPreview}
+                    >
+                      Load variables preview
+                    </Button>
+                  ) : null}
                   {!isVariablesPreviewing && variablesPreviewWarning && onRetryVariablesPreview ? (
                     <Button
                       variant="outline"
