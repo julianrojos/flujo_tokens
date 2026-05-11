@@ -47,6 +47,21 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     runQueuedSpawnCommand: async () => ({ ok: true }),
     queueNpmScript: () => ({ id: 'npm_job' }),
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
+    searchComponentsDirectFn: async () => ({
+      success: true,
+      components: [],
+      count: 0,
+      truncated: false,
+      total: 0,
+      totalIsEstimated: false,
+      limit: 1000,
+      hasMore: false,
+      nextOffset: null,
+    }),
+    resolveFigmaFileVersionFn: async () => ({
+      fileVersion: 'v_test',
+      durationMs: 1,
+    }),
     disableLeanRestPath: true,
     componentRepo: {
       getAll: () => [],
@@ -167,38 +182,41 @@ describe('command-routes', () => {
           },
           upsertFromRegistry: () => 0,
         },
-        runCaptureFromFigmaUrlFn: async () => ({
-          ok: true,
-          report: {
-            source_candidates: [
-              {
-                node_id: '1:1',
-                name: 'Button',
-                type: 'component',
-                page_name: 'Home',
-                contentFingerprint: 'Button||component||Home||0',
-              },
-              {
-                node_id: '2:2',
-                name: 'Badge',
-                type: 'component',
-                page_name: 'Home',
-                contentFingerprint: 'Badge||component||Home||0',
-              },
-              {
-                node_id: '3:3',
-                name: 'Card',
-                type: 'component',
-                page_name: 'Home',
-                contentFingerprint: 'Card||component||Home||0',
-              },
-              {
-                node_id: '',
-                name: 'Ignored',
-                type: 'component',
-              },
-            ],
-          },
+        searchComponentsDirectFn: async () => ({
+          success: true as const,
+          components: [
+            {
+              key: 'k-1',
+              nodeId: '1:1',
+              name: 'Button',
+              type: 'COMPONENT' as const,
+              pageName: 'Home',
+              variantCount: 0,
+            },
+            {
+              key: 'k-2',
+              nodeId: '2:2',
+              name: 'Badge',
+              type: 'COMPONENT' as const,
+              pageName: 'Home',
+              variantCount: 0,
+            },
+            {
+              key: 'k-3',
+              nodeId: '3:3',
+              name: 'Card',
+              type: 'COMPONENT' as const,
+              pageName: 'Home',
+              variantCount: 0,
+            },
+          ],
+          count: 3,
+          truncated: false,
+          total: 3,
+          totalIsEstimated: false,
+          limit: 1000,
+          hasMore: false,
+          nextOffset: null,
         }),
       });
 
@@ -214,8 +232,8 @@ describe('command-routes', () => {
       assert.equal((payload as any).diff.new_in_figma[0].nodeId, '3:3');
     });
 
-    it('normalizes node-id out of the Figma URL before scanning', async () => {
-      const receivedArgs: Array<{ url?: string }> = [];
+    it('accepts Figma URLs with node-id and still scans by file key', async () => {
+      const receivedFileKeys: string[] = [];
       const app = createTestApp({
         readJsonBody: async () => ({
           figmaUrl: 'https://www.figma.com/design/abc123/Test-File?node-id=1-2&foo=bar',
@@ -227,22 +245,29 @@ describe('command-routes', () => {
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
-        runCaptureFromFigmaUrlFn: async (args: Record<string, unknown>) => {
-          receivedArgs.push({ url: String(args.url || '') });
+        searchComponentsDirectFn: async (fileKey) => {
+          receivedFileKeys.push(String(fileKey || ''));
           return {
-            ok: true,
-            report: { source_candidates: [] },
+            success: true as const,
+            components: [],
+            count: 0,
+            truncated: false,
+            total: 0,
+            totalIsEstimated: false,
+            limit: 1000,
+            hasMore: false,
+            nextOffset: null,
           };
         },
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_node_id_url',
+          durationMs: 1,
+        }),
       });
 
       const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
       assert.equal(res.status, 200);
-      assert.equal(receivedArgs.length, 1);
-      assert.equal(
-        receivedArgs[0]?.url,
-        'https://www.figma.com/design/abc123/Test-File?foo=bar',
-      );
+      assert.deepEqual(receivedFileKeys, ['abc123']);
     });
 
     it('returns a figma_fetch_failed response when the scan fails', async () => {
@@ -256,9 +281,12 @@ describe('command-routes', () => {
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
-        runCaptureFromFigmaUrlFn: async () => ({
-          ok: false,
-          error: 'Figma API 503',
+        searchComponentsDirectFn: async () => {
+          throw new Error('Figma API 503');
+        },
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_scan_error',
+          durationMs: 1,
         }),
       });
 
@@ -268,6 +296,56 @@ describe('command-routes', () => {
       assert.equal((payload as any).ok, false);
       assert.equal((payload as any).error, 'figma_fetch_failed');
       assert.match(String((payload as any).details || ''), /Figma API 503/);
+    });
+
+    it('returns figma_fetch_failed when plugin scan is empty but DB already has components', async () => {
+      const app = createTestApp({
+        hasPluginSocketForFile: () => true,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '1:23',
+              slug: 'button',
+              name: 'Button',
+              status: 'ready',
+              contentFingerprint: 'Button||component_set||Page 1||2',
+            },
+          ],
+          upsertFromRegistry: () => 0,
+        },
+        searchComponentsDirectFn: async () => ({
+          success: true as const,
+          components: [],
+          count: 0,
+          truncated: false,
+          total: 0,
+          totalIsEstimated: false,
+          limit: 1000,
+          hasMore: false,
+          nextOffset: null,
+        }),
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_empty_plugin_scan',
+          durationMs: 1,
+        }),
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 422);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).error, 'figma_fetch_failed');
+      assert.match(
+        String((payload as any).details || ''),
+        /Plugin component scan returned zero components/,
+      );
     });
 
     it('uses plugin fast path when matching file socket is active', async () => {
@@ -361,6 +439,10 @@ describe('command-routes', () => {
             captureCalls += 1;
             return { ok: false, error: 'should_not_run' };
           },
+          resolveFigmaFileVersionFn: async () => ({
+            fileVersion: 'v_fast_path',
+            durationMs: 1,
+          }),
         });
 
         const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
@@ -377,69 +459,30 @@ describe('command-routes', () => {
       }
     });
 
-    it('falls back to REST path when resolved file key is empty, even with active socket', async () => {
-      resetPluginConnectionManager();
-      const manager = getPluginConnectionManager();
-      const socket = makeSocket(() => {
-        // Socket exists but should not be used because fileKey cannot be resolved.
-      });
-      const socketId = manager.register(socket, {
-        fileKey: 'other_file_999',
-        docName: 'Other file',
-        pluginVersion: '1.0.0',
-        pluginBuild: 'test',
-        timestamp: Date.now(),
+    it('returns 400 when file key cannot be resolved from URL/system context', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'not-a-valid-figma-url',
+          figmaToken: 'token_123',
+        }),
+        getSystemContext: async () => ({
+          repoRoot: '/repo',
+          systemId: 'core',
+          figmaFileId: undefined,
+          captureFromFigmaUrlScriptPath:
+            'tooling/src/runners/capture-from-figma-url-runner.ts',
+        }),
       });
 
-      try {
-        let captureCalls = 0;
-        let pluginCalls = 0;
-        const app = createTestApp({
-          readJsonBody: async () => ({
-            figmaUrl: 'not-a-valid-figma-url',
-            figmaToken: 'token_123',
-          }),
-          componentRepo: {
-            getAll: () => [],
-            getExistingSlugs: () => [],
-            getComponentsForDiff: async () => [],
-            upsertFromRegistry: () => 0,
-          },
-          searchComponentsDirectFn: async () => {
-            pluginCalls += 1;
-            return {
-              success: true as const,
-              components: [],
-              count: 0,
-              truncated: false,
-              total: 0,
-              totalIsEstimated: false,
-              limit: 1000,
-              hasMore: false,
-              nextOffset: null,
-            };
-          },
-          runCaptureFromFigmaUrlFn: async () => {
-            captureCalls += 1;
-            return {
-              ok: true,
-              report: { source_candidates: [] },
-            };
-          },
-        });
-
-        const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
-        assert.equal(res.status, 200);
-        assert.equal(pluginCalls, 0);
-        assert.equal(captureCalls, 1);
-      } finally {
-        manager.unregister(socketId, 'test-cleanup');
-        resetPluginConnectionManager();
-      }
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 400);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).code, 'validation.figma_file_key_missing');
     });
 
     it('deduplicates concurrent dry-run requests with the same payload', async () => {
-      let captureCalls = 0;
+      let pluginCalls = 0;
       const app = createTestApp({
         readJsonBody: async () => ({
           figmaUrl: 'https://www.figma.com/design/abc123/Test-File-Dedupe',
@@ -452,18 +495,24 @@ describe('command-routes', () => {
           upsertFromRegistry: () => 0,
         },
         searchComponentsDirectFn: async () => {
-          throw new Error('force_fallback_capture_path');
-        },
-        runCaptureFromFigmaUrlFn: async () => {
-          captureCalls += 1;
+          pluginCalls += 1;
           await new Promise((resolve) => setTimeout(resolve, 25));
           return {
-            ok: true,
-            report: {
-              source_candidates: [],
-            },
+            success: true as const,
+            components: [],
+            count: 0,
+            truncated: false,
+            total: 0,
+            totalIsEstimated: false,
+            limit: 1000,
+            hasMore: false,
+            nextOffset: null,
           };
         },
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_dedupe_components',
+          durationMs: 1,
+        }),
       });
 
       const [resA, resB] = await Promise.all([
@@ -476,11 +525,35 @@ describe('command-routes', () => {
       const bodyA = await resA.json();
       const bodyB = await resB.json();
       assert.deepStrictEqual(bodyB, bodyA);
-      assert.equal(captureCalls, 1);
+      assert.equal(pluginCalls, 1);
     });
   });
 
   describe('/api/:systemId/sync/variables/dry-run', () => {
+    it('returns 409 when there is no plugin socket for the requested Figma file', async () => {
+      const db = (async () => []) as unknown as any;
+      const app = createTestApp({
+        db,
+        hasPluginSocketForFile: () => false,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+      });
+
+      const res = await app.request('/api/core/sync/variables/dry-run', { method: 'POST' });
+      assert.equal(res.status, 409);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).code, 'sync.no_plugin_socket_for_file');
+    });
+
     it('returns a direct variables preview without queue polling', async () => {
       const db = (async () => []) as unknown as any;
       let capturedOptions: Record<string, unknown> | null = null;
@@ -568,6 +641,10 @@ describe('command-routes', () => {
             missing_in_figma: [],
           };
         },
+        resolveFigmaFileVersionFn: async () => ({
+          fileVersion: 'v_dedupe_variables',
+          durationMs: 1,
+        }),
       });
 
       const [resA, resB] = await Promise.all([
