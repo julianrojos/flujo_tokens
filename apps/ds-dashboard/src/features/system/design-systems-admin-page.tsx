@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { FormField } from '@/components/common';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PageHeader, SystemTabsNav } from '@/components/composites';
 import { Input } from '@/components/ui/input';
@@ -401,8 +402,7 @@ export function DesignSystemsAdminPage() {
                   />
                 </FormField>
                 <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={
                       (
                         drafts[targetSystem.id] ||
@@ -594,8 +594,7 @@ export function DesignSystemsAdminPage() {
                 )}
 
                 <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={deleteConfirmed}
                     onChange={(e) => setDeleteConfirmed(e.target.checked)}
                     className="h-4 w-4"

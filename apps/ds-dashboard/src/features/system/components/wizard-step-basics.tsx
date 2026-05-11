@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/common';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Modal,
   ModalCloseButton,
@@ -267,8 +268,7 @@ export function WizardStepBasics({
         </div>
 
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={form.makeDefault}
             onChange={(e) =>
               actions.onFieldChange('makeDefault', e.target.checked)
@@ -367,14 +367,10 @@ export function WizardStepBasics({
             <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
               <div className="flex items-center justify-between gap-3">
                 <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label="Select all detected components"
                     checked={selectAllChecked}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate = someSelected && !selectAllChecked;
-                    }}
+                    indeterminate={someSelected && !selectAllChecked}
                     onChange={(e) => {
                       if (e.target.checked) {
                         actions.onSelectAll();
@@ -427,80 +423,73 @@ export function WizardStepBasics({
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {Array.from(grouped.entries()).map(([pageName, comps]) => (
-                      <div key={pageName} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select all components in ${pageName}`}
-                            checked={
-                              comps.length > 0 &&
-                              comps.every((component) =>
-                                derived.selectedIds.has(component.nodeId),
-                              )
-                            }
-                            ref={(el) => {
-                              if (!el) return;
-                              const pageHasSomeSelected = comps.some(
-                                (component) =>
-                                  derived.selectedIds.has(component.nodeId),
+                    {Array.from(grouped.entries()).map(([pageName, comps]) => {
+                      const pageAllSelected =
+                        comps.length > 0 &&
+                        comps.every((component) =>
+                          derived.selectedIds.has(component.nodeId),
+                        );
+                      const pageSomeSelected = comps.some((component) =>
+                        derived.selectedIds.has(component.nodeId),
+                      );
+
+                      return (
+                        <div key={pageName} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              aria-label={`Select all components in ${pageName}`}
+                              checked={pageAllSelected}
+                              indeterminate={
+                                pageSomeSelected && !pageAllSelected
+                              }
+                              onChange={() => togglePageSelection(comps)}
+                              disabled={derived.saving}
+                            />
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-medium text-foreground"
+                              aria-expanded={openPages.has(pageName)}
+                              onClick={() => togglePage(pageName)}
+                            >
+                              <span>{pageName}</span>
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                {openPages.has(pageName) ? (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                )}
+                                {comps.length}
+                              </span>
+                            </button>
+                          </div>
+                          {openPages.has(pageName) &&
+                            comps.map((comp) => {
+                              const checked = derived.selectedIds.has(
+                                comp.nodeId,
                               );
-                              const pageHasAllSelected =
-                                comps.length > 0 &&
-                                comps.every((component) =>
-                                  derived.selectedIds.has(component.nodeId),
-                                );
-                              el.indeterminate =
-                                pageHasSomeSelected && !pageHasAllSelected;
-                            }}
-                            onChange={() => togglePageSelection(comps)}
-                            disabled={derived.saving}
-                          />
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-medium text-foreground"
-                            aria-expanded={openPages.has(pageName)}
-                            onClick={() => togglePage(pageName)}
-                          >
-                            <span>{pageName}</span>
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              {openPages.has(pageName) ? (
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronRight className="h-3.5 w-3.5" />
-                              )}
-                              {comps.length}
-                            </span>
-                          </button>
+                              return (
+                                <label
+                                  key={comp.nodeId}
+                                  className="flex items-center gap-2 py-0.5 text-sm"
+                                >
+                                  <FigmaComponentGlyph />
+                                  <Checkbox
+                                    aria-label={`Select component ${comp.name}`}
+                                    checked={checked}
+                                    onChange={() =>
+                                      actions.onToggleComponent(comp.nodeId)
+                                    }
+                                    disabled={derived.saving}
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    {comp.name}
+                                  </span>
+                                </label>
+                              );
+                            })}
                         </div>
-                        {openPages.has(pageName) &&
-                          comps.map((comp) => {
-                            const checked = derived.selectedIds.has(
-                              comp.nodeId,
-                            );
-                            return (
-                              <label
-                                key={comp.nodeId}
-                                className="flex items-center gap-2 py-0.5 text-sm"
-                              >
-                                <FigmaComponentGlyph />
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Select component ${comp.name}`}
-                                  checked={checked}
-                                  onChange={() =>
-                                    actions.onToggleComponent(comp.nodeId)
-                                  }
-                                  disabled={derived.saving}
-                                />
-                                <span className="min-w-0 flex-1">
-                                  {comp.name}
-                                </span>
-                              </label>
-                            );
-                          })}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

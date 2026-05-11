@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
@@ -472,8 +473,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={rememberToken}
                 onChange={(e) => setRememberToken(e.target.checked)}
                 disabled={loading}
@@ -492,8 +492,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={includeVariants}
                 onChange={(e) => setIncludeVariants(e.target.checked)}
                 disabled={loading}

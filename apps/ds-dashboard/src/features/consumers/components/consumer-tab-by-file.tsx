@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState, EmptyStateAction, FilterBar, StatsOverview } from "@/components/composites";
 import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
@@ -592,8 +593,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             </p>
 
             <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={removeConfirmed}
                 onChange={(event) => setRemoveConfirmed(event.target.checked)}
                 className="h-4 w-4"
