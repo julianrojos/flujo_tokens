@@ -10,6 +10,7 @@ import {
 } from './figma-direct-bridge-service.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from './plugin-connection-manager.ts';
 import { getSharedResponseCache } from './response-cache.ts';
+import { clearFigmaFileVersionCache } from './figma-file-version-cache.ts';
 
 function makeSocket(onSend: (data: string) => void): PluginWebSocket {
   return {
@@ -25,6 +26,12 @@ function makeSocket(onSend: (data: string) => void): PluginWebSocket {
     onmessage: null,
   };
 }
+
+test.afterEach(() => {
+  resetPluginConnectionManager();
+  getSharedResponseCache().clear();
+  clearFigmaFileVersionCache();
+});
 
 test('figma-direct-bridge-service: fetchVariablesDirect normalizes arrays into meta maps', async () => {
   resetPluginConnectionManager();

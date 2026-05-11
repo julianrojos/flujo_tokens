@@ -14,6 +14,11 @@ import {
   clearComponentSnapshotCache,
   setCachedComponentSnapshot,
 } from '../services/component-snapshot-cache.js';
+import { clearFigmaFileVersionCache, setFigmaFileVersionCache } from '../services/figma-file-version-cache.js';
+import {
+  clearPrewarmComponentSnapshotCache,
+  setCachedPrewarmComponentSnapshot,
+} from '../services/figma-prewarm-snapshot-cache.js';
 
 function createFailJson() {
   return (c: any, statusCode: number, args: Record<string, unknown>) => {
@@ -127,6 +132,8 @@ describe('command-routes', () => {
   afterEach(() => {
     resetPluginConnectionManager();
     clearComponentSnapshotCache();
+    clearFigmaFileVersionCache();
+    clearPrewarmComponentSnapshotCache();
   });
 
   describe('/api/run', () => {
@@ -535,6 +542,124 @@ describe('command-routes', () => {
       assert.equal((payload as any)._debug?.pathUsed, 'cache');
       assert.equal(pluginCalls, 0);
       assert.equal((payload as any).diff.new_in_figma.length, 1);
+      assert.equal((payload as any).diff.unchanged.length, 1);
+    });
+
+    it('skips version lookup when fileVersionHint matches the recent cached version', async () => {
+      setFigmaFileVersionCache({
+        fileKey: 'abc123_hint',
+        fileVersion: 'v_hint_snapshot',
+      });
+      setCachedComponentSnapshot({
+        fileKey: 'abc123_hint',
+        fileVersion: 'v_hint_snapshot',
+        includeVariants: false,
+        compact: true,
+        components: [
+          {
+            node_id: '9:9',
+            name: 'Badge',
+            type: 'COMPONENT',
+            page_name: 'Page 1',
+            variant_count: 0,
+          },
+        ],
+      });
+
+      let versionLookups = 0;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123_hint/Test-File',
+          figmaToken: 'token_123',
+          fileVersionHint: 'v_hint_snapshot',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '9:9',
+              slug: 'badge',
+              name: 'Badge',
+              status: 'ready',
+              contentFingerprint: 'Badge||component||Page 1||0',
+            },
+          ],
+          upsertFromRegistry: () => 0,
+        },
+        resolveFigmaFileVersionFn: async () => {
+          versionLookups += 1;
+          throw new Error('version lookup should be skipped when hint matches cache');
+        },
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any)._debug?.pathUsed, 'cache');
+      assert.equal((payload as any)._debug?.versionLookupDurationMs, 0);
+      assert.equal(versionLookups, 0);
+    });
+
+    it('uses prewarmed component snapshots before scanning the plugin again', async () => {
+      setCachedPrewarmComponentSnapshot({
+        fileKey: 'abc123_prewarm',
+        components: [
+          {
+            node_id: '9:9',
+            name: 'Badge',
+            type: 'COMPONENT',
+            page_name: 'Page 1',
+            variant_count: 0,
+          },
+        ],
+      });
+
+      let versionLookups = 0;
+      let pluginCalls = 0;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123_prewarm/Test-File',
+          figmaToken: 'token_123',
+        }),
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '9:9',
+              slug: 'badge',
+              name: 'Badge',
+              status: 'ready',
+              contentFingerprint: 'Badge||component||Page 1||0',
+            },
+          ],
+          upsertFromRegistry: () => 0,
+        },
+        searchComponentsDirectFn: async () => {
+          pluginCalls += 1;
+          throw new Error('search should not run when prewarm cache is present');
+        },
+        resolveFigmaFileVersionFn: async () => {
+          versionLookups += 1;
+          return {
+            fileVersion: 'v_prewarm_snapshot',
+            durationMs: 1,
+          };
+        },
+      });
+
+      const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any)._debug?.pathUsed, 'cache');
+      assert.equal(versionLookups, 1);
+      assert.equal(pluginCalls, 0);
+      assert.equal((payload as any).diff.new_in_figma.length, 0);
       assert.equal((payload as any).diff.unchanged.length, 1);
     });
 
