@@ -645,23 +645,21 @@ export function SyncDiffPreview({
                   </StatusAlertTitle>
                   <StatusAlertDescription>
                     {isVariablesPreviewing
-                      ? 'Component diff is ready. Variables preview is still running in the background.'
+                      ? 'Component diff is ready. Variables preview is still running automatically.'
                       : !hasRequestedVariablesPreview
-                      ? 'Load variables preview on demand to inspect token/variable changes.'
+                      ? 'Variables preview loads automatically after the component diff. Use the button below to refresh it manually.'
                       : variablesPreviewWarning
                       ? 'The variables preview response is incomplete. Check plugin/API warnings and retry.'
                       : 'This response does not include variable diff buckets. Restart the API server to load the latest backend changes.'}
                   </StatusAlertDescription>
-                  {!isVariablesPreviewing &&
-                  !hasRequestedVariablesPreview &&
-                  onLoadVariablesPreview ? (
+                  {!isVariablesPreviewing && onLoadVariablesPreview ? (
                     <Button
                       variant="outline"
                       size="sm"
                       className="mt-2"
                       onClick={onLoadVariablesPreview}
                     >
-                      Load variables preview
+                      Refresh variables preview
                     </Button>
                   ) : null}
                   {!isVariablesPreviewing && variablesPreviewWarning && onRetryVariablesPreview ? (

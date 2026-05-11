@@ -305,6 +305,15 @@ export function useDesignSystemSyncPreview(
       }
       setDiffResult(dryRun.diff);
       setPreviewDebug(dryRun._debug || null);
+      setHasRequestedVariablesPreview(true);
+      setIsVariablesPreviewing(true);
+      await runVariablesPreview({
+        figmaUrl,
+        figmaToken,
+        fileVersion: String(dryRun._debug?.fileVersion || '').trim(),
+        runId,
+        allowVersionCache: true,
+      });
       return dryRun;
     } catch (cause) {
       if (latestPreviewRunRef.current === runId) {
