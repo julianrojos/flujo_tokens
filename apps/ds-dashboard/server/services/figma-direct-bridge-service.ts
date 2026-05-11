@@ -92,6 +92,11 @@ export interface StyleData {
 
 const DIRECT_REQUEST_TIMEOUT_MS = 60_000;
 
+export interface DirectRequestOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
 /**
  * Cache TTL for variables and design system kit (5 minutes).
  * Primary invalidation is via DOCUMENT_CHANGE events.
@@ -119,18 +124,19 @@ async function requestDirectWithFileKeyFallback<T>(
   method: string,
   params: unknown,
   fileKey?: string | null,
-  signal?: AbortSignal
+  options: DirectRequestOptions = {},
 ): Promise<T> {
   const manager = getPluginConnectionManager();
   const requestedFileKey = resolveFileKey(fileKey);
+  const timeoutMs = options.timeoutMs ?? DIRECT_REQUEST_TIMEOUT_MS;
 
   try {
     return await manager.requestForFileKey<T>(
       requestedFileKey,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS,
-      signal
+      timeoutMs,
+      options.signal
     );
   } catch (error) {
     if (!requestedFileKey || !isNoSocketForFileError(error)) {
@@ -154,8 +160,8 @@ async function requestDirectWithFileKeyFallback<T>(
       null,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS,
-      signal
+      timeoutMs,
+      options.signal
     );
   }
 }
@@ -246,9 +252,10 @@ export async function fetchDesignSystemKitDirect(
   // Timeout promise that only rejects (never resolves) - use Promise<never> to avoid
   // contaminating the type inference of Promise.race
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       reject(new Error(`Design system kit fetch timeout after ${DESIGN_SYSTEM_KIT_TIMEOUT_MS}ms`));
     }, DESIGN_SYSTEM_KIT_TIMEOUT_MS);
+    timeoutId.unref?.();
   });
 
   const [variablesResult, stylesResult] = await Promise.race([allSettledPromise, timeoutPromise]);
@@ -487,7 +494,7 @@ export async function getTokenUsageDirect(
     'GET_TOKEN_USAGE',
     params,
     fileKey,
-    signal
+    { signal }
   );
 }
 

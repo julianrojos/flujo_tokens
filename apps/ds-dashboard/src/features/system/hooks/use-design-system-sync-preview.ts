@@ -293,10 +293,12 @@ export function useDesignSystemSyncPreview(
     setIsVariablesPreviewing(false);
 
     try {
+      const fileVersionHint = String(previewDebugRef.current?.fileVersion || '').trim();
       const dryRun = await previewSyncDesignSystem({
         systemId: args.systemId,
         figmaUrl,
         figmaToken,
+        fileVersionHint: fileVersionHint || undefined,
       });
       if (latestPreviewRunRef.current !== runId) {
         return dryRun;

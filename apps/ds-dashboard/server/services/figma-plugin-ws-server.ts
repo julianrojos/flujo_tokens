@@ -22,6 +22,24 @@ import {
     type PluginWebSocket,
 } from './plugin-connection-manager.ts';
 import { getSharedResponseCache } from './response-cache.ts';
+import {
+    clearPrewarmComponentSnapshotCache,
+    getCachedPrewarmComponentSnapshot,
+    setCachedPrewarmComponentSnapshot,
+} from './figma-prewarm-snapshot-cache.ts';
+import {
+    searchComponentsDirect,
+} from './figma-direct-bridge-service.ts';
+
+export interface FigmaPluginWsServerOptions {
+    prewarmOnSessionInfo?: boolean;
+}
+
+const prewarmComponentSnapshotInFlightByFileKey = new Map<string, Promise<void>>();
+
+export function clearPrewarmInFlight(): void {
+    prewarmComponentSnapshotInFlightByFileKey.clear();
+}
 
 function parseConfiguredOriginPatterns(raw: string | undefined): string[] {
     if (!raw) return [];
@@ -154,6 +172,81 @@ function toPluginWebSocket(ws: WebSocket): PluginWebSocket {
     };
 }
 
+async function prewarmComponentSnapshotForFileKey(fileKey: string): Promise<void> {
+    const normalizedFileKey = String(fileKey || '').trim();
+    if (!normalizedFileKey) return;
+
+    const existingInFlight = prewarmComponentSnapshotInFlightByFileKey.get(normalizedFileKey);
+    if (existingInFlight) return existingInFlight;
+
+    const task = (async (): Promise<void> => {
+        const cachedSnapshot = getCachedPrewarmComponentSnapshot({
+            fileKey: normalizedFileKey,
+        });
+        if (cachedSnapshot) return;
+
+        const scanSessionId = `prewarm-${normalizedFileKey}-${Date.now()}`;
+        const componentsByNodeId = new Map<string, {
+            node_id: string;
+            name: string;
+            type: 'COMPONENT' | 'COMPONENT_SET';
+            page_name: string;
+            variant_count: number;
+            contentFingerprint?: string;
+        }>();
+
+        let offset = 0;
+        let pages = 0;
+        let hasMore = true;
+        while (hasMore) {
+            pages += 1;
+            if (pages > 100) {
+                break;
+            }
+            const page = await searchComponentsDirect(normalizedFileKey, {
+                compact: true,
+                includeVariants: false,
+                limit: 1000,
+                offset,
+                scanSessionId,
+            });
+
+            for (const component of page.components ?? []) {
+                const nodeId = String(component.nodeId || '').trim();
+                if (!nodeId || componentsByNodeId.has(nodeId)) continue;
+                componentsByNodeId.set(nodeId, {
+                    node_id: nodeId,
+                    name: String(component.name || '').trim(),
+                    type: component.type,
+                    page_name: String(component.pageName || '').trim(),
+                    variant_count: Number.isFinite(Number(component.variantCount))
+                        ? Math.max(0, Math.floor(Number(component.variantCount)))
+                        : 0,
+                });
+            }
+
+            hasMore = page.hasMore === true;
+            offset = typeof page.nextOffset === 'number'
+                ? page.nextOffset
+                : offset + (Array.isArray(page.components) ? page.components.length : 0);
+        }
+
+        if (componentsByNodeId.size === 0) return;
+
+        setCachedPrewarmComponentSnapshot({
+            fileKey: normalizedFileKey,
+            components: Array.from(componentsByNodeId.values()),
+        });
+    })();
+
+    prewarmComponentSnapshotInFlightByFileKey.set(normalizedFileKey, task);
+    try {
+        await task;
+    } finally {
+        prewarmComponentSnapshotInFlightByFileKey.delete(normalizedFileKey);
+    }
+}
+
 /**
  * Create and start the WebSocket server
  *
@@ -163,7 +256,10 @@ function toPluginWebSocket(ws: WebSocket): PluginWebSocket {
  * central upgrade dispatcher in index.ts that only destroys sockets when
  * no handler accepts the upgrade.
  */
-export function createFigmaPluginWsServer(httpServer: http.Server): WebSocketServer {
+export function createFigmaPluginWsServer(
+    httpServer: http.Server,
+    options: FigmaPluginWsServerOptions = {},
+): WebSocketServer {
     const wss = new WebSocketServer({
         noServer: true,
         path: '/ws/figma-plugin',
@@ -179,11 +275,24 @@ export function createFigmaPluginWsServer(httpServer: http.Server): WebSocketSer
                 getSharedResponseCache().invalidateFile(sessionInfo.fileKey);
             }
         },
+        onSessionInfoUpdate: (sessionInfo, previousSessionInfo) => {
+            if (options.prewarmOnSessionInfo !== true) return;
+            if (!sessionInfo.fileKey || sessionInfo.fileKey === previousSessionInfo.fileKey) return;
+
+            getSharedResponseCache().invalidateFile(sessionInfo.fileKey);
+            void prewarmComponentSnapshotForFileKey(sessionInfo.fileKey).catch((error) => {
+                console.warn(
+                    `[figma-plugin-ws] Failed to prewarm component snapshot for fileKey: ${sessionInfo.fileKey}`,
+                    error,
+                );
+            });
+        },
         onDisconnect: (sessionInfo, reason) => {
             console.log(`[figma-plugin-ws] Plugin disconnected: ${sessionInfo.docName} (reason: ${reason})`);
         },
         onDocumentChange: (fileKey) => {
             getSharedResponseCache().invalidateFile(fileKey);
+            clearPrewarmComponentSnapshotCache(fileKey);
             console.log(`[figma-plugin-ws] Cache invalidated for fileKey: ${fileKey}`);
         },
     });

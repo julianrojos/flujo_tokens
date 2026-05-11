@@ -37,6 +37,11 @@ import {
   getCachedComponentSnapshot,
   setCachedComponentSnapshot,
 } from './component-snapshot-cache.ts';
+import { getCachedPrewarmComponentSnapshot } from './figma-prewarm-snapshot-cache.ts';
+import {
+  getFreshCachedFigmaFileVersion,
+  setFigmaFileVersionCache,
+} from './figma-file-version-cache.ts';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
@@ -78,14 +83,6 @@ type SyncVariablesDryRunDebug = {
 const syncDiffDryRunInflightByKey = new Map<
   string,
   Promise<SyncDiffDryRunResult>
->();
-const FIGMA_FILE_VERSION_CACHE_TTL_MS = 10_000;
-const figmaFileVersionCacheByKey = new Map<
-  string,
-  {
-    fileVersion: string;
-    cachedAt: number;
-  }
 >();
 const SYNC_PREVIEW_CACHE_TTL_MS = 30 * 60 * 1000;
 const SYNC_PREVIEW_CACHE_MAX_ENTRIES = 300;
@@ -156,50 +153,6 @@ function buildSyncVariablesDryRunInflightKey(input: {
     systemId: toTrimmedString(input.systemId),
     fileKey: toTrimmedString(input.fileKey),
     fileVersion: toTrimmedString(input.fileVersion),
-  });
-}
-
-function buildFigmaFileVersionCacheKey(input: {
-  fileKey: string;
-}): string {
-  return JSON.stringify({
-    fileKey: toTrimmedString(input.fileKey),
-  });
-}
-
-function pruneFigmaFileVersionCache(nowMs: number): void {
-  for (const [cacheKey, entry] of figmaFileVersionCacheByKey.entries()) {
-    if (nowMs - entry.cachedAt > FIGMA_FILE_VERSION_CACHE_TTL_MS) {
-      figmaFileVersionCacheByKey.delete(cacheKey);
-    }
-  }
-}
-
-function getFreshCachedFigmaFileVersion(input: {
-  fileKey: string;
-}): string | null {
-  const nowMs = Date.now();
-  pruneFigmaFileVersionCache(nowMs);
-  const cacheKey = buildFigmaFileVersionCacheKey(input);
-  const cached = figmaFileVersionCacheByKey.get(cacheKey);
-  if (!cached) return null;
-  if (nowMs - cached.cachedAt > FIGMA_FILE_VERSION_CACHE_TTL_MS) {
-    figmaFileVersionCacheByKey.delete(cacheKey);
-    return null;
-  }
-  return toTrimmedString(cached.fileVersion) || null;
-}
-
-export function setFigmaFileVersionCache(input: {
-  fileKey: string;
-  fileVersion: string;
-}): void {
-  const fileVersion = toTrimmedString(input.fileVersion);
-  if (!fileVersion) return;
-  const cacheKey = buildFigmaFileVersionCacheKey(input);
-  figmaFileVersionCacheByKey.set(cacheKey, {
-    fileVersion,
-    cachedAt: Date.now(),
   });
 }
 
@@ -911,6 +864,31 @@ async function buildSyncDiffSnapshot(params: {
         sourceCandidates: cachedComponentSnapshot.map((candidate) => ({ ...candidate })),
         diff: diffFigmaVsDb(
           toFigmaNodeSnapshots(cachedComponentSnapshot),
+          dbComponents as DbComponentRef[],
+          ),
+      };
+    }
+
+    const prewarmedComponentSnapshot = getCachedPrewarmComponentSnapshot({
+      fileKey: resolvedFileKey,
+    });
+    if (Array.isArray(prewarmedComponentSnapshot) && prewarmedComponentSnapshot.length > 0) {
+      setCachedComponentSnapshot({
+        fileKey: resolvedFileKey,
+        fileVersion: normalizedFileVersion,
+        includeVariants: false,
+        compact: true,
+        components: prewarmedComponentSnapshot,
+      });
+      const dbComponents = await dbComponentsPromise;
+      return {
+        ok: true,
+        pathUsed: 'cache' as const,
+        fileVersion: normalizedFileVersion,
+        componentsDurationMs: 0,
+        sourceCandidates: prewarmedComponentSnapshot.map((candidate) => ({ ...candidate })),
+        diff: diffFigmaVsDb(
+          toFigmaNodeSnapshots(prewarmedComponentSnapshot),
           dbComponents as DbComponentRef[],
         ),
       };
@@ -2046,16 +2024,26 @@ export async function handleSyncDesignSystemDryRunRoute(
   let fileVersion = '';
   let versionLookupDurationMs = 0;
   try {
-    const versionResult = await resolveFigmaFileVersionFn({
+    const fileVersionHint = toTrimmedString(body.fileVersionHint);
+    const knownRecentVersion = getFreshCachedFigmaFileVersion({
       fileKey: resolvedFileKey,
-      figmaToken,
     });
-    fileVersion = versionResult.fileVersion;
-    versionLookupDurationMs = versionResult.durationMs;
-  setFigmaFileVersionCache({
-    fileKey: resolvedFileKey,
-    fileVersion,
-  });
+    fileVersion =
+      fileVersionHint && knownRecentVersion && fileVersionHint === knownRecentVersion
+        ? fileVersionHint
+        : '';
+    if (!fileVersion) {
+      const versionResult = await resolveFigmaFileVersionFn({
+        fileKey: resolvedFileKey,
+        figmaToken,
+      });
+      fileVersion = versionResult.fileVersion;
+      versionLookupDurationMs = versionResult.durationMs;
+      setFigmaFileVersionCache({
+        fileKey: resolvedFileKey,
+        fileVersion,
+      });
+    }
   } catch (error) {
     return c.json(
       {

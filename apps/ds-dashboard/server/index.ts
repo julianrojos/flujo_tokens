@@ -60,7 +60,9 @@ httpServer = http.createServer(requestListener);
 // Create WebSocket server for Figma plugin connections
 // This attaches its own upgrade handler that only processes /ws/figma-plugin
 // Other upgrade paths are destroyed to prevent orphaned connections
-createFigmaPluginWsServer(httpServer);
+createFigmaPluginWsServer(httpServer, {
+  prewarmOnSessionInfo: true,
+});
 
 // Start the server
 httpServer.listen(port, host, () => {

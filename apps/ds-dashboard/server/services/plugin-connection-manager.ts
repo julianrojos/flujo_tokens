@@ -187,6 +187,8 @@ export interface PluginConnectionManagerConfig {
     maxPendingRequests?: number;
     /** Callback when a plugin connects */
     onConnect?: (sessionInfo: PluginSessionInfo) => void;
+    /** Callback when SESSION_INFO updates the resolved session metadata */
+    onSessionInfoUpdate?: (sessionInfo: PluginSessionInfo, previousSessionInfo: PluginSessionInfo) => void;
     /** Callback when a plugin disconnects */
     onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
     /** Callback when a DOCUMENT_CHANGE push event is received from the plugin */
@@ -211,6 +213,7 @@ export class PluginConnectionManager {
     private maxPendingRequests: number;
     private bufferCleanupTtlMs: number;
     private onConnect?: (sessionInfo: PluginSessionInfo) => void;
+    private onSessionInfoUpdate?: (sessionInfo: PluginSessionInfo, previousSessionInfo: PluginSessionInfo) => void;
     private onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
     private onDocumentChange?: (fileKey: string) => void;
     private socketCounter = 0;
@@ -220,6 +223,7 @@ export class PluginConnectionManager {
         this.maxPendingRequests = config.maxPendingRequests ?? 50;
         this.bufferCleanupTtlMs = config.bufferCleanupTtlMs ?? 60000; // 60s TTL default
         this.onConnect = config.onConnect;
+        this.onSessionInfoUpdate = config.onSessionInfoUpdate;
         this.onDisconnect = config.onDisconnect;
         this.onDocumentChange = config.onDocumentChange;
     }
@@ -691,6 +695,7 @@ export class PluginConnectionManager {
             connection.socket.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
         } else if (messageType === 'SESSION_INFO') {
             const raw = (message.sessionInfo as Record<string, unknown> | undefined) ?? message;
+            const previousSessionInfo = connection.sessionInfo;
             const updatedInfo: PluginSessionInfo = {
                 fileKey:
                     typeof raw.fileKey === 'string'
@@ -705,6 +710,7 @@ export class PluginConnectionManager {
                 ...connection,
                 sessionInfo: updatedInfo,
             });
+            this.onSessionInfoUpdate?.(updatedInfo, previousSessionInfo);
             console.log(`[PluginConnectionManager] Updated session: ${updatedInfo.docName} (fileKey: ${updatedInfo.fileKey})`);
         } else if (isBridgeEvent(messageType)) {
             this.handlePushEvent(socketId, messageType, message);

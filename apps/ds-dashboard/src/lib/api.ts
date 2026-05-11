@@ -2236,12 +2236,14 @@ export async function previewSyncDesignSystem(args: {
   systemId: string;
   figmaUrl: string;
   figmaToken?: string;
+  fileVersionHint?: string;
 }): Promise<SyncDesignSystemDryRunResponse> {
   return requestJson<SyncDesignSystemDryRunResponse>(
     `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/dry-run`,
     buildSyncDesignSystemRequest(args.systemId, {
       figmaUrl: args.figmaUrl,
       figmaToken: args.figmaToken,
+      fileVersionHint: args.fileVersionHint,
     }),
   );
 }
