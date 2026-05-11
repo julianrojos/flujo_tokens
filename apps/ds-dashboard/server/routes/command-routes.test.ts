@@ -604,6 +604,74 @@ describe('command-routes', () => {
       assert.equal(capturedOptions?.captureComponentProofs, false);
     });
 
+    it('skips version lookup when fileVersion hint matches recent known server version', async () => {
+      const db = (async () => []) as unknown as any;
+      let resolveVersionCalls = 0;
+      let readJsonCalls = 0;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => {
+          readJsonCalls += 1;
+          if (readJsonCalls === 1) {
+            return {
+              figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+              figmaToken: 'token_123',
+            };
+          }
+          return {
+            figmaUrl: 'https://www.figma.com/design/abc123/Test-File',
+            figmaToken: 'token_123',
+            fileVersion: 'v_from_components_preview',
+          };
+        },
+        componentRepo: {
+          getAll: () => [],
+          getExistingSlugs: () => [],
+          getComponentsForDiff: async () => [],
+          upsertFromRegistry: () => 0,
+        },
+        resolveFigmaFileVersionFn: async () => {
+          resolveVersionCalls += 1;
+          return {
+            fileVersion: 'v_from_components_preview',
+            durationMs: 1,
+          };
+        },
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 2,
+          tokenModeValues: 4,
+          aliases: 0,
+          components: 0,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'skipped',
+          usageReindexReason: 'none',
+          usageReindexWarnings: [],
+          dryRun: true,
+          new_in_figma: [],
+          updated_in_figma: [],
+          unchanged: [],
+          missing_in_figma: [],
+        }),
+      });
+
+      const resA = await app.request('/api/core/sync/variables/dry-run', {
+        method: 'POST',
+      });
+      assert.equal(resA.status, 200);
+      assert.equal(resolveVersionCalls, 1);
+
+      const resB = await app.request('/api/core/sync/variables/dry-run', {
+        method: 'POST',
+      });
+      assert.equal(resB.status, 200);
+      const payloadB = await resB.json();
+      assert.equal((payloadB as any)._debug?.fileVersion, 'v_from_components_preview');
+      assert.equal(resolveVersionCalls, 1);
+    });
+
     it('deduplicates concurrent variables dry-run requests with the same payload', async () => {
       const db = (async () => []) as unknown as any;
       let syncCalls = 0;
