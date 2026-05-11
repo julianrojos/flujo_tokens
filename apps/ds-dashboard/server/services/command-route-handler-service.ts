@@ -39,7 +39,7 @@ import { DependencySyncService } from './dependency-sync-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
 import { refreshUsageIndexDbOnly } from './ops-db-maintenance-service.ts';
 import { runCaptureFromFigmaUrl } from '../../../../tooling/src/services/capture-orchestrator-main.js';
-import { fetchFigmaFile } from '../../../../tooling/src/services/figma-api.js';
+import { fetchFigmaFile, fetchFigmaNodes } from '../../../../tooling/src/services/figma-api.js';
 import {
   computeContentFingerprint,
   diffFigmaVsDb,
@@ -47,6 +47,7 @@ import {
   type FigmaNodeSnapshot,
 } from './figma-diff-service.js';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
+import type { FigmaNode } from '../../../../tooling/src/utils/figma.js';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
 const SYNC_DIFF_PREVIEW_CACHE_TTL_MS = 30_000;
@@ -604,6 +605,124 @@ async function resolveSyncDesignSystemFigmaToken(params: {
   return toTrimmedString(resolveEnvRef(String(rows[0]?.figma_api_token || '').trim()));
 }
 
+function collectComponentSnapshotsFromNodeTree(args: {
+  node: FigmaNode;
+  pageName: string;
+  insideComponentSet: boolean;
+  byNodeId: Map<string, FigmaNodeSnapshot>;
+}): void {
+  const { node, pageName, insideComponentSet, byNodeId } = args;
+  const nodeId = toTrimmedString(node.id);
+  const nodeName = toTrimmedString(node.name) || nodeId;
+  const rawType = toTrimmedString(node.type).toUpperCase();
+  const children = Array.isArray(node.children) ? node.children : [];
+  let nextInsideComponentSet = insideComponentSet;
+
+  if (rawType === 'COMPONENT_SET' && nodeId) {
+    const variantCount = children.filter(
+      (child) => toTrimmedString(child?.type).toUpperCase() === 'COMPONENT',
+    ).length;
+    if (!byNodeId.has(nodeId)) {
+      byNodeId.set(nodeId, {
+        nodeId,
+        name: nodeName,
+        type: rawType,
+        slug: slugifyComponentName(nodeName),
+        pageName,
+        variantCount,
+        contentFingerprint: computeContentFingerprint({
+          name: nodeName,
+          type: rawType,
+          pageName,
+          variantCount,
+        }),
+      });
+    }
+    nextInsideComponentSet = true;
+  } else if (rawType === 'COMPONENT' && nodeId && !insideComponentSet) {
+    if (!byNodeId.has(nodeId)) {
+      byNodeId.set(nodeId, {
+        nodeId,
+        name: nodeName,
+        type: rawType,
+        slug: slugifyComponentName(nodeName),
+        pageName,
+        variantCount: 0,
+        contentFingerprint: computeContentFingerprint({
+          name: nodeName,
+          type: rawType,
+          pageName,
+          variantCount: 0,
+        }),
+      });
+    }
+  }
+
+  for (const child of children) {
+    collectComponentSnapshotsFromNodeTree({
+      node: child,
+      pageName,
+      insideComponentSet: nextInsideComponentSet,
+      byNodeId,
+    });
+  }
+}
+
+async function fetchFigmaComponentsForDiff(args: {
+  fileKey: string;
+  figmaToken: string;
+}): Promise<FigmaNodeSnapshot[]> {
+  const { fileKey, figmaToken } = args;
+  const topLevel = await fetchFigmaFile({
+    fileKey,
+    token: figmaToken,
+    depth: 1,
+  });
+  const pages = Array.isArray(topLevel?.document?.children)
+    ? topLevel.document.children.filter(
+        (node) => toTrimmedString(node?.id).length > 0,
+      )
+    : [];
+  if (pages.length === 0) {
+    return [];
+  }
+
+  const pagePayloads = await Promise.all(
+    pages.map((page) =>
+      fetchFigmaNodes({
+        fileKey,
+        nodeIds: [toTrimmedString(page.id)],
+        token: figmaToken,
+        // depth=7 from page ≈ depth=8 from document root (page itself is depth 0
+        // in the nodes response). Matches the original full-file fetch depth so
+        // deeply-nested COMPONENT_SET children are always visible.
+        depth: 7,
+      }),
+    ),
+  );
+  const byNodeId = new Map<string, FigmaNodeSnapshot>();
+  for (let index = 0; index < pages.length; index += 1) {
+    const page = pages[index];
+    const payload = pagePayloads[index];
+    const pageId = toTrimmedString(page.id);
+    if (!pageId) continue;
+    const rootNode = payload?.nodes?.[pageId]?.document;
+    if (!rootNode || typeof rootNode !== 'object') continue;
+    const pageName =
+      toTrimmedString(rootNode.name) ||
+      toTrimmedString(page.name) ||
+      `Page ${index + 1}`;
+    collectComponentSnapshotsFromNodeTree({
+      node: rootNode,
+      pageName,
+      insideComponentSet: false,
+      byNodeId,
+    });
+  }
+
+  return Array.from(byNodeId.values());
+}
+
 async function buildSyncDiffSnapshot(params: {
   systemId: string;
   repoRoot: string;
@@ -613,6 +732,7 @@ async function buildSyncDiffSnapshot(params: {
   componentRepo: import('../db/component-repository.js').ComponentRepository;
   runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
   searchComponentsDirectFn?: typeof searchComponentsDirect;
+  disableLeanRestPath?: boolean;
 }): Promise<
   | {
       ok: true;
@@ -634,7 +754,10 @@ async function buildSyncDiffSnapshot(params: {
     componentRepo,
     runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
     searchComponentsDirectFn = searchComponentsDirect,
+    disableLeanRestPath = false,
   } = params;
+
+  const dbComponentsPromise = componentRepo.getComponentsForDiff(systemId);
 
   try {
     const resolvedFileKey = resolveFileKeyForSystem(figmaFileId, { figmaUrl });
@@ -715,7 +838,7 @@ async function buildSyncDiffSnapshot(params: {
         }
 
         if (byNodeId.size > 0) {
-          const dbComponents = await componentRepo.getComponentsForDiff(systemId);
+          const dbComponents = await dbComponentsPromise;
           return {
             ok: true,
             pathUsed: 'plugin' as const,
@@ -738,6 +861,52 @@ async function buildSyncDiffSnapshot(params: {
           `[buildSyncDiffSnapshot] Plugin fast path failed; falling back to capture pipeline: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    }
+
+    const canUseLeanRestPath =
+      !disableLeanRestPath && toTrimmedString(resolvedFileKey).length > 0;
+    let leanSnapshots: FigmaNodeSnapshot[] | null = null;
+    if (canUseLeanRestPath && toTrimmedString(resolvedFileKey)) {
+      try {
+        leanSnapshots = await fetchFigmaComponentsForDiff({
+          fileKey: toTrimmedString(resolvedFileKey),
+          figmaToken,
+        });
+      } catch (error) {
+        console.warn(
+          `[buildSyncDiffSnapshot] Lean REST page scan failed; falling back to capture pipeline: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (Array.isArray(leanSnapshots) && leanSnapshots.length > 0) {
+      try {
+        const dbComponents = await dbComponentsPromise;
+        return {
+          ok: true,
+          pathUsed: 'rest' as const,
+          sourceCandidates: leanSnapshots.map((snapshot) => ({
+            node_id: snapshot.nodeId,
+            name: snapshot.name,
+            type: snapshot.type,
+            page_name: snapshot.pageName || '',
+            variant_count: snapshot.variantCount,
+            contentFingerprint: snapshot.contentFingerprint,
+          })),
+          diff: diffFigmaVsDb(
+            leanSnapshots,
+            dbComponents as DbComponentRef[],
+          ),
+        };
+      } catch (error) {
+        console.warn(
+          `[buildSyncDiffSnapshot] Lean REST DB lookup failed; falling back to capture pipeline: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    } else if (Array.isArray(leanSnapshots) && leanSnapshots.length === 0) {
+      console.warn(
+        '[buildSyncDiffSnapshot] Lean REST page scan returned no top-level components; falling back to capture pipeline.',
+      );
     }
 
     const captureResult = await runCaptureFromFigmaUrlFn(
@@ -764,6 +933,7 @@ async function buildSyncDiffSnapshot(params: {
     );
 
     if (!captureResult.ok) {
+      await dbComponentsPromise.catch(() => undefined);
       return {
         ok: false,
         error: toTrimmedString(
@@ -780,7 +950,7 @@ async function buildSyncDiffSnapshot(params: {
     )
       ? ((report as Record<string, unknown>).source_candidates as Array<Record<string, unknown>>)
       : [];
-    const dbComponents = await componentRepo.getComponentsForDiff(systemId);
+    const dbComponents = await dbComponentsPromise;
     return {
       ok: true,
       pathUsed: 'rest' as const,
@@ -791,6 +961,7 @@ async function buildSyncDiffSnapshot(params: {
       ),
     };
   } catch (error) {
+    await dbComponentsPromise.catch(() => undefined);
     return {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
@@ -864,6 +1035,7 @@ export interface CommandRouteHandlerDeps {
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   runCaptureFromFigmaUrlFn?: typeof runCaptureFromFigmaUrl;
   searchComponentsDirectFn?: typeof searchComponentsDirect;
+  disableLeanRestPath?: boolean;
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('postgres').Sql;
@@ -1579,6 +1751,7 @@ export async function handleSyncDesignSystemDryRunRoute(
     db,
     runCaptureFromFigmaUrlFn = runCaptureFromFigmaUrl,
     searchComponentsDirectFn = searchComponentsDirect,
+    disableLeanRestPath = false,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -1669,6 +1842,7 @@ export async function handleSyncDesignSystemDryRunRoute(
       componentRepo,
       runCaptureFromFigmaUrlFn,
       searchComponentsDirectFn,
+      disableLeanRestPath,
     });
     syncDiffDryRunInflightByKey.set(inflightKey, inflightSnapshot);
   }
@@ -1876,6 +2050,7 @@ export async function handleSyncDesignSystemApplyRoute(
     db,
     runCaptureFromFigmaUrlFn,
     searchComponentsDirectFn = searchComponentsDirect,
+    disableLeanRestPath = false,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -1970,6 +2145,7 @@ export async function handleSyncDesignSystemApplyRoute(
       componentRepo,
       runCaptureFromFigmaUrlFn,
       searchComponentsDirectFn,
+      disableLeanRestPath,
     });
     syncDiffApplyInflightByKey.set(applyInflightKey, applyInflightSnapshot);
   }

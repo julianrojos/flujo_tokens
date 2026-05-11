@@ -55,6 +55,7 @@ export interface CommandRoutesDeps {
   ) => Promise<Record<string, unknown> & { ok: boolean }>;
   runCaptureFromFigmaUrlFn?: CommandRouteHandlerDeps['runCaptureFromFigmaUrlFn'];
   searchComponentsDirectFn?: CommandRouteHandlerDeps['searchComponentsDirectFn'];
+  disableLeanRestPath?: CommandRouteHandlerDeps['disableLeanRestPath'];
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
@@ -143,6 +144,7 @@ function toCommandRouteHandlerDeps(
       ),
     runCaptureFromFigmaUrlFn: deps.runCaptureFromFigmaUrlFn,
     searchComponentsDirectFn: deps.searchComponentsDirectFn,
+    disableLeanRestPath: deps.disableLeanRestPath,
     queueNpmScript: (args) =>
       assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
     queueNodeJsonCommand: (args) =>

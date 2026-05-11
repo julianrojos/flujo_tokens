@@ -47,6 +47,7 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     runQueuedSpawnCommand: async () => ({ ok: true }),
     queueNpmScript: () => ({ id: 'npm_job' }),
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
+    disableLeanRestPath: true,
     componentRepo: {
       getAll: () => [],
       getComponentsForDiff: () => [],
