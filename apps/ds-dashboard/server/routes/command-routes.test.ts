@@ -663,6 +663,74 @@ describe('command-routes', () => {
       assert.equal((payload as any).diff.unchanged.length, 1);
     });
 
+    it('accepts a single unkeyed plugin socket while SESSION_INFO is still resolving the fileKey', async () => {
+      resetPluginConnectionManager();
+      const manager = getPluginConnectionManager();
+      let socketId = '';
+      let searchCalls = 0;
+      const socket = makeSocket(() => { });
+
+      socketId = manager.register(socket, {
+        fileKey: null,
+        docName: 'Draft file',
+        pluginVersion: '1.0.0',
+        pluginBuild: 'test',
+        timestamp: Date.now(),
+      });
+
+      try {
+        const app = createTestApp({
+          readJsonBody: async () => ({
+            figmaUrl: 'https://www.figma.com/design/abc123_unkeyed/Test-File',
+            figmaToken: 'token_123',
+          }),
+          componentRepo: {
+            getAll: () => [],
+            getExistingSlugs: () => [],
+            getComponentsForDiff: async () => [],
+            upsertFromRegistry: () => 0,
+          },
+          hasPluginSocketForFile: undefined,
+          searchComponentsDirectFn: async () => {
+            searchCalls += 1;
+            return {
+              success: true,
+              components: [
+                {
+                  nodeId: '10:10',
+                  name: 'Badge',
+                  type: 'COMPONENT',
+                  pageName: 'Page 1',
+                  variantCount: 0,
+                },
+              ],
+              count: 1,
+              truncated: false,
+              total: 1,
+              totalIsEstimated: false,
+              limit: 1000,
+              hasMore: false,
+              nextOffset: null,
+            };
+          },
+          resolveFigmaFileVersionFn: async () => ({
+            fileVersion: 'v_unkeyed_socket',
+            durationMs: 1,
+          }),
+        });
+
+        const res = await app.request('/api/core/sync/dry-run', { method: 'POST' });
+        assert.equal(res.status, 200);
+        const payload = await res.json();
+        assert.equal((payload as any).ok, true);
+        assert.equal((payload as any)._debug?.pathUsed, 'plugin');
+        assert.equal(searchCalls, 1);
+      } finally {
+        manager.unregister(socketId, 'test-cleanup');
+        resetPluginConnectionManager();
+      }
+    });
+
     it('returns 400 when file key cannot be resolved from URL/system context', async () => {
       const app = createTestApp({
         readJsonBody: async () => ({
