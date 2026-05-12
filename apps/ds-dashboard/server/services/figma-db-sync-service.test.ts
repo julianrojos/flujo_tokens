@@ -1021,6 +1021,93 @@ describe('figma-db-sync-service', () => {
     }
   });
 
+  it('splits main proof image batches when the plugin rejects a larger request', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [{ id: 'sys-batch-split', name: 'System Batch Split' }],
+    });
+    const repoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'ds-sync-batch-split-'),
+    );
+    const batchSizes: number[] = [];
+    try {
+      const componentRepo = {
+        deleteAll: async () => 0,
+        upsertFromRegistry: async () => 0,
+        markMissingComponents: async () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: {
+              id: 'col1',
+              name: 'Primitives',
+              modes: [{ modeId: 'm1', name: 'Default' }],
+            },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [
+          { nodeId: '10:1', name: 'Button Primary', width: 240, height: 56 },
+          { nodeId: '10:2', name: 'Button Secondary', width: 240, height: 56 },
+        ],
+        truncated: false,
+      });
+
+      const fetchComponentImages = async (
+        _figmaFileId: string | null,
+        params: { nodeIds: string[] },
+      ) => {
+        batchSizes.push(params.nodeIds.length);
+        if (params.nodeIds.length > 1) {
+          throw new Error('GET_COMPONENT_IMAGE request timed out');
+        }
+        return {
+          success: true,
+          images: params.nodeIds.map((nodeId) => ({
+            nodeId,
+            base64: Buffer.from(`fake-${nodeId}`).toString('base64'),
+            format: 'PNG',
+          })),
+        };
+      };
+
+      const result = await syncDesignSystemFromPlugin({
+        db: sql,
+        componentRepo,
+        dsId: 'sys-batch-split',
+        figmaFileId: 'file_batch_split',
+        includeComponents: true,
+        dryRun: false,
+        requireComponentProofs: false,
+        requireVariantProofsWhenPresent: false,
+        captureComponentProofs: true,
+        createRunId: () => 'run-batch-split',
+        fetchVariables,
+        searchComponents,
+        fetchComponentImages: fetchComponentImages as any,
+        repoRoot,
+      });
+
+      assert.equal(result.proofsEnriched, 2);
+      assert.ok(batchSizes.some((size) => size > 1));
+      assert.ok(batchSizes.includes(1));
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      await cleanup();
+    }
+  });
+
   it('writes YAML-safe component names in generated markdown', async () => {
     const { sql, cleanup } = await createTestDatabase({
       designSystems: [{ id: 'sys-01', name: 'System 01' }],

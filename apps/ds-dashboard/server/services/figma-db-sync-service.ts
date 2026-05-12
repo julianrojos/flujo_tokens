@@ -9,9 +9,10 @@ import type {
   FigmaVariablesResponse,
 } from '../../../../tooling/src/utils/figma.ts';
 import {
-  buildAliasChains,
-  extractCssReferences,
+  buildAliasChainsFromSources,
+  extractCssReferencesFromSources,
   generateUsageIndex,
+  type CssSource,
 } from '../../../../tooling/src/services/token-usage-index.js';
 import { resolveUniqueCssVar } from '../../../../tooling/src/utils/css-var-utils.js';
 import {
@@ -22,6 +23,7 @@ import {
 } from './figma-direct-bridge-service.ts';
 import type { ComponentRepository } from '../db/component-repository.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
+import { bulkInsert } from '../lib/sql-bulk-insert.ts';
 
 type TokenRow = {
   id: string;
@@ -980,7 +982,7 @@ type FetchComponentSpecFn = (
   }>;
 }>;
 
-const DEFAULT_IMAGE_BATCH_SIZE = 20;
+const DEFAULT_IMAGE_BATCH_SIZE = 8;
 const DEFAULT_IMAGE_FETCH_CONCURRENCY = 4;
 const DEFAULT_ENRICH_COMPONENT_SPEC_CONCURRENCY = 6;
 const MAX_ENRICH_COMPONENT_SPEC_CONCURRENCY = 32;
@@ -1092,13 +1094,27 @@ async function captureComponentMainProofImages(options: {
     batches.push(nodeIds.slice(i, i + batchSize));
   }
 
-  await mapWithConcurrency(batches, imageFetchConcurrency, async (batch) => {
-    const result = await fetchComponentImages(figmaFileId, {
-      nodeIds: batch,
-      format: 'PNG',
-      scale: 2,
-    });
-    for (const image of result.images || []) {
+  const captureBatch = async (batch: string[]): Promise<void> => {
+    if (batch.length === 0) return;
+    let result:
+      | Awaited<ReturnType<FetchComponentImagesFn>>
+      | undefined;
+    try {
+      result = await fetchComponentImages(figmaFileId, {
+        nodeIds: batch,
+        format: 'PNG',
+        scale: 2,
+      });
+    } catch (error) {
+      if (batch.length <= 1) {
+        throw error;
+      }
+      const mid = Math.max(1, Math.floor(batch.length / 2));
+      await captureBatch(batch.slice(0, mid));
+      await captureBatch(batch.slice(mid));
+      return;
+    }
+    for (const image of result?.images || []) {
       const nodeId = String(image.nodeId || '').trim();
       const entry = nodeIdToEntry.get(nodeId);
       if (!entry) continue;
@@ -1132,6 +1148,17 @@ async function captureComponentMainProofImages(options: {
         );
         continue;
       }
+    }
+  };
+
+  await mapWithConcurrency(batches, imageFetchConcurrency, async (batch) => {
+    try {
+      await captureBatch(batch);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[captureComponentMainProofImages] Failed to fetch images for batch size=${batch.length}: ${reason}`,
+      );
     }
   });
 }
@@ -1209,26 +1236,37 @@ async function captureComponentVariantProofImages(options: {
       }
     >();
     const batchSize = Math.max(1, Math.floor(imageBatchSize));
-    for (let i = 0; i < nodeIds.length; i += batchSize) {
-      const batch = nodeIds.slice(i, i + batchSize);
-      let imageResult;
+    const captureImageBatch = async (nodeIdsBatch: string[]): Promise<void> => {
       try {
-        imageResult = await fetchComponentImages(figmaFileId, {
-          nodeIds: batch,
+        const imageResult = await fetchComponentImages(figmaFileId, {
+          nodeIds: nodeIdsBatch,
           format: 'PNG',
           scale: 2,
         });
+        for (const item of imageResult.images || []) {
+          const itemNodeId = String(item.nodeId || '').trim();
+          if (!itemNodeId) continue;
+          byNode.set(itemNodeId, item);
+        }
+      } catch (error) {
+        if (nodeIdsBatch.length <= 1) {
+          throw error;
+        }
+        const mid = Math.max(1, Math.floor(nodeIdsBatch.length / 2));
+        await captureImageBatch(nodeIdsBatch.slice(0, mid));
+        await captureImageBatch(nodeIdsBatch.slice(mid));
+      }
+    };
+    for (let i = 0; i < nodeIds.length; i += batchSize) {
+      const batch = nodeIds.slice(i, i + batchSize);
+      try {
+        await captureImageBatch(batch);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.warn(
           `[captureComponentVariantProofImages] Failed to fetch images for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
         );
         continue;
-      }
-      for (const item of imageResult.images || []) {
-        const itemNodeId = String(item.nodeId || '').trim();
-        if (!itemNodeId) continue;
-        byNode.set(itemNodeId, item);
       }
     }
     for (let i = 0; i < variants.length; i += 1) {
@@ -1940,8 +1978,9 @@ export function buildTokenUsageRowsFromFilesystem(options: {
     }>;
   };
   aliases: AliasRow[];
+  cssSources?: CssSource[];
 }): { rows: UsageOccurrenceRow[]; warnings: string[]; noSources: boolean } {
-  const { dsId, repoRoot, tokenCatalog, aliases } = options;
+  const { dsId, repoRoot, tokenCatalog, aliases, cssSources } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
   const rows: UsageOccurrenceRow[] = [];
 
@@ -1949,8 +1988,16 @@ export function buildTokenUsageRowsFromFilesystem(options: {
     path.join(paths.outputDir, 'primitives.css'),
     path.join(paths.outputDir, 'tokens.css'),
   ];
-  const existingCssFiles = cssFiles.filter((filePath) => fs.existsSync(filePath));
-  if (existingCssFiles.length === 0) {
+  const loadedCssSources =
+    cssSources && cssSources.length > 0
+      ? cssSources
+      : cssFiles
+          .filter((filePath) => fs.existsSync(filePath))
+          .map((filePath) => ({
+            file: filePath,
+            content: fs.readFileSync(filePath, 'utf8'),
+          }));
+  if (loadedCssSources.length === 0) {
     return {
       rows: [],
       warnings: [],
@@ -1959,11 +2006,11 @@ export function buildTokenUsageRowsFromFilesystem(options: {
   }
 
   const warnings = cssFiles
-    .filter((filePath) => !fs.existsSync(filePath))
+    .filter((filePath) => !loadedCssSources.some((source) => source.file === filePath))
     .map((filePath) => `Missing CSS source for usage scan: ${filePath}`);
 
-  const cssRefs = extractCssReferences(existingCssFiles, tokenCatalog);
-  const aliasChains = buildAliasChains(existingCssFiles, tokenCatalog);
+  const cssRefs = extractCssReferencesFromSources(loadedCssSources, tokenCatalog);
+  const aliasChains = buildAliasChainsFromSources(loadedCssSources);
   const usageIndex = generateUsageIndex(tokenCatalog, cssRefs, aliasChains);
 
   for (const entry of usageIndex.entries) {
@@ -2652,35 +2699,46 @@ export async function syncDesignSystemFromPlugin(
       await tx`DELETE FROM figma_aliases WHERE ds_id = ${dsId}`;
       await tx`DELETE FROM token_graph WHERE ds_id = ${dsId}`;
 
-      for (const token of tokens) {
-        await tx`
-          INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
-          VALUES (${token.id}, ${dsId}, ${token.slashPath}, ${token.cssVar}, ${token.type}, ${token.collection}, ${token.rawValue})
-          ON CONFLICT (id, ds_id) DO UPDATE SET
-            slash_path = EXCLUDED.slash_path,
-            css_var = EXCLUDED.css_var,
-            type = EXCLUDED.type,
-            collection = EXCLUDED.collection,
-            raw_value = EXCLUDED.raw_value
-        `;
-      }
+      await bulkInsert(tx, {
+        table: 'tokens',
+        columns: ['id', 'ds_id', 'slash_path', 'css_var', 'type', 'collection', 'raw_value'],
+        rows: tokens.map((token) => [
+          token.id,
+          dsId,
+          token.slashPath,
+          token.cssVar,
+          token.type,
+          token.collection,
+          token.rawValue,
+        ]),
+        onConflict:
+          'ON CONFLICT (id, ds_id) DO UPDATE SET slash_path = EXCLUDED.slash_path, css_var = EXCLUDED.css_var, type = EXCLUDED.type, collection = EXCLUDED.collection, raw_value = EXCLUDED.raw_value',
+      });
 
-      for (const modeValue of modeValues) {
-        await tx`
-          INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
-          VALUES (${dsId}, ${modeValue.tokenPath}, ${modeValue.mode}, ${modeValue.resolvedValue})
-          ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET
-            resolved_value = EXCLUDED.resolved_value
-        `;
-      }
+      await bulkInsert(tx, {
+        table: 'token_mode_values',
+        columns: ['ds_id', 'token_path', 'mode', 'resolved_value'],
+        rows: modeValues.map((modeValue) => [
+          dsId,
+          modeValue.tokenPath,
+          modeValue.mode,
+          modeValue.resolvedValue,
+        ]),
+        onConflict:
+          'ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET resolved_value = EXCLUDED.resolved_value',
+      });
 
-      for (const alias of aliases) {
-        await tx`
-          INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
-          VALUES (${dsId}, ${alias.fromPath}, ${alias.toPath}, ${JSON.stringify(alias.modes)})
-          ON CONFLICT (ds_id, from_path, to_path) DO NOTHING
-        `;
-      }
+      await bulkInsert(tx, {
+        table: 'figma_aliases',
+        columns: ['ds_id', 'from_path', 'to_path', 'modes'],
+        rows: aliases.map((alias) => [
+          dsId,
+          alias.fromPath,
+          alias.toPath,
+          JSON.stringify(alias.modes),
+        ]),
+        onConflict: 'ON CONFLICT (ds_id, from_path, to_path) DO NOTHING',
+      });
 
       const tokenCountResult = await tx<
         { count: bigint }[]
@@ -2731,33 +2789,43 @@ export async function syncDesignSystemFromPlugin(
 
       if (willRunReindex && usageReindexStatus === 'ok') {
         await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${dsId}`;
-        for (const usage of reindexUsageRows) {
-          const result = await tx`
-            INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-            VALUES (${dsId}, ${usage.tokenId}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
-            ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
-          `;
-          usageReindexed += result.count ?? 0;
-        }
+        usageReindexed += await bulkInsert(tx, {
+          table: 'token_usage_occurrences',
+          columns: ['ds_id', 'token_id', 'kind', 'source', 'owner', 'detail'],
+          rows: reindexUsageRows.map((usage) => [
+            dsId,
+            usage.tokenId,
+            usage.kind,
+            usage.source,
+            usage.owner,
+            usage.detail,
+          ]),
+          onConflict:
+            'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
+        });
       } else {
         const tokenRows = await tx<
           { id: string }[]
         >`SELECT id FROM tokens WHERE ds_id = ${dsId}`;
         const existingTokenIds = new Set(tokenRows.map((row) => row.id));
-        for (const usage of usageRows) {
-          if (!existingTokenIds.has(usage.token_id)) {
-            usageDropped += 1;
-            continue;
-          }
-          const result = await tx`
-            INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-            VALUES (${dsId}, ${usage.token_id}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
-            ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
-          `;
-          if ((result.count ?? 0) > 0) {
-            usageRestored += 1;
-          }
-        }
+        const usageInsertRows = usageRows.filter((usage) =>
+          existingTokenIds.has(usage.token_id),
+        );
+        usageDropped += usageRows.length - usageInsertRows.length;
+        usageRestored += await bulkInsert(tx, {
+          table: 'token_usage_occurrences',
+          columns: ['ds_id', 'token_id', 'kind', 'source', 'owner', 'detail'],
+          rows: usageInsertRows.map((usage) => [
+            dsId,
+            usage.token_id,
+            usage.kind,
+            usage.source,
+            usage.owner,
+            usage.detail,
+          ]),
+          onConflict:
+            'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
+        });
       }
 
       await tx`
