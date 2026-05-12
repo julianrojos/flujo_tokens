@@ -3310,6 +3310,7 @@ export async function handleSyncDesignSystemStepRoute(
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         const durationMs = Math.max(0, Date.now() - stepStartedAt);
+        emitChunk('warning', `Variables sync failed: ${reason}`);
         emitChunk('result', `Variables sync failed after ${formatDurationMs(durationMs)}.`);
         const jobResult = {
           ok: false,
