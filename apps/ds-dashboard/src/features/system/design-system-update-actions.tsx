@@ -1107,6 +1107,8 @@ export function DesignSystemUpdateActions({
   const retryFailedSteps = useCallback(async () => {
     const url = String(sharedFigmaUrl || '').trim();
     const needsUrl = failedSteps.some((step) => step !== 'tokens');
+    const retryRunId = syncRunIdRef.current + 1;
+    syncRunIdRef.current = retryRunId;
     setHasTriggeredSyncInView(true);
     if (needsUrl && !url) {
       setSyncError('Figma URL is required to sync the design system.');
@@ -1155,12 +1157,14 @@ export function DesignSystemUpdateActions({
           // Tokens runs in-process; poll more frequently than the 900 ms default.
           ...(step === 'tokens' ? { pollIntervalMs: 200 } : {}),
         });
+        if (syncRunIdRef.current !== retryRunId) return;
         setActiveSyncJobId(null);
         setActiveSyncOperation(null);
         const nextState = toStepStateFromBackend(step, result);
         pendingSyncPersistRef.current = { jobId: result.jobId, error: '' };
         setSyncSteps((prev) => ({ ...prev, [step]: nextState }));
       } catch (cause) {
+        if (syncRunIdRef.current !== retryRunId) return;
         setActiveSyncJobId(null);
         setActiveSyncOperation(null);
         const message =
@@ -1240,7 +1244,7 @@ export function DesignSystemUpdateActions({
           previewDebug={syncDiffPreviewDebug}
           variablesPreviewDebug={syncVariablesPreviewDebug}
           error={syncDiffError}
-          disabled={disabled || isSyncRunning}
+          disabled={disabled}
           isPreviewing={isSyncDiffPreviewing}
           isVariablesPreviewing={isSyncVariablesPreviewing}
           isApplying={isSyncDiffApplying}

@@ -658,6 +658,7 @@ export function SyncDiffPreview({
                       size="sm"
                       className="mt-2"
                       onClick={onLoadVariablesPreview}
+                      disabled={disabled || isSyncRunning}
                     >
                       Refresh variables preview
                     </Button>
@@ -668,6 +669,7 @@ export function SyncDiffPreview({
                       size="sm"
                       className="mt-2"
                       onClick={onRetryVariablesPreview}
+                      disabled={disabled || isSyncRunning}
                     >
                       Retry variables
                     </Button>
@@ -846,7 +848,7 @@ export function SyncDiffPreview({
             type="button"
             variant="outline"
             onClick={onRetryFailedSteps}
-            disabled={disabled || isPreviewing || isApplying}
+            disabled={disabled || isPreviewing || isApplying || isSyncRunning}
           >
             Retry failed steps
           </Button>
@@ -857,7 +859,7 @@ export function SyncDiffPreview({
               type="button"
               variant="outline"
               onClick={onReset}
-              disabled={disabled || isPreviewing || isApplying}
+              disabled={disabled || isPreviewing || isApplying || isSyncRunning}
             >
               Cancel
             </Button>
@@ -865,7 +867,7 @@ export function SyncDiffPreview({
               type="button"
               variant="outline"
               onClick={onPreview}
-              disabled={disabled || isPreviewing || isApplying}
+              disabled={disabled || isPreviewing || isApplying || isSyncRunning}
               loading={isPreviewing}
             >
               Re-scan
@@ -875,7 +877,7 @@ export function SyncDiffPreview({
               onClick={() =>
                 onApply(totalSelectableCount > 0 ? [...selectedNodeIds] : undefined)
               }
-              disabled={disabled || isPreviewing || isApplying || !canApply}
+              disabled={disabled || isPreviewing || isApplying || isSyncRunning || !canApply}
               loading={isApplying}
             >
               Sync design system
@@ -885,7 +887,7 @@ export function SyncDiffPreview({
           <Button
             type="button"
             onClick={onPreview}
-            disabled={disabled || isPreviewing || isApplying}
+            disabled={disabled || isPreviewing || isApplying || isSyncRunning}
             loading={isPreviewing}
           >
             Preview sync diff
