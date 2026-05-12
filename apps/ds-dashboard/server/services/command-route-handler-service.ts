@@ -317,6 +317,35 @@ function toTrimmedString(value: unknown): string {
   return String(value || '').trim();
 }
 
+/**
+ * Tracks the wall-clock time of the last successful *fresh* variables fetch
+ * (i.e. a fetch that explicitly invalidated the cache before calling the
+ * plugin). Keyed by Figma fileKey. Used by buildPrewarmedVariablesFetchFn to
+ * skip the re-invalidation when a fresh fetch happened very recently.
+ *
+ * Memory note: this Map is intentionally unbounded, but cardinality is
+ * O(distinct Figma fileKeys seen by this server process). A ds-dashboard
+ * instance typically serves 1–10 unique files over its lifetime, so no
+ * eviction policy is needed in production. Each entry is ~50–100 bytes.
+ * Tests should call clearVariablesFreshFetchCache() in afterEach to avoid
+ * cross-test state leaks.
+ */
+const variablesFreshFetchByKey = new Map<string, number>();
+
+/** Clears the prewarm tracker. Intended for use in tests only. */
+export function clearVariablesFreshFetchCache(): void {
+  variablesFreshFetchByKey.clear();
+}
+
+/**
+ * Window (ms) within which a previous fresh fetch is considered "warm enough"
+ * to reuse without re-invalidating the cache. 30 s is short enough that Figma
+ * variable changes between SyncDiffPreview and the following sync click are
+ * effectively impossible in normal use, while still being long enough to cover
+ * any realistic preview → sync click latency.
+ */
+const VARIABLES_PREWARM_WINDOW_MS = 30_000;
+
 function buildFreshVariablesFetchFn(
   defaultFileKey: string,
 ): (fileKey?: string | null) => Promise<import('../../../../tooling/src/utils/figma.ts').FigmaVariablesResponse> {
@@ -326,8 +355,56 @@ function buildFreshVariablesFetchFn(
     if (effectiveFileKey) {
       getSharedResponseCache().invalidateFile(effectiveFileKey);
     }
-    return fetchVariablesDirect(effectiveFileKey || null);
+    const result = await fetchVariablesDirect(effectiveFileKey || null);
+    // Record the timestamp so buildPrewarmedVariablesFetchFn can skip the
+    // re-invalidation when a fresh fetch happened very recently (e.g. preview
+    // ran 1-2 seconds before the sync button was clicked).
+    if (effectiveFileKey) {
+      variablesFreshFetchByKey.set(effectiveFileKey, Date.now());
+    }
+    return result;
   };
+}
+
+/**
+ * Returns a variables-fetch function for use in the full sync's variables step.
+ *
+ * Strategy:
+ * - If a fresh fetch (via buildFreshVariablesFetchFn) happened within
+ *   `windowMs` for this fileKey, the shared response cache already holds the
+ *   current Figma state. Return a cache-first fetch that skips the WebSocket
+ *   roundtrip (~10-30 s saved).
+ * - Otherwise, fall back to buildFreshVariablesFetchFn which invalidates the
+ *   cache and fetches live data, guaranteeing correctness.
+ *
+ * This resolves the tension between:
+ * - Correctness: sync must persist the current Figma state, not a stale snapshot.
+ * - Performance: the SyncDiffPreview (which runs just before sync) already paid
+ *   the WebSocket cost; there is no value in paying it again if nothing changed.
+ */
+function buildPrewarmedVariablesFetchFn(
+  defaultFileKey: string,
+  windowMs: number = VARIABLES_PREWARM_WINDOW_MS,
+): (fileKey?: string | null) => Promise<import('../../../../tooling/src/utils/figma.ts').FigmaVariablesResponse> {
+  const effectiveFileKey = toTrimmedString(defaultFileKey);
+  const lastFreshAt = effectiveFileKey
+    ? variablesFreshFetchByKey.get(effectiveFileKey)
+    : undefined;
+  const isPrewarm =
+    lastFreshAt !== undefined && Date.now() - lastFreshAt < windowMs;
+
+  if (isPrewarm) {
+    // Cache is warm and fresh — skip cache invalidation, serve from cache.
+    // fetchVariablesDirect reads from the shared response cache (TTL 5 min)
+    // which was populated by the buildFreshVariablesFetchFn call in the preview.
+    return (fileKey?: string | null) =>
+      fetchVariablesDirect(
+        toTrimmedString(fileKey) || effectiveFileKey || null,
+      );
+  }
+
+  // Cache is cold or the prewarm window has expired — do a full fresh fetch.
+  return buildFreshVariablesFetchFn(defaultFileKey);
 }
 
 function toNonNegativeInt(value: unknown): number {
@@ -3705,10 +3782,13 @@ export async function handleSyncDesignSystemRoute(
         componentRepo,
         dsId: sysCtx.systemId,
         figmaFileId,
-        // Always fetch fresh variables: buildFreshVariablesFetchFn invalidates the
-        // shared response cache before the GET_VARIABLES_DATA call so this sync
-        // persists the current Figma state instead of reusing a preview snapshot.
-        fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
+        // Use the pre-warming strategy: if the SyncDiffPreview ran within the
+        // last 30 s it already paid the GET_VARIABLES_DATA WebSocket cost and
+        // the cache holds the current Figma state — skip re-invalidation.
+        // If the cache is cold (first sync, preview > 30 s ago, or no preview),
+        // buildPrewarmedVariablesFetchFn falls back to buildFreshVariablesFetchFn
+        // which invalidates and re-fetches, preserving the correctness guarantee.
+        fetchVariables: buildPrewarmedVariablesFetchFn(figmaFileId),
         dryRun,
         includeComponents: false,
         selectedComponentNodeIds: undefined,
