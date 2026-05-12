@@ -977,6 +977,22 @@ async function waitForQueuedJob(
   });
 }
 
+function extractLatestQueueChunkMessage(events: unknown[]): string | undefined {
+  const chunks = events
+    .map((event) => toRecord(event))
+    .filter((event): event is Record<string, unknown> => Boolean(event))
+    .filter((event) => toNonEmptyString(event.type) === 'chunk');
+  for (let index = chunks.length - 1; index >= 0; index -= 1) {
+    const text = String(chunks[index].text || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop();
+    if (text) return text;
+  }
+  return undefined;
+}
+
 async function runQueuedRefresh(
   endpoint: string,
   options: QueueWaitOptions = {},
@@ -2120,6 +2136,8 @@ export async function syncDesignSystemStep(
   options?: {
     systemId?: string;
     onQueued?: (jobId?: string) => void;
+    onProgress?: (progress: CaptureFigmaProgress) => void;
+    pollIntervalMs?: number;
   },
 ): Promise<SyncDesignSystemStepResult> {
   const accepted = await getJson<QueuedRefreshAcceptedPayload>(
@@ -2135,7 +2153,16 @@ export async function syncDesignSystemStep(
   );
 
   const statusUrl = toQueuedStatusUrl(accepted);
-  options?.onQueued?.(toNonEmptyString(accepted.jobId) || undefined);
+  const queuedJobId = toNonEmptyString(accepted.jobId) || undefined;
+  options?.onQueued?.(queuedJobId);
+  options?.onProgress?.({
+    jobId: queuedJobId,
+    status: 'queued',
+    completed: 0,
+    total: 0,
+    remaining: 0,
+    message: 'Queued',
+  });
   if (!statusUrl) {
     return toSyncDesignSystemStepResult(
       accepted,
@@ -2143,10 +2170,44 @@ export async function syncDesignSystemStep(
     );
   }
 
-  const finalState = await waitForQueuedJob(statusUrl);
+  const finalState = await waitForQueuedJob(statusUrl, {
+    pollIntervalMs: options?.pollIntervalMs,
+    onPoll: (payload) => {
+      const job = toRecord(payload.job);
+      const statusRaw = toNonEmptyString(job?.status).toLowerCase();
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+                ? 'cancelled'
+                : 'queued';
+      const events = Array.isArray(payload.events) ? payload.events : [];
+      const message = extractLatestQueueChunkMessage(events);
+      options?.onProgress?.({
+        jobId: toNonEmptyString(job?.id) || queuedJobId,
+        status,
+        completed: 0,
+        total: 0,
+        remaining: 0,
+        message,
+      });
+    },
+  });
   const job = toRecord(finalState.job);
   const result = toRecord(job?.result);
   const payload = toRecord(result?.payload);
+  options?.onProgress?.({
+    jobId: toNonEmptyString(job?.id) || queuedJobId,
+    status: 'success',
+    completed: 1,
+    total: 1,
+    remaining: 0,
+    message: 'Completed',
+  });
   return toSyncDesignSystemStepResult(
     payload || {},
     toNonEmptyString(job?.id) ||

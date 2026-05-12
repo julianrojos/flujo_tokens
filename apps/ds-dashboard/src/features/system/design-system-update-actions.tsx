@@ -423,14 +423,65 @@ function toProgressPercentFromStep(step: SyncStepState): number {
 
 function toProgressDetail(step: SyncStepState): string | null {
   const progress = step.progress;
-  if (!progress || progress.total <= 0) return null;
-  return `${progress.completed}/${progress.total}`;
+  if (!progress) return null;
+  if (progress.total > 0) return `${progress.completed}/${progress.total}`;
+  const message = String(progress.message || '').trim();
+  if (message) return message;
+  return null;
+}
+
+function toTokenTimingLine(result: SyncDesignSystemStepResult): string | null {
+  const raw = result.raw;
+  if (!raw || typeof raw !== 'object') return null;
+  const timings = (raw as Record<string, unknown>).timingsMs;
+  if (!timings || typeof timings !== 'object') return null;
+  const map = timings as Record<string, unknown>;
+  const cssGeneration = Number(map.cssGeneration);
+  const usageBuild = Number(map.usageBuild);
+  const usagePersist = Number(map.usagePersist);
+  if (
+    !Number.isFinite(cssGeneration) &&
+    !Number.isFinite(usageBuild) &&
+    !Number.isFinite(usagePersist)
+  ) {
+    return null;
+  }
+  const parts = [
+    Number.isFinite(cssGeneration)
+      ? `CSS ${Math.max(0, Math.round(cssGeneration))} ms`
+      : null,
+    Number.isFinite(usageBuild)
+      ? `Usage build ${Math.max(0, Math.round(usageBuild))} ms`
+      : null,
+    Number.isFinite(usagePersist)
+      ? `Usage persist ${Math.max(0, Math.round(usagePersist))} ms`
+      : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return `Timings: ${parts.join(' · ')}`;
+}
+
+function getTokensTimingDetail(step: SyncStepState): string | null {
+  const details = step.summary?.details || [];
+  for (const detail of details) {
+    const value = String(detail || '').trim();
+    if (!value) continue;
+    if (value.startsWith('Timings:')) return value;
+  }
+  return null;
 }
 
 function toStepStateFromBackend(
   step: SyncStepKey,
   result: SyncDesignSystemStepResult,
 ): SyncStepState {
+  const tokenTimingLine = step === 'tokens' ? toTokenTimingLine(result) : null;
+  const detailLines = Object.entries(result.counts).map(
+    ([label, value]) => `${label}: ${value}`,
+  );
+  if (tokenTimingLine) {
+    detailLines.push(tokenTimingLine);
+  }
   return {
     jobId: result.jobId,
     status: result.status,
@@ -442,9 +493,7 @@ function toStepStateFromBackend(
           : step === 'variables'
             ? result.summary || 'Variables synced.'
             : result.summary || 'Build tokens generated.',
-      details: Object.entries(result.counts).map(
-        ([label, value]) => `${label}: ${value}`,
-      ),
+      details: detailLines,
       warnings: result.warnings,
     },
     progress: null,
@@ -575,7 +624,8 @@ export function DesignSystemUpdateActions({
     [syncSteps.components.status, syncSteps.variables.status, syncSteps.tokens.status],
   );
 
-  const isSyncRunning = overallSyncStatus === 'running';
+  const isSyncRunning =
+    overallSyncStatus === 'running' || Boolean(activeSyncJobId);
   const lastSyncProgressPercentRef = useRef(0);
 
   const syncProgress = useMemo(() => {
@@ -610,7 +660,7 @@ export function DesignSystemUpdateActions({
         percent: monotonicPercent,
         label: tokensMessage.label,
         detail:
-          tokensMessage.detail || toProgressDetail(syncSteps.tokens) || undefined,
+          toProgressDetail(syncSteps.tokens) || tokensMessage.detail || undefined,
       };
     }
     if (syncSteps.components.status === 'running' || syncSteps.variables.status === 'running') {
@@ -698,12 +748,16 @@ export function DesignSystemUpdateActions({
       overallSyncStatus === 'completed' ||
       overallSyncStatus === 'completed_with_warnings'
     ) {
+      const tokensTimingDetail = getTokensTimingDetail(syncSteps.tokens);
+      const baseMessage =
+        overallSyncStatus === 'completed_with_warnings'
+          ? 'Design system sync completed with warnings.'
+          : 'Design system sync completed successfully.';
       return {
         status: 'success' as const,
-        message:
-          overallSyncStatus === 'completed_with_warnings'
-            ? 'Design system sync completed with warnings.'
-            : 'Design system sync completed successfully.',
+        message: tokensTimingDetail
+          ? `${baseMessage} ${tokensTimingDetail}`
+          : baseMessage,
       };
     }
 
@@ -914,6 +968,32 @@ export function DesignSystemUpdateActions({
                   tokens: { ...runningTokensState, jobId },
                 }));
               },
+              onProgress: (progress) => {
+                if (syncRunIdRef.current !== nextRunId) return;
+                setSyncSteps((prev) => ({
+                  ...prev,
+                  tokens: {
+                    ...prev.tokens,
+                    status:
+                      progress.status === 'queued'
+                        ? 'queued'
+                        : progress.status === 'running'
+                          ? 'running'
+                          : prev.tokens.status,
+                    progress: {
+                      status: progress.status,
+                      completed: Number(progress.completed) || 0,
+                      total: Number(progress.total) || 0,
+                      remaining: Number(progress.remaining) || 0,
+                      message: progress.message,
+                      currentSlug: progress.currentSlug,
+                    },
+                  },
+                }));
+              },
+              // Tokens step runs in-process (no subprocess). Poll frequently
+              // so the UI reflects completion within ~200 ms instead of 900 ms.
+              pollIntervalMs: 200,
             },
           );
 
@@ -1072,6 +1152,8 @@ export function DesignSystemUpdateActions({
               [step]: { ...runningState, jobId },
             }));
           },
+          // Tokens runs in-process; poll more frequently than the 900 ms default.
+          ...(step === 'tokens' ? { pollIntervalMs: 200 } : {}),
         });
         setActiveSyncJobId(null);
         setActiveSyncOperation(null);
