@@ -42,6 +42,14 @@ DS_DASHBOARD_API_HOST=0.0.0.0
 
 You can place it in `apps/ds-dashboard/.env` or export it before starting `dashboard:dev`.
 
+If background jobs stay in `Queued` for too long, increase worker parallelism:
+
+```bash
+DS_DASHBOARD_JOB_QUEUE_CONCURRENCY=2
+```
+
+You can raise it to `3` or `4` on machines with enough CPU/RAM.
+
 ## Database connection
 
 Tooling commands that persist capture/registry data use `DATABASE_URL`.

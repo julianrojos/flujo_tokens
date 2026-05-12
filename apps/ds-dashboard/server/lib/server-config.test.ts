@@ -30,10 +30,12 @@ describe('server-config', () => {
       const cfg = createServerConfig({
         DS_DASHBOARD_API_PORT: '9999',
         DS_DASHBOARD_API_HOST: '0.0.0.0',
+        DS_DASHBOARD_JOB_QUEUE_CONCURRENCY: '4',
         DS_DASHBOARD_JOB_TIMEOUT_MS: '120000',
       });
       assert.equal(cfg.PORT, 9999);
       assert.equal(cfg.HOST, '0.0.0.0');
+      assert.equal(cfg.JOB_QUEUE_CONCURRENCY, 4);
       assert.equal(cfg.JOB_TIMEOUT_MS, 120000);
     });
 
@@ -41,10 +43,12 @@ describe('server-config', () => {
       const cfg = createServerConfig({
         DS_DASHBOARD_API_PORT: 'abc',
         DS_DASHBOARD_API_HOST: '',
+        DS_DASHBOARD_JOB_QUEUE_CONCURRENCY: '-1',
         DS_DASHBOARD_JOB_TIMEOUT_MS: '-5',
       });
       assert.equal(cfg.PORT, 8787);
       assert.equal(cfg.HOST, '127.0.0.1');
+      assert.equal(cfg.JOB_QUEUE_CONCURRENCY, 1);
       assert.equal(cfg.JOB_TIMEOUT_MS, 45 * 60 * 1000);
     });
   });
