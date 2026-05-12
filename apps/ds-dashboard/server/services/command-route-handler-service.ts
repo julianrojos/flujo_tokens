@@ -25,7 +25,7 @@ import {
   syncDesignSystemFromPlugin,
   buildTokenUsageRowsFromFilesystem,
 } from './figma-db-sync-service.ts';
-import { generateTokenCssFromDb } from './generate-token-css-service.ts';
+import { generateTokenCssFromDb, flushCssToDisk } from './generate-token-css-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 import { bulkInsert } from '../lib/sql-bulk-insert.ts';
@@ -2905,12 +2905,57 @@ export async function handleSyncDesignSystemStepRoute(
     execute: async ({
       emitChunk,
       setProcess,
+      isCancelled,
     }: {
       emitChunk: (kind: string, message: string) => void;
       setProcess: (process: unknown) => void;
+      isCancelled?: () => boolean;
     }) => {
       const syncJobId = await syncJobIdPromise;
       const startedAt = new Date().toISOString();
+      const persistCancelledSyncJobState = (summary: string) => {
+        void persistDesignSystemSyncJobState(db, {
+          jobId: syncJobId,
+          systemId: sysCtx.systemId,
+          operationName: `sync:design-system:${step}`,
+          label: `sync design system step (${step})`,
+          status: 'cancelled',
+          requestId,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          result: {
+            ok: false,
+            code: 1,
+            summary,
+            payload: {
+              status: 'failed',
+              summary,
+              warnings: [summary],
+            },
+          },
+        }).catch((error) => {
+          console.warn(
+            '[handleSyncDesignSystemStepRoute] Failed to persist cancelled sync job state:',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+      };
+      const cancelledResult = (summary: string) => ({
+        ok: false,
+        code: 1,
+        summary,
+        payload: {
+          status: 'failed',
+          summary,
+          warnings: [summary],
+        },
+      });
+      const checkCancelled = () => {
+        if (typeof isCancelled !== 'function' || !isCancelled()) return false;
+        emitChunk('warning', 'Sync cancelled by user.');
+        persistCancelledSyncJobState('Sync cancelled by user.');
+        return true;
+      };
       // Fire-and-forget: recording 'running' is best-effort — we don't want
       // a slow DB write to delay the actual step work by 5-50 ms.
       void persistDesignSystemSyncJobState(db, {
@@ -2928,6 +2973,7 @@ export async function handleSyncDesignSystemStepRoute(
         );
       });
       if (step === 'components') {
+        if (checkCancelled()) return cancelledResult('Components step cancelled.');
         const stepStartedAt = Date.now();
         emitChunk('system', 'Rerunning component sync...');
         const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
@@ -3064,39 +3110,43 @@ export async function handleSyncDesignSystemStepRoute(
       }
 
       if (step === 'tokens') {
+        if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
         const startedAt = Date.now();
         emitChunk('system', 'Generating CSS from token registry...');
         try {
-          // Run CSS generation and alias fetch in parallel — aliases are only
-          // needed for buildTokenUsageRowsFromFilesystem, not for CSS generation.
+          // Phase 1 — CSS generation + alias fetch in parallel.
+          // skipDiskWrite=true so the synchronous fs.writeFileSync calls don't
+          // block the event loop here; we do the writes asynchronously in phase 2.
           let cssGenerationMs = 0;
           let aliasFetchMs = 0;
           const [cssResult, aliasRows] = await Promise.all([
             (() => {
-              const startedAt = Date.now();
+              const cssStart = Date.now();
               return generateTokenCssFromDb({
                 db: db!,
                 dsId: sysCtx.systemId,
                 repoRoot: sysCtx.repoRoot,
+                skipDiskWrite: true,
               }).then((result) => {
-                cssGenerationMs = Math.max(0, Date.now() - startedAt);
+                cssGenerationMs = Math.max(0, Date.now() - cssStart);
                 return result;
               });
             })(),
             (() => {
-              const startedAt = Date.now();
+              const aliasStart = Date.now();
               return (db!`
                 SELECT from_path, to_path, modes
                 FROM figma_aliases
                 WHERE ds_id = ${sysCtx.systemId}
               ` as Promise<Array<{ from_path: string; to_path: string; modes: unknown }>>).then(
                 (rows) => {
-                  aliasFetchMs = Math.max(0, Date.now() - startedAt);
+                  aliasFetchMs = Math.max(0, Date.now() - aliasStart);
                   return rows;
                 },
               );
             })(),
           ]);
+          if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
           emitChunk(
             'result',
             `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s) in ${formatDurationMs(cssGenerationMs)} (aliases: ${formatDurationMs(aliasFetchMs)}).`,
@@ -3104,6 +3154,10 @@ export async function handleSyncDesignSystemStepRoute(
 
           emitChunk('system', 'Indexing token usage from generated CSS...');
           const usageBuildStartedAt = Date.now();
+
+          // Phase 2 — disk writes (async) overlap with the synchronous usage
+          // indexing so neither blocks the other.
+          const diskWritePromise = flushCssToDisk(cssResult);
 
           const usageBuild = buildTokenUsageRowsFromFilesystem({
             dsId: sysCtx.systemId,
@@ -3119,14 +3173,22 @@ export async function handleSyncDesignSystemStepRoute(
               { file: cssResult.tokensPath, content: cssResult.tokensCss },
             ],
           });
+          if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
           const usageBuildMs = Math.max(0, Date.now() - usageBuildStartedAt);
           emitChunk(
             'result',
             `Built token usage index in ${formatDurationMs(usageBuildMs)}.`,
           );
 
+          // Ensure async disk writes complete before we return success.
+          // By this point buildTokenUsageRowsFromFilesystem has already run
+          // synchronously, so the write and the CPU work fully overlapped.
+          await diskWritePromise;
+          if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
+
           let usagePersistMs = 0;
           if (!usageBuild.noSources) {
+            if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
             const usagePersistStartedAt = Date.now();
             await db!.begin(async (tx) => {
               await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${sysCtx.systemId}`;
@@ -3145,6 +3207,7 @@ export async function handleSyncDesignSystemStepRoute(
                   'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
               });
             });
+            if (checkCancelled()) return cancelledResult('Tokens step cancelled.');
             usagePersistMs = Math.max(0, Date.now() - usagePersistStartedAt);
             emitChunk(
               'result',
@@ -3246,6 +3309,7 @@ export async function handleSyncDesignSystemStepRoute(
 
       const stepStartedAt = Date.now();
       try {
+        if (checkCancelled()) return cancelledResult('Variables step cancelled.');
         emitChunk('system', 'Rerunning variable sync...');
         const result = await syncDesignSystemFromPluginFn({
           db,
@@ -3264,6 +3328,7 @@ export async function handleSyncDesignSystemStepRoute(
           reindexUsageFromFilesystem: !dryRun,
           usageReindexStrict: true,
         });
+        if (checkCancelled()) return cancelledResult('Variables step cancelled.');
         if (result.usageReindexed > 0) {
           emitChunk(
             'result',

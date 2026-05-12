@@ -41,14 +41,20 @@ export interface GenerateTokenCssResult {
 
 /**
  * Queries all tokens for a design system from the DB, picks the default mode
- * value (or first available), and writes split CSS files to the output directory.
+ * value (or first available), and optionally writes split CSS files to the
+ * output directory.
+ *
+ * Pass `skipDiskWrite: true` when the caller will handle the disk writes itself
+ * (e.g. to overlap them with other async work). The returned `primitivesPath`
+ * and `tokensPath` still reflect the expected paths even when skipped.
  */
 export async function generateTokenCssFromDb(options: {
   db: Sql;
   dsId: string;
   repoRoot: string;
+  skipDiskWrite?: boolean;
 }): Promise<GenerateTokenCssResult> {
-  const { db, dsId, repoRoot } = options;
+  const { db, dsId, repoRoot, skipDiskWrite = false } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
 
   const [tokenRows, modeValueRows] = await Promise.all([
@@ -142,16 +148,17 @@ export async function generateTokenCssFromDb(options: {
     }
   }
 
-  fs.mkdirSync(paths.outputDir, { recursive: true });
-
   const primitivesPath = path.join(paths.outputDir, 'primitives.css');
   const tokensPath = path.join(paths.outputDir, 'tokens.css');
 
   const primitivesCss = buildCssBlock(primitives);
   const tokensCss = buildCssBlock(tokens);
 
-  fs.writeFileSync(primitivesPath, primitivesCss, 'utf-8');
-  fs.writeFileSync(tokensPath, tokensCss, 'utf-8');
+  if (!skipDiskWrite) {
+    fs.mkdirSync(paths.outputDir, { recursive: true });
+    fs.writeFileSync(primitivesPath, primitivesCss, 'utf-8');
+    fs.writeFileSync(tokensPath, tokensCss, 'utf-8');
+  }
 
   return {
     primitivesCount: primitives.length,
@@ -162,6 +169,21 @@ export async function generateTokenCssFromDb(options: {
     tokensCss,
     tokenCatalog,
   };
+}
+
+/**
+ * Writes the CSS files from a GenerateTokenCssResult to disk asynchronously.
+ *
+ * Callers that used `skipDiskWrite: true` in generateTokenCssFromDb can call
+ * this to flush the CSS to disk independently from the main generation step,
+ * allowing the write to overlap with other async work.
+ */
+export async function flushCssToDisk(result: GenerateTokenCssResult): Promise<void> {
+  await fs.promises.mkdir(path.dirname(result.primitivesPath), { recursive: true });
+  await Promise.all([
+    fs.promises.writeFile(result.primitivesPath, result.primitivesCss, 'utf-8'),
+    fs.promises.writeFile(result.tokensPath, result.tokensCss, 'utf-8'),
+  ]);
 }
 
 function buildCssBlock(rows: TokenRow[]): string {
