@@ -141,6 +141,19 @@ export function findTokenByCssVar(
 }
 
 /**
+ * Build a lookup map for CSS variable names to token registry entries.
+ */
+export function buildTokenCssVarLookup(
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry> {
+  return new Map(
+    registry.entries
+      .filter((entry) => Boolean(entry.cssVar))
+      .map((entry) => [String(entry.cssVar || ''), entry]),
+  );
+}
+
+/**
  * Find token entry by path
  */
 export function findTokenByPath(

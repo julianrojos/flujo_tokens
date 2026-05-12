@@ -16,6 +16,7 @@ interface TokenRow {
   id: string;
   css_var: string;
   collection: string;
+  type: string;
   resolved_value: string;
 }
 
@@ -24,6 +25,18 @@ export interface GenerateTokenCssResult {
   tokensCount: number;
   primitivesPath: string;
   tokensPath: string;
+  primitivesCss: string;
+  tokensCss: string;
+  tokenCatalog: {
+    entries: Array<{
+      id: string;
+      path: string;
+      $value: string;
+      type: string;
+      collection: string;
+      cssVar: string;
+    }>;
+  };
 }
 
 /**
@@ -38,34 +51,85 @@ export async function generateTokenCssFromDb(options: {
   const { db, dsId, repoRoot } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
 
-  const rows = (await db`
-    SELECT
-      t.id,
-      t.css_var,
-      t.collection,
-      COALESCE(
-        (
-          SELECT tmv.resolved_value
-          FROM token_mode_values tmv
-          WHERE tmv.ds_id = t.ds_id
-            AND tmv.token_path = t.id
-            AND lower(tmv.mode) = 'default'
-          LIMIT 1
-        ),
-        (
-          SELECT tmv.resolved_value
-          FROM token_mode_values tmv
-          WHERE tmv.ds_id = t.ds_id
-            AND tmv.token_path = t.id
-          ORDER BY tmv.id
-          LIMIT 1
-        ),
+  const [tokenRows, modeValueRows] = await Promise.all([
+    db`
+      SELECT
+        t.id,
+        t.css_var,
+        t.collection,
+        t.type,
         t.raw_value
-      ) AS resolved_value
-    FROM tokens t
-    WHERE t.ds_id = ${dsId}
-    ORDER BY t.collection, t.id
-  `) as TokenRow[];
+      FROM tokens t
+      WHERE t.ds_id = ${dsId}
+      ORDER BY t.collection, t.id
+    `,
+    db`
+      SELECT
+        tmv.token_path,
+        tmv.mode,
+        tmv.resolved_value
+      FROM token_mode_values tmv
+      WHERE tmv.ds_id = ${dsId}
+      ORDER BY tmv.token_path, tmv.id
+    `,
+  ]);
+
+  const modeValueMap = new Map<
+    string,
+    {
+      defaultValue: string | null;
+      firstValue: string | null;
+    }
+  >();
+  for (const row of modeValueRows as Array<{
+    token_path: string;
+    mode: string;
+    resolved_value: string;
+  }>) {
+    const tokenPath = String(row.token_path || '').trim();
+    if (!tokenPath) continue;
+    const mode = String(row.mode || '').trim().toLowerCase();
+    const existing =
+      modeValueMap.get(tokenPath) || { defaultValue: null, firstValue: null };
+    if (existing.firstValue == null) {
+      existing.firstValue = row.resolved_value == null ? null : String(row.resolved_value);
+    }
+    if (mode === 'default' && existing.defaultValue == null) {
+      existing.defaultValue = row.resolved_value == null ? null : String(row.resolved_value);
+    }
+    modeValueMap.set(tokenPath, existing);
+  }
+
+  const rows = (tokenRows as Array<
+    {
+      id: string;
+      css_var: string;
+      collection: string;
+      type: string;
+      raw_value: string;
+    }
+  >).map((row) => {
+    const modeValue = modeValueMap.get(String(row.id || '').trim());
+    const resolvedValue = modeValue?.defaultValue ?? modeValue?.firstValue ?? row.raw_value;
+    return {
+      id: row.id,
+      css_var: row.css_var,
+      collection: row.collection,
+      type: row.type,
+      resolved_value: resolvedValue == null ? '' : String(resolvedValue),
+    };
+  });
+
+  const tokenCatalog = {
+    entries: rows.map((row) => ({
+      id: row.id,
+      path: row.id,
+      $value: row.resolved_value,
+      type: row.type,
+      collection: row.collection,
+      cssVar: row.css_var,
+    })),
+  };
 
   const primitives: TokenRow[] = [];
   const tokens: TokenRow[] = [];
@@ -83,14 +147,20 @@ export async function generateTokenCssFromDb(options: {
   const primitivesPath = path.join(paths.outputDir, 'primitives.css');
   const tokensPath = path.join(paths.outputDir, 'tokens.css');
 
-  fs.writeFileSync(primitivesPath, buildCssBlock(primitives), 'utf-8');
-  fs.writeFileSync(tokensPath, buildCssBlock(tokens), 'utf-8');
+  const primitivesCss = buildCssBlock(primitives);
+  const tokensCss = buildCssBlock(tokens);
+
+  fs.writeFileSync(primitivesPath, primitivesCss, 'utf-8');
+  fs.writeFileSync(tokensPath, tokensCss, 'utf-8');
 
   return {
     primitivesCount: primitives.length,
     tokensCount: tokens.length,
     primitivesPath,
     tokensPath,
+    primitivesCss,
+    tokensCss,
+    tokenCatalog,
   };
 }
 

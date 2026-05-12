@@ -25,7 +25,7 @@ import type {
 // Use a safer default and allow override via env/options.
 const DEFAULT_MCP_TIMEOUT_MS = 60_000;
 const DEFAULT_MCP_CONNECT_WAIT_MS = 5_000;
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 200;
 const MAX_PAGES = 200;
 const LEGACY_STDIO_MCP_CLI = ['figma', 'console-mcp'].join('-');
 const MCP_BRIDGE_PROCESS = 'figma-mcp-bridge';
@@ -394,6 +394,7 @@ export interface FetchFigmaVariablesViaMcpOptions {
   fileUrl?: string;
   timeoutMs?: number;
   connectWaitMs?: number;
+  pageSize?: number;
   command?: string;
   args?: string[];
   env?: NodeJS.ProcessEnv;
@@ -428,6 +429,21 @@ function resolveConnectWaitMs(options: FetchFigmaVariablesViaMcpOptions): number
   }
 
   return DEFAULT_MCP_CONNECT_WAIT_MS;
+}
+
+function resolvePageSize(options: FetchFigmaVariablesViaMcpOptions): number {
+  const env = options.env ?? process.env;
+  const fromOptions = Number(options.pageSize);
+  if (Number.isFinite(fromOptions) && fromOptions > 0) {
+    return Math.min(MAX_PAGES, Math.floor(fromOptions));
+  }
+
+  const fromEnv = Number(String(env.FIGMA_MCP_PAGE_SIZE || '').trim());
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.min(MAX_PAGES, Math.floor(fromEnv));
+  }
+
+  return DEFAULT_PAGE_SIZE;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -713,12 +729,16 @@ function normalizeVariablesPage(rawPayload: Record<string, unknown>): Normalized
   };
 }
 
-function buildToolsCallParams(fileUrl: string | undefined, page: number): Record<string, unknown> {
+function buildToolsCallParams(
+  fileUrl: string | undefined,
+  page: number,
+  pageSize: number,
+): Record<string, unknown> {
   const params: Record<string, unknown> = {
     format: 'filtered',
     verbosity: 'full',
     page,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize,
   };
   if (fileUrl) {
     params.fileUrl = fileUrl;
@@ -1256,6 +1276,7 @@ export async function fetchFigmaLocalVariablesViaMcp(
 
   const timeoutMs = resolveTimeoutMs(options);
   const connectWaitMs = resolveConnectWaitMs(options);
+  const pageSize = resolvePageSize(options);
   const command = resolveFigmaMcpCommand({
     command: options.command,
     args: options.args,
@@ -1290,7 +1311,7 @@ export async function fetchFigmaLocalVariablesViaMcp(
       }
       const toolResult = await client.callTool(
         'figma_get_variables',
-        buildToolsCallParams(options.fileUrl, page),
+        buildToolsCallParams(options.fileUrl, page, pageSize),
         timeoutMs,
         options.signal,
       );
@@ -1742,10 +1763,11 @@ export function warmupSharedFigmaMcpClient(options: PingSharedFigmaMcpOptions = 
  * This is the preferred path when running inside the dashboard server.
  */
 export async function fetchVariablesFromSharedMcpClient(
-  options: Pick<FetchFigmaVariablesViaMcpOptions, 'fileUrl' | 'timeoutMs' | 'connectWaitMs'> = {},
+  options: Pick<FetchFigmaVariablesViaMcpOptions, 'fileUrl' | 'timeoutMs' | 'connectWaitMs' | 'pageSize'> = {},
 ): Promise<FigmaVariablesResponse> {
   const timeoutMs = resolveTimeoutMs(options);
   const connectWaitMs = resolveConnectWaitMs(options);
+  const pageSize = resolvePageSize(options);
 
   const doFetch = async (): Promise<FigmaVariablesResponse> => {
     const client = await getOrCreateSharedMcpClient(options);
@@ -1757,7 +1779,7 @@ export async function fetchVariablesFromSharedMcpClient(
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       const toolResult = await client.callTool(
         'figma_get_variables',
-        buildToolsCallParams(options.fileUrl, page),
+        buildToolsCallParams(options.fileUrl, page, pageSize),
         timeoutMs,
       );
       if (toolResult.isError === true) {

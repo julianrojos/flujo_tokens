@@ -7,6 +7,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildAliasChainsFromSources,
+  extractCssReferencesFromSources,
   generateUsageIndex,
 } from './token-usage-index.js';
 import type { TokenCatalog } from './token-types.js';
@@ -71,6 +73,52 @@ describe('token-usage-index', () => {
       assert.ok(entry);
       assert.strictEqual(entry.usageByKind['css-alias'], 1);
       assert.strictEqual(entry.usageCount, 1);
+    });
+
+    it('extracts references and alias chains from in-memory css sources', () => {
+      const mockRegistry: TokenCatalog = {
+        entries: [
+          {
+            id: '1',
+            path: 'color.primary',
+            $value: '#ff0000',
+            type: 'color',
+            collection: 'colors',
+            cssVar: '--color-primary',
+          },
+          {
+            id: '2',
+            path: 'color.secondary',
+            $value: '#00ff00',
+            type: 'color',
+            collection: 'colors',
+            cssVar: '--color-secondary',
+          },
+        ],
+        meta: {
+          generatedAt: '2024-01-01T00:00:00Z',
+          version: '1.0.0',
+        },
+      };
+
+      const cssSources = [
+        {
+          file: 'primitives.css',
+          content: ':root { --color-primary: var(--color-secondary); }',
+        },
+        {
+          file: 'tokens.css',
+          content: '.btn { color: var(--color-primary); }',
+        },
+      ];
+
+      const refs = extractCssReferencesFromSources(cssSources, mockRegistry);
+      const chains = buildAliasChainsFromSources(cssSources);
+
+      assert.strictEqual(refs.length, 2);
+      assert.strictEqual(refs[0]?.file, 'primitives.css');
+      assert.strictEqual(refs[1]?.file, 'tokens.css');
+      assert.deepEqual(chains.get('--color-primary'), ['--color-secondary']);
     });
   });
 

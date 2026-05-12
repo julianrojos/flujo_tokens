@@ -6,6 +6,7 @@
  * I/O operations and CLI entry point for the token usage index service.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
@@ -14,8 +15,8 @@ import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context
 import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
 
 import {
-  buildAliasChains,
-  extractCssReferences,
+  buildAliasChainsFromSources,
+  extractCssReferencesFromSources,
   generateUsageIndex,
 } from '../services/token-usage-index.js';
 import { loadTokenCatalogFromDatabase } from '../services/token-catalog-db.js';
@@ -86,8 +87,14 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     databaseUrl: ctx.paths.databaseUrl,
     systemId: ctx.id,
   });
-  const cssRefs = extractCssReferences(cssFiles, loadedRegistry);
-  const aliasChains = buildAliasChains(cssFiles, loadedRegistry);
+  const cssSources = cssFiles
+    .filter((cssFile) => fs.existsSync(cssFile))
+    .map((cssFile) => ({
+      file: cssFile,
+      content: fs.readFileSync(cssFile, 'utf8'),
+    }));
+  const cssRefs = extractCssReferencesFromSources(cssSources, loadedRegistry);
+  const aliasChains = buildAliasChainsFromSources(cssSources);
   const resolvedReport = generateUsageIndex(loadedRegistry, cssRefs, aliasChains) as TokenUsageIndex;
 
   if (format === 'json') {

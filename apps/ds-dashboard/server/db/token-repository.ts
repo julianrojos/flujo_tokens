@@ -15,6 +15,29 @@ interface VariableIdMappingRow {
   token_path: string;
 }
 
+interface TokenRow {
+  id: string;
+  slash_path: string;
+  css_var: string;
+  type: string;
+  collection: string;
+  raw_value: string;
+}
+
+interface TokenModeValueRow {
+  id: number;
+  token_path: string;
+  mode: string;
+  resolved_value: string;
+}
+
+interface FigmaAliasRow {
+  id: number;
+  from_path: string;
+  to_path: string;
+  modes: unknown;
+}
+
 export interface TokenUsageOccurrence {
   kind: string;
   source: string;
@@ -31,6 +54,44 @@ export interface TokenUsageEntry {
   usageCount: number;
   usageByKind: Record<string, number>;
   usedIn: TokenUsageOccurrence[];
+}
+
+function normalizeAliasModes(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || '').trim()).filter(Boolean);
+  }
+  if (value == null) return [];
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => String(entry || '').trim()).filter(Boolean);
+      }
+    } catch {
+      // Fall through to a single-value fallback.
+    }
+    return [raw];
+  }
+  return [String(value || '').trim()].filter(Boolean);
+}
+
+function rankModeValue(mode: string): number {
+  if (mode === 'Default') return 0;
+  if (mode.toLowerCase() === 'default') return 1;
+  return 2;
+}
+
+function compareModeRows(left: TokenModeValueRow, right: TokenModeValueRow): number {
+  const leftRank = rankModeValue(left.mode);
+  const rightRank = rankModeValue(right.mode);
+  if (leftRank !== rightRank) return leftRank - rightRank;
+  const leftLower = left.mode.toLowerCase();
+  const rightLower = right.mode.toLowerCase();
+  if (leftLower !== rightLower) return leftLower.localeCompare(rightLower);
+  if (left.mode !== right.mode) return left.mode.localeCompare(right.mode);
+  return left.id - right.id;
 }
 
 export class TokenRepository {
@@ -94,77 +155,26 @@ export class TokenRepository {
     bySlashPath: Record<string, TokenCatalogEntry>;
     byVariableId: Record<string, TokenCatalogEntry>;
   }> {
-    const rows = (await this.sql`
-      WITH ranked_mode_values AS (
-        SELECT
-          tmv.ds_id,
-          tmv.token_path,
-          tmv.resolved_value,
-          tmv.mode,
-          ROW_NUMBER() OVER (
-            PARTITION BY tmv.ds_id, tmv.token_path
-            ORDER BY
-              CASE
-                WHEN tmv.mode = 'Default' THEN 0
-                WHEN lower(tmv.mode) = 'default' THEN 1
-                ELSE 2
-              END,
-              lower(tmv.mode),
-              tmv.mode,
-              tmv.id
-          ) AS rn
+    const catalogResults = await Promise.all([
+      this.sql`
+        SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, t.raw_value
+        FROM tokens t
+        WHERE t.ds_id = ${dsId}
+        ORDER BY t.id
+      `,
+      this.sql`
+        SELECT tmv.id, tmv.token_path, tmv.mode, tmv.resolved_value
         FROM token_mode_values tmv
-      ),
-      selected_mode AS (
-        SELECT ds_id, token_path, mode AS winning_mode
-        FROM ranked_mode_values WHERE rn = 1
-      ),
-      alias_candidates AS (
-        SELECT
-          fa.ds_id, fa.from_path, fa.to_path, je.value AS alias_mode,
-          ROW_NUMBER() OVER (
-            PARTITION BY fa.ds_id, fa.from_path
-            ORDER BY
-              CASE WHEN lower(je.value) = lower(sm.winning_mode) THEN 0
-                   WHEN lower(je.value) = 'default'               THEN 1
-                   ELSE 2 END,
-              fa.id
-          ) AS rn
+        WHERE tmv.ds_id = ${dsId}
+        ORDER BY tmv.token_path, tmv.id
+      `,
+      this.sql`
+        SELECT fa.id, fa.from_path, fa.to_path, fa.modes
         FROM figma_aliases fa
-        JOIN LATERAL jsonb_array_elements_text(
-          CASE
-            WHEN jsonb_typeof(fa.modes) = 'array' THEN fa.modes
-            ELSE jsonb_build_array(fa.modes)
-          END
-        ) je(value) ON true
-        LEFT JOIN selected_mode sm
-          ON sm.ds_id = fa.ds_id AND sm.token_path = fa.from_path
-      ),
-      preferred_alias AS (
-        SELECT ds_id, from_path, to_path FROM alias_candidates WHERE rn = 1
-      )
-      SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, ranked_mode_values.resolved_value, t.raw_value, pa.to_path AS alias_of
-      FROM tokens t
-      LEFT JOIN ranked_mode_values
-        ON ranked_mode_values.ds_id = t.ds_id
-       AND ranked_mode_values.token_path = t.id
-       AND ranked_mode_values.rn = 1
-      LEFT JOIN preferred_alias pa
-        ON pa.ds_id = t.ds_id AND pa.from_path = t.id
-      WHERE t.ds_id = ${dsId}
-      ORDER BY t.id
-    `) as Array<{
-      id: string;
-      slash_path: string;
-      css_var: string;
-      type: string;
-      collection: string;
-      resolved_value: string | null;
-      raw_value: string;
-      alias_of: string | null;
-    }>;
-
-    const variableIdMappings = (await this.sql`
+        WHERE fa.ds_id = ${dsId}
+        ORDER BY fa.from_path, fa.id
+      `,
+      this.sql`
       WITH normalized_bindings AS (
         SELECT
           c.ds_id,
@@ -200,17 +210,95 @@ export class TokenRepository {
       SELECT canonical_variable_id AS variable_id, token_path
       FROM ranked_bindings
       WHERE rn = 1
-    `) as VariableIdMappingRow[];
+      ` as VariableIdMappingRow[],
+    ]);
+    const [tokenRows, modeValueRows, aliasRows, variableIdMappings] = catalogResults as [
+      TokenRow[],
+      TokenModeValueRow[],
+      FigmaAliasRow[],
+      VariableIdMappingRow[],
+    ];
 
-    const entries = rows.map((row) => ({
-      path: row.id,
-      slashPath: row.slash_path,
-      cssVar: row.css_var,
-      type: row.type,
-      resolvedValue: row.resolved_value ?? row.raw_value,
-      collection: row.collection,
-      aliasOf: row.alias_of ?? null,
-    }));
+    const bestModeByTokenPath = new Map<
+      string,
+      { mode: string; resolvedValue: string }
+    >();
+    for (const row of modeValueRows) {
+      const tokenPath = String(row.token_path || '').trim();
+      const mode = String(row.mode || '').trim();
+      if (!tokenPath || !mode || row.resolved_value == null) continue;
+      const resolvedValue = String(row.resolved_value);
+      const next = { mode, resolvedValue };
+      const existing = bestModeByTokenPath.get(tokenPath);
+      if (!existing) {
+        bestModeByTokenPath.set(tokenPath, next);
+        continue;
+      }
+      if (compareModeRows(
+        { id: 0, token_path: tokenPath, mode: next.mode, resolved_value: next.resolvedValue },
+        { id: 0, token_path: tokenPath, mode: existing.mode, resolved_value: existing.resolvedValue },
+      ) < 0) {
+        bestModeByTokenPath.set(tokenPath, next);
+      }
+    }
+
+    const aliasRowsBySource = new Map<
+      string,
+      Array<{ id: number; toPath: string; modes: string[] }>
+    >();
+    for (const row of aliasRows) {
+      const fromPath = String(row.from_path || '').trim();
+      const toPath = String(row.to_path || '').trim();
+      if (!fromPath || !toPath) continue;
+      const next = aliasRowsBySource.get(fromPath) || [];
+      next.push({
+        id: Number(row.id || 0),
+        toPath,
+        modes: normalizeAliasModes(row.modes),
+      });
+      aliasRowsBySource.set(fromPath, next);
+    }
+
+    const entries = tokenRows.map((row) => {
+      const tokenPath = String(row.id || '').trim();
+      const bestMode = bestModeByTokenPath.get(tokenPath);
+      const aliasCandidates = aliasRowsBySource.get(tokenPath) || [];
+      let aliasOf: string | null = null;
+      if (aliasCandidates.length > 0) {
+        let bestScore = Number.POSITIVE_INFINITY;
+        let bestAliasId = Number.POSITIVE_INFINITY;
+        for (const candidate of aliasCandidates) {
+          let score = 2;
+          for (const mode of candidate.modes) {
+            if (bestMode && mode.toLowerCase() === bestMode.mode.toLowerCase()) {
+              score = 0;
+              break;
+            }
+            if (mode.toLowerCase() === 'default' && score > 1) {
+              score = 1;
+            }
+          }
+          if (
+            score < bestScore ||
+            (score === bestScore && candidate.id < bestAliasId)
+          ) {
+            bestScore = score;
+            bestAliasId = candidate.id;
+            aliasOf = candidate.toPath;
+          }
+        }
+      }
+
+      return {
+        path: tokenPath,
+        slashPath: row.slash_path,
+        cssVar: row.css_var,
+        type: row.type,
+        resolvedValue: bestMode?.resolvedValue ?? row.raw_value,
+        collection: row.collection,
+        aliasOf,
+      };
+    });
 
     const registryIndexes = TokenRepository.buildRegistryIndexes(entries);
     const byVariableId = TokenRepository.buildVariableIdIndex({

@@ -15,7 +15,15 @@ import type {
   TokenUsageEntryNew,
   TokenUsageKindExtended,
 } from './token-types.js';
-import { extractCssVarReferences, findTokenByCssVar } from './token-utils.js';
+import {
+  buildTokenCssVarLookup,
+  extractCssVarReferences,
+} from './token-utils.js';
+
+export interface CssSource {
+  file: string;
+  content: string;
+}
 
 /**
  * Reference found in CSS file
@@ -33,26 +41,39 @@ export function extractCssReferences(
   cssFiles: string[],
   registry: TokenCatalog,
 ): CssReference[] {
+  const cssSources = cssFiles
+    .filter((cssFile) => fs.existsSync(cssFile))
+    .map((cssFile) => ({
+      file: cssFile,
+      content: fs.readFileSync(cssFile, 'utf8'),
+    }));
+
+  return extractCssReferencesFromSources(cssSources, registry);
+}
+
+/**
+ * Extract token references from CSS sources already loaded in memory.
+ */
+export function extractCssReferencesFromSources(
+  cssSources: CssSource[],
+  registry: TokenCatalog,
+): CssReference[] {
   const refs: CssReference[] = [];
+  const tokenLookup = buildTokenCssVarLookup(registry);
 
-  for (const cssFile of cssFiles) {
-    if (!fs.existsSync(cssFile)) {
-      continue;
-    }
-
-    const content = fs.readFileSync(cssFile, 'utf8');
-    const lines = content.split('\n');
+  for (const source of cssSources) {
+    const lines = String(source.content || '').split('\n');
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const varRefs = extractCssVarReferences(line);
 
       for (const varName of varRefs) {
-        const token = findTokenByCssVar(registry, varName);
+        const token = tokenLookup.get(varName);
         if (token) {
           refs.push({
             varName,
-            file: cssFile,
+            file: source.file,
             value: line.trim(),
           });
         }
@@ -70,15 +91,26 @@ export function buildAliasChains(
   cssFiles: string[],
   registry: TokenCatalog,
 ): Map<string, string[]> {
+  const cssSources = cssFiles
+    .filter((cssFile) => fs.existsSync(cssFile))
+    .map((cssFile) => ({
+      file: cssFile,
+      content: fs.readFileSync(cssFile, 'utf8'),
+    }));
+
+  return buildAliasChainsFromSources(cssSources);
+}
+
+/**
+ * Build alias chains from CSS sources already loaded in memory.
+ */
+export function buildAliasChainsFromSources(
+  cssSources: CssSource[],
+): Map<string, string[]> {
   const chains = new Map<string, string[]>();
 
-  for (const cssFile of cssFiles) {
-    if (!fs.existsSync(cssFile)) {
-      continue;
-    }
-
-    const content = fs.readFileSync(cssFile, 'utf8');
-    const lines = content.split('\n');
+  for (const source of cssSources) {
+    const lines = String(source.content || '').split('\n');
 
     for (const line of lines) {
       // Match: --var-name: var(--other-var);
@@ -107,6 +139,7 @@ export function generateUsageIndex(
   cssRefs: CssReference[],
   aliasChains: Map<string, string[]>,
 ): TokenUsageIndex {
+  const tokenLookup = buildTokenCssVarLookup(registry);
   const usageMap = new Map<string, TokenUsageEntryNew>();
   const warnings: Array<{ message: string; tokenPath?: string }> = [];
   const unresolvedRefs: Array<{
@@ -138,7 +171,7 @@ export function generateUsageIndex(
 
   // Process CSS references
   for (const ref of cssRefs) {
-    const token = findTokenByCssVar(registry, ref.varName);
+    const token = tokenLookup.get(ref.varName);
     if (token) {
       const usage = usageMap.get(token.path);
       if (usage) {
@@ -163,7 +196,7 @@ export function generateUsageIndex(
 
   // Process alias chains
   for (const [targetVar, sourceVars] of Array.from(aliasChains.entries())) {
-    const targetToken = findTokenByCssVar(registry, targetVar);
+    const targetToken = tokenLookup.get(targetVar);
     if (targetToken) {
       const usage = usageMap.get(targetToken.path);
       if (usage) {
@@ -204,4 +237,3 @@ export function generateUsageIndex(
     byCssVar,
   };
 }
-
