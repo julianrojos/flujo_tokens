@@ -28,6 +28,7 @@ import {
 import { generateTokenCssFromDb } from './generate-token-css-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
+import { bulkInsert } from '../lib/sql-bulk-insert.ts';
 import {
   fetchVariablesDirect,
   searchComponentsDirect,
@@ -3050,23 +3051,6 @@ export async function handleSyncDesignSystemStepRoute(
           );
 
           emitChunk('system', 'Indexing token usage from generated CSS...');
-          const tokenRows = (await db!`
-            SELECT id, css_var, slash_path AS path, raw_value AS "$value", type, collection
-            FROM tokens
-            WHERE ds_id = ${sysCtx.systemId}
-          `) as Array<{ id: string; css_var: string; path: string; '$value': string; type: string; collection: string }>;
-
-          const tokenCatalog = {
-            entries: tokenRows.map((t) => ({
-              id: t.id,
-              path: t.id,
-              $value: t['$value'],
-              type: t.type,
-              collection: t.collection,
-              cssVar: t.css_var,
-            })),
-          };
-
           const aliasRows = (await db!`
             SELECT from_path, to_path, modes
             FROM figma_aliases
@@ -3076,24 +3060,35 @@ export async function handleSyncDesignSystemStepRoute(
           const usageBuild = buildTokenUsageRowsFromFilesystem({
             dsId: sysCtx.systemId,
             repoRoot: sysCtx.repoRoot,
-            tokenCatalog,
+            tokenCatalog: cssResult.tokenCatalog,
             aliases: aliasRows.map((a) => ({
               fromPath: a.from_path,
               toPath: a.to_path,
               modes: Array.isArray(a.modes) ? (a.modes as string[]) : [],
             })),
+            cssSources: [
+              { file: cssResult.primitivesPath, content: cssResult.primitivesCss },
+              { file: cssResult.tokensPath, content: cssResult.tokensCss },
+            ],
           });
 
           if (!usageBuild.noSources) {
             await db!.begin(async (tx) => {
               await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${sysCtx.systemId}`;
-              for (const usage of usageBuild.rows) {
-                await tx`
-                  INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-                  VALUES (${sysCtx.systemId}, ${usage.tokenId}, ${usage.kind}, ${usage.source}, ${usage.owner}, ${usage.detail})
-                  ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
-                `;
-              }
+              await bulkInsert(tx, {
+                table: 'token_usage_occurrences',
+                columns: ['ds_id', 'token_id', 'kind', 'source', 'owner', 'detail'],
+                rows: usageBuild.rows.map((usage) => [
+                  sysCtx.systemId,
+                  usage.tokenId,
+                  usage.kind,
+                  usage.source,
+                  usage.owner,
+                  usage.detail,
+                ]),
+                onConflict:
+                  'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
+              });
             });
             emitChunk('result', `Indexed ${usageBuild.rows.length} usage occurrence(s).`);
           }
