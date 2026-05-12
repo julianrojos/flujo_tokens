@@ -19,6 +19,7 @@ export interface QueueEngineServiceConfig {
 export interface QueueEngineJob
   extends Omit<QueueJob, "requestId" | "events" | "result"> {
   requestId: string | null;
+  priority: number;
   process?: { killed?: boolean; kill: (signal?: string) => void } | undefined;
   emitter: EventEmitter;
   nextSeq: number;
@@ -44,6 +45,7 @@ export interface QueueEngineServiceResult {
   enqueueQueueJob: (payload: {
     label: string;
     systemId: string;
+    priority?: "normal" | "high";
     operationName: string;
     requestId?: string;
     sourceEventId?: string;
@@ -102,6 +104,25 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
   const queueJobs = new Map<string, QueueEngineJob>();
   const queuePendingIds: string[] = [];
   let queueActiveCount = 0;
+  const queueActiveSystemIds = new Set<string>();
+
+  function getQueueJobLockKey(systemId: string): string | null {
+    const normalized = String(systemId || "").trim();
+    return normalized || null;
+  }
+
+  function pickPendingJob(minPriority: number) {
+    for (let index = 0; index < queuePendingIds.length; index += 1) {
+      const jobId = queuePendingIds[index];
+      const job = queueJobs.get(jobId);
+      if (!job || job.status !== "queued") continue;
+      const lockKey = getQueueJobLockKey(job.systemId);
+      if (lockKey && queueActiveSystemIds.has(lockKey)) continue;
+      if (job.priority < minPriority) continue;
+      return { index, job };
+    }
+    return null;
+  }
 
   function queueMetrics() {
     return {
@@ -159,16 +180,18 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
 
   function scheduleQueueJobs() {
     while (queueActiveCount < jobQueueConcurrency && queuePendingIds.length > 0) {
-      const nextId = queuePendingIds.shift();
-      if (!nextId) continue;
-      const job = queueJobs.get(nextId);
-      if (!job || job.status !== "queued") continue;
-      void runQueueJob(job);
+      const pickedJob = pickPendingJob(1) ?? pickPendingJob(0);
+      if (!pickedJob) break;
+
+      queuePendingIds.splice(pickedJob.index, 1);
+      void runQueueJob(pickedJob.job);
     }
   }
 
   async function runQueueJob(job: QueueEngineJob) {
     queueActiveCount += 1;
+    const lockKey = getQueueJobLockKey(job.systemId);
+    if (lockKey) queueActiveSystemIds.add(lockKey);
     job.status = "running";
     job.startedAt = nowIso();
     appendQueueJobEvent(job, { type: "status", status: "running" });
@@ -394,6 +417,7 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
       clearTimeout(timeoutId);
       job.process = undefined;
       queueActiveCount = Math.max(0, queueActiveCount - 1);
+      if (lockKey) queueActiveSystemIds.delete(lockKey);
       scheduleQueueJobs();
       cleanupQueueJobs();
     }
@@ -403,6 +427,7 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
     label,
     systemId,
     operationName,
+    priority = "normal",
     requestId,
     sourceEventId,
     inputHash,
@@ -411,6 +436,7 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
     label: string;
     systemId: string;
     operationName: string;
+    priority?: "normal" | "high";
     requestId?: string;
     sourceEventId?: string;
     inputHash?: string;
@@ -421,6 +447,7 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
       label,
       systemId,
       operationName: String(operationName || label || "unknown.operation"),
+      priority: priority === "high" ? 1 : 0,
       status: "queued",
       createdAt: nowIso(),
       requestId: requestId ? String(requestId) : null,

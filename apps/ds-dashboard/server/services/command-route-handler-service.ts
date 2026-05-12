@@ -2891,6 +2891,7 @@ export async function handleSyncDesignSystemStepRoute(
     label: `sync design system step (${step})`,
     systemId: sysCtx.systemId,
     operationName: `sync:design-system:${step}`,
+    priority: step === 'tokens' ? 'high' : 'normal',
     requestId,
     inputHash: sha256Text(
       JSON.stringify({
@@ -3775,6 +3776,7 @@ export async function handleSyncDesignSystemRoute(
     label: 'sync design system (figma→db)',
     systemId: sysCtx.systemId,
     operationName: 'sync:design-system',
+    priority: 'high',
     requestId,
     inputHash: sha256Text(
       JSON.stringify({
