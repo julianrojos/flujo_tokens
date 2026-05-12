@@ -38,6 +38,22 @@ function createVariablesPayload(): FigmaVariablesResponse {
   };
 }
 
+function createFakeTx(recordedSql: string[]) {
+  const fakeTx = Object.assign(
+    async (strings: TemplateStringsArray, ..._values: unknown[]) => {
+      recordedSql.push(String(strings[0] || '').trim());
+      return [];
+    },
+    {
+      unsafe: async (text: string, ..._values: unknown[]) => {
+        recordedSql.push(String(text || '').trim());
+        return [];
+      },
+    },
+  );
+  return fakeTx;
+}
+
 describe('figma-token-sync', () => {
   describe('buildTokenNodeFromFigmaVariable()', () => {
     it('FLOAT variables are emitted as dimension tokens', () => {
@@ -106,10 +122,7 @@ describe('figma-token-sync', () => {
       let bootstrapCalls = 0;
       let fetchCalls = 0;
 
-      const fakeTx = async (strings: TemplateStringsArray, ..._values: unknown[]) => {
-        recordedSql.push(String(strings[0] || '').trim());
-        return [];
-      };
+      const fakeTx = createFakeTx(recordedSql);
 
       const result = await syncFigmaTokensToDatabase({
         system: {
@@ -155,9 +168,7 @@ describe('figma-token-sync', () => {
       const payload = createVariablesPayload();
       const progressSnapshots: Array<{ completed: number; total: number; remaining: number; slug?: string; state: string }> = [];
 
-      const fakeTx = async (_strings: TemplateStringsArray, ..._values: unknown[]) => {
-        return [];
-      };
+      const fakeTx = createFakeTx([]);
 
       const result = await syncFigmaTokensToDatabase({
         system: {

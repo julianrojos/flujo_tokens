@@ -13,6 +13,7 @@ import { resolveUniqueCssVar } from '../utils/css-var-utils.js';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
+import { bulkInsert } from '../../../apps/ds-dashboard/server/lib/sql-bulk-insert.js';
 
 const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
   rawValue: unknown,
@@ -654,40 +655,57 @@ export async function syncFigmaTokensToDatabase(
       await tx`DELETE FROM figma_aliases WHERE ds_id = ${dsId}`;
       await tx`DELETE FROM token_graph WHERE ds_id = ${dsId}`;
 
-      for (const token of tokens) {
-        await tx`
-          INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
-          VALUES (${token.id}, ${dsId}, ${token.slashPath}, ${token.cssVar}, ${token.type}, ${token.collection}, ${token.rawValue})
-          ON CONFLICT (ds_id, id) DO UPDATE SET
-            slash_path = EXCLUDED.slash_path,
-            css_var = EXCLUDED.css_var,
-            type = EXCLUDED.type,
-            collection = EXCLUDED.collection,
-            raw_value = EXCLUDED.raw_value
-        `;
-        completed += 1;
-        emitProgress('tokens', token.id);
+      if (tokens.length > 0) {
+        await bulkInsert(tx, {
+          table: 'tokens',
+          columns: ['id', 'ds_id', 'slash_path', 'css_var', 'type', 'collection', 'raw_value'],
+          rows: tokens.map((token) => [
+            token.id,
+            dsId,
+            token.slashPath,
+            token.cssVar,
+            token.type,
+            token.collection,
+            token.rawValue,
+          ]),
+          onConflict:
+            'ON CONFLICT (ds_id, id) DO UPDATE SET slash_path = EXCLUDED.slash_path, css_var = EXCLUDED.css_var, type = EXCLUDED.type, collection = EXCLUDED.collection, raw_value = EXCLUDED.raw_value',
+        });
+        completed += tokens.length;
+        emitProgress('tokens', tokens[0]?.id);
       }
 
-      for (const modeValue of modeValues) {
-        await tx`
-          INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
-          VALUES (${dsId}, ${modeValue.tokenPath}, ${modeValue.mode}, ${modeValue.resolvedValue})
-          ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET
-            resolved_value = EXCLUDED.resolved_value
-        `;
-        completed += 1;
-        emitProgress('mode-values', modeValue.tokenPath);
+      if (modeValues.length > 0) {
+        await bulkInsert(tx, {
+          table: 'token_mode_values',
+          columns: ['ds_id', 'token_path', 'mode', 'resolved_value'],
+          rows: modeValues.map((modeValue) => [
+            dsId,
+            modeValue.tokenPath,
+            modeValue.mode,
+            modeValue.resolvedValue,
+          ]),
+          onConflict:
+            'ON CONFLICT (ds_id, token_path, mode) DO UPDATE SET resolved_value = EXCLUDED.resolved_value',
+        });
+        completed += modeValues.length;
+        emitProgress('mode-values', modeValues[0]?.tokenPath);
       }
 
-      for (const alias of aliases) {
-        await tx`
-          INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
-          VALUES (${dsId}, ${alias.fromPath}, ${alias.toPath}, ${JSON.stringify(alias.modes)})
-          ON CONFLICT (ds_id, from_path, to_path) DO NOTHING
-        `;
-        completed += 1;
-        emitProgress('aliases', alias.fromPath);
+      if (aliases.length > 0) {
+        await bulkInsert(tx, {
+          table: 'figma_aliases',
+          columns: ['ds_id', 'from_path', 'to_path', 'modes'],
+          rows: aliases.map((alias) => [
+            dsId,
+            alias.fromPath,
+            alias.toPath,
+            JSON.stringify(alias.modes),
+          ]),
+          onConflict: 'ON CONFLICT (ds_id, from_path, to_path) DO NOTHING',
+        });
+        completed += aliases.length;
+        emitProgress('aliases', aliases[0]?.fromPath);
       }
 
       await tx`

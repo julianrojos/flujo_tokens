@@ -1,6 +1,7 @@
 import type { Sql } from 'postgres';
 
 import type { TokenRepository } from '../db/token-repository.js';
+import { bulkInsert } from '../lib/sql-bulk-insert.ts';
 
 type EmitChunk = (kind: string, text: string) => void;
 
@@ -173,13 +174,20 @@ export async function refreshUsageIndexDbOnly(args: {
 
   await sql.begin(async (tx) => {
     await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${systemId}`;
-    for (const row of usageBuild.rows) {
-      await tx`
-        INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-        VALUES (${systemId}, ${row.tokenId}, ${row.kind}, ${row.source}, ${row.owner}, ${row.detail})
-        ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING
-      `;
-    }
+    await bulkInsert(tx, {
+      table: 'token_usage_occurrences',
+      columns: ['ds_id', 'token_id', 'kind', 'source', 'owner', 'detail'],
+      rows: usageBuild.rows.map((row) => [
+        systemId,
+        row.tokenId,
+        row.kind,
+        row.source,
+        row.owner,
+        row.detail,
+      ]),
+      onConflict:
+        'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
+    });
   });
 
   emitChunk(
