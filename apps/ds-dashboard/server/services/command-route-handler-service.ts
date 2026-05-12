@@ -227,6 +227,16 @@ function clearSyncDiffPreviewCacheForSystem(systemId: string): void {
   }
 }
 
+function toDurationMs(value: unknown): number | undefined {
+  const durationMs = Number(value);
+  if (!Number.isFinite(durationMs) || durationMs < 0) return undefined;
+  return Math.max(0, Math.round(durationMs));
+}
+
+function formatDurationMs(durationMs: number): string {
+  return `${Math.max(0, Math.round(durationMs))} ms`;
+}
+
 function getCachedSyncVariablesPreviewResult(
   key: string,
 ): (ReturnType<typeof summarizeVariablesStep> & {
@@ -371,9 +381,11 @@ export function summarizeCapturedStep(result: unknown): {
   summary: string;
   warnings: string[];
   counts: Record<string, number>;
+  durationMs?: number;
   raw: Record<string, unknown>;
 } {
   const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+  const durationMs = toDurationMs(payload.durationMs);
   const captured = Array.isArray(payload.captured) ? payload.captured.length : 0;
   const failed = Array.isArray(payload.failed) ? payload.failed.length : 0;
   const skipped = Array.isArray(payload.skipped) ? payload.skipped.length : 0;
@@ -431,6 +443,7 @@ export function summarizeCapturedStep(result: unknown): {
           : 'Components synced.',
     warnings,
     counts: { captured, failed, skipped, targets },
+    ...(durationMs !== undefined ? { durationMs } : {}),
     raw: payload,
   };
 }
@@ -440,9 +453,11 @@ function summarizeVariablesStep(result: unknown): {
   summary: string;
   warnings: string[];
   counts: Record<string, number>;
+  durationMs?: number;
   raw: Record<string, unknown>;
 } {
   const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+  const durationMs = toDurationMs(payload.durationMs);
   const warnings: string[] = [];
   if (payload.componentsTruncated === true) {
     warnings.push('Component list was truncated by the plugin search limit.');
@@ -480,6 +495,7 @@ function summarizeVariablesStep(result: unknown): {
       usageRestored: toNonNegativeInt(payload.usageRestored),
       usageDropped: toNonNegativeInt(payload.usageDropped),
     },
+    ...(durationMs !== undefined ? { durationMs } : {}),
     raw: payload,
   };
 }
@@ -2910,6 +2926,7 @@ export async function handleSyncDesignSystemStepRoute(
         );
       });
       if (step === 'components') {
+        const stepStartedAt = Date.now();
         emitChunk('system', 'Rerunning component sync...');
         const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
           body: {
@@ -3007,11 +3024,18 @@ export async function handleSyncDesignSystemStepRoute(
           ...payload,
           ok: commandResult.ok,
           message: (commandResult as { summary?: string }).summary,
+          durationMs: Math.max(0, Date.now() - stepStartedAt),
         });
         for (const warning of summary.warnings) {
           emitChunk('warning', warning);
         }
         emitChunk('result', summary.summary);
+        if (summary.durationMs !== undefined) {
+          emitChunk(
+            'result',
+            `Components step completed in ${formatDurationMs(summary.durationMs)}.`,
+          );
+        }
         const result = {
           ok: summary.status !== 'failed',
           code: summary.status === 'failed' ? 1 : 0,
@@ -3038,19 +3062,23 @@ export async function handleSyncDesignSystemStepRoute(
       }
 
       if (step === 'tokens') {
+        const startedAt = Date.now();
         emitChunk('system', 'Generating CSS from token registry...');
         try {
+          const cssGenerationStartedAt = Date.now();
           const cssResult = await generateTokenCssFromDb({
             db: db!,
             dsId: sysCtx.systemId,
             repoRoot: sysCtx.repoRoot,
           });
+          const cssGenerationMs = Math.max(0, Date.now() - cssGenerationStartedAt);
           emitChunk(
             'result',
-            `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s).`,
+            `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s) in ${formatDurationMs(cssGenerationMs)}.`,
           );
 
           emitChunk('system', 'Indexing token usage from generated CSS...');
+          const usageBuildStartedAt = Date.now();
           const aliasRows = (await db!`
             SELECT from_path, to_path, modes
             FROM figma_aliases
@@ -3071,8 +3099,15 @@ export async function handleSyncDesignSystemStepRoute(
               { file: cssResult.tokensPath, content: cssResult.tokensCss },
             ],
           });
+          const usageBuildMs = Math.max(0, Date.now() - usageBuildStartedAt);
+          emitChunk(
+            'result',
+            `Built token usage index in ${formatDurationMs(usageBuildMs)}.`,
+          );
 
+          let usagePersistMs = 0;
           if (!usageBuild.noSources) {
+            const usagePersistStartedAt = Date.now();
             await db!.begin(async (tx) => {
               await tx`DELETE FROM token_usage_occurrences WHERE ds_id = ${sysCtx.systemId}`;
               await bulkInsert(tx, {
@@ -3090,7 +3125,13 @@ export async function handleSyncDesignSystemStepRoute(
                   'ON CONFLICT (ds_id, token_id, kind, source, owner, detail) DO NOTHING',
               });
             });
-            emitChunk('result', `Indexed ${usageBuild.rows.length} usage occurrence(s).`);
+            usagePersistMs = Math.max(0, Date.now() - usagePersistStartedAt);
+            emitChunk(
+              'result',
+              `Indexed ${usageBuild.rows.length} usage occurrence(s) in ${formatDurationMs(usagePersistMs)}.`,
+            );
+          } else {
+            emitChunk('result', 'Token usage indexing skipped (no sources found).');
           }
 
           const warnings = usageBuild.noSources ? [] : usageBuild.warnings;
@@ -3099,6 +3140,8 @@ export async function handleSyncDesignSystemStepRoute(
             tokensStatus === 'completed_with_warnings'
               ? 'CSS generated with warnings.'
               : 'CSS generated and usage indexed.';
+          const totalDurationMs = Math.max(0, Date.now() - startedAt);
+          emitChunk('result', `Tokens step completed in ${formatDurationMs(totalDurationMs)}.`);
           const jobResult = {
             ok: true,
             code: 0,
@@ -3111,6 +3154,12 @@ export async function handleSyncDesignSystemStepRoute(
                 primitives: cssResult.primitivesCount,
                 tokens: cssResult.tokensCount,
                 usageIndexed: usageBuild.rows.length,
+              },
+              durationMs: totalDurationMs,
+              timingsMs: {
+                cssGeneration: cssGenerationMs,
+                usageBuild: usageBuildMs,
+                usagePersist: usagePersistMs,
               },
             },
           };
@@ -3133,7 +3182,9 @@ export async function handleSyncDesignSystemStepRoute(
           return jobResult;
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
+          const durationMs = Math.max(0, Date.now() - startedAt);
           emitChunk('warning', `Token CSS generation failed: ${reason}`);
+          emitChunk('result', `Tokens step failed after ${formatDurationMs(durationMs)}.`);
           const jobResult = {
             ok: false,
             code: 1,
@@ -3143,6 +3194,12 @@ export async function handleSyncDesignSystemStepRoute(
               summary: 'Token CSS generation failed.',
               warnings: [reason],
               counts: { primitives: 0, tokens: 0, usageIndexed: 0 },
+              durationMs,
+              timingsMs: {
+                cssGeneration: 0,
+                usageBuild: 0,
+                usagePersist: 0,
+              },
             },
           };
           void persistDesignSystemSyncJobState(db, {
@@ -3165,81 +3222,133 @@ export async function handleSyncDesignSystemStepRoute(
         }
       }
 
-      emitChunk('system', 'Rerunning variable sync...');
-      const result = await syncDesignSystemFromPluginFn({
-        db,
-        componentRepo,
-        dsId: sysCtx.systemId,
-        figmaFileId,
-        fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
-        dryRun,
-        includeComponents: false,
-        selectedComponentNodeIds: undefined,
-        requireComponentProofs: false,
-        requireVariantProofsWhenPresent: false,
-        captureComponentProofs: false,
-        captureComponentProofVariants: false,
-        repoRoot: sysCtx.repoRoot,
-        reindexUsageFromFilesystem: !dryRun,
-        usageReindexStrict: true,
-      });
-      if (result.usageReindexed > 0) {
-        emitChunk(
-          'result',
-          `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
-        );
-      }
-      // noSources means the tokens step hasn't run yet — skip these warnings
-      if (result.usageReindexWarnings.length > 0 && result.usageReindexReason !== 'no_sources') {
-        for (const warning of result.usageReindexWarnings) {
+      const stepStartedAt = Date.now();
+      try {
+        emitChunk('system', 'Rerunning variable sync...');
+        const result = await syncDesignSystemFromPluginFn({
+          db,
+          componentRepo,
+          dsId: sysCtx.systemId,
+          figmaFileId,
+          fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
+          dryRun,
+          includeComponents: false,
+          selectedComponentNodeIds: undefined,
+          requireComponentProofs: false,
+          requireVariantProofsWhenPresent: false,
+          captureComponentProofs: false,
+          captureComponentProofVariants: false,
+          repoRoot: sysCtx.repoRoot,
+          reindexUsageFromFilesystem: !dryRun,
+          usageReindexStrict: true,
+        });
+        if (result.usageReindexed > 0) {
+          emitChunk(
+            'result',
+            `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
+          );
+        }
+        // noSources means the tokens step hasn't run yet — skip these warnings
+        if (result.usageReindexWarnings.length > 0 && result.usageReindexReason !== 'no_sources') {
+          for (const warning of result.usageReindexWarnings) {
+            emitChunk('warning', warning);
+          }
+        }
+        if (
+          result.usageReindexStatus === 'failed' &&
+          result.usageReindexReason !== 'none' &&
+          result.usageReindexReason !== 'no_sources'
+        ) {
+          emitChunk(
+            'warning',
+            `Token usage reindex status: failed (${result.usageReindexReason}).`,
+          );
+        }
+        const variablesStepWarnings =
+          result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
+        const durationMs = Math.max(0, Date.now() - stepStartedAt);
+        const summary = summarizeVariablesStep({
+          ...result,
+          ok: true,
+          warnings: variablesStepWarnings,
+          componentsTruncated: result.componentsTruncated,
+          durationMs,
+        });
+        for (const warning of summary.warnings) {
           emitChunk('warning', warning);
         }
+        emitChunk('result', summary.summary);
+        if (summary.durationMs !== undefined) {
+          emitChunk(
+            'result',
+            `Variables step completed in ${formatDurationMs(summary.durationMs)}.`,
+          );
+        }
+        const jobResult = {
+          ok: summary.status !== 'failed',
+          code: summary.status === 'failed' ? 1 : 0,
+          summary: summary.summary,
+          payload: summary,
+        };
+        void persistDesignSystemSyncJobState(db, {
+          jobId: syncJobId,
+          systemId: sysCtx.systemId,
+          operationName: `sync:design-system:${step}`,
+          label: `sync design system step (${step})`,
+          status: summary.status === 'failed' ? 'error' : 'success',
+          requestId,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          result: jobResult,
+        }).catch((error) => {
+          console.warn(
+            '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+        return jobResult;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const durationMs = Math.max(0, Date.now() - stepStartedAt);
+        emitChunk('result', `Variables sync failed after ${formatDurationMs(durationMs)}.`);
+        const jobResult = {
+          ok: false,
+          code: 1,
+          summary: 'Variables sync failed.',
+          payload: {
+            status: 'failed',
+            summary: 'Variables sync failed.',
+            warnings: [reason],
+            counts: {
+              tokens: 0,
+              tokenModeValues: 0,
+              aliases: 0,
+              components: 0,
+              usageRestored: 0,
+              usageDropped: 0,
+            },
+            durationMs,
+            raw: { ok: false, error: reason, durationMs },
+          },
+        };
+        void persistDesignSystemSyncJobState(db, {
+          jobId: syncJobId,
+          systemId: sysCtx.systemId,
+          operationName: `sync:design-system:${step}`,
+          label: `sync design system step (${step})`,
+          status: 'error',
+          requestId,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          result: jobResult,
+        }).catch((persistError) => {
+          console.warn(
+            '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
+            persistError instanceof Error ? persistError.message : String(persistError),
+          );
+        });
+        return jobResult;
       }
-      if (
-        result.usageReindexStatus === 'failed' &&
-        result.usageReindexReason !== 'none' &&
-        result.usageReindexReason !== 'no_sources'
-      ) {
-        emitChunk(
-          'warning',
-          `Token usage reindex status: failed (${result.usageReindexReason}).`,
-        );
-      }
-      const variablesStepWarnings =
-        result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
-      const summary = summarizeVariablesStep({
-        ...result,
-        ok: true,
-        warnings: variablesStepWarnings,
-        componentsTruncated: result.componentsTruncated,
-      });
-      for (const warning of summary.warnings) {
-        emitChunk('warning', warning);
-      }
-      emitChunk('result', summary.summary);
-      const jobResult = {
-        ok: summary.status !== 'failed',
-        code: summary.status === 'failed' ? 1 : 0,
-        summary: summary.summary,
-        payload: summary,
-      };
-      void persistDesignSystemSyncJobState(db, {
-        jobId: syncJobId,
-        systemId: sysCtx.systemId,
-        operationName: `sync:design-system:${step}`,
-        label: `sync design system step (${step})`,
-        status: summary.status === 'failed' ? 'error' : 'success',
-        requestId,
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        result: jobResult,
-      }).catch((error) => {
-        console.warn(
-          '[handleSyncDesignSystemStepRoute] Failed to persist final sync job state:',
-          error instanceof Error ? error.message : String(error),
-        );
-      });
-      return jobResult;
     },
   });
 
@@ -3437,6 +3546,7 @@ export async function handleSyncDesignSystemRoute(
     emitChunk: (kind: string, message: string) => void,
     setProcess: (process: unknown) => void,
   ) => {
+    const startedAt = Date.now();
     try {
       emitChunk('system', 'Starting component sync...');
       const commandResult = await runQueuedSpawnCommand({
@@ -3475,24 +3585,29 @@ export async function handleSyncDesignSystemRoute(
           );
         }
       }
+      const durationMs = Math.max(0, Date.now() - startedAt);
       return summarizeCapturedStep({
         ...payload,
         ok: commandResult.ok,
         message: (commandResult as { summary?: string }).summary,
+        durationMs,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
+      const durationMs = Math.max(0, Date.now() - startedAt);
       return {
         status: 'failed' as const,
         summary: 'Components sync failed.',
         warnings: [reason],
         counts: { captured: 0, failed: 0, skipped: 0, targets: 0 },
-        raw: { ok: false, error: reason },
+        durationMs,
+        raw: { ok: false, error: reason, durationMs },
       };
     }
   };
 
   const runVariablesStep = async (emitChunk: (kind: string, message: string) => void) => {
+    const startedAt = Date.now();
     try {
       emitChunk('system', 'Starting variable sync...');
       const result = await syncDesignSystemFromPluginFn({
@@ -3534,16 +3649,22 @@ export async function handleSyncDesignSystemRoute(
           `Token usage reindex status: failed (${result.usageReindexReason}).`,
         );
       }
+      const durationMs = Math.max(0, Date.now() - startedAt);
       const variablesWarnings =
         result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
+      emitChunk('result', `Variables sync completed in ${formatDurationMs(durationMs)}.`);
       return summarizeVariablesStep({
         ok: true,
         ...result,
         warnings: variablesWarnings,
         componentsTruncated: result.componentsTruncated,
+        durationMs,
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
+      const durationMs = Math.max(0, Date.now() - startedAt);
+      emitChunk('warning', `Variables sync failed: ${reason}`);
+      emitChunk('result', `Variables sync failed after ${formatDurationMs(durationMs)}.`);
       return {
         status: 'failed' as const,
         summary: 'Variables sync failed.',
@@ -3556,7 +3677,8 @@ export async function handleSyncDesignSystemRoute(
           usageRestored: 0,
           usageDropped: 0,
         },
-        raw: { ok: false, error: reason },
+        durationMs,
+        raw: { ok: false, error: reason, durationMs },
       };
     }
   };

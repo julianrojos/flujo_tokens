@@ -4,6 +4,9 @@
  * Tests for command API route handlers.
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { beforeEach, afterEach, describe, it } from 'node:test';
 
 import { Hono } from 'hono';
@@ -2058,6 +2061,98 @@ describe('command-routes', () => {
       assert.equal(runCalls[0]?.commandEnv?.DB_PROVIDER, 'local');
       assert.equal(runResult.payload?.status, 'completed');
       assert.equal(runResult.payload?.summary, 'Components synced.');
+    });
+
+    it('emits timing information for the token step', async () => {
+      let queuedArgs: any = null;
+      const chunks: Array<{ kind: string; message: string }> = [];
+      const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-tokens-'));
+      try {
+        const fakeTx = Object.assign(
+          async () => [],
+          {
+            unsafe: async () => [],
+          },
+        );
+        const db = Object.assign(
+          async (strings: TemplateStringsArray, ...values: unknown[]) => {
+            const query = String.raw({ raw: strings }, ...values);
+            if (query.includes('FROM tokens t')) {
+              return [
+                {
+                  id: 'color.primary',
+                  css_var: '--color-primary',
+                  collection: 'Primitives',
+                  type: 'color',
+                  raw_value: '#ff0000',
+                },
+              ];
+            }
+            if (query.includes('FROM token_mode_values tmv')) {
+              return [
+                {
+                  token_path: 'color.primary',
+                  mode: 'Default',
+                  resolved_value: '#00ff00',
+                },
+              ];
+            }
+            if (query.includes('FROM figma_aliases')) {
+              return [];
+            }
+            throw new Error(`Unexpected query: ${query}`);
+          },
+          {
+            begin: async (fn: (tx: typeof fakeTx) => Promise<void>) => fn(fakeTx),
+          },
+        ) as any;
+
+        const app = createTestApp({
+          readJsonBody: async () => ({
+            figmaUrl: 'https://www.figma.com/design/abc123',
+          }),
+          db,
+          componentRepo: {
+            getAll: () => [],
+            upsertFromRegistry: () => 1,
+          } as any,
+          getSystemContext: () => ({
+            repoRoot: tmpRoot,
+            systemId: 'core',
+            captureFromFigmaUrlScriptPath: 'tooling/src/runners/capture-from-figma-url-runner.ts',
+          }),
+          enqueueQueueJob: (args: any) => {
+            queuedArgs = args;
+            return { id: 'sync_design_system_step_tokens_job' };
+          },
+        });
+
+        const res = await app.request('/api/sync-design-system/step/tokens', { method: 'POST' });
+        assert.equal(res.status, 202);
+        assert.equal(typeof queuedArgs?.execute, 'function');
+
+        const runResult = await queuedArgs.execute({
+          emitChunk: (kind: string, message: string) => {
+            chunks.push({ kind, message });
+          },
+          setProcess: () => {},
+        });
+
+        assert.equal(runResult.ok, true);
+        assert.equal(runResult.payload?.status, 'completed');
+        assert.equal(typeof runResult.payload?.durationMs, 'number');
+        assert.equal(typeof runResult.payload?.timingsMs?.cssGeneration, 'number');
+        assert.ok(chunks.some((chunk) => chunk.kind === 'result' && chunk.message.includes('Generated CSS:')));
+        assert.ok(
+          chunks.some(
+            (chunk) =>
+              chunk.kind === 'result' &&
+              chunk.message.includes('Tokens step completed in'),
+          ),
+        );
+      } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
+      }
     });
   });
 
