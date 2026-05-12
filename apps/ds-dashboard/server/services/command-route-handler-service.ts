@@ -3698,12 +3698,16 @@ export async function handleSyncDesignSystemRoute(
   const runVariablesStep = async (emitChunk: (kind: string, message: string) => void) => {
     const startedAt = Date.now();
     try {
-      emitChunk('system', 'Starting variable sync...');
+      emitChunk('system', 'Fetching variables from Figma plugin...');
+      const fetchStart = Date.now();
       const result = await syncDesignSystemFromPluginFn({
         db,
         componentRepo,
         dsId: sysCtx.systemId,
         figmaFileId,
+        // Always fetch fresh variables: buildFreshVariablesFetchFn invalidates the
+        // shared response cache before the GET_VARIABLES_DATA call so this sync
+        // persists the current Figma state instead of reusing a preview snapshot.
         fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
         dryRun,
         includeComponents: false,
@@ -3713,39 +3717,21 @@ export async function handleSyncDesignSystemRoute(
         captureComponentProofs: false,
         captureComponentProofVariants: false,
         repoRoot: sysCtx.repoRoot,
-        reindexUsageFromFilesystem: !dryRun,
+        // Skip usage reindex here: the tokens step regenerates CSS from scratch
+        // and rewrites token_usage_occurrences anyway.
+        reindexUsageFromFilesystem: false,
         usageReindexStrict: true,
       });
-      if (result.usageReindexed > 0) {
-        emitChunk(
-          'result',
-          `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`,
-        );
-      }
-      // noSources means the tokens step hasn't run yet — expected on first sync
-      if (result.usageReindexWarnings.length > 0 && result.usageReindexReason !== 'no_sources') {
-        for (const warning of result.usageReindexWarnings) {
-          emitChunk('warning', warning);
-        }
-      }
-      if (
-        result.usageReindexStatus === 'failed' &&
-        result.usageReindexReason !== 'none' &&
-        result.usageReindexReason !== 'no_sources'
-      ) {
-        emitChunk(
-          'warning',
-          `Token usage reindex status: failed (${result.usageReindexReason}).`,
-        );
-      }
+      emitChunk(
+        'result',
+        `Variables fetched and persisted in ${formatDurationMs(Math.max(0, Date.now() - fetchStart))}.`,
+      );
       const durationMs = Math.max(0, Date.now() - startedAt);
-      const variablesWarnings =
-        result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
       emitChunk('result', `Variables sync completed in ${formatDurationMs(durationMs)}.`);
       return summarizeVariablesStep({
         ok: true,
         ...result,
-        warnings: variablesWarnings,
+        warnings: [],
         componentsTruncated: result.componentsTruncated,
         durationMs,
       });
