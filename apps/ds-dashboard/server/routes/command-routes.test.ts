@@ -2142,6 +2142,7 @@ describe('command-routes', () => {
         assert.equal(runResult.payload?.status, 'completed');
         assert.equal(typeof runResult.payload?.durationMs, 'number');
         assert.equal(typeof runResult.payload?.timingsMs?.cssGeneration, 'number');
+        assert.equal(typeof runResult.payload?.timingsMs?.aliasFetch, 'number');
         assert.ok(chunks.some((chunk) => chunk.kind === 'result' && chunk.message.includes('Generated CSS:')));
         assert.ok(
           chunks.some(

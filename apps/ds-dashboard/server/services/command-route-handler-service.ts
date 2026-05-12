@@ -2911,7 +2911,9 @@ export async function handleSyncDesignSystemStepRoute(
     }) => {
       const syncJobId = await syncJobIdPromise;
       const startedAt = new Date().toISOString();
-      await persistDesignSystemSyncJobState(db, {
+      // Fire-and-forget: recording 'running' is best-effort — we don't want
+      // a slow DB write to delay the actual step work by 5-50 ms.
+      void persistDesignSystemSyncJobState(db, {
         jobId: syncJobId,
         systemId: sysCtx.systemId,
         operationName: `sync:design-system:${step}`,
@@ -3065,25 +3067,43 @@ export async function handleSyncDesignSystemStepRoute(
         const startedAt = Date.now();
         emitChunk('system', 'Generating CSS from token registry...');
         try {
-          const cssGenerationStartedAt = Date.now();
-          const cssResult = await generateTokenCssFromDb({
-            db: db!,
-            dsId: sysCtx.systemId,
-            repoRoot: sysCtx.repoRoot,
-          });
-          const cssGenerationMs = Math.max(0, Date.now() - cssGenerationStartedAt);
+          // Run CSS generation and alias fetch in parallel — aliases are only
+          // needed for buildTokenUsageRowsFromFilesystem, not for CSS generation.
+          let cssGenerationMs = 0;
+          let aliasFetchMs = 0;
+          const [cssResult, aliasRows] = await Promise.all([
+            (() => {
+              const startedAt = Date.now();
+              return generateTokenCssFromDb({
+                db: db!,
+                dsId: sysCtx.systemId,
+                repoRoot: sysCtx.repoRoot,
+              }).then((result) => {
+                cssGenerationMs = Math.max(0, Date.now() - startedAt);
+                return result;
+              });
+            })(),
+            (() => {
+              const startedAt = Date.now();
+              return (db!`
+                SELECT from_path, to_path, modes
+                FROM figma_aliases
+                WHERE ds_id = ${sysCtx.systemId}
+              ` as Promise<Array<{ from_path: string; to_path: string; modes: unknown }>>).then(
+                (rows) => {
+                  aliasFetchMs = Math.max(0, Date.now() - startedAt);
+                  return rows;
+                },
+              );
+            })(),
+          ]);
           emitChunk(
             'result',
-            `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s) in ${formatDurationMs(cssGenerationMs)}.`,
+            `Generated CSS: ${cssResult.primitivesCount} primitive(s), ${cssResult.tokensCount} token(s) in ${formatDurationMs(cssGenerationMs)} (aliases: ${formatDurationMs(aliasFetchMs)}).`,
           );
 
           emitChunk('system', 'Indexing token usage from generated CSS...');
           const usageBuildStartedAt = Date.now();
-          const aliasRows = (await db!`
-            SELECT from_path, to_path, modes
-            FROM figma_aliases
-            WHERE ds_id = ${sysCtx.systemId}
-          `) as Array<{ from_path: string; to_path: string; modes: unknown }>;
 
           const usageBuild = buildTokenUsageRowsFromFilesystem({
             dsId: sysCtx.systemId,
@@ -3158,6 +3178,7 @@ export async function handleSyncDesignSystemStepRoute(
               durationMs: totalDurationMs,
               timingsMs: {
                 cssGeneration: cssGenerationMs,
+                aliasFetch: aliasFetchMs,
                 usageBuild: usageBuildMs,
                 usagePersist: usagePersistMs,
               },
@@ -3197,6 +3218,7 @@ export async function handleSyncDesignSystemStepRoute(
               durationMs,
               timingsMs: {
                 cssGeneration: 0,
+                aliasFetch: 0,
                 usageBuild: 0,
                 usagePersist: 0,
               },

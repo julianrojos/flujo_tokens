@@ -90,6 +90,7 @@ export class DesignSystemSyncJobRepository {
         finished_at = EXCLUDED.finished_at,
         result_json = EXCLUDED.result_json,
         updated_at = now()
+      WHERE design_system_sync_jobs.status NOT IN ('success', 'error', 'cancelled')
     `;
   }
 
