@@ -42,7 +42,7 @@ DS_DASHBOARD_API_HOST=0.0.0.0
 
 You can place it in `apps/ds-dashboard/.env` or export it before starting `dashboard:dev`.
 
-If background jobs stay in `Queued` for too long, increase worker parallelism:
+Background jobs default to 2 workers. If jobs still stay in `Queued` for too long, increase worker parallelism:
 
 ```bash
 DS_DASHBOARD_JOB_QUEUE_CONCURRENCY=2
