@@ -26,7 +26,7 @@ import { type ApiErrorDisplay, toApiErrorDisplay } from '@/lib/api-error-ux';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { ROUTE_PATTERNS } from '@/lib/routes';
 import { NewSystemPage } from './new-system-page';
-import { DesignSystemUpdateActions } from './design-system-update-actions';
+import { DesignSystemUpdateActions, clearPersistedSyncState } from './design-system-update-actions';
 import { buildUpdateActionsProps } from './design-systems-admin-page-logic';
 import { SystemDatabaseModePanel } from './components/system-database-mode-panel';
 
@@ -258,6 +258,7 @@ export function DesignSystemsAdminPage() {
     setDeletePreviewLoading(false);
     try {
       const response = await deleteDesignSystem(id);
+      clearPersistedSyncState(id);
       const nextSystems = response.config.systems || [];
       replaceSystems(nextSystems, {
         activeSystemId: response.config.defaultSystem || undefined,

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormField } from '@/components/common';
 import { Input } from '@/components/ui/input';
 import {
+  ApiError,
   cancelQueueJob,
   getQueueJob,
   syncDesignSystem,
@@ -72,6 +73,13 @@ type PersistedSyncState = {
 
 function getSyncStateStorageKey(systemId: string): string {
   return `${SYNC_STATE_STORAGE_PREFIX}${String(systemId || '').trim()}`;
+}
+
+export function clearPersistedSyncState(systemId: string): void {
+  if (typeof window === 'undefined') return;
+  const storageKey = getSyncStateStorageKey(systemId);
+  if (!storageKey.trim()) return;
+  window.localStorage.removeItem(storageKey);
 }
 
 function toPersistedSyncStepState(step: SyncStepState): PersistedSyncStepState {
@@ -531,7 +539,21 @@ export function DesignSystemUpdateActions({
         setActiveSyncJobId(null);
         setActiveSyncOperation(null);
       })
-      .catch(() => {
+      .catch((cause) => {
+        if (
+          cause instanceof ApiError &&
+          cause.status === 404 &&
+          cause.code === 'queue.job_not_found'
+        ) {
+          clearPersistedSyncState(systemId);
+          if (cancelled) return;
+          setHasTriggeredSyncInView(false);
+          setSyncSteps(cloneEmptySyncState());
+          setSyncError('');
+          setActiveSyncJobId(null);
+          setActiveSyncOperation(null);
+          return;
+        }
         // Keep the local persisted snapshot if the server lookup fails.
       });
 
