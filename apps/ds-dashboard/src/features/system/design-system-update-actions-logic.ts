@@ -13,6 +13,11 @@ export interface BuildUpdateVariablesPayloadArgs {
   figmaToken?: string;
 }
 
+export interface TokensSyncProgressMessage {
+  label: string;
+  detail?: string;
+}
+
 function stripNodeIdFromFigmaUrl(rawUrl: string): string {
   const value = String(rawUrl || "").trim();
   if (!value) return "";
@@ -89,4 +94,25 @@ export function resolveUpdateButtonLabel(args: {
 }): string {
   if (args.isRunning) return "Updating...";
   return args.type === "components" ? "Update components" : "Update variables";
+}
+
+export function resolveTokensSyncProgressMessage(
+  step: {
+    status: 'idle' | 'queued' | 'running' | 'completed' | 'completed_with_warnings' | 'failed';
+  },
+): TokensSyncProgressMessage {
+  if (step.status === 'queued') {
+    return {
+      label: 'Queueing token CSS and usage index…',
+    };
+  }
+  if (step.status === 'running') {
+    return {
+      label: 'Generating CSS and indexing token usage…',
+      detail: 'CSS generation, usage indexing, and persistence.',
+    };
+  }
+  return {
+    label: 'Generating CSS tokens…',
+  };
 }

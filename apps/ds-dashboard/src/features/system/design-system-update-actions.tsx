@@ -18,6 +18,9 @@ import {
   type SyncStepStatus,
   type SyncStepSummary,
 } from '@/features/system/design-system-sync-logic';
+import {
+  resolveTokensSyncProgressMessage,
+} from '@/features/system/design-system-update-actions-logic';
 import { SyncDiffPreview } from '@/features/system/SyncDiffPreview';
 import { useDesignSystemSyncPreview } from '@/features/system/hooks/use-design-system-sync-preview';
 
@@ -598,14 +601,16 @@ export function DesignSystemUpdateActions({
     const safePercent = Math.min(99, Math.max(5, weightedPercent));
 
     if (syncSteps.tokens.status === 'running' || syncSteps.tokens.status === 'queued') {
+      const tokensMessage = resolveTokensSyncProgressMessage(syncSteps.tokens);
       const nextPercent = Math.max(70, safePercent);
       const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, nextPercent);
       lastSyncProgressPercentRef.current = monotonicPercent;
       return {
         active: true,
         percent: monotonicPercent,
-        label: 'Generating CSS tokens…',
-        detail: toProgressDetail(syncSteps.tokens) || undefined,
+        label: tokensMessage.label,
+        detail:
+          tokensMessage.detail || toProgressDetail(syncSteps.tokens) || undefined,
       };
     }
     if (syncSteps.components.status === 'running' || syncSteps.variables.status === 'running') {
