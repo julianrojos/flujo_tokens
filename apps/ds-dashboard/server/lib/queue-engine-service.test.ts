@@ -7,6 +7,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 async function waitForFinal(job: { id: string; status: string }, timeoutMs = 1500): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -14,6 +22,15 @@ async function waitForFinal(job: { id: string; status: string }, timeoutMs = 150
     await sleep(10);
   }
   throw new Error(`Timed out waiting for job ${job.id} to finish`);
+}
+
+async function waitForValue(values: string[], expected: string, timeoutMs = 500): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (values.includes(expected)) return;
+    await sleep(10);
+  }
+  throw new Error(`Timed out waiting for ${expected}`);
 }
 
 function createEngine(overrides: Record<string, unknown> = {}) {
@@ -49,6 +66,107 @@ test("queue-engine-service: enqueue executes and marks success", async () => {
   assert.ok(job.events.some((event) => event.type === "chunk"));
   assert.ok(operationEvents.some((event) => event.eventType === "job.queued"));
   assert.ok(operationEvents.some((event) => event.eventType === "job.finished"));
+});
+
+test("queue-engine-service: high priority jobs run before normal queued jobs", async () => {
+  const { engine } = createEngine({ jobQueueConcurrency: 1, jobTimeoutMs: 1000 });
+  const gate = deferred<void>();
+  const started: string[] = [];
+
+  const first = engine.enqueueQueueJob({
+    label: "blocking-job",
+    systemId: "system-a",
+    operationName: "test:blocking",
+    execute: async () => {
+      started.push("first");
+      await gate.promise;
+      return { ok: true, code: 0, summary: "first done" };
+    },
+  });
+
+  engine.enqueueQueueJob({
+    label: "normal-job",
+    systemId: "system-b",
+    operationName: "test:normal",
+    execute: async () => {
+      started.push("normal");
+      return { ok: true, code: 0, summary: "normal done" };
+    },
+  });
+
+  engine.enqueueQueueJob({
+    label: "high-job",
+    systemId: "system-c",
+    operationName: "test:high",
+    priority: "high",
+    execute: async () => {
+      started.push("high");
+      return { ok: true, code: 0, summary: "high done" };
+    },
+  });
+
+  await sleep(20);
+  assert.equal(first.status, "running");
+  gate.resolve(undefined);
+  await waitForFinal(first);
+  await sleep(20);
+  assert.equal(started[0], "first");
+  assert.equal(started[1], "high");
+  assert.equal(started[2], "normal");
+});
+
+test("queue-engine-service: serializes jobs from the same system while allowing others to run", async () => {
+  const { engine } = createEngine({ jobQueueConcurrency: 2, jobTimeoutMs: 1000 });
+  const sameSystemGate = deferred<void>();
+  const started: string[] = [];
+
+  const first = engine.enqueueQueueJob({
+    label: "same-system-1",
+    systemId: "shared-system",
+    operationName: "test:same-system-1",
+    execute: async () => {
+      started.push("one");
+      await sameSystemGate.promise;
+      return { ok: true, code: 0, summary: "one done" };
+    },
+  });
+
+  const second = engine.enqueueQueueJob({
+    label: "same-system-2",
+    systemId: "shared-system",
+    operationName: "test:same-system-2",
+    execute: async () => {
+      started.push("two");
+      return { ok: true, code: 0, summary: "two done" };
+    },
+  });
+
+  const third = engine.enqueueQueueJob({
+    label: "other-system",
+    systemId: "other-system",
+    operationName: "test:other-system",
+    execute: async () => {
+      started.push("three");
+      await sleep(100);
+      return { ok: true, code: 0, summary: "three done" };
+    },
+  });
+
+  await sleep(20);
+  assert.equal(first.status, "running");
+  assert.equal(second.status, "queued");
+  assert.equal(third.status, "running");
+
+  sameSystemGate.resolve(undefined);
+  await waitForFinal(first);
+  await waitForValue(started, "two");
+  assert.equal(third.status, "running");
+
+  await waitForFinal(second);
+  await waitForFinal(third);
+  assert.equal(started[0], "one");
+  assert.equal(started[1], "three");
+  assert.equal(started[2], "two");
 });
 
 test("queue-engine-service: cancel queued job before execution", async () => {

@@ -41,7 +41,7 @@ export function createServerConfig(env: Record<string, string | undefined> = pro
   // Secure default: loopback-only unless explicitly exposed with
   // DS_DASHBOARD_API_HOST=0.0.0.0 (or another host).
   const host = readHost(env, 'DS_DASHBOARD_API_HOST', '127.0.0.1');
-  const jobQueueConcurrency = readPositiveInt(env, 'DS_DASHBOARD_JOB_QUEUE_CONCURRENCY', 1);
+  const jobQueueConcurrency = readPositiveInt(env, 'DS_DASHBOARD_JOB_QUEUE_CONCURRENCY', 2);
   const jobTimeoutMs = readPositiveInt(env, 'DS_DASHBOARD_JOB_TIMEOUT_MS', 45 * 60 * 1000);
 
   return {
