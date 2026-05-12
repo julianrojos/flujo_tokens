@@ -169,6 +169,45 @@ test("queue-engine-service: serializes jobs from the same system while allowing 
   assert.equal(started[2], "two");
 });
 
+test("queue-engine-service: components and tokens operations serialize within the same system", async () => {
+  const { engine } = createEngine({ jobQueueConcurrency: 2, jobTimeoutMs: 1000 });
+  const captureGate = deferred<void>();
+  const started: string[] = [];
+
+  const captureJob = engine.enqueueQueueJob({
+    label: "capture",
+    systemId: "sys-1",
+    operationName: "sync:design-system:components",
+    execute: async () => {
+      started.push("capture");
+      await captureGate.promise;
+      return { ok: true, code: 0, summary: "capture done" };
+    },
+  });
+
+  const tokensJob = engine.enqueueQueueJob({
+    label: "tokens",
+    systemId: "sys-1",
+    operationName: "sync:design-system:tokens",
+    priority: "high",
+    execute: async () => {
+      started.push("tokens");
+      return { ok: true, code: 0, summary: "tokens done" };
+    },
+  });
+
+  await sleep(20);
+  assert.equal(captureJob.status, "running");
+  assert.equal(tokensJob.status, "queued");
+  assert.deepEqual(started, ["capture"]);
+
+  captureGate.resolve(undefined);
+  await waitForFinal(captureJob);
+  await waitForValue(started, "tokens");
+  await waitForFinal(tokensJob);
+  assert.deepEqual(started, ["capture", "tokens"]);
+});
+
 test("queue-engine-service: cancel queued job before execution", async () => {
   const { engine } = createEngine({ jobQueueConcurrency: 0 });
   const job = engine.enqueueQueueJob({

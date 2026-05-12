@@ -650,7 +650,7 @@ export function DesignSystemUpdateActions({
     const weightedPercent = Math.round(parallelPhasePercent * 0.7 + tokensPercent * 0.3);
     const safePercent = Math.min(99, Math.max(5, weightedPercent));
 
-    if (syncSteps.tokens.status === 'running' || syncSteps.tokens.status === 'queued') {
+    const renderTokensSyncProgress = () => {
       const tokensMessage = resolveTokensSyncProgressMessage(syncSteps.tokens);
       const nextPercent = Math.max(70, safePercent);
       const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, nextPercent);
@@ -662,6 +662,16 @@ export function DesignSystemUpdateActions({
         detail:
           toProgressDetail(syncSteps.tokens) || tokensMessage.detail || undefined,
       };
+    };
+
+    // Phase order: tokens running > components/variables running > queued > tokens queued.
+    // Keeping tokens-running first ensures the final phase label shows correctly, but
+    // tokens-queued must NOT preempt the components/variables-running label — otherwise
+    // the progress bar shows "Queueing token CSS…" for the entire duration of the
+    // components+variables phase (potentially 30+ min) just because tokens was
+    // pre-marked as queued before those steps finished.
+    if (syncSteps.tokens.status === 'running') {
+      return renderTokensSyncProgress();
     }
     if (syncSteps.components.status === 'running' || syncSteps.variables.status === 'running') {
       const componentDetail = toProgressDetail(syncSteps.components);
@@ -682,6 +692,13 @@ export function DesignSystemUpdateActions({
       const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, 10);
       lastSyncProgressPercentRef.current = monotonicPercent;
       return { active: true, percent: monotonicPercent, label: 'Queueing sync job…' };
+    }
+    // Tokens queued: job has been submitted to the queue but not yet picked up.
+    // This appears briefly (~200 ms) after the full sync completes and before the
+    // in-process tokens worker starts. Shown here (after components/variables checks)
+    // so it never masks the ongoing parallel-phase label.
+    if (syncSteps.tokens.status === 'queued') {
+      return renderTokensSyncProgress();
     }
     const monotonicPercent = Math.max(lastSyncProgressPercentRef.current, 95);
     lastSyncProgressPercentRef.current = monotonicPercent;
@@ -858,7 +875,8 @@ export function DesignSystemUpdateActions({
       }
 
       const parallelSteps = ['components', 'variables'] as SyncStepKey[];
-      for (const step of [...parallelSteps, 'tokens' as SyncStepKey]) {
+      // Components and variables are submitted as one job immediately.
+      for (const step of parallelSteps) {
         updateStepState(step, {
           status: 'queued',
           summary: null,
@@ -871,6 +889,9 @@ export function DesignSystemUpdateActions({
           },
         });
       }
+      // Tokens is NOT submitted until after the full sync completes — reset to
+      // idle so the step list doesn't show "Queued" for 30+ min before it runs.
+      updateStepState('tokens', { ...EMPTY_SYNC_STEP_STATE });
 
       const runningComponentsState: SyncStepState = {
         status: 'running',
@@ -903,19 +924,19 @@ export function DesignSystemUpdateActions({
           {
             systemId,
             onQueued: (jobId) => {
-              const queuedTokensState: SyncStepState = {
-                status: 'queued',
-                summary: null,
-                progress: null,
-              };
-              const nextSteps = {
-                components: runningComponentsState,
-                variables: runningVariablesState,
-                tokens: queuedTokensState,
-              };
               setActiveSyncJobId(jobId ?? null);
               setActiveSyncOperation('full');
-              persistSyncState(nextSteps, jobId, '');
+              // Tokens is not submitted yet — persist it as idle so a page reload
+              // during the full sync doesn't restore a stale "queued" tokens state.
+              persistSyncState(
+                {
+                  components: runningComponentsState,
+                  variables: runningVariablesState,
+                  tokens: { ...EMPTY_SYNC_STEP_STATE },
+                },
+                jobId,
+                '',
+              );
             },
           },
         );
