@@ -95,6 +95,33 @@ describe('token-repository', () => {
     assert.equal(payload.byPath['color.primary'].cssVar, '--color-primary');
   });
 
+  it('getTokenCatalog preserves empty resolved values instead of falling back to raw_value', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.empty',
+      'sys-01',
+      'color/empty',
+      '--color-empty',
+      'color',
+      'Core',
+      '{"value":"fallback"}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.empty', 'Default', '');
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '');
+  });
+
   it('allows the same token id in multiple design systems', async () => {
     const { sql, cleanup } = await createTestDatabase({
       designSystems: [
