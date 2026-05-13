@@ -876,7 +876,7 @@ export function DesignSystemUpdateActions({
   }, [activeSyncJobId, activeSyncOperation, persistSyncState]);
 
   const startSync = useCallback(
-    async () => {
+    async ({ skipComponentCapture = false }: { skipComponentCapture?: boolean } = {}) => {
       const url = String(sharedFigmaUrl || '').trim();
       const nextRunId = syncRunIdRef.current + 1;
       syncRunIdRef.current = nextRunId;
@@ -924,17 +924,28 @@ export function DesignSystemUpdateActions({
         progress: { status: 'running', completed: 0, total: 0, remaining: 0, message: 'Running' },
       };
 
-      let nextComponentsState: SyncStepState = runningComponentsState;
+      // When component capture is skipped (apply+sync flow), mark components as
+      // completed immediately — metadata was already committed by the apply route.
+      const initialComponentsState: SyncStepState = skipComponentCapture
+        ? {
+            status: 'completed',
+            summary: null,
+            progress: null,
+          }
+        : runningComponentsState;
+
+      let nextComponentsState: SyncStepState = initialComponentsState;
       let nextVariablesState: SyncStepState = runningVariablesState;
 
       try {
-        updateStepState('components', runningComponentsState);
+        updateStepState('components', initialComponentsState);
         updateStepState('variables', runningVariablesState);
 
         const result = await syncDesignSystem(
           {
             url,
             figmaToken: String(sharedToken || '').trim() || undefined,
+            skipComponentCapture,
           },
           {
             systemId,
@@ -943,9 +954,11 @@ export function DesignSystemUpdateActions({
               setActiveSyncOperation('full');
               // Tokens is not submitted yet — persist it as idle so a page reload
               // during the full sync doesn't restore a stale "queued" tokens state.
+              // Use initialComponentsState (not runningComponentsState) so that a
+              // reload after skipComponentCapture shows "completed", not "running".
               persistSyncState(
                 {
-                  components: runningComponentsState,
+                  components: initialComponentsState,
                   variables: runningVariablesState,
                   tokens: { ...EMPTY_SYNC_STEP_STATE },
                 },
@@ -1129,7 +1142,10 @@ export function DesignSystemUpdateActions({
       setSyncError(`Sync did not start because apply failed: ${reason}`);
       return;
     }
-    await startSync();
+    // Skip component screenshot capture: apply already committed component
+    // metadata from the preview snapshot. Re-downloading the full Figma file
+    // via subprocess is unnecessary and causes 20+ min timeouts on large systems.
+    await startSync({ skipComponentCapture: true });
   }, [runSyncDiffApply, startSync]);
 
   const failedSteps = useMemo(

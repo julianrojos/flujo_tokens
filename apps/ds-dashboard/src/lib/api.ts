@@ -697,6 +697,10 @@ export function patchEditorialSpec(args: {
 }
 
 const DEFAULT_QUEUE_POLL_INTERVAL_MS = 900;
+// Initial poll delay — ramps up to DEFAULT_QUEUE_POLL_INTERVAL_MS via doubling.
+// Keeps latency low for fast jobs (apply+sync, tokens step) without hammering
+// the server during long ones.
+const MIN_QUEUE_POLL_INTERVAL_MS = 200;
 const DEFAULT_QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
 const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = 'script.missing_npm_script';
 
@@ -906,6 +910,10 @@ async function waitForQueuedJob(
   );
   let cursor = 0;
   const deadline = Date.now() + timeoutMs;
+  // Adaptive backoff: start fast, double each poll, cap at pollIntervalMs.
+  // Minimises detected-completion latency for short jobs (apply+sync, tokens)
+  // while staying cheap for long-running ones.
+  let currentPollIntervalMs = Math.min(MIN_QUEUE_POLL_INTERVAL_MS, pollIntervalMs);
 
   while (Date.now() < deadline) {
     const separator = statusUrl.includes('?') ? '&' : '?';
@@ -921,8 +929,9 @@ async function waitForQueuedJob(
         (error.status >= 500 || error.status === 429)
       ) {
         await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, pollIntervalMs);
+          window.setTimeout(resolve, currentPollIntervalMs);
         });
+        currentPollIntervalMs = Math.min(currentPollIntervalMs * 2, pollIntervalMs);
         continue;
       }
       throw error;
@@ -960,8 +969,9 @@ async function waitForQueuedJob(
     }
 
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, pollIntervalMs);
+      window.setTimeout(resolve, currentPollIntervalMs);
     });
+    currentPollIntervalMs = Math.min(currentPollIntervalMs * 2, pollIntervalMs);
   }
 
   throw new ApiError({
@@ -2089,6 +2099,9 @@ export async function syncDesignSystem(
     fileKey?: string;
     figmaToken?: string;
     dryRun?: boolean;
+    /** Skip Figma file download + screenshot capture. Use after apply+sync when
+     *  component metadata was already committed from the preview diff. */
+    skipComponentCapture?: boolean;
   },
   options?: {
     systemId?: string;
@@ -2330,6 +2343,10 @@ export async function applySyncDesignSystem(args: {
   figmaUrl: string;
   figmaToken?: string;
   selectedComponentNodeIds?: string[];
+  /** Figma file version captured during the preview dry-run. When provided the
+   *  server can reuse the in-process component snapshot cache and skip the
+   *  expensive full-file re-download. */
+  previewFileVersion?: string;
 }): Promise<SyncDesignSystemApplyResponse> {
   return requestJson<SyncDesignSystemApplyResponse>(
     `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/apply`,
@@ -2338,6 +2355,9 @@ export async function applySyncDesignSystem(args: {
       figmaToken: args.figmaToken,
       ...(args.selectedComponentNodeIds !== undefined && {
         selectedComponentNodeIds: args.selectedComponentNodeIds,
+      }),
+      ...(args.previewFileVersion && {
+        previewFileVersion: args.previewFileVersion,
       }),
     }),
   );

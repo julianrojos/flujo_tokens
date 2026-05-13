@@ -356,12 +356,19 @@ function recordFreshVariablesFetch(fileKey: string): void {
 
 /**
  * Window (ms) within which a previous fresh fetch is considered "warm enough"
- * to reuse without re-invalidating the cache. 30 s is short enough that Figma
- * variable changes between SyncDiffPreview and the following sync click are
- * effectively impossible in normal use, while still being long enough to cover
- * any realistic preview → sync click latency.
+ * to reuse without re-invalidating the cache.
+ *
+ * Tradeoff: a longer window reduces WebSocket roundtrips (saves ~10-30 s per
+ * sync) but widens the interval in which a Figma variable edit made after the
+ * preview could be silently ignored. 2 minutes covers the typical
+ * "preview → review diff → select components → click sync" workflow while
+ * keeping the stale-variable exposure short enough to be acceptable.
+ *
+ * If the window expires the sync falls back to buildFreshVariablesFetchFn,
+ * which invalidates the cache and fetches live data — same behaviour as before
+ * the prewarm optimisation was introduced.
  */
-const VARIABLES_PREWARM_WINDOW_MS = 30_000;
+const VARIABLES_PREWARM_WINDOW_MS = 2 * 60_000;
 
 function buildFreshVariablesFetchFn(
   defaultFileKey: string,
@@ -2576,6 +2583,10 @@ export async function handleSyncDesignSystemApplyRoute(
     });
   }
 
+  // Fire slug read immediately — it's a pure SELECT that doesn't depend on
+  // the snapshot result. Runs in parallel with the persist + snapshot fetch.
+  const usedSlugsPromise = componentRepo.getExistingSlugs(sysCtx.systemId);
+
   const startedAt = new Date().toISOString();
   await persistDesignSystemSyncJobState(db, {
     jobId: requestId,
@@ -2592,12 +2603,18 @@ export async function handleSyncDesignSystemApplyRoute(
     );
   });
 
+  // If the client already ran a preview dry-run, it knows the Figma file
+  // version. Pass it here so buildSyncDiffSnapshot can hit the in-process
+  // component snapshot cache directly instead of re-fetching the full file.
+  const previewFileVersion = toTrimmedString(body.previewFileVersion) || undefined;
+
+  const resolvedApplyFileKey = resolveFileKeyForSystem(sysCtx.figmaFileId, { figmaUrl });
   const applyInflightKey = buildSyncDiffDryRunInflightKey({
     systemId: sysCtx.systemId,
-    repoRoot: sysCtx.repoRoot,
-    figmaUrl,
-    figmaFileId: sysCtx.figmaFileId,
-    figmaToken,
+    fileKey: resolvedApplyFileKey || '',
+    // Include previewFileVersion so concurrent applies with different preview
+    // snapshots don't share the same inflight promise.
+    fileVersion: previewFileVersion || '',
   });
   let applyInflightSnapshot = syncDiffApplyInflightByKey.get(applyInflightKey);
   if (!applyInflightSnapshot) {
@@ -2606,6 +2623,7 @@ export async function handleSyncDesignSystemApplyRoute(
       repoRoot: sysCtx.repoRoot,
       figmaUrl,
       figmaFileId: sysCtx.figmaFileId,
+      fileVersion: previewFileVersion,
       figmaToken,
       componentRepo,
       runCaptureFromFigmaUrlFn,
@@ -2636,6 +2654,7 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   if (!snapshotResult.ok) {
+    usedSlugsPromise.catch(() => undefined); // suppress dangling rejection
     const finishedAt = new Date().toISOString();
     await persistDesignSystemSyncJobState(db, {
       jobId: requestId,
@@ -2668,9 +2687,8 @@ export async function handleSyncDesignSystemApplyRoute(
     );
   }
 
-  const usedSlugs = new Set(
-    await componentRepo.getExistingSlugs(sysCtx.systemId),
-  );
+  // usedSlugsPromise was fired in parallel with the snapshot — just collect it
+  const usedSlugs = new Set(await usedSlugsPromise);
 
   const rawSelected = body.selectedComponentNodeIds;
   const hasSelectionParam = Array.isArray(rawSelected);
@@ -2807,24 +2825,25 @@ export async function handleSyncDesignSystemApplyRoute(
   }
 
   const upsertEntries = [...createdEntries, ...updatedEntries];
-  let upserted = 0;
-  try {
-    if (upsertEntries.length > 0) {
-      upserted = await componentRepo.upsertFromRegistry(
-        sysCtx.systemId,
-        upsertEntries,
-      );
-    }
+  // Compute missingNodeIds before the parallel DB writes — it's a pure map/filter.
+  const missingNodeIds = snapshotResult.sourceCandidates
+    .map((candidate) =>
+      toTrimmedString(candidate.node_id ?? candidate.nodeId ?? candidate.nodeID),
+    )
+    .filter((nodeId) => nodeId.length > 0);
 
-    const missingNodeIds = snapshotResult.sourceCandidates
-      .map((candidate) =>
-        toTrimmedString(candidate.node_id ?? candidate.nodeId ?? candidate.nodeID),
-      )
-      .filter((nodeId) => nodeId.length > 0);
-    const markedMissing = await componentRepo.markMissingComponents(
-      sysCtx.systemId,
-      missingNodeIds,
-    );
+  let upserted = 0;
+  let markedMissing = 0;
+  try {
+    // upsertFromRegistry and markMissingComponents are independent:
+    // upsert writes the selected components (in Figma); markMissing marks
+    // components NOT in Figma as missing. No ordering dependency.
+    [upserted, markedMissing] = await Promise.all([
+      upsertEntries.length > 0
+        ? componentRepo.upsertFromRegistry(sysCtx.systemId, upsertEntries)
+        : Promise.resolve(0),
+      componentRepo.markMissingComponents(sysCtx.systemId, missingNodeIds),
+    ]);
 
     const finishedAt = new Date().toISOString();
     const summary = {
@@ -3412,7 +3431,11 @@ export async function handleSyncDesignSystemStepRoute(
           componentRepo,
           dsId: sysCtx.systemId,
           figmaFileId,
-          fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
+          // Use prewarm if a fresh fetch happened within
+          // VARIABLES_PREWARM_WINDOW_MS (e.g. preview ran just before this
+          // step was triggered); otherwise falls back to a full
+          // cache-invalidating fetch.
+          fetchVariables: buildPrewarmedVariablesFetchFn(figmaFileId),
           dryRun,
           includeComponents: false,
           selectedComponentNodeIds: undefined,
@@ -3688,6 +3711,10 @@ export async function handleSyncDesignSystemRoute(
 
   const figmaToken = toTrimmedString(body.figmaToken ?? body.figma_token);
   const dryRun = toBooleanString(body.dryRun, false) === 'true';
+  // When true, skip the component screenshot subprocess entirely.
+  // Used by the apply+sync flow: apply already committed component metadata from
+  // the preview diff, so re-downloading the full Figma file is redundant.
+  const skipComponentCapture = toBooleanString(body.skipComponentCapture, false) === 'true';
 
   const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
     body: {
@@ -3901,8 +3928,22 @@ export async function handleSyncDesignSystemRoute(
       emitChunk('system', `Syncing design system "${sysCtx.systemId}" from Figma...`);
       emitChunk('system', 'Running components and variables in parallel...');
 
+      // When skipComponentCapture is set (apply+sync flow), skip the expensive
+      // Figma file download + screenshot subprocess. Component metadata was
+      // already committed to the DB by the apply route from the preview snapshot.
+      const componentsStepPromise = skipComponentCapture
+        ? Promise.resolve({
+            status: 'completed' as const,
+            summary: 'Component capture skipped — applied from preview diff.',
+            warnings: [] as string[],
+            counts: { captured: 0, failed: 0, skipped: 0, targets: 0 },
+            durationMs: 0,
+            raw: { ok: true, skipped: true },
+          })
+        : runComponentsStep(emitChunk, setProcess);
+
       const [componentsStep, variablesStep] = await Promise.all([
-        runComponentsStep(emitChunk, setProcess),
+        componentsStepPromise,
         runVariablesStep(emitChunk),
       ]);
 

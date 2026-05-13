@@ -403,11 +403,16 @@ export function useDesignSystemSyncPreview(
       if (!figmaUrl) {
         throw new Error('Figma URL is required to apply the sync diff.');
       }
+      // Pass the fileVersion captured during the preview run so the server can
+      // hit the in-process component snapshot cache instead of re-fetching.
+      const previewFileVersion =
+        String(previewDebugRef.current?.fileVersion || '').trim() || undefined;
       return applySyncDesignSystem({
         systemId: args.systemId,
         figmaUrl,
         figmaToken: String(args.figmaToken || '').trim() || undefined,
         selectedComponentNodeIds: selectedNodeIds,
+        previewFileVersion,
       });
     },
     onSuccess: async (response) => {
