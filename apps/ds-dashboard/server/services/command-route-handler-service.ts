@@ -232,6 +232,51 @@ function clearSyncVariablesPreviewCacheForSystem(systemId: string): void {
   }
 }
 
+async function refreshDesignSystemImportCoverage(args: {
+  designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  systemId: string;
+}): Promise<void> {
+  const { designSystemRepository, componentRepo, systemId } = args;
+  if (!designSystemRepository || !componentRepo) return;
+
+  // Use the lean coverage projection — name + status only — instead of getAll()
+  // which also loads specs, proofs and Figma metadata. Coverage counters need
+  // nothing beyond what this single SELECT returns.
+  const [currentSystem, components] = await Promise.all([
+    designSystemRepository.getById(systemId),
+    componentRepo.getComponentCoverageRows(systemId),
+  ]);
+  if (!currentSystem) return;
+
+  const importedComponents = components.filter((component) => component.status !== 'missing');
+  const pendingComponents = components.filter((component) => component.status === 'missing');
+  const nextImportedComponentNames = importedComponents.map((component) => component.name);
+  const nextPendingComponentNames = pendingComponents.map((component) => component.name);
+  const nextDetectedComponentsCount = components.length;
+  const nextImportedComponentsCount = importedComponents.length;
+  const nextPendingComponentsCount = pendingComponents.length;
+
+  const hasCoverageChanges =
+    currentSystem.detectedComponentsCount !== nextDetectedComponentsCount ||
+    currentSystem.importedComponentsCount !== nextImportedComponentsCount ||
+    currentSystem.pendingComponentsCount !== nextPendingComponentsCount ||
+    JSON.stringify(currentSystem.importedComponentNames || []) !==
+      JSON.stringify(nextImportedComponentNames) ||
+    JSON.stringify(currentSystem.pendingComponentNames || []) !==
+      JSON.stringify(nextPendingComponentNames);
+
+  if (!hasCoverageChanges) return;
+
+  await designSystemRepository.update(systemId, {
+    detectedComponentsCount: nextDetectedComponentsCount,
+    importedComponentsCount: nextImportedComponentsCount,
+    pendingComponentsCount: nextPendingComponentsCount,
+    importedComponentNames: nextImportedComponentNames,
+    pendingComponentNames: nextPendingComponentNames,
+  });
+}
+
 function toDurationMs(value: unknown): number | undefined {
   const durationMs = Number(value);
   if (!Number.isFinite(durationMs) || durationMs < 0) return undefined;
@@ -1347,6 +1392,7 @@ export interface CommandRouteHandlerDeps {
   disableLeanRestPath?: boolean;
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
   db?: import('postgres').Sql;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
@@ -2519,6 +2565,7 @@ export async function handleSyncDesignSystemApplyRoute(
     getSystemContext,
     readJsonBody,
     componentRepo,
+    designSystemRepository,
     db,
     runCaptureFromFigmaUrlFn,
     searchComponentsDirectFn = searchComponentsDirect,
@@ -2874,6 +2921,17 @@ export async function handleSyncDesignSystemApplyRoute(
       );
     });
 
+    void refreshDesignSystemImportCoverage({
+      designSystemRepository,
+      componentRepo,
+      systemId: sysCtx.systemId,
+    }).catch((error) => {
+      console.warn(
+        '[handleSyncDesignSystemApplyRoute] Failed to refresh design system import coverage:',
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+
     clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
     clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
 
@@ -2938,6 +2996,7 @@ export async function handleSyncDesignSystemStepRoute(
     sha256Text,
     runQueuedSpawnCommand,
     componentRepo,
+    designSystemRepository,
     db,
     syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
     queueJobAcceptedPayload,
@@ -3979,6 +4038,16 @@ export async function handleSyncDesignSystemRoute(
       // initial clear above) may have cached a mid-sync snapshot with the same
       // {systemId, fileKey, fileVersion} key. Evict it now so the next preview
       // always fetches fresh Figma state against the updated DB.
+      void refreshDesignSystemImportCoverage({
+        designSystemRepository,
+        componentRepo,
+        systemId: sysCtx.systemId,
+      }).catch((error) => {
+        console.warn(
+          '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',
+          error instanceof Error ? error.message : String(error),
+        );
+      });
       clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
       clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
       void persistDesignSystemSyncJobState(db, {

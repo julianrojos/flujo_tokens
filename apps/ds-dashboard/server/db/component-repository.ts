@@ -1205,6 +1205,27 @@ export class ComponentRepository {
       .filter((slug) => slug.trim().length > 0);
   }
 
+  /**
+   * Returns the minimum projection needed to compute Import Coverage counters
+   * (detected / imported / pending) and the name lists stored on the design
+   * system record.  Intentionally avoids loading specs, proofs or Figma
+   * metadata — those are not needed here and make getAll() ~5-10× heavier.
+   */
+  async getComponentCoverageRows(
+    dsId: string,
+  ): Promise<Array<{ name: string; status: string }>> {
+    const rows = (await this.sql`
+      SELECT name, status
+      FROM components
+      WHERE ds_id = ${dsId}
+      ORDER BY name
+    `) as Array<{ name: string; status: string }>;
+    return rows.map((row) => ({
+      name: String(row.name || '').trim(),
+      status: String(row.status || '').trim(),
+    }));
+  }
+
   private async getSpecs(componentId: number): Promise<ComponentSpecEntry[]> {
     const rows = (await this.sql`
       SELECT id, component_id, doc_path, doc_status, coverage

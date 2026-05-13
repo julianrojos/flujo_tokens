@@ -61,6 +61,7 @@ export interface CommandDeps {
   queueNpmScript: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   db?: import('postgres').Sql;
   toBooleanString: (value: unknown, fallback: boolean) => string;
@@ -197,6 +198,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueNpmScript: deps.queueNpmScript,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
       componentRepo: deps.componentRepo,
+      designSystemRepository: deps.designSystemRepository,
       tokenRepo: deps.tokenRepo,
       db: deps.db,
       toBooleanString: deps.toBooleanString,

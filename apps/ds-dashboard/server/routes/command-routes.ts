@@ -60,6 +60,7 @@ export interface CommandRoutesDeps {
   queueNpmScript: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   db?: import('postgres').Sql;
   databaseUrl?: string;
@@ -152,6 +153,7 @@ function toCommandRouteHandlerDeps(
     queueNodeJsonCommand: (args) =>
       assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
     componentRepo: deps.componentRepo,
+    designSystemRepository: deps.designSystemRepository,
     tokenRepo: deps.tokenRepo,
     db: deps.db,
     databaseUrl: deps.databaseUrl,
