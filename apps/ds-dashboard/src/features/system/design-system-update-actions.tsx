@@ -525,6 +525,20 @@ export function DesignSystemUpdateActions({
     jobId?: string;
     error?: string;
     } | null>(null);
+  const lastSyncRunId = useMemo(() => {
+    return (
+      activeSyncJobId ||
+      syncSteps.tokens.jobId ||
+      syncSteps.variables.jobId ||
+      syncSteps.components.jobId ||
+      undefined
+    );
+  }, [
+    activeSyncJobId,
+    syncSteps.components.jobId,
+    syncSteps.tokens.jobId,
+    syncSteps.variables.jobId,
+  ]);
   const {
     diffResult: syncDiffResult,
     variablesPreview: syncVariablesPreview,
@@ -545,6 +559,7 @@ export function DesignSystemUpdateActions({
     systemId,
     figmaUrl: sharedFigmaUrl,
     figmaToken: sharedToken,
+    lastSyncRunId,
     onApplySuccess: () => {},
   });
 

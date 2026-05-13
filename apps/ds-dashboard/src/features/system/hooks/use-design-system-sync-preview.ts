@@ -15,6 +15,7 @@ import { toApiErrorDisplay, type ApiErrorDisplay } from '@/lib/api-error-ux';
 type CachedVariablesPreviewEntry = {
   systemId: string;
   fileVersion: string;
+  lastSyncRunId: string;
   cachedAt: number;
   value: SyncDesignSystemStepResult | null;
   warning: string | null;
@@ -31,6 +32,18 @@ const VARIABLES_PREVIEW_CACHE_TTL_MS = 10 * 60 * 1000;
 const VARIABLES_PREVIEW_CACHE_MAX_ENTRIES = 200;
 const VARIABLES_PREVIEW_CACHE_MAX_ENTRIES_PER_SYSTEM = 20;
 const variablesPreviewCache = new Map<string, CachedVariablesPreviewEntry>();
+
+function buildVariablesPreviewCacheKey(args: {
+  systemId: string;
+  fileVersion: string;
+  lastSyncRunId?: string;
+}): string {
+  return JSON.stringify({
+    systemId: String(args.systemId || '').trim(),
+    fileVersion: String(args.fileVersion || '').trim(),
+    lastSyncRunId: String(args.lastSyncRunId || '').trim(),
+  });
+}
 
 function pruneVariablesPreviewCacheByAge(nowMs: number): void {
   for (const [key, entry] of variablesPreviewCache.entries()) {
@@ -67,12 +80,14 @@ function pruneVariablesPreviewCacheByGlobalLimit(): void {
 function getCachedVariablesPreview(
   systemId: string,
   fileVersion: string,
+  lastSyncRunId?: string,
 ): CachedVariablesPreviewEntry | null {
   const nowMs = Date.now();
   pruneVariablesPreviewCacheByAge(nowMs);
-  const cacheKey = JSON.stringify({
-    systemId: String(systemId || '').trim(),
-    fileVersion: String(fileVersion || '').trim(),
+  const cacheKey = buildVariablesPreviewCacheKey({
+    systemId,
+    fileVersion,
+    lastSyncRunId,
   });
   const cached = variablesPreviewCache.get(cacheKey);
   if (!cached) return null;
@@ -92,6 +107,7 @@ function getCachedVariablesPreview(
 function setCachedVariablesPreview(
   systemId: string,
   fileVersion: string,
+  lastSyncRunId: string | undefined,
   value: SyncDesignSystemStepResult | null,
   warning: string | null,
   debug:
@@ -105,13 +121,17 @@ function setCachedVariablesPreview(
   const nowMs = Date.now();
   pruneVariablesPreviewCacheByAge(nowMs);
   const normalizedSystemId = String(systemId || '').trim();
-  const cacheKey = JSON.stringify({
+  const normalizedFileVersion = String(fileVersion || '').trim();
+  const normalizedSyncRunId = String(lastSyncRunId || '').trim();
+  const cacheKey = buildVariablesPreviewCacheKey({
     systemId: normalizedSystemId,
-    fileVersion: String(fileVersion || '').trim(),
+    fileVersion: normalizedFileVersion,
+    lastSyncRunId: normalizedSyncRunId,
   });
   variablesPreviewCache.set(cacheKey, {
     systemId: normalizedSystemId,
-    fileVersion: String(fileVersion || '').trim(),
+    fileVersion: normalizedFileVersion,
+    lastSyncRunId: normalizedSyncRunId,
     cachedAt: nowMs,
     value,
     warning,
@@ -141,6 +161,7 @@ export interface UseDesignSystemSyncPreviewArgs {
   systemId: string;
   figmaUrl: string;
   figmaToken?: string;
+  lastSyncRunId?: string;
   onApplySuccess?: (response: SyncDesignSystemApplyResponse) => void;
 }
 
@@ -208,12 +229,20 @@ export function useDesignSystemSyncPreview(
       figmaUrl: string;
       figmaToken?: string;
       fileVersion: string;
+      lastSyncRunId?: string;
       runId: number;
       allowVersionCache: boolean;
     }): Promise<void> => {
       const normalizedFileVersion = String(input.fileVersion || '').trim();
+      const normalizedLastSyncRunId = String(
+        input.lastSyncRunId || args.lastSyncRunId || '',
+      ).trim();
       const cached = input.allowVersionCache && normalizedFileVersion
-        ? getCachedVariablesPreview(args.systemId, normalizedFileVersion)
+        ? getCachedVariablesPreview(
+            args.systemId,
+            normalizedFileVersion,
+            normalizedLastSyncRunId,
+          )
         : null;
       if (cached) {
         if (latestPreviewRunRef.current === input.runId) {
@@ -242,6 +271,7 @@ export function useDesignSystemSyncPreview(
           setCachedVariablesPreview(
             args.systemId,
             responseFileVersion,
+            normalizedLastSyncRunId,
             variables,
             null,
             variables._debug || null,
@@ -267,7 +297,7 @@ export function useDesignSystemSyncPreview(
         }
       }
     },
-    [args.systemId],
+    [args.lastSyncRunId, args.systemId],
   );
 
   const runPreview = useCallback(async (): Promise<SyncDesignSystemDryRunResponse | undefined> => {
@@ -294,6 +324,7 @@ export function useDesignSystemSyncPreview(
 
     try {
       const fileVersionHint = String(previewDebugRef.current?.fileVersion || '').trim();
+      const lastSyncRunId = String(args.lastSyncRunId || '').trim();
       const dryRun = await previewSyncDesignSystem({
         systemId: args.systemId,
         figmaUrl,
@@ -311,6 +342,7 @@ export function useDesignSystemSyncPreview(
         figmaUrl,
         figmaToken,
         fileVersion: String(dryRun._debug?.fileVersion || '').trim(),
+        lastSyncRunId: lastSyncRunId || undefined,
         runId,
         allowVersionCache: true,
       });
@@ -334,7 +366,7 @@ export function useDesignSystemSyncPreview(
         setIsPreviewing(false);
       }
     }
-  }, [args.figmaToken, args.figmaUrl, args.systemId, runVariablesPreview]);
+  }, [args.figmaToken, args.figmaUrl, args.lastSyncRunId, args.systemId, runVariablesPreview]);
 
   // Retries just the variables step without re-fetching the component diff.
   // Bypasses the client cache so that a plugin reconnect is picked up immediately.
@@ -345,6 +377,7 @@ export function useDesignSystemSyncPreview(
     if (!currentPreviewDebug && !diffResultRef.current) return;
     const figmaToken = String(args.figmaToken || '').trim() || undefined;
     const fileVersion = String(currentPreviewDebug?.fileVersion || '').trim();
+    const lastSyncRunId = String(args.lastSyncRunId || '').trim();
     const runId = latestPreviewRunRef.current + 1;
     latestPreviewRunRef.current = runId;
     setHasRequestedVariablesPreview(true);
@@ -354,10 +387,11 @@ export function useDesignSystemSyncPreview(
       figmaUrl,
       figmaToken,
       fileVersion,
+      lastSyncRunId: lastSyncRunId || undefined,
       runId,
       allowVersionCache,
     });
-  }, [args.figmaToken, args.figmaUrl, runVariablesPreview]);
+  }, [args.figmaToken, args.figmaUrl, args.lastSyncRunId, runVariablesPreview]);
 
   const retryVariablesPreview = useCallback((): void => {
     loadVariablesPreview(false);

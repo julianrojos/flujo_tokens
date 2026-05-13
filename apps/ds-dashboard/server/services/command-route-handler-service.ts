@@ -220,6 +220,11 @@ function clearSyncDiffPreviewCacheForSystem(systemId: string): void {
       syncDiffDryRunResultCacheByKey.delete(key);
     }
   }
+}
+
+function clearSyncVariablesPreviewCacheForSystem(systemId: string): void {
+  const normalizedSystemId = toTrimmedString(systemId);
+  if (!normalizedSystemId) return;
   for (const [key, entry] of syncVariablesDryRunResultCacheByKey.entries()) {
     if (entry.systemId === normalizedSystemId) {
       syncVariablesDryRunResultCacheByKey.delete(key);
@@ -330,11 +335,23 @@ function toTrimmedString(value: unknown): string {
  * Tests should call clearVariablesFreshFetchCache() in afterEach to avoid
  * cross-test state leaks.
  */
-const variablesFreshFetchByKey = new Map<string, number>();
+type VariablesFreshFetchEntry = {
+  freshAt: number;
+};
+
+const variablesFreshFetchByKey = new Map<string, VariablesFreshFetchEntry>();
 
 /** Clears the prewarm tracker. Intended for use in tests only. */
 export function clearVariablesFreshFetchCache(): void {
   variablesFreshFetchByKey.clear();
+}
+
+function recordFreshVariablesFetch(fileKey: string): void {
+  const effectiveFileKey = toTrimmedString(fileKey);
+  if (!effectiveFileKey) return;
+  variablesFreshFetchByKey.set(effectiveFileKey, {
+    freshAt: Date.now(),
+  });
 }
 
 /**
@@ -359,9 +376,7 @@ function buildFreshVariablesFetchFn(
     // Record the timestamp so buildPrewarmedVariablesFetchFn can skip the
     // re-invalidation when a fresh fetch happened very recently (e.g. preview
     // ran 1-2 seconds before the sync button was clicked).
-    if (effectiveFileKey) {
-      variablesFreshFetchByKey.set(effectiveFileKey, Date.now());
-    }
+    recordFreshVariablesFetch(effectiveFileKey);
     return result;
   };
 }
@@ -390,8 +405,9 @@ function buildPrewarmedVariablesFetchFn(
   const lastFreshAt = effectiveFileKey
     ? variablesFreshFetchByKey.get(effectiveFileKey)
     : undefined;
-  const isPrewarm =
-    lastFreshAt !== undefined && Date.now() - lastFreshAt < windowMs;
+  const withinWindow =
+    lastFreshAt !== undefined && Date.now() - lastFreshAt.freshAt < windowMs;
+  const isPrewarm = withinWindow;
 
   if (isPrewarm) {
     // Cache is warm and fresh — skip cache invalidation, serve from cache.
@@ -2407,6 +2423,7 @@ export async function handleSyncDesignSystemVariablesDryRunRoute(
           reindexUsageFromFilesystem: false,
           usageReindexStrict: true,
         });
+        recordFreshVariablesFetch(figmaFileId);
 
         const variablesWarnings =
           result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings;
@@ -2839,6 +2856,7 @@ export async function handleSyncDesignSystemApplyRoute(
     });
 
     clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
+    clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
 
     return c.json(
       {
@@ -3876,6 +3894,10 @@ export async function handleSyncDesignSystemRoute(
           error instanceof Error ? error.message : String(error),
         );
       });
+      // Evict stale preview-cache entries so the next preview request after this
+      // sync runs a fresh fetch rather than serving the pre-sync snapshot.
+      clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
+      clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
       emitChunk('system', `Syncing design system "${sysCtx.systemId}" from Figma...`);
       emitChunk('system', 'Running components and variables in parallel...');
 
@@ -3912,6 +3934,12 @@ export async function handleSyncDesignSystemRoute(
           warnings,
         },
       };
+      // Second eviction: any preview that ran *during* this sync (after the
+      // initial clear above) may have cached a mid-sync snapshot with the same
+      // {systemId, fileKey, fileVersion} key. Evict it now so the next preview
+      // always fetches fresh Figma state against the updated DB.
+      clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
+      clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
       void persistDesignSystemSyncJobState(db, {
         jobId: syncJobId,
         systemId: sysCtx.systemId,
