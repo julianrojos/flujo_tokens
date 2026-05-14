@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { FormField } from '@/components/common';
 import { Input } from '@/components/ui/input';
@@ -506,6 +507,7 @@ export function DesignSystemUpdateActions({
   disabled = false,
   onRunSuccess,
 }: DesignSystemUpdateActionsProps) {
+  const queryClient = useQueryClient();
   const suggestedUrl = useMemo(
     () => toSuggestedFigmaUrl(figmaFileId),
     [figmaFileId],
@@ -1061,6 +1063,10 @@ export function DesignSystemUpdateActions({
               : '';
           setSyncError(syncError);
           if (!overallFailed) {
+            // Invalidate the design-systems-config cache so that any page
+            // using the ['design-systems-config'] query key (e.g. components
+            // page KPI counts) receives fresh data after this sync completes.
+            void queryClient.invalidateQueries({ queryKey: ['design-systems-config'] });
             onRunSuccess?.();
           }
           pendingSyncPersistRef.current = { jobId: tokensResult.jobId, error: syncError };

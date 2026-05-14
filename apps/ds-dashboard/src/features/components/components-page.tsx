@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { ExternalLink, LayoutGrid } from "lucide-react";
 
@@ -9,6 +10,7 @@ import {
   getActiveSystemId,
 } from "@/lib/api";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { resolveCollectionPageFilter } from "@/lib/collection-page-filter";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
@@ -94,10 +96,8 @@ export function ComponentsPage() {
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
   >({});
-  const [importedComponentsCount, setImportedComponentsCount] = useState<number | null>(null);
-  const [scannedComponentsCount, setScannedComponentsCount] = useState<number | null>(null);
   const [docsEditedPercent, setDocsEditedPercent] = useState(0);
-  const [hasPartialData, setHasPartialData] = useState(false);
+  const [usageLoadFailed, setUsageLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
@@ -125,49 +125,62 @@ export function ComponentsPage() {
   const hasActiveKpiFilter = filterState.isFiltered;
   const pageHeaderDescription = filterState.description;
 
+  // Fetched via React Query so that invalidating ['design-systems-config']
+  // (e.g. after a sync/apply) causes the KPI counts to update automatically.
+  const {
+    data: designSystemsConfig,
+    isError: designSystemsConfigError,
+    isPending: designSystemsConfigPending,
+  } = useQuery({
+    queryKey: ['design-systems-config'],
+    queryFn: fetchDesignSystemsConfig,
+    ...QUERY_DEFAULTS,
+  });
+
+  const activeSystemId = String(getActiveSystemId() || "").trim();
+  const activeSystemConfig =
+    designSystemsConfig?.systems.find((entry) => entry.id === activeSystemId) ?? null;
+
+  const importedComponentsCount =
+    activeSystemConfig && typeof activeSystemConfig.importedComponentsCount === "number" &&
+      Number.isFinite(activeSystemConfig.importedComponentsCount)
+      ? activeSystemConfig.importedComponentsCount
+      : null;
+
+  const scannedComponentsCount =
+    activeSystemConfig && typeof activeSystemConfig.detectedComponentsCount === "number" &&
+      Number.isFinite(activeSystemConfig.detectedComponentsCount)
+      ? activeSystemConfig.detectedComponentsCount
+      : null;
+
+  // hasPartialData: true when any secondary data source failed to load.
+  const hasPartialData =
+    !designSystemsConfigPending &&
+    (usageLoadFailed ||
+      designSystemsConfigError ||
+      activeSystemConfig === null ||
+      importedComponentsCount === null ||
+      scannedComponentsCount === null);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [registryResult, designSystemsResult, usageResult] = await Promise.allSettled([
+      const [registryResult, usageResult] = await Promise.allSettled([
         fetchComponentCatalog(),
-        fetchDesignSystemsConfig(),
         fetchComponentUsageIndex(),
       ]);
       if (registryResult.status !== "fulfilled") {
         throw registryResult.reason;
       }
       const registryPayload = registryResult.value;
-      const designSystemsConfig =
-        designSystemsResult.status === "fulfilled" ? designSystemsResult.value : null;
       const usagePayload =
         usageResult.status === "fulfilled" ? usageResult.value : { by_slug: {} };
-      const activeSystemId = String(getActiveSystemId() || "").trim();
-      const activeSystem =
-        designSystemsConfig?.systems.find((entry) => entry.id === activeSystemId) ?? null;
       const totalComponents = Number(registryPayload.summary?.total_components ?? 0);
       const withEditorial = Number(registryPayload.summary?.with_editorial ?? 0);
-      const importedComponents =
-        activeSystem && typeof activeSystem.importedComponentsCount === "number" &&
-          Number.isFinite(activeSystem.importedComponentsCount)
-          ? activeSystem.importedComponentsCount
-          : null;
-      const scannedComponents =
-        activeSystem && typeof activeSystem.detectedComponentsCount === "number" &&
-          Number.isFinite(activeSystem.detectedComponentsCount)
-          ? activeSystem.detectedComponentsCount
-          : null;
       setRows(registryPayload.components ?? []);
       setUsageBySlug(usagePayload.by_slug ?? {});
-      setImportedComponentsCount(importedComponents);
-      setScannedComponentsCount(scannedComponents);
-      setHasPartialData(
-        designSystemsResult.status !== "fulfilled" ||
-          usageResult.status !== "fulfilled" ||
-          activeSystem === null ||
-          importedComponents === null ||
-          scannedComponents === null,
-      );
+      setUsageLoadFailed(usageResult.status !== "fulfilled");
       setDocsEditedPercent(
         totalComponents > 0 ? Math.round((withEditorial / totalComponents) * 100) : 0,
       );

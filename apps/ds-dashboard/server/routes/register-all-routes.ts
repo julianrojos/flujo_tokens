@@ -107,6 +107,7 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
       return { id: job.id };
     },
     componentRepo: deps.componentRepo,
+    designSystemRepository: deps.designSystemRepository,
     tokenRepo: deps.tokenRepo,
     healthRepo: deps.healthRepo,
     db: deps.db,

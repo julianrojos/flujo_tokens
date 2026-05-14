@@ -427,6 +427,7 @@ export function useDesignSystemSyncPreview(
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['component-catalog'] }),
         queryClient.invalidateQueries({ queryKey: ['health'] }),
+        queryClient.invalidateQueries({ queryKey: ['design-systems-config'] }),
       ]);
     },
     onError: (cause) => {

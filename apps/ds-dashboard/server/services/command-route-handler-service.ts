@@ -2921,7 +2921,10 @@ export async function handleSyncDesignSystemApplyRoute(
       );
     });
 
-    void refreshDesignSystemImportCoverage({
+    // Await coverage refresh so the HTTP response reflects the updated
+    // denormalized counters — the frontend re-fetches design-systems config
+    // immediately after receiving this response, so the DB must be up to date.
+    await refreshDesignSystemImportCoverage({
       designSystemRepository,
       componentRepo,
       systemId: sysCtx.systemId,
@@ -3735,6 +3738,7 @@ export async function handleSyncDesignSystemRoute(
     sha256Text,
     runQueuedSpawnCommand,
     componentRepo,
+    designSystemRepository,
     db,
     syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
     queueJobAcceptedPayload,
@@ -4034,11 +4038,11 @@ export async function handleSyncDesignSystemRoute(
           warnings,
         },
       };
-      // Second eviction: any preview that ran *during* this sync (after the
-      // initial clear above) may have cached a mid-sync snapshot with the same
-      // {systemId, fileKey, fileVersion} key. Evict it now so the next preview
-      // always fetches fresh Figma state against the updated DB.
-      void refreshDesignSystemImportCoverage({
+      // Await coverage refresh so the DB counters are committed before the
+      // job transitions to "completed" in the in-memory queue. The client polls
+      // for job completion and immediately invalidates ['design-systems-config'],
+      // so the refresh must finish before this execute() returns.
+      await refreshDesignSystemImportCoverage({
         designSystemRepository,
         componentRepo,
         systemId: sysCtx.systemId,
@@ -4048,6 +4052,10 @@ export async function handleSyncDesignSystemRoute(
           error instanceof Error ? error.message : String(error),
         );
       });
+      // Second eviction: any preview that ran *during* this sync (after the
+      // initial clear above) may have cached a mid-sync snapshot with the same
+      // {systemId, fileKey, fileVersion} key. Evict it now so the next preview
+      // always fetches fresh Figma state against the updated DB.
       clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
       clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
       void persistDesignSystemSyncJobState(db, {
