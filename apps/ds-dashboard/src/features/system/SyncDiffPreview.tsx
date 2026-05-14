@@ -1,8 +1,17 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@/components/ui/overlay';
 import {
   StatusAlert,
   StatusAlertDescription,
@@ -187,95 +196,388 @@ function countLabel(count: number): string {
   return `${count} ${count === 1 ? 'item' : 'items'}`;
 }
 
-function formatSnapshot(snapshot: SyncDesignSystemNodeSnapshot): string {
-  return snapshot.name;
-}
+// ---------------------------------------------------------------------------
+// Per-bucket modal
+// ---------------------------------------------------------------------------
 
-function formatDbSnapshot(snapshot: SyncDesignSystemDiffDbComponentRef): string {
-  return [snapshot.name, snapshot.slug].join(' · ');
-}
-
-type ItemSelectionProps = {
-  selected: boolean;
-  onChange: (checked: boolean) => void;
-} | null;
-
-function renderBucketItem(
-  bucket: BucketKey,
-  item:
-    | SyncDesignSystemNodeSnapshot
-    | { figma: SyncDesignSystemNodeSnapshot; db: SyncDesignSystemDiffDbComponentRef }
-    | SyncDesignSystemDiffDbComponentRef,
-  selectionProps: ItemSelectionProps = null,
-) {
-  const meta = bucketMeta[bucket];
-
-  const checkbox = selectionProps ? (
-    <Checkbox
-      checked={selectionProps.selected}
-      onChange={(event) => selectionProps.onChange(event.currentTarget.checked)}
-      aria-label="Select component"
-      className="mt-0.5 shrink-0"
-    />
-  ) : null;
-
-  if (meta.itemKind === 'figma') {
-    const snapshot = item as SyncDesignSystemNodeSnapshot;
-    return (
-      <li key={`${snapshot.nodeId}-${snapshot.contentFingerprint}`} className="bg-surface-1 py-2">
-        <div className="flex items-start gap-2">
-          {checkbox}
-          <div className="min-w-0 flex-1">
-            <span className="text-sm text-foreground">{formatSnapshot(snapshot)}</span>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {snapshot.pageName ? `${snapshot.pageName} · ` : ''}
-              variants {snapshot.variantCount}
-            </p>
-          </div>
-        </div>
-      </li>
-    );
-  }
-
-  if (meta.itemKind === 'db') {
-    const snapshot = item as SyncDesignSystemDiffDbComponentRef;
-    return (
-      <li key={`${snapshot.nodeId}-${snapshot.id}`} className="bg-surface-1 py-2">
-        <div className="flex items-start gap-2">
-          {checkbox}
-          <div className="min-w-0 flex-1">
-            <span className="text-sm text-foreground">{formatDbSnapshot(snapshot)}</span>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {snapshot.slug} · {snapshot.status}
-            </p>
-          </div>
-        </div>
-      </li>
-    );
-  }
-
-  const pair = item as {
-    figma: SyncDesignSystemNodeSnapshot;
-    db: SyncDesignSystemDiffDbComponentRef;
-  };
+function FigmaComponentGlyph() {
   return (
-    <li key={`${pair.figma.nodeId}-${pair.db.id}`} className="bg-surface-1 py-2">
-      <div className="flex items-start gap-2">
-        {checkbox}
-        <div className="min-w-0 flex-1">
-          <span className="text-sm text-foreground">{formatSnapshot(pair.figma)}</span>
-          <p className="mt-1 text-xs text-muted-foreground">
-            DB: {formatDbSnapshot(pair.db)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {pair.figma.pageName ? `${pair.figma.pageName} · ` : ''}
-            variants {pair.figma.variantCount}
-          </p>
-        </div>
-      </div>
-    </li>
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 18 18"
+      className="block h-4 w-4 shrink-0 text-[var(--app-brand-figma)]"
+      fill="currentColor"
+    >
+      <path d="M9 1.75 12.25 5 9 8.25 5.75 5 9 1.75Z" />
+      <path d="M13 5.75 16.25 9 13 12.25 9.75 9 13 5.75Z" />
+      <path d="M9 9.75 12.25 13 9 16.25 5.75 13 9 9.75Z" />
+      <path d="M1.75 9 5 5.75 8.25 9 5 12.25 1.75 9Z" />
+    </svg>
   );
 }
+
+type ModalItem = {
+  key: string;
+  nodeId: string | null; // null for db-only (deleted / unchanged read-only) items
+  name: string;
+  detail: string;
+  pageName: string; // '' when not available (e.g. deleted items)
+  hasFigmaGlyph: boolean;
+};
+
+function toModalItems(
+  bucket: BucketKey,
+  items: SyncDesignSystemDiffResult[BucketKey],
+): ModalItem[] {
+  if (bucket === 'new_in_figma') {
+    return (items as SyncDesignSystemNodeSnapshot[]).map((item) => ({
+      key: `${item.nodeId}-${item.contentFingerprint}`,
+      nodeId: item.nodeId,
+      name: item.name,
+      detail: `variants ${item.variantCount}`,
+      pageName: item.pageName || '',
+      hasFigmaGlyph: true,
+    }));
+  }
+  if (bucket === 'updated_in_figma') {
+    return (
+      items as Array<{
+        figma: SyncDesignSystemNodeSnapshot;
+        db: SyncDesignSystemDiffDbComponentRef;
+      }>
+    ).map((item) => ({
+      key: `${item.figma.nodeId}-${item.db.id}`,
+      nodeId: item.figma.nodeId,
+      name: item.figma.name,
+      detail: `DB: ${item.db.name} · variants ${item.figma.variantCount}`,
+      pageName: item.figma.pageName || '',
+      hasFigmaGlyph: true,
+    }));
+  }
+  if (bucket === 'unchanged') {
+    return (
+      items as Array<{
+        figma: SyncDesignSystemNodeSnapshot;
+        db: SyncDesignSystemDiffDbComponentRef;
+      }>
+    ).map((item) => ({
+      key: `${item.figma.nodeId}-${item.db.id}`,
+      nodeId: null, // unchanged items are not selectable
+      name: item.figma.name,
+      detail: `DB: ${item.db.name} · variants ${item.figma.variantCount}`,
+      pageName: item.figma.pageName || '',
+      hasFigmaGlyph: true,
+    }));
+  }
+  // missing_in_figma
+  return (items as SyncDesignSystemDiffDbComponentRef[]).map((item) => ({
+    key: `${item.nodeId}-${item.id}`,
+    nodeId: null,
+    name: item.name,
+    detail: `${item.slug} · ${item.status}`,
+    pageName: '',
+    hasFigmaGlyph: false,
+  }));
+}
+
+interface ComponentBucketModalProps {
+  bucket: BucketKey;
+  items: SyncDesignSystemDiffResult[BucketKey];
+  selectedNodeIds: Set<string>;
+  onNodeSelectionChange: (nodeId: string, checked: boolean) => void;
+  onBulkSelectionChange: (nodeIds: string[], checked: boolean) => void;
+  onClose: () => void;
+}
+
+function ComponentBucketModal({
+  bucket,
+  items,
+  selectedNodeIds,
+  onNodeSelectionChange,
+  onBulkSelectionChange,
+  onClose,
+}: ComponentBucketModalProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const modalTitleId = useId();
+
+  const meta = bucketMeta[bucket];
+  const isSelectable = SELECTABLE_COMPONENT_BUCKETS.has(bucket);
+
+  const modalItems = useMemo(() => toModalItems(bucket, items), [bucket, items]);
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return modalItems;
+    const q = searchQuery.toLowerCase();
+    return modalItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.pageName.toLowerCase().includes(q) ||
+        item.detail.toLowerCase().includes(q),
+    );
+  }, [searchQuery, modalItems]);
+
+  // Group by pageName; items with empty pageName end up under key ''
+  const grouped = useMemo(() => {
+    const groups = new Map<string, ModalItem[]>();
+    for (const item of filteredItems) {
+      const page = item.pageName || '';
+      const existing = groups.get(page) ?? [];
+      existing.push(item);
+      groups.set(page, existing);
+    }
+    return groups;
+  }, [filteredItems]);
+
+  // Whether all items use the empty-key group (no pageName available — render flat)
+  const isFlatList = useMemo(
+    () => grouped.size === 1 && grouped.has(''),
+    [grouped],
+  );
+
+  const [openPages, setOpenPages] = useState<Set<string>>(() => new Set());
+
+  const togglePage = (pageName: string) => {
+    setOpenPages((prev) => {
+      const next = new Set(prev);
+      if (next.has(pageName)) next.delete(pageName);
+      else next.add(pageName);
+      return next;
+    });
+  };
+
+  // Selection helpers
+  const allSelectableNodeIds = useMemo(
+    () =>
+      isSelectable
+        ? modalItems.map((i) => i.nodeId).filter((id): id is string => id !== null)
+        : [],
+    [isSelectable, modalItems],
+  );
+  const filteredSelectableNodeIds = useMemo(
+    () =>
+      isSelectable
+        ? filteredItems.map((i) => i.nodeId).filter((id): id is string => id !== null)
+        : [],
+    [isSelectable, filteredItems],
+  );
+
+  const selectedInBucket = allSelectableNodeIds.filter((id) =>
+    selectedNodeIds.has(id),
+  ).length;
+
+  const allFilteredSelected =
+    filteredSelectableNodeIds.length > 0 &&
+    filteredSelectableNodeIds.every((id) => selectedNodeIds.has(id));
+  const someFilteredSelected = filteredSelectableNodeIds.some((id) =>
+    selectedNodeIds.has(id),
+  );
+
+  const handleSelectAll = (checked: boolean) => {
+    onBulkSelectionChange(filteredSelectableNodeIds, checked);
+  };
+
+  const handlePageToggleSelection = (pageItems: ModalItem[]) => {
+    const pageNodeIds = pageItems
+      .map((i) => i.nodeId)
+      .filter((id): id is string => id !== null);
+    if (pageNodeIds.length === 0) return;
+    const allPageSelected = pageNodeIds.every((id) => selectedNodeIds.has(id));
+    onBulkSelectionChange(pageNodeIds, !allPageSelected);
+  };
+
+  return (
+    <Modal open onClose={onClose} aria-labelledby={modalTitleId}>
+      <ModalContent size="md" className="flex max-h-[85vh] flex-col overflow-hidden">
+        <ModalHeader className="items-start gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3
+                id={modalTitleId}
+                className="text-lg font-titles font-semibold titles-color"
+              >
+                {meta.title} components
+              </h3>
+              <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">{meta.description}</p>
+          </div>
+          <ModalCloseButton
+            onClick={onClose}
+            label={`Close ${meta.title.toLowerCase()} components`}
+          />
+        </ModalHeader>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+          {/* Top bar: select-all + search filter */}
+          <div className="flex items-center justify-between gap-3">
+            {isSelectable ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  aria-label={`Select all ${meta.title.toLowerCase()} components`}
+                  checked={allFilteredSelected}
+                  indeterminate={someFilteredSelected && !allFilteredSelected}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                />
+                Select all
+              </label>
+            ) : (
+              <div />
+            )}
+            <div className="relative">
+              <Input
+                ref={filterInputRef}
+                aria-label="Filter components"
+                placeholder="Filter by name or page…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-xs pr-9 text-sm"
+              />
+              {searchQuery.trim() ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear filter"
+                  onClick={() => {
+                    setSearchQuery('');
+                    filterInputRef.current?.focus();
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Item list */}
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border p-3">
+            {filteredItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {searchQuery.trim()
+                  ? 'No matches for current filter.'
+                  : 'No items in this bucket.'}
+              </p>
+            ) : isFlatList ? (
+              // Flat list — no pageName grouping (e.g. deleted items)
+              <div className="space-y-1">
+                {(grouped.get('') ?? []).map((item) => (
+                  <div key={item.key} className="flex items-start gap-2 py-1">
+                    {item.hasFigmaGlyph ? <FigmaComponentGlyph /> : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground">{item.name}</p>
+                      {item.detail ? (
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Grouped by pageName
+              <div className="space-y-3">
+                {Array.from(grouped.entries()).map(([pageName, pageItems]) => {
+                  const pageNodeIds = pageItems
+                    .map((i) => i.nodeId)
+                    .filter((id): id is string => id !== null);
+                  const pageAllSelected =
+                    isSelectable &&
+                    pageNodeIds.length > 0 &&
+                    pageNodeIds.every((id) => selectedNodeIds.has(id));
+                  const pageSomeSelected =
+                    isSelectable && pageNodeIds.some((id) => selectedNodeIds.has(id));
+                  const isOpen = openPages.has(pageName);
+
+                  return (
+                    <div key={pageName} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {isSelectable ? (
+                          <Checkbox
+                            aria-label={`Select all components in ${pageName}`}
+                            checked={pageAllSelected}
+                            indeterminate={pageSomeSelected && !pageAllSelected}
+                            onChange={() => handlePageToggleSelection(pageItems)}
+                          />
+                        ) : null}
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-medium text-foreground"
+                          aria-expanded={isOpen}
+                          onClick={() => togglePage(pageName)}
+                        >
+                          <span>{pageName || '(no page)'}</span>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            {isOpen ? (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            )}
+                            {pageItems.length}
+                          </span>
+                        </button>
+                      </div>
+                      {isOpen
+                        ? pageItems.map((item) => {
+                            const checked =
+                              item.nodeId !== null && selectedNodeIds.has(item.nodeId);
+                            return (
+                              <div
+                                key={item.key}
+                                className="ml-4 flex items-center gap-2 py-0.5 text-sm"
+                              >
+                                {item.hasFigmaGlyph ? <FigmaComponentGlyph /> : null}
+                                {isSelectable && item.nodeId !== null ? (
+                                  <Checkbox
+                                    aria-label={`Select component ${item.name}`}
+                                    checked={checked}
+                                    onChange={(e) =>
+                                      onNodeSelectionChange(
+                                        item.nodeId as string,
+                                        e.target.checked,
+                                      )
+                                    }
+                                  />
+                                ) : null}
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-foreground">{item.name}</span>
+                                  {item.detail ? (
+                                    <p className="mt-0.5 text-xs text-muted-foreground">
+                                      {item.detail}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })
+                        : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Selection counter */}
+          {isSelectable && allSelectableNodeIds.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {selectedInBucket} of {allSelectableNodeIds.length} selected
+            </p>
+          ) : null}
+        </div>
+
+        <ModalFooter className="justify-end">
+          <Button onClick={onClose}>Done</Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variable bucket helpers
+// ---------------------------------------------------------------------------
 
 const variableBucketAliases: Record<BucketKey, string[]> = {
   new_in_figma: ['new_in_figma', 'new', 'added', 'created'],
@@ -491,12 +793,7 @@ export function SyncDiffPreview({
     () => buildVariablesDiffPreview(variablesPreview),
     [variablesPreview],
   );
-  const [openBuckets, setOpenBuckets] = useState<Record<BucketKey, boolean>>({
-    new_in_figma: false,
-    updated_in_figma: false,
-    unchanged: false,
-    missing_in_figma: false,
-  });
+  const [openModalBucket, setOpenModalBucket] = useState<BucketKey | null>(null);
   const [openVariableBuckets, setOpenVariableBuckets] = useState<Record<BucketKey, boolean>>({
     new_in_figma: false,
     updated_in_figma: false,
@@ -542,12 +839,10 @@ export function SyncDiffPreview({
     });
   }
 
-  function setBucketSelected(bucket: BucketKey, checked: boolean) {
-    if (!diffResult) return;
-    const ids = getSelectableBucketNodeIds(bucket, diffResult[bucket]);
+  function setMultipleNodesSelected(nodeIds: string[], checked: boolean) {
     setSelectedNodeIds((prev) => {
       const next = new Set(prev);
-      for (const id of ids) {
+      for (const id of nodeIds) {
         if (checked) next.add(id);
         else next.delete(id);
       }
@@ -747,86 +1042,71 @@ export function SyncDiffPreview({
               ).map((bucket) => {
                 const meta = bucketMeta[bucket];
                 const items = diffResult[bucket];
-                const open = openBuckets[bucket];
                 const isSelectable = SELECTABLE_COMPONENT_BUCKETS.has(bucket);
                 const bucketNodeIds = isSelectable
                   ? getSelectableBucketNodeIds(bucket, items)
                   : [];
-                const allBucketSelected =
-                  bucketNodeIds.length > 0 &&
-                  bucketNodeIds.every((id) => selectedNodeIds.has(id));
-                const someBucketSelected =
-                  !allBucketSelected &&
-                  bucketNodeIds.some((id) => selectedNodeIds.has(id));
-                return (
-                  <details
-                    key={bucket}
-                    className="rounded border border-border/70 bg-surface-1 p-3"
-                    open={open}
-                    onToggle={(event) => {
-                      const nextOpen = event.currentTarget.open;
-                      setOpenBuckets((current) => ({
-                        ...current,
-                        [bucket]: nextOpen,
-                      }));
-                    }}
-                  >
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
-                      <div className="flex items-start gap-2">
-                        {isSelectable && bucketNodeIds.length > 0 ? (
-                          <Checkbox
-                            checked={allBucketSelected}
-                            indeterminate={someBucketSelected}
-                            onChange={(event) =>
-                              setBucketSelected(bucket, event.currentTarget.checked)
-                            }
-                            aria-label={`Select all ${meta.title.toLowerCase()} components`}
-                            className="mt-0.5 shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => {
-                              if (e.key === ' ' || e.key === 'Enter') e.stopPropagation();
-                            }}
-                          />
-                        ) : null}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
-                            <Badge variant={meta.badgeVariant}>{items.length}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                const selectedInBucket = bucketNodeIds.filter((id) =>
+                  selectedNodeIds.has(id),
+                ).length;
+
+                if (items.length === 0) {
+                  return (
+                    <div
+                      key={bucket}
+                      className="rounded border border-border/70 bg-surface-1 p-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground">
+                            {meta.title}
+                          </h5>
+                          <Badge variant={meta.badgeVariant}>0</Badge>
                         </div>
+                        <p className="text-xs text-muted-foreground">{meta.description}</p>
                       </div>
-                    </summary>
-                    <div className="mt-3">
-                      {items.length > 0 ? (
-                        <ul className="space-y-2">
-                          {items.map((item) => {
-                            if (!isSelectable) {
-                              return renderBucketItem(bucket, item);
-                            }
-                            const nodeId =
-                              bucket === 'new_in_figma'
-                                ? (item as SyncDesignSystemNodeSnapshot).nodeId
-                                : (
-                                    item as {
-                                      figma: SyncDesignSystemNodeSnapshot;
-                                      db: SyncDesignSystemDiffDbComponentRef;
-                                    }
-                                  ).figma.nodeId;
-                            return renderBucketItem(bucket, item, {
-                              selected: selectedNodeIds.has(nodeId),
-                              onChange: (checked) => setNodeSelected(nodeId, checked),
-                            });
-                          })}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No items in this bucket.</p>
-                      )}
                     </div>
-                  </details>
+                  );
+                }
+
+                return (
+                  <button
+                    key={bucket}
+                    type="button"
+                    className="w-full rounded border border-border/70 bg-surface-1 p-3 text-left transition-colors hover:border-border hover:bg-surface-2"
+                    onClick={() => setOpenModalBucket(bucket)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">
+                            {meta.title}
+                          </h5>
+                          <Badge variant={meta.badgeVariant}>{items.length}</Badge>
+                          {isSelectable && bucketNodeIds.length > 0 ? (
+                            <span className="text-xs text-muted-foreground">
+                              {selectedInBucket} selected
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{meta.description}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </div>
+                  </button>
                 );
               })}
+
+              {openModalBucket && diffResult ? (
+                <ComponentBucketModal
+                  bucket={openModalBucket}
+                  items={diffResult[openModalBucket]}
+                  selectedNodeIds={selectedNodeIds}
+                  onNodeSelectionChange={setNodeSelected}
+                  onBulkSelectionChange={setMultipleNodesSelected}
+                  onClose={() => setOpenModalBucket(null)}
+                />
+              ) : null}
             </div>
           </div>
         ) : null}
