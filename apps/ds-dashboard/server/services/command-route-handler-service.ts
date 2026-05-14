@@ -232,48 +232,119 @@ function clearSyncVariablesPreviewCacheForSystem(systemId: string): void {
   }
 }
 
+export function computeDesignSystemImportCoverage(
+  components: Array<{ name: string; status: string; nodeId: string | null }>,
+  sourceCandidates?: Array<Record<string, unknown>>,
+): {
+  detectedComponentsCount: number;
+  importedComponentsCount: number;
+  pendingComponentsCount: number;
+  importedComponentNames: string[];
+  pendingComponentNames: string[];
+} {
+  const importedComponents = components.filter((component) => component.status !== 'missing');
+  const importedComponentNames = importedComponents.map((component) => component.name);
+  const pendingComponentNamesFallback = components
+    .filter((component) => component.status === 'missing')
+    .map((component) => component.name);
+
+  const normalizedSourceCandidates = Array.isArray(sourceCandidates)
+    ? sourceCandidates
+        .map((candidate) => {
+          const nodeId = toTrimmedString(
+            candidate.node_id ?? candidate.nodeId ?? candidate.nodeID,
+          );
+          const name = toTrimmedString(candidate.name);
+          return {
+            nodeId: nodeId || null,
+            name: name || null,
+          };
+        })
+        .filter(
+          (
+            candidate,
+          ): candidate is {
+            nodeId: string | null;
+            name: string | null;
+          } => Boolean(candidate.nodeId || candidate.name),
+        )
+    : [];
+
+  if (normalizedSourceCandidates.length === 0) {
+    return {
+      detectedComponentsCount: components.length,
+      importedComponentsCount: importedComponents.length,
+      pendingComponentsCount: pendingComponentNamesFallback.length,
+      importedComponentNames,
+      pendingComponentNames: pendingComponentNamesFallback,
+    };
+  }
+
+  const importedNodeIds = new Set(
+    importedComponents
+      .map((component) => component.nodeId)
+      .filter((value): value is string => Boolean(value && value.trim())),
+  );
+  const importedNames = new Set(
+    importedComponents
+      .map((component) => component.name)
+      .filter((value): value is string => Boolean(value && value.trim())),
+  );
+  const pendingComponentNames = normalizedSourceCandidates
+    .filter((candidate) => {
+      if (candidate.nodeId && importedNodeIds.has(candidate.nodeId)) return false;
+      if (!candidate.nodeId && candidate.name && importedNames.has(candidate.name)) return false;
+      return Boolean(candidate.nodeId || candidate.name);
+    })
+    .map((candidate) => candidate.name || candidate.nodeId || '')
+    .filter((name) => name.trim().length > 0);
+
+  return {
+    detectedComponentsCount: normalizedSourceCandidates.length,
+    importedComponentsCount: importedComponents.length,
+    pendingComponentsCount: pendingComponentNames.length,
+    importedComponentNames,
+    pendingComponentNames,
+  };
+}
+
 async function refreshDesignSystemImportCoverage(args: {
   designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   systemId: string;
+  sourceCandidates?: Array<Record<string, unknown>>;
 }): Promise<void> {
-  const { designSystemRepository, componentRepo, systemId } = args;
+  const { designSystemRepository, componentRepo, systemId, sourceCandidates } = args;
   if (!designSystemRepository || !componentRepo) return;
 
-  // Use the lean coverage projection — name + status only — instead of getAll()
-  // which also loads specs, proofs and Figma metadata. Coverage counters need
-  // nothing beyond what this single SELECT returns.
+  // Use the lean coverage projection — name + status + node id — instead of
+  // getAll() which also loads specs, proofs and Figma metadata. Coverage
+  // counters need nothing beyond what this single SELECT returns.
   const [currentSystem, components] = await Promise.all([
     designSystemRepository.getById(systemId),
     componentRepo.getComponentCoverageRows(systemId),
   ]);
   if (!currentSystem) return;
 
-  const importedComponents = components.filter((component) => component.status !== 'missing');
-  const pendingComponents = components.filter((component) => component.status === 'missing');
-  const nextImportedComponentNames = importedComponents.map((component) => component.name);
-  const nextPendingComponentNames = pendingComponents.map((component) => component.name);
-  const nextDetectedComponentsCount = components.length;
-  const nextImportedComponentsCount = importedComponents.length;
-  const nextPendingComponentsCount = pendingComponents.length;
+  const coverage = computeDesignSystemImportCoverage(components, sourceCandidates);
 
   const hasCoverageChanges =
-    currentSystem.detectedComponentsCount !== nextDetectedComponentsCount ||
-    currentSystem.importedComponentsCount !== nextImportedComponentsCount ||
-    currentSystem.pendingComponentsCount !== nextPendingComponentsCount ||
+    currentSystem.detectedComponentsCount !== coverage.detectedComponentsCount ||
+    currentSystem.importedComponentsCount !== coverage.importedComponentsCount ||
+    currentSystem.pendingComponentsCount !== coverage.pendingComponentsCount ||
     JSON.stringify(currentSystem.importedComponentNames || []) !==
-      JSON.stringify(nextImportedComponentNames) ||
+      JSON.stringify(coverage.importedComponentNames) ||
     JSON.stringify(currentSystem.pendingComponentNames || []) !==
-      JSON.stringify(nextPendingComponentNames);
+      JSON.stringify(coverage.pendingComponentNames);
 
   if (!hasCoverageChanges) return;
 
   await designSystemRepository.update(systemId, {
-    detectedComponentsCount: nextDetectedComponentsCount,
-    importedComponentsCount: nextImportedComponentsCount,
-    pendingComponentsCount: nextPendingComponentsCount,
-    importedComponentNames: nextImportedComponentNames,
-    pendingComponentNames: nextPendingComponentNames,
+    detectedComponentsCount: coverage.detectedComponentsCount,
+    importedComponentsCount: coverage.importedComponentsCount,
+    pendingComponentsCount: coverage.pendingComponentsCount,
+    importedComponentNames: coverage.importedComponentNames,
+    pendingComponentNames: coverage.pendingComponentNames,
   });
 }
 
@@ -591,6 +662,38 @@ export function summarizeCapturedStep(result: unknown): {
     ...(durationMs !== undefined ? { durationMs } : {}),
     raw: payload,
   };
+}
+
+function extractSourceCandidatesFromCapturedStep(
+  step: {
+    raw?: Record<string, unknown>;
+  } | null | undefined,
+): Array<Record<string, unknown>> {
+  const raw = step?.raw;
+  if (!raw || typeof raw !== 'object') return [];
+
+  const report = raw.report && typeof raw.report === 'object'
+    ? (raw.report as Record<string, unknown>)
+    : null;
+  const candidateSources = [
+    raw.source_candidates,
+    raw.sourceCandidates,
+    report?.source_candidates,
+    report?.sourceCandidates,
+  ];
+
+  for (const candidateSource of candidateSources) {
+    if (!Array.isArray(candidateSource)) continue;
+    return candidateSource
+      .map((entry) =>
+        entry && typeof entry === 'object' && !Array.isArray(entry)
+          ? ({ ...entry } as Record<string, unknown>)
+          : null,
+      )
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry));
+  }
+
+  return [];
 }
 
 function summarizeVariablesStep(result: unknown): {
@@ -2928,6 +3031,7 @@ export async function handleSyncDesignSystemApplyRoute(
       designSystemRepository,
       componentRepo,
       systemId: sysCtx.systemId,
+      sourceCandidates: snapshotResult.sourceCandidates,
     }).catch((error) => {
       console.warn(
         '[handleSyncDesignSystemApplyRoute] Failed to refresh design system import coverage:',
@@ -4046,6 +4150,7 @@ export async function handleSyncDesignSystemRoute(
         designSystemRepository,
         componentRepo,
         systemId: sysCtx.systemId,
+        sourceCandidates: extractSourceCandidatesFromCapturedStep(componentsStep),
       }).catch((error) => {
         console.warn(
           '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',

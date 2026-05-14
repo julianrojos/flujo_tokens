@@ -1213,16 +1213,17 @@ export class ComponentRepository {
    */
   async getComponentCoverageRows(
     dsId: string,
-  ): Promise<Array<{ name: string; status: string }>> {
+  ): Promise<Array<{ name: string; status: string; nodeId: string | null }>> {
     const rows = (await this.sql`
-      SELECT name, status
+      SELECT name, status, COALESCE(figma_node_id, figma_component_set_node_id) AS node_id
       FROM components
       WHERE ds_id = ${dsId}
       ORDER BY name
-    `) as Array<{ name: string; status: string }>;
+    `) as Array<{ name: string; status: string; node_id: string | null }>;
     return rows.map((row) => ({
       name: String(row.name || '').trim(),
       status: String(row.status || '').trim(),
+      nodeId: String(row.node_id || '').trim() || null,
     }));
   }
 
