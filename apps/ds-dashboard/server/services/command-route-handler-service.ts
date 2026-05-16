@@ -4146,17 +4146,19 @@ export async function handleSyncDesignSystemRoute(
       // job transitions to "completed" in the in-memory queue. The client polls
       // for job completion and immediately invalidates ['design-systems-config'],
       // so the refresh must finish before this execute() returns.
-      await refreshDesignSystemImportCoverage({
-        designSystemRepository,
-        componentRepo,
-        systemId: sysCtx.systemId,
-        sourceCandidates: extractSourceCandidatesFromCapturedStep(componentsStep),
-      }).catch((error) => {
-        console.warn(
-          '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',
-          error instanceof Error ? error.message : String(error),
-        );
-      });
+      if (!skipComponentCapture) {
+        await refreshDesignSystemImportCoverage({
+          designSystemRepository,
+          componentRepo,
+          systemId: sysCtx.systemId,
+          sourceCandidates: extractSourceCandidatesFromCapturedStep(componentsStep),
+        }).catch((error) => {
+          console.warn(
+            '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+      }
       // Second eviction: any preview that ran *during* this sync (after the
       // initial clear above) may have cached a mid-sync snapshot with the same
       // {systemId, fileKey, fileVersion} key. Evict it now so the next preview
