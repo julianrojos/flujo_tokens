@@ -461,11 +461,20 @@ function ComponentBucketModal({
                   : 'No items in this bucket.'}
               </p>
             ) : isFlatList ? (
-              // Flat list — no pageName grouping (e.g. deleted items)
+              // Flat list — no pageName grouping (e.g. deleted items or components without pageName)
               <div className="space-y-1">
                 {(grouped.get('') ?? []).map((item) => (
                   <div key={item.key} className="flex items-start gap-2 py-1">
                     {item.hasFigmaGlyph ? <FigmaComponentGlyph /> : null}
+                    {isSelectable && item.nodeId !== null ? (
+                      <Checkbox
+                        aria-label={`Select component ${item.name}`}
+                        checked={selectedNodeIds.has(item.nodeId)}
+                        onChange={(e) =>
+                          onNodeSelectionChange(item.nodeId as string, e.target.checked)
+                        }
+                      />
+                    ) : null}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-foreground">{item.name}</p>
                       {item.detail ? (
@@ -1099,6 +1108,7 @@ export function SyncDiffPreview({
 
               {openModalBucket && diffResult ? (
                 <ComponentBucketModal
+                  key={openModalBucket}
                   bucket={openModalBucket}
                   items={diffResult[openModalBucket]}
                   selectedNodeIds={selectedNodeIds}
