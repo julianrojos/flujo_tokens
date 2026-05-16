@@ -2673,6 +2673,10 @@ export async function handleSyncDesignSystemApplyRoute(
     runCaptureFromFigmaUrlFn,
     searchComponentsDirectFn = searchComponentsDirect,
     disableLeanRestPath = false,
+    enqueueQueueJob,
+    sha256Text,
+    hasPluginSocketForFile,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -3038,6 +3042,87 @@ export async function handleSyncDesignSystemApplyRoute(
         error instanceof Error ? error.message : String(error),
       );
     });
+
+    // After the apply upsert, enrich newly imported components with the same
+    // data written during a first-time import: structured Figma data (token
+    // bindings, props, layout, variants, instance dependencies) + screenshots.
+    //
+    // When the Figma plugin is connected we run syncDesignSystemFromPlugin
+    // scoped to the upserted nodeIds — identical pipeline to the /new import.
+    // If the plugin is offline we do not enqueue any enrichment job; the
+    // component keeps its basic metadata until a later sync can capture it.
+    const upsertedNodeIds = upsertEntries
+      .map((e) => toTrimmedString(e.figmaNodeId))
+      .filter((id) => id.length > 0);
+
+    if (upsertedNodeIds.length > 0 && componentRepo && db) {
+      const resolvedFigmaFileId =
+        resolveFileKeyForSystem(sysCtx.figmaFileId, { figmaUrl: figmaSourceUrl }) ||
+        sysCtx.figmaFileId ||
+        '';
+
+      const canUsePlugin = resolvedFigmaFileId
+        ? (typeof hasPluginSocketForFile === 'function'
+            ? hasPluginSocketForFile(resolvedFigmaFileId)
+            : hasUsablePluginSocketForFile(getPluginConnectionManager(), resolvedFigmaFileId))
+        : false;
+
+      if (canUsePlugin) {
+        // Plugin path: full enrichment — structured data + screenshots, exact parity with /new import.
+        const _enrichDb = db;
+        const _enrichRepo = componentRepo;
+        try {
+          enqueueQueueJob({
+            label: `sync figma components post-apply (${upsertedNodeIds.length})`,
+            systemId: sysCtx.systemId,
+            operationName: 'sync:figma-db:components-apply',
+            requestId: createApiRequestId(),
+            inputHash: sha256Text(
+              JSON.stringify({
+                systemId: sysCtx.systemId,
+                figmaFileId: resolvedFigmaFileId,
+                selectedNodeIds: [...upsertedNodeIds].sort(),
+              }),
+            ),
+            execute: async ({
+              emitChunk,
+            }: {
+              emitChunk: (kind: string, message: string) => void;
+            }) => {
+              emitChunk(
+                'system',
+                `Enriching ${upsertedNodeIds.length} component(s) from Figma plugin (post-apply)...`,
+              );
+              await syncDesignSystemFromPluginFn({
+                db: _enrichDb,
+                componentRepo: _enrichRepo,
+                dsId: sysCtx.systemId,
+                figmaFileId: resolvedFigmaFileId,
+                dryRun: false,
+                includeComponents: true,
+                selectedComponentNodeIds: upsertedNodeIds,
+                requireComponentProofs: false,
+                requireVariantProofsWhenPresent: false,
+                captureComponentProofs: true,
+                captureComponentProofVariants: true,
+                repoRoot: sysCtx.repoRoot,
+                reindexUsageFromFilesystem: false,
+                usageReindexStrict: true,
+              });
+              emitChunk(
+                'result',
+                `Component enrichment complete for ${upsertedNodeIds.length} component(s).`,
+              );
+            },
+          });
+        } catch (error) {
+          console.warn(
+            '[handleSyncDesignSystemApplyRoute] Failed to enqueue component enrichment job:',
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      }
+    }
 
     clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
     clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
@@ -4023,7 +4108,7 @@ export async function handleSyncDesignSystemRoute(
       return summarizeVariablesStep({
         ok: true,
         ...result,
-        warnings: [],
+        warnings: result.usageReindexReason === 'no_sources' ? [] : result.usageReindexWarnings,
         componentsTruncated: result.componentsTruncated,
         durationMs,
       });

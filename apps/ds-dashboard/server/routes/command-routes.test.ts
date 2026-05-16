@@ -44,6 +44,17 @@ function createFailJson() {
 }
 
 function createBaseDeps(overrides: Record<string, unknown> = {}) {
+  const componentRepoOverrides = (overrides as Record<string, unknown> & {
+    componentRepo?: Record<string, unknown>;
+  }).componentRepo;
+  const baseComponentRepo = {
+    getAll: () => [],
+    getComponentsForDiff: () => [],
+    getExistingSlugs: async () => [],
+    upsertFromRegistry: () => 0,
+    markMissingComponents: () => 0,
+  };
+
   return {
     failJson: createFailJson(),
     createApiRequestId: () => 'req_test',
@@ -76,10 +87,8 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     }),
     disableLeanRestPath: true,
     componentRepo: {
-      getAll: () => [],
-      getComponentsForDiff: () => [],
-      getExistingSlugs: () => [],
-      upsertFromRegistry: () => 0,
+      ...baseComponentRepo,
+      ...(componentRepoOverrides || {}),
     },
     databaseUrl: 'postgres://ds:local@localhost:5432/ds_dashboard',
     hasPluginSocketForFile: () => true,
@@ -101,7 +110,12 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
       return 0;
     },
     exitProcessFn: () => { },
-    ...overrides,
+    ...(() => {
+      const { componentRepo: _componentRepo, ...restOverrides } = overrides as Record<string, unknown> & {
+        componentRepo?: Record<string, unknown>;
+      };
+      return restOverrides;
+    })(),
   };
 }
 
@@ -182,7 +196,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async (dsId: string) => {
             getComponentsForDiffCalls.push(dsId);
             return [
@@ -265,7 +279,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -331,7 +345,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [
             {
               id: 1,
@@ -397,7 +411,7 @@ describe('command-routes', () => {
           }),
           componentRepo: {
             getAll: () => [],
-            getExistingSlugs: () => [],
+            getExistingSlugs: async () => [],
             getComponentsForDiff: async () => [
               {
                 id: 1,
@@ -515,7 +529,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [
             {
               id: 1,
@@ -578,7 +592,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [
             {
               id: 1,
@@ -629,7 +643,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [
             {
               id: 1,
@@ -689,7 +703,7 @@ describe('command-routes', () => {
           }),
           componentRepo: {
             getAll: () => [],
-            getExistingSlugs: () => [],
+            getExistingSlugs: async () => [],
             getComponentsForDiff: async () => [],
             upsertFromRegistry: () => 0,
           },
@@ -765,7 +779,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -816,7 +830,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -840,7 +854,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -901,7 +915,7 @@ describe('command-routes', () => {
         },
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -958,7 +972,7 @@ describe('command-routes', () => {
         }),
         componentRepo: {
           getAll: () => [],
-          getExistingSlugs: () => [],
+          getExistingSlugs: async () => [],
           getComponentsForDiff: async () => [],
           upsertFromRegistry: () => 0,
         },
@@ -1298,6 +1312,90 @@ describe('command-routes', () => {
       assert.equal(upsertCalls.length, 1);
       assert.equal(upsertCalls[0]?.entries[0]?.figmaNodeId, '1:23');
       assert.equal(upsertCalls[0]?.entries[0]?.status, 'ready');
+    });
+
+    it('keeps apply successful when post-apply enrichment enqueue fails', async () => {
+      const upsertCalls: Array<{ dsId: string; entries: Array<{ figmaNodeId?: string; status?: string }> }> = [];
+      const warnMessages: string[] = [];
+      const originalWarn = console.warn;
+      (console as any).warn = (...args: unknown[]) => {
+        warnMessages.push(args.map((arg) => String(arg)).join(' '));
+      };
+
+      try {
+        const db = (async (strings: TemplateStringsArray) => {
+          const query = String(strings[0] || '');
+          if (query.includes('SELECT figma_api_token')) {
+            return [{ figma_api_token: 'token_from_db' }];
+          }
+          return [];
+        }) as unknown as any;
+        const app = createTestApp({
+          db,
+          readJsonBody: async () => ({
+            figmaUrl: 'https://www.figma.com/design/abc123',
+          }),
+          enqueueQueueJob: () => {
+            throw new Error('queue full');
+          },
+          componentRepo: {
+            getAll: async () => [
+              {
+                id: 1,
+                dsId: 'core',
+                slug: 'boton',
+                name: 'Botón',
+                status: 'ready',
+                docType: 'component',
+                editorialExists: false,
+              },
+            ],
+            getExistingSlugs: async () => ['boton'],
+            getComponentsForDiff: async () => [
+              {
+                id: 1,
+                nodeId: '',
+                slug: 'boton',
+                name: 'Botón',
+                status: 'ready',
+                contentFingerprint: null,
+              },
+            ],
+            upsertFromRegistry: async (
+              dsId: string,
+              entries: Array<{ figmaNodeId?: string; status?: string }>,
+            ) => {
+              upsertCalls.push({ dsId, entries });
+              return entries.length;
+            },
+            markMissingComponents: async () => 0,
+          },
+          runCaptureFromFigmaUrlFn: async () => ({
+            ok: true,
+            report: {
+              source_candidates: [
+                {
+                  node_id: '1:23',
+                  name: 'Botón',
+                  type: 'component',
+                  page_name: 'Page 1',
+                  contentFingerprint: 'Botón||component||Page 1||0',
+                },
+              ],
+            },
+          }),
+        });
+
+        const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+        assert.equal(res.status, 200);
+        const payload = await res.json();
+        assert.equal((payload as any).ok, true);
+        assert.equal((payload as any).summary.updated, 1);
+        assert.equal(upsertCalls.length, 1);
+        assert.equal(warnMessages.some((msg) => msg.includes('Failed to enqueue component enrichment job')), true);
+      } finally {
+        (console as any).warn = originalWarn;
+      }
     });
 
     it('deduplicates apply updates when multiple figma candidates match the same DB slug row', async () => {
