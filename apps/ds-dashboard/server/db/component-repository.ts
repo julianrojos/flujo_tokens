@@ -1360,7 +1360,7 @@ export class ComponentRepository {
         `;
 
         let slug = String(entry.slug || '').trim() || 'component';
-        for (let attempt = 0; attempt < 5; attempt += 1) {
+        for (let attempt = 0; attempt < 1000; attempt += 1) {
           try {
             await this.sql`
               INSERT INTO components (
@@ -1382,12 +1382,12 @@ export class ComponentRepository {
                 figma_file_url = EXCLUDED.figma_file_url,
                 figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
                 figma_content_fingerprint = EXCLUDED.figma_content_fingerprint,
-                figma_page_name = EXCLUDED.figma_page_name,
-                updated_at = EXCLUDED.updated_at
-            `;
+            figma_page_name = EXCLUDED.figma_page_name,
+            updated_at = EXCLUDED.updated_at
+          `;
             break;
           } catch (error) {
-            if (!isComponentSlugUniqueViolation(error) || attempt === 4) {
+            if (!isComponentSlugUniqueViolation(error) || attempt === 999) {
               throw error;
             }
 

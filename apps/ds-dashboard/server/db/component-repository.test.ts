@@ -241,6 +241,89 @@ describe('ComponentRepository', () => {
             ]);
         });
 
+        it('keeps retrying past button-5 when multiple slug collisions already exist', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('multi-slug-deep-sys', 'Multi Slug Deep Test')`;
+
+            await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    docType: 'component',
+                },
+            ]);
+
+            await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v2',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'aaa:001',
+                    contentFingerprint: 'Button v2||COMPONENT||Components||1',
+                },
+            ]);
+            await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v3',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'bbb:002',
+                    contentFingerprint: 'Button v3||COMPONENT||Components||1',
+                },
+            ]);
+            await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v4',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'ccc:003',
+                    contentFingerprint: 'Button v4||COMPONENT||Components||1',
+                },
+            ]);
+            await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v5',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'ddd:004',
+                    contentFingerprint: 'Button v5||COMPONENT||Components||1',
+                },
+            ]);
+
+            const count = await repo.upsertFromRegistry('multi-slug-deep-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v6',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'eee:005',
+                    contentFingerprint: 'Button v6||COMPONENT||Components||1',
+                },
+            ]);
+
+            assert.strictEqual(count, 1);
+
+            const rows = await sql`
+              SELECT slug
+              FROM components
+              WHERE ds_id = 'multi-slug-deep-sys'
+              ORDER BY slug
+            `;
+
+            assert.deepStrictEqual(rows.map((row) => row.slug), [
+                'button',
+                'button-2',
+                'button-3',
+                'button-4',
+                'button-5',
+                'button-6',
+            ]);
+        });
+
         it('returns figma-node-backed, legacy, and manual components for diffing', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('diff-sys', 'Diff Test')`;
 
