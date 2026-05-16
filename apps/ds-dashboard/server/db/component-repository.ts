@@ -17,6 +17,37 @@ function toNullableInteger(value: unknown): number | null {
   return Number.isFinite(parsed) ? Math.round(parsed) : null;
 }
 
+function uniqueSlug(baseSlug: string, usedSlugs: Set<string>): string {
+  const normalizedBaseSlug = String(baseSlug || '').trim() || 'component';
+  if (!usedSlugs.has(normalizedBaseSlug)) {
+    usedSlugs.add(normalizedBaseSlug);
+    return normalizedBaseSlug;
+  }
+
+  let counter = 2;
+  while (usedSlugs.has(`${normalizedBaseSlug}-${counter}`)) {
+    counter += 1;
+  }
+  const nextSlug = `${normalizedBaseSlug}-${counter}`;
+  usedSlugs.add(nextSlug);
+  return nextSlug;
+}
+
+function isComponentSlugUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const record = error as {
+    code?: unknown;
+    constraint_name?: unknown;
+    message?: unknown;
+  };
+  const code = String(record.code ?? '');
+  if (code !== '23505') return false;
+  const constraintName = String(record.constraint_name ?? '');
+  if (constraintName === 'components_ds_id_slug_key') return true;
+  const message = String(record.message ?? '');
+  return message.includes('components_ds_id_slug_key');
+}
+
 export interface FigmaVariantEntry {
   name: string;
   properties: Record<string, string>;
@@ -1328,29 +1359,42 @@ export class ComponentRepository {
             AND figma_component_set_node_id = ${figmaNodeId}
         `;
 
-        await this.sql`
-          INSERT INTO components (
-            ds_id, slug, name, status, doc_type, figma_file_url,
-            figma_component_set_node_id, figma_node_id, figma_content_fingerprint,
-            figma_page_name, created_at, updated_at
-          )
-          VALUES (
-            ${dsId}, ${entry.slug}, ${entry.name}, ${entry.status ?? 'draft'},
-            ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null},
-            ${figmaComponentSetNodeId}, ${figmaNodeId}, ${figmaContentFingerprint},
-            ${entry.figma?.pageName ?? null}, ${now}, ${now}
-          )
-          ON CONFLICT(ds_id, figma_node_id) WHERE figma_node_id IS NOT NULL DO UPDATE SET
-            slug = EXCLUDED.slug,
-            name = EXCLUDED.name,
-            status = EXCLUDED.status,
-            doc_type = EXCLUDED.doc_type,
-            figma_file_url = EXCLUDED.figma_file_url,
-            figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
-            figma_content_fingerprint = EXCLUDED.figma_content_fingerprint,
-            figma_page_name = EXCLUDED.figma_page_name,
-            updated_at = EXCLUDED.updated_at
-        `;
+        let slug = String(entry.slug || '').trim() || 'component';
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          try {
+            await this.sql`
+              INSERT INTO components (
+                ds_id, slug, name, status, doc_type, figma_file_url,
+                figma_component_set_node_id, figma_node_id, figma_content_fingerprint,
+                figma_page_name, created_at, updated_at
+              )
+              VALUES (
+                ${dsId}, ${slug}, ${entry.name}, ${entry.status ?? 'draft'},
+                ${entry.docType ?? 'component'}, ${entry.figma?.fileUrl ?? null},
+                ${figmaComponentSetNodeId}, ${figmaNodeId}, ${figmaContentFingerprint},
+                ${entry.figma?.pageName ?? null}, ${now}, ${now}
+              )
+              ON CONFLICT(ds_id, figma_node_id) WHERE figma_node_id IS NOT NULL DO UPDATE SET
+                slug = EXCLUDED.slug,
+                name = EXCLUDED.name,
+                status = EXCLUDED.status,
+                doc_type = EXCLUDED.doc_type,
+                figma_file_url = EXCLUDED.figma_file_url,
+                figma_component_set_node_id = EXCLUDED.figma_component_set_node_id,
+                figma_content_fingerprint = EXCLUDED.figma_content_fingerprint,
+                figma_page_name = EXCLUDED.figma_page_name,
+                updated_at = EXCLUDED.updated_at
+            `;
+            break;
+          } catch (error) {
+            if (!isComponentSlugUniqueViolation(error) || attempt === 4) {
+              throw error;
+            }
+
+            const usedSlugs = new Set(await this.getExistingSlugs(dsId));
+            slug = uniqueSlug(String(entry.slug || '').trim() || 'component', usedSlugs);
+          }
+        }
       } else {
         await this.sql`
           INSERT INTO components (

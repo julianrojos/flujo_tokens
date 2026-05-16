@@ -153,6 +153,94 @@ describe('ComponentRepository', () => {
             );
         });
 
+        it('retries figma-node upserts with a unique slug when the preferred slug is already taken', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('slug-collision-sys', 'Slug Collision Test')`;
+
+            await repo.upsertFromRegistry('slug-collision-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    docType: 'component',
+                },
+            ]);
+
+            const count = await repo.upsertFromRegistry('slug-collision-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button Duplicate',
+                    status: 'needs-review',
+                    docType: 'component',
+                    figmaNodeId: '999:000',
+                    contentFingerprint: 'Button Duplicate||COMPONENT||Components||1',
+                },
+            ]);
+
+            assert.strictEqual(count, 1);
+
+            const rows = await sql`
+              SELECT slug, name, status, figma_node_id
+              FROM components
+              WHERE ds_id = 'slug-collision-sys'
+              ORDER BY slug
+            `;
+
+            assert.strictEqual(rows.length, 2);
+            assert.strictEqual(rows[0].slug, 'button');
+            assert.strictEqual(rows[0].figma_node_id, null);
+            assert.strictEqual(rows[1].slug, 'button-2');
+            assert.strictEqual(rows[1].name, 'Button Duplicate');
+            assert.strictEqual(rows[1].figma_node_id, '999:000');
+        });
+
+        it('resolves to button-3 when both button and button-2 are already taken', async () => {
+            await sql`INSERT INTO design_systems (id, name) VALUES ('multi-slug-sys', 'Multi Slug Test')`;
+
+            await repo.upsertFromRegistry('multi-slug-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    status: 'ready',
+                    docType: 'component',
+                },
+            ]);
+
+            await repo.upsertFromRegistry('multi-slug-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v2',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'aaa:001',
+                    contentFingerprint: 'Button v2||COMPONENT||Components||1',
+                },
+            ]);
+
+            await repo.upsertFromRegistry('multi-slug-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button v3',
+                    status: 'ready',
+                    docType: 'component',
+                    figmaNodeId: 'bbb:002',
+                    contentFingerprint: 'Button v3||COMPONENT||Components||1',
+                },
+            ]);
+
+            const rows = await sql`
+              SELECT slug
+              FROM components
+              WHERE ds_id = 'multi-slug-sys'
+              ORDER BY slug
+            `;
+
+            assert.deepStrictEqual(rows.map((row) => row.slug), [
+                'button',
+                'button-2',
+                'button-3',
+            ]);
+        });
+
         it('returns figma-node-backed, legacy, and manual components for diffing', async () => {
             await sql`INSERT INTO design_systems (id, name) VALUES ('diff-sys', 'Diff Test')`;
 
