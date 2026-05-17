@@ -1803,67 +1803,6 @@ describe('command-routes', () => {
       const enqueuedJobs: any[] = [];
       const syncCalls: Array<Record<string, unknown>> = [];
       const dsRepoUpdateCalls: any[] = [];
-      const coverageRows: Array<{
-        id: number;
-        dsId: string;
-        slug: string;
-        name: string;
-        status: 'draft' | 'ready' | 'needs-review' | 'missing';
-        docType: 'component';
-        figmaComponentSetNodeId?: string;
-        editorialExists: boolean;
-      }> = [
-        {
-          id: 1,
-          dsId: 'core',
-          slug: 'button',
-          name: 'Button',
-          status: 'ready',
-          docType: 'component',
-          figmaComponentSetNodeId: 'node-a',
-          editorialExists: false,
-        },
-        {
-          id: 2,
-          dsId: 'core',
-          slug: 'badge',
-          name: 'Badge',
-          status: 'ready',
-          docType: 'component',
-          figmaComponentSetNodeId: 'node-b',
-          editorialExists: false,
-        },
-        {
-          id: 3,
-          dsId: 'core',
-          slug: 'card',
-          name: 'Card',
-          status: 'ready',
-          docType: 'component',
-          figmaComponentSetNodeId: 'node-c',
-          editorialExists: false,
-        },
-        {
-          id: 4,
-          dsId: 'core',
-          slug: 'ghost',
-          name: 'Ghost',
-          status: 'missing',
-          docType: 'component',
-          figmaComponentSetNodeId: 'node-d',
-          editorialExists: false,
-        },
-        {
-          id: 5,
-          dsId: 'core',
-          slug: 'chip',
-          name: 'Chip',
-          status: 'missing',
-          docType: 'component',
-          figmaComponentSetNodeId: 'node-e',
-          editorialExists: false,
-        },
-      ];
       const db = (async (strings: TemplateStringsArray) => {
         const query = String(strings[0] || '');
         if (query.includes('SELECT figma_api_token')) {
@@ -1894,15 +1833,14 @@ describe('command-routes', () => {
           getExistingSlugs: async () => [],
           upsertFromRegistry: async (_dsId: string, entries: Array<{ figmaNodeId?: string; name?: string }>) => entries.length,
           markMissingComponents: async () => 0,
-          getComponentCoverageRows: async () => coverageRows,
         },
         designSystemRepository: {
           getById: async () => ({
-            detectedComponentsCount: 0,
-            importedComponentsCount: 0,
-            pendingComponentsCount: 0,
-            importedComponentNames: [],
-            pendingComponentNames: [],
+            detectedComponentsCount: 5,
+            importedComponentsCount: 3,
+            pendingComponentsCount: 2,
+            importedComponentNames: ['Button', 'Badge', 'Card'],
+            pendingComponentNames: ['Ghost', 'Chip'],
           }),
           update: async (...args: any[]) => {
             dsRepoUpdateCalls.push(args);
@@ -1965,10 +1903,7 @@ describe('command-routes', () => {
       assert.deepEqual(syncCalls[0]?.selectedComponentNodeIds, undefined);
       assert.equal(syncCalls[1]?.includeComponents, true);
       assert.deepEqual(syncCalls[1]?.selectedComponentNodeIds, ['node-a', 'node-b']);
-      assert.equal(dsRepoUpdateCalls.length, 1, 'coverage counters refreshed after enrichment');
-      assert.equal(dsRepoUpdateCalls[0]?.[1]?.detectedComponentsCount, 5);
-      assert.equal(dsRepoUpdateCalls[0]?.[1]?.importedComponentsCount, 3);
-      assert.equal(dsRepoUpdateCalls[0]?.[1]?.pendingComponentsCount, 2);
+      assert.equal(dsRepoUpdateCalls.length, 0, 'follow-on enrichment must not refresh design-system coverage');
     });
 
     it('marks the overall sync as completed_with_warnings when components fail but variables complete', async () => {
