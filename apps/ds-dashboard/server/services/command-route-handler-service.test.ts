@@ -76,6 +76,22 @@ describe('computeDesignSystemImportCoverage', () => {
     assert.deepEqual(coverage.pendingComponentNames, ['Ghost']);
   });
 
+  it('treats an explicit empty sourceCandidates array as an empty Figma snapshot', () => {
+    const coverage = computeDesignSystemImportCoverage(
+      [
+        { name: 'Button', status: 'ready', nodeId: '111:222' },
+        { name: 'Ghost', status: 'missing', nodeId: null },
+      ],
+      [],
+    );
+
+    assert.equal(coverage.detectedComponentsCount, 0);
+    assert.equal(coverage.importedComponentsCount, 1);
+    assert.equal(coverage.pendingComponentsCount, 0);
+    assert.deepEqual(coverage.importedComponentNames, ['Button']);
+    assert.deepEqual(coverage.pendingComponentNames, []);
+  });
+
   it('does not mark a candidate as imported when nodeId differs, even if name matches', () => {
     const coverage = computeDesignSystemImportCoverage(
       [{ name: 'Button', status: 'ready', nodeId: '111:222' }],

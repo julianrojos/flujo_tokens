@@ -270,7 +270,12 @@ export function computeDesignSystemImportCoverage(
         )
     : [];
 
-  if (normalizedSourceCandidates.length === 0) {
+  // Fallback to DB-only state only when sourceCandidates was not provided at
+  // all (undefined). When an explicit array is passed (even empty), it means
+  // the Figma scan ran and returned zero top-level components — we fall through
+  // to the normal computation path, which correctly returns detectedCount = 0
+  // and pendingCount = 0 instead of inflating them with stale DB values.
+  if (normalizedSourceCandidates.length === 0 && !Array.isArray(sourceCandidates)) {
     return {
       detectedComponentsCount: components.length,
       importedComponentsCount: importedComponents.length,
@@ -4234,18 +4239,44 @@ export async function handleSyncDesignSystemRoute(
       // job transitions to "completed" in the in-memory queue. The client polls
       // for job completion and immediately invalidates ['design-systems-config'],
       // so the refresh must finish before this execute() returns.
+      //
+      // Guard: only refresh when we have real Figma candidates. If the component
+      // step failed or returned no candidates, extractSourceCandidatesFromCapturedStep
+      // yields []. Calling refresh with [] triggers the DB-only fallback which sets
+      // pendingComponentsCount = count(status='missing'). This silently overwrites
+      // the correct pending count (computed from the full Figma scan by the apply
+      // route) with 0, because unimported Figma components have no DB row at all.
       if (!skipComponentCapture) {
-        await refreshDesignSystemImportCoverage({
-          designSystemRepository,
-          componentRepo,
-          systemId: sysCtx.systemId,
-          sourceCandidates: extractSourceCandidatesFromCapturedStep(componentsStep),
-        }).catch((error) => {
-          console.warn(
-            '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',
-            error instanceof Error ? error.message : String(error),
-          );
-        });
+        // Check whether the raw payload explicitly contains a candidates key
+        // (even if the array is empty). This distinguishes "Figma file has 0
+        // components" (key present, array empty → refresh to update counters)
+        // from "component step failed / no candidates in payload" (key absent
+        // → skip to avoid overwriting the correct pending count with a DB-only
+        // fallback that cannot see unimported Figma components).
+        const _stepRaw = componentsStep?.raw ?? {};
+        const _stepReport =
+          _stepRaw.report && typeof _stepRaw.report === 'object'
+            ? (_stepRaw.report as Record<string, unknown>)
+            : null;
+        const hasCandidatesPayload = [
+          _stepRaw.source_candidates,
+          _stepRaw.sourceCandidates,
+          _stepReport?.source_candidates,
+          _stepReport?.sourceCandidates,
+        ].some(Array.isArray);
+        if (hasCandidatesPayload) {
+          await refreshDesignSystemImportCoverage({
+            designSystemRepository,
+            componentRepo,
+            systemId: sysCtx.systemId,
+            sourceCandidates: extractSourceCandidatesFromCapturedStep(componentsStep),
+          }).catch((error) => {
+            console.warn(
+              '[handleSyncDesignSystemRoute] Failed to refresh design system import coverage:',
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+        }
       }
       const result = {
         ok: overallStatus !== 'failed',
