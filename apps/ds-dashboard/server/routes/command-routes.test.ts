@@ -1314,88 +1314,80 @@ describe('command-routes', () => {
       assert.equal(upsertCalls[0]?.entries[0]?.status, 'ready');
     });
 
-    it('keeps apply successful when post-apply enrichment enqueue fails', async () => {
+    it('does not enqueue post-apply enrichment during apply anymore', async () => {
       const upsertCalls: Array<{ dsId: string; entries: Array<{ figmaNodeId?: string; status?: string }> }> = [];
-      const warnMessages: string[] = [];
-      const originalWarn = console.warn;
-      (console as any).warn = (...args: unknown[]) => {
-        warnMessages.push(args.map((arg) => String(arg)).join(' '));
-      };
-
-      try {
-        const db = (async (strings: TemplateStringsArray) => {
-          const query = String(strings[0] || '');
-          if (query.includes('SELECT figma_api_token')) {
-            return [{ figma_api_token: 'token_from_db' }];
-          }
-          return [];
-        }) as unknown as any;
-        const app = createTestApp({
-          db,
-          readJsonBody: async () => ({
-            figmaUrl: 'https://www.figma.com/design/abc123',
-          }),
-          enqueueQueueJob: () => {
-            throw new Error('queue full');
+      const enqueueCalls: Array<Record<string, unknown>> = [];
+      const db = (async (strings: TemplateStringsArray) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        return [];
+      }) as unknown as any;
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+        }),
+        enqueueQueueJob: (args: Record<string, unknown>) => {
+          enqueueCalls.push(args);
+          return { id: 'queued_apply_enrichment' };
+        },
+        componentRepo: {
+          getAll: async () => [
+            {
+              id: 1,
+              dsId: 'core',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              docType: 'component',
+              editorialExists: false,
+            },
+          ],
+          getExistingSlugs: async () => ['boton'],
+          getComponentsForDiff: async () => [
+            {
+              id: 1,
+              nodeId: '',
+              slug: 'boton',
+              name: 'Botón',
+              status: 'ready',
+              contentFingerprint: null,
+            },
+          ],
+          upsertFromRegistry: async (
+            dsId: string,
+            entries: Array<{ figmaNodeId?: string; status?: string }>,
+          ) => {
+            upsertCalls.push({ dsId, entries });
+            return entries.length;
           },
-          componentRepo: {
-            getAll: async () => [
+          markMissingComponents: async () => 0,
+        },
+        runCaptureFromFigmaUrlFn: async () => ({
+          ok: true,
+          report: {
+            source_candidates: [
               {
-                id: 1,
-                dsId: 'core',
-                slug: 'boton',
+                node_id: '1:23',
                 name: 'Botón',
-                status: 'ready',
-                docType: 'component',
-                editorialExists: false,
+                type: 'component',
+                page_name: 'Page 1',
+                contentFingerprint: 'Botón||component||Page 1||0',
               },
             ],
-            getExistingSlugs: async () => ['boton'],
-            getComponentsForDiff: async () => [
-              {
-                id: 1,
-                nodeId: '',
-                slug: 'boton',
-                name: 'Botón',
-                status: 'ready',
-                contentFingerprint: null,
-              },
-            ],
-            upsertFromRegistry: async (
-              dsId: string,
-              entries: Array<{ figmaNodeId?: string; status?: string }>,
-            ) => {
-              upsertCalls.push({ dsId, entries });
-              return entries.length;
-            },
-            markMissingComponents: async () => 0,
           },
-          runCaptureFromFigmaUrlFn: async () => ({
-            ok: true,
-            report: {
-              source_candidates: [
-                {
-                  node_id: '1:23',
-                  name: 'Botón',
-                  type: 'component',
-                  page_name: 'Page 1',
-                  contentFingerprint: 'Botón||component||Page 1||0',
-                },
-              ],
-            },
-          }),
-        });
+        }),
+      });
 
-        const res = await app.request('/api/core/sync/apply', { method: 'POST' });
-        assert.equal(res.status, 200);
-        const payload = await res.json();
-        assert.equal((payload as any).ok, true);
-        assert.equal((payload as any).summary.updated, 1);
-        assert.equal(upsertCalls.length, 1);
-        assert.equal(warnMessages.some((msg) => msg.includes('Failed to enqueue component enrichment job')), true);
-      } finally {
-        (console as any).warn = originalWarn;
-      }
+      const res = await app.request('/api/core/sync/apply', { method: 'POST' });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal((payload as any).summary.updated, 1);
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(enqueueCalls.length, 0);
     });
 
     it('deduplicates apply updates when multiple figma candidates match the same DB slug row', async () => {
@@ -1805,6 +1797,178 @@ describe('command-routes', () => {
       assert.equal(runResult.payload?.steps?.variables?.status, 'completed_with_warnings');
       assert.ok(Array.isArray(runResult.payload?.warnings));
       assert.ok(runResult.payload?.warnings.includes('Token usage reindex requested but repoRoot is missing.'));
+    });
+
+    it('queues a follow-on enrichment job for apply+sync flows', async () => {
+      const enqueuedJobs: any[] = [];
+      const syncCalls: Array<Record<string, unknown>> = [];
+      const dsRepoUpdateCalls: any[] = [];
+      const coverageRows: Array<{
+        id: number;
+        dsId: string;
+        slug: string;
+        name: string;
+        status: 'draft' | 'ready' | 'needs-review' | 'missing';
+        docType: 'component';
+        figmaComponentSetNodeId?: string;
+        editorialExists: boolean;
+      }> = [
+        {
+          id: 1,
+          dsId: 'core',
+          slug: 'button',
+          name: 'Button',
+          status: 'ready',
+          docType: 'component',
+          figmaComponentSetNodeId: 'node-a',
+          editorialExists: false,
+        },
+        {
+          id: 2,
+          dsId: 'core',
+          slug: 'badge',
+          name: 'Badge',
+          status: 'ready',
+          docType: 'component',
+          figmaComponentSetNodeId: 'node-b',
+          editorialExists: false,
+        },
+        {
+          id: 3,
+          dsId: 'core',
+          slug: 'card',
+          name: 'Card',
+          status: 'ready',
+          docType: 'component',
+          figmaComponentSetNodeId: 'node-c',
+          editorialExists: false,
+        },
+        {
+          id: 4,
+          dsId: 'core',
+          slug: 'ghost',
+          name: 'Ghost',
+          status: 'missing',
+          docType: 'component',
+          figmaComponentSetNodeId: 'node-d',
+          editorialExists: false,
+        },
+        {
+          id: 5,
+          dsId: 'core',
+          slug: 'chip',
+          name: 'Chip',
+          status: 'missing',
+          docType: 'component',
+          figmaComponentSetNodeId: 'node-e',
+          editorialExists: false,
+        },
+      ];
+      const db = (async (strings: TemplateStringsArray) => {
+        const query = String(strings[0] || '');
+        if (query.includes('SELECT figma_api_token')) {
+          return [{ figma_api_token: 'token_from_db' }];
+        }
+        if (query.includes('FROM components') && query.includes('figma_node_id = ANY')) {
+          return [
+            {
+              figma_node_id: 'node-a',
+              name: 'Button',
+              figma_page_name: 'Components',
+            },
+          ];
+        }
+        return [];
+      }) as unknown as any;
+
+      const app = createTestApp({
+        db,
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+          skipComponentCapture: true,
+          selectedComponentNodeIds: ['node-b', 'node-a'],
+        }),
+        componentRepo: {
+          getAll: async () => [],
+          getExistingSlugs: async () => [],
+          upsertFromRegistry: async (_dsId: string, entries: Array<{ figmaNodeId?: string; name?: string }>) => entries.length,
+          markMissingComponents: async () => 0,
+          getComponentCoverageRows: async () => coverageRows,
+        },
+        designSystemRepository: {
+          getById: async () => ({
+            detectedComponentsCount: 0,
+            importedComponentsCount: 0,
+            pendingComponentsCount: 0,
+            importedComponentNames: [],
+            pendingComponentNames: [],
+          }),
+          update: async (...args: any[]) => {
+            dsRepoUpdateCalls.push(args);
+          },
+        },
+        syncDesignSystemFromPluginFn: async (opts: Record<string, unknown>) => {
+          syncCalls.push(opts);
+          return {
+            tokens: 11,
+            tokenModeValues: 4,
+            aliases: 2,
+            components: 0,
+            componentsTruncated: false,
+            usageRestored: 0,
+            usageDropped: 0,
+            usageReindexed: 0,
+            usageReindexStatus: 'not-requested' as const,
+            usageReindexReason: 'none' as const,
+            usageReindexWarnings: [],
+            specYamlGenerated: 0,
+            specYamlSkipped: 0,
+            specYamlFailed: 0,
+            specYamlWarnings: [],
+            specsEnriched: 0,
+            proofsEnriched: 0,
+            dryRun: false,
+            importMode: 'partial' as const,
+            selectedCount: 2,
+            notSelectedCount: 0,
+          };
+        },
+        enqueueQueueJob: (args: any) => {
+          enqueuedJobs.push(args);
+          return { id: `sync_design_system_job_${enqueuedJobs.length}` };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(enqueuedJobs.length, 1);
+
+      const runResult = await enqueuedJobs[0].execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.equal(enqueuedJobs.length, 2);
+      assert.equal(runResult.payload?.enrichmentJobId, 'sync_design_system_job_2');
+      assert.equal(enqueuedJobs[1]?.operationName, 'sync:design-system:enrichment');
+
+      const enrichmentRunResult = await enqueuedJobs[1].execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(enrichmentRunResult.ok, true);
+      assert.equal(syncCalls.length, 2);
+      assert.equal(syncCalls[0]?.includeComponents, false);
+      assert.deepEqual(syncCalls[0]?.selectedComponentNodeIds, undefined);
+      assert.equal(syncCalls[1]?.includeComponents, true);
+      assert.deepEqual(syncCalls[1]?.selectedComponentNodeIds, ['node-a', 'node-b']);
+      assert.equal(dsRepoUpdateCalls.length, 1, 'coverage counters refreshed after enrichment');
+      assert.equal(dsRepoUpdateCalls[0]?.[1]?.detectedComponentsCount, 5);
+      assert.equal(dsRepoUpdateCalls[0]?.[1]?.importedComponentsCount, 3);
+      assert.equal(dsRepoUpdateCalls[0]?.[1]?.pendingComponentsCount, 2);
     });
 
     it('marks the overall sync as completed_with_warnings when components fail but variables complete', async () => {
