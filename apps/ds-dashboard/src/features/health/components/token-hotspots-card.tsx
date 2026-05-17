@@ -108,29 +108,27 @@ export function TokenHotspotsCard() {
             const width = maxUsageCount > 0 ? Math.max(4, (row.usageCount / maxUsageCount) * 100) : 0;
             const tooltip = getUsageTooltip(row.componentSlugs, parentFileName);
             return (
-              <div
-                key={row.path}
-                className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)_auto] items-center gap-3"
-                title={tooltip}
-              >
+              <div key={row.path} className="space-y-1" title={tooltip}>
                 <div className="min-w-0">
                   <Link
                     to={toTokenDetail(row.path)}
-                    className="truncate text-sm text-foreground hover:text-primary"
+                    className="block truncate text-sm text-foreground hover:text-primary"
                     title={`${row.path} · ${tooltip}`}
                   >
                     {row.path}
                   </Link>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-muted/70">
-                  <div
-                    className="h-full rounded-full bg-[var(--app-accent)] transition-[width] duration-300 ease-out"
-                    style={{ width: `${width}%` }}
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="tabular-nums text-sm font-semibold text-foreground">
-                  {row.usageCount}
+                <div className="flex items-center gap-3">
+                  <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/70">
+                    <div
+                      className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+                      style={{ width: `${width}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="shrink-0 tabular-nums text-sm font-semibold text-foreground">
+                    {row.usageCount}
+                  </div>
                 </div>
               </div>
             );

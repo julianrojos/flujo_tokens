@@ -124,7 +124,7 @@ export function ComponentEditorialCoverageCard() {
             >
               <g transform={`translate(${CENTER}, ${CENTER})`}>
                 <path d={trackPath || undefined} className="fill-surface-2 stroke-border/70" />
-                <path d={fillPath || undefined} className="fill-[var(--app-accent)]" />
+                <path d={fillPath || undefined} className="fill-accent" />
               </g>
             </svg>
 

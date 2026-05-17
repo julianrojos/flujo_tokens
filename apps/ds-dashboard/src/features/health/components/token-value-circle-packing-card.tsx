@@ -188,7 +188,7 @@ export function TokenValueCirclePackingCard() {
                   <g
                     key={node.data.cluster.key}
                     transform={`translate(${node.x}, ${node.y})`}
-                    style={{ cursor: "pointer" }}
+                    className="cursor-pointer"
                     role="link"
                     tabIndex={0}
                     aria-label={`Ver tokens con el mismo valor ${node.data.cluster.label}`}
@@ -216,7 +216,7 @@ export function TokenValueCirclePackingCard() {
 
               {leafNodes.map((node) => {
                 const cluster = node.parent?.data.kind === "cluster" ? node.parent.data : null;
-                const fill = cluster?.fill || "#94a3b8";
+                const fill = cluster?.fill || "var(--app-text-subtle)";
                 const tokenPath = node.data.path;
                 const tokenLabel = `${tokenPath} · ${node.data.resolvedValue}`;
                 const leafRadius = node.r * 0.75;
@@ -224,7 +224,7 @@ export function TokenValueCirclePackingCard() {
                   <g
                     key={tokenPath}
                     transform={`translate(${node.x}, ${node.y})`}
-                    style={{ pointerEvents: "none" }}
+                    className="pointer-events-none"
                   >
                     <circle
                       r={leafRadius}
