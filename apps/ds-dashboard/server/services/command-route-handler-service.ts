@@ -271,17 +271,25 @@ export function computeDesignSystemImportCoverage(
     : [];
 
   // Fallback to DB-only state only when sourceCandidates was not provided at
-  // all (undefined). When an explicit array is passed (even empty), it means
-  // the Figma scan ran and returned zero top-level components — we fall through
-  // to the normal computation path, which correctly returns detectedCount = 0
-  // and pendingCount = 0 instead of inflating them with stale DB values.
-  if (normalizedSourceCandidates.length === 0 && !Array.isArray(sourceCandidates)) {
+  // all (undefined). When an explicit array is passed, we must derive all
+  // coverage counters from the snapshot itself, even if it is empty.
+  if (!Array.isArray(sourceCandidates)) {
     return {
       detectedComponentsCount: components.length,
       importedComponentsCount: importedComponents.length,
       pendingComponentsCount: pendingComponentNamesFallback.length,
       importedComponentNames,
       pendingComponentNames: pendingComponentNamesFallback,
+    };
+  }
+
+  if (normalizedSourceCandidates.length === 0) {
+    return {
+      detectedComponentsCount: 0,
+      importedComponentsCount: 0,
+      pendingComponentsCount: 0,
+      importedComponentNames: [],
+      pendingComponentNames: [],
     };
   }
 
@@ -295,20 +303,26 @@ export function computeDesignSystemImportCoverage(
       .map((component) => component.name)
       .filter((value): value is string => Boolean(value && value.trim())),
   );
+  const isImportedCandidate = (candidate: { nodeId: string | null; name: string | null }) => {
+    if (candidate.nodeId) return importedNodeIds.has(candidate.nodeId);
+    if (candidate.name) return importedNames.has(candidate.name);
+    return false;
+  };
+  const importedCandidates = normalizedSourceCandidates.filter((candidate) =>
+    isImportedCandidate(candidate),
+  );
   const pendingComponentNames = normalizedSourceCandidates
-    .filter((candidate) => {
-      if (candidate.nodeId && importedNodeIds.has(candidate.nodeId)) return false;
-      if (!candidate.nodeId && candidate.name && importedNames.has(candidate.name)) return false;
-      return Boolean(candidate.nodeId || candidate.name);
-    })
+    .filter((candidate) => !isImportedCandidate(candidate))
     .map((candidate) => candidate.name || candidate.nodeId || '')
     .filter((name) => name.trim().length > 0);
 
   return {
     detectedComponentsCount: normalizedSourceCandidates.length,
-    importedComponentsCount: importedComponents.length,
+    importedComponentsCount: importedCandidates.length,
     pendingComponentsCount: pendingComponentNames.length,
-    importedComponentNames,
+    importedComponentNames: importedCandidates
+      .map((candidate) => candidate.name || candidate.nodeId || '')
+      .filter((name) => name.trim().length > 0),
     pendingComponentNames,
   };
 }

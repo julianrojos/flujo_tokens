@@ -86,9 +86,9 @@ describe('computeDesignSystemImportCoverage', () => {
     );
 
     assert.equal(coverage.detectedComponentsCount, 0);
-    assert.equal(coverage.importedComponentsCount, 1);
+    assert.equal(coverage.importedComponentsCount, 0);
     assert.equal(coverage.pendingComponentsCount, 0);
-    assert.deepEqual(coverage.importedComponentNames, ['Button']);
+    assert.deepEqual(coverage.importedComponentNames, []);
     assert.deepEqual(coverage.pendingComponentNames, []);
   });
 
