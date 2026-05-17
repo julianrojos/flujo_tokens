@@ -2673,10 +2673,6 @@ export async function handleSyncDesignSystemApplyRoute(
     runCaptureFromFigmaUrlFn,
     searchComponentsDirectFn = searchComponentsDirect,
     disableLeanRestPath = false,
-    enqueueQueueJob,
-    sha256Text,
-    hasPluginSocketForFile,
-    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -3042,87 +3038,6 @@ export async function handleSyncDesignSystemApplyRoute(
         error instanceof Error ? error.message : String(error),
       );
     });
-
-    // After the apply upsert, enrich newly imported components with the same
-    // data written during a first-time import: structured Figma data (token
-    // bindings, props, layout, variants, instance dependencies) + screenshots.
-    //
-    // When the Figma plugin is connected we run syncDesignSystemFromPlugin
-    // scoped to the upserted nodeIds — identical pipeline to the /new import.
-    // If the plugin is offline we do not enqueue any enrichment job; the
-    // component keeps its basic metadata until a later sync can capture it.
-    const upsertedNodeIds = upsertEntries
-      .map((e) => toTrimmedString(e.figmaNodeId))
-      .filter((id) => id.length > 0);
-
-    if (upsertedNodeIds.length > 0 && componentRepo && db) {
-      const resolvedFigmaFileId =
-        resolveFileKeyForSystem(sysCtx.figmaFileId, { figmaUrl: figmaSourceUrl }) ||
-        sysCtx.figmaFileId ||
-        '';
-
-      const canUsePlugin = resolvedFigmaFileId
-        ? (typeof hasPluginSocketForFile === 'function'
-            ? hasPluginSocketForFile(resolvedFigmaFileId)
-            : hasUsablePluginSocketForFile(getPluginConnectionManager(), resolvedFigmaFileId))
-        : false;
-
-      if (canUsePlugin) {
-        // Plugin path: full enrichment — structured data + screenshots, exact parity with /new import.
-        const _enrichDb = db;
-        const _enrichRepo = componentRepo;
-        try {
-          enqueueQueueJob({
-            label: `sync figma components post-apply (${upsertedNodeIds.length})`,
-            systemId: sysCtx.systemId,
-            operationName: 'sync:figma-db:components-apply',
-            requestId: createApiRequestId(),
-            inputHash: sha256Text(
-              JSON.stringify({
-                systemId: sysCtx.systemId,
-                figmaFileId: resolvedFigmaFileId,
-                selectedNodeIds: [...upsertedNodeIds].sort(),
-              }),
-            ),
-            execute: async ({
-              emitChunk,
-            }: {
-              emitChunk: (kind: string, message: string) => void;
-            }) => {
-              emitChunk(
-                'system',
-                `Enriching ${upsertedNodeIds.length} component(s) from Figma plugin (post-apply)...`,
-              );
-              await syncDesignSystemFromPluginFn({
-                db: _enrichDb,
-                componentRepo: _enrichRepo,
-                dsId: sysCtx.systemId,
-                figmaFileId: resolvedFigmaFileId,
-                dryRun: false,
-                includeComponents: true,
-                selectedComponentNodeIds: upsertedNodeIds,
-                requireComponentProofs: false,
-                requireVariantProofsWhenPresent: false,
-                captureComponentProofs: true,
-                captureComponentProofVariants: true,
-                repoRoot: sysCtx.repoRoot,
-                reindexUsageFromFilesystem: false,
-                usageReindexStrict: true,
-              });
-              emitChunk(
-                'result',
-                `Component enrichment complete for ${upsertedNodeIds.length} component(s).`,
-              );
-            },
-          });
-        } catch (error) {
-          console.warn(
-            '[handleSyncDesignSystemApplyRoute] Failed to enqueue component enrichment job:',
-            error instanceof Error ? error.message : String(error),
-          );
-        }
-      }
-    }
 
     clearSyncDiffPreviewCacheForSystem(sysCtx.systemId);
     clearSyncVariablesPreviewCacheForSystem(sysCtx.systemId);
@@ -3967,6 +3882,15 @@ export async function handleSyncDesignSystemRoute(
   // Used by the apply+sync flow: apply already committed component metadata from
   // the preview diff, so re-downloading the full Figma file is redundant.
   const skipComponentCapture = toBooleanString(body.skipComponentCapture, false) === 'true';
+  const selectedComponentNodeIds = Array.isArray(body.selectedComponentNodeIds)
+    ? body.selectedComponentNodeIds.filter(
+        (id: unknown): id is string =>
+          typeof id === 'string' && id.trim().length > 0,
+      )
+    : undefined;
+  const selectedComponentNodeIdsForHash = selectedComponentNodeIds
+    ? [...selectedComponentNodeIds].sort()
+    : undefined;
 
   const captureConfig = buildCaptureFigmaScreenshotCommandConfig({
     body: {
@@ -4148,6 +4072,8 @@ export async function handleSyncDesignSystemRoute(
         figmaFileId,
         dryRun,
         figmaToken: Boolean(figmaToken),
+        skipComponentCapture,
+        selectedComponentNodeIds: selectedComponentNodeIdsForHash,
       }),
     ),
     execute: async ({
@@ -4213,20 +4139,113 @@ export async function handleSyncDesignSystemRoute(
             : 'Sync completed.';
       emitChunk('result', summary);
 
-      const result = {
+      const resultPayload: Record<string, unknown> = {
         ok: overallStatus !== 'failed',
-        code: overallStatus === 'failed' ? 1 : 0,
-        summary,
-        payload: {
-          ok: overallStatus !== 'failed',
-          status: overallStatus,
-          steps: {
-            components: componentsStep,
-            variables: variablesStep,
-          },
-          warnings,
+        status: overallStatus,
+        steps: {
+          components: componentsStep,
+          variables: variablesStep,
         },
+        warnings,
       };
+
+      if (skipComponentCapture && selectedComponentNodeIdsForHash?.length) {
+        try {
+          const enrichmentJob = enqueueQueueJob({
+            label: 'sync design system enrichment (figma→db)',
+            systemId: sysCtx.systemId,
+            operationName: 'sync:design-system:enrichment',
+            priority: 'normal',
+            requestId: createApiRequestId(),
+            inputHash: sha256Text(
+              JSON.stringify({
+                systemId: sysCtx.systemId,
+                figmaUrl,
+                figmaFileId,
+                skipComponentCapture: true,
+                selectedComponentNodeIds: selectedComponentNodeIdsForHash,
+              }),
+            ),
+            execute: async ({ emitChunk }: { emitChunk: (kind: string, message: string) => void }) => {
+              emitChunk('system', 'Enriching components from Figma...');
+              // Bypass the full-file searchComponents scan: we already know the
+              // exact node IDs and the basic metadata (name, pageName) is already
+              // committed to the DB by the apply route.  A single DB query returns
+              // what we need — no plugin round-trips for the discovery phase.
+              const _enrichDb = db;
+              const _enrichSelectedIds = selectedComponentNodeIdsForHash ?? [];
+              const searchComponentsFromDb: typeof searchComponentsDirect = async () => {
+                const rows = (await _enrichDb`
+                  SELECT figma_node_id, name, figma_page_name
+                  FROM components
+                  WHERE ds_id = ${sysCtx.systemId}
+                    AND figma_node_id = ANY(${_enrichSelectedIds})
+                `) as Array<{ figma_node_id: string; name: string; figma_page_name: string | null }>;
+                return {
+                  components: rows.map((r) => ({
+                    nodeId: String(r.figma_node_id || '').trim(),
+                    name: String(r.name || '').trim(),
+                    pageName: r.figma_page_name ? String(r.figma_page_name).trim() : undefined,
+                  })),
+                  hasMore: false,
+                  total: rows.length,
+                  truncated: false,
+                  totalIsEstimated: false,
+                };
+              };
+              const enrichmentResult = await syncDesignSystemFromPluginFn({
+                db,
+                componentRepo,
+                dsId: sysCtx.systemId,
+                figmaFileId,
+                fetchVariables: buildFreshVariablesFetchFn(figmaFileId),
+                searchComponents: searchComponentsFromDb,
+                dryRun: false,
+                includeComponents: true,
+                selectedComponentNodeIds: selectedComponentNodeIdsForHash,
+                requireComponentProofs: true,
+                requireVariantProofsWhenPresent: false,
+                captureComponentProofs: true,
+                captureComponentProofVariants: true,
+                repoRoot: sysCtx.repoRoot,
+                reindexUsageFromFilesystem: Boolean(sysCtx.repoRoot),
+                usageReindexStrict: true,
+              });
+              // Refresh DB coverage counters so that ['design-systems-config']
+              // (Import Coverage / Pending Components) reflects the enriched state.
+              // Must complete before execute() returns — the client invalidates
+              // ['design-systems-config'] as soon as it sees the job reach a
+              // terminal status.
+              await refreshDesignSystemImportCoverage({
+                designSystemRepository,
+                componentRepo,
+                systemId: sysCtx.systemId,
+                sourceCandidates: undefined,
+              }).catch((error) => {
+                console.warn(
+                  '[handleSyncDesignSystemRoute] enrichment: Failed to refresh design system import coverage:',
+                  error instanceof Error ? error.message : String(error),
+                );
+              });
+              return {
+                ok: true,
+                code: 0,
+                summary: 'Component enrichment completed.',
+                payload: {
+                  ok: true,
+                  ...enrichmentResult,
+                },
+              };
+            },
+          });
+          resultPayload.enrichmentJobId = enrichmentJob.id;
+        } catch (error) {
+          console.warn(
+            '[handleSyncDesignSystemRoute] Failed to enqueue post-sync enrichment job:',
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      }
       // Await coverage refresh so the DB counters are committed before the
       // job transitions to "completed" in the in-memory queue. The client polls
       // for job completion and immediately invalidates ['design-systems-config'],
@@ -4244,6 +4263,12 @@ export async function handleSyncDesignSystemRoute(
           );
         });
       }
+      const result = {
+        ok: overallStatus !== 'failed',
+        code: overallStatus === 'failed' ? 1 : 0,
+        summary,
+        payload: resultPayload,
+      };
       // Second eviction: any preview that ran *during* this sync (after the
       // initial clear above) may have cached a mid-sync snapshot with the same
       // {systemId, fileKey, fileVersion} key. Evict it now so the next preview

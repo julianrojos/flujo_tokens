@@ -878,7 +878,13 @@ export function DesignSystemUpdateActions({
   }, [activeSyncJobId, activeSyncOperation, persistSyncState]);
 
   const startSync = useCallback(
-    async ({ skipComponentCapture = false }: { skipComponentCapture?: boolean } = {}) => {
+    async ({
+      skipComponentCapture = false,
+      selectedComponentNodeIds,
+    }: {
+      skipComponentCapture?: boolean;
+      selectedComponentNodeIds?: string[];
+    } = {}): Promise<SyncDesignSystemResult | undefined> => {
       const url = String(sharedFigmaUrl || '').trim();
       const nextRunId = syncRunIdRef.current + 1;
       syncRunIdRef.current = nextRunId;
@@ -947,6 +953,7 @@ export function DesignSystemUpdateActions({
           {
             url,
             figmaToken: String(sharedToken || '').trim() || undefined,
+            selectedComponentNodeIds,
             skipComponentCapture,
           },
           {
@@ -1076,6 +1083,7 @@ export function DesignSystemUpdateActions({
             variables: nextVariablesState,
             tokens: nextTokensState,
           }));
+          return result;
         } catch (tokensCause) {
           if (syncRunIdRef.current !== nextRunId) return;
           setActiveSyncJobId(null);
@@ -1090,6 +1098,7 @@ export function DesignSystemUpdateActions({
           setSyncError(message);
           pendingSyncPersistRef.current = { error: message };
           setSyncSteps((prev) => ({ ...prev, tokens: failedTokensState }));
+          return undefined;
         }
       } catch (cause) {
         if (syncRunIdRef.current !== nextRunId) return;
@@ -1125,6 +1134,7 @@ export function DesignSystemUpdateActions({
           undefined,
           message,
         );
+        return undefined;
       }
     },
     [
@@ -1151,8 +1161,46 @@ export function DesignSystemUpdateActions({
     // Skip component screenshot capture: apply already committed component
     // metadata from the preview snapshot. Re-downloading the full Figma file
     // via subprocess is unnecessary and causes 20+ min timeouts on large systems.
-    await startSync({ skipComponentCapture: true });
-  }, [runSyncDiffApply, startSync]);
+    const syncResult = await startSync({
+      skipComponentCapture: true,
+      selectedComponentNodeIds: selectedNodeIds,
+    });
+    // Re-invalidate after the main sync finishes so the catalog reflects any
+    // variable-count updates written by the variables step.
+    void queryClient.invalidateQueries({ queryKey: ['component-catalog'] });
+    const enrichmentJobId = syncResult?.enrichmentJobId;
+    // If the sync route enqueued a background enrichment job (variants, token
+    // bindings, screenshots), poll it and re-invalidate the catalog when it
+    // finishes so component detail pages show fully-enriched data without a
+    // manual refresh. The poll runs fire-and-forget so it doesn't block the UI.
+    if (enrichmentJobId) {
+      const jobId = enrichmentJobId;
+      void (async () => {
+        const POLL_TIMEOUT_MS = 120_000;
+        const deadline = Date.now() + POLL_TIMEOUT_MS;
+        let delay = 1_500;
+        while (Date.now() < deadline) {
+          await new Promise<void>((r) => { window.setTimeout(r, delay); });
+          try {
+            const { job } = await getQueueJob(jobId);
+            const status = String(job?.status || '').toLowerCase();
+            if (status === 'success' || status === 'error' || status === 'cancelled') {
+              void queryClient.invalidateQueries({ queryKey: ['component-catalog'] });
+              // Also refresh the design-systems-config query so that Import
+              // Coverage / Pending Components counts (read from this key in
+              // components-page.tsx) reflect the counters updated by
+              // refreshDesignSystemImportCoverage inside the enrichment job.
+              void queryClient.invalidateQueries({ queryKey: ['design-systems-config'] });
+              break;
+            }
+          } catch {
+            // Ignore transient fetch errors; keep polling until deadline.
+          }
+          delay = Math.min(Math.floor(delay * 1.5), 5_000);
+        }
+      })();
+    }
+  }, [runSyncDiffApply, startSync, queryClient]);
 
   const failedSteps = useMemo(
     () =>

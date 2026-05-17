@@ -1208,6 +1208,7 @@ export interface SyncDesignSystemStepResult {
 export interface SyncDesignSystemResult {
   ok: boolean;
   jobId?: string;
+  enrichmentJobId?: string;
   status: 'completed' | 'completed_with_warnings' | 'failed';
   steps: {
     components: SyncDesignSystemStepResult;
@@ -2080,6 +2081,7 @@ function toSyncDesignSystemResult(
   return {
     ok: payload.ok !== false,
     jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    enrichmentJobId: toNonEmptyString(payload.enrichmentJobId) || undefined,
     status:
       payload.status === 'completed_with_warnings' ||
       payload.status === 'failed'
@@ -2099,6 +2101,7 @@ export async function syncDesignSystem(
     fileKey?: string;
     figmaToken?: string;
     dryRun?: boolean;
+    selectedComponentNodeIds?: string[];
     /** Skip Figma file download + screenshot capture. Use after apply+sync when
      *  component metadata was already committed from the preview diff. */
     skipComponentCapture?: boolean;
