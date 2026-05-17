@@ -4211,22 +4211,6 @@ export async function handleSyncDesignSystemRoute(
                 reindexUsageFromFilesystem: Boolean(sysCtx.repoRoot),
                 usageReindexStrict: true,
               });
-              // Refresh DB coverage counters so that ['design-systems-config']
-              // (Import Coverage / Pending Components) reflects the enriched state.
-              // Must complete before execute() returns — the client invalidates
-              // ['design-systems-config'] as soon as it sees the job reach a
-              // terminal status.
-              await refreshDesignSystemImportCoverage({
-                designSystemRepository,
-                componentRepo,
-                systemId: sysCtx.systemId,
-                sourceCandidates: undefined,
-              }).catch((error) => {
-                console.warn(
-                  '[handleSyncDesignSystemRoute] enrichment: Failed to refresh design system import coverage:',
-                  error instanceof Error ? error.message : String(error),
-                );
-              });
               return {
                 ok: true,
                 code: 0,
