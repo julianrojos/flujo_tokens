@@ -7,7 +7,7 @@ alwaysApply: false
 
 # UI Style Contract
 
-The DS Dashboard has its own visual identity — Dark SaaS, professional, decoupled from Karmap/Iter. Every visual decision flows from centralized tokens in `index.css` through `tailwind.config.ts` into components. This contract ensures that chain is never bypassed.
+The DS Dashboard has its own visual identity. Every visual decision flows from centralized tokens in `index.css` through `tailwind.config.ts` into components. This contract ensures that chain is never bypassed.
 
 ## Token-first styling
 
