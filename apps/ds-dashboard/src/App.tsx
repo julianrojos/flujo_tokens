@@ -469,7 +469,7 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen text-foreground">
-        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px]">
+        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px] border-x border-border-soft bg-surface-1">
           <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
               <div className="mb-2 flex items-center justify-between gap-3">
