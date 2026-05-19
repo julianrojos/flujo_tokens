@@ -86,6 +86,35 @@ design-systems/<id>/   Per-system input/output/docs artifacts
 - Figma Desktop, when using plugin/bridge workflows
 - A Figma access token for REST-based Figma operations
 
+## Environment Setup
+
+The repo keeps per-app examples in:
+
+- `apps/ds-dashboard/.env.example`
+- `apps/figma-plugin/.env.example`
+
+Use them as the source of truth for local configuration. Copy the example you need
+and keep the resulting `.env` files out of git. Edit values only when you need to
+change the local defaults or enable Figma, AI, split deployments, or non-default
+infrastructure.
+
+For day-to-day dashboard work, `apps/ds-dashboard/.env.example` is the file that
+matters. `apps/figma-plugin/.env.example` only matters when you build or run the
+Figma plugin.
+
+Minimum local setup for the happy path:
+
+```bash
+npm ci
+cp apps/ds-dashboard/.env.example apps/ds-dashboard/.env
+npm run db:up
+npm run dashboard:dev
+```
+
+The dashboard example already covers the local defaults for PostgreSQL and the core
+app. You only need to add extra values if you use Figma sync, AI jobs, split
+deployments, or non-default infrastructure.
+
 ## Local Setup
 
 Install dependencies from the repository root:
@@ -194,37 +223,55 @@ npm run test:changed-surface
 
 ## Environment Variables
 
-### Database
+### Dashboard core
 
-- `DATABASE_URL`: active PostgreSQL URL.
-- `TEST_DATABASE_URL`: test database URL; preferred in test mode.
-- `DB_PROVIDER=local|supabase|custom`: database provider mode.
-- `SUPABASE_DATABASE_URL`: used when `DB_PROVIDER=supabase`.
+These are the values that matter for a normal local dashboard run:
+
+- `DATABASE_URL`: PostgreSQL connection string for the dashboard.
+- `DB_PROVIDER=local|supabase|custom`: selects the database backend mode.
+- `TEST_DATABASE_URL`: test database URL; used by the test helpers when present.
+- `DS_DASHBOARD_INTERNAL_TOKEN`: optional internal auth token for API and bridge routes.
+- `DS_DASHBOARD_API_HOST`: API bind host.
+
+If you use the bundled local database, the default `apps/ds-dashboard/.env.example`
+already shows a working `DATABASE_URL` and `DB_PROVIDER=local` combination.
+
+### Database provider specifics
+
+- `SUPABASE_DATABASE_URL`: required when `DB_PROVIDER=supabase`.
 
 ### Dashboard and deployment
 
-- `VITE_API_URL`: frontend API origin for split deployments.
+- `VITE_API_URL`: frontend API origin for split deployments and the plugin UI.
 - `DS_DASHBOARD_ALLOWED_ORIGINS`: explicit CORS origins for the API.
-- `DS_DASHBOARD_API_HOST`: API bind host.
-- `DS_DASHBOARD_INTERNAL_TOKEN`: internal API/bridge auth token.
 
 ### Figma
 
-- `FIGMA_TOKEN`: REST Figma API token.
-- `VITE_DIRECT_WS_URL`: plugin direct WebSocket URL.
+- `FIGMA_TOKEN`: REST Figma API token for import/sync and capture workflows.
+- `VITE_DIRECT_WS_URL`: plugin direct WebSocket URL when you want to override the default derivation from `VITE_API_URL`.
+- `FIGMA_PLUGIN_ALLOWED_DOMAINS`: extra allowlist entries for plugin builds.
 
 ### AI providers
 
-- `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
-- `OPENROUTER_API_KEY`
-- `GEMINI_API_KEY` or `GOOGLE_API_KEY`
-- `OLLAMA_BASE_URL`
-- `AI_ANTHROPIC_MODEL`
-- `AI_OPENAI_MODEL`
-- `AI_OPENROUTER_MODEL`
-- `AI_GEMINI_MODEL`
-- `AI_OLLAMA_MODEL`
+- Set the key for the provider you plan to use:
+  - `ANTHROPIC_API_KEY`
+  - `OPENAI_API_KEY`
+  - `OPENROUTER_API_KEY`
+  - `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+  - `OLLAMA_BASE_URL`
+- Optional model overrides:
+  - `AI_ANTHROPIC_MODEL`
+  - `AI_OPENAI_MODEL`
+  - `AI_OPENROUTER_MODEL`
+  - `AI_GEMINI_MODEL`
+  - `AI_OLLAMA_MODEL`
+- Optional timeouts and provider tuning:
+  - `AI_JOB_TIMEOUT_MS`
+  - `AI_VALIDATION_SHADOW`
+  - `AI_VALIDATION_TIMEOUT_MS`
+  - `AI_OLLAMA_TIMEOUT_MS`
+  - `AI_OPENROUTER_TIMEOUT_MS`
+  - `OPENROUTER_BASE_URL`
 
 ### Token pipeline
 
