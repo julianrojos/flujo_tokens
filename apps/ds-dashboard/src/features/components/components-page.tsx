@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { ExternalLink, LayoutGrid } from "lucide-react";
 
 import {
@@ -372,26 +372,14 @@ export function ComponentsPage() {
             {
               id: "components-docs-edited",
               label: "Documentation coverage",
-              value: (
-                <Link
-                  to="/components?group=docsCoverage&value=with-spec"
-                  className="inline-flex text-foreground hover:text-primary"
-                >
-                  {docsEditedPercent}%
-                </Link>
-              ),
+              value: `${docsEditedPercent}%`,
+              to: "/components?group=docsCoverage&value=with-spec",
             },
             {
               id: "components-multi-variant-rate",
               label: "Multi-variant rate",
-              value: (
-                <Link
-                  to="/components?group=multiVariant&value=multi"
-                  className="inline-flex text-foreground hover:text-primary"
-                >
-                  {multiVariantPercent}%
-                </Link>
-              ),
+              value: `${multiVariantPercent}%`,
+              to: "/components?group=multiVariant&value=multi",
             },
           ]}
         />

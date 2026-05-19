@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,7 @@ export interface StatsOverviewItem {
   id: string;
   label: string;
   value: ReactNode;
+  to?: string;
 }
 
 export interface StatsOverviewProps {
@@ -28,12 +30,27 @@ export function StatsOverview({ items, className, gridClassName }: StatsOverview
   return (
     <section className={cn("grid gap-4", defaultColumnsClass, gridClassName, className)}>
       {items.map((item) => (
-        <Card key={item.id}>
-          <CardHeader>
-            <CardDescription>{item.label}</CardDescription>
-            <CardTitle>{item.value}</CardTitle>
-          </CardHeader>
-        </Card>
+        item.to ? (
+          <Link
+            key={item.id}
+            to={item.to}
+            className="group block h-full text-inherit no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-primary/5">
+              <CardHeader>
+                <CardDescription className="transition-colors group-hover:text-primary">{item.label}</CardDescription>
+                <CardTitle className="group-hover:text-primary">{item.value}</CardTitle>
+              </CardHeader>
+            </Card>
+          </Link>
+        ) : (
+          <Card key={item.id}>
+            <CardHeader>
+              <CardDescription>{item.label}</CardDescription>
+              <CardTitle>{item.value}</CardTitle>
+            </CardHeader>
+          </Card>
+        )
       ))}
     </section>
   );

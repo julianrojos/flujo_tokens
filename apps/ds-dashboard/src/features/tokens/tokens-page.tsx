@@ -490,26 +490,14 @@ export function TokensPage() {
             {
               id: "aliases",
               label: "Aliases",
-              value: (
-                <Link
-                  to="/tokens?group=aliases&value=alias"
-                  className="inline-flex text-foreground hover:text-primary"
-                >
-                  {metrics.aliasesTotal} ({metrics.aliasesPercent}%)
-                </Link>
-              ),
+              value: `${metrics.aliasesTotal} (${metrics.aliasesPercent}%)`,
+              to: "/tokens?group=aliases&value=alias",
             },
             {
               id: "tokens-unused",
               label: "Unused tokens",
-              value: (
-                <Link
-                  to="/tokens?group=usageCount&value=unused"
-                  className="inline-flex text-foreground hover:text-primary"
-                >
-                  {metrics.tokensWithoutUse} ({metrics.unusedPercent}%)
-                </Link>
-              ),
+              value: `${metrics.tokensWithoutUse} (${metrics.unusedPercent}%)`,
+              to: "/tokens?group=usageCount&value=unused",
             },
           ]}
         />
