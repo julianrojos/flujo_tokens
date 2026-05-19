@@ -174,7 +174,7 @@ const ModalCloseButton = React.forwardRef<HTMLButtonElement, ModalCloseButtonPro
         onClick={onClick}
         aria-label={label}
         title="Close"
-        className={cn("h-8 w-8 rounded-full p-0", className)}
+        className={cn("h-8 w-8 shrink-0 rounded-full p-0", className)}
         {...props}
       >
         <X className="h-4 w-4" aria-hidden="true" />

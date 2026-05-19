@@ -143,11 +143,11 @@ export function AiSuggestionsModal({
           </div>
           <ModalFooter className="mt-6">
             {canViewSuggestions && (
-              <Button variant="outline" size="sm" onClick={handleViewSuggestions}>
+              <Button variant="outline" onClick={handleViewSuggestions}>
                 View suggestions
               </Button>
             )}
-            <Button type="submit" form={formId} size="sm" disabled={submitState.disabled}>
+            <Button type="submit" form={formId} disabled={submitState.disabled}>
               {submitState.pending ? 'Creating Job...' : canViewSuggestions ? 'Generate again' : 'Create suggestions'}
             </Button>
           </ModalFooter>
