@@ -297,7 +297,7 @@ export function AppBreadcrumb({ className }: { className?: string }) {
                   {crumb.to && !isLast ? (
                     <Link
                       to={crumb.to}
-                      className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                      className="font-medium text-muted-foreground transition-colors hover:text-primary"
                     >
                       {crumb.label}
                     </Link>
