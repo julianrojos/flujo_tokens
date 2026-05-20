@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { PageHeader } from "@/components/composites/page-header";
+import { EmptyState, FilterBar, PageHeader } from "@/components/composites";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Inbox } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
@@ -16,10 +16,12 @@ import {
   fetchComponentCatalog,
   fetchTokenCatalog,
 } from "@/lib/api";
+import { Select } from "@/components/ui/select";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
 import { groupByParentComponent } from "./lib/component-grouping";
+import { cn } from "@/lib/utils";
 import {
   buildComponentLookupMap,
   resolveKnownComponentSlug,
@@ -29,6 +31,7 @@ import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
+import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import type {
   DsConsumer,
   DsSyncRun,
@@ -37,6 +40,11 @@ import type {
   ImpactLevel,
   UsageScope,
 } from "@/types/consumers";
+
+type ConsumerUsageTab = "components" | "variables";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
+const PAGE_SIZE_ALL = "all";
 
 function normalizeTokenLookupKey(value: string): string {
   return String(value || "")
@@ -61,6 +69,10 @@ function normalizeLookupKey(value: string): string {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeFilterText(value: string): string {
+  return String(value || "").trim().toLowerCase();
+}
+
 function formatDurationMs(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   const duration = typeof value === "number" ? value : Number(value);
@@ -80,6 +92,23 @@ function formatPropertyValue(value: string): string {
 
 function sumUsageScopeSummary(summary: { page: number; localComponent: number; nestedLocalComponent: number }): number {
   return summary.page + summary.localComponent + summary.nestedLocalComponent;
+}
+
+function resolveVariableTokenEntry(
+  variableName: string,
+  variableKey: string,
+  exactLookup: Record<string, TokenLookupEntry>,
+  fallbackLookup: Record<string, TokenLookupEntry | null>,
+): TokenLookupEntry | null {
+  const variableNameExact = normalizeLookupKey(variableName);
+  const variableKeyExact = normalizeLookupKey(variableKey);
+  return (
+    (variableNameExact && exactLookup[variableNameExact]) ||
+    (variableKeyExact && exactLookup[variableKeyExact]) ||
+    fallbackLookup[normalizeTokenLookupKey(variableName)] ||
+    fallbackLookup[normalizeTokenLookupKey(variableKey)] ||
+    null
+  );
 }
 
 function renderComponentName(
@@ -171,6 +200,48 @@ function computeWorstImpactLevel(
   return worstLevel;
 }
 
+function ConsumerUsageTabsNav({
+  activeTab,
+  onChange,
+}: {
+  activeTab: ConsumerUsageTab;
+  onChange: (tab: ConsumerUsageTab) => void;
+}) {
+  const tabs: Array<{ id: ConsumerUsageTab; label: string }> = [
+    { id: "variables", label: "Variable Usage" },
+    { id: "components", label: "Component Usage" },
+  ];
+
+  return (
+    <nav className="flex gap-1 border-b border-border" role="tablist">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        const tabId = `consumer-usage-tab-${tab.id}`;
+        const panelId = `consumer-usage-panel-${tab.id}`;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            id={tabId}
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={panelId}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "rounded-t-md px-3 py-2 text-sm font-medium transition",
+              isActive
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function ConsumerDetailPage() {
   const { consumerId } = useParams<{ consumerId: string }>();
   const { dsFileKey, loading: dsFileKeyLoading } = useDsFileKey();
@@ -181,6 +252,15 @@ export function ConsumerDetailPage() {
   const [componentSlugByLookup, setComponentSlugByLookup] = useState<Record<string, string>>({});
   const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
   const [tokenByLookup, setTokenByLookup] = useState<Record<string, TokenLookupEntry | null>>({});
+  const [activeUsageTab, setActiveUsageTab] = useState<ConsumerUsageTab>("variables");
+  const [componentSearch, setComponentSearch] = useState("");
+  const [componentPageSize, setComponentPageSize] = useState<string>("25");
+  const [componentCurrentPage, setComponentCurrentPage] = useState(1);
+  const [variableSearch, setVariableSearch] = useState("");
+  const [variableTypeFilter, setVariableTypeFilter] = useState("all");
+  const [variableImpactFilter, setVariableImpactFilter] = useState("all");
+  const [variablePageSize, setVariablePageSize] = useState<string>("25");
+  const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -336,8 +416,131 @@ export function ConsumerDetailPage() {
   // Sort by impact level (descending) then by count (descending)
   const sortedVariables = sortByImpactThenCount(consumerVariables);
 
+  const variableTypes = useMemo(() => {
+    const set = new Set(sortedVariables.map((entry) => entry.variableType));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [sortedVariables]);
+
+  const filteredVariables = useMemo(() => {
+    const loweredSearch = normalizeFilterText(variableSearch);
+    return sortedVariables.filter((variable) => {
+      if (variableTypeFilter !== "all" && variable.variableType !== variableTypeFilter) {
+        return false;
+      }
+      if (variableImpactFilter !== "all" && variable.impactLevel.level !== variableImpactFilter) {
+        return false;
+      }
+      if (!loweredSearch) return true;
+
+      const searchableValues = [
+        variable.variableName,
+        variable.variableKey,
+        variable.variableType,
+        variable.impactLevel.level,
+      ];
+      return searchableValues.some((value) =>
+        normalizeFilterText(value).includes(loweredSearch),
+      );
+    });
+  }, [
+    sortedVariables,
+    variableImpactFilter,
+    variableSearch,
+    variableTypeFilter,
+  ]);
+
+  useEffect(() => {
+    setVariableCurrentPage(1);
+  }, [variableImpactFilter, variablePageSize, variableSearch, variableTypeFilter]);
+
+  const variablePageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
+    [],
+  );
+  const variablePageSizeValue =
+    variablePageSize === PAGE_SIZE_ALL ? filteredVariables.length : Number(variablePageSize);
+  const shouldPaginateVariables =
+    variablePageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(variablePageSizeValue) &&
+    variablePageSizeValue > 0 &&
+    filteredVariables.length > variablePageSizeValue;
+  const variableTotalPages = shouldPaginateVariables
+    ? Math.max(1, Math.ceil(filteredVariables.length / variablePageSizeValue))
+    : 1;
+  const variablePagedRows = useMemo(() => {
+    if (!shouldPaginateVariables) return filteredVariables;
+    const start = (variableCurrentPage - 1) * variablePageSizeValue;
+    return filteredVariables.slice(start, start + variablePageSizeValue);
+  }, [filteredVariables, shouldPaginateVariables, variableCurrentPage, variablePageSizeValue]);
+  const variablePageStart = shouldPaginateVariables
+    ? (variableCurrentPage - 1) * variablePageSizeValue + 1
+    : filteredVariables.length === 0
+      ? 0
+      : 1;
+  const variablePageEnd = shouldPaginateVariables
+    ? Math.min(filteredVariables.length, variableCurrentPage * variablePageSizeValue)
+    : filteredVariables.length;
+
   // Group component variants by parent component
   const componentGroups = groupByParentComponent(consumerComponents);
+
+  const filteredComponentGroups = useMemo(() => {
+    const loweredSearch = normalizeFilterText(componentSearch);
+    return componentGroups.filter((group) => {
+      if (!loweredSearch) return true;
+      const values = [
+        group.parentName,
+        String(group.totalInstances ?? 0),
+        group.worstImpactLevel.level,
+        ...group.variants.flatMap((variant) => [
+          variant.componentName,
+          variant.variantLabel,
+          String(variant.instances ?? 0),
+          variant.impactLevel.level,
+        ]),
+      ];
+      return values.some((value) => normalizeFilterText(value).includes(loweredSearch));
+    });
+  }, [componentGroups, componentSearch]);
+
+  const componentPageSizeOptions = useMemo(
+    () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
+    [],
+  );
+  const componentPageSizeValue =
+    componentPageSize === PAGE_SIZE_ALL ? filteredComponentGroups.length : Number(componentPageSize);
+  const shouldPaginateComponents =
+    componentPageSize !== PAGE_SIZE_ALL &&
+    Number.isFinite(componentPageSizeValue) &&
+    componentPageSizeValue > 0 &&
+    filteredComponentGroups.length > componentPageSizeValue;
+  const componentTotalPages = shouldPaginateComponents
+    ? Math.max(1, Math.ceil(filteredComponentGroups.length / componentPageSizeValue))
+    : 1;
+  const showComponentPageSizeSelect = shouldShowPageSizeSelect(filteredComponentGroups.length);
+
+  useEffect(() => {
+    setComponentCurrentPage(1);
+  }, [componentPageSize, componentSearch]);
+
+  useEffect(() => {
+    setComponentCurrentPage((prev) => Math.min(prev, componentTotalPages));
+  }, [componentTotalPages]);
+
+  const pagedComponentGroups = useMemo(() => {
+    if (!shouldPaginateComponents) return filteredComponentGroups;
+    const start = (componentCurrentPage - 1) * componentPageSizeValue;
+    return filteredComponentGroups.slice(start, start + componentPageSizeValue);
+  }, [componentCurrentPage, componentPageSizeValue, filteredComponentGroups, shouldPaginateComponents]);
+
+  const componentPageStart = shouldPaginateComponents
+    ? (componentCurrentPage - 1) * componentPageSizeValue + 1
+    : filteredComponentGroups.length === 0
+      ? 0
+      : 1;
+  const componentPageEnd = shouldPaginateComponents
+    ? Math.min(filteredComponentGroups.length, componentCurrentPage * componentPageSizeValue)
+    : filteredComponentGroups.length;
 
   // Compute worst impact level for overview
   const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
@@ -472,70 +675,452 @@ export function ConsumerDetailPage() {
         )}
       </div>
 
-      {/* Component Usage */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 text-base font-titles font-semibold titles-color">Component Usage</h2>
-        {componentGroups.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            {consumer.latestSync
-              ? "No DS components recorded for this consumer."
-              : "No sync data yet — use Sync now above."}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="titles-color">
-                <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
-                  <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
-                  <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
-                  <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
-                </tr>
-              </thead>
-              <tbody>
-                {componentGroups.map((group) => {
-                  const isSingleVariant = group.variants.length === 1;
-                  const variant = group.variants[0];
-                  const displayParentName = group.parentName || "(unnamed component)";
-                  const resolvedComponentSlug = resolveKnownComponentSlug({
-                    lookup: componentSlugByLookup,
-                    parentName: group.parentName,
-                    variantName: variant.componentName,
-                  });
+      <ConsumerUsageTabsNav activeTab={activeUsageTab} onChange={setActiveUsageTab} />
 
-                  if (isSingleVariant) {
-                    // Single variant: render as flat row
-                    return (
-                      <tr key={variant.componentKey} className="border-b border-border/50">
-                        <td className="px-3 py-2">
-                          <div className="space-y-0.5">
-                            {resolvedComponentSlug ? (
-                            <Link
-                              to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                              className="text-app-accent hover:underline"
-                            >
-                              <span className="font-normal">{displayParentName}</span>
-                            </Link>
-                          ) : (
-                            <span className="font-normal">{displayParentName}</span>
-                          )}
-                            {variant.variantLabel && (
-                              <span className="block text-xs text-muted-foreground">
-                                {variant.variantLabel}
-                              </span>
+      {activeUsageTab === "components" ? (
+        <div
+          id="consumer-usage-panel-components"
+          role="tabpanel"
+          aria-labelledby="consumer-usage-tab-components"
+          className="rounded-lg border border-border bg-card p-4"
+        >
+          <FilterBar
+            searchValue={componentSearch}
+            onSearch={setComponentSearch}
+            searchPlaceholder="Buscar por componente, variante o impacto"
+            rightSlot={
+              showComponentPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={componentPageSize}
+                    onChange={(event) => setComponentPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {componentPageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(filteredComponentGroups.length) ? (
+                      <option value={PAGE_SIZE_ALL}>All</option>
+                    ) : null}
+                  </Select>
+                </div>
+              ) : null
+            }
+          />
+
+          {shouldPaginateComponents ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {componentPageStart}-{componentPageEnd} of {filteredComponentGroups.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setComponentCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={componentCurrentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {componentCurrentPage} / {componentTotalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setComponentCurrentPage((prev) => Math.min(componentTotalPages, prev + 1))}
+                  disabled={componentCurrentPage >= componentTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {filteredComponentGroups.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title={
+                consumer.latestSync
+                  ? "No DS components found"
+                  : "No sync data yet"
+              }
+              description={
+                consumer.latestSync
+                  ? "Try adjusting the current filters."
+                  : "Use Sync now above to load consumer usage."
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="titles-color">
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
+                    <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
+                    <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
+                    <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedComponentGroups.map((group) => {
+                    const isSingleVariant = group.variants.length === 1;
+                    const variant = group.variants[0];
+                    const displayParentName = group.parentName || "(unnamed component)";
+                    const resolvedComponentSlug = resolveKnownComponentSlug({
+                      lookup: componentSlugByLookup,
+                      parentName: group.parentName,
+                      variantName: variant.componentName,
+                    });
+
+                    if (isSingleVariant) {
+                      return (
+                        <tr key={variant.componentKey} className="border-b border-border/50">
+                          <td className="px-3 py-2">
+                            <div className="space-y-0.5">
+                              {resolvedComponentSlug ? (
+                                <Link
+                                  to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                                  className="text-app-accent hover:underline"
+                                >
+                                  <span className="font-normal">{displayParentName}</span>
+                                </Link>
+                              ) : (
+                                <span className="font-normal">{displayParentName}</span>
+                              )}
+                              {variant.variantLabel && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {variant.variantLabel}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Badge variant="neutral">{group.totalInstances}</Badge>
+                          </td>
+                          <td className="px-3 py-2">
+                            <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                          </td>
+                          <td className="px-3 py-2">
+                            {group.sampleLinks.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {group.sampleLinks.slice(0, 5).map((link) => (
+                                  <a
+                                    key={link}
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                  >
+                                    ↗ Figma
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
                             )}
-                          </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const isExpanded = expandedGroups.has(group.parentName);
+                    return (
+                      <Fragment key={group.parentName}>
+                        <tr className="border-b border-border/50">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="flex items-center"
+                                aria-expanded={isExpanded}
+                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayParentName}`}
+                                onClick={() => handleToggleGroup(group.parentName)}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                )}
+                              </button>
+                              {resolvedComponentSlug ? (
+                                <Link
+                                  to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                                  className="text-app-accent hover:underline"
+                                >
+                                  <span className="font-normal">{displayParentName}</span>
+                                </Link>
+                              ) : (
+                                <span className="font-normal">{displayParentName}</span>
+                              )}
+                              <Badge variant="neutral" className="text-[10px]">
+                                {group.variants.length} variants
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Badge variant="neutral">{group.totalInstances}</Badge>
+                          </td>
+                          <td className="px-3 py-2">
+                            <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                          </td>
+                          <td className="px-3 py-2">
+                            {group.sampleLinks.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {group.sampleLinks.slice(0, 3).map((link) => (
+                                  <a
+                                    key={link}
+                                    href={link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                  >
+                                    ↗ Figma
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded &&
+                          group.variants.map((v) => (
+                            <tr
+                              key={v.componentKey}
+                              className="border-b border-border/30 bg-muted/10"
+                            >
+                              <td className="py-1.5 pl-9 pr-3">
+                                <span className="text-xs text-muted-foreground">
+                                  {v.variantLabel || v.componentName}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 text-right">
+                                <Badge variant="neutral" className="text-[10px]">
+                                  {v.instances}
+                                </Badge>
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <ImpactLevelBadge level={v.impactLevel.level} />
+                              </td>
+                              <td className="px-3 py-1.5">
+                                {v.sampleLinks.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {v.sampleLinks.slice(0, 2).map((link) => (
+                                      <a
+                                        key={link}
+                                        href={link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                      >
+                                        ↗ Figma
+                                      </a>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {shouldPaginateComponents ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {componentPageStart}-{componentPageEnd} of {filteredComponentGroups.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setComponentCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={componentCurrentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {componentCurrentPage} / {componentTotalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setComponentCurrentPage((prev) => Math.min(componentTotalPages, prev + 1))}
+                  disabled={componentCurrentPage >= componentTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeUsageTab === "variables" ? (
+        <div
+          id="consumer-usage-panel-variables"
+          role="tabpanel"
+          aria-labelledby="consumer-usage-tab-variables"
+          className="rounded-lg border border-border bg-card p-4"
+        >
+          <FilterBar
+            searchValue={variableSearch}
+            onSearch={setVariableSearch}
+            searchPlaceholder="Buscar por variable, tipo o impacto"
+            rightSlot={
+              shouldShowPageSizeSelect(filteredVariables.length) ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={variablePageSize}
+                    onChange={(event) => setVariablePageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
+                  >
+                    {variablePageSizeOptions.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(filteredVariables.length) ? (
+                      <option value={PAGE_SIZE_ALL}>All</option>
+                    ) : null}
+                  </Select>
+                </div>
+              ) : null
+            }
+          >
+            <Select
+              value={variableTypeFilter}
+              onChange={(event) => setVariableTypeFilter(event.target.value)}
+            >
+              <option value="all">Type: All</option>
+              {variableTypes.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={variableImpactFilter}
+              onChange={(event) => setVariableImpactFilter(event.target.value)}
+            >
+              <option value="all">Impact: All</option>
+              {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as ImpactLevel[]).map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </Select>
+          </FilterBar>
+
+          {shouldPaginateVariables ? (
+            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {variablePageStart}-{variablePageEnd} of {filteredVariables.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariableCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={variableCurrentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {variableCurrentPage} / {variableTotalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariableCurrentPage((prev) => Math.min(variableTotalPages, prev + 1))}
+                  disabled={variableCurrentPage >= variableTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {filteredVariables.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 p-6">
+              <EmptyState
+                icon={Inbox}
+                title={
+                  consumer.latestSync
+                    ? "No DS variables found"
+                    : "No sync data yet"
+                }
+                description={
+                  consumer.latestSync
+                    ? "Try adjusting the current filters."
+                    : "Use Sync now above to load consumer usage."
+                }
+                compact
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="titles-color">
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
+                    <th className="px-3 py-2 text-right font-medium titles-color">Nodes</th>
+                    <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
+                    <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
+                    <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variablePagedRows.map((v) => {
+                    const tokenEntry = resolveVariableTokenEntry(
+                      v.variableName,
+                      v.variableKey,
+                      tokenByExactLookup,
+                      tokenByLookup,
+                    );
+                    const displayTokenName = tokenEntry?.path || v.variableName;
+                    return (
+                      <tr key={v.variableKey} className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <p className="font-normal">
+                            {tokenEntry ? (
+                              <Link
+                                to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
+                                className="text-app-accent hover:underline"
+                              >
+                                <span className="font-normal">{displayTokenName}</span>
+                              </Link>
+                            ) : (
+                              <span className="font-normal">{displayTokenName}</span>
+                            )}
+                          </p>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                          <Badge variant="neutral">{v.nodes}</Badge>
                         </td>
                         <td className="px-3 py-2">
-                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                          <Badge variant="neutral">{v.variableType}</Badge>
                         </td>
                         <td className="px-3 py-2">
-                          {group.sampleLinks.length > 0 ? (
+                          <ImpactLevelBadge level={v.impactLevel.level} />
+                        </td>
+                        <td className="px-3 py-2">
+                          {v.sampleLinks && v.sampleLinks.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {group.sampleLinks.slice(0, 5).map((link) => (
+                              {v.sampleLinks.slice(0, 5).map((link) => (
                                 <a
                                   key={link}
                                   href={link}
@@ -553,202 +1138,42 @@ export function ConsumerDetailPage() {
                         </td>
                       </tr>
                     );
-                  }
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                  // Multi-variant: render as expandable group (S-05)
-                  const isExpanded = expandedGroups.has(group.parentName);
-                  return (
-                    <Fragment key={group.parentName}>
-                      <tr className="border-b border-border/50">
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="flex items-center"
-                              aria-expanded={isExpanded}
-                              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayParentName}`}
-                              onClick={() => handleToggleGroup(group.parentName)}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                              )}
-                            </button>
-                            {resolvedComponentSlug ? (
-                            <Link
-                              to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                              className="text-app-accent hover:underline"
-                            >
-                              <span className="font-normal">{displayParentName}</span>
-                            </Link>
-                          ) : (
-                            <span className="font-normal">{displayParentName}</span>
-                          )}
-                            <Badge variant="neutral" className="text-[10px]">
-                              {group.variants.length} variants
-                            </Badge>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <Badge variant="neutral">{group.totalInstances}</Badge>
-                        </td>
-                        <td className="px-3 py-2">
-                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
-                        </td>
-                        <td className="px-3 py-2">
-                          {group.sampleLinks.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {group.sampleLinks.slice(0, 3).map((link) => (
-                                <a
-                                  key={link}
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                >
-                                  ↗ Figma
-                                </a>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                      {isExpanded &&
-                        group.variants.map((v) => (
-                          <tr
-                            key={v.componentKey}
-                            className="border-b border-border/30 bg-muted/10"
-                          >
-                            <td className="py-1.5 pl-9 pr-3">
-                              <span className="text-xs text-muted-foreground">
-                                {v.variantLabel || v.componentName}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right">
-                              <Badge variant="neutral" className="text-[10px]">
-                                {v.instances}
-                              </Badge>
-                            </td>
-                            <td className="px-3 py-1.5">
-                              <ImpactLevelBadge level={v.impactLevel.level} />
-                            </td>
-                            <td className="px-3 py-1.5">
-                              {v.sampleLinks.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {v.sampleLinks.slice(0, 2).map((link) => (
-                                    <a
-                                      key={link}
-                                      href={link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                    >
-                                      ↗ Figma
-                                    </a>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Variable Usage */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 text-base font-titles font-semibold titles-color">Variable Usage</h2>
-        {sortedVariables.length === 0 ? (
-          <div className="text-sm text-muted-foreground">
-            {consumer.latestSync
-              ? "No DS variables recorded for this consumer."
-              : "No sync data yet — use Sync now above."}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="titles-color">
-                <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
-                  <th className="px-3 py-2 text-right font-medium titles-color">Nodes</th>
-                  <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
-                  <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
-                  <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedVariables.map((v) => {
-                  const variableNameExact = normalizeLookupKey(v.variableName);
-                  const variableKeyExact = normalizeLookupKey(v.variableKey);
-                  const tokenEntry =
-                    (variableNameExact && tokenByExactLookup[variableNameExact]) ||
-                    (variableKeyExact && tokenByExactLookup[variableKeyExact]) ||
-                    tokenByLookup[normalizeTokenLookupKey(v.variableName)] ||
-                    tokenByLookup[normalizeTokenLookupKey(v.variableKey)] ||
-                    null;
-                  const displayTokenName = tokenEntry?.path || v.variableName;
-                  return (
-                  <tr key={v.variableKey} className="border-b border-border/50">
-                    <td className="px-3 py-2">
-                      <p className="font-normal">
-                        {tokenEntry ? (
-                          <Link
-                            to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
-                            className="text-app-accent hover:underline"
-                          >
-                            <span className="font-normal">{displayTokenName}</span>
-                          </Link>
-                        ) : (
-                          <span className="font-normal">{displayTokenName}</span>
-                        )}
-                      </p>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Badge variant="neutral">{v.nodes}</Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant="neutral">{v.variableType}</Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <ImpactLevelBadge level={v.impactLevel.level} />
-                    </td>
-                    <td className="px-3 py-2">
-                      {v.sampleLinks && v.sampleLinks.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {v.sampleLinks.slice(0, 5).map((link) => (
-                            <a
-                              key={link}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                            >
-                              ↗ Figma
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+          {shouldPaginateVariables ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {variablePageStart}-{variablePageEnd} of {filteredVariables.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariableCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={variableCurrentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {variableCurrentPage} / {variableTotalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariableCurrentPage((prev) => Math.min(variableTotalPages, prev + 1))}
+                  disabled={variableCurrentPage >= variableTotalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {usageDetails ? (
         <div className="rounded-lg border border-border bg-card p-4">
