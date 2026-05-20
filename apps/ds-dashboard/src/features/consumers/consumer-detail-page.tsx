@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { EmptyState, FilterBar, PageHeader } from "@/components/composites";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Inbox } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
@@ -17,6 +18,9 @@ import {
   fetchTokenCatalog,
 } from "@/lib/api";
 import { Select } from "@/components/ui/select";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSortState } from "@/lib/use-sort-state";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
@@ -24,9 +28,12 @@ import { groupByParentComponent } from "./lib/component-grouping";
 import { cn } from "@/lib/utils";
 import {
   buildComponentLookupMap,
+  extractComponentParentAlias,
+  normalizeComponentLookupKey,
   resolveKnownComponentSlug,
   splitComponentName,
 } from "@/lib/component-identity";
+import { getComponentTableDisplayInfo } from "./lib/component-table-display";
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "@/lib/format-synced-at";
@@ -40,8 +47,11 @@ import type {
   ImpactLevel,
   UsageScope,
 } from "@/types/consumers";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 type ConsumerUsageTab = "components" | "variables";
+type VariableSortField = "variableName" | "nodes" | "variableType" | "impactLevel";
+type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -135,18 +145,6 @@ function renderComponentName(
   }
 
   return <span className="font-normal">{componentName || componentKey}</span>;
-}
-
-function sortByImpactThenCount<T extends { impactLevel: { level: ImpactLevel }; instances?: number; nodes?: number }>(
-  items: T[],
-): T[] {
-  return [...items].sort((a, b) => {
-    const impactDiff = IMPACT_SORT_ORDER[a.impactLevel.level] - IMPACT_SORT_ORDER[b.impactLevel.level];
-    if (impactDiff !== 0) return impactDiff;
-    const countA = a.instances ?? a.nodes ?? 0;
-    const countB = b.instances ?? b.nodes ?? 0;
-    return countB - countA;
-  });
 }
 
 function renderDimensionBar(dsUsed: number, localUsed: number | null | undefined): ReactNode {
@@ -250,9 +248,12 @@ export function ConsumerDetailPage() {
   const [variables, setVariables] = useState<VariableUsageReport[]>([]);
   const [syncRuns, setSyncRuns] = useState<DsSyncRun[]>([]);
   const [componentSlugByLookup, setComponentSlugByLookup] = useState<Record<string, string>>({});
+  const [componentCatalogItems, setComponentCatalogItems] = useState<ComponentCatalogItem[]>([]);
   const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
   const [tokenByLookup, setTokenByLookup] = useState<Record<string, TokenLookupEntry | null>>({});
   const [activeUsageTab, setActiveUsageTab] = useState<ConsumerUsageTab>("variables");
+  const [variableSort, toggleVariableSort] = useSortState<VariableSortField>({ field: "impactLevel", dir: "asc" });
+  const [componentSort, toggleComponentSort] = useSortState<ComponentSortField>({ field: "impactLevel", dir: "asc" });
   const [componentSearch, setComponentSearch] = useState("");
   const [componentPageSize, setComponentPageSize] = useState<string>("25");
   const [componentCurrentPage, setComponentCurrentPage] = useState(1);
@@ -262,6 +263,8 @@ export function ConsumerDetailPage() {
   const [variablePageSize, setVariablePageSize] = useState<string>("25");
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
+  const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
+  const [isTokenBindingOpen, setIsTokenBindingOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -314,6 +317,7 @@ export function ConsumerDetailPage() {
         ]);
         setComponents(componentsResponse.data || []);
         setVariables(variablesResponse.data || []);
+        setComponentCatalogItems(componentCatalog.components || []);
         setComponentSlugByLookup(buildComponentLookupMap(componentCatalog.components || []));
         const exactTokenLookup = Object.fromEntries(
           (tokenCatalog.entries || []).flatMap((entry) => {
@@ -413,17 +417,14 @@ export function ConsumerDetailPage() {
     ];
   });
 
-  // Sort by impact level (descending) then by count (descending)
-  const sortedVariables = sortByImpactThenCount(consumerVariables);
-
   const variableTypes = useMemo(() => {
-    const set = new Set(sortedVariables.map((entry) => entry.variableType));
+    const set = new Set(consumerVariables.map((entry) => entry.variableType));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [sortedVariables]);
+  }, [consumerVariables]);
 
   const filteredVariables = useMemo(() => {
     const loweredSearch = normalizeFilterText(variableSearch);
-    return sortedVariables.filter((variable) => {
+    const filtered = consumerVariables.filter((variable) => {
       if (variableTypeFilter !== "all" && variable.variableType !== variableTypeFilter) {
         return false;
       }
@@ -431,27 +432,36 @@ export function ConsumerDetailPage() {
         return false;
       }
       if (!loweredSearch) return true;
-
       const searchableValues = [
         variable.variableName,
         variable.variableKey,
         variable.variableType,
         variable.impactLevel.level,
       ];
-      return searchableValues.some((value) =>
-        normalizeFilterText(value).includes(loweredSearch),
-      );
+      return searchableValues.some((value) => normalizeFilterText(value).includes(loweredSearch));
     });
+
+    filtered.sort((a, b) => {
+      const mul = variableSort.dir === "asc" ? 1 : -1;
+      if (variableSort.field === "variableName") return mul * a.variableName.localeCompare(b.variableName);
+      if (variableSort.field === "nodes") return mul * ((a.nodes ?? 0) - (b.nodes ?? 0));
+      if (variableSort.field === "variableType") return mul * a.variableType.localeCompare(b.variableType);
+      // impactLevel: CRITICAL=0, LOW=3 — asc puts CRITICAL first
+      return mul * (IMPACT_SORT_ORDER[a.impactLevel.level] - IMPACT_SORT_ORDER[b.impactLevel.level]);
+    });
+
+    return filtered;
   }, [
-    sortedVariables,
+    consumerVariables,
     variableImpactFilter,
     variableSearch,
     variableTypeFilter,
+    variableSort,
   ]);
 
   useEffect(() => {
     setVariableCurrentPage(1);
-  }, [variableImpactFilter, variablePageSize, variableSearch, variableTypeFilter]);
+  }, [variableImpactFilter, variablePageSize, variableSearch, variableTypeFilter, variableSort]);
 
   const variablePageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
@@ -483,10 +493,50 @@ export function ConsumerDetailPage() {
 
   // Group component variants by parent component
   const componentGroups = groupByParentComponent(consumerComponents);
+  const componentDisplayNameBySlug = useMemo(
+    () => new Map(componentCatalogItems.map((item) => [item.slug, item.display_name])),
+    [componentCatalogItems],
+  );
+  const componentDisplayNameByVariant = useMemo(() => {
+    const lookup = new Map<string, string>();
+    const ambiguous = new Set<string>();
+
+    for (const item of componentCatalogItems) {
+      const parentDisplayName = String(item.display_name || "").trim();
+      if (!parentDisplayName) continue;
+
+      for (const variant of item.figma?.variants || []) {
+        const variantName = String(variant?.name || "").trim();
+        if (!variantName) continue;
+
+        const candidates = new Set<string>([variantName]);
+        const parsedVariant = getComponentTableDisplayInfo({ componentName: variantName });
+        if (parsedVariant.variantLabel) {
+          candidates.add(parsedVariant.variantLabel);
+        }
+
+        for (const candidate of candidates) {
+          const key = normalizeComponentLookupKey(extractComponentParentAlias(candidate));
+          if (!key || ambiguous.has(key)) continue;
+          const current = lookup.get(key);
+          if (!current) {
+            lookup.set(key, parentDisplayName);
+            continue;
+          }
+          if (current !== parentDisplayName) {
+            lookup.delete(key);
+            ambiguous.add(key);
+          }
+        }
+      }
+    }
+
+    return lookup;
+  }, [componentCatalogItems]);
 
   const filteredComponentGroups = useMemo(() => {
     const loweredSearch = normalizeFilterText(componentSearch);
-    return componentGroups.filter((group) => {
+    const filtered = componentGroups.filter((group) => {
       if (!loweredSearch) return true;
       const values = [
         group.parentName,
@@ -501,7 +551,17 @@ export function ConsumerDetailPage() {
       ];
       return values.some((value) => normalizeFilterText(value).includes(loweredSearch));
     });
-  }, [componentGroups, componentSearch]);
+
+    filtered.sort((a, b) => {
+      const mul = componentSort.dir === "asc" ? 1 : -1;
+      if (componentSort.field === "parentName") return mul * a.parentName.localeCompare(b.parentName);
+      if (componentSort.field === "totalInstances") return mul * ((a.totalInstances ?? 0) - (b.totalInstances ?? 0));
+      // impactLevel: asc = CRITICAL first
+      return mul * (IMPACT_SORT_ORDER[a.worstImpactLevel.level] - IMPACT_SORT_ORDER[b.worstImpactLevel.level]);
+    });
+
+    return filtered;
+  }, [componentGroups, componentSearch, componentSort]);
 
   const componentPageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
@@ -521,7 +581,7 @@ export function ConsumerDetailPage() {
 
   useEffect(() => {
     setComponentCurrentPage(1);
-  }, [componentPageSize, componentSearch]);
+  }, [componentPageSize, componentSearch, componentSort]);
 
   useEffect(() => {
     setComponentCurrentPage((prev) => Math.min(prev, componentTotalPages));
@@ -678,16 +738,17 @@ export function ConsumerDetailPage() {
       <ConsumerUsageTabsNav activeTab={activeUsageTab} onChange={setActiveUsageTab} />
 
       {activeUsageTab === "components" ? (
-        <div
+        <Card
           id="consumer-usage-panel-components"
           role="tabpanel"
           aria-labelledby="consumer-usage-tab-components"
-          className="rounded-lg border border-border bg-card p-4"
+          className="p-5 text-card-foreground"
         >
           <FilterBar
             searchValue={componentSearch}
             onSearch={setComponentSearch}
             searchPlaceholder="Buscar por componente, variante o impacto"
+            count={filteredComponentGroups.length}
             rightSlot={
               showComponentPageSizeSelect ? (
                 <div className="flex items-center gap-2">
@@ -715,7 +776,7 @@ export function ConsumerDetailPage() {
           {shouldPaginateComponents ? (
             <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {componentPageStart}-{componentPageEnd} of {filteredComponentGroups.length}
+                Showing {componentPageStart}–{componentPageEnd} of {filteredComponentGroups.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -744,202 +805,202 @@ export function ConsumerDetailPage() {
           {filteredComponentGroups.length === 0 ? (
             <EmptyState
               icon={Inbox}
-              title={
-                consumer.latestSync
-                  ? "No DS components found"
-                  : "No sync data yet"
-              }
+              title={consumer.latestSync ? "No DS components found" : "No sync data yet"}
               description={
                 consumer.latestSync
                   ? "Try adjusting the current filters."
                   : "Use Sync now above to load consumer usage."
               }
+              compact
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="titles-color">
-                  <tr className="border-b border-border">
-                    <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
-                    <th className="px-3 py-2 text-right font-medium titles-color">Instances</th>
-                    <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
-                    <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedComponentGroups.map((group) => {
-                    const isSingleVariant = group.variants.length === 1;
-                    const variant = group.variants[0];
-                    const displayParentName = group.parentName || "(unnamed component)";
-                    const resolvedComponentSlug = resolveKnownComponentSlug({
-                      lookup: componentSlugByLookup,
-                      parentName: group.parentName,
-                      variantName: variant.componentName,
-                    });
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead label="Component" onSort={() => toggleComponentSort("parentName")} />
+                  <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} className="text-right" />
+                  <SortableTableHead label="Impact" onSort={() => toggleComponentSort("impactLevel")} />
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Sample links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedComponentGroups.map((group) => {
+                  const isSingleVariant = group.variants.length === 1;
+                  const variant = group.variants[0];
+                  const normalizedComponentName = normalizeComponentLookupKey(group.parentName);
+                  const resolvedComponentSlug = resolveKnownComponentSlug({
+                    lookup: componentSlugByLookup,
+                    parentName: group.parentName,
+                    variantName: variant.componentName,
+                  });
+                  const parentDisplayName = resolvedComponentSlug
+                    ? componentDisplayNameBySlug.get(resolvedComponentSlug)
+                    : componentDisplayNameByVariant.get(normalizedComponentName);
+                  const displayInfo = getComponentTableDisplayInfo({
+                    componentName: group.parentName,
+                    parentDisplayName,
+                  });
+                  const displayParentName = displayInfo.componentLabel || group.parentName || "(unnamed component)";
 
-                    if (isSingleVariant) {
-                      return (
-                        <tr key={variant.componentKey} className="border-b border-border/50">
-                          <td className="px-3 py-2">
-                            <div className="space-y-0.5">
-                              {resolvedComponentSlug ? (
-                                <Link
-                                  to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                                  className="text-app-accent hover:underline"
-                                >
-                                  <span className="font-normal">{displayParentName}</span>
-                                </Link>
-                              ) : (
-                                <span className="font-normal">{displayParentName}</span>
-                              )}
-                              {variant.variantLabel && (
-                                <span className="block text-xs text-muted-foreground">
-                                  {variant.variantLabel}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <Badge variant="neutral">{group.totalInstances}</Badge>
-                          </td>
-                          <td className="px-3 py-2">
-                            <ImpactLevelBadge level={group.worstImpactLevel.level} />
-                          </td>
-                          <td className="px-3 py-2">
-                            {group.sampleLinks.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {group.sampleLinks.slice(0, 5).map((link) => (
-                                  <a
-                                    key={link}
-                                    href={link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                  >
-                                    ↗ Figma
-                                  </a>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    }
-
-                    const isExpanded = expandedGroups.has(group.parentName);
+                  if (isSingleVariant) {
                     return (
-                      <Fragment key={group.parentName}>
-                        <tr className="border-b border-border/50">
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className="flex items-center"
-                                aria-expanded={isExpanded}
-                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayParentName}`}
-                                onClick={() => handleToggleGroup(group.parentName)}
+                      <TableRow key={variant.componentKey}>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {resolvedComponentSlug ? (
+                              <Link
+                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                                className="text-foreground hover:text-primary"
                               >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                )}
-                              </button>
-                              {resolvedComponentSlug ? (
-                                <Link
-                                  to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                                  className="text-app-accent hover:underline"
-                                >
-                                  <span className="font-normal">{displayParentName}</span>
-                                </Link>
-                              ) : (
-                                <span className="font-normal">{displayParentName}</span>
-                              )}
-                              <Badge variant="neutral" className="text-[10px]">
-                                {group.variants.length} variants
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <Badge variant="neutral">{group.totalInstances}</Badge>
-                          </td>
-                          <td className="px-3 py-2">
-                            <ImpactLevelBadge level={group.worstImpactLevel.level} />
-                          </td>
-                          <td className="px-3 py-2">
-                            {group.sampleLinks.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {group.sampleLinks.slice(0, 3).map((link) => (
-                                  <a
-                                    key={link}
-                                    href={link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                  >
-                                    ↗ Figma
-                                  </a>
-                                ))}
-                              </div>
+                                {displayParentName}
+                              </Link>
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span>{displayParentName}</span>
                             )}
-                          </td>
-                        </tr>
-                        {isExpanded &&
-                          group.variants.map((v) => (
-                            <tr
-                              key={v.componentKey}
-                              className="border-b border-border/30 bg-muted/10"
-                            >
-                              <td className="py-1.5 pl-9 pr-3">
-                                <span className="text-xs text-muted-foreground">
-                                  {v.variantLabel || v.componentName}
-                                </span>
-                              </td>
-                              <td className="px-3 py-1.5 text-right">
-                                <Badge variant="neutral" className="text-[10px]">
-                                  {v.instances}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-1.5">
-                                <ImpactLevelBadge level={v.impactLevel.level} />
-                              </td>
-                              <td className="px-3 py-1.5">
-                                {v.sampleLinks.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {v.sampleLinks.slice(0, 2).map((link) => (
-                                      <a
-                                        key={link}
-                                        href={link}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                      >
-                                        ↗ Figma
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                      </Fragment>
+                            {variant.variantLabel && (
+                              <span className="block text-xs text-muted-foreground">
+                                {variant.variantLabel}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                        </TableCell>
+                        <TableCell>
+                          {group.sampleLinks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {group.sampleLinks.slice(0, 5).map((link) => (
+                                <a
+                                  key={link}
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                >
+                                  ↗ Figma
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  }
+
+                  const isExpanded = expandedGroups.has(group.parentName);
+                  return (
+                    <Fragment key={group.parentName}>
+                      <TableRow>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="flex items-center"
+                              aria-expanded={isExpanded}
+                              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayParentName}`}
+                              onClick={() => handleToggleGroup(group.parentName)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              )}
+                            </button>
+                            {resolvedComponentSlug ? (
+                              <Link
+                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                                className="text-foreground hover:text-primary"
+                              >
+                                {displayParentName}
+                              </Link>
+                            ) : (
+                              <span>{displayParentName}</span>
+                            )}
+                            <Badge variant="neutral" className="text-[10px]">
+                              {group.variants.length} variants
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                        </TableCell>
+                        <TableCell>
+                          {group.sampleLinks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {group.sampleLinks.slice(0, 3).map((link) => (
+                                <a
+                                  key={link}
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                >
+                                  ↗ Figma
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded &&
+                        group.variants.map((v) => (
+                          <TableRow key={v.componentKey} className="bg-muted/10">
+                            <TableCell className="pl-9">
+                              <span className="text-xs text-muted-foreground">
+                                {v.variantLabel || v.componentName}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="neutral" className="text-[10px]">
+                                {v.instances}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <ImpactLevelBadge level={v.impactLevel.level} />
+                            </TableCell>
+                            <TableCell>
+                              {v.sampleLinks.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {v.sampleLinks.slice(0, 2).map((link) => (
+                                    <a
+                                      key={link}
+                                      href={link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                    >
+                                      ↗ Figma
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
 
           {shouldPaginateComponents ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {componentPageStart}-{componentPageEnd} of {filteredComponentGroups.length}
+                Showing {componentPageStart}–{componentPageEnd} of {filteredComponentGroups.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -964,20 +1025,21 @@ export function ConsumerDetailPage() {
               </div>
             </div>
           ) : null}
-        </div>
+        </Card>
       ) : null}
 
       {activeUsageTab === "variables" ? (
-        <div
+        <Card
           id="consumer-usage-panel-variables"
           role="tabpanel"
           aria-labelledby="consumer-usage-tab-variables"
-          className="rounded-lg border border-border bg-card p-4"
+          className="p-5 text-card-foreground"
         >
           <FilterBar
             searchValue={variableSearch}
             onSearch={setVariableSearch}
             searchPlaceholder="Buscar por variable, tipo o impacto"
+            count={filteredVariables.length}
             rightSlot={
               shouldShowPageSizeSelect(filteredVariables.length) ? (
                 <div className="flex items-center gap-2">
@@ -1028,7 +1090,7 @@ export function ConsumerDetailPage() {
           {shouldPaginateVariables ? (
             <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {variablePageStart}-{variablePageEnd} of {filteredVariables.length}
+                Showing {variablePageStart}–{variablePageEnd} of {filteredVariables.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -1058,11 +1120,7 @@ export function ConsumerDetailPage() {
             <div className="rounded-lg border border-dashed border-border/70 bg-muted/10 p-6">
               <EmptyState
                 icon={Inbox}
-                title={
-                  consumer.latestSync
-                    ? "No DS variables found"
-                    : "No sync data yet"
-                }
+                title={consumer.latestSync ? "No DS variables found" : "No sync data yet"}
                 description={
                   consumer.latestSync
                     ? "Try adjusting the current filters."
@@ -1072,76 +1130,72 @@ export function ConsumerDetailPage() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="titles-color">
-                  <tr className="border-b border-border">
-                    <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
-                    <th className="px-3 py-2 text-right font-medium titles-color">Nodes</th>
-                    <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
-                    <th className="px-3 py-2 text-left font-medium titles-color">Impact</th>
-                    <th className="px-3 py-2 text-left font-medium titles-color">Sample Links</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variablePagedRows.map((v) => {
-                    const tokenEntry = resolveVariableTokenEntry(
-                      v.variableName,
-                      v.variableKey,
-                      tokenByExactLookup,
-                      tokenByLookup,
-                    );
-                    const displayTokenName = tokenEntry?.path || v.variableName;
-                    return (
-                      <tr key={v.variableKey} className="border-b border-border/50">
-                        <td className="px-3 py-2">
-                          <p className="font-normal">
-                            {tokenEntry ? (
-                              <Link
-                                to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
-                                className="text-app-accent hover:underline"
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
+                  <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} className="text-right" />
+                  <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
+                  <SortableTableHead label="Impact" onSort={() => toggleVariableSort("impactLevel")} />
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Sample links</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {variablePagedRows.map((v) => {
+                  const tokenEntry = resolveVariableTokenEntry(
+                    v.variableName,
+                    v.variableKey,
+                    tokenByExactLookup,
+                    tokenByLookup,
+                  );
+                  const displayTokenName = tokenEntry?.path || v.variableName;
+                  return (
+                    <TableRow key={v.variableKey}>
+                      <TableCell>
+                        {tokenEntry ? (
+                          <Link
+                            to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
+                            className="text-foreground hover:text-primary"
+                          >
+                            {displayTokenName}
+                          </Link>
+                        ) : (
+                          <span>{displayTokenName}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="neutral">{v.nodes}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{v.variableType}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <ImpactLevelBadge level={v.impactLevel.level} />
+                      </TableCell>
+                      <TableCell>
+                        {v.sampleLinks && v.sampleLinks.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {v.sampleLinks.slice(0, 5).map((link) => (
+                              <a
+                                key={link}
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
                               >
-                                <span className="font-normal">{displayTokenName}</span>
-                              </Link>
-                            ) : (
-                              <span className="font-normal">{displayTokenName}</span>
-                            )}
-                          </p>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <Badge variant="neutral">{v.nodes}</Badge>
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant="neutral">{v.variableType}</Badge>
-                        </td>
-                        <td className="px-3 py-2">
-                          <ImpactLevelBadge level={v.impactLevel.level} />
-                        </td>
-                        <td className="px-3 py-2">
-                          {v.sampleLinks && v.sampleLinks.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {v.sampleLinks.slice(0, 5).map((link) => (
-                                <a
-                                  key={link}
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                >
-                                  ↗ Figma
-                                </a>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                                ↗ Figma
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
 
           {shouldPaginateVariables ? (
@@ -1172,31 +1226,127 @@ export function ConsumerDetailPage() {
               </div>
             </div>
           ) : null}
-        </div>
+
+        </Card>
+      ) : null}
+
+      {activeUsageTab === "variables" && usageDetails ? (
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
+            onClick={() => setIsTokenBindingOpen((open) => !open)}
+            aria-controls="token-binding-content"
+            aria-expanded={isTokenBindingOpen}
+          >
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold titles-color">Token binding detail</h3>
+              <Badge variant="neutral">{usageDetails.tokenBindingDetails.length} nodes</Badge>
+            </div>
+            {isTokenBindingOpen ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+          {isTokenBindingOpen ? (
+            <div id="token-binding-content" className="border-t border-border/50 p-5">
+              {usageDetails.tokenBindingDetails.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No token binding details captured for this consumer.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="normal-case tracking-normal">Node</TableHead>
+                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
+                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Field</TableHead>
+                        <TableHead className="normal-case tracking-normal">Variable</TableHead>
+                        <TableHead className="normal-case tracking-normal">Status</TableHead>
+                        <TableHead className="normal-case tracking-normal">Token path</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usageDetails.tokenBindingDetails.flatMap((entry) =>
+                        entry.bindings.map((binding) => (
+                          <TableRow key={`${entry.nodeId}-${binding.field}-${binding.variableId}`}>
+                            <TableCell>{entry.nodeName}</TableCell>
+                            <TableCell>
+                              <Badge variant="neutral" className="text-[10px]">
+                                {formatUsageScope(entry.usageScope)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {entry.localComponentKey && entry.localComponentName ? (
+                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">{binding.field}</TableCell>
+                            <TableCell>
+                              {binding.status === "resolved" ? (
+                                <span>{binding.variableName ?? binding.variableId}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Unresolved ({binding.variableId})</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={binding.status === "resolved" ? "success" : "warning"}>
+                                {binding.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {binding.resolvedTokenPath ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        )),
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       {usageDetails ? (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-start justify-between gap-3">
+        <section className="overflow-hidden rounded-lg border border-border bg-card">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
+            onClick={() => setIsUsageDetailsOpen((open) => !open)}
+            aria-controls="usage-details-content"
+            aria-expanded={isUsageDetailsOpen}
+          >
             <div>
               <h2 className="text-base font-titles font-semibold titles-color">Usage Details</h2>
-              <p className="text-sm text-muted-foreground">
-                Direct parent usage, local component graph, component properties and token
-                bindings captured during the latest sync.
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Direct parent usage, local component graph and component properties.
               </p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="flex items-center gap-2">
               <Badge variant="neutral">
                 Components {sumUsageScopeSummary(usageDetails.usageShape.components)}
               </Badge>
               <Badge variant="neutral">
                 Tokens {sumUsageScopeSummary(usageDetails.usageShape.tokens)}
               </Badge>
+              {isUsageDetailsOpen ? (
+                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
             </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+          </button>
+          {isUsageDetailsOpen ? (
+          <div id="usage-details-content" className="border-t border-border/50">
+          <div className="grid gap-px border-b border-border/50 md:grid-cols-2">
+            <div className="p-5">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Component usage shape
               </p>
@@ -1210,7 +1360,7 @@ export function ConsumerDetailPage() {
                 </Badge>
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+            <div className="p-5">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Token usage shape
               </p>
@@ -1226,46 +1376,46 @@ export function ConsumerDetailPage() {
             </div>
           </div>
 
-          <div className="mt-4 space-y-4">
-            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="space-y-px">
+            <section>
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
                 <h3 className="text-sm font-semibold titles-color">Direct parent usage</h3>
                 <Badge variant="neutral">{usageDetails.parentComponentUsages.length} entries</Badge>
               </div>
               {usageDetails.parentComponentUsages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="p-4 text-sm text-muted-foreground">
                   No direct DS parent component usage captured for this consumer.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="titles-color">
-                      <tr className="border-b border-border">
-                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Parent DS component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
-                        <th className="px-3 py-2 text-right font-medium titles-color">Uses</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Samples</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="overflow-x-auto px-5 pb-5">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Parent DS component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
+                        <TableHead className="normal-case tracking-normal text-right">Uses</TableHead>
+                        <TableHead className="normal-case tracking-normal">Samples</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {usageDetails.parentComponentUsages.map((usage) => (
-                        <tr key={`${usage.localComponentKey}-${usage.parentComponentKey}-${usage.usageScope}`} className="border-b border-border/50">
-                          <td className="px-3 py-2">
+                        <TableRow key={`${usage.localComponentKey}-${usage.parentComponentKey}-${usage.usageScope}`}>
+                          <TableCell>
                             {renderComponentName(usage.localComponentKey, usage.localComponentName, componentSlugByLookup)}
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             {renderComponentName(usage.parentComponentKey, usage.parentComponentName, componentSlugByLookup)}
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Badge variant="neutral" className="text-[10px]">
                               {formatUsageScope(usage.usageScope)}
                             </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-right">
+                          </TableCell>
+                          <TableCell className="text-right">
                             <Badge variant="neutral">{usage.usageCount}</Badge>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             {usage.sampleNodeIds.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {usage.sampleNodeIds.map((nodeId) => (
@@ -1277,48 +1427,48 @@ export function ConsumerDetailPage() {
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </section>
 
-            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <section>
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
                 <h3 className="text-sm font-semibold titles-color">Local component graph</h3>
                 <Badge variant="neutral">{usageDetails.localComponentGraph.length} edges</Badge>
               </div>
               {usageDetails.localComponentGraph.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="p-4 text-sm text-muted-foreground">
                   No local component composition edges captured for this consumer.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="titles-color">
-                      <tr className="border-b border-border">
-                        <th className="px-3 py-2 text-left font-medium titles-color">Parent local component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Child local component</th>
-                        <th className="px-3 py-2 text-right font-medium titles-color">Uses</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Samples</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="overflow-x-auto px-5 pb-5">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="normal-case tracking-normal">Parent local component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Child local component</TableHead>
+                        <TableHead className="normal-case tracking-normal text-right">Uses</TableHead>
+                        <TableHead className="normal-case tracking-normal">Samples</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {usageDetails.localComponentGraph.map((edge) => (
-                        <tr key={`${edge.parentComponentKey}-${edge.childComponentKey}`} className="border-b border-border/50">
-                          <td className="px-3 py-2">
+                        <TableRow key={`${edge.parentComponentKey}-${edge.childComponentKey}`}>
+                          <TableCell>
                             {renderComponentName(edge.parentComponentKey, edge.parentComponentName, componentSlugByLookup)}
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             {renderComponentName(edge.childComponentKey, edge.childComponentName, componentSlugByLookup)}
-                          </td>
-                          <td className="px-3 py-2 text-right">
+                          </TableCell>
+                          <TableCell className="text-right">
                             <Badge variant="neutral">{edge.usageCount}</Badge>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             {edge.sampleNodeIds.length > 0 ? (
                               <div className="flex flex-wrap gap-1">
                                 {edge.sampleNodeIds.map((nodeId) => (
@@ -1330,137 +1480,76 @@ export function ConsumerDetailPage() {
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </section>
 
-            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <section>
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
                 <h3 className="text-sm font-semibold titles-color">Component properties</h3>
                 <Badge variant="neutral">{usageDetails.componentPropertyUsages.length} nodes</Badge>
               </div>
               {usageDetails.componentPropertyUsages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="p-4 text-sm text-muted-foreground">
                   No component property bindings captured for this consumer.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="titles-color">
-                      <tr className="border-b border-border">
-                        <th className="px-3 py-2 text-left font-medium titles-color">Node</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Property</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Value</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <div className="overflow-x-auto px-5 pb-5">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="normal-case tracking-normal">Node</TableHead>
+                        <TableHead className="normal-case tracking-normal">Component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
+                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
+                        <TableHead className="normal-case tracking-normal">Property</TableHead>
+                        <TableHead className="normal-case tracking-normal">Value</TableHead>
+                        <TableHead className="normal-case tracking-normal">Type</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {usageDetails.componentPropertyUsages.flatMap((entry) =>
                         entry.properties.map((property) => (
-                          <tr key={`${entry.nodeId}-${entry.componentKey}-${property.name}`} className="border-b border-border/50">
-                            <td className="px-3 py-2">{entry.nodeName}</td>
-                            <td className="px-3 py-2">
+                          <TableRow key={`${entry.nodeId}-${entry.componentKey}-${property.name}`}>
+                            <TableCell>{entry.nodeName}</TableCell>
+                            <TableCell>
                               {renderComponentName(entry.componentKey, entry.componentName, componentSlugByLookup)}
-                            </td>
-                            <td className="px-3 py-2">
+                            </TableCell>
+                            <TableCell>
                               <Badge variant="neutral" className="text-[10px]">
                                 {formatUsageScope(entry.usageScope)}
                               </Badge>
-                            </td>
-                            <td className="px-3 py-2">
+                            </TableCell>
+                            <TableCell>
                               {entry.localComponentKey && entry.localComponentName ? (
                                 renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
-                            </td>
-                            <td className="px-3 py-2 font-medium">{property.name}</td>
-                            <td className="px-3 py-2">{formatPropertyValue(property.value)}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{property.valueType}</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell className="font-medium">{property.name}</TableCell>
+                            <TableCell>{formatPropertyValue(property.value)}</TableCell>
+                            <TableCell className="text-muted-foreground">{property.valueType}</TableCell>
+                          </TableRow>
                         )),
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </section>
 
-            <section className="rounded-lg border border-border/60 bg-muted/10 p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold titles-color">Token binding detail</h3>
-                <Badge variant="neutral">{usageDetails.tokenBindingDetails.length} nodes</Badge>
-              </div>
-              {usageDetails.tokenBindingDetails.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No token binding details captured for this consumer.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="titles-color">
-                      <tr className="border-b border-border">
-                        <th className="px-3 py-2 text-left font-medium titles-color">Node</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Scope</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Local component</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Field</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Variable</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
-                        <th className="px-3 py-2 text-left font-medium titles-color">Token path</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usageDetails.tokenBindingDetails.flatMap((entry) =>
-                        entry.bindings.map((binding) => (
-                          <tr key={`${entry.nodeId}-${binding.field}-${binding.variableId}`} className="border-b border-border/50">
-                            <td className="px-3 py-2">{entry.nodeName}</td>
-                            <td className="px-3 py-2">
-                              <Badge variant="neutral" className="text-[10px]">
-                                {formatUsageScope(entry.usageScope)}
-                              </Badge>
-                            </td>
-                            <td className="px-3 py-2">
-                              {entry.localComponentKey && entry.localComponentName ? (
-                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 font-medium">{binding.field}</td>
-                            <td className="px-3 py-2">
-                              {binding.status === "resolved" ? (
-                                <span>{binding.variableName ?? binding.variableId}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Unresolved ({binding.variableId})</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              <Badge variant={binding.status === "resolved" ? "success" : "warning"}>
-                                {binding.status}
-                              </Badge>
-                            </td>
-                            <td className="px-3 py-2 text-muted-foreground">
-                              {binding.resolvedTokenPath ?? "—"}
-                            </td>
-                          </tr>
-                        )),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
           </div>
-        </div>
+          </div>
+          ) : null}
+        </section>
       ) : null}
+
 
       {/* Sync Run Log */}
       <section className="rounded-lg border border-border bg-card">
@@ -1484,35 +1573,35 @@ export function ConsumerDetailPage() {
               <p className="text-sm text-muted-foreground">No sync runs yet</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="titles-color">
-                    <tr className="border-b border-border">
-                      <th className="px-3 py-2 text-left font-medium titles-color">Status</th>
-                      <th className="px-3 py-2 text-left font-medium titles-color">Timestamp</th>
-                      <th className="px-3 py-2 text-right font-medium titles-color">Components</th>
-                      <th className="px-3 py-2 text-right font-medium titles-color">Variables</th>
-                      <th className="px-3 py-2 text-right font-medium titles-color">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="normal-case tracking-normal">Status</TableHead>
+                      <TableHead className="normal-case tracking-normal">Timestamp</TableHead>
+                      <TableHead className="normal-case tracking-normal text-right">Components</TableHead>
+                      <TableHead className="normal-case tracking-normal text-right">Variables</TableHead>
+                      <TableHead className="normal-case tracking-normal text-right">Duration</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {syncRuns.map((run) => (
-                      <tr key={run.id} className="border-b border-border/50">
-                        <td className="px-3 py-2">
+                      <TableRow key={run.id}>
+                        <TableCell>
                           <ConsumerSyncStatusBadge latestSync={run} />
                           {run.errorMessage && (
                             <p className="mt-1 text-xs text-status-error">{run.errorMessage}</p>
                           )}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
                           {formatSyncedAt(run.syncedAt)}
-                        </td>
-                        <td className="px-3 py-2 text-right">{run.componentCount}</td>
-                        <td className="px-3 py-2 text-right">{run.variableCount}</td>
-                        <td className="px-3 py-2 text-right">{formatDurationMs(run.durationMs)}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="text-right">{run.componentCount}</TableCell>
+                        <TableCell className="text-right">{run.variableCount}</TableCell>
+                        <TableCell className="text-right">{formatDurationMs(run.durationMs)}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
