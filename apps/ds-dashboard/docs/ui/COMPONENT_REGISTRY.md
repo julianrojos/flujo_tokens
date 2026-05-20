@@ -90,11 +90,15 @@ Location: `apps/ds-dashboard/src/components/ui/`
 **Path:** `src/components/ui/button.tsx`
 
 **Variants:** `default`, `outline`, `ghost`, `destructive`, `loading`
-**Sizes:** `default`, `sm`
+**Sizes:** `default`, `sm`, `icon`
 
 ```tsx
 <Button variant="default" size="default">
   Click me
+</Button>
+
+<Button variant="outline" size="icon" aria-label="Open settings">
+  <Settings className="h-4 w-4" aria-hidden="true" />
 </Button>
 ```
 
@@ -865,6 +869,7 @@ None as of v1.
 
 | Version | Date       | Changes                                                                                                                                                       |
 | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.6     | 2026-05-20 | `Button`: added `size="icon"` for compact icon-only actions |
 | 1.5     | 2026-05-08 | `Checkbox`: added `indeterminate` prop (callback-ref pattern), CVA base variants, exported `checkboxVariants` |
 | 1.4     | 2026-04-30 | Added `Checkbox` and `FigmaConnectionStatusDot` to Tier 1 Primitives; exported `connectionStatusDotVariants` |
 | 1.3     | 2026-04-14 | Completed Tier 2 coverage for route pages and edit-docs sub-feature (`system`, `consumers`, `files`, `ops`, `edit-component-docs`)             |

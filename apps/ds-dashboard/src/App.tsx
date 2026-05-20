@@ -30,8 +30,8 @@ import { HealthDashboardPage } from '@/features/health/health-dashboard-page';
 import { SystemTabsLayout } from '@/features/system/system-tabs-layout';
 import { AppBreadcrumb } from '@/components/app-breadcrumb';
 import {
+  FigmaConnectionIconButton,
   FigmaConnectionModal,
-  FigmaConnectionSidebarButton,
 } from '@/components/figma-connection';
 import { SystemSwitcher } from '@/components/system-switcher';
 import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
@@ -42,7 +42,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarFooter,
   SidebarInset,
   SidebarMenu,
   SidebarNavItem,
@@ -524,11 +523,11 @@ export default function App() {
                                       sidebarCollapsed && 'justify-center',
                                     )}
                                   >
-                                    <span className="rounded-md bg-white/10 p-2 text-white/80 group-hover:text-white">
+                                    <span className="rounded-md bg-sidebar-active p-2 text-sidebar-foreground/80 group-hover:text-sidebar-foreground">
                                       <Icon className="h-4 w-4" />
                                     </span>
                                     {!sidebarCollapsed ? (
-                                      <p className="text-sm font-semibold text-white">
+                                      <p className="text-sm font-semibold text-sidebar-foreground">
                                         {item.label}
                                       </p>
                                     ) : null}
@@ -545,13 +544,6 @@ export default function App() {
               ))}
             </SidebarContent>
 
-            <SidebarFooter className="flex justify-center">
-              <FigmaConnectionSidebarButton
-                onClick={() => setIsFigmaConnectionModalOpen(true)}
-                connectionState={connectionState}
-                collapsed={sidebarCollapsed}
-              />
-            </SidebarFooter>
           </Sidebar>
 
           <SidebarInset>
@@ -597,16 +589,22 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    className="rounded-md border border-border bg-white px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-white"
-                    onClick={() => setSearchOpen(true)}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      Search
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <FigmaConnectionIconButton
+                      onClick={() => setIsFigmaConnectionModalOpen(true)}
+                      connectionState={connectionState}
+                    />
+                    <button
+                      type="button"
+                      className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => setSearchOpen(true)}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Search
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </header>
 
@@ -615,9 +613,13 @@ export default function App() {
                   <AppBreadcrumb />
                 </div>
                 <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                  <FigmaConnectionIconButton
+                    onClick={() => setIsFigmaConnectionModalOpen(true)}
+                    connectionState={connectionState}
+                  />
                   <button
                     type="button"
-                    className="items-center justify-between gap-3 rounded border border-border/70 bg-white px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-white lg:flex"
+                    className="items-center justify-between gap-3 rounded border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground lg:flex"
                     onClick={() => setSearchOpen(true)}
                   >
                     <span className="inline-flex items-center gap-2">

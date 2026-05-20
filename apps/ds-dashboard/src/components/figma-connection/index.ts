@@ -1,6 +1,6 @@
 export { FigmaConnectionModal } from './figma-connection-modal';
 export { FigmaConnectionPanel } from './figma-connection-panel';
-export { FigmaConnectionSidebarButton } from './figma-connection-sidebar-button';
+export { FigmaConnectionIconButton } from './figma-connection-icon-button';
 export { FigmaConnectionTestButton } from './figma-connection-test-button';
 export { FigmaConnectionActions } from './figma-connection-actions';
 export { FigmaConnectionRecoveryStepper } from './figma-connection-recovery-stepper';
