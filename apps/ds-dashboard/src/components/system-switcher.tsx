@@ -96,7 +96,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   }
 
   return (
-    <div className={cn("mt-2 flex flex-col gap-4", collapsed && "sr-only")}>
+    <div className={cn("mt-3 flex flex-col gap-6", collapsed && "sr-only")}>
       <h1 className="flex w-full flex-nowrap items-center justify-center gap-2 whitespace-nowrap text-center text-2xl font-titles font-semibold tracking-tight">
         <img
           src="/branding/logo_DS_Graph.svg"
