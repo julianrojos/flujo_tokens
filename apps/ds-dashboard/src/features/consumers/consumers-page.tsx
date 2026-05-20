@@ -128,13 +128,15 @@ export function ConsumersPage() {
               ))
             : null}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setAddModalOpen(true)}
-        >
-          Add Consumer File
-        </Button>
+        {consumersPresenceQuery.data === true ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddModalOpen(true)}
+          >
+            Add Consumer File
+          </Button>
+        ) : null}
       </div>
 
       {activeTab === 'by-file' && (

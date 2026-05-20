@@ -402,7 +402,7 @@ export function DesignSystemsAdminPage() {
                     disabled={!!busyIds[targetSystem.id]}
                   />
                 </FormField>
-                <label className="flex cursor-pointer items-center gap-2 py-2 text-sm">
+                <label className="flex cursor-pointer items-center gap-2 pt-4 pb-2 text-sm">
                   <Checkbox
                     checked={
                       (

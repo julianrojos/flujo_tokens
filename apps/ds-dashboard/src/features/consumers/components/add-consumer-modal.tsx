@@ -118,6 +118,11 @@ export function AddConsumerModal({
           <div className="space-y-4 p-5">
             {error ? <ApiErrorMessage error={error} /> : null}
 
+            <StatusAlert variant="info" title="How it works">
+              Open the plugin in the file that uses a parent design system. Fill in its url and
+              name.
+            </StatusAlert>
+
             <FormField id="consumer-file-url" label="Figma file URL" required>
               <Input
                 id="consumer-file-url"
@@ -139,11 +144,6 @@ export function AddConsumerModal({
                 required
               />
             </FormField>
-
-            <StatusAlert variant="info" title="How it works">
-              Consumer files will be scanned for design system token usage. Sync
-              extracts component and variable references from the Figma file.
-            </StatusAlert>
           </div>
           <ModalFooter>
             <Button
