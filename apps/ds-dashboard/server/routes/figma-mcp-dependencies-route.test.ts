@@ -9,18 +9,13 @@ import { Hono } from 'hono';
 
 import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
-import { DependencySyncService } from '../services/dependency-sync-service.js';
-import { DependencyAnalysisService } from '../services/dependency-analysis-service.js';
-import { DependencySimulateService } from '../services/dependency-simulate-service.js';
 import { createTestDatabase } from '../db/test-db-helpers.js';
 
 describe('figma-mcp-dependencies-route', () => {
   let sql: Sql;
   let cleanup: () => Promise<void>;
   let repository: DependencyRepository;
-  let syncService: DependencySyncService;
-  let analysisService: DependencyAnalysisService;
-  let simulateService: DependencySimulateService;
+  let syncConsumersFn: (params: any) => Promise<any>;
   let app: Hono;
 
   beforeEach(async () => {
@@ -40,9 +35,28 @@ describe('figma-mcp-dependencies-route', () => {
       },
     });
 
-    syncService = new DependencySyncService(repository, mockSystemConfig);
-    analysisService = new DependencyAnalysisService(repository);
-    simulateService = new DependencySimulateService(repository);
+    syncConsumersFn = async ({ consumerIds, dsFileKey }: { consumerIds?: string[]; dsFileKey: string }) => {
+      const runs = await Promise.all((consumerIds ?? []).map(async (consumerId) => {
+        const consumer = await repository.getConsumer(consumerId);
+        return {
+          consumerId,
+          consumerName: consumer?.consumer_name ?? 'Test Consumer',
+          status: 'ok' as const,
+          durationMs: 1,
+          componentCount: 1,
+          variableCount: 1,
+          warningCount: 0,
+        };
+      }));
+
+      return {
+        synced: runs.length,
+        skipped: 0,
+        errored: 0,
+        runs,
+        dsFileKey,
+      };
+    };
 
     app = new Hono();
     registerFigmaMcpDependenciesRoutes(app, {
@@ -50,6 +64,7 @@ describe('figma-mcp-dependencies-route', () => {
       db: sql,
       getSystemConfig: (_c: any) => mockSystemConfig(),
       getConnInfoFn: mockGetConnInfo as any,
+      syncConsumersFn: (params: any) => syncConsumersFn(params),
     });
   });
 
@@ -73,6 +88,121 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.ok, true);
     assert.ok(body.data);
     assert.strictEqual(body.data.consumer_name, 'Test Consumer');
+  });
+
+  test('POST /api/figma-mcp/dependencies/consumers - rejects consumer without parent usage and rolls back', async () => {
+    syncConsumersFn = async ({ dsFileKey, consumerIds }: { dsFileKey: string; consumerIds?: string[] }) => ({
+      synced: 1,
+      skipped: 0,
+      errored: 0,
+      runs: [
+        {
+          consumerId: consumerIds?.[0] ?? 'consumer-missing-usage',
+          consumerName: 'Test Consumer',
+          status: 'ok' as const,
+          durationMs: 1,
+          componentCount: 0,
+          variableCount: 0,
+          warningCount: 0,
+        },
+      ],
+      dsFileKey,
+    });
+
+    const response = await app.request('/api/figma-mcp/dependencies/consumers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+        consumerName: 'Test Consumer',
+        consumerFileUrl: 'https://www.figma.com/design/consumer456/Test-Consumer',
+      }),
+    });
+
+    assert.strictEqual(response.status, 422);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.consumer.no_parent_usage');
+    assert.strictEqual(body.message, 'Consumer file does not use elements from the parent design system.');
+
+    const consumers = await repository.listConsumers('ds123');
+    assert.strictEqual(consumers.length, 0);
+  });
+
+  test('POST /api/figma-mcp/dependencies/consumers - rejects consumer with components only', async () => {
+    syncConsumersFn = async ({ dsFileKey, consumerIds }: { dsFileKey: string; consumerIds?: string[] }) => ({
+      synced: 1,
+      skipped: 0,
+      errored: 0,
+      runs: [
+        {
+          consumerId: consumerIds?.[0] ?? 'consumer-components-only',
+          consumerName: 'Test Consumer',
+          status: 'ok' as const,
+          durationMs: 1,
+          componentCount: 1,
+          variableCount: 0,
+          warningCount: 0,
+        },
+      ],
+      dsFileKey,
+    });
+
+    const response = await app.request('/api/figma-mcp/dependencies/consumers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+        consumerName: 'Test Consumer',
+        consumerFileUrl: 'https://www.figma.com/design/consumer456/Test-Consumer',
+      }),
+    });
+
+    assert.strictEqual(response.status, 422);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.consumer.no_parent_usage');
+
+    const consumers = await repository.listConsumers('ds123');
+    assert.strictEqual(consumers.length, 0);
+  });
+
+  test('POST /api/figma-mcp/dependencies/consumers - rejects consumer with variables only', async () => {
+    syncConsumersFn = async ({ dsFileKey, consumerIds }: { dsFileKey: string; consumerIds?: string[] }) => ({
+      synced: 1,
+      skipped: 0,
+      errored: 0,
+      runs: [
+        {
+          consumerId: consumerIds?.[0] ?? 'consumer-variables-only',
+          consumerName: 'Test Consumer',
+          status: 'ok' as const,
+          durationMs: 1,
+          componentCount: 0,
+          variableCount: 1,
+          warningCount: 0,
+        },
+      ],
+      dsFileKey,
+    });
+
+    const response = await app.request('/api/figma-mcp/dependencies/consumers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+        consumerName: 'Test Consumer',
+        consumerFileUrl: 'https://www.figma.com/design/consumer456/Test-Consumer',
+      }),
+    });
+
+    assert.strictEqual(response.status, 422);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.consumer.no_parent_usage');
+
+    const consumers = await repository.listConsumers('ds123');
+    assert.strictEqual(consumers.length, 0);
   });
 
   test('POST /api/figma-mcp/dependencies/consumers - missing required fields', async () => {

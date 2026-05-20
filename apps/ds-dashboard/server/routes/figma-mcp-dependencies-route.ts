@@ -3,8 +3,13 @@ import type { ConnInfo } from 'hono/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.js';
 import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
-import { DependencyRepository } from '../db/dependency-repository.js';
-import { DependencySyncService, type SystemConfig } from '../services/dependency-sync-service.js';
+import { DependencyRepository, type DsConsumer } from '../db/dependency-repository.js';
+import {
+  DependencySyncService,
+  type SyncConsumersParams,
+  type SyncResult,
+  type SystemConfig,
+} from '../services/dependency-sync-service.js';
 import { DependencyAnalysisService } from '../services/dependency-analysis-service.js';
 import { DependencySimulateService } from '../services/dependency-simulate-service.js';
 import { extractFileKey } from '../lib/filekey-utils.js';
@@ -96,6 +101,7 @@ type RouteDeps = {
   db: Sql;
   getSystemConfig: (c: Context) => SystemConfig;
   getSystemConfigByDsFileKey?: (dsFileKey: string) => SystemConfig | null;
+  syncConsumersFn?: (params: SyncConsumersParams) => Promise<SyncResult>;
 };
 
 function isAuthorized(c: Context, deps: RouteDeps): boolean {
@@ -119,6 +125,26 @@ function isAuthorized(c: Context, deps: RouteDeps): boolean {
   return false;
 }
 
+function resolveFigmaToken(c: Context, deps: RouteDeps, dsFileKey: string): string {
+  const systemByDsFile = deps.getSystemConfigByDsFileKey?.(dsFileKey);
+  const rawTokenRef = String(
+    systemByDsFile?.figmaApiToken || deps.getSystemConfig(c).figmaApiToken || '',
+  );
+  return resolveEnvRef(rawTokenRef);
+}
+
+function getConsumerRunForValidation(result: SyncResult, consumerId: string) {
+  return (
+    result.runs.find((run) => run.consumerId === consumerId) ??
+    result.runs[0] ??
+    null
+  );
+}
+
+function hasRequiredParentUsage(run: { componentCount: number; variableCount: number } | null) {
+  return Number(run?.componentCount ?? 0) > 0 && Number(run?.variableCount ?? 0) > 0;
+}
+
 /**
  * Register dependency tracking routes
  */
@@ -128,6 +154,7 @@ export function registerFigmaMcpDependenciesRoutes(
 ) {
   const repository = new DependencyRepository(deps.db);
   const syncService = new DependencySyncService(repository, deps.getSystemConfig);
+  const syncConsumers = deps.syncConsumersFn ?? ((params: SyncConsumersParams) => syncService.syncConsumers(params));
   const analysisService = new DependencyAnalysisService(repository);
   const simulateService = new DependencySimulateService(repository);
 
@@ -176,16 +203,88 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = await repository.addConsumer({
-        ds_file_key: dsFileKey as string,
-        consumer_file_key: consumerFileKey as string,
-        consumer_name: body.consumerName as string,
-      });
+      let consumer: DsConsumer | null = null;
+      const resolvedToken = resolveFigmaToken(c, deps, dsFileKey);
+      if (!resolvedToken) {
+        return c.json({
+          ok: false,
+          code: 'deps.sync.no_token',
+          message: 'Figma API token not resolved from system config',
+        }, 500);
+      }
 
-      return c.json({
-        ok: true,
-        data: consumer,
-      });
+      try {
+        consumer = await repository.addConsumer({
+          ds_file_key: dsFileKey as string,
+          consumer_file_key: consumerFileKey as string,
+          consumer_name: body.consumerName as string,
+        });
+
+        const syncResult = await syncConsumers({
+          dsFileKey,
+          consumerIds: [consumer.id],
+          force: true,
+          token: resolvedToken,
+          captureParentUsage: true,
+        });
+
+        const syncRun = getConsumerRunForValidation(syncResult, consumer.id);
+        if (!hasRequiredParentUsage(syncRun)) {
+          try {
+            await repository.removeConsumer(consumer.id);
+          } catch (rollbackError) {
+            console.error('Error rolling back consumer after validation failure:', rollbackError);
+            return c.json({
+              ok: false,
+              code: 'deps.consumer.add_failed',
+              message: 'Consumer file could not be rolled back after validation failed',
+            }, 500);
+          }
+
+          return c.json({
+            ok: false,
+            code: 'deps.consumer.no_parent_usage',
+            message: 'Consumer file does not use elements from the parent design system.',
+          }, 422);
+        }
+
+        return c.json({
+          ok: true,
+          data: consumer,
+        });
+      } catch (error) {
+        if (consumer) {
+          try {
+            await repository.removeConsumer(consumer.id);
+          } catch (rollbackError) {
+            console.error('Error rolling back consumer after sync failure:', rollbackError);
+          }
+        }
+
+        if (error && typeof error === 'object' && 'code' in error) {
+          const err = error as any;
+          if (err.code === 'deps.consumer.duplicate') {
+            return c.json({
+              ok: false,
+              code: err.code,
+              message: err.message,
+            }, 409);
+          }
+          return c.json({
+            ok: false,
+            code: err.code,
+            message: err.message,
+          }, 500);
+        }
+
+        console.error('Error validating consumer usage:', error);
+        return c.json({
+          ok: false,
+          code: 'deps.consumer.add_failed',
+          message: 'Failed to add consumer',
+        }, 500);
+      }
+
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as any;
@@ -371,13 +470,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     try {
       const dsFileKey = String(body.dsFileKey || '').trim();
-      const systemByDsFile = deps.getSystemConfigByDsFileKey?.(dsFileKey);
-      const rawTokenRef = String(
-        systemByDsFile?.figmaApiToken ||
-          deps.getSystemConfig(c).figmaApiToken ||
-          '',
-      );
-      const resolvedToken = resolveEnvRef(rawTokenRef);
+      const resolvedToken = resolveFigmaToken(c, deps, dsFileKey);
       if (!resolvedToken) {
         return c.json({
           ok: false,

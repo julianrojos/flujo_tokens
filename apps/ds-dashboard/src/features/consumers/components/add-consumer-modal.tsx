@@ -11,7 +11,8 @@ import {
   ModalFooter,
 } from '@/components/ui/overlay/modal';
 import { StatusAlert } from '@/components/ui/status-alert';
-import { addConsumer, type AddConsumerPayload, syncConsumers } from '@/lib/api';
+import { addConsumer, type AddConsumerPayload } from '@/lib/api';
+import { API_ERROR_CODES } from '@/lib/api-errors';
 import { toApiErrorDisplay } from '@/lib/api-error-ux';
 import { ApiErrorMessage } from '@/components/api-error-message';
 import {
@@ -53,13 +54,10 @@ export function AddConsumerModal({
 
       const created = await addConsumer(payload);
       const consumerId = String(created?.data?.id || '').trim();
-      await syncConsumers({
-        dsFileKey,
-        consumerIds: consumerId ? [consumerId] : undefined,
-        // Keep parent-file "Used In" data fresh for token detail views.
-        // Tradeoff: adds one extra parent-file scan per sync request.
-        captureParentUsage: true,
-      });
+      if (!consumerId) {
+        throw new Error('Consumer file was created without a valid consumer ID.');
+      }
+
       onSuccess?.();
       handleClose();
     } catch (cause) {
@@ -116,7 +114,16 @@ export function AddConsumerModal({
             />
           </ModalHeader>
           <div className="space-y-4 p-5">
-            {error ? <ApiErrorMessage error={error} /> : null}
+            {error ? (
+              <ApiErrorMessage
+                error={error}
+                tone={
+                  error.code === API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE
+                    ? 'warning'
+                    : 'error'
+                }
+              />
+            ) : null}
 
             <StatusAlert variant="info" title="How it works">
               Open the plugin in the file that uses a parent design system. Fill in its url and

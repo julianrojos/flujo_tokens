@@ -71,6 +71,8 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
       return "System not found";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Delete blocked";
+    case API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE:
+      return "Consumer file rejected";
     case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
       return "Event not found";
     case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:
@@ -127,6 +129,9 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
 
   if (code.startsWith("validation.")) {
     return fallbackAction || "Review inputs and retry.";
+  }
+  if (code === API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE) {
+    return "Use a file that references at least one component and one variable from the parent design system.";
   }
   if (code.startsWith("sync.")) {
     return "Re-open the Figma plugin, capture missing screenshots, and retry.";

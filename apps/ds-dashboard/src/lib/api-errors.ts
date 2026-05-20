@@ -6,6 +6,7 @@ export const API_ERROR_CODES = {
   DESIGN_SYSTEM_ALREADY_EXISTS: "design_system.already_exists",
   DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED: "design_system.last_system_protected",
   DESIGN_SYSTEM_NOT_FOUND: "design_system.not_found",
+  DEPS_CONSUMER_NO_PARENT_USAGE: "deps.consumer.no_parent_usage",
   FILE_INVALID_PATH: "file.invalid_path",
   FILE_NOT_FOUND: "file.not_found",
   FILE_QUERY_NOT_FOUND: "file.query_not_found",
@@ -94,6 +95,13 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     recoverable: true,
     description: "The requested design system ID does not exist.",
     fix: "Select an existing system ID and retry.",
+  },
+  [API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE]: {
+    code: API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE,
+    httpStatus: 422,
+    recoverable: true,
+    description: "Consumer file does not use elements from the parent design system.",
+    fix: "Open a file that uses at least one component and one variable from the parent system, then import it again.",
   },
   [API_ERROR_CODES.FILE_INVALID_PATH]: {
     code: API_ERROR_CODES.FILE_INVALID_PATH,
