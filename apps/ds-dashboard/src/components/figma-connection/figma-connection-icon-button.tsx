@@ -18,9 +18,9 @@ export function FigmaConnectionIconButton({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon"
-      className="relative text-muted-foreground"
+      className="relative"
       onClick={onClick}
       title={`Figma connection: ${connectionStatusTitle}`}
       aria-label={`Figma connection: ${connectionStatusTitle}`}

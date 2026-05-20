@@ -594,16 +594,16 @@ export default function App() {
                       onClick={() => setIsFigmaConnectionModalOpen(true)}
                       connectionState={connectionState}
                     />
-                    <button
+                    <Button
                       type="button"
-                      className="rounded-md border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setSearchOpen(true)}
+                      aria-label="Open search"
+                      title="Search"
                     >
-                      <span className="inline-flex items-center gap-2">
-                        <Search className="h-4 w-4" />
-                        Search
-                      </span>
-                    </button>
+                      <Search className="h-4 w-4" aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
               </header>
@@ -617,16 +617,16 @@ export default function App() {
                     onClick={() => setIsFigmaConnectionModalOpen(true)}
                     connectionState={connectionState}
                   />
-                  <button
+                  <Button
                     type="button"
-                    className="items-center justify-between gap-3 rounded border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground lg:flex"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setSearchOpen(true)}
+                    aria-label="Open search"
+                    title="Search"
                   >
-                    <span className="inline-flex items-center gap-2">
-                      <Search className="h-4 w-4" />
-                      Search
-                    </span>
-                  </button>
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
 
