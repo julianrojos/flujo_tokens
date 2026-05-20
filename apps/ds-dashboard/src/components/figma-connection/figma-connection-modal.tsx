@@ -3,7 +3,6 @@ import {
   Modal,
   ModalCloseButton,
   ModalContent,
-  ModalFooter,
   ModalHeader,
 } from '@/components/ui/overlay';
 import { useFigmaMcpStatus } from '@/lib/figma-mcp-status-context';
@@ -30,7 +29,6 @@ export function FigmaConnectionModal({ open, onClose }: FigmaConnectionModalProp
           <ModalCloseButton onClick={onClose} label="Close Figma connection modal" />
         </ModalHeader>
         <FigmaConnectionPanel connectionStatusTitle={getConnectionStatusTitle(connectionState)} />
-        <ModalFooter />
       </ModalContent>
     </Modal>
   );

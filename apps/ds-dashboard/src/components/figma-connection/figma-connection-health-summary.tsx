@@ -11,7 +11,7 @@ export function FigmaConnectionHealthSummary({
   return (
     <p
       className={cn(
-        'break-words text-[11px]',
+        'break-words text-sm',
         connectionHealth.tone === 'success'
           ? 'text-status-success'
           : connectionHealth.tone === 'warning'

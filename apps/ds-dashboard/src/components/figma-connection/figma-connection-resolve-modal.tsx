@@ -25,43 +25,46 @@ export function FigmaConnectionResolveModal({
   dialogState,
   dialogActions,
 }: FigmaConnectionResolveModalProps) {
+  const titleId = 'figma-connection-resolve-title';
   const { open, disabled, resolveConfirmed } = dialogState;
   const { onClose, onResolve, onResolveConfirmedChange } = dialogActions;
 
   return (
-    <Modal open={open} onClose={onClose}>
-      <ModalContent size="md">
-        <ModalHeader>
-          <div className="flex items-start justify-between gap-4">
+    <Modal open={open} onClose={onClose} aria-labelledby={titleId}>
+      <ModalContent size="sm">
+        <ModalHeader className="items-start gap-4">
+          <div className="min-w-0 flex-1">
             <h2
-              id="figma-mcp-reset-confirm-title"
+              id={titleId}
               className="text-lg font-titles font-semibold tracking-tight titles-color"
             >
               Resolve connection
             </h2>
-            <ModalCloseButton onClick={onClose} label="Close Figma connection modal" />
           </div>
+          <ModalCloseButton onClick={onClose} label="Close resolve connection dialog" />
         </ModalHeader>
 
-        <div className="px-5 pb-2">
-          <p className="mb-4 text-sm text-muted-foreground">
-            This will refresh the plugin session state managed by this dashboard to force a clean
-            reconnect.
+        <div className="space-y-4 p-5 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Refresh the plugin session state to force a clean reconnect.
           </p>
           <Checkbox
             id="figma-mcp-resolve-confirm"
             checked={resolveConfirmed}
             onChange={(e) => onResolveConfirmedChange(e.target.checked)}
             label="I understand the impact and want to continue"
-            className="mb-5"
           />
         </div>
 
-        <ModalFooter>
-          <Button variant="outline" onClick={onClose}>
+        <ModalFooter className="justify-end">
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onResolve} disabled={!resolveConfirmed || disabled}>
+          <Button
+            type="button"
+            onClick={onResolve}
+            disabled={!resolveConfirmed || disabled}
+          >
             Resolve connection
           </Button>
         </ModalFooter>

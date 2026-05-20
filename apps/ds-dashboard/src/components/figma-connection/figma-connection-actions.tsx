@@ -8,15 +8,13 @@ interface FigmaConnectionActionsProps {
     isLoading: boolean;
     isResetting: boolean;
     isWaiting: boolean;
-    isLoadingContext: boolean;
     canResolve: boolean;
     isRecoveryActive: boolean;
-    showDesignContextCompact: boolean;
     isConnected: boolean;
+    hasTestedConnection: boolean;
   };
   uiActions: {
     onTest: () => void;
-    onInspectSelection: () => void;
     onOpenResolveModal: () => void;
   };
 }
@@ -32,25 +30,30 @@ export function FigmaConnectionActions({
     isLoading,
     isResetting,
     isWaiting,
-    isLoadingContext,
     canResolve,
     isRecoveryActive,
-    showDesignContextCompact,
     isConnected,
+    hasTestedConnection,
   } = uiState;
 
-  const { onTest, onInspectSelection, onOpenResolveModal } = uiActions;
+  const { onTest, onOpenResolveModal } = uiActions;
+  const testButtonLabel = (() => {
+    if (isLoading) return 'Testing MCP…';
+    if (isConnected) return 'Retest';
+    if (hasTestedConnection) return 'Retry test';
+    return buttonLabel;
+  })();
 
   return (
-    <div className="flex w-full flex-wrap items-start justify-start gap-2">
+    <div className="flex w-full flex-wrap items-center justify-end gap-2">
       <Button
         type="button"
-        variant="outline"
+        variant={isConnected ? 'ghost' : 'outline'}
         size={size}
         onClick={onTest}
-        disabled={disabled || isLoading || isResetting}
+        disabled={disabled || isLoading || isResetting || isWaiting}
       >
-        {isLoading ? 'Testing MCP…' : buttonLabel}
+        {testButtonLabel}
       </Button>
 
       {canResolve && !isRecoveryActive ? (
@@ -62,25 +65,6 @@ export function FigmaConnectionActions({
           disabled={disabled || isLoading}
         >
           Resolve connection
-        </Button>
-      ) : null}
-
-      {showDesignContextCompact ? (
-        <Button
-          type="button"
-          variant="outline"
-          size={size}
-          onClick={onInspectSelection}
-          disabled={
-            disabled ||
-            isLoading ||
-            isResetting ||
-            isWaiting ||
-            isLoadingContext ||
-            !isConnected
-          }
-        >
-          {isLoadingContext ? 'Inspecting selection…' : 'Inspect selection'}
         </Button>
       ) : null}
     </div>

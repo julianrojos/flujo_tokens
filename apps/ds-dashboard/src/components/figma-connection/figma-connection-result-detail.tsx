@@ -21,7 +21,7 @@ export function FigmaConnectionResultDetail({
 
   if (result.ok && result.connected) {
     return (
-      <p className="break-words text-[11px] text-status-success">
+      <p className="break-words text-sm text-status-success">
         ✓ Connection successful
         {showDetectedCounts &&
         typeof result.collectionsDetected === 'number' &&
@@ -34,7 +34,7 @@ export function FigmaConnectionResultDetail({
 
   if (isPluginVersionMismatch) {
     return (
-      <p className="break-words text-[11px] text-status-warning">
+      <p className="break-words text-sm text-status-warning">
         ⚠ Plugin build mismatch. Reimport the DS Graph plugin so dashboard and plugin use the same
         protocol.
       </p>
@@ -43,7 +43,7 @@ export function FigmaConnectionResultDetail({
 
   if (isNotConnected) {
     return (
-      <p className="break-words text-[11px] text-status-warning">
+      <p className="break-words text-sm text-status-warning">
         {result.everConnected ? (
           '⚠ Connection lost — reopen the DS Graph plugin to reconnect.'
         ) : (
@@ -68,7 +68,7 @@ export function FigmaConnectionResultDetail({
   }
 
   return (
-    <p className="break-words text-[11px] text-status-error">
+    <p className="break-words text-sm text-status-error">
       ✗ Connection failed{result.message ? ` — ${result.message}` : ''}
     </p>
   );

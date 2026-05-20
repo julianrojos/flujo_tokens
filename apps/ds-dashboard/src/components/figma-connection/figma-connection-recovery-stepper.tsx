@@ -26,8 +26,8 @@ export function FigmaConnectionRecoveryStepper({
   if (!showRecoveryStepper) return null;
 
   return (
-    <div className="space-y-1.5 rounded-md border border-status-warning-border/30 bg-status-warning-bg/5 p-2.5">
-      <div className="space-y-1">
+    <div className="space-y-3">
+      <div className="space-y-2">
         {RECOVERY_STEPS.map((label, index) => {
           const isDone = activeRecoveryStep > index;
           const isActive = activeRecoveryStep === index;
@@ -35,7 +35,7 @@ export function FigmaConnectionRecoveryStepper({
             <div
               key={label}
               className={cn(
-                'flex items-center gap-2 text-[11px]',
+                'flex items-center gap-2 text-sm',
                 isDone
                   ? 'text-status-success'
                   : isActive
@@ -62,15 +62,15 @@ export function FigmaConnectionRecoveryStepper({
       </div>
 
       {isResetting ? (
-        <p className="break-words text-[11px] text-status-warning">
+        <p className="break-words text-sm text-status-warning">
           ↺ Refreshing DS Graph status… retrying in {resetSecondsLeft}s.
         </p>
       ) : isWaiting ? (
-        <p className="break-words text-[11px] text-status-warning">
+        <p className="break-words text-sm text-status-warning">
           ⏳ Retrying connection… {waitSecondsLeft}s left. Open the DS Graph plugin now.
         </p>
       ) : (
-        <p className="break-words text-[11px] text-status-warning">
+        <p className="break-words text-sm text-status-warning">
           ⚠ No reconnection detected. Open the DS Graph plugin and click
           &nbsp;&ldquo;Resolve connection&rdquo; again.
         </p>
