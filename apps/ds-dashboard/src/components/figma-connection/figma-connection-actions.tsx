@@ -46,16 +46,6 @@ export function FigmaConnectionActions({
 
   return (
     <div className="flex w-full flex-wrap items-center justify-end gap-2">
-      <Button
-        type="button"
-        variant={isConnected ? 'ghost' : 'outline'}
-        size={size}
-        onClick={onTest}
-        disabled={disabled || isLoading || isResetting || isWaiting}
-      >
-        {testButtonLabel}
-      </Button>
-
       {canResolve && !isRecoveryActive ? (
         <Button
           type="button"
@@ -67,6 +57,16 @@ export function FigmaConnectionActions({
           Resolve connection
         </Button>
       ) : null}
+
+      <Button
+        type="button"
+        variant="default"
+        size={size}
+        onClick={onTest}
+        disabled={disabled || isLoading || isResetting || isWaiting}
+      >
+        {testButtonLabel}
+      </Button>
     </div>
   );
 }

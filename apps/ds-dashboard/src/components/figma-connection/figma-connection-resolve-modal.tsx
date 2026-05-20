@@ -56,12 +56,13 @@ export function FigmaConnectionResolveModal({
           />
         </div>
 
-        <ModalFooter className="justify-end">
+        <ModalFooter>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button
             type="button"
+            variant="default"
             onClick={onResolve}
             disabled={!resolveConfirmed || disabled}
           >
