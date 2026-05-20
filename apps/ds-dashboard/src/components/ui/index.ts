@@ -30,7 +30,7 @@ export {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuButton,
+  SidebarNavItem,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,

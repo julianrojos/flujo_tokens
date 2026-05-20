@@ -10,7 +10,7 @@ export const sidebarVariants = cva(
 );
 export const sidebarInsetVariants = cva("min-w-0 flex-1");
 export const sidebarHeaderVariants = cva("p-5");
-export const sidebarContentVariants = cva("flex-1 overflow-auto px-3");
+export const sidebarContentVariants = cva("flex-1 overflow-auto px-3 pt-2");
 export const sidebarFooterVariants = cva("mt-auto p-3");
 export const sidebarGroupVariants = cva("space-y-1 pb-2");
 export const sidebarGroupContentVariants = cva("space-y-1");
@@ -152,15 +152,20 @@ export const SidebarMenuItem = React.forwardRef<
 ));
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
-type SidebarMenuButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+type SidebarNavItemProps = React.HTMLAttributes<HTMLDivElement> & {
   isActive?: boolean;
 };
 
-export const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  SidebarMenuButtonProps
+/**
+ * Navigation item shell for sidebar links.
+ * Use it inside an interactive wrapper (<a>, <button>).
+ * It does not manage its own focus or keyboard activation.
+ */
+export const SidebarNavItem = React.forwardRef<
+  HTMLDivElement,
+  SidebarNavItemProps
 >(({ className, isActive = false, ...props }, ref) => (
-  <button
+  <div
     ref={ref}
     data-active={isActive}
     className={cn(
@@ -170,7 +175,7 @@ export const SidebarMenuButton = React.forwardRef<
     {...props}
   />
 ));
-SidebarMenuButton.displayName = "SidebarMenuButton";
+SidebarNavItem.displayName = "SidebarNavItem";
 
 export const SidebarTrigger = React.forwardRef<
   HTMLButtonElement,

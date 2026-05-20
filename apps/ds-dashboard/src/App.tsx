@@ -45,7 +45,7 @@ import {
   SidebarFooter,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuButton,
+  SidebarNavItem,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
@@ -507,12 +507,12 @@ export default function App() {
                           <SidebarMenuItem key={item.to}>
                             <NavLink
                               to={item.to}
-                              className="block"
+                              className="block rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               onMouseEnter={() => prefetchRoute(item.to)}
                               onFocus={() => prefetchRoute(item.to)}
                             >
                               {({ isActive }) => (
-                                <SidebarMenuButton
+                                <SidebarNavItem
                                   isActive={isActive || (isPrimarySystemItem && isSystemSectionActive)}
                                   title={
                                     sidebarCollapsed ? item.label : undefined
@@ -533,7 +533,7 @@ export default function App() {
                                       </p>
                                     ) : null}
                                   </div>
-                                </SidebarMenuButton>
+                                </SidebarNavItem>
                               )}
                             </NavLink>
                           </SidebarMenuItem>
