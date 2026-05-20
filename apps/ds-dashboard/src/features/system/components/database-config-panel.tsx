@@ -1,4 +1,4 @@
-import { Database, Server } from 'lucide-react';
+import { Database } from 'lucide-react';
 
 import { ApiErrorMessage } from '@/components/api-error-message';
 import { FormField } from '@/components/common';
@@ -174,8 +174,7 @@ function DatabaseActions({
         variant="outline"
         onClick={onValidate}
         disabled={isBusy}
-        >
-        <Server className="mr-2 h-4 w-4" aria-hidden="true" />
+      >
         {isValidating ? 'Testing...' : 'Test connection'}
       </Button>
       <Button type="button" onClick={onApplyChanges} disabled={isBusy}>

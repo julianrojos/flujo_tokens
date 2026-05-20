@@ -1,5 +1,3 @@
-import { Database } from 'lucide-react';
-
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -31,10 +29,7 @@ export function SystemDatabaseModePanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database className="h-4 w-4" aria-hidden="true" />
-          Database mode
-        </CardTitle>
+        <CardTitle>Database mode</CardTitle>
         <CardDescription>
           Database mode recorded with this design system. This does not change
           the dashboard-wide connection.

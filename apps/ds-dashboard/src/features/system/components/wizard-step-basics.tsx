@@ -278,15 +278,7 @@ export function WizardStepBasics({
         </label>
 
         {/* Scan section */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={actions.onScan}
-            disabled={derived.saving || derived.scanState === 'loading'}
-          >
-            {derived.scanState === 'loading' ? 'Scanning…' : 'Scan file'}
-          </Button>
+        <div className="space-y-2">
           {derived.scanState === 'loading' ? (
             <span className="text-xs text-muted-foreground">
               Scanning components… ({scanElapsedSeconds}s)
@@ -519,8 +511,17 @@ export function WizardStepBasics({
         </Modal>
 
         {/* Import button */}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
           <Button
+            variant="outline"
+            size="default"
+            onClick={actions.onScan}
+            disabled={derived.saving || derived.scanState === 'loading'}
+          >
+            {derived.scanState === 'loading' ? 'Scanning…' : 'Scan file'}
+          </Button>
+          <Button
+            size="default"
             onClick={actions.onImport}
             disabled={
               !derived.isFormValid ||
