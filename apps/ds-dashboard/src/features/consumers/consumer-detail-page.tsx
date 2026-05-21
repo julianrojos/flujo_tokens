@@ -20,11 +20,8 @@ import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSortState } from "@/lib/use-sort-state";
-import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
-import { AdoptionBar } from "./components/adoption-bar";
-import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
-import { groupByParentComponent } from "./lib/component-grouping";
 import { cn } from "@/lib/utils";
+import { dedupeSampleNodes } from "@/lib/sample-node-utils";
 import {
   buildComponentLookupMap,
   extractComponentParentAlias,
@@ -32,7 +29,6 @@ import {
   resolveKnownComponentSlug,
   splitComponentName,
 } from "@/lib/component-identity";
-import { getComponentTableDisplayInfo } from "./lib/component-table-display";
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "@/lib/format-synced-at";
@@ -45,8 +41,15 @@ import type {
   VariableUsageReport,
   ImpactLevel,
   UsageScope,
+  SampleNodeRef,
 } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
+import { getComponentTableDisplayInfo } from "./lib/component-table-display";
+import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
+import { ConsumerSampleLinksModal } from "./components/consumer-sample-links-modal";
+import { AdoptionBar } from "./components/adoption-bar";
+import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
+import { groupByParentComponent } from "./lib/component-grouping";
 
 type ConsumerUsageTab = "components" | "variables";
 type VariableSortField = "variableName" | "nodes" | "variableType";
@@ -250,6 +253,10 @@ export function ConsumerDetailPage() {
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
   const [isTokenBindingOpen, setIsTokenBindingOpen] = useState(false);
+  const [sampleLinksModal, setSampleLinksModal] = useState<{
+    title: string;
+    sampleNodes: SampleNodeRef[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -369,11 +376,13 @@ export function ConsumerDetailPage() {
         if (usages.length === 0) return [];
 
         const sampleLinks = Array.from(new Set(usages.flatMap((usage) => usage.sampleLinks || [])));
+        const sampleNodes = dedupeSampleNodes(usages.flatMap((usage) => usage.sampleNodes || []));
         return [
           {
             ...c,
             instances: usages.reduce((sum, u) => sum + (u.instanceCount || 0), 0),
             sampleLinks,
+            sampleNodes,
           },
         ];
       }),
@@ -387,11 +396,13 @@ export function ConsumerDetailPage() {
         if (usages.length === 0) return [];
 
         const sampleLinks = Array.from(new Set(usages.flatMap((usage) => usage.sampleLinks || [])));
+        const sampleNodes = dedupeSampleNodes(usages.flatMap((usage) => usage.sampleNodes || []));
         return [
           {
             ...v,
             nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0),
             sampleLinks,
+            sampleNodes,
           },
         ];
       }),
@@ -586,6 +597,28 @@ export function ConsumerDetailPage() {
     [consumerComponents, consumerVariables],
   );
   const usageDetails = consumer?.latestSync?.usageDetails ?? null;
+  const consumerFileKey = consumer?.consumerFileKey || dsFileKey || "";
+
+  const openSampleLinksModal = (title: string, sampleNodes: SampleNodeRef[]) => {
+    setSampleLinksModal({ title, sampleNodes });
+  };
+
+  const renderSampleLinksButton = (title: string, sampleNodes: SampleNodeRef[]) => {
+    if (sampleNodes.length === 0) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+
+    return (
+      <button
+        type="button"
+        className="text-foreground underline-offset-2 hover:text-primary hover:underline"
+        aria-label={`Open sample links for ${title}`}
+        onClick={() => openSampleLinksModal(title, sampleNodes)}
+      >
+        Figma ({sampleNodes.length})
+      </button>
+    );
+  };
 
   if (loading) {
     return (
@@ -801,7 +834,7 @@ export function ConsumerDetailPage() {
                   <SortableTableHead label="Component" onSort={() => toggleComponentSort("parentName")} />
                   <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} className="text-right" />
                   <SortableTableHead label="Impact" onSort={() => toggleComponentSort("impactLevel")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Sample links</TableHead>
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -852,23 +885,7 @@ export function ConsumerDetailPage() {
                           <ImpactLevelBadge level={group.worstImpactLevel.level} />
                         </TableCell>
                         <TableCell>
-                          {group.sampleLinks.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {group.sampleLinks.slice(0, 5).map((link) => (
-                                <a
-                                  key={link}
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                >
-                                  ↗ Figma
-                                </a>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          {renderSampleLinksButton(variant.variantLabel || variant.componentName, variant.sampleNodes || [])}
                         </TableCell>
                       </TableRow>
                     );
@@ -915,23 +932,7 @@ export function ConsumerDetailPage() {
                           <ImpactLevelBadge level={group.worstImpactLevel.level} />
                         </TableCell>
                         <TableCell>
-                          {group.sampleLinks.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {group.sampleLinks.slice(0, 3).map((link) => (
-                                <a
-                                  key={link}
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                >
-                                  ↗ Figma
-                                </a>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          {renderSampleLinksButton(displayParentName, group.sampleNodes || [])}
                         </TableCell>
                       </TableRow>
                       {isExpanded &&
@@ -951,23 +952,7 @@ export function ConsumerDetailPage() {
                               <ImpactLevelBadge level={v.impactLevel.level} />
                             </TableCell>
                             <TableCell>
-                              {v.sampleLinks.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {v.sampleLinks.slice(0, 2).map((link) => (
-                                    <a
-                                      key={link}
-                                      href={link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                                    >
-                                      ↗ Figma
-                                    </a>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                              {renderSampleLinksButton(v.variantLabel || v.componentName, v.sampleNodes || [])}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1106,7 +1091,7 @@ export function ConsumerDetailPage() {
                   <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
                   <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} className="text-right" />
                   <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Sample links</TableHead>
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1139,23 +1124,7 @@ export function ConsumerDetailPage() {
                         <span className="font-mono text-xs lowercase text-foreground">{v.variableType}</span>
                       </TableCell>
                       <TableCell>
-                        {v.sampleLinks && v.sampleLinks.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {v.sampleLinks.slice(0, 5).map((link) => (
-                              <a
-                                key={link}
-                                href={link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
-                              >
-                                ↗ Figma
-                              </a>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        {renderSampleLinksButton(displayTokenName, v.sampleNodes || [])}
                       </TableCell>
                     </TableRow>
                   );
@@ -1460,8 +1429,13 @@ export function ConsumerDetailPage() {
           ) : null}
         </section>
       ) : null}
-
-
+      <ConsumerSampleLinksModal
+        open={sampleLinksModal !== null}
+        onClose={() => setSampleLinksModal(null)}
+        title={sampleLinksModal?.title || "Sample links"}
+        consumerFileKey={consumerFileKey}
+        sampleNodes={sampleLinksModal?.sampleNodes || []}
+      />
     </div>
   );
 }
