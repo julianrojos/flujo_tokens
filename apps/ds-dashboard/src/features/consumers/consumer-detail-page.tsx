@@ -76,6 +76,7 @@ function normalizeTokenLookupKey(value: string): string {
 
 type TokenLookupEntry = {
   path: string;
+  slashPath: string;
 };
 
 function normalizeLookupKey(value: string): string {
@@ -311,7 +312,7 @@ export function ConsumerDetailPage() {
             if (!path) return acc;
             const slashPath = String(entry.slashPath || "").trim();
             const cssVar = String(entry.cssVar || "").trim();
-            const tokenEntry: TokenLookupEntry = { path };
+            const tokenEntry: TokenLookupEntry = { path, slashPath };
 
             const exactKeys = [normalizeLookupKey(path), normalizeLookupKey(slashPath), normalizeLookupKey(cssVar)].filter(
               Boolean,
@@ -1135,7 +1136,7 @@ export function ConsumerDetailPage() {
                     tokenByExactLookup,
                     tokenByLookup,
                   );
-                  const displayTokenName = tokenEntry?.path || v.variableName;
+                  const displayTokenName = tokenEntry?.slashPath || tokenEntry?.path || v.variableName;
                   return (
                     <TableRow key={v.variableKey}>
                       <TableCell>
