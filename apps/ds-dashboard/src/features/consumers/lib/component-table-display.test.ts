@@ -62,4 +62,28 @@ describe("getComponentTableDisplayInfo", () => {
       variantLabel: "",
     });
   });
+
+  it("treats singular and plural path segments as the same canonical component label", () => {
+    const info = getComponentTableDisplayInfo({
+      componentName: "A11y/Dimension/Min-Hit-Area",
+      parentDisplayName: "A11y/Dimensions",
+    });
+
+    assert.deepEqual(info, {
+      componentLabel: "A11y/Dimensions",
+      variantLabel: "Min-Hit-Area",
+    });
+  });
+
+  it("keeps exact slash-based matches stable for parent names that end with s", () => {
+    const info = getComponentTableDisplayInfo({
+      componentName: "Canvas/Shape",
+      parentDisplayName: "Canvas",
+    });
+
+    assert.deepEqual(info, {
+      componentLabel: "Canvas",
+      variantLabel: "Shape",
+    });
+  });
 });

@@ -1,8 +1,38 @@
-import { splitComponentName } from "@/lib/component-identity";
+import { normalizeComponentLookupKey, splitComponentName } from "@/lib/component-identity";
 
 export interface ComponentTableDisplayInfo {
   componentLabel: string;
   variantLabel: string;
+}
+
+function normalizePathSegment(value: string): string {
+  const normalized = normalizeComponentLookupKey(value);
+  if (normalized.length > 3 && normalized.endsWith("s") && !normalized.endsWith("ss")) {
+    return normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+function splitComponentPath(value: string): string[] {
+  return String(value || "")
+    .trim()
+    .split("/")
+    .map((segment) => String(segment || "").trim())
+    .filter(Boolean);
+}
+
+function isEquivalentPathPrefix(rawSegments: string[], canonicalSegments: string[]): boolean {
+  if (canonicalSegments.length === 0 || rawSegments.length < canonicalSegments.length) {
+    return false;
+  }
+
+  for (let index = 0; index < canonicalSegments.length; index += 1) {
+    if (normalizePathSegment(rawSegments[index] || "") !== normalizePathSegment(canonicalSegments[index] || "")) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -27,6 +57,9 @@ export function getComponentTableDisplayInfo(args: {
     };
   }
 
+  const rawSegments = splitComponentPath(rawName);
+  const canonicalSegments = splitComponentPath(canonicalParent);
+
   if (canonicalParent && rawName.startsWith(`${canonicalParent}/`)) {
     return {
       componentLabel: canonicalParent,
@@ -38,6 +71,14 @@ export function getComponentTableDisplayInfo(args: {
     return {
       componentLabel: canonicalParent,
       variantLabel: rawName.slice(canonicalParent.length + 1).trim(),
+    };
+  }
+
+  if (canonicalParent && isEquivalentPathPrefix(rawSegments, canonicalSegments)) {
+    const variantSegments = rawSegments.slice(canonicalSegments.length);
+    return {
+      componentLabel: canonicalParent,
+      variantLabel: variantSegments.join("/"),
     };
   }
 
