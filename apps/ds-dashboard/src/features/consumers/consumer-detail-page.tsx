@@ -55,6 +55,10 @@ type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
+const CONSUMER_USAGE_TABS: Array<{ id: ConsumerUsageTab; label: string }> = [
+  { id: "variables", label: "Variable Usage" },
+  { id: "components", label: "Component Usage" },
+];
 
 function normalizeTokenLookupKey(value: string): string {
   return String(value || "")
@@ -205,14 +209,9 @@ function ConsumerUsageTabsNav({
   activeTab: ConsumerUsageTab;
   onChange: (tab: ConsumerUsageTab) => void;
 }) {
-  const tabs: Array<{ id: ConsumerUsageTab; label: string }> = [
-    { id: "variables", label: "Variable Usage" },
-    { id: "components", label: "Component Usage" },
-  ];
-
   return (
     <nav className="flex gap-1 border-b border-border" role="tablist">
-      {tabs.map((tab) => {
+      {CONSUMER_USAGE_TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         const tabId = `consumer-usage-tab-${tab.id}`;
         const panelId = `consumer-usage-panel-${tab.id}`;
@@ -294,12 +293,10 @@ export function ConsumerDetailPage() {
           return;
         }
 
-        if (dsFileKey) {
-          const consumersResponse = await listConsumers(dsFileKey);
-          const foundConsumer = consumersResponse.data.find((c) => c.id === consumerId);
-          if (foundConsumer) {
-            setConsumer(foundConsumer);
-          }
+        const consumersResponse = await listConsumers(dsFileKey);
+        const foundConsumer = consumersResponse.data.find((c) => c.id === consumerId);
+        if (foundConsumer) {
+          setConsumer(foundConsumer);
         }
 
         // Load component and variable reports
@@ -323,49 +320,47 @@ export function ConsumerDetailPage() {
         setVariables(variablesResponse.data || []);
         setComponentCatalogItems(componentCatalog.components || []);
         setComponentSlugByLookup(buildComponentLookupMap(componentCatalog.components || []));
-        const exactTokenLookup = Object.fromEntries(
-          (tokenCatalog.entries || []).flatMap((entry) => {
-            const path = String(entry.path || "").trim();
-            if (!path) return [];
-            const slashPath = String(entry.slashPath || "").trim();
-            const cssVar = String(entry.cssVar || "").trim();
-            const tokenEntry: TokenLookupEntry = { path };
-            return [
-              [normalizeLookupKey(path), tokenEntry],
-              [normalizeLookupKey(slashPath), tokenEntry],
-              [normalizeLookupKey(cssVar), tokenEntry],
-            ].filter(([key]) => Boolean(key));
-          }),
-        );
-        setTokenByExactLookup(exactTokenLookup);
-        const tokenLookup = (tokenCatalog.entries || []).reduce<Record<string, TokenLookupEntry | null>>(
+        const tokenLookup = (tokenCatalog.entries || []).reduce<{
+          exact: Record<string, TokenLookupEntry>;
+          fallback: Record<string, TokenLookupEntry | null>;
+        }>(
           (acc, entry) => {
             const path = String(entry.path || "").trim();
             if (!path) return acc;
             const slashPath = String(entry.slashPath || "").trim();
             const cssVar = String(entry.cssVar || "").trim();
             const tokenEntry: TokenLookupEntry = { path };
-            const keys = [
+
+            const exactKeys = [normalizeLookupKey(path), normalizeLookupKey(slashPath), normalizeLookupKey(cssVar)].filter(
+              Boolean,
+            );
+            for (const key of exactKeys) {
+              acc.exact[key] = tokenEntry;
+            }
+
+            const fallbackKeys = [
               normalizeTokenLookupKey(path),
               normalizeTokenLookupKey(slashPath),
               normalizeTokenLookupKey(cssVar),
             ].filter(Boolean);
-            for (const key of keys) {
-              if (!(key in acc)) {
-                acc[key] = tokenEntry;
+            for (const key of fallbackKeys) {
+              if (!(key in acc.fallback)) {
+                acc.fallback[key] = tokenEntry;
                 continue;
               }
-              const existing = acc[key];
+              const existing = acc.fallback[key];
               if (existing && existing.path !== tokenEntry.path) {
                 // Ambiguous normalized key; disable fallback for this key.
-                acc[key] = null;
+                acc.fallback[key] = null;
               }
             }
+
             return acc;
           },
-          {},
+          { exact: {}, fallback: {} },
         );
-        setTokenByLookup(tokenLookup);
+        setTokenByExactLookup(tokenLookup.exact);
+        setTokenByLookup(tokenLookup.fallback);
         setSyncRuns(runsResponse.data || []);
       } catch (cause) {
         setError(toApiErrorDisplay(cause, {
@@ -611,7 +606,10 @@ export function ConsumerDetailPage() {
     : filteredComponentGroups.length;
 
   // Compute worst impact level for overview
-  const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
+  const worstImpactLevel = useMemo(
+    () => computeWorstImpactLevel(consumerComponents, consumerVariables),
+    [consumerComponents, consumerVariables],
+  );
   const usageDetails = consumer?.latestSync?.usageDetails ?? null;
 
   if (loading) {
