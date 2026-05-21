@@ -110,6 +110,13 @@ describe("component-grouping", () => {
       assert.strictEqual(result[0].variants[0].variantLabel, "Button");
     });
 
+    it("skips bare variant assignments with no parent prefix", () => {
+      const components = [createComponent("State=Active", 3)];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 0);
+    });
+
     it("creates separate groups for different component sets", () => {
       const components = [
         createComponent("Button/Primary", 10),

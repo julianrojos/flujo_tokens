@@ -11,6 +11,12 @@ export interface ComponentLookupRegistryItem {
   slug: string;
 }
 
+export interface SplitComponentNameResult {
+  parentName: string;
+  variantLabel: string;
+  isBareVariantAssignment: boolean;
+}
+
 type ComponentLookupMapWithAmbiguity = Record<string, string | null>;
 
 const VARIANT_ASSIGNMENT_SEQUENCE_RE =
@@ -69,7 +75,7 @@ export function extractComponentParentAlias(value: string): string {
  * Split a component name into parent and variant parts.
  * Supports both slash and comma-based variant naming conventions.
  */
-export function splitComponentName(componentName: string): { parentName: string; variantLabel: string } {
+export function splitComponentName(componentName: string): SplitComponentNameResult {
   const normalized = String(componentName || "").trim();
 
   // Canonical Figma naming: "Button/Size=Large,State=Hover"
@@ -78,6 +84,7 @@ export function splitComponentName(componentName: string): { parentName: string;
     return {
       parentName: normalized.slice(0, slashIdx),
       variantLabel: normalized.slice(slashIdx + 1),
+      isBareVariantAssignment: false,
     };
   }
 
@@ -88,10 +95,17 @@ export function splitComponentName(componentName: string): { parentName: string;
     return {
       parentName: normalized.slice(0, commaIdx).trim(),
       variantLabel: afterComma,
+      isBareVariantAssignment: false,
     };
   }
 
-  return { parentName: normalized, variantLabel: "" };
+  // Bare variant assignment with no parent prefix: "State=Active", "Size=Small", etc.
+  // The component has no identifiable parent name — signal this with an empty parentName.
+  if (VARIANT_ASSIGNMENT_SEQUENCE_RE.test(normalized)) {
+    return { parentName: "", variantLabel: normalized, isBareVariantAssignment: true };
+  }
+
+  return { parentName: normalized, variantLabel: "", isBareVariantAssignment: false };
 }
 
 function addLookupValue(

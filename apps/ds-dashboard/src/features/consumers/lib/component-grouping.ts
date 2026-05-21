@@ -68,7 +68,12 @@ export function groupByParentComponent(
       continue;
     }
 
-    const { parentName, variantLabel } = splitComponentName(comp.componentName);
+    const { parentName, variantLabel, isBareVariantAssignment } = splitComponentName(comp.componentName);
+
+    // Skip bare variant assignments with no identifiable parent (e.g. "State=Active", "Size=Small")
+    if (isBareVariantAssignment) {
+      continue;
+    }
 
     const variant: ComponentVariant = {
       componentKey: comp.componentKey,
