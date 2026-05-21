@@ -49,7 +49,7 @@ import type {
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
 type ConsumerUsageTab = "components" | "variables";
-type VariableSortField = "variableName" | "nodes" | "variableType" | "impactLevel";
+type VariableSortField = "variableName" | "nodes" | "variableType";
 type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
@@ -239,14 +239,13 @@ export function ConsumerDetailPage() {
   const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
   const [tokenByLookup, setTokenByLookup] = useState<Record<string, TokenLookupEntry | null>>({});
   const [activeUsageTab, setActiveUsageTab] = useState<ConsumerUsageTab>("variables");
-  const [variableSort, toggleVariableSort] = useSortState<VariableSortField>({ field: "impactLevel", dir: "asc" });
+  const [variableSort, toggleVariableSort] = useSortState<VariableSortField>({ field: "variableName", dir: "asc" });
   const [componentSort, toggleComponentSort] = useSortState<ComponentSortField>({ field: "impactLevel", dir: "asc" });
   const [componentSearch, setComponentSearch] = useState("");
   const [componentPageSize, setComponentPageSize] = useState<string>("25");
   const [componentCurrentPage, setComponentCurrentPage] = useState(1);
   const [variableSearch, setVariableSearch] = useState("");
   const [variableTypeFilter, setVariableTypeFilter] = useState("all");
-  const [variableImpactFilter, setVariableImpactFilter] = useState("all");
   const [variablePageSize, setVariablePageSize] = useState<string>("25");
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
@@ -410,15 +409,11 @@ export function ConsumerDetailPage() {
       if (variableTypeFilter !== "all" && variable.variableType !== variableTypeFilter) {
         return false;
       }
-      if (variableImpactFilter !== "all" && variable.impactLevel.level !== variableImpactFilter) {
-        return false;
-      }
       if (!loweredSearch) return true;
       const searchableValues = [
         variable.variableName,
         variable.variableKey,
         variable.variableType,
-        variable.impactLevel.level,
       ];
       return searchableValues.some((value) => normalizeFilterText(value).includes(loweredSearch));
     });
@@ -428,14 +423,12 @@ export function ConsumerDetailPage() {
       if (variableSort.field === "variableName") return mul * a.variableName.localeCompare(b.variableName);
       if (variableSort.field === "nodes") return mul * ((a.nodes ?? 0) - (b.nodes ?? 0));
       if (variableSort.field === "variableType") return mul * a.variableType.localeCompare(b.variableType);
-      // impactLevel: CRITICAL=0, LOW=3 — asc puts CRITICAL first
-      return mul * (IMPACT_SORT_ORDER[a.impactLevel.level] - IMPACT_SORT_ORDER[b.impactLevel.level]);
+      return 0;
     });
 
     return filtered;
   }, [
     consumerVariables,
-    variableImpactFilter,
     variableSearch,
     variableTypeFilter,
     variableSort,
@@ -443,7 +436,7 @@ export function ConsumerDetailPage() {
 
   useEffect(() => {
     setVariableCurrentPage(1);
-  }, [variableImpactFilter, variablePageSize, variableSearch, variableTypeFilter, variableSort]);
+  }, [variablePageSize, variableSearch, variableTypeFilter, variableSort]);
 
   const variablePageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
@@ -1026,7 +1019,7 @@ export function ConsumerDetailPage() {
           <FilterBar
             searchValue={variableSearch}
             onSearch={setVariableSearch}
-            searchPlaceholder="Buscar por variable, tipo o impacto"
+            searchPlaceholder="Buscar por variable o tipo"
             count={filteredVariables.length}
             rightSlot={
               shouldShowPageSizeSelect(filteredVariables.length) ? (
@@ -1057,17 +1050,6 @@ export function ConsumerDetailPage() {
             >
               <option value="all">Type: All</option>
               {variableTypes.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={variableImpactFilter}
-              onChange={(event) => setVariableImpactFilter(event.target.value)}
-            >
-              <option value="all">Impact: All</option>
-              {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as ImpactLevel[]).map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
@@ -1124,7 +1106,6 @@ export function ConsumerDetailPage() {
                   <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
                   <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} className="text-right" />
                   <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
-                  <SortableTableHead label="Impact" onSort={() => toggleVariableSort("impactLevel")} />
                   <TableHead showSortIcon={false} className="normal-case tracking-normal">Sample links</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1156,9 +1137,6 @@ export function ConsumerDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="neutral">{v.variableType}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <ImpactLevelBadge level={v.impactLevel.level} />
                       </TableCell>
                       <TableCell>
                         {v.sampleLinks && v.sampleLinks.length > 0 ? (
