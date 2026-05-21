@@ -303,7 +303,7 @@ export function ConsumerDetailPage() {
         }
 
         // Load component and variable reports
-        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog] = await Promise.all([
+        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog, runsResponse] = await Promise.all([
           fetchReportByComponent(dsFileKey),
           fetchReportByVariable(dsFileKey),
           fetchComponentCatalog().catch((cause) => {
@@ -313,6 +313,10 @@ export function ConsumerDetailPage() {
           fetchTokenCatalog().catch((cause) => {
             console.warn("[consumer-detail] Token registry fetch failed", cause);
             return { entries: [] };
+          }),
+          fetchConsumerSyncRuns(consumerId).catch((cause) => {
+            console.warn("[consumer-detail] Sync runs fetch failed", cause);
+            return { data: [] };
           }),
         ]);
         setComponents(componentsResponse.data || []);
@@ -362,9 +366,6 @@ export function ConsumerDetailPage() {
           {},
         );
         setTokenByLookup(tokenLookup);
-
-        // Load sync runs
-        const runsResponse = await fetchConsumerSyncRuns(consumerId);
         setSyncRuns(runsResponse.data || []);
       } catch (cause) {
         setError(toApiErrorDisplay(cause, {
@@ -385,37 +386,41 @@ export function ConsumerDetailPage() {
   }, [consumer?.id, consumer?.consumerName]);
 
   // Filter components and variables for this consumer, extracting sampleLinks from the consumer's usage
-  const consumerComponents = components.flatMap((c) => {
-    const usages = c.consumers.filter((u) => u.consumerId === consumerId);
-    if (usages.length === 0) return [];
+  const consumerComponents = useMemo(
+    () =>
+      components.flatMap((c) => {
+        const usages = c.consumers.filter((u) => u.consumerId === consumerId);
+        if (usages.length === 0) return [];
 
-    const sampleLinks = Array.from(
-      new Set(usages.flatMap((usage) => usage.sampleLinks || [])),
-    );
-    return [
-      {
-        ...c,
-        instances: usages.reduce((sum, u) => sum + (u.instanceCount || 0), 0),
-        sampleLinks,
-      },
-    ];
-  });
+        const sampleLinks = Array.from(new Set(usages.flatMap((usage) => usage.sampleLinks || [])));
+        return [
+          {
+            ...c,
+            instances: usages.reduce((sum, u) => sum + (u.instanceCount || 0), 0),
+            sampleLinks,
+          },
+        ];
+      }),
+    [components, consumerId],
+  );
 
-  const consumerVariables = variables.flatMap((v) => {
-    const usages = v.consumers.filter((u) => u.consumerId === consumerId);
-    if (usages.length === 0) return [];
+  const consumerVariables = useMemo(
+    () =>
+      variables.flatMap((v) => {
+        const usages = v.consumers.filter((u) => u.consumerId === consumerId);
+        if (usages.length === 0) return [];
 
-    const sampleLinks = Array.from(
-      new Set(usages.flatMap((usage) => usage.sampleLinks || [])),
-    );
-    return [
-      {
-        ...v,
-        nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0),
-        sampleLinks,
-      },
-    ];
-  });
+        const sampleLinks = Array.from(new Set(usages.flatMap((usage) => usage.sampleLinks || [])));
+        return [
+          {
+            ...v,
+            nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0),
+            sampleLinks,
+          },
+        ];
+      }),
+    [consumerId, variables],
+  );
 
   const variableTypes = useMemo(() => {
     const set = new Set(consumerVariables.map((entry) => entry.variableType));
@@ -491,8 +496,6 @@ export function ConsumerDetailPage() {
     ? Math.min(filteredVariables.length, variableCurrentPage * variablePageSizeValue)
     : filteredVariables.length;
 
-  // Group component variants by parent component
-  const componentGroups = groupByParentComponent(consumerComponents);
   const componentDisplayNameBySlug = useMemo(
     () => new Map(componentCatalogItems.map((item) => [item.slug, item.display_name])),
     [componentCatalogItems],
@@ -533,6 +536,11 @@ export function ConsumerDetailPage() {
 
     return lookup;
   }, [componentCatalogItems]);
+  // Group component variants by parent component
+  const componentGroups = useMemo(
+    () => groupByParentComponent(consumerComponents),
+    [consumerComponents],
+  );
 
   const filteredComponentGroups = useMemo(() => {
     const loweredSearch = normalizeFilterText(componentSearch);
