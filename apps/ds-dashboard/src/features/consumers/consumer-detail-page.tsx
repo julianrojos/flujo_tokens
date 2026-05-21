@@ -13,7 +13,6 @@ import {
   listConsumers,
   fetchReportByComponent,
   fetchReportByVariable,
-  fetchConsumerSyncRuns,
   fetchComponentCatalog,
   fetchTokenCatalog,
 } from "@/lib/api";
@@ -85,12 +84,6 @@ function normalizeLookupKey(value: string): string {
 
 function normalizeFilterText(value: string): string {
   return String(value || "").trim().toLowerCase();
-}
-
-function formatDurationMs(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
-  const duration = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(duration) && duration >= 0 ? `${Math.round(duration)}ms` : "—";
 }
 
 function formatUsageScope(scope: UsageScope): string {
@@ -245,7 +238,6 @@ export function ConsumerDetailPage() {
   const [consumer, setConsumer] = useState<(DsConsumer & { latestSync?: DsSyncRun }) | null>(null);
   const [components, setComponents] = useState<ComponentUsageReport[]>([]);
   const [variables, setVariables] = useState<VariableUsageReport[]>([]);
-  const [syncRuns, setSyncRuns] = useState<DsSyncRun[]>([]);
   const [componentSlugByLookup, setComponentSlugByLookup] = useState<Record<string, string>>({});
   const [componentCatalogItems, setComponentCatalogItems] = useState<ComponentCatalogItem[]>([]);
   const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
@@ -261,7 +253,6 @@ export function ConsumerDetailPage() {
   const [variableImpactFilter, setVariableImpactFilter] = useState("all");
   const [variablePageSize, setVariablePageSize] = useState<string>("25");
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
-  const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
   const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
   const [isTokenBindingOpen, setIsTokenBindingOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -300,7 +291,7 @@ export function ConsumerDetailPage() {
         }
 
         // Load component and variable reports
-        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog, runsResponse] = await Promise.all([
+        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog] = await Promise.all([
           fetchReportByComponent(dsFileKey),
           fetchReportByVariable(dsFileKey),
           fetchComponentCatalog().catch((cause) => {
@@ -310,10 +301,6 @@ export function ConsumerDetailPage() {
           fetchTokenCatalog().catch((cause) => {
             console.warn("[consumer-detail] Token registry fetch failed", cause);
             return { entries: [] };
-          }),
-          fetchConsumerSyncRuns(consumerId).catch((cause) => {
-            console.warn("[consumer-detail] Sync runs fetch failed", cause);
-            return { data: [] };
           }),
         ]);
         setComponents(componentsResponse.data || []);
@@ -361,7 +348,6 @@ export function ConsumerDetailPage() {
         );
         setTokenByExactLookup(tokenLookup.exact);
         setTokenByLookup(tokenLookup.fallback);
-        setSyncRuns(runsResponse.data || []);
       } catch (cause) {
         setError(toApiErrorDisplay(cause, {
           fallbackTitle: "Load consumer failed",
@@ -1557,62 +1543,6 @@ export function ConsumerDetailPage() {
       ) : null}
 
 
-      {/* Sync Run Log */}
-      <section className="rounded-lg border border-border bg-card">
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
-          onClick={() => setIsSyncLogOpen((open) => !open)}
-          aria-expanded={isSyncLogOpen}
-          aria-controls="sync-run-log-content"
-        >
-          <h2 className="text-base font-titles font-semibold titles-color">Sync Run Log</h2>
-          {isSyncLogOpen ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
-        {isSyncLogOpen ? (
-          <div id="sync-run-log-content" className="border-t border-border/50 p-4 pt-3">
-            {syncRuns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No sync runs yet</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="normal-case tracking-normal">Status</TableHead>
-                      <TableHead className="normal-case tracking-normal">Timestamp</TableHead>
-                      <TableHead className="normal-case tracking-normal text-right">Components</TableHead>
-                      <TableHead className="normal-case tracking-normal text-right">Variables</TableHead>
-                      <TableHead className="normal-case tracking-normal text-right">Duration</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {syncRuns.map((run) => (
-                      <TableRow key={run.id}>
-                        <TableCell>
-                          <ConsumerSyncStatusBadge latestSync={run} />
-                          {run.errorMessage && (
-                            <p className="mt-1 text-xs text-status-error">{run.errorMessage}</p>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatSyncedAt(run.syncedAt)}
-                        </TableCell>
-                        <TableCell className="text-right">{run.componentCount}</TableCell>
-                        <TableCell className="text-right">{run.variableCount}</TableCell>
-                        <TableCell className="text-right">{formatDurationMs(run.durationMs)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        ) : null}
-      </section>
     </div>
   );
 }
