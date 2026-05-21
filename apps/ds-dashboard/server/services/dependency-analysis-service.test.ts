@@ -118,7 +118,11 @@ describe('DependencyAnalysisService', () => {
           component_key: 'card',
           component_name: 'Card',
           instance_count: 10,
-          sample_node_ids_json: JSON.stringify(['node1', 'node2', 'node3']),
+          sample_node_ids_json: JSON.stringify([
+            { nodeId: 'node1', pageName: 'Main' },
+            { nodeId: 'node2', pageName: 'Main' },
+            { nodeId: 'node3', pageName: 'Sidebar' },
+          ]),
         },
       ],
       variable_usage: [],
@@ -134,6 +138,11 @@ describe('DependencyAnalysisService', () => {
     assert.strictEqual(report.totalInstances, 10);
     assert.strictEqual(report.consumers.length, 1);
     assert.strictEqual(report.consumers[0].instanceCount, 10);
+    assert.deepStrictEqual(report.consumers[0].sampleNodes, [
+      { nodeId: 'node1', pageName: 'Main' },
+      { nodeId: 'node2', pageName: 'Main' },
+      { nodeId: 'node3', pageName: 'Sidebar' },
+    ]);
     assert.strictEqual(report.sampleLinks.length, 3);
   });
 
@@ -160,7 +169,10 @@ describe('DependencyAnalysisService', () => {
           variable_name: 'spacing-md',
           variable_type: 'FLOAT',
           node_count: 7,
-          sample_node_ids_json: JSON.stringify(['node1', 'node2']),
+          sample_node_ids_json: JSON.stringify([
+            { nodeId: 'node1', pageName: 'Main' },
+            { nodeId: 'node2', pageName: 'Sidebar' },
+          ]),
         },
       ],
       warnings: [],
@@ -176,6 +188,10 @@ describe('DependencyAnalysisService', () => {
     assert.strictEqual(report.totalNodes, 7);
     assert.strictEqual(report.consumers.length, 1);
     assert.strictEqual(report.consumers[0].nodeCount, 7);
+    assert.deepStrictEqual(report.consumers[0].sampleNodes, [
+      { nodeId: 'node1', pageName: 'Main' },
+      { nodeId: 'node2', pageName: 'Sidebar' },
+    ]);
     assert.strictEqual(report.sampleLinks.length, 2);
   });
 

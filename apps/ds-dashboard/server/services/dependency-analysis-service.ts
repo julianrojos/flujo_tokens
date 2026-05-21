@@ -1,4 +1,5 @@
 import { DependencyRepository } from '../db/dependency-repository.js';
+import type { SampleNodeRef } from '../../src/types/consumers.js';
 
 // Types for analysis reports
 export interface ImpactLevel {
@@ -32,6 +33,7 @@ export interface ConsumerUsage {
   instanceCount?: number;  // For components
   nodeCount?: number;      // For variables
   sampleNodeIds: string[];
+  sampleNodes?: SampleNodeRef[];
   lastSyncedAt: string;
   sampleLinks: string[];
 }
@@ -236,15 +238,21 @@ export class DependencyAnalysisService {
     // Convert to ComponentUsage array
     return Array.from(componentGroups.entries()).map(([compKey, usages]) => {
       const totalInstances = usages.reduce((sum, usage) => sum + usage.instance_count, 0);
-      const consumers: ConsumerUsage[] = usages.map(usage => ({
-        consumerId: usage.consumer_id,
-        consumerName: usage.consumer_name,
-        consumerFileKey: usage.consumer_file_key,
-        instanceCount: usage.instance_count,
-        sampleNodeIds: this.parseSampleNodeIds(usage.sample_node_ids_json),
-        lastSyncedAt: usage.synced_at,
-        sampleLinks: this.buildSampleLinks(usage.consumer_file_key, usage.sample_node_ids_json, opts.maxSampleLinks),
-      }));
+      const consumers: ConsumerUsage[] = usages.map((usage) => {
+        const sampleNodeRefs = this.parseSampleNodeRefs(usage.sample_node_ids_json);
+        return {
+          consumerId: usage.consumer_id,
+          consumerName: usage.consumer_name,
+          consumerFileKey: usage.consumer_file_key,
+          instanceCount: usage.instance_count,
+          sampleNodeIds: sampleNodeRefs.map((entry) => entry.nodeId),
+          sampleNodes: sampleNodeRefs,
+          lastSyncedAt: usage.synced_at,
+          sampleLinks: sampleNodeRefs
+            .slice(0, opts.maxSampleLinks)
+            .map((entry) => this.buildFigmaLink(usage.consumer_file_key, entry.nodeId)),
+        };
+      });
 
       const impactLevel = this.computeImpactLevel(totalInstances, usages.length, opts);
       const sampleLinks = this.buildSampleLinks(usages[0].consumer_file_key, usages[0].sample_node_ids_json, opts.maxSampleLinks);
@@ -300,27 +308,37 @@ export class DependencyAnalysisService {
     // Convert to VariableUsage array
     return Array.from(variableGroups.entries()).map(([varId, usages]) => {
       const totalNodes = usages.reduce((sum, usage) => sum + usage.node_count, 0);
-      const consumers: ConsumerUsage[] = usages.map(usage => ({
-        consumerId: usage.consumer_id,
-        consumerName: usage.consumer_name,
-        consumerFileKey: usage.consumer_file_key,
-        nodeCount: usage.node_count,
-        sampleNodeIds: this.parseSampleNodeIds(usage.sample_node_ids_json),
-        lastSyncedAt: usage.synced_at,
-        sampleLinks: this.buildSampleLinks(usage.consumer_file_key, usage.sample_node_ids_json, opts.maxSampleLinks),
-      }));
+      const consumers: ConsumerUsage[] = usages.map((usage) => {
+        const sampleNodeRefs = this.parseSampleNodeRefs(usage.sample_node_ids_json);
+        return {
+          consumerId: usage.consumer_id,
+          consumerName: usage.consumer_name,
+          consumerFileKey: usage.consumer_file_key,
+          nodeCount: usage.node_count,
+          sampleNodeIds: sampleNodeRefs.map((entry) => entry.nodeId),
+          sampleNodes: sampleNodeRefs,
+          lastSyncedAt: usage.synced_at,
+          sampleLinks: sampleNodeRefs
+            .slice(0, opts.maxSampleLinks)
+            .map((entry) => this.buildFigmaLink(usage.consumer_file_key, entry.nodeId)),
+        };
+      });
 
       const parentUsage = parentByVariableKey.get(varId);
       const parentNodeCount = parentUsage?.node_count ?? 0;
       if (parentUsage && parentNodeCount > 0) {
+        const sampleNodeRefs = this.parseSampleNodeRefs(parentUsage.sample_node_ids_json);
         consumers.push({
           consumerId: `${PARENT_CONSUMER_ID_PREFIX}${dsFileKey}`,
           consumerName: 'Parent file',
           consumerFileKey: dsFileKey,
           nodeCount: parentNodeCount,
-          sampleNodeIds: this.parseSampleNodeIds(parentUsage.sample_node_ids_json),
+          sampleNodeIds: sampleNodeRefs.map((entry) => entry.nodeId),
+          sampleNodes: sampleNodeRefs,
           lastSyncedAt: parentUsage.captured_at,
-          sampleLinks: this.buildSampleLinks(dsFileKey, parentUsage.sample_node_ids_json, opts.maxSampleLinks),
+          sampleLinks: sampleNodeRefs
+            .slice(0, opts.maxSampleLinks)
+            .map((entry) => this.buildFigmaLink(dsFileKey, entry.nodeId)),
         });
       }
 
@@ -407,27 +425,44 @@ export class DependencyAnalysisService {
    * Parse sample node IDs from JSON
    */
   private parseSampleNodeIds(raw: unknown): string[] {
+    return this.parseSampleNodeRefs(raw).map((entry) => entry.nodeId);
+  }
+
+  /**
+   * Parse sample node refs from JSON
+   */
+  private parseSampleNodeRefs(raw: unknown): SampleNodeRef[] {
     if (!raw) {
       return [];
     }
 
     if (Array.isArray(raw)) {
       return raw
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
+        .map((item): SampleNodeRef | null => {
+          if (typeof item === 'string') {
+            const nodeId = item.trim();
+            if (!nodeId) return null;
+            return { nodeId, pageName: '' };
+          }
+          if (item && typeof item === 'object') {
+            const record = item as Record<string, unknown>;
+            const nodeId = String(record.nodeId ?? record.node_id ?? '').trim();
+            if (!nodeId) return null;
+            const pageName = String(record.pageName ?? record.page_name ?? '').trim();
+            return {
+              nodeId,
+              pageName,
+            };
+          }
+          return null;
+        })
+        .filter((item): item is SampleNodeRef => item !== null);
     }
 
     if (typeof raw === 'string') {
       try {
         const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) {
-          return [];
-        }
-        return parsed
-          .filter((item): item is string => typeof item === 'string')
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0);
+        return this.parseSampleNodeRefs(parsed);
       } catch {
         return [];
       }

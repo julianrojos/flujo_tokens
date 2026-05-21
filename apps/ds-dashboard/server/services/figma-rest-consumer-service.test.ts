@@ -185,6 +185,69 @@ describe('scanConsumerFile local-count derivation', { concurrency: false }, () =
     assert.equal(result.usageDetails.usageShape.tokens.localComponent, 1);
   });
 
+  test('captures pageName for sampled component and variable nodes', { concurrency: false }, async () => {
+    const dsCatalog = makeDsCatalog({ componentId: '1:1' });
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-page-name/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/consumer-page-name')) {
+        return new Response(
+          JSON.stringify({
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: {
+              id: '0:0',
+              name: 'Document',
+              type: 'DOCUMENT',
+              children: [
+                {
+                  id: '1:0',
+                  name: 'Main page',
+                  type: 'PAGE',
+                  children: [
+                    {
+                      id: '10:2',
+                      name: 'DS instance',
+                      type: 'INSTANCE',
+                      componentId: '1:1',
+                      boundVariables: {
+                        fills: {
+                          id: 'VariableID:1:1',
+                          type: 'VARIABLE_ALIAS',
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+            components: {
+              '1:1': { key: 'comp.button.primary', name: 'Button/Primary' },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await scanConsumerFile('consumer-page-name', 'figd_test_token', dsCatalog);
+    assert.deepEqual(result.componentInstances[0].sampleNodes, [
+      { nodeId: '10:2', pageName: 'Main page' },
+    ]);
+    assert.deepEqual(result.variableBindings[0].sampleNodes, [
+      { nodeId: '10:2', pageName: 'Main page' },
+    ]);
+  });
+
   test('does not count a component node as parent-derived when it is directly the DS instance itself', { concurrency: false }, async () => {
     const dsCatalog = makeDsCatalog({ componentId: '1:1' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {

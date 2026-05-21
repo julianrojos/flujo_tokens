@@ -171,7 +171,7 @@ export class DependencySyncService {
           variable_name: binding.variableName,
           variable_type: binding.variableType,
           node_count: binding.totalNodeCount,
-          sample_node_ids_json: JSON.stringify(binding.nodeIds),
+          sample_node_ids_json: JSON.stringify(binding.sampleNodes),
         })),
       );
     } catch (error) {
@@ -245,14 +245,14 @@ export class DependencySyncService {
           component_key: instance.componentKey,
           component_name: instance.componentName,
           instance_count: instance.nodeIds.length,
-          sample_node_ids_json: JSON.stringify(instance.nodeIds),
+          sample_node_ids_json: JSON.stringify(instance.sampleNodes),
         })),
         variable_usage: scanResult.variableBindings.map(binding => ({
           variable_key: binding.variableKey,
           variable_name: binding.variableName,
           variable_type: binding.variableType,
           node_count: binding.totalNodeCount,
-          sample_node_ids_json: JSON.stringify(binding.nodeIds),
+          sample_node_ids_json: JSON.stringify(binding.sampleNodes),
         })),
         warnings: scanResult.warnings,
         local_component_used_count: scanResult.localComponentUsedCount,

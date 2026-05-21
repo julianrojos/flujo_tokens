@@ -33,6 +33,11 @@ export interface DsSyncRun {
 
 export type UsageScope = "page" | "local-component" | "nested-local-component";
 
+export interface SampleNodeRef {
+  nodeId: string;
+  pageName: string;
+}
+
 export interface ConsumerUsageDetails {
   parentComponentUsages: Array<{
     localComponentKey: string;
@@ -142,6 +147,7 @@ export interface ConsumerUsage {
   instanceCount?: number; // For components
   nodeCount?: number; // For variables
   sampleNodeIds: string[];
+  sampleNodes?: SampleNodeRef[];
   lastSyncedAt: string;
   sampleLinks: string[];
 }

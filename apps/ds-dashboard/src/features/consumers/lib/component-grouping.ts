@@ -5,8 +5,9 @@
  * No React dependencies — safe for unit testing and reuse.
  */
 
-import type { ImpactLevel } from "@/types/consumers";
+import type { ImpactLevel, SampleNodeRef } from "@/types/consumers";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
+import { dedupeSampleNodes } from "@/lib/sample-node-utils";
 import { splitComponentName } from "@/lib/component-identity";
 
 /**
@@ -19,6 +20,7 @@ export interface ComponentVariant {
   instances: number;
   impactLevel: { level: ImpactLevel; description: string };
   sampleLinks: string[];
+  sampleNodes: SampleNodeRef[];
 }
 
 /**
@@ -29,6 +31,7 @@ export interface ComponentGroup {
   totalInstances: number;
   worstImpactLevel: { level: ImpactLevel; description: string };
   sampleLinks: string[];     // union deduplicada de todas las variantes
+  sampleNodes: SampleNodeRef[];
   variants: ComponentVariant[]; // sorted: more severe first (CRITICAL → LOW), then instances desc
 }
 
@@ -42,6 +45,7 @@ export interface ConsumerComponent {
   instances: number;
   impactLevel: { level: ImpactLevel; description: string };
   sampleLinks: string[];
+  sampleNodes?: SampleNodeRef[];
 }
 
 /**
@@ -82,6 +86,7 @@ export function groupByParentComponent(
       instances: comp.instances,
       impactLevel: comp.impactLevel,
       sampleLinks: comp.sampleLinks,
+      sampleNodes: dedupeSampleNodes(comp.sampleNodes ?? [], 20),
     };
 
     if (!variantsByParent.has(parentName)) {
@@ -109,12 +114,14 @@ export function groupByParentComponent(
 
     // Deduplicate sample links across all variants
     const sampleLinks = [...new Set(variants.flatMap(v => v.sampleLinks))];
+    const sampleNodes = dedupeSampleNodes(variants.flatMap((variant) => variant.sampleNodes), 20);
 
     groups.push({
       parentName,
       totalInstances,
       worstImpactLevel,
       sampleLinks,
+      sampleNodes,
       variants,
     });
   }

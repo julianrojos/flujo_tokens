@@ -233,21 +233,23 @@ export class DependencySimulateService {
 
     if (Array.isArray(raw)) {
       return raw
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
+        .map((item) => {
+          if (typeof item === 'string') {
+            return item.trim();
+          }
+          if (item && typeof item === 'object') {
+            const record = item as Record<string, unknown>;
+            return String(record.nodeId ?? record.node_id ?? '').trim();
+          }
+          return '';
+        })
         .filter((item) => item.length > 0);
     }
 
     if (typeof raw === 'string') {
       try {
         const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) {
-          return [];
-        }
-        return parsed
-          .filter((item): item is string => typeof item === 'string')
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0);
+        return this.parseSampleNodeIds(parsed);
       } catch {
         return [];
       }

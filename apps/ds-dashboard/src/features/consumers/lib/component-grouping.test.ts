@@ -14,12 +14,14 @@ describe("component-grouping", () => {
       instances: number,
       impactLevel: ImpactLevel = "LOW",
       sampleLinks: string[] = [],
+      sampleNodes: Array<{ nodeId: string; pageName: string }> = [],
     ) => ({
       componentKey: `key-${name}`,
       componentName: name,
       instances,
       impactLevel: { level: impactLevel, description: "" },
       sampleLinks,
+      sampleNodes,
     });
 
     it("returns empty array for empty input", () => {
@@ -163,6 +165,46 @@ describe("component-grouping", () => {
       assert.ok(result[0].sampleLinks.includes(sharedLink));
       assert.ok(result[0].sampleLinks.includes("link-1"));
       assert.ok(result[0].sampleLinks.includes("link-2"));
+    });
+
+    it("deduplicates sampleNodes across variants", () => {
+      const components = [
+        createComponent(
+          "Button/Large",
+          5,
+          "LOW",
+          [],
+          [
+            { nodeId: "node-1", pageName: "Main" },
+            { nodeId: "node-2", pageName: "Main" },
+          ],
+        ),
+        createComponent(
+          "Button/Small",
+          3,
+          "LOW",
+          [],
+          [
+            { nodeId: "node-2", pageName: "Main" },
+            { nodeId: "node-3", pageName: "Settings" },
+          ],
+        ),
+      ];
+      const result = groupByParentComponent(components);
+
+      assert.deepStrictEqual(result[0].sampleNodes, [
+        { nodeId: "node-1", pageName: "Main" },
+        { nodeId: "node-2", pageName: "Main" },
+        { nodeId: "node-3", pageName: "Settings" },
+      ]);
+      assert.deepStrictEqual(result[0].variants[0].sampleNodes, [
+        { nodeId: "node-1", pageName: "Main" },
+        { nodeId: "node-2", pageName: "Main" },
+      ]);
+      assert.deepStrictEqual(result[0].variants[1].sampleNodes, [
+        { nodeId: "node-2", pageName: "Main" },
+        { nodeId: "node-3", pageName: "Settings" },
+      ]);
     });
 
     it("sorts groups by worst impact (CRITICAL before HIGH before LOW)", () => {

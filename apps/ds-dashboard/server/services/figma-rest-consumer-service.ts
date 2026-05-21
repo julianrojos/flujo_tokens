@@ -1,6 +1,7 @@
 import { fetchFigmaFile, fetchFigmaLocalVariables, fetchFigmaFileComponents, FigmaApiError } from '../../../../tooling/src/utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp, type FigmaVariablesResponse } from '../../../../tooling/src/services/figma-mcp-variables.js';
 import { getTokenUsageDirect, type TokenUsageEntry } from './figma-direct-bridge-service.js';
+import type { SampleNodeRef } from '../../src/types/consumers.js';
 
 // Types for Figma API responses (using imported types)
 interface FigmaNode {
@@ -48,6 +49,7 @@ export interface ComponentInstance {
   componentKey: string;
   componentName: string;
   nodeIds: string[];
+  sampleNodes: SampleNodeRef[];
 }
 
 export interface VariableBinding {
@@ -56,6 +58,7 @@ export interface VariableBinding {
   variableName: string;
   variableType: string;
   nodeIds: string[];
+  sampleNodes: SampleNodeRef[];
   totalNodeCount: number;
 }
 
@@ -193,6 +196,13 @@ function createEmptyUsageDetails(): ConsumerUsageDetails {
       components: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
       tokens: { page: 0, localComponent: 0, nestedLocalComponent: 0 },
     },
+  };
+}
+
+function createSampleNodeRef(nodeId: string, pageName: string): SampleNodeRef {
+  return {
+    nodeId,
+    pageName,
   };
 }
 
@@ -661,7 +671,12 @@ export async function scanConsumerFile(
       };
     };
 
-    function scanNode(node: FigmaNode): void {
+    function scanNode(node: FigmaNode, currentPageName = ''): void {
+      const nextPageName =
+        node.type === 'PAGE'
+          ? String(node.name || '').trim() || currentPageName
+          : currentPageName;
+
       const isLocalComponentDefinition = node.type === 'COMPONENT';
       if (isLocalComponentDefinition) {
         localComponentDefinitionStack.push(getLocalComponentInfo(node));
@@ -731,11 +746,15 @@ export async function scanConsumerFile(
               componentKey,
               componentName: resolvedComponentName || componentKey,
               nodeIds: [],
+              sampleNodes: [],
             });
           }
           const instance = componentInstances.get(componentKey)!;
           if (instance.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
             instance.nodeIds.push(node.id);
+          }
+          if (instance.sampleNodes.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+            instance.sampleNodes.push(createSampleNodeRef(node.id, nextPageName));
           }
           if (node.componentProperties && typeof node.componentProperties === 'object') {
             const propertyEntries = Object.entries(node.componentProperties)
@@ -824,6 +843,7 @@ export async function scanConsumerFile(
                   variableName: dsVariable.name,
                   variableType: dsVariable.type,
                   nodeIds: [],
+                  sampleNodes: [],
                   totalNodeCount: 0,
                 });
               }
@@ -831,6 +851,9 @@ export async function scanConsumerFile(
               variableBinding.totalNodeCount += 1;
               if (variableBinding.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
                 variableBinding.nodeIds.push(node.id);
+              }
+              if (variableBinding.sampleNodes.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+                variableBinding.sampleNodes.push(createSampleNodeRef(node.id, nextPageName));
               }
               bindingsForNode.push({
                 field: normalizedField,
@@ -884,7 +907,7 @@ export async function scanConsumerFile(
       // Recursively scan children
       if (node.children) {
         for (const child of node.children) {
-          scanNode(child);
+          scanNode(child, nextPageName);
         }
       }
 
@@ -957,6 +980,11 @@ export async function scanConsumerFile(
               nodeIds: Array.isArray(entry.nodeIds)
                 ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY)
                 : [],
+              sampleNodes: Array.isArray(entry.nodeIds)
+                ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY).map((nodeId) =>
+                    createSampleNodeRef(String(nodeId || '').trim(), ''),
+                  )
+                : [],
               totalNodeCount: resolveEntryNodeCount(entry),
             });
             fallbackAddedCount += 1;
@@ -964,9 +992,18 @@ export async function scanConsumerFile(
           }
 
           const mergedNodeIds = new Set<string>(existing.nodeIds);
+          const existingSampleNodeIds = new Set(existing.sampleNodes.map((entry) => entry.nodeId));
           for (const nodeId of entry.nodeIds || []) {
             const normalized = String(nodeId || '').trim();
             if (normalized) mergedNodeIds.add(normalized);
+            if (
+              normalized &&
+              existing.sampleNodes.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY &&
+              !existingSampleNodeIds.has(normalized)
+            ) {
+              existing.sampleNodes.push(createSampleNodeRef(normalized, ''));
+              existingSampleNodeIds.add(normalized);
+            }
           }
           existing.nodeIds = Array.from(mergedNodeIds).slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY);
           // Avoid double-counting when fallback overlaps with already scanned bindings.
@@ -1037,11 +1074,13 @@ export async function scanConsumerFile(
       componentInstances: Array.from(componentInstances.values()).map(instance => ({
         ...instance,
         nodeIds: instance.nodeIds.slice(0, 20),
+        sampleNodes: instance.sampleNodes.slice(0, 20),
       })),
       variableBindings: Array.from(variableBindings.values())
         .map(binding => ({
           ...binding,
           nodeIds: binding.nodeIds.slice(0, 20),
+          sampleNodes: binding.sampleNodes.slice(0, 20),
         })),
       warnings,
       localComponentUsedCount,
