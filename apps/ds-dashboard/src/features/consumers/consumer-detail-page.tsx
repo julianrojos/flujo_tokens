@@ -80,6 +80,7 @@ function normalizeTokenLookupKey(value: string): string {
 type TokenLookupEntry = {
   path: string;
   slashPath: string;
+  collection: string;
 };
 
 function normalizeLookupKey(value: string): string {
@@ -318,7 +319,8 @@ export function ConsumerDetailPage() {
             if (!path) return acc;
             const slashPath = String(entry.slashPath || "").trim();
             const cssVar = String(entry.cssVar || "").trim();
-            const tokenEntry: TokenLookupEntry = { path, slashPath };
+            const collection = String(entry.collection || "").trim();
+            const tokenEntry: TokenLookupEntry = { path, slashPath, collection };
 
             const exactKeys = [normalizeLookupKey(path), normalizeLookupKey(slashPath), normalizeLookupKey(cssVar)].filter(
               Boolean,
@@ -1089,6 +1091,7 @@ export function ConsumerDetailPage() {
               <TableHeader>
                 <TableRow>
                   <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Collection</TableHead>
                   <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} className="text-right" />
                   <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
                   <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma</TableHead>
@@ -1115,6 +1118,13 @@ export function ConsumerDetailPage() {
                           </Link>
                         ) : (
                           <span>{displayTokenName}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {tokenEntry?.collection ? (
+                          <Badge variant="neutral">{tokenEntry.collection}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
