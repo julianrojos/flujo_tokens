@@ -1051,7 +1051,7 @@ export function ConsumerDetailPage() {
               <option value="all">Type: All</option>
               {variableTypes.map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {item.toLowerCase()}
                 </option>
               ))}
             </Select>
@@ -1136,7 +1136,7 @@ export function ConsumerDetailPage() {
                         <Badge variant="neutral">{v.nodes}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{v.variableType}</Badge>
+                        <span className="font-mono text-xs lowercase text-foreground">{v.variableType}</span>
                       </TableCell>
                       <TableCell>
                         {v.sampleLinks && v.sampleLinks.length > 0 ? (
