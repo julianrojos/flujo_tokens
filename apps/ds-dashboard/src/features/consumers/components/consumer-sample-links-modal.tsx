@@ -1,5 +1,8 @@
+import { useMemo } from "react";
 import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { useSortState } from "@/lib/use-sort-state";
 import type { SampleNodeRef } from "@/types/consumers";
 
 interface ConsumerSampleLinksModalProps {
@@ -9,6 +12,8 @@ interface ConsumerSampleLinksModalProps {
   consumerFileKey: string;
   sampleNodes: SampleNodeRef[];
 }
+
+type SortField = "pageName" | "nodeId";
 
 function buildFigmaNodeUrl(consumerFileKey: string, nodeId: string): string {
   return `https://www.figma.com/design/${consumerFileKey}?node-id=${nodeId}`;
@@ -22,6 +27,19 @@ export function ConsumerSampleLinksModal({
   sampleNodes,
 }: ConsumerSampleLinksModalProps) {
   const titleId = "consumer-sample-links-modal-title";
+  const [sort, toggleSort] = useSortState<SortField>({ field: "pageName", dir: "asc" });
+
+  const sortedNodes = useMemo(() => {
+    const mul = sort.dir === "asc" ? 1 : -1;
+    return [...sampleNodes].sort((a, b) => {
+      if (sort.field === "pageName") {
+        const page = mul * a.pageName.localeCompare(b.pageName);
+        if (page !== 0) return page;
+        return a.nodeId.localeCompare(b.nodeId);
+      }
+      return mul * a.nodeId.localeCompare(b.nodeId);
+    });
+  }, [sampleNodes, sort]);
 
   return (
     <Modal open={open} onClose={onClose} aria-labelledby={titleId}>
@@ -47,12 +65,12 @@ export function ConsumerSampleLinksModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="normal-case tracking-normal">Page</TableHead>
-                  <TableHead className="normal-case tracking-normal">Link</TableHead>
+                  <SortableTableHead label="Page" onSort={() => toggleSort("pageName")} />
+                  <SortableTableHead label="Node" onSort={() => toggleSort("nodeId")} />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sampleNodes.map((sampleNode) => {
+                {sortedNodes.map((sampleNode) => {
                   const pageName = String(sampleNode.pageName || "").trim() || "Unknown page";
                   const href = buildFigmaNodeUrl(consumerFileKey, sampleNode.nodeId);
 
