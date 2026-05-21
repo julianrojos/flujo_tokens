@@ -92,11 +92,6 @@ function formatUsageScope(scope: UsageScope): string {
   return "Nested local component";
 }
 
-function formatPropertyValue(value: string): string {
-  if (value === "null" || value === "undefined" || value === "") return "—";
-  return value;
-}
-
 function sumUsageScopeSummary(summary: { page: number; localComponent: number; nestedLocalComponent: number }): number {
   return summary.page + summary.localComponent + summary.nestedLocalComponent;
 }
@@ -1475,61 +1470,6 @@ export function ConsumerDetailPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
-                <h3 className="text-sm font-semibold titles-color">Component properties</h3>
-                <Badge variant="neutral">{usageDetails.componentPropertyUsages.length} nodes</Badge>
-              </div>
-              {usageDetails.componentPropertyUsages.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">
-                  No component property bindings captured for this consumer.
-                </p>
-              ) : (
-                <div className="overflow-x-auto px-5 pb-5">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="normal-case tracking-normal">Node</TableHead>
-                        <TableHead className="normal-case tracking-normal">Component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
-                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Property</TableHead>
-                        <TableHead className="normal-case tracking-normal">Value</TableHead>
-                        <TableHead className="normal-case tracking-normal">Type</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usageDetails.componentPropertyUsages.flatMap((entry) =>
-                        entry.properties.map((property) => (
-                          <TableRow key={`${entry.nodeId}-${entry.componentKey}-${property.name}`}>
-                            <TableCell>{entry.nodeName}</TableCell>
-                            <TableCell>
-                              {renderComponentName(entry.componentKey, entry.componentName, componentSlugByLookup)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="neutral" className="text-[10px]">
-                                {formatUsageScope(entry.usageScope)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {entry.localComponentKey && entry.localComponentName ? (
-                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">{property.name}</TableCell>
-                            <TableCell>{formatPropertyValue(property.value)}</TableCell>
-                            <TableCell className="text-muted-foreground">{property.valueType}</TableCell>
-                          </TableRow>
-                        )),
-                      )}
                     </TableBody>
                   </Table>
                 </div>
