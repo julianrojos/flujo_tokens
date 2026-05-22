@@ -233,7 +233,7 @@ function ConsumerUsageTabsNav({
 }
 
 export function ConsumerDetailPage() {
-  const { consumerId } = useParams<{ consumerId: string }>();
+  const { consumerName } = useParams<{ consumerName: string }>();
   const { dsFileKey, loading: dsFileKeyLoading } = useDsFileKey();
   const [consumer, setConsumer] = useState<(DsConsumer & { latestSync?: DsSyncRun }) | null>(null);
   const [components, setComponents] = useState<ComponentUsageReport[]>([]);
@@ -261,6 +261,7 @@ export function ConsumerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const consumerId = consumer?.id ?? "";
 
   function handleToggleGroup(parentName: string) {
     setExpandedGroups(prev => {
@@ -272,7 +273,7 @@ export function ConsumerDetailPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!consumerId || dsFileKeyLoading) return;
+      if (!consumerName || dsFileKeyLoading) return;
 
       setLoading(true);
       setError(null);
@@ -288,10 +289,18 @@ export function ConsumerDetailPage() {
         }
 
         const consumersResponse = await listConsumers(dsFileKey);
-        const foundConsumer = consumersResponse.data.find((c) => c.id === consumerId);
-        if (foundConsumer) {
-          setConsumer(foundConsumer);
+        const foundConsumer = consumersResponse.data.find(
+          (c) => c.consumerName === consumerName,
+        );
+        if (!foundConsumer) {
+          setError(toApiErrorDisplay(new Error("Consumer not found"), {
+            fallbackTitle: "Consumer not found",
+            fallbackMessage: "No consumer file matches the requested name.",
+          }));
+          setLoading(false);
+          return;
         }
+        setConsumer(foundConsumer);
 
         // Load component and variable reports
         const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog] = await Promise.all([
@@ -363,12 +372,12 @@ export function ConsumerDetailPage() {
     };
 
     void loadData();
-  }, [consumerId, dsFileKey, dsFileKeyLoading]);
+  }, [consumerName, dsFileKey, dsFileKeyLoading]);
 
   useEffect(() => {
-    if (!consumer?.id || !consumer?.consumerName) return;
-    writeCachedConsumerLabel(consumer.id, consumer.consumerName);
-  }, [consumer?.id, consumer?.consumerName]);
+    if (!consumerName || !consumer?.consumerName) return;
+    writeCachedConsumerLabel(consumerName, consumer.consumerName);
+  }, [consumerName, consumer?.consumerName]);
 
   // Filter components and variables for this consumer, extracting sampleLinks from the consumer's usage
   const consumerComponents = useMemo(

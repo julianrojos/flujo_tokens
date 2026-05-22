@@ -4,7 +4,8 @@ import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { Link } from "react-router-dom";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { splitComponentName } from "@/lib/component-identity";
-import { toConsumerDetail } from "@/lib/routes";
+import { useDesignSystem } from "@/lib/design-system-context";
+import { toSystemConsumerDetail } from "@/lib/routes";
 import { useComponentAdoption } from "../hooks/use-component-adoption";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 
@@ -14,6 +15,7 @@ interface ComponentAdoptionSectionProps {
 }
 
 export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSectionProps) {
+  const { activeSystem } = useDesignSystem();
   const {
     reports,
     totalInstances,
@@ -129,12 +131,16 @@ export function ComponentAdoptionSection({ slug, allItems }: ComponentAdoptionSe
                     {aggregatedConsumers.map((consumer) => (
                       <tr key={consumer.id} className="border-t">
                         <td className="px-3 py-2">
-                          <Link
-                            to={toConsumerDetail(consumer.id)}
-                            className="text-app-accent hover:underline"
-                          >
+                          {activeSystem ? (
+                            <Link
+                              to={toSystemConsumerDetail(activeSystem, consumer.name)}
+                              className="text-app-accent hover:underline"
+                            >
+                              <span className="font-normal">{consumer.name}</span>
+                            </Link>
+                          ) : (
                             <span className="font-normal">{consumer.name}</span>
-                          </Link>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {consumer.instances}

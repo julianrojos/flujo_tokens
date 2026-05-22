@@ -17,11 +17,14 @@ import {
   Navigate,
   useNavigate,
   useLocation,
+  matchPath,
 } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   Boxes,
   Layers3,
+  Network,
   Search,
   type LucideIcon,
 } from 'lucide-react';
@@ -54,7 +57,7 @@ import { useDesignSystem } from '@/lib/design-system-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Modal, ModalCloseButton, ModalContent } from '@/components/ui/overlay';
-import { fetchComponentCatalog, fetchTokenCatalog } from '@/lib/api';
+import { fetchComponentCatalog, fetchReportByFile, fetchTokenCatalog } from '@/lib/api';
 import {
   ROUTE_PATTERNS,
   toComponentDetail,
@@ -221,6 +224,17 @@ const navSections: NavSection[] = [
       },
     ],
   },
+  {
+    id: 'consumers',
+    label: 'Consumers',
+    items: [
+      {
+        to: ROUTE_PATTERNS.systemConsumers,
+        label: 'Consumers',
+        icon: Network,
+      },
+    ],
+  },
 ];
 
 function isSystemPrimaryNavItem(section: NavSection, item: NavItem): boolean {
@@ -277,10 +291,32 @@ export default function App() {
   const indexLoadedForSystemRef = useRef<string | null>(null);
   const componentsPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
+  const consumersPrefetchedRef = useRef(false);
+  const consumersPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
   const { systems, activeSystem } = useDesignSystem();
   const hasSystems = systems.length > 0;
   const shouldLockSidebar = !hasSystems;
+  const resolvedSidebarSystemId = useMemo(() => {
+    const activeSystemExists = systems.some((system) => system.id === activeSystem);
+    return activeSystemExists ? activeSystem : systems[0]?.id || '';
+  }, [activeSystem, systems]);
+  const activeSystemConfig = useMemo(
+    () => systems.find((system) => system.id === activeSystem) || null,
+    [activeSystem, systems],
+  );
+  const activeSystemDsFileKey = String(activeSystemConfig?.figmaFileId || '').trim();
+  const consumersPresenceQuery = useQuery({
+    queryKey: ['sidebar-consumers-presence', activeSystem, activeSystemDsFileKey],
+    queryFn: async () => {
+      const response = await fetchReportByFile(activeSystemDsFileKey, {
+        staleOnly: false,
+      });
+      return (response.data?.length ?? 0) > 0;
+    },
+    enabled: Boolean(activeSystemDsFileKey),
+  });
+  const showConsumersNav = consumersPresenceQuery.data !== false;
 
   const systemNavItems = useMemo(() => {
     if (systems.length === 0) {
@@ -327,15 +363,31 @@ export default function App() {
         prefetchComponentsRoutes();
         return;
       }
+      if (to.endsWith('/consumers')) {
+        if (Date.now() < consumersPrefetchRetryAfterRef.current) return;
+        if (consumersPrefetchedRef.current) return;
+        consumersPrefetchedRef.current = true;
+        void Promise.all([
+          import('@/features/consumers/consumers-page'),
+          import('@/features/consumers/consumer-detail-page'),
+        ]).catch(() => {
+          consumersPrefetchedRef.current = false;
+          consumersPrefetchRetryAfterRef.current =
+            Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
+        });
+      }
     },
     [prefetchComponentsRoutes],
   );
 
   const resolvedNavSections = useMemo(
     () =>
-      navSections.map((section) => {
+      navSections.flatMap((section) => {
+        if (section.id === 'consumers' && !showConsumersNav) {
+          return [];
+        }
         if (section.id === 'system') {
-          return {
+          return [{
             ...section,
             items: section.items.map((item) => {
               if (item.to === '__system_overview__') {
@@ -346,11 +398,25 @@ export default function App() {
               }
               return item;
             }),
-          };
+          }];
         }
-        return section;
+        if (section.id === 'consumers') {
+          return [{
+            ...section,
+            items: section.items.map((item) => {
+              if (item.to === ROUTE_PATTERNS.systemConsumers) {
+                return {
+                  ...item,
+                  to: toSystemConsumers(resolvedSidebarSystemId),
+                };
+              }
+              return item;
+            }),
+          }];
+        }
+        return [section];
       }),
-    [systemNavItems],
+    [resolvedSidebarSystemId, showConsumersNav, systemNavItems],
   );
 
   const routeSearchItems = useMemo<SearchItem[]>(
@@ -462,8 +528,13 @@ export default function App() {
     const systemExists = systems.some((system) => system.id === systemId);
     if (!systemExists) return false;
     if (segments.length === 1) return true;
+    if (segments[1] === 'consumers' && segments.length > 2) return false;
     return ['overview', 'admin', 'consumers'].includes(segments[1] || '');
   }, [location.pathname, systems]);
+  const isConsumersSectionActive = useMemo(() => {
+    const pathname = location.pathname;
+    return matchPath(ROUTE_PATTERNS.systemConsumerDetail, pathname) !== null;
+  }, [location.pathname]);
 
   return (
     <>
@@ -490,7 +561,8 @@ export default function App() {
                 <SidebarGroup key={section.id}>
                   {section.label === 'System' ||
                   section.label === 'Tokens' ||
-                  section.label === 'Components' ? null : (
+                  section.label === 'Components' ||
+                  section.label === 'Consumers' ? null : (
                     <SidebarGroupLabel
                       className={cn(sidebarCollapsed && 'sr-only')}
                     >
@@ -512,7 +584,11 @@ export default function App() {
                             >
                               {({ isActive }) => (
                                 <SidebarNavItem
-                                  isActive={isActive || (isPrimarySystemItem && isSystemSectionActive)}
+                                  isActive={
+                                    isActive ||
+                                    (isPrimarySystemItem && isSystemSectionActive) ||
+                                    (section.id === 'consumers' && isConsumersSectionActive)
+                                  }
                                   title={
                                     sidebarCollapsed ? item.label : undefined
                                   }
@@ -557,7 +633,8 @@ export default function App() {
                     <div key={section.id} className="space-y-2">
                       {section.label === 'System' ||
                       section.label === 'Tokens' ||
-                      section.label === 'Components' ? null : (
+                      section.label === 'Components' ||
+                      section.label === 'Consumers' ? null : (
                         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                           {section.label}
                         </p>
@@ -572,7 +649,9 @@ export default function App() {
                             className={({ isActive }) => {
                               const isPrimarySystemItem = isSystemPrimaryNavItem(section, item);
                               const effectiveActive =
-                                isActive || (isPrimarySystemItem && isSystemSectionActive);
+                                isActive ||
+                                (isPrimarySystemItem && isSystemSectionActive) ||
+                                (section.id === 'consumers' && isConsumersSectionActive);
                               return (
                               cn(
                                 'rounded-md px-3 py-2 text-sm font-semibold transition',
@@ -652,6 +731,10 @@ export default function App() {
                         path="consumers"
                         element={<ConsumersPage />}
                       />
+                      <Route
+                        path="consumers/:consumerName"
+                        element={<ConsumerDetailPage />}
+                      />
                     </Route>
                     <Route path={ROUTE_PATTERNS.consumers} element={<SystemConsumersRedirect />} />
                     <Route
@@ -677,10 +760,6 @@ export default function App() {
                     <Route
                       path={ROUTE_PATTERNS.tokenDetail}
                       element={<TokenDetailPage />}
-                    />
-                    <Route
-                      path={ROUTE_PATTERNS.consumerDetail}
-                      element={<ConsumerDetailPage />}
                     />
                   </Routes>
                 </Suspense>

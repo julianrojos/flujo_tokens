@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, matchPath, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fetchConsumer } from '@/lib/api';
 import { buildDocumentTitleFromBreadcrumbs } from '@/lib/app-title';
 import { useDesignSystem } from '@/lib/design-system-context';
 import {
@@ -16,7 +15,6 @@ import {
 import {
   onCachedConsumerLabelUpdate,
   readCachedConsumerLabel,
-  writeCachedConsumerLabel,
 } from '@/lib/consumer-label-cache';
 
 type Crumb = {
@@ -73,6 +71,10 @@ function buildCrumbs(
   const systemOverviewMatch = matchPath(ROUTE_PATTERNS.systemOverview, pathname);
   const systemAdminMatch = matchPath(ROUTE_PATTERNS.systemAdmin, pathname);
   const systemConsumersMatch = matchPath(ROUTE_PATTERNS.systemConsumers, pathname);
+  const systemConsumerDetailMatch = matchPath(
+    ROUTE_PATTERNS.systemConsumerDetail,
+    pathname,
+  );
 
   if (systemOverviewMatch?.params.systemId) {
     const systemId = systemOverviewMatch.params.systemId;
@@ -181,18 +183,22 @@ function buildCrumbs(
     ];
   }
 
-  const consumerMatch = matchPath(ROUTE_PATTERNS.consumerDetail, pathname);
-  if (consumerMatch?.params.consumerId) {
-    const rawConsumerId = decodeSafe(consumerMatch.params.consumerId);
+  if (systemConsumerDetailMatch?.params.systemId && systemConsumerDetailMatch?.params.consumerName) {
+    const systemId = systemConsumerDetailMatch.params.systemId;
+    const rawConsumerName = decodeSafe(systemConsumerDetailMatch.params.consumerName);
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
     return [
-      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
       {
         label: 'Consumers',
-        to: options?.activeSystemId
-          ? toSystemConsumers(options.activeSystemId)
-          : ROUTE_PATTERNS.consumers,
+        to: toSystemConsumers(systemId),
       },
-      { label: options?.consumerDetailLabel || rawConsumerId },
+      { label: options?.consumerDetailLabel || rawConsumerName },
     ];
   }
 
@@ -202,32 +208,32 @@ function buildCrumbs(
 export function AppBreadcrumb({ className }: { className?: string }) {
   const location = useLocation();
   const consumerMatch = matchPath(
-    ROUTE_PATTERNS.consumerDetail,
+    ROUTE_PATTERNS.systemConsumerDetail,
     location.pathname,
   );
-  const consumerId = consumerMatch?.params.consumerId
-    ? decodeSafe(consumerMatch.params.consumerId)
+  const consumerName = consumerMatch?.params.consumerName
+    ? decodeSafe(consumerMatch.params.consumerName)
     : '';
   const [consumerLabel, setConsumerLabel] = useState(() =>
-    readCachedConsumerLabel(consumerId),
+    readCachedConsumerLabel(consumerName),
   );
 
   useEffect(() => {
-    // Don't subscribe if no consumerId (non-consumer routes)
-    if (!consumerId) {
+    // Don't subscribe if no consumer name (non-consumer routes)
+    if (!consumerName) {
       setConsumerLabel('');
       return;
     }
 
     const unsubscribe = onCachedConsumerLabelUpdate(
-      ({ consumerId: updatedId, consumerName }) => {
-        if (updatedId !== consumerId) return;
-        setConsumerLabel(consumerName);
+      ({ consumerId: updatedLabelKey, consumerName: updatedName }) => {
+        if (updatedLabelKey !== consumerName) return;
+        setConsumerLabel(updatedName);
       },
     );
 
     let cancelled = false;
-    const cachedLabel = readCachedConsumerLabel(consumerId);
+    const cachedLabel = readCachedConsumerLabel(consumerName);
     if (cachedLabel) {
       setConsumerLabel(cachedLabel);
       return () => {
@@ -236,29 +242,14 @@ export function AppBreadcrumb({ className }: { className?: string }) {
       };
     }
 
-    async function loadConsumerLabel() {
-      try {
-        const response = await fetchConsumer(consumerId);
-        const resolvedName = String(response?.data?.consumerName || '').trim();
-        if (!cancelled && resolvedName) {
-          setConsumerLabel(resolvedName);
-          writeCachedConsumerLabel(consumerId, resolvedName);
-          return;
-        }
-        if (!cancelled) setConsumerLabel(consumerId);
-      } catch {
-        if (!cancelled) {
-          setConsumerLabel(consumerId);
-        }
-      }
+    if (!cancelled) {
+      setConsumerLabel(consumerName);
     }
-
-    void loadConsumerLabel();
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [consumerId]);
+  }, [consumerName]);
 
   const { systems, activeSystem } = useDesignSystem();
 

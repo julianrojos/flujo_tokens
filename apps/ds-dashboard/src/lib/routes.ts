@@ -4,13 +4,13 @@ export const ROUTE_PATTERNS = {
   systemOverview: '/:systemId/overview',
   systemAdmin: '/:systemId/admin',
   systemConsumers: '/:systemId/consumers',
+  systemConsumerDetail: '/:systemId/consumers/:consumerName',
   tokens: '/tokens',
   tokenDetail: '/tokens/:tokenPath',
   components: '/components',
   componentDetail: '/components/:slug',
   componentEditDocs: '/components/:slug/edit-docs',
   consumers: '/consumers',
-  consumerDetail: '/consumers/:consumerId',
 } as const;
 
 function toSystemRoute(systemId: string, suffix: string): string {
@@ -29,6 +29,11 @@ export const toSystemAdmin = (systemId: string): string =>
 export const toSystemConsumers = (systemId: string): string =>
   toSystemRoute(systemId, '/consumers');
 
+export const toSystemConsumerDetail = (
+  systemId: string,
+  consumerId: string,
+): string => toSystemRoute(systemId, `/consumers/${encodeURIComponent(String(consumerId || ''))}`);
+
 export const toTokenDetail = (tokenPath: string): string =>
   `/tokens/${encodeURIComponent(String(tokenPath || ''))}`;
 
@@ -37,6 +42,3 @@ export const toComponentDetail = (slug: string): string =>
 
 export const toComponentEditDocs = (slug: string): string =>
   `${toComponentDetail(slug)}/edit-docs`;
-
-export const toConsumerDetail = (consumerId: string): string =>
-  `/consumers/${encodeURIComponent(String(consumerId || ''))}`;

@@ -6,6 +6,7 @@ import {
   toSystemOverview,
   toSystemAdmin,
   toSystemConsumers,
+  toSystemConsumerDetail,
 } from './routes';
 import { resolveSystemTab } from './resolve-system-tab';
 
@@ -24,6 +25,13 @@ describe('ROUTE_PATTERNS', () => {
 
   it('defines system consumers pattern with :systemId', () => {
     assert.equal(ROUTE_PATTERNS.systemConsumers, '/:systemId/consumers');
+  });
+
+  it('defines system consumer detail pattern with :systemId and :consumerName', () => {
+    assert.equal(
+      ROUTE_PATTERNS.systemConsumerDetail,
+      '/:systemId/consumers/:consumerName',
+    );
   });
 
   it('does not expose legacy system routes', () => {
@@ -89,6 +97,22 @@ describe('toSystemConsumers', () => {
   it('handles empty systemId gracefully', () => {
     assert.equal(toSystemConsumers(''), '/consumers');
     assert.equal(toSystemConsumers(null as unknown as string), '/consumers');
+  });
+});
+
+describe('toSystemConsumerDetail', () => {
+  it('builds system consumer detail URL for a given systemId and consumerId', () => {
+    assert.equal(
+      toSystemConsumerDetail('xyz-789', 'consumer-1'),
+      '/xyz-789/consumers/consumer-1',
+    );
+  });
+
+  it('URL-encodes both identifiers', () => {
+    assert.equal(
+      toSystemConsumerDetail('my system/id', 'consumer/name'),
+      '/my%20system%2Fid/consumers/consumer%2Fname',
+    );
   });
 });
 

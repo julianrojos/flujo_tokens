@@ -12,7 +12,8 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
-import { toConsumerDetail } from "@/lib/routes";
+import { toSystemConsumerDetail } from "@/lib/routes";
+import { useDesignSystem } from "@/lib/design-system-context";
 import { ExternalLink, Inbox, Network } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import {
@@ -161,6 +162,7 @@ function renderAdoptionCell(report: FileReport) {
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
+  const { activeSystem } = useDesignSystem();
   const [syncing, setSyncing] = useState(false);
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
@@ -490,12 +492,16 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           ) : null}
-                          <Link
-                            to={toConsumerDetail(report.consumerId)}
-                            className={rowLinkClassName}
-                          >
-                            {report.consumerName}
-                          </Link>
+                          {activeSystem ? (
+                            <Link
+                              to={toSystemConsumerDetail(activeSystem, report.consumerName)}
+                              className={rowLinkClassName}
+                            >
+                              {report.consumerName}
+                            </Link>
+                          ) : (
+                            <span>{report.consumerName}</span>
+                          )}
                         </div>
                       </TableCell>
                     <TableCell className="text-muted-foreground">

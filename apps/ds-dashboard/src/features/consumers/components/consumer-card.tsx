@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { toConsumerDetail } from "@/lib/routes";
+import { useDesignSystem } from "@/lib/design-system-context";
+import { toSystemConsumerDetail } from "@/lib/routes";
 import { ConsumerSyncStatusBadge } from "./consumer-sync-status-badge";
 import type { DsConsumer, DsSyncRun, ImpactLevel } from "@/types/consumers";
 
@@ -34,6 +35,10 @@ export function ConsumerCard(props: ConsumerCardProps) {
   const isManagement = props.mode === "management";
   const canSync = isManagement || typeof props.onSync === "function";
   const canRemove = isManagement || typeof props.onRemove === "function";
+  const { activeSystem } = useDesignSystem();
+  const consumerHref = activeSystem
+    ? toSystemConsumerDetail(activeSystem, consumer.consumerName)
+    : "";
 
   return (
     <Card className="group relative overflow-hidden">
@@ -41,12 +46,13 @@ export function ConsumerCard(props: ConsumerCardProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-titles font-semibold titles-color">
-              <Link
-                to={toConsumerDetail(consumer.id)}
-                className="hover:underline"
-              >
-                {consumer.consumerName}
-              </Link>
+              {consumerHref ? (
+                <Link to={consumerHref} className="hover:underline">
+                  {consumer.consumerName}
+                </Link>
+              ) : (
+                <span>{consumer.consumerName}</span>
+              )}
             </h2>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {consumer.consumerFileKey}
