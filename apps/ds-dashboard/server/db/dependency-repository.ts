@@ -89,8 +89,30 @@ export interface SaveSyncRunParams {
   consumer_usage_details_json?: unknown | null;
 }
 
+function parseJsonValue<T>(value: unknown): T | null {
+  if (value == null) return null;
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return value as T;
+    }
+  }
+  return value as T;
+}
+
 export class DependencyRepository {
   constructor(private sql: Sql) {}
+
+  private normalizeConsumerName(consumerName: string): string {
+    const normalizedName = String(consumerName || '').trim();
+    if (!normalizedName) {
+      throw new Error('consumer_name is required and cannot be empty');
+    }
+    return normalizedName;
+  }
 
   private normalizeDsFileKey(dsFileKey: string): string {
     if (!dsFileKey || !dsFileKey.trim()) {
@@ -173,18 +195,19 @@ export class DependencyRepository {
 
   async addConsumer(params: AddConsumerParams): Promise<DsConsumer> {
     const id = randomUUID();
+    const consumerName = this.normalizeConsumerName(params.consumer_name);
 
     try {
       await this.sql`
         INSERT INTO ds_consumers (
           id, ds_file_key, consumer_file_key, consumer_name
-        ) VALUES (${id}, ${params.ds_file_key}, ${params.consumer_file_key}, ${params.consumer_name})
+        ) VALUES (${id}, ${params.ds_file_key}, ${params.consumer_file_key}, ${consumerName})
       `;
     } catch (error) {
       if (error instanceof Error && error.message.includes('duplicate')) {
         throw {
           code: 'deps.consumer.duplicate',
-          message: `Consumer already exists for DS file ${params.ds_file_key} and consumer file ${params.consumer_file_key}`,
+          message: `A consumer already exists for this design system.`,
         };
       }
       throw error;
@@ -274,7 +297,9 @@ export class DependencyRepository {
           local_variable_used_count: row.sync_local_variable_used_count as
             | number
             | null,
-          consumer_usage_details_json: row.sync_consumer_usage_details_json,
+          consumer_usage_details_json: parseJsonValue(
+            row.sync_consumer_usage_details_json,
+          ),
         };
       }
       return result;

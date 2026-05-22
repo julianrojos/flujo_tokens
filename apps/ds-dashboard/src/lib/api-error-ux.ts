@@ -71,6 +71,8 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
       return "System not found";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Delete blocked";
+    case API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE:
+      return "Consumer already exists";
     case API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE:
       return "Consumer file rejected";
     case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
@@ -113,6 +115,8 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
       return "Use a different ID or update the existing system.";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Create another system before deleting this one.";
+    case API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE:
+      return "Use a different consumer name for this design system.";
     case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
       return "Refresh operation history and choose a valid event.";
     case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:

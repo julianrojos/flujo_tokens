@@ -32,6 +32,16 @@ describe('DependencyRepository', () => {
     assert(consumer.created_at instanceof Date);
   });
 
+  test('addConsumer trims consumer names before persisting', async () => {
+    const consumer = await repo.addConsumer({
+      ds_file_key: 'ds-trim',
+      consumer_file_key: 'consumer-trim',
+      consumer_name: '  Trimmed App  ',
+    });
+
+    assert.strictEqual(consumer.consumer_name, 'Trimmed App');
+  });
+
   test('addConsumer rejects duplicates', async () => {
     await repo.addConsumer({
       ds_file_key: 'ds789',
@@ -40,13 +50,57 @@ describe('DependencyRepository', () => {
     });
 
     await assert.rejects(
+      async () => {
+        await repo.addConsumer({
+          ds_file_key: 'ds789',
+          consumer_file_key: 'consumer101',
+          consumer_name: 'Test App 2 Duplicate',
+        });
+      },
+      (error) => {
+        assert.equal((error as { code?: string }).code, 'deps.consumer.duplicate');
+        assert.equal(
+          (error as { message?: string }).message,
+          'A consumer already exists for this design system.',
+        );
+        return true;
+      },
+    );
+  });
+
+  test('addConsumer rejects duplicate consumer names within the same DS', async () => {
+    await repo.addConsumer({
+      ds_file_key: 'ds-name-dup',
+      consumer_file_key: 'consumer-name-dup-1',
+      consumer_name: 'Shared Consumer',
+    });
+
+    await assert.rejects(
       () => repo.addConsumer({
-        ds_file_key: 'ds789',
-        consumer_file_key: 'consumer101',
-        consumer_name: 'Test App 2 Duplicate',
+        ds_file_key: 'ds-name-dup',
+        consumer_file_key: 'consumer-name-dup-2',
+        consumer_name: 'Shared Consumer',
       }),
       { code: 'deps.consumer.duplicate' }
     );
+  });
+
+  test('addConsumer allows the same consumer name across different DS files', async () => {
+    const first = await repo.addConsumer({
+      ds_file_key: 'ds-name-1',
+      consumer_file_key: 'consumer-name-1',
+      consumer_name: 'Cross DS Consumer',
+    });
+
+    const second = await repo.addConsumer({
+      ds_file_key: 'ds-name-2',
+      consumer_file_key: 'consumer-name-2',
+      consumer_name: 'Cross DS Consumer',
+    });
+
+    assert.notStrictEqual(first.id, second.id);
+    assert.strictEqual(first.consumer_name, 'Cross DS Consumer');
+    assert.strictEqual(second.consumer_name, 'Cross DS Consumer');
   });
 
   test('getConsumer returns null for non-existent consumer', async () => {

@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ApiError } from "./api";
-import {
-  resolveApiUnavailableDisplay,
-  toApiErrorDisplay,
-} from "./api-error-ux";
+import { API_ERROR_CODES } from "./api-errors";
+import { resolveApiUnavailableDisplay, toApiErrorDisplay } from "./api-error-ux";
 
 describe("toApiErrorDisplay", () => {
   it("maps fetch failures to an API unavailable message", () => {
@@ -64,5 +62,30 @@ describe("toApiErrorDisplay", () => {
 
     assert.equal(result.reason, "Preflight DB check failed before delete could start.");
     assert.equal(result.requestId, "req_123");
+  });
+
+  it("explains duplicate consumer names with a specific title and action", () => {
+    const result = toApiErrorDisplay(
+      new ApiError({
+        status: 409,
+        statusText: "Conflict",
+        code: API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE,
+        userMessage: "Consumer already exists for DS file ds123 and consumer name Shared Consumer.",
+        recoverable: true,
+        requestId: "req_456",
+      }),
+      {
+        fallbackTitle: "Consumer file unavailable",
+        fallbackMessage: "Failed to add consumer file.",
+      },
+    );
+
+    assert.equal(result.title, "Consumer already exists");
+    assert.equal(
+      result.action,
+      "Use a different consumer name for this design system.",
+    );
+    assert.equal(result.code, API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE);
+    assert.equal(result.retryable, true);
   });
 });

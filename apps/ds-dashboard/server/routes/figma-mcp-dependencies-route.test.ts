@@ -90,6 +90,35 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.data.consumer_name, 'Test Consumer');
   });
 
+  test('POST /api/figma-mcp/dependencies/consumers - rejects duplicate consumer name in the same DS', async () => {
+    const firstResponse = await app.request('/api/figma-mcp/dependencies/consumers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+        consumerName: 'Shared Consumer',
+        consumerFileUrl: 'https://www.figma.com/design/consumer456/Shared-Consumer',
+      }),
+    });
+
+    assert.strictEqual(firstResponse.status, 200);
+
+    const duplicateResponse = await app.request('/api/figma-mcp/dependencies/consumers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+        consumerName: 'Shared Consumer',
+        consumerFileUrl: 'https://www.figma.com/design/consumer789/Shared-Consumer-2',
+      }),
+    });
+
+    assert.strictEqual(duplicateResponse.status, 409);
+    const body = await duplicateResponse.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.consumer.duplicate');
+  });
+
   test('POST /api/figma-mcp/dependencies/consumers - rejects consumer without parent usage and rolls back', async () => {
     syncConsumersFn = async ({ dsFileKey, consumerIds }: { dsFileKey: string; consumerIds?: string[] }) => ({
       synced: 1,

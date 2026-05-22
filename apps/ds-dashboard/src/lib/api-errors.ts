@@ -6,6 +6,7 @@ export const API_ERROR_CODES = {
   DESIGN_SYSTEM_ALREADY_EXISTS: "design_system.already_exists",
   DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED: "design_system.last_system_protected",
   DESIGN_SYSTEM_NOT_FOUND: "design_system.not_found",
+  DEPS_CONSUMER_DUPLICATE: "deps.consumer.duplicate",
   DEPS_CONSUMER_NO_PARENT_USAGE: "deps.consumer.no_parent_usage",
   FILE_INVALID_PATH: "file.invalid_path",
   FILE_NOT_FOUND: "file.not_found",
@@ -95,6 +96,13 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     recoverable: true,
     description: "The requested design system ID does not exist.",
     fix: "Select an existing system ID and retry.",
+  },
+  [API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE]: {
+    code: API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE,
+    httpStatus: 409,
+    recoverable: true,
+    description: "A consumer with this name already exists within the design system.",
+    fix: "Choose a different consumer name for this design system.",
   },
   [API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE]: {
     code: API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE,
