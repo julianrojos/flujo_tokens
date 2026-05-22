@@ -3,5 +3,6 @@ function normalizeConfiguredUrl(value: unknown): string {
 }
 
 export function getDashboardApiBaseUrl(): string {
-  return normalizeConfiguredUrl(import.meta.env.VITE_API_URL) || '';
+  const env = (import.meta as ImportMeta & { env?: Record<string, unknown> }).env;
+  return normalizeConfiguredUrl(env?.VITE_API_URL) || '';
 }
