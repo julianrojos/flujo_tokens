@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Inbox } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Inbox } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
@@ -41,7 +41,6 @@ import type {
   ComponentUsageReport,
   VariableUsageReport,
   ImpactLevel,
-  UsageScope,
   SampleNodeRef,
 } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
@@ -88,16 +87,6 @@ function normalizeLookupKey(value: string): string {
 
 function normalizeFilterText(value: string): string {
   return String(value || "").trim().toLowerCase();
-}
-
-function formatUsageScope(scope: UsageScope): string {
-  if (scope === "page") return "Page / screen";
-  if (scope === "local-component") return "Local component";
-  return "Nested local component";
-}
-
-function sumUsageScopeSummary(summary: { page: number; localComponent: number; nestedLocalComponent: number }): number {
-  return summary.page + summary.localComponent + summary.nestedLocalComponent;
 }
 
 function resolveVariableTokenEntry(
@@ -222,7 +211,6 @@ export function ConsumerDetailPage() {
   const [variableTypeFilter, setVariableTypeFilter] = useState("all");
   const [variablePageSize, setVariablePageSize] = useState<string>("25");
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
-  const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
   const [sampleLinksModal, setSampleLinksModal] = useState<{
     title: string;
     sampleNodes: SampleNodeRef[];
@@ -576,7 +564,6 @@ export function ConsumerDetailPage() {
     () => computeWorstImpactLevel(consumerComponents, consumerVariables),
     [consumerComponents, consumerVariables],
   );
-  const usageDetails = consumer?.latestSync?.usageDetails ?? null;
   const consumerFileKey = consumer?.consumerFileKey || dsFileKey || "";
 
   const openSampleLinksModal = (title: string, sampleNodes: SampleNodeRef[]) => {
@@ -1130,186 +1117,6 @@ export function ConsumerDetailPage() {
         </Card>
       ) : null}
 
-      {usageDetails ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
-            onClick={() => setIsUsageDetailsOpen((open) => !open)}
-            aria-controls="usage-details-content"
-            aria-expanded={isUsageDetailsOpen}
-          >
-            <div>
-              <h2 className="text-base font-titles font-semibold titles-color">Usage Details</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Direct parent usage, local component graph and component properties.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="neutral">
-                Components {sumUsageScopeSummary(usageDetails.usageShape.components)}
-              </Badge>
-              <Badge variant="neutral">
-                Tokens {sumUsageScopeSummary(usageDetails.usageShape.tokens)}
-              </Badge>
-              {isUsageDetailsOpen ? (
-                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-            </div>
-          </button>
-          {isUsageDetailsOpen ? (
-          <div id="usage-details-content" className="border-t border-border/50">
-          <div className="grid gap-px border-b border-border/50 md:grid-cols-2">
-            <div className="p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Component usage shape
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Badge variant="neutral">Page {usageDetails.usageShape.components.page}</Badge>
-                <Badge variant="neutral">
-                  Local {usageDetails.usageShape.components.localComponent}
-                </Badge>
-                <Badge variant="neutral">
-                  Nested {usageDetails.usageShape.components.nestedLocalComponent}
-                </Badge>
-              </div>
-            </div>
-            <div className="p-5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Token usage shape
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Badge variant="neutral">Page {usageDetails.usageShape.tokens.page}</Badge>
-                <Badge variant="neutral">
-                  Local {usageDetails.usageShape.tokens.localComponent}
-                </Badge>
-                <Badge variant="neutral">
-                  Nested {usageDetails.usageShape.tokens.nestedLocalComponent}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-px">
-            <section>
-              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
-                <h3 className="text-sm font-semibold titles-color">Direct parent usage</h3>
-                <Badge variant="neutral">{usageDetails.parentComponentUsages.length} entries</Badge>
-              </div>
-              {usageDetails.parentComponentUsages.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">
-                  No direct DS parent component usage captured for this consumer.
-                </p>
-              ) : (
-                <div className="overflow-x-auto px-5 pb-5">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Parent DS component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
-                        <TableHead className="normal-case tracking-normal text-right">Uses</TableHead>
-                        <TableHead className="normal-case tracking-normal">Samples</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usageDetails.parentComponentUsages.map((usage) => (
-                        <TableRow key={`${usage.localComponentKey}-${usage.parentComponentKey}-${usage.usageScope}`}>
-                          <TableCell>
-                            {renderComponentName(usage.localComponentKey, usage.localComponentName, componentSlugByLookup)}
-                          </TableCell>
-                          <TableCell>
-                            {renderComponentName(usage.parentComponentKey, usage.parentComponentName, componentSlugByLookup)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="neutral" className="text-[10px]">
-                              {formatUsageScope(usage.usageScope)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="neutral">{usage.usageCount}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {usage.sampleNodeIds.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {usage.sampleNodeIds.map((nodeId) => (
-                                  <Badge key={nodeId} variant="neutral" className="rounded-md text-[10px] font-normal">
-                                    {nodeId}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <div className="flex items-center justify-between gap-3 border-b border-border/50 px-5 py-3">
-                <h3 className="text-sm font-semibold titles-color">Local component graph</h3>
-                <Badge variant="neutral">{usageDetails.localComponentGraph.length} edges</Badge>
-              </div>
-              {usageDetails.localComponentGraph.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">
-                  No local component composition edges captured for this consumer.
-                </p>
-              ) : (
-                <div className="overflow-x-auto px-5 pb-5">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="normal-case tracking-normal">Parent local component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Child local component</TableHead>
-                        <TableHead className="normal-case tracking-normal text-right">Uses</TableHead>
-                        <TableHead className="normal-case tracking-normal">Samples</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usageDetails.localComponentGraph.map((edge) => (
-                        <TableRow key={`${edge.parentComponentKey}-${edge.childComponentKey}`}>
-                          <TableCell>
-                            {renderComponentName(edge.parentComponentKey, edge.parentComponentName, componentSlugByLookup)}
-                          </TableCell>
-                          <TableCell>
-                            {renderComponentName(edge.childComponentKey, edge.childComponentName, componentSlugByLookup)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="neutral">{edge.usageCount}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {edge.sampleNodeIds.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {edge.sampleNodeIds.map((nodeId) => (
-                                  <Badge key={nodeId} variant="neutral" className="rounded-md text-[10px] font-normal">
-                                    {nodeId}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </section>
-
-          </div>
-          </div>
-          ) : null}
-        </section>
-      ) : null}
       <ConsumerSampleLinksModal
         open={sampleLinksModal !== null}
         onClose={() => setSampleLinksModal(null)}
