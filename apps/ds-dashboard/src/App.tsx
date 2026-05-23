@@ -585,9 +585,9 @@ export default function App() {
                               {({ isActive }) => (
                                 <SidebarNavItem
                                   isActive={
-                                    isActive ||
-                                    (isPrimarySystemItem && isSystemSectionActive) ||
-                                    (section.id === 'consumers' && isConsumersSectionActive)
+                                    section.id === 'consumers'
+                                      ? isConsumersSectionActive
+                                      : (isActive || (isPrimarySystemItem && isSystemSectionActive))
                                   }
                                   title={
                                     sidebarCollapsed ? item.label : undefined
@@ -649,16 +649,14 @@ export default function App() {
                             className={({ isActive }) => {
                               const isPrimarySystemItem = isSystemPrimaryNavItem(section, item);
                               const effectiveActive =
-                                isActive ||
-                                (isPrimarySystemItem && isSystemSectionActive) ||
-                                (section.id === 'consumers' && isConsumersSectionActive);
-                              return (
-                              cn(
+                                section.id === 'consumers'
+                                  ? isConsumersSectionActive
+                                  : (isActive || (isPrimarySystemItem && isSystemSectionActive));
+                              return cn(
                                 'rounded-md px-3 py-2 text-sm font-semibold transition',
                                 effectiveActive
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-muted text-foreground',
-                              )
                               );
                             }}
                           >
