@@ -67,6 +67,63 @@ export class OpenAiAdapter implements AiProvider {
     return this.name !== 'ollama';
   }
 
+  private shouldFallbackToJsonObject(
+    error: unknown,
+    responseFormat:
+      | OpenAI.Chat.ChatCompletionCreateParamsNonStreaming['response_format']
+      | undefined,
+  ): boolean {
+    if (this.name !== 'openrouter') return false;
+    if (!responseFormat || responseFormat.type !== 'json_schema') return false;
+
+    if (this.isInvalidJsonSchemaError(error)) {
+      return false;
+    }
+
+    if (error instanceof SyntaxError) {
+      return true;
+    }
+
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const record = error as {
+      status?: number;
+      code?: string;
+      message?: string;
+    };
+    const status = record.status;
+    const message = `${record.code || ''} ${record.message || ''}`.toLowerCase();
+
+    if (status === 400 || status === 422) {
+      return true;
+    }
+
+    return (
+      message.includes('json_schema') ||
+      message.includes('response_format') ||
+      message.includes('schema') ||
+      message.includes('json object') ||
+      message.includes('unsupported')
+    );
+  }
+
+  private isInvalidJsonSchemaError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const record = error as {
+      code?: string;
+      message?: string;
+    };
+    const code = String(record.code || '').trim().toLowerCase();
+    const message = String(record.message || '').trim().toLowerCase();
+
+    return code === 'invalid_json_schema' || message.includes('invalid_json_schema');
+  }
+
   private async runCompletion(
     client: OpenAI,
     model: string,
@@ -132,20 +189,44 @@ export class OpenAiAdapter implements AiProvider {
     try {
       // Use json_schema for providers that usually support it.
       if (shouldAttemptJsonSchema) {
-        return await this.runCompletion(
-          client,
-          model,
-          input,
-          {
-            type: 'json_schema',
-            json_schema: {
-              name: 'component_doc',
-              strict: true,
-              schema: input.jsonSchema,
-            },
+        const strictResponseFormat = {
+          type: 'json_schema',
+          json_schema: {
+            name: 'component_doc',
+            strict: true,
+            schema: input.jsonSchema,
           },
-          startTime,
-        );
+        } as const;
+
+        try {
+          return await this.runCompletion(
+            client,
+            model,
+            input,
+            strictResponseFormat,
+            startTime,
+          );
+        } catch (error) {
+          if (!this.shouldFallbackToJsonObject(error, strictResponseFormat)) {
+            throw error;
+          }
+
+          console.warn(
+            '[ai-openai-adapter] OpenRouter strict schema rejected, retrying with json_object',
+            {
+              model,
+            },
+            error,
+          );
+
+          return await this.runCompletion(
+            client,
+            model,
+            input,
+            { type: 'json_object' },
+            startTime,
+          );
+        }
       }
 
       return await this.runCompletion(
