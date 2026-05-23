@@ -620,12 +620,6 @@ export function ConsumerDetailPage() {
     <div className="space-y-5">
       <PageHeader
         title={consumer.consumerName}
-        actions={
-          <Button variant="outline" size="sm" onClick={() => window.history.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to consumers
-          </Button>
-        }
       />
 
       {error ? <ApiErrorMessage error={error} /> : null}
