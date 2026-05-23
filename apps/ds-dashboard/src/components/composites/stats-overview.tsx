@@ -8,6 +8,7 @@ export interface StatsOverviewItem {
   id: string;
   label: string;
   value: ReactNode;
+  description?: string;
   to?: string;
 }
 
@@ -40,6 +41,7 @@ export function StatsOverview({ items, className, gridClassName }: StatsOverview
               <CardHeader>
                 <CardDescription className="transition-colors group-hover:text-primary">{item.label}</CardDescription>
                 <CardTitle className="group-hover:text-primary">{item.value}</CardTitle>
+                {item.description ? <p className="sr-only">{item.description}</p> : null}
               </CardHeader>
             </Card>
           </Link>
@@ -48,6 +50,7 @@ export function StatsOverview({ items, className, gridClassName }: StatsOverview
             <CardHeader>
               <CardDescription>{item.label}</CardDescription>
               <CardTitle>{item.value}</CardTitle>
+              {item.description ? <p className="sr-only">{item.description}</p> : null}
             </CardHeader>
           </Card>
         )

@@ -6,11 +6,6 @@ interface ConsumerSyncStatusBadgeProps {
   syncing?: boolean;
 }
 
-function parseSyncedAt(value: string | undefined): number | null {
-  const ms = new Date(String(value || "")).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
 export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncStatusBadgeProps) {
   if (syncing) {
     return (
@@ -30,8 +25,6 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
   }
 
   const status = latestSync.status;
-  const syncedAtMs = parseSyncedAt(latestSync.syncedAt);
-  const hoursAgo = syncedAtMs === null ? null : Math.floor((Date.now() - syncedAtMs) / (1000 * 60 * 60));
 
   if (status === 'error') {
     return (
@@ -44,7 +37,7 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
   if (status === 'partial') {
     return (
       <Badge variant="warning" title={latestSync.errorMessage}>
-        {hoursAgo === null ? "Partial" : `Partial (${hoursAgo}h ago)`}
+        Partial
       </Badge>
     );
   }
@@ -58,25 +51,9 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
   }
 
   // status === 'ok'
-  if (hoursAgo === null) {
-    return (
-      <Badge variant="neutral">
-        Synced
-      </Badge>
-    );
-  }
-
-  if (hoursAgo > 72) {
-    return (
-      <Badge variant="warning">
-        {hoursAgo}h ago
-      </Badge>
-    );
-  }
-
   return (
     <Badge variant="success">
-      {hoursAgo}h ago
+      Synced
     </Badge>
   );
 }

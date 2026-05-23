@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { EmptyState, FilterBar, PageHeader } from "@/components/composites";
+import { EmptyState, FilterBar, PageHeader, StatsOverview } from "@/components/composites";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import {
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "@/lib/format-synced-at";
+import { formatRelativeTime } from "@/lib/format-relative-time";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import type {
@@ -45,10 +46,8 @@ import type {
 } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import { getComponentTableDisplayInfo } from "./lib/component-table-display";
-import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { ConsumerSampleLinksModal } from "./components/consumer-sample-links-modal";
-import { AdoptionBar } from "./components/adoption-bar";
-import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
+import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { groupByParentComponent } from "./lib/component-grouping";
 
 type ConsumerUsageTab = "components" | "variables";
@@ -144,35 +143,6 @@ function renderComponentName(
   return <span className="font-normal">{componentName || componentKey}</span>;
 }
 
-function renderDimensionBar(dsUsed: number, localUsed: number | null | undefined): ReactNode {
-  const state = buildDimensionAdoptionState(dsUsed, localUsed);
-
-  if (state.showNA) {
-    return (
-      <span className="flex-1 text-muted-foreground" title="No usage data">
-        N/A
-      </span>
-    );
-  }
-
-  if (state.showBar && state.totalLocalUsed != null) {
-    return (
-      <AdoptionBar
-        dsCount={state.totalDsUsed}
-        nonDsCount={state.totalLocalUsed}
-        className="flex-1"
-        barClassName="h-2"
-      />
-    );
-  }
-
-  return (
-    <span className="flex-1 text-muted-foreground" title="Adoption data unavailable">
-      —
-    </span>
-  );
-}
-
 function computeWorstImpactLevel(
   components: Array<{ impactLevel: { level: ImpactLevel } }>,
   variables: Array<{ impactLevel: { level: ImpactLevel } }>,
@@ -253,7 +223,6 @@ export function ConsumerDetailPage() {
   const [variablePageSize, setVariablePageSize] = useState<string>("25");
   const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [isUsageDetailsOpen, setIsUsageDetailsOpen] = useState(false);
-  const [isTokenBindingOpen, setIsTokenBindingOpen] = useState(false);
   const [sampleLinksModal, setSampleLinksModal] = useState<{
     title: string;
     sampleNodes: SampleNodeRef[];
@@ -664,7 +633,6 @@ export function ConsumerDetailPage() {
     <div className="space-y-5">
       <PageHeader
         title={consumer.consumerName}
-        description={consumer.consumerFileKey}
         actions={
           <Button variant="outline" size="sm" onClick={() => window.history.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -681,7 +649,10 @@ export function ConsumerDetailPage() {
           <div>
             <h2 className="text-base font-titles font-semibold titles-color">Overview</h2>
             <p className="text-sm text-muted-foreground">
-              Last synced: {consumer.latestSync ? formatSyncedAt(consumer.latestSync.syncedAt) : "Never"}
+              Last synced:{' '}
+              {consumer.latestSync
+                ? `${formatSyncedAt(consumer.latestSync.syncedAt)} (${formatRelativeTime(consumer.latestSync.syncedAt, { locale: 'en' })})`
+                : "Never"}
             </p>
           </div>
           <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
@@ -689,62 +660,37 @@ export function ConsumerDetailPage() {
         {consumer.latestSync && (
           <div className="mt-4 space-y-4">
             {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-                <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
-                <p className="text-xs text-muted-foreground">DS components</p>
-              </div>
-              <div
-                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
-                title="Includes local and other-library components not matched to the tracked DS during the last sync"
-              >
-                <p className="text-2xl font-bold">
-                  {consumer.latestSync.localComponentUsedCount ?? "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Non-DS comp.</p>
-                <p className="sr-only">
-                  Includes local and other-library components not matched to the tracked DS during
-                  the last sync.
-                </p>
-              </div>
-              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-                <p className="text-2xl font-bold">{consumer.latestSync.variableCount}</p>
-                <p className="text-xs text-muted-foreground">DS variables</p>
-              </div>
-              <div
-                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
-                title="Includes local and other-library variable bindings not matched to the tracked DS during the last sync"
-              >
-                <p className="text-2xl font-bold">
-                  {consumer.latestSync.localVariableUsedCount ?? "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">Non-DS vars</p>
-                <p className="sr-only">
-                  Includes local and other-library variable bindings not matched to the tracked DS
-                  during the last sync.
-                </p>
-              </div>
-            </div>
+            <StatsOverview
+              className="mt-4"
+              items={[
+                {
+                  id: "consumer-ds-components",
+                  label: "DS components",
+                  value: consumer.latestSync.componentCount,
+                },
+                {
+                  id: "consumer-non-ds-components",
+                  label: "Non-DS components",
+                  value: consumer.latestSync.localComponentUsedCount ?? "—",
+                  description:
+                    "Includes local and other-library components not matched to the tracked DS during the last sync",
+                },
+                {
+                  id: "consumer-ds-variables",
+                  label: "DS variables",
+                  value: consumer.latestSync.variableCount,
+                },
+                {
+                  id: "consumer-non-ds-variables",
+                  label: "Non-DS variables",
+                  value: consumer.latestSync.localVariableUsedCount ?? "—",
+                  description:
+                    "Includes local and other-library variable bindings not matched to the tracked DS during the last sync",
+                },
+              ]}
+            />
 
-            {/* Row 2: Adoption bars (per dimension) */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="w-20 shrink-0">Components</span>
-                {renderDimensionBar(
-                  consumer.latestSync.componentCount,
-                  consumer.latestSync.localComponentUsedCount,
-                )}
-              </div>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="w-20 shrink-0">Variables</span>
-                {renderDimensionBar(
-                  consumer.latestSync.variableCount,
-                  consumer.latestSync.localVariableUsedCount,
-                )}
-              </div>
-            </div>
-
-            {/* Row 3: Footer with parent-derived components + warnings/impact */}
+            {/* Row 2: Footer with parent-derived components + warnings/impact */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span title="Local components that directly use at least one parent DS component">
                 Direct parent usage: {consumer.latestSync.parentDerivedComponentCount ?? "—"} comp
@@ -1182,90 +1128,6 @@ export function ConsumerDetailPage() {
           ) : null}
 
         </Card>
-      ) : null}
-
-      {activeUsageTab === "variables" && usageDetails ? (
-        <section className="overflow-hidden rounded-lg border border-border bg-card">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
-            onClick={() => setIsTokenBindingOpen((open) => !open)}
-            aria-controls="token-binding-content"
-            aria-expanded={isTokenBindingOpen}
-          >
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold titles-color">Token binding detail</h3>
-              <Badge variant="neutral">{usageDetails.tokenBindingDetails.length} nodes</Badge>
-            </div>
-            {isTokenBindingOpen ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
-          </button>
-          {isTokenBindingOpen ? (
-            <div id="token-binding-content" className="border-t border-border/50 p-5">
-              {usageDetails.tokenBindingDetails.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No token binding details captured for this consumer.
-                </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="normal-case tracking-normal">Node</TableHead>
-                        <TableHead className="normal-case tracking-normal">Scope</TableHead>
-                        <TableHead className="normal-case tracking-normal">Local component</TableHead>
-                        <TableHead className="normal-case tracking-normal">Field</TableHead>
-                        <TableHead className="normal-case tracking-normal">Variable</TableHead>
-                        <TableHead className="normal-case tracking-normal">Status</TableHead>
-                        <TableHead className="normal-case tracking-normal">Token path</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usageDetails.tokenBindingDetails.flatMap((entry) =>
-                        entry.bindings.map((binding) => (
-                          <TableRow key={`${entry.nodeId}-${binding.field}-${binding.variableId}`}>
-                            <TableCell>{entry.nodeName}</TableCell>
-                            <TableCell>
-                              <Badge variant="neutral" className="text-[10px]">
-                                {formatUsageScope(entry.usageScope)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {entry.localComponentKey && entry.localComponentName ? (
-                                renderComponentName(entry.localComponentKey, entry.localComponentName, componentSlugByLookup)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-medium">{binding.field}</TableCell>
-                            <TableCell>
-                              {binding.status === "resolved" ? (
-                                <span>{binding.variableName ?? binding.variableId}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Unresolved ({binding.variableId})</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={binding.status === "resolved" ? "success" : "warning"}>
-                                {binding.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {binding.resolvedTokenPath ?? "—"}
-                            </TableCell>
-                          </TableRow>
-                        )),
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </section>
       ) : null}
 
       {usageDetails ? (
