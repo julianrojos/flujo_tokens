@@ -850,6 +850,12 @@ export class PluginConnectionManager {
         connectionCount: number;
         pendingRequestCount: number;
         activeFileKeys: string[];
+        openConnections: Array<{
+            docName: string;
+            fileKey: string | null;
+            pluginVersion: string;
+            uptimeMs: number;
+        }>;
         connections: Array<{
             docName: string;
             fileKey: string | null;
@@ -863,20 +869,32 @@ export class PluginConnectionManager {
             pluginVersion: string;
             uptimeMs: number;
         }> = [];
+        const openConnections: Array<{
+            docName: string;
+            fileKey: string | null;
+            pluginVersion: string;
+            uptimeMs: number;
+        }> = [];
 
         for (const conn of this.connections.values()) {
-            connections.push({
+            const connectionInfo = {
                 docName: conn.sessionInfo.docName,
                 fileKey: conn.sessionInfo.fileKey,
                 pluginVersion: conn.sessionInfo.pluginVersion,
                 uptimeMs: Date.now() - conn.createdAt,
-            });
+            };
+            connections.push(connectionInfo);
+
+            if (conn.socket.readyState === WS_OPEN_STATE) {
+                openConnections.push(connectionInfo);
+            }
         }
 
         return {
-            connectionCount: this.connections.size,
+            connectionCount: this.getConnectionCount(),
             pendingRequestCount: this.pendingRequests.size,
             activeFileKeys: this.getActiveFileKeys(),
+            openConnections,
             connections,
         };
     }

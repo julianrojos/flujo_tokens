@@ -201,6 +201,33 @@ test('plugin-connection-manager: getConnectionCount returns 0 when all sockets a
   assert.equal(manager.getConnectionCount(), 0);
 });
 
+test('plugin-connection-manager: getDebugInfo connectionCount matches open sockets', () => {
+  const manager = new PluginConnectionManager();
+
+  const openSocket = createMockSocket(() => { }, { readyState: 1 });
+  manager.register(openSocket, {
+    fileKey: 'FILE_OPEN',
+    docName: 'open',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  const closedSocket = createMockSocket(() => { }, { readyState: 3 });
+  manager.register(closedSocket, {
+    fileKey: 'FILE_CLOSED',
+    docName: 'closed',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  assert.equal(manager.getConnectionCount(), 1);
+  assert.equal(manager.getDebugInfo().connectionCount, 1);
+  assert.equal(manager.getDebugInfo().connections.length, 2);
+  assert.equal(manager.getDebugInfo().openConnections.length, 1);
+});
+
 test('plugin-connection-manager: getActiveFileKeys excludes fileKeys from zombie sockets', () => {
   const manager = new PluginConnectionManager();
 
