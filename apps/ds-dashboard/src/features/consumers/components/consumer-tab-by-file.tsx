@@ -3,14 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState, EmptyStateAction, FilterBar, StatsOverview } from "@/components/composites";
 import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
+import { fetchReportByFile, removeConsumer } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toSystemConsumerDetail } from "@/lib/routes";
 import { useDesignSystem } from "@/lib/design-system-context";
@@ -26,7 +25,6 @@ import {
 } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport } from "@/types/consumers";
 import { QUERY_DEFAULTS } from "@/lib/query-client";
 import { useSortState } from "@/lib/use-sort-state";
@@ -53,7 +51,7 @@ interface ConsumerTabByFileData {
   reports: FileReport[];
 }
 
-type ConsumerSortField = "consumer" | "lastSync" | "usage" | "adoption";
+type ConsumerSortField = "consumer" | "lastSync" | "usage";
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
 
@@ -112,58 +110,9 @@ function applyFilters(
   });
 }
 
-function renderAdoptionCell(report: FileReport) {
-  const state = buildAggregateAdoptionState(report);
-
-  if (state.showNA) {
-    return (
-      <span className="text-muted-foreground" title="No usage data">
-        N/A
-      </span>
-    );
-  }
-
-  if (state.showUnavailable) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground" title="Adoption data unavailable">
-          —
-        </span>
-        {state.showPartial && (
-          <Badge
-            variant="neutral"
-            className="text-[10px]"
-            title="Partial: one local usage dimension is unavailable for this sync."
-          >
-            Partial
-          </Badge>
-        )}
-      </div>
-    );
-  }
-
-  return state.percentageLabel ? (
-    <div className="flex items-center gap-1.5">
-      <span className="tabular-nums text-foreground">{state.percentageLabel}</span>
-      {state.showPartial && (
-        <Badge
-          variant="neutral"
-          className="text-[10px]"
-          title="Partial: one local usage dimension is unavailable for this sync."
-        >
-          Partial
-        </Badge>
-      )}
-    </div>
-  ) : (
-    <span className="text-muted-foreground">—</span>
-  );
-}
-
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const { activeSystem } = useDesignSystem();
-  const [syncing, setSyncing] = useState(false);
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
@@ -186,28 +135,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
         fallbackMessage: "Unable to load consumer file reports.",
       })
     : null);
-
-  const handleSync = async (force = false) => {
-    setSyncing(true);
-    setMutationError(null);
-    try {
-      await syncConsumers({
-        dsFileKey,
-        force,
-        // Keep parent-file "Used In" data fresh for token detail views.
-        // Tradeoff: adds one extra parent-file scan per sync request.
-        captureParentUsage: true,
-      });
-      await query.refetch();
-    } catch (cause) {
-      setMutationError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Sync failed",
-        fallbackMessage: "Unable to sync consumer files.",
-      }));
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const requestRemove = (consumerId: string, consumerName: string) => {
     setRemoveCandidate({ id: consumerId, name: consumerName });
@@ -256,15 +183,10 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     const getUsageCount = (report: FileReport): number => {
       return report.componentCount + report.variableCount;
     };
-    const getAdoptionScore = (report: FileReport): number => {
-      const adoption = buildAggregateAdoptionState(report);
-      return adoption.percentage ?? Number.NEGATIVE_INFINITY;
-    };
     const valueFor = (report: FileReport): string | number => {
       if (sort.field === "consumer") return report.consumerName.toLowerCase();
       if (sort.field === "lastSync") return getSyncedAtMs(report.lastSyncedAt);
       if (sort.field === "usage") return getUsageCount(report);
-      if (sort.field === "adoption") return getAdoptionScore(report);
       return report.consumerName.toLowerCase();
     };
 
@@ -353,52 +275,28 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             onSearch={setSearchQuery}
             searchPlaceholder="Search by name or file key"
             rightSlot={
-              <div className="flex flex-wrap items-center gap-2">
-                {showPageSizeSelect ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Rows</span>
-                    <Select
-                      value={pageSize}
-                      onChange={(event) => setPageSize(event.target.value)}
-                      className="w-[132px]"
-                      aria-label="Rows per page"
-                    >
-                      {pageSizeOptions.map((size) => (
-                        <option key={size} value={String(size)}>
-                          {size}
-                        </option>
-                      ))}
-                      {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
-                    </Select>
-                  </div>
-                ) : null}
-                <div className="flex flex-shrink-0 items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleSync()}
-                    disabled={syncing}
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
                   >
-                    {syncing ? "Syncing..." : "Sync changed"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleSync(true)}
-                    disabled={syncing}
-                  >
-                    Force re-sync all
-                  </Button>
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
                 </div>
-              </div>
+              ) : null
             }
           />
 
           {error ? <ApiErrorMessage error={error} /> : null}
-
-          <p className="text-xs text-muted-foreground">
-            Adoption compares DS usage against DS plus non-DS usage for the last sync.
-          </p>
 
           {shouldPaginate ? (
             <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
@@ -447,11 +345,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   onSort={() => toggleSort("usage")}
                   ariaLabel="Sort by usage"
                 />
-                <SortableTableHead
-                  label="Adoption"
-                  onSort={() => toggleSort("adoption")}
-                  ariaLabel="Sort by adoption"
-                />
                 <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -459,14 +352,14 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
               {loading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <TableRow key={`consumer-loading-${index}`}>
-                    <TableCell colSpan={5} className="text-muted-foreground">
+                    <TableCell colSpan={4} className="text-muted-foreground">
                       Loading consumer files...
                     </TableCell>
                   </TableRow>
                 ))
               ) : sortedReports.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-0">
+                  <TableCell colSpan={4} className="p-0">
                     <EmptyState
                       icon={Inbox}
                       title="No results match your filters"
@@ -477,33 +370,33 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                 </TableRow>
               ) : (
                 pagedReports.map((report) => (
-                    <TableRow key={report.consumerId}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {report.consumerFileKey ? (
-                            <a
-                              href={buildFigmaFileUrl(report.consumerFileKey)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center text-muted-foreground hover:text-primary"
-                              title={`Open ${report.consumerName} in Figma`}
-                              aria-label={`Open ${report.consumerName} in Figma`}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          ) : null}
-                          {activeSystem ? (
-                            <Link
-                              to={toSystemConsumerDetail(activeSystem, report.consumerName)}
-                              className={rowLinkClassName}
-                            >
-                              {report.consumerName}
-                            </Link>
-                          ) : (
-                            <span>{report.consumerName}</span>
-                          )}
-                        </div>
-                      </TableCell>
+                  <TableRow key={report.consumerId}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {report.consumerFileKey ? (
+                          <a
+                            href={buildFigmaFileUrl(report.consumerFileKey)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center text-muted-foreground hover:text-primary"
+                            title={`Open ${report.consumerName} in Figma`}
+                            aria-label={`Open ${report.consumerName} in Figma`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                        {activeSystem ? (
+                          <Link
+                            to={toSystemConsumerDetail(activeSystem, report.consumerName)}
+                            className={rowLinkClassName}
+                          >
+                            {report.consumerName}
+                          </Link>
+                        ) : (
+                          <span>{report.consumerName}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatSyncedAt(report.lastSyncedAt, "Never")}
                     </TableCell>
@@ -531,7 +424,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>{renderAdoptionCell(report)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button

@@ -15,9 +15,7 @@ import type {
   FileReport,
   ComponentUsageReport,
   VariableUsageReport,
-  SimulationResult,
   DsSyncRun,
-  SyncRunsResponse,
   UsageScope,
 } from '@/types/consumers';
 import { API_ERROR_CODES, type ApiErrorCode } from '@/lib/api-errors';
@@ -2418,17 +2416,6 @@ export interface ByVariableReportResponse {
   data: VariableUsageReport[];
 }
 
-export interface SimulateChangePayload {
-  dsFileKey: string;
-  variableKey: string;
-  proposedValue: unknown;
-}
-
-export interface SimulationResponse {
-  ok: boolean;
-  data: SimulationResult;
-}
-
 function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
   const row = toRecord(value);
   if (!row) return null;
@@ -2622,47 +2609,6 @@ export function fetchReportByVariable(dsFileKey: string, variableKey?: string) {
   return getJson<ByVariableReportResponse>(
     `/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`,
   );
-}
-
-export function simulateVariableChange(payload: SimulateChangePayload) {
-  return requestJson<SimulationResponse>(
-    '/api/figma-mcp/dependencies/simulate-change',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
-  const params = new URLSearchParams({ limit: String(limit) });
-  return getJson<{ ok: true; data: unknown[] }>(
-    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}/runs?${params.toString()}`,
-  ).then((response) => {
-    const runs = Array.isArray(response.data) ? response.data : [];
-    const data = runs
-      .map((run, index) => {
-        const normalized = normalizeDsSyncRunRecord(run);
-        if (!normalized) {
-          console.warn(
-            '[api:fetchConsumerSyncRuns] Invalid sync run payload shape',
-            run,
-          );
-          return null;
-        }
-        // Preserve fallback ID for compatibility
-        if (!normalized.id) {
-          return { ...normalized, id: `${consumerId}-${index}` };
-        }
-        return normalized;
-      })
-      .filter((run): run is DsSyncRun => run !== null && Boolean(run.id));
-
-    return { ok: true as const, data };
-  });
 }
 
 // ============================================================================

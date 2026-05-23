@@ -84,19 +84,19 @@ export function ConsumersPage() {
       />
       <SystemTabsNav />
 
-      {consumersPresenceQuery.data === true ? (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setAddModalOpen(true)}>
-            Add Consumer File
-          </Button>
-        </div>
-      ) : null}
-
       <ConsumerTabByFile
         dsFileKey={dsFileKey}
         reloadToken={reloadToken}
         onAddConsumer={() => setAddModalOpen(true)}
       />
+
+      {consumersPresenceQuery.data === true ? (
+        <div className="flex justify-end pt-2">
+          <Button onClick={() => setAddModalOpen(true)}>
+            Add Consumer File
+          </Button>
+        </div>
+      ) : null}
 
       <AddConsumerModal
         open={addModalOpen}

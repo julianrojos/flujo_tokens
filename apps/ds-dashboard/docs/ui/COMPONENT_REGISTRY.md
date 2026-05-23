@@ -845,7 +845,6 @@ Location: `apps/ds-dashboard/src/features/`
 | -------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
 | `ConsumersPage`      | `src/features/consumers/consumers-page.tsx`          | Consumers overview page                                      |
 | `ConsumerDetailPage` | `src/features/consumers/consumer-detail-page.tsx`    | Consumer detail page                                         |
-| `AdoptionBar`        | `src/features/consumers/components/adoption-bar.tsx` | DS vs Non-DS segmented progress bar with semantic percentage |
 
 ---
 

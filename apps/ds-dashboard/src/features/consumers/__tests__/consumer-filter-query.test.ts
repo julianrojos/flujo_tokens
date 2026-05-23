@@ -4,33 +4,35 @@ import assert from "node:assert/strict";
 import {
   readConsumerFilterState,
   writeSearchQuery,
-  writeSeverityFilter,
 } from "../lib/consumer-filter-query";
 
 describe("consumer-filter-query", () => {
-  it("reads URL params into filter state", () => {
-    const params = new URLSearchParams("q=button&severity=HIGH");
+  it("reads search query from URL params", () => {
+    const params = new URLSearchParams("q=button");
     const state = readConsumerFilterState(params);
 
     assert.equal(state.searchQuery, "button");
-    assert.equal(state.severityFilter, "HIGH");
   });
 
-  it("falls back to all when severity query param is invalid", () => {
-    const params = new URLSearchParams("severity=SEVERE");
+  it("falls back to empty string when q param is absent", () => {
+    const params = new URLSearchParams("");
     const state = readConsumerFilterState(params);
 
-    assert.equal(state.severityFilter, "all");
+    assert.equal(state.searchQuery, "");
   });
 
   it("writes params while preserving unrelated keys", () => {
-    const initial = new URLSearchParams("tab=by-variable&page=2");
+    const initial = new URLSearchParams("page=2");
     const afterSearch = writeSearchQuery(initial, "color");
-    const afterSeverity = writeSeverityFilter(afterSearch, "CRITICAL");
 
-    assert.equal(afterSeverity.get("tab"), "by-variable");
-    assert.equal(afterSeverity.get("page"), "2");
-    assert.equal(afterSeverity.get("q"), "color");
-    assert.equal(afterSeverity.get("severity"), "CRITICAL");
+    assert.equal(afterSearch.get("page"), "2");
+    assert.equal(afterSearch.get("q"), "color");
+  });
+
+  it("removes q param when value is empty", () => {
+    const initial = new URLSearchParams("q=button");
+    const result = writeSearchQuery(initial, "");
+
+    assert.equal(result.has("q"), false);
   });
 });

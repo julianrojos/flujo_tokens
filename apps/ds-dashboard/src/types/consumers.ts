@@ -207,38 +207,6 @@ export interface FileReport {
   parentDerivedComponentCount?: number | null;
   localVariableDefinedCount?: number | null;
   localVariableUsedCount?: number | null;
-  adoptionRate?: number | null;
-}
-
-// Simulation types
-export interface AffectedConsumer {
-  consumerId: string;
-  consumerName: string;
-  consumerFileKey: string;
-  nodeCount: number;
-  sampleNodeIds: string[];
-  sampleLinks: string[];
-  lastSyncedAt: string;
-  freshnessHours: number;
-}
-
-export interface SimulationWarning {
-  code: string;
-  message: string;
-  consumerId?: string;
-}
-
-export interface SimulationResult {
-  variableKey: string;
-  variableName: string;
-  variableType: string;
-  proposedValue: unknown;
-  totalNodes: number;
-  totalConsumers: number;
-  impactLevel: ImpactLevel;
-  affectedConsumers: AffectedConsumer[];
-  warnings: SimulationWarning[];
-  disclaimer: string;
 }
 
 // Request types
@@ -255,12 +223,6 @@ export interface SyncConsumersRequest {
   force?: boolean;
 }
 
-export interface SimulateVariableChangeRequest {
-  dsFileKey: string;
-  variableKey: string;
-  proposedValue: unknown;
-}
-
 // Response types for API endpoints
 export interface ByFileReportResponse {
   ok: true;
@@ -275,16 +237,6 @@ export interface ByComponentReportResponse {
 export interface ByVariableReportResponse {
   ok: true;
   data: VariableUsageReport[];
-}
-
-export interface SimulationResponse {
-  ok: true;
-  data: SimulationResult;
-}
-
-export interface SyncRunsResponse {
-  ok: true;
-  data: DsSyncRun[];
 }
 
 // Common filter/sort types
