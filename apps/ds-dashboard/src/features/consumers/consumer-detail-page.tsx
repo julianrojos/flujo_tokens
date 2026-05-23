@@ -31,8 +31,6 @@ import {
 } from "@/lib/component-identity";
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
-import { formatSyncedAt } from "@/lib/format-synced-at";
-import { formatRelativeTime } from "@/lib/format-relative-time";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import type {
@@ -40,24 +38,22 @@ import type {
   DsSyncRun,
   ComponentUsageReport,
   VariableUsageReport,
-  ImpactLevel,
   SampleNodeRef,
 } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import { getComponentTableDisplayInfo } from "./lib/component-table-display";
 import { ConsumerSampleLinksModal } from "./components/consumer-sample-links-modal";
-import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { groupByParentComponent } from "./lib/component-grouping";
 
 type ConsumerUsageTab = "components" | "variables";
-type VariableSortField = "variableName" | "nodes" | "variableType";
+type VariableSortField = "variableName" | "nodes" | "variableType" | "collection";
 type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
 const CONSUMER_USAGE_TABS: Array<{ id: ConsumerUsageTab; label: string }> = [
-  { id: "variables", label: "Variable Usage" },
-  { id: "components", label: "Component Usage" },
+  { id: "variables", label: "Variables Usage" },
+  { id: "components", label: "Components Usage" },
 ];
 
 function normalizeTokenLookupKey(value: string): string {
@@ -130,28 +126,6 @@ function renderComponentName(
   }
 
   return <span className="font-normal">{componentName || componentKey}</span>;
-}
-
-function computeWorstImpactLevel(
-  components: Array<{ impactLevel: { level: ImpactLevel } }>,
-  variables: Array<{ impactLevel: { level: ImpactLevel } }>,
-): ImpactLevel | null {
-  const allItems = [...components, ...variables];
-  if (allItems.length === 0) return null;
-
-  // Track worst level directly to avoid redundant Object.keys().find() lookup
-  let worstLevel: ImpactLevel = allItems[0].impactLevel.level;
-  let worstScore = IMPACT_SORT_ORDER[worstLevel];
-
-  for (const item of allItems) {
-    const score = IMPACT_SORT_ORDER[item.impactLevel.level];
-    if (score < worstScore) {
-      worstScore = score;
-      worstLevel = item.impactLevel.level;
-    }
-  }
-
-  return worstLevel;
 }
 
 function ConsumerUsageTabsNav({
@@ -365,16 +339,23 @@ export function ConsumerDetailPage() {
 
         const sampleLinks = Array.from(new Set(usages.flatMap((usage) => usage.sampleLinks || [])));
         const sampleNodes = dedupeSampleNodes(usages.flatMap((usage) => usage.sampleNodes || []));
+        const tokenEntry = resolveVariableTokenEntry(
+          v.variableName,
+          v.variableKey,
+          tokenByExactLookup,
+          tokenByLookup,
+        );
         return [
           {
             ...v,
+            collection: tokenEntry?.collection || "",
             nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0),
             sampleLinks,
             sampleNodes,
           },
         ];
       }),
-    [consumerId, variables],
+    [consumerId, tokenByExactLookup, tokenByLookup, variables],
   );
 
   const variableTypes = useMemo(() => {
@@ -400,6 +381,7 @@ export function ConsumerDetailPage() {
     filtered.sort((a, b) => {
       const mul = variableSort.dir === "asc" ? 1 : -1;
       if (variableSort.field === "variableName") return mul * a.variableName.localeCompare(b.variableName);
+      if (variableSort.field === "collection") return mul * ((a.collection || "").localeCompare(b.collection || ""));
       if (variableSort.field === "nodes") return mul * ((a.nodes ?? 0) - (b.nodes ?? 0));
       if (variableSort.field === "variableType") return mul * a.variableType.localeCompare(b.variableType);
       return 0;
@@ -559,11 +541,6 @@ export function ConsumerDetailPage() {
     ? Math.min(filteredComponentGroups.length, componentCurrentPage * componentPageSizeValue)
     : filteredComponentGroups.length;
 
-  // Compute worst impact level for overview
-  const worstImpactLevel = useMemo(
-    () => computeWorstImpactLevel(consumerComponents, consumerVariables),
-    [consumerComponents, consumerVariables],
-  );
   const consumerFileKey = consumer?.consumerFileKey || dsFileKey || "";
 
   const openSampleLinksModal = (title: string, sampleNodes: SampleNodeRef[]) => {
@@ -624,68 +601,41 @@ export function ConsumerDetailPage() {
 
       {error ? <ApiErrorMessage error={error} /> : null}
 
-      {/* Overview */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-titles font-semibold titles-color">Overview</h2>
-            <p className="text-sm text-muted-foreground">
-              Last synced:{' '}
-              {consumer.latestSync
-                ? `${formatSyncedAt(consumer.latestSync.syncedAt)} (${formatRelativeTime(consumer.latestSync.syncedAt, { locale: 'en' })})`
-                : "Never"}
-            </p>
-          </div>
-          <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
-        </div>
-        {consumer.latestSync && (
-          <div className="mt-4 space-y-4">
-            {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
-            <StatsOverview
-              className="mt-4"
-              items={[
-                {
-                  id: "consumer-ds-components",
-                  label: "DS components",
-                  value: consumer.latestSync.componentCount,
-                },
-                {
-                  id: "consumer-non-ds-components",
-                  label: "Non-DS components",
-                  value: consumer.latestSync.localComponentUsedCount ?? "—",
-                  description:
-                    "Includes local and other-library components not matched to the tracked DS during the last sync",
-                },
-                {
-                  id: "consumer-ds-variables",
-                  label: "DS variables",
-                  value: consumer.latestSync.variableCount,
-                },
-                {
-                  id: "consumer-non-ds-variables",
-                  label: "Non-DS variables",
-                  value: consumer.latestSync.localVariableUsedCount ?? "—",
-                  description:
-                    "Includes local and other-library variable bindings not matched to the tracked DS during the last sync",
-                },
-              ]}
-            />
+      {consumer.latestSync && (
+        <div className="mt-4 space-y-4">
+          {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
+          <StatsOverview
+            className="mt-4"
+            items={[
+              {
+                id: "consumer-ds-components",
+                label: "DS components",
+                value: consumer.latestSync.componentCount,
+              },
+              {
+                id: "consumer-non-ds-components",
+                label: "Non-DS components",
+                value: consumer.latestSync.localComponentUsedCount ?? "—",
+                description:
+                  "Includes local and other-library components not matched to the tracked DS during the last sync",
+              },
+              {
+                id: "consumer-ds-variables",
+                label: "DS variables",
+                value: consumer.latestSync.variableCount,
+              },
+              {
+                id: "consumer-non-ds-variables",
+                label: "Non-DS variables",
+                value: consumer.latestSync.localVariableUsedCount ?? "—",
+                description:
+                  "Includes local and other-library variable bindings not matched to the tracked DS during the last sync",
+              },
+            ]}
+          />
 
-            {/* Row 2: Footer with parent-derived components + warnings/impact */}
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span title="Local components that directly use at least one parent DS component">
-                Direct parent usage: {consumer.latestSync.parentDerivedComponentCount ?? "—"} comp
-              </span>
-              <div className="flex items-center gap-3">
-                {consumer.latestSync.warningCount > 0 && (
-                  <Badge variant="warning">{consumer.latestSync.warningCount} warnings</Badge>
-                )}
-                {worstImpactLevel && <ImpactLevelBadge level={worstImpactLevel} />}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <ConsumerUsageTabsNav activeTab={activeUsageTab} onChange={setActiveUsageTab} />
 
@@ -770,9 +720,9 @@ export function ConsumerDetailPage() {
               <TableHeader>
                 <TableRow>
                   <SortableTableHead label="Component" onSort={() => toggleComponentSort("parentName")} />
-                  <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} className="text-right" />
+                  <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} />
                   <SortableTableHead label="Impact" onSort={() => toggleComponentSort("impactLevel")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma</TableHead>
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma Link</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -816,8 +766,8 @@ export function ConsumerDetailPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        <TableCell>
+                          <span className="text-foreground">{group.totalInstances}</span>
                         </TableCell>
                         <TableCell>
                           <ImpactLevelBadge level={group.worstImpactLevel.level} />
@@ -863,8 +813,8 @@ export function ConsumerDetailPage() {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        <TableCell>
+                          <span className="text-foreground">{group.totalInstances}</span>
                         </TableCell>
                         <TableCell>
                           <ImpactLevelBadge level={group.worstImpactLevel.level} />
@@ -881,10 +831,8 @@ export function ConsumerDetailPage() {
                                 {v.variantLabel || v.componentName}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="neutral" className="text-[10px]">
-                                {v.instances}
-                              </Badge>
+                            <TableCell>
+                              <span className="text-foreground">{v.instances}</span>
                             </TableCell>
                             <TableCell>
                               <ImpactLevelBadge level={v.impactLevel.level} />
@@ -1027,10 +975,10 @@ export function ConsumerDetailPage() {
               <TableHeader>
                 <TableRow>
                   <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Collection</TableHead>
-                  <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} className="text-right" />
+                  <SortableTableHead label="Collection" onSort={() => toggleVariableSort("collection")} />
+                  <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} />
                   <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma</TableHead>
+                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma Link</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1063,8 +1011,8 @@ export function ConsumerDetailPage() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="neutral">{v.nodes}</Badge>
+                      <TableCell>
+                        <span className="text-foreground">{v.nodes}</span>
                       </TableCell>
                       <TableCell>
                         <span className="font-mono text-xs lowercase text-foreground">{v.variableType}</span>

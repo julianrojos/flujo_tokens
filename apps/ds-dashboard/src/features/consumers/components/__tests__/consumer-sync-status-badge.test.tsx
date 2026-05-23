@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ConsumerSyncStatusBadge } from "../consumer-sync-status-badge";
 
 describe("ConsumerSyncStatusBadge", () => {
-  it("renders partial status without the elapsed time suffix", () => {
+  it("renders partial status as synced without a partial label", () => {
     const html = renderToStaticMarkup(
       <ConsumerSyncStatusBadge
         latestSync={{
@@ -22,8 +22,8 @@ describe("ConsumerSyncStatusBadge", () => {
       />,
     );
 
-    assert.match(html, /Partial/);
-    assert.doesNotMatch(html, /Partial \(\d+h ago\)/);
+    assert.match(html, /Synced/);
+    assert.doesNotMatch(html, /Partial/);
   });
 
   it("renders synced status as a stable label", () => {

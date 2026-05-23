@@ -34,14 +34,6 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
     );
   }
 
-  if (status === 'partial') {
-    return (
-      <Badge variant="warning" title={latestSync.errorMessage}>
-        Partial
-      </Badge>
-    );
-  }
-
   if (status === 'skipped') {
     return (
       <Badge variant="neutral">
@@ -50,7 +42,7 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
     );
   }
 
-  // status === 'ok'
+  // status === 'ok' | 'partial' — both render as Synced
   return (
     <Badge variant="success">
       Synced
