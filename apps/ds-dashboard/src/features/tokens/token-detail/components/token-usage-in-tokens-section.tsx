@@ -210,17 +210,17 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
                     <Badge variant="neutral">{row.collection}</Badge>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs lowercase text-foreground">
+                    <span className="font-mono lowercase text-foreground">
                       {row.type}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-foreground">
                       {row.depth}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span className="font-mono text-xs text-foreground">
+                    <span className="font-mono text-foreground">
                       {row.consumers}
                     </span>
                   </TableCell>
@@ -230,7 +230,7 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
                         {row.properties.map((property) => (
                           <span
                             key={property}
-                            className="font-mono text-xs text-foreground"
+                            className="font-mono text-foreground"
                           >
                             {property}
                           </span>

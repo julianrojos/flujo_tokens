@@ -403,7 +403,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs !font-normal text-foreground">
+                        <span className="font-mono !font-normal text-foreground">
                           {entry.property_path}
                         </span>
                       </TableCell>
@@ -422,7 +422,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs text-foreground">
+                        <span className="font-mono text-foreground">
                           {refsCount}
                         </span>
                       </TableCell>

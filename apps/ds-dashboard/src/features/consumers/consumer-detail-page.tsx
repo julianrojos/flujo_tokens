@@ -1047,7 +1047,7 @@ export function ConsumerDetailPage() {
                         <span className="text-foreground">{v.nodes}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs lowercase text-foreground">{v.variableType}</span>
+                        <span className="font-mono lowercase text-foreground">{v.variableType}</span>
                       </TableCell>
                       <TableCell>
                         {renderSampleLinksButton(displayTokenName, v.sampleNodes || [])}

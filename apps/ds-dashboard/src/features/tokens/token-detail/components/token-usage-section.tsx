@@ -237,7 +237,7 @@ export function TokenUsageSection({
                     {usage.properties.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {usage.properties.map((property) => (
-                          <span key={property} className="font-mono text-xs text-foreground">
+                          <span key={property} className="font-mono text-foreground">
                             {property}
                           </span>
                         ))}

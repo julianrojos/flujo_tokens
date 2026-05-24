@@ -682,7 +682,7 @@ export function TokensPage() {
                         <Badge variant="neutral">{entry.collection}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs lowercase text-foreground">{entry.type}</span>
+                        <span className="font-mono lowercase text-foreground">{entry.type}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -712,7 +712,7 @@ export function TokensPage() {
                         <div className="space-y-1">
                           <div>{usageCount}</div>
                           {usageOwners.length > 0 ? (
-                            <div className="font-mono text-xs text-muted-foreground">
+                            <div className="font-mono text-muted-foreground">
                               {usageOwners.join(", ")}
                             </div>
                           ) : null}
