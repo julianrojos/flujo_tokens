@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { PageHeader } from '@/components/composites/page-header';
 import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
@@ -9,7 +9,7 @@ import {
   EmptyStateAction,
 } from '@/components/composites/empty-state';
 import { Button } from '@/components/ui/button';
-import { Network } from 'lucide-react';
+import { Loader2, Network } from 'lucide-react';
 import { ConsumerTabByFile } from './components/consumer-tab-by-file';
 import { AddConsumerModal } from './components/add-consumer-modal';
 import { useDsFileKey } from '@/hooks/use-ds-file-key';
@@ -19,7 +19,9 @@ import { fetchReportByFile } from '@/lib/api';
 
 export function ConsumersPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [refreshingPresence, setRefreshingPresence] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
   const { activeSystem } = useDesignSystem();
@@ -92,8 +94,18 @@ export function ConsumersPage() {
 
       {consumersPresenceQuery.data === true ? (
         <div className="flex justify-end pt-2">
-          <Button onClick={() => setAddModalOpen(true)}>
-            Add Consumer File
+          <Button
+            onClick={() => setAddModalOpen(true)}
+            disabled={refreshingPresence}
+          >
+            {refreshingPresence ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                Refreshing...
+              </>
+            ) : (
+              'Add Consumer File'
+            )}
           </Button>
         </div>
       ) : null}
@@ -102,9 +114,17 @@ export function ConsumersPage() {
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         dsFileKey={dsFileKey}
-        onSuccess={() => {
+        onSuccess={async () => {
           setAddModalOpen(false);
           setReloadToken((value) => value + 1);
+          setRefreshingPresence(true);
+          try {
+            await queryClient.invalidateQueries({
+              queryKey: ['sidebar-consumers-presence', activeSystem, dsFileKey],
+            });
+          } finally {
+            setRefreshingPresence(false);
+          }
         }}
       />
     </div>

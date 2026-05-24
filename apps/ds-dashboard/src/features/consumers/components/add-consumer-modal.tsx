@@ -26,7 +26,7 @@ interface AddConsumerModalProps {
   open: boolean;
   onClose: () => void;
   dsFileKey: string;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }
 
 export function AddConsumerModal({
@@ -63,7 +63,7 @@ export function AddConsumerModal({
         throw new Error('Consumer file was created without a valid consumer ID.');
       }
 
-      onSuccess?.();
+      await onSuccess?.();
       if (activeSystem) {
         navigate(toSystemConsumerDetail(activeSystem, consumerName.trim()));
       }
