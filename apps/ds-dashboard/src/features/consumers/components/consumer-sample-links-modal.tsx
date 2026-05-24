@@ -41,7 +41,7 @@ export function ConsumerSampleLinksModal({
 
   return (
     <Modal open={open} onClose={onClose} aria-labelledby={titleId}>
-      <ModalContent size="lg" className="max-h-[90vh] overflow-hidden">
+      <ModalContent size="md" className="max-h-[90vh] overflow-hidden">
         <ModalHeader className="items-start gap-4">
           <div>
             <h3 id={titleId} className="text-base font-titles font-semibold titles-color">
@@ -64,7 +64,7 @@ export function ConsumerSampleLinksModal({
               <TableHeader>
                 <TableRow>
                   <SortableTableHead label="Page" onSort={() => toggleSort("pageName")} />
-                  <TableHead showSortIcon={false}>Node</TableHead>
+                  <TableHead showSortIcon={false}>Figma node</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

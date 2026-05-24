@@ -13,7 +13,7 @@ export const tableRowVariants = cva(
   "transition-colors hover:bg-muted/40",
 );
 export const tableHeadVariants = cva(
-  "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide",
+  "h-11 px-3 text-left align-middle text-xs font-semibold tracking-wide",
 );
 export const tableHeadContentVariants = cva("flex w-full items-center gap-2", {
   variants: {
