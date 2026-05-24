@@ -119,6 +119,13 @@ describe("component-grouping", () => {
       assert.strictEqual(result.length, 0);
     });
 
+    it("skips comma-based names whose prefix is also a bare variant assignment", () => {
+      const components = [createComponent("State=Default, Size=MD", 3)];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 0);
+    });
+
     it("creates separate groups for different component sets", () => {
       const components = [
         createComponent("Button/Primary", 10),

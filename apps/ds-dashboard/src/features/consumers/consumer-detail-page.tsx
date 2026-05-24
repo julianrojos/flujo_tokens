@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
-import { ArrowLeft, ChevronDown, ChevronRight, Inbox } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Inbox, Unlink } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
@@ -722,7 +722,13 @@ export function ConsumerDetailPage() {
                   <SortableTableHead label="Component" onSort={() => toggleComponentSort("parentName")} />
                   <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} />
                   <SortableTableHead label="Impact" onSort={() => toggleComponentSort("impactLevel")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma Link</TableHead>
+                  <TableHead
+                    showSortIcon={false}
+                    className="normal-case tracking-normal"
+                    title="Up to 20 use cases"
+                  >
+                    Examples
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -744,26 +750,38 @@ export function ConsumerDetailPage() {
                   });
                   const displayParentName = displayInfo.componentLabel || group.parentName || "(unnamed component)";
 
+                  const isUncatalogued = !resolvedComponentSlug && !parentDisplayName;
+
                   if (isSingleVariant) {
                     return (
-                      <TableRow key={variant.componentKey}>
+                      <TableRow key={variant.componentKey} className={cn(isUncatalogued && "opacity-70")}>
                         <TableCell>
-                          <div className="space-y-0.5">
-                            {resolvedComponentSlug ? (
-                              <Link
-                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
-                                className="text-foreground hover:text-primary"
+                          <div className="flex items-start gap-1.5">
+                            {isUncatalogued && (
+                              <span
+                                title="This component is not in the DS catalog"
+                                className="mt-px shrink-0"
                               >
-                                {displayParentName}
-                              </Link>
-                            ) : (
-                              <span>{displayParentName}</span>
-                            )}
-                            {variant.variantLabel && (
-                              <span className="block text-xs text-muted-foreground">
-                                {variant.variantLabel}
+                                <Unlink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                               </span>
                             )}
+                            <div className="space-y-0.5">
+                              {resolvedComponentSlug ? (
+                                <Link
+                                  to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
+                                  className="text-foreground hover:text-primary"
+                                >
+                                  {displayParentName}
+                                </Link>
+                              ) : (
+                                <span>{displayParentName}</span>
+                              )}
+                              {variant.variantLabel && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {variant.variantLabel}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -782,7 +800,7 @@ export function ConsumerDetailPage() {
                   const isExpanded = expandedGroups.has(group.parentName);
                   return (
                     <Fragment key={group.parentName}>
-                      <TableRow>
+                      <TableRow className={cn(isUncatalogued && "opacity-70")}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <button
@@ -798,6 +816,14 @@ export function ConsumerDetailPage() {
                                 <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                               )}
                             </button>
+                            {isUncatalogued && (
+                              <span
+                                title="This component is not in the DS catalog"
+                                className="shrink-0"
+                              >
+                                <Unlink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                              </span>
+                            )}
                             {resolvedComponentSlug ? (
                               <Link
                                 to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
@@ -825,9 +851,9 @@ export function ConsumerDetailPage() {
                       </TableRow>
                       {isExpanded &&
                         group.variants.map((v) => (
-                          <TableRow key={v.componentKey} className="bg-muted/10">
+                          <TableRow key={v.componentKey} className={cn("bg-muted/10", isUncatalogued && "opacity-70")}>
                             <TableCell className="pl-9">
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-muted-foreground">
                                 {v.variantLabel || v.componentName}
                               </span>
                             </TableCell>
@@ -978,7 +1004,13 @@ export function ConsumerDetailPage() {
                   <SortableTableHead label="Collection" onSort={() => toggleVariableSort("collection")} />
                   <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} />
                   <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
-                  <TableHead showSortIcon={false} className="normal-case tracking-normal">Figma Link</TableHead>
+                  <TableHead
+                    showSortIcon={false}
+                    className="normal-case tracking-normal"
+                    title="Up to 20 use cases"
+                  >
+                    Examples
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -20,6 +20,10 @@ describe("component-lookup", () => {
       extractComponentParentAlias("Button, Size=Large, State=Hover"),
       "Button",
     );
+    assert.equal(
+      extractComponentParentAlias("State=Default, Size=MD"),
+      "",
+    );
     assert.equal(extractComponentParentAlias("Button, notes"), "Button, notes");
   });
 

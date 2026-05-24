@@ -62,9 +62,13 @@ export function extractComponentParentAlias(value: string): string {
 
   const commaIdx = normalized.indexOf(",");
   if (commaIdx !== -1) {
+    const beforeComma = normalized.slice(0, commaIdx).trim();
     const afterComma = normalized.slice(commaIdx + 1).trim();
     if (VARIANT_ASSIGNMENT_SEQUENCE_RE.test(afterComma)) {
-      return normalized.slice(0, commaIdx).trim();
+      if (VARIANT_ASSIGNMENT_SEQUENCE_RE.test(beforeComma)) {
+        return "";
+      }
+      return beforeComma;
     }
   }
 
@@ -92,8 +96,16 @@ export function splitComponentName(componentName: string): SplitComponentNameRes
   const commaIdx = normalized.indexOf(",");
   const afterComma = commaIdx !== -1 ? normalized.slice(commaIdx + 1).trim() : "";
   if (commaIdx !== -1 && VARIANT_ASSIGNMENT_SEQUENCE_RE.test(afterComma)) {
+    const beforeComma = normalized.slice(0, commaIdx).trim();
+    if (VARIANT_ASSIGNMENT_SEQUENCE_RE.test(beforeComma)) {
+      return {
+        parentName: "",
+        variantLabel: normalized,
+        isBareVariantAssignment: true,
+      };
+    }
     return {
-      parentName: normalized.slice(0, commaIdx).trim(),
+      parentName: beforeComma,
       variantLabel: afterComma,
       isBareVariantAssignment: false,
     };
