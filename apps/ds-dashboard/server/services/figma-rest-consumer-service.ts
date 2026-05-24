@@ -676,7 +676,7 @@ export async function scanConsumerFile(
 
     function scanNode(node: FigmaNode, currentPageName = ''): void {
       const nextPageName =
-        node.type === 'PAGE'
+        node.type === 'CANVAS'
           ? String(node.name || '').trim() || currentPageName
           : currentPageName;
 

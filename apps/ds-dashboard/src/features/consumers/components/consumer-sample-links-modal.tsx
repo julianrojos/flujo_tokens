@@ -1,7 +1,8 @@
 import { useMemo } from "react";
+import { ExternalLink } from "lucide-react";
 import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSortState } from "@/lib/use-sort-state";
 import type { SampleNodeRef } from "@/types/consumers";
 
@@ -13,7 +14,7 @@ interface ConsumerSampleLinksModalProps {
   sampleNodes: SampleNodeRef[];
 }
 
-type SortField = "pageName" | "nodeId";
+type SortField = "pageName";
 
 function buildFigmaNodeUrl(consumerFileKey: string, nodeId: string): string {
   return `https://www.figma.com/design/${consumerFileKey}?node-id=${nodeId}`;
@@ -32,12 +33,9 @@ export function ConsumerSampleLinksModal({
   const sortedNodes = useMemo(() => {
     const mul = sort.dir === "asc" ? 1 : -1;
     return [...sampleNodes].sort((a, b) => {
-      if (sort.field === "pageName") {
-        const page = mul * a.pageName.localeCompare(b.pageName);
-        if (page !== 0) return page;
-        return a.nodeId.localeCompare(b.nodeId);
-      }
-      return mul * a.nodeId.localeCompare(b.nodeId);
+      const page = mul * a.pageName.localeCompare(b.pageName);
+      if (page !== 0) return page;
+      return a.nodeId.localeCompare(b.nodeId);
     });
   }, [sampleNodes, sort]);
 
@@ -66,7 +64,7 @@ export function ConsumerSampleLinksModal({
               <TableHeader>
                 <TableRow>
                   <SortableTableHead label="Page" onSort={() => toggleSort("pageName")} />
-                  <SortableTableHead label="Node" onSort={() => toggleSort("nodeId")} />
+                  <TableHead showSortIcon={false}>Node</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -84,9 +82,11 @@ export function ConsumerSampleLinksModal({
                           href={href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-foreground hover:text-primary"
+                          className="inline-flex items-center text-foreground hover:text-primary"
+                          aria-label={`Open Figma node on ${pageName}`}
+                          title={`Open Figma node on ${pageName}`}
                         >
-                          Open node
+                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
                         </a>
                       </TableCell>
                     </TableRow>
