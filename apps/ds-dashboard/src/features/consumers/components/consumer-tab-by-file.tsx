@@ -473,46 +473,58 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
         </div>
       </Card>
 
-      <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
+      <Modal
+        open={!!removeCandidate}
+        onClose={closeRemoveModal}
+        aria-labelledby="consumer-remove-confirm-title"
+      >
         <ModalContent size="md">
-          <ModalHeader>
-            <div className="flex items-start justify-between gap-4">
-              <h2 id="consumer-remove-confirm-title" className="text-lg font-titles font-semibold tracking-tight titles-color">
-                Remove consumer file
-              </h2>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleConfirmRemove();
+            }}
+          >
+            <ModalHeader className="items-start gap-4">
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="consumer-remove-confirm-title"
+                  className="text-lg font-titles font-semibold tracking-tight titles-color"
+                >
+                  Remove consumer file
+                </h2>
+              </div>
               <ModalCloseButton onClick={closeRemoveModal} label="Close remove consumer dialog" />
-            </div>
-          </ModalHeader>
+            </ModalHeader>
 
-          <div className="px-5 pb-2">
-            <p className="mb-4 text-sm text-muted-foreground">
-              This will remove <strong>{removeCandidate?.name}</strong> and all its sync history.
-              This action cannot be undone.
-            </p>
+            <div className="space-y-4 p-5">
+              <p className="text-sm text-muted-foreground">
+                This will remove <strong>{removeCandidate?.name}</strong> and all its sync history.
+                This action cannot be undone.
+              </p>
 
-            <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
               <Checkbox
+                id="consumer-remove-confirm-checkbox"
                 checked={removeConfirmed}
                 onChange={(event) => setRemoveConfirmed(event.target.checked)}
-                className="h-4 w-4"
                 disabled={!!removingConsumerId}
+                label="I understand and want to continue"
               />
-              <span>I understand and want to continue</span>
-            </label>
-          </div>
+            </div>
 
-          <ModalFooter>
-            <Button variant="outline" onClick={closeRemoveModal} disabled={!!removingConsumerId}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void handleConfirmRemove()}
-              disabled={!removeConfirmed || !!removingConsumerId}
-            >
-              {removingConsumerId ? "Removing..." : "Remove consumer"}
-            </Button>
-          </ModalFooter>
+            <ModalFooter>
+              <Button type="button" variant="outline" onClick={closeRemoveModal} disabled={!!removingConsumerId}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={!removeConfirmed || !!removingConsumerId}
+              >
+                {removingConsumerId ? "Removing..." : "Remove consumer"}
+              </Button>
+            </ModalFooter>
+          </form>
         </ModalContent>
       </Modal>
     </div>

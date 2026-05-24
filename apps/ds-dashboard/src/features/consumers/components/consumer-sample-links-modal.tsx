@@ -77,10 +77,7 @@ export function ConsumerSampleLinksModal({
                   return (
                     <TableRow key={`${sampleNode.nodeId}-${pageName}`}>
                       <TableCell className="align-top">
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-foreground">{pageName}</div>
-                          <div className="text-xs text-muted-foreground">{sampleNode.nodeId}</div>
-                        </div>
+                        <div className="font-medium text-foreground">{pageName}</div>
                       </TableCell>
                       <TableCell className="align-top">
                         <a

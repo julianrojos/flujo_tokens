@@ -555,7 +555,7 @@ export function ConsumerDetailPage() {
     return (
       <button
         type="button"
-        className="text-foreground underline-offset-2 hover:text-primary hover:underline"
+        className="text-foreground underline-offset-2 hover:text-primary hover:no-underline"
         aria-label={`Open sample links for ${title}`}
         onClick={() => openSampleLinksModal(title, sampleNodes)}
       >
