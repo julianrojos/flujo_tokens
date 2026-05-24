@@ -508,8 +508,8 @@ export function TokensPage() {
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
-            searchPlaceholder="Buscar por token o valor"
-            searchAriaLabel="Buscar tokens"
+            searchPlaceholder="Search by token or value"
+            searchAriaLabel="Search tokens"
             rightSlot={
               showPageSizeSelect ? (
                 <div className="flex items-center gap-2">

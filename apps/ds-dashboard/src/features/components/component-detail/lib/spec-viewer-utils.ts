@@ -1,7 +1,7 @@
 /**
- * Normalizar nombre de variante para matching tolerante (trim + lowercase).
- * @param name - Nombre original de variante.
- * @returns Nombre normalizado para comparación estable.
+ * Normalize a variant name for tolerant matching (trim + lowercase).
+ * @param name - Original variant name.
+ * @returns Normalized name for stable comparison.
  */
 export function normalizeVariantName(name: string): string {
   return name.trim().toLowerCase();

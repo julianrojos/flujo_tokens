@@ -682,8 +682,8 @@ export function ConsumerDetailPage() {
           <FilterBar
             searchValue={componentSearch}
             onSearch={setComponentSearch}
-            searchPlaceholder="Buscar por componente, variante o impacto"
-            searchAriaLabel="Buscar componentes"
+            searchPlaceholder="Search by component, variant, or impact"
+            searchAriaLabel="Search components"
             count={filteredComponentGroups.length}
             rightSlot={
               showComponentPageSizeSelect ? (
@@ -972,8 +972,8 @@ export function ConsumerDetailPage() {
           <FilterBar
             searchValue={variableSearch}
             onSearch={setVariableSearch}
-            searchPlaceholder="Buscar por variable o tipo"
-            searchAriaLabel="Buscar variables"
+            searchPlaceholder="Search by variable or type"
+            searchAriaLabel="Search variables"
             count={filteredVariables.length}
             rightSlot={
               shouldShowPageSizeSelect(filteredVariables.length) ? (

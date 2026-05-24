@@ -108,7 +108,7 @@ export function TokenTreeModal({
               Token Collections Tree
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Estructura jerárquica derivada del inventario de tokens por colección.
+              Hierarchical structure derived from the token inventory by collection.
             </p>
           </div>
           <ModalCloseButton onClick={onClose} />

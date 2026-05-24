@@ -137,11 +137,11 @@ export function useOperationRunner(
           if (type === "status") {
             const nextStatus = String(data.status ?? "").trim().toLowerCase();
             if (nextStatus === "queued") {
-              pushLogLines("En cola...", "system");
+              pushLogLines("Queued...", "system");
             } else if (nextStatus === "running") {
-              pushLogLines("Iniciando ejecución...", "system");
+              pushLogLines("Starting execution...", "system");
             } else if (nextStatus === "cancelled") {
-              pushLogLines("Operación cancelada.", "system");
+              pushLogLines("Operation canceled.", "system");
             }
             return;
           }
@@ -155,7 +155,7 @@ export function useOperationRunner(
             const message = String(data.message ?? "Unknown error").trim();
             pushLogLines(message, "stderr");
             isError = true;
-            finalSummary = message || "Error desconocido";
+            finalSummary = message || "Unknown error";
             return;
           }
 
@@ -173,9 +173,9 @@ export function useOperationRunner(
               endSummary ||
               (failed
                 ? hasNumericCode
-                  ? `Falló con código ${code}`
-                  : "Error desconocido"
-                : "Completado correctamente");
+                  ? `Failed with code ${code}`
+                  : "Unknown error"
+                : "Completed successfully");
             receivedEndEvent = true;
           }
         };
@@ -273,7 +273,7 @@ export function useOperationRunner(
                     : null;
                 const derivedSummary = String(result?.summary ?? "").trim();
                 isError = jobStatus !== "success";
-                finalSummary = derivedSummary || (isError ? "Error desconocido" : "Completado correctamente");
+                finalSummary = derivedSummary || (isError ? "Unknown error" : "Completed successfully");
                 receivedEndEvent = true;
               }
               return;
@@ -301,8 +301,8 @@ export function useOperationRunner(
             const streamUrl = String(data.streamUrl ?? "").trim();
             const statusUrl = String(data.statusUrl ?? "").trim() || `/api/jobs/${encodeURIComponent(jobId)}`;
 
-            if (streamUrl) {
-              try {
+              if (streamUrl) {
+                try {
                 const streamResponse = await fetch(streamUrl, {
                   headers: {
                     Accept: "text/event-stream",
@@ -311,7 +311,7 @@ export function useOperationRunner(
                 });
                 await consumeSse(streamResponse);
               } catch {
-                pushLogLines("SSE desconectado; continuando por polling.", "system");
+                pushLogLines("SSE disconnected; continuing with polling.", "system");
               }
             }
 
@@ -319,11 +319,11 @@ export function useOperationRunner(
               await pollQueuedJob(statusUrl);
             }
 
-            if (!receivedEndEvent && !isError) {
-              isError = true;
-              finalSummary = "La operación no reportó estado final.";
-            }
-          } else {
+              if (!receivedEndEvent && !isError) {
+                isError = true;
+                finalSummary = "The operation did not report a final status.";
+              }
+            } else {
             isError = !response.ok || data.ok === false;
 
             const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
@@ -370,10 +370,10 @@ export function useOperationRunner(
                 topLevelMessage ||
                 topLevelError ||
                 syncError ||
-                (syncReason ? `Fallo de sync: ${syncReason}` : "") ||
-                (Number.isFinite(exitCode) ? `Falló con código ${exitCode}` : "Error desconocido");
+                (syncReason ? `Sync failed: ${syncReason}` : "") ||
+                (Number.isFinite(exitCode) ? `Failed with code ${exitCode}` : "Unknown error");
             } else {
-              finalSummary = "Completado correctamente";
+              finalSummary = "Completed successfully";
             }
           }
         }

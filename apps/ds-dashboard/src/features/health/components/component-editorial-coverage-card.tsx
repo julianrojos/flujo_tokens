@@ -82,7 +82,7 @@ export function ComponentEditorialCoverageCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Componentes documentados</CardTitle>
+          <CardTitle>Documented components</CardTitle>
           <CardDescription>Loading documentation coverage.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -96,7 +96,7 @@ export function ComponentEditorialCoverageCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Componentes documentados</CardTitle>
+          <CardTitle>Documented components</CardTitle>
           <CardDescription>Documentation coverage unavailable.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -111,7 +111,7 @@ export function ComponentEditorialCoverageCard() {
   return (
     <Card className="md:max-w-none">
       <CardHeader>
-        <CardTitle>Componentes documentados</CardTitle>
+        <CardTitle>Documented components</CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-center">
         {totalComponents > 0 ? (

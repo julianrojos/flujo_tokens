@@ -56,14 +56,14 @@ export const LogTerminal = React.forwardRef<HTMLDivElement, LogTerminalProps>(
                 <Terminal className="h-3 w-3" />
                 <span className="text-[10px] uppercase tracking-wider">Output</span>
                 <span className="text-[10px] text-muted-foreground tabular-nums">
-                  {logLines.length} líneas
+                  {logLines.length} lines
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 {status === "running" && (
                   <span className="flex items-center gap-1 text-[10px] text-status-warning">
                     <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-status-warning inline-block" />
-                    Ejecutando…
+                    Running…
                   </span>
                 )}
               </div>
@@ -112,11 +112,11 @@ export const LogTerminal = React.forwardRef<HTMLDivElement, LogTerminalProps>(
                   variant="ghost"
                   size="sm"
                   onClick={onClear}
-                  aria-label="Limpiar output"
-                  className="h-auto py-0 px-1 text-[11px] opacity-70 hover:opacity-100"
+                  aria-label="Clear output"
+                className="h-auto py-0 px-1 text-[11px] opacity-70 hover:opacity-100"
                 >
                   <X className="h-3 w-3" />
-                  Limpiar
+                  Clear
                 </Button>
               )}
             </div>
@@ -126,7 +126,7 @@ export const LogTerminal = React.forwardRef<HTMLDivElement, LogTerminalProps>(
         {/* Running state: show summary bar with spinner */}
         {status === "running" && !summary && (
           <div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-t border-border/30 bg-muted/20">
-            <span className="animate-pulse">Procesando…</span>
+            <span className="animate-pulse">Processing…</span>
           </div>
         )}
       </div>

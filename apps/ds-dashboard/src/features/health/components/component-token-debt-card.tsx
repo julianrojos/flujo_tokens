@@ -24,7 +24,7 @@ export function ComponentTokenDebtCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Componentes con deuda de tokens</CardTitle>
+          <CardTitle>Components with token debt</CardTitle>
           <CardDescription>Loading unresolved bindings.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -42,7 +42,7 @@ export function ComponentTokenDebtCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Componentes con deuda de tokens</CardTitle>
+          <CardTitle>Components with token debt</CardTitle>
           <CardDescription>Token debt chart unavailable.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -58,7 +58,7 @@ export function ComponentTokenDebtCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Componentes con deuda de tokens</CardTitle>
+          <CardTitle>Components with token debt</CardTitle>
         </CardHeader>
         <CardContent>
           <StatusAlert variant="success" title="No token debt">
@@ -72,7 +72,7 @@ export function ComponentTokenDebtCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Componentes con deuda de tokens</CardTitle>
+        <CardTitle>Components with token debt</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

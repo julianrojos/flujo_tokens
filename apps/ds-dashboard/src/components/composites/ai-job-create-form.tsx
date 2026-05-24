@@ -425,26 +425,26 @@ export function AiJobCreateForm({
       {isDocStatusLoading && componentId.trim().length > 0 && (
         <StatusAlert
           variant="info"
-          title="Comprobando documentación existente…"
-          description="El botón de generación se habilitará cuando se confirme el estado."
+          title="Checking existing documentation…"
+          description="The generate button will be enabled once the status is confirmed."
         />
       )}
       {!isDocStatusLoading && existingDocStatus === 'stale' && (
         <StatusAlert
           variant="info"
-          title="Este componente ya tiene documentación"
-          description="Generar de nuevo creará un borrador nuevo — la documentación actual solo se sobrescribirá si aplicas los cambios."
+          title="This component already has documentation"
+          description="Generating again will create a new draft — the current documentation will only be overwritten if you apply the changes."
         />
       )}
       {!isDocStatusLoading && existingDocStatus === 'fresh' && (
         <StatusAlert
           variant="warning"
-          title="Este componente ya tiene documentación actualizada"
+          title="This component already has up-to-date documentation"
           description={
             <div className="space-y-2">
               <p>
-                Generar de nuevo sobrescribirá la documentación existente si
-                aplicas los cambios.
+                Generating again will overwrite the existing documentation if
+                you apply the changes.
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -459,7 +459,7 @@ export function AiJobCreateForm({
                   htmlFor="overwriteAck"
                   className="text-sm text-foreground"
                 >
-                  Confirmar sobrescritura de documentación existente
+                  Confirm overwrite of existing documentation
                 </label>
               </div>
             </div>

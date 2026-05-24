@@ -106,8 +106,8 @@ export function TokenValueCirclePackingCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Valores compartidos</CardTitle>
-          <CardDescription>Cargando clusters de valores…</CardDescription>
+          <CardTitle>Shared values</CardTitle>
+          <CardDescription>Loading value clusters…</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[360px] animate-pulse rounded-xl bg-muted/60" />
@@ -120,12 +120,12 @@ export function TokenValueCirclePackingCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Valores compartidos</CardTitle>
+          <CardTitle>Shared values</CardTitle>
           <CardDescription>Token chart unavailable.</CardDescription>
         </CardHeader>
         <CardContent>
-          <StatusAlert variant="warning" title="Gráfica no disponible">
-            No se pudo cargar el catálogo de tokens para este sistema.
+          <StatusAlert variant="warning" title="Chart unavailable">
+            Unable to load the token catalog for this system.
           </StatusAlert>
         </CardContent>
       </Card>
@@ -138,14 +138,14 @@ export function TokenValueCirclePackingCard() {
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Valores compartidos</CardTitle>
-              <CardDescription>Solo se muestran valores usados por 2 o más tokens.</CardDescription>
+              <CardTitle>Shared values</CardTitle>
+              <CardDescription>Only values used by 2 or more tokens are shown.</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <StatusAlert variant="success" title="Sin valores compartidos">
-            No se encontraron valores resueltos duplicados.
+          <StatusAlert variant="success" title="No shared values">
+            No duplicate resolved values were found.
           </StatusAlert>
         </CardContent>
       </Card>
@@ -153,17 +153,17 @@ export function TokenValueCirclePackingCard() {
   }
 
   const excessLabel = summary.duplicateExcess === 1
-    ? "1 token podría consolidarse"
-    : `${summary.duplicateExcess} tokens podrían consolidarse`;
+    ? "1 token could be consolidated"
+    : `${summary.duplicateExcess} tokens could be consolidated`;
 
   return (
     <Card className="md:max-w-none">
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>Valores compartidos</CardTitle>
+            <CardTitle>Shared values</CardTitle>
             <CardDescription>
-              {excessLabel} · {summary.uniqueValues} {summary.uniqueValues === 1 ? "valor compartido" : "valores compartidos"}
+              {excessLabel} · {summary.uniqueValues} {summary.uniqueValues === 1 ? "shared value" : "shared values"}
             </CardDescription>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function TokenValueCirclePackingCard() {
           <svg
             viewBox={`0 0 ${VIEWBOX_SIZE} ${VIEWBOX_SIZE}`}
             role="img"
-            aria-label={`Valores compartidos: ${summary.uniqueValues} clusters, ${summary.sharedTokens} tokens`}
+            aria-label={`Shared values: ${summary.uniqueValues} clusters, ${summary.sharedTokens} tokens`}
             className="block h-auto w-full max-w-[420px]"
           >
             <g>
@@ -191,7 +191,7 @@ export function TokenValueCirclePackingCard() {
                     className="cursor-pointer"
                     role="link"
                     tabIndex={0}
-                    aria-label={`Ver tokens con el mismo valor ${node.data.cluster.label}`}
+                    aria-label={`View tokens with the same value ${node.data.cluster.label}`}
                     onClick={() => navigate(clusterUrl)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {

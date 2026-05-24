@@ -394,12 +394,12 @@ export function ComponentsPage() {
 
       <Card className="p-5 text-card-foreground backdrop-blur-sm">
           {showFilterBar ? (
-            <FilterBar
-              searchValue={search}
-              onSearch={setSearch}
-              searchPlaceholder="Buscar por nombre o slug"
-              searchAriaLabel="Buscar componentes"
-              count={filtered.length}
+          <FilterBar
+            searchValue={search}
+            onSearch={setSearch}
+            searchPlaceholder="Search by name or slug"
+            searchAriaLabel="Search components"
+            count={filtered.length}
               rightSlot={
                 showPageSizeSelect ? (
                   <div className="flex items-center gap-2">
