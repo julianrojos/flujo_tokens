@@ -31,11 +31,39 @@ It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL sto
 
 ### Consumer files and impact
 
-- Registers Figma consumer files linked to a design-system file.
-- Synchronizes cross-file component and variable usage.
-- Reports usage by file, by component, and by variable.
-- Simulates the impact of changing a variable/token value.
-- Tracks sync runs, stale consumer data, warnings, and parent-file usage snapshots.
+Consumer files are external Figma files that use the components and variables of a given design system. They are tracked per design system file key, and the dashboard keeps each consumer file linked to a human-readable consumer name plus the original Figma file key.
+
+What the feature does:
+
+- Registers consumer files for a design system and keeps them visible in the dashboard.
+- Syncs each consumer file against the parent design system file to capture cross-file component and variable usage.
+- Stores per-sync metrics such as component count, variable count, warning count, sync status, and the counts of DS vs non-DS usage.
+- Captures sample node references for each reported usage. Each sample includes the Figma node ID and the page name where that node was found, capped to a small fixed sample set per row.
+- Resolves consumer file names from the consumer file itself, so the dashboard can present detail pages with a readable URL and title.
+- Exposes reports by file, by component, and by variable.
+- Shows a consumer detail page with:
+  - KPI cards for DS vs non-DS component and variable usage
+  - separate tables for component usage and variable usage
+  - filters for component status and variable type
+  - clickable example counts that open a modal with the captured Figma node samples
+- Simulates the impact of changing a token value so you can see which consumer files would be affected before applying a change.
+
+Operational notes:
+
+- The consumer files page lists all tracked consumer files for the active design system.
+- A consumer file can be added from its Figma file URL or file key.
+- A sync run can be forced or limited to selected consumer files.
+- The latest sync run determines the file-level status shown in the dashboard, including partial runs and warnings.
+- The parent design system itself is also scanned for variable usage so token detail pages can show deterministic "Used In" data backed by the database.
+- Sample links are intended as representative evidence, not a complete export of every node in the file.
+
+Key fields surfaced by the backend:
+
+- `componentCount` and `variableCount`: DS usage captured in the latest sync.
+- `localComponentUsedCount` and `localVariableUsedCount`: non-DS usage detected in the consumer file.
+- `parentDerivedComponentCount`: local components that derive directly from parent design system components.
+- `warningCount`: non-fatal issues recorded during the latest sync.
+- `sampleNodes`: captured node samples with node IDs and page names.
 
 ### AI documentation
 
