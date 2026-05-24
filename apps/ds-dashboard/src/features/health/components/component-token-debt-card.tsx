@@ -4,10 +4,13 @@ import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { toComponentDetail } from "@/lib/routes";
+import { PaginationFooter } from "./pagination-footer";
 import { useComponentCatalogQuery } from "../use-health-queries";
 import { getTopComponentTokenDebt } from "../lib/component-token-debt";
+import { usePaginatedItems } from "../lib/use-paginated-items";
 
 const TOP_COMPONENTS_LIMIT = 8;
+const PAGE_SIZE = 5;
 
 export function ComponentTokenDebtCard() {
   const { systemId } = useParams<{ systemId: string }>();
@@ -19,6 +22,18 @@ export function ComponentTokenDebtCard() {
     [data],
   );
   const maxUnresolved = rows.reduce((max, row) => Math.max(max, row.unresolvedCount), 0);
+  const {
+    pagedItems,
+    pageStart,
+    pageEnd,
+    hasPagination,
+    currentPage,
+    totalPages,
+    canGoPrevious,
+    canGoNext,
+    goPrevious,
+    goNext,
+  } = usePaginatedItems(rows, PAGE_SIZE);
 
   if (isLoading) {
     return (
@@ -76,7 +91,7 @@ export function ComponentTokenDebtCard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {rows.map((row) => {
+          {pagedItems.map((row) => {
             const width = maxUnresolved > 0 ? Math.max(4, (row.unresolvedCount / maxUnresolved) * 100) : 0;
             return (
               <div key={row.slug} className="space-y-1">
@@ -105,6 +120,18 @@ export function ComponentTokenDebtCard() {
             );
           })}
         </div>
+        <PaginationFooter
+          hasPagination={hasPagination}
+          pageStart={pageStart}
+          pageEnd={pageEnd}
+          totalItems={rows.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canGoPrevious={canGoPrevious}
+          canGoNext={canGoNext}
+          onPrevious={goPrevious}
+          onNext={goNext}
+        />
       </CardContent>
     </Card>
   );

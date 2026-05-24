@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatusAlert } from "@/components/ui/status-alert";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { toTokenDetail } from "@/lib/routes";
+import { PaginationFooter } from "./pagination-footer";
 import { getTopTokenHotspots } from "../lib/token-hotspots";
+import { usePaginatedItems } from "../lib/use-paginated-items";
 import {
   useTokenCatalogQuery,
   useTokenUsageIndexQuery,
@@ -13,6 +15,7 @@ import {
 } from "../use-health-queries";
 
 const TOP_TOKENS_LIMIT = 12;
+const PAGE_SIZE = 5;
 
 function getUsageTooltip(componentSlugs: string[], parentFileName: string): string {
   if (componentSlugs.length === 0) return "No component slugs available";
@@ -44,6 +47,18 @@ export function TokenHotspotsCard() {
     [tokenCatalogQuery.data, usageIndexQuery.data, variableReportsQuery.data],
   );
   const maxUsageCount = rows.reduce((max, row) => Math.max(max, row.usageCount), 0);
+  const {
+    pagedItems,
+    pageStart,
+    pageEnd,
+    hasPagination,
+    currentPage,
+    totalPages,
+    canGoPrevious,
+    canGoNext,
+    goPrevious,
+    goNext,
+  } = usePaginatedItems(rows, PAGE_SIZE);
   const isLoading = usageIndexQuery.isLoading || tokenCatalogQuery.isLoading || variableReportsQuery.isLoading;
   const isError = tokenCatalogQuery.isError || variableReportsQuery.isError;
 
@@ -104,7 +119,7 @@ export function TokenHotspotsCard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {rows.map((row) => {
+          {pagedItems.map((row) => {
             const width = maxUsageCount > 0 ? Math.max(4, (row.usageCount / maxUsageCount) * 100) : 0;
             const tooltip = getUsageTooltip(row.componentSlugs, parentFileName);
             return (
@@ -134,6 +149,18 @@ export function TokenHotspotsCard() {
             );
           })}
         </div>
+        <PaginationFooter
+          hasPagination={hasPagination}
+          pageStart={pageStart}
+          pageEnd={pageEnd}
+          totalItems={rows.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canGoPrevious={canGoPrevious}
+          canGoNext={canGoNext}
+          onPrevious={goPrevious}
+          onNext={goNext}
+        />
       </CardContent>
     </Card>
   );
