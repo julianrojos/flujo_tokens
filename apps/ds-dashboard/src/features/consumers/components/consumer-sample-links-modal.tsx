@@ -29,6 +29,7 @@ export function ConsumerSampleLinksModal({
 }: ConsumerSampleLinksModalProps) {
   const titleId = "consumer-sample-links-modal-title";
   const [sort, toggleSort] = useSortState<SortField>({ field: "pageName", dir: "asc" });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
 
   const sortedNodes = useMemo(() => {
     const mul = sort.dir === "asc" ? 1 : -1;
@@ -63,7 +64,11 @@ export function ConsumerSampleLinksModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortableTableHead label="Page" onSort={() => toggleSort("pageName")} />
+                  <SortableTableHead
+                    label="Page"
+                    onSort={() => toggleSort("pageName")}
+                    ariaSort={sort.field === "pageName" ? sortAriaSort : "none"}
+                  />
                   <TableHead showSortIcon={false}>Figma node</TableHead>
                 </TableRow>
               </TableHeader>

@@ -9,6 +9,7 @@ export interface FilterBarProps {
   searchValue?: string;
   onSearch?: (value: string) => void;
   searchPlaceholder?: string;
+  searchAriaLabel?: string;
   count?: number;
   rightSlot?: React.ReactNode;
   className?: string;
@@ -19,6 +20,7 @@ export function FilterBar({
   searchValue,
   onSearch,
   searchPlaceholder = "Search...",
+  searchAriaLabel,
   count,
   rightSlot,
   className,
@@ -35,6 +37,7 @@ export function FilterBar({
           <Input
             type="search"
             placeholder={searchPlaceholder}
+            aria-label={searchAriaLabel ?? searchPlaceholder}
             value={searchValue ?? ""}
             onChange={(e) => onSearch(e.target.value)}
             className="max-w-[240px]"

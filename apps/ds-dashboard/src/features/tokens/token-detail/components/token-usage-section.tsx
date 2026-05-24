@@ -49,6 +49,7 @@ export function TokenUsageSection({
     field: "component",
     dir: "asc",
   });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -154,12 +155,12 @@ export function TokenUsageSection({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={filters.componentMode} onChange={(e) => actions.setComponentFilter("cmode", e.target.value)}>
+          <Select value={filters.componentMode} aria-label="Filter by usage mode" onChange={(e) => actions.setComponentFilter("cmode", e.target.value)}>
             <option value="all">All modes</option>
             <option value="direct">Direct</option>
             <option value="via_alias">Via alias</option>
           </Select>
-          <Input placeholder="Filter by component…" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-80" />
+          <Input placeholder="Filter by component…" aria-label="Filter by component" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-80" />
           {showPageSizeSelect ? (
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Rows</span>
@@ -215,10 +216,30 @@ export function TokenUsageSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableTableHead label="Component" onSort={() => toggleSort("component")} ariaLabel="Sort by component" />
-                <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
-                <SortableTableHead label="Mode" onSort={() => toggleSort("mode")} ariaLabel="Sort by mode" />
-                <SortableTableHead label="Instances" onSort={() => toggleSort("occurrences")} ariaLabel="Sort by instances" />
+                <SortableTableHead
+                  label="Component"
+                  onSort={() => toggleSort("component")}
+                  ariaLabel="Sort by component"
+                  ariaSort={sort.field === "component" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Property"
+                  onSort={() => toggleSort("property")}
+                  ariaLabel="Sort by property"
+                  ariaSort={sort.field === "property" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Mode"
+                  onSort={() => toggleSort("mode")}
+                  ariaLabel="Sort by mode"
+                  ariaSort={sort.field === "mode" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Instances"
+                  onSort={() => toggleSort("occurrences")}
+                  ariaLabel="Sort by instances"
+                  ariaSort={sort.field === "occurrences" ? sortAriaSort : "none"}
+                />
               </TableRow>
             </TableHeader>
             <TableBody>

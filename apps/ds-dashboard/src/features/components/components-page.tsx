@@ -108,6 +108,7 @@ export function ComponentsPage() {
     field: "display_name",
     dir: "asc",
   });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const filterState = resolveCollectionPageFilter(
     "components",
     searchParams.get("group"),
@@ -397,6 +398,7 @@ export function ComponentsPage() {
               searchValue={search}
               onSearch={setSearch}
               searchPlaceholder="Buscar por nombre o slug"
+              searchAriaLabel="Buscar componentes"
               count={filtered.length}
               rightSlot={
                 showPageSizeSelect ? (
@@ -422,6 +424,7 @@ export function ComponentsPage() {
               {hasActiveKpiFilter ? null : (
                 <Select
                   value={specFilter}
+                  aria-label="Filter by documentation status"
                   onChange={(event) => setSpecFilter(event.target.value)}
                 >
                   <option value="all">Docs: All</option>
@@ -480,11 +483,31 @@ export function ComponentsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
-                    <SortableTableHead label="Variants" onSort={() => toggleSort("variants_count")} />
-                    <SortableTableHead label="Spec" onSort={() => toggleSort("spec_exists")} />
-                    <SortableTableHead label="Tokens coverage" onSort={() => toggleSort("token_coverage")} />
-                    <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
+                    <SortableTableHead
+                      label="Component"
+                      onSort={() => toggleSort("display_name")}
+                      ariaSort={sort.field === "display_name" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Variants"
+                      onSort={() => toggleSort("variants_count")}
+                      ariaSort={sort.field === "variants_count" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Spec"
+                      onSort={() => toggleSort("spec_exists")}
+                      ariaSort={sort.field === "spec_exists" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Tokens coverage"
+                      onSort={() => toggleSort("token_coverage")}
+                      ariaSort={sort.field === "token_coverage" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Used In"
+                      onSort={() => toggleSort("usage_count")}
+                      ariaSort={sort.field === "usage_count" ? sortAriaSort : "none"}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>

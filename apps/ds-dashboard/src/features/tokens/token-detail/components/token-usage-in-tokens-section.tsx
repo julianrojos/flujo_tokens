@@ -33,6 +33,7 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
     field: "token",
     dir: "asc",
   });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -186,12 +187,42 @@ export function TokenUsageInTokensSection({ rows }: TokenUsageInTokensSectionPro
           <Table>
             <TableHeader>
               <TableRow>
-                <SortableTableHead label="Token" onSort={() => toggleSort("token")} ariaLabel="Sort by token" />
-                <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
-                <SortableTableHead label="Type" onSort={() => toggleSort("type")} ariaLabel="Sort by type" />
-                <SortableTableHead label="Depth" onSort={() => toggleSort("depth")} ariaLabel="Sort by depth" />
-                <SortableTableHead label="Consumers" onSort={() => toggleSort("consumers")} ariaLabel="Sort by consumers" />
-                <SortableTableHead label="Properties" onSort={() => toggleSort("properties")} ariaLabel="Sort by properties" />
+                <SortableTableHead
+                  label="Token"
+                  onSort={() => toggleSort("token")}
+                  ariaLabel="Sort by token"
+                  ariaSort={sort.field === "token" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Collection"
+                  onSort={() => toggleSort("collection")}
+                  ariaLabel="Sort by collection"
+                  ariaSort={sort.field === "collection" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Type"
+                  onSort={() => toggleSort("type")}
+                  ariaLabel="Sort by type"
+                  ariaSort={sort.field === "type" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Depth"
+                  onSort={() => toggleSort("depth")}
+                  ariaLabel="Sort by depth"
+                  ariaSort={sort.field === "depth" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Consumers"
+                  onSort={() => toggleSort("consumers")}
+                  ariaLabel="Sort by consumers"
+                  ariaSort={sort.field === "consumers" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Properties"
+                  onSort={() => toggleSort("properties")}
+                  ariaLabel="Sort by properties"
+                  ariaSort={sort.field === "properties" ? sortAriaSort : "none"}
+                />
               </TableRow>
             </TableHeader>
             <TableBody>

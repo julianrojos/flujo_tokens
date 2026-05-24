@@ -120,6 +120,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [sort, toggleSort] = useSortState<ConsumerSortField>({ field: "lastSync", dir: "desc" });
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const query = useQuery<ConsumerTabByFileData>({
     queryKey: ["consumer-tab-by-file", dsFileKey, reloadToken],
     enabled: Boolean(dsFileKey),
@@ -274,6 +275,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             searchValue={searchQuery}
             onSearch={setSearchQuery}
             searchPlaceholder="Search by name or file key"
+            searchAriaLabel="Search consumers"
             rightSlot={
               showPageSizeSelect ? (
                 <div className="flex items-center gap-2">
@@ -334,16 +336,19 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   label="Consumer"
                   onSort={() => toggleSort("consumer")}
                   ariaLabel="Sort by consumer"
+                  ariaSort={sort.field === "consumer" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Last sync"
                   onSort={() => toggleSort("lastSync")}
                   ariaLabel="Sort by last sync"
+                  ariaSort={sort.field === "lastSync" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Usage"
                   onSort={() => toggleSort("usage")}
                   ariaLabel="Sort by usage"
+                  ariaSort={sort.field === "usage" ? sortAriaSort : "none"}
                 />
                 <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>
               </TableRow>

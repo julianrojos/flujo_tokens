@@ -130,6 +130,7 @@ export function TokensPage() {
   const [collection, setCollection] = useState("all");
   const [type, setType] = useState("all");
   const [sort, toggleSort] = useSortState<SortField>({ field: "path", dir: "asc" });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [treeModalOpen, setTreeModalOpen] = useState(false);
@@ -508,6 +509,7 @@ export function TokensPage() {
             searchValue={search}
             onSearch={setSearch}
             searchPlaceholder="Buscar por token o valor"
+            searchAriaLabel="Buscar tokens"
             rightSlot={
               showPageSizeSelect ? (
                 <div className="flex items-center gap-2">
@@ -531,6 +533,7 @@ export function TokensPage() {
           >
             <Select
               value={collection}
+              aria-label="Filter by collection"
               onChange={(event) => {
                 userAdjustedFiltersRef.current = true;
                 setCollection(event.target.value);
@@ -545,6 +548,7 @@ export function TokensPage() {
             </Select>
             <Select
               value={type}
+              aria-label="Filter by type"
               onChange={(event) => {
                 userAdjustedFiltersRef.current = true;
                 setType(event.target.value);
@@ -599,26 +603,31 @@ export function TokensPage() {
                   label="Token"
                   ariaLabel="Sort by token"
                   onSort={() => toggleSort("path")}
+                  ariaSort={sort.field === "path" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Collection"
                   ariaLabel="Sort by collection"
                   onSort={() => toggleSort("collection")}
+                  ariaSort={sort.field === "collection" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Type"
                   ariaLabel="Sort by type"
                   onSort={() => toggleSort("type")}
+                  ariaSort={sort.field === "type" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Resolved Value"
                   ariaLabel="Sort by resolved value"
                   onSort={() => toggleSort("resolvedValue")}
+                  ariaSort={sort.field === "resolvedValue" ? sortAriaSort : "none"}
                 />
                 <SortableTableHead
                   label="Instances"
                   ariaLabel="Sort by usage count"
                   onSort={() => toggleSort("usageCount")}
+                  ariaSort={sort.field === "usageCount" ? sortAriaSort : "none"}
                 />
               </TableRow>
             </TableHeader>

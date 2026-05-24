@@ -48,6 +48,7 @@ import { groupByParentComponent } from "./lib/component-grouping";
 type ConsumerUsageTab = "components" | "variables";
 type VariableSortField = "variableName" | "nodes" | "variableType" | "collection";
 type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
+type ComponentStatusFilter = "all" | "imported" | "not-imported";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -179,6 +180,7 @@ export function ConsumerDetailPage() {
   const [variableSort, toggleVariableSort] = useSortState<VariableSortField>({ field: "variableName", dir: "asc" });
   const [componentSort, toggleComponentSort] = useSortState<ComponentSortField>({ field: "impactLevel", dir: "asc" });
   const [componentSearch, setComponentSearch] = useState("");
+  const [componentStatusFilter, setComponentStatusFilter] = useState<ComponentStatusFilter>("all");
   const [componentPageSize, setComponentPageSize] = useState<string>("25");
   const [componentCurrentPage, setComponentCurrentPage] = useState(1);
   const [variableSearch, setVariableSearch] = useState("");
@@ -193,6 +195,8 @@ export function ConsumerDetailPage() {
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const consumerId = consumer?.id ?? "";
+  const componentSortAriaSort = componentSort.dir === "asc" ? "ascending" : "descending";
+  const variableSortAriaSort = variableSort.dir === "asc" ? "ascending" : "descending";
 
   function handleToggleGroup(parentName: string) {
     setExpandedGroups(prev => {
@@ -476,6 +480,27 @@ export function ConsumerDetailPage() {
   const filteredComponentGroups = useMemo(() => {
     const loweredSearch = normalizeFilterText(componentSearch);
     const filtered = componentGroups.filter((group) => {
+      const variant = group.variants[0];
+      if (!variant) {
+        return false;
+      }
+      const normalizedComponentName = normalizeComponentLookupKey(group.parentName);
+      const resolvedComponentSlug = resolveKnownComponentSlug({
+        lookup: componentSlugByLookup,
+        parentName: group.parentName,
+        variantName: variant.componentName,
+      });
+      const parentDisplayName = resolvedComponentSlug
+        ? componentDisplayNameBySlug.get(resolvedComponentSlug)
+        : componentDisplayNameByVariant.get(normalizedComponentName);
+      const isImported = Boolean(resolvedComponentSlug || parentDisplayName);
+
+      if (componentStatusFilter === "imported" && !isImported) {
+        return false;
+      }
+      if (componentStatusFilter === "not-imported" && isImported) {
+        return false;
+      }
       if (!loweredSearch) return true;
       const values = [
         group.parentName,
@@ -500,7 +525,15 @@ export function ConsumerDetailPage() {
     });
 
     return filtered;
-  }, [componentGroups, componentSearch, componentSort]);
+  }, [
+    componentDisplayNameBySlug,
+    componentDisplayNameByVariant,
+    componentGroups,
+    componentSearch,
+    componentSort,
+    componentSlugByLookup,
+    componentStatusFilter,
+  ]);
 
   const componentPageSizeOptions = useMemo(
     () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
@@ -520,7 +553,7 @@ export function ConsumerDetailPage() {
 
   useEffect(() => {
     setComponentCurrentPage(1);
-  }, [componentPageSize, componentSearch, componentSort]);
+  }, [componentPageSize, componentSearch, componentSort, componentStatusFilter]);
 
   useEffect(() => {
     setComponentCurrentPage((prev) => Math.min(prev, componentTotalPages));
@@ -559,7 +592,7 @@ export function ConsumerDetailPage() {
         aria-label={`Open sample links for ${title}`}
         onClick={() => openSampleLinksModal(title, sampleNodes)}
       >
-        Figma ({sampleNodes.length})
+        {sampleNodes.length}
       </button>
     );
   };
@@ -650,6 +683,7 @@ export function ConsumerDetailPage() {
             searchValue={componentSearch}
             onSearch={setComponentSearch}
             searchPlaceholder="Buscar por componente, variante o impacto"
+            searchAriaLabel="Buscar componentes"
             count={filteredComponentGroups.length}
             rightSlot={
               showComponentPageSizeSelect ? (
@@ -673,7 +707,17 @@ export function ConsumerDetailPage() {
                 </div>
               ) : null
             }
-          />
+          >
+            <Select
+              value={componentStatusFilter}
+              onChange={(event) => setComponentStatusFilter(event.target.value as ComponentStatusFilter)}
+              aria-label="Filter by import status"
+            >
+              <option value="all">Status: All</option>
+              <option value="imported">Imported</option>
+              <option value="not-imported">Not imported</option>
+            </Select>
+          </FilterBar>
 
           {shouldPaginateComponents ? (
             <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
@@ -719,9 +763,21 @@ export function ConsumerDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortableTableHead label="Component" onSort={() => toggleComponentSort("parentName")} />
-                  <SortableTableHead label="Instances" onSort={() => toggleComponentSort("totalInstances")} />
-                  <SortableTableHead label="Impact" onSort={() => toggleComponentSort("impactLevel")} />
+                  <SortableTableHead
+                    label="Component"
+                    onSort={() => toggleComponentSort("parentName")}
+                    ariaSort={componentSort.field === "parentName" ? componentSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Instances"
+                    onSort={() => toggleComponentSort("totalInstances")}
+                    ariaSort={componentSort.field === "totalInstances" ? componentSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Impact"
+                    onSort={() => toggleComponentSort("impactLevel")}
+                    ariaSort={componentSort.field === "impactLevel" ? componentSortAriaSort : "none"}
+                  />
                   <TableHead
                     showSortIcon={false}
                     className="normal-case tracking-normal"
@@ -917,6 +973,7 @@ export function ConsumerDetailPage() {
             searchValue={variableSearch}
             onSearch={setVariableSearch}
             searchPlaceholder="Buscar por variable o tipo"
+            searchAriaLabel="Buscar variables"
             count={filteredVariables.length}
             rightSlot={
               shouldShowPageSizeSelect(filteredVariables.length) ? (
@@ -943,6 +1000,7 @@ export function ConsumerDetailPage() {
           >
             <Select
               value={variableTypeFilter}
+              aria-label="Filter by variable type"
               onChange={(event) => setVariableTypeFilter(event.target.value)}
             >
               <option value="all">Type: All</option>
@@ -1000,10 +1058,26 @@ export function ConsumerDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortableTableHead label="Variable" onSort={() => toggleVariableSort("variableName")} />
-                  <SortableTableHead label="Collection" onSort={() => toggleVariableSort("collection")} />
-                  <SortableTableHead label="Nodes" onSort={() => toggleVariableSort("nodes")} />
-                  <SortableTableHead label="Type" onSort={() => toggleVariableSort("variableType")} />
+                  <SortableTableHead
+                    label="Variable"
+                    onSort={() => toggleVariableSort("variableName")}
+                    ariaSort={variableSort.field === "variableName" ? variableSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Collection"
+                    onSort={() => toggleVariableSort("collection")}
+                    ariaSort={variableSort.field === "collection" ? variableSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Nodes"
+                    onSort={() => toggleVariableSort("nodes")}
+                    ariaSort={variableSort.field === "nodes" ? variableSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Type"
+                    onSort={() => toggleVariableSort("variableType")}
+                    ariaSort={variableSort.field === "variableType" ? variableSortAriaSort : "none"}
+                  />
                   <TableHead
                     showSortIcon={false}
                     className="normal-case tracking-normal"

@@ -58,6 +58,7 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
     field: PropertySortField;
     dir: "asc" | "desc";
   }>({ field: "name", dir: "asc" });
+  const propertySortAriaSort = propertySort.dir === "asc" ? "ascending" : "descending";
 
   const sortedProperties = useMemo(() => {
     const rows = propertyItems.slice();
@@ -103,6 +104,7 @@ export function ComponentPropertiesSection({ spec }: ComponentPropertiesSectionP
                   key={column.field}
                   label={column.label}
                   onSort={() => togglePropertySort(column.field)}
+                  ariaSort={propertySort.field === column.field ? propertySortAriaSort : "none"}
                 />
               ))}
             </TableRow>

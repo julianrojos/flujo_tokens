@@ -34,40 +34,44 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
   const hasUsedBy = usage !== null && usage.used_in.length > 0;
   const hasUsage = hasUses || hasUsedBy;
   const useTwoColumns = hasUses && hasUsedBy;
+  const usesSortAriaSort = usesSortDir === "asc" ? "ascending" : "descending";
+  const usedBySortAriaSort = usedBySortDir === "asc" ? "ascending" : "descending";
 
   const renderRelationTable = (
     rows: string[],
     sortDir: "asc" | "desc",
     onSort: () => void,
+    ariaSort: "ascending" | "descending",
   ) => {
     const sortedRows = sortByDisplayName(rows, sortDir);
     return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <SortableTableHead
-            label="Component"
-            onSort={onSort}
-            ariaLabel="Sort by component"
-          />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sortedRows.map((slug) => (
-          <TableRow key={slug}>
-            <TableCell className="!font-normal">
-              <Link
-                to={`/components/${encodeURIComponent(slug)}`}
-                className="text-foreground hover:text-primary"
-                aria-label={`Open ${slugToDisplayName.get(slug) ?? slug} component detail`}
-              >
-                {slugToDisplayName.get(slug) ?? slug}
-              </Link>
-            </TableCell>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <SortableTableHead
+              label="Component"
+              onSort={onSort}
+              ariaLabel="Sort by component"
+              ariaSort={ariaSort}
+            />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {sortedRows.map((slug) => (
+            <TableRow key={slug}>
+              <TableCell className="!font-normal">
+                <Link
+                  to={`/components/${encodeURIComponent(slug)}`}
+                  className="text-foreground hover:text-primary"
+                  aria-label={`Open ${slugToDisplayName.get(slug) ?? slug} component detail`}
+                >
+                  {slugToDisplayName.get(slug) ?? slug}
+                </Link>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     );
   };
 
@@ -85,14 +89,24 @@ export function ComponentGraphSection({ usage, allItems }: ComponentGraphSection
           {hasUses ? (
             <section className="space-y-2 min-w-0">
               <h3 className="text-sm font-titles font-semibold titles-color">Uses</h3>
-              {renderRelationTable(usage.uses, usesSortDir, () => setUsesSortDir((current) => (current === "asc" ? "desc" : "asc")))}
+              {renderRelationTable(
+                usage.uses,
+                usesSortDir,
+                () => setUsesSortDir((current) => (current === "asc" ? "desc" : "asc")),
+                usesSortAriaSort,
+              )}
             </section>
           ) : null}
 
           {hasUsedBy ? (
             <section className="space-y-2 min-w-0">
               <h3 className="text-sm font-titles font-semibold titles-color">Used by</h3>
-              {renderRelationTable(usage.used_in, usedBySortDir, () => setUsedBySortDir((current) => (current === "asc" ? "desc" : "asc")))}
+              {renderRelationTable(
+                usage.used_in,
+                usedBySortDir,
+                () => setUsedBySortDir((current) => (current === "asc" ? "desc" : "asc")),
+                usedBySortAriaSort,
+              )}
             </section>
           ) : null}
         </div>

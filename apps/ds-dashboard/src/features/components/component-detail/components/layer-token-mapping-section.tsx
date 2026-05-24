@@ -117,6 +117,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     field: "token",
     dir: "asc",
   });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
   const displayTokenPath = (value: string | null | undefined) => String(value || "").trim().replace(/\./g, "/");
 
   const { variantOptions, collectionOptions, filteredEntries, sortedFilteredEntries } = useMemo(() => {
@@ -373,14 +374,35 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <SortableTableHead label="Token" onSort={() => toggleSort("token")} ariaLabel="Sort by token" />
-                    <SortableTableHead label="Property" onSort={() => toggleSort("property")} ariaLabel="Sort by property" />
-                    <SortableTableHead label="Collection" onSort={() => toggleSort("collection")} ariaLabel="Sort by collection" />
-                    <SortableTableHead label="Variant" onSort={() => toggleSort("variant")} ariaLabel="Sort by variant" />
+                    <SortableTableHead
+                      label="Token"
+                      onSort={() => toggleSort("token")}
+                      ariaLabel="Sort by token"
+                      ariaSort={sort.field === "token" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Property"
+                      onSort={() => toggleSort("property")}
+                      ariaLabel="Sort by property"
+                      ariaSort={sort.field === "property" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Collection"
+                      onSort={() => toggleSort("collection")}
+                      ariaLabel="Sort by collection"
+                      ariaSort={sort.field === "collection" ? sortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Variant"
+                      onSort={() => toggleSort("variant")}
+                      ariaLabel="Sort by variant"
+                      ariaSort={sort.field === "variant" ? sortAriaSort : "none"}
+                    />
                     <SortableTableHead
                       label="Instances"
                       onSort={() => toggleSort("instances")}
                       ariaLabel="Sort by instances"
+                      ariaSort={sort.field === "instances" ? sortAriaSort : "none"}
                     />
                   </TableRow>
                 </TableHeader>

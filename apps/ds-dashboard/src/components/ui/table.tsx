@@ -86,6 +86,7 @@ export const TableHead = React.forwardRef<
   return (
     <th
       ref={ref}
+      scope="col"
       className={cn(tableHeadVariants(), className)}
       {...props}
     >
