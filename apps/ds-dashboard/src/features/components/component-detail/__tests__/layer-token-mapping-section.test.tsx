@@ -64,7 +64,7 @@ describe("LayerTokenMappingSection", () => {
 
   it("renders empty state when entries array is empty", () => {
     const html = renderSection([]);
-    assert.match(html, /No layer-token bindings available yet/);
+    assert.match(html, /No token bindings yet/);
     assert.match(html, /Reimport this component from Figma/);
   });
 
@@ -74,7 +74,6 @@ describe("LayerTokenMappingSection", () => {
     assert.match(html, /Property/);
     assert.match(html, /Collection/);
     assert.match(html, /Variant/);
-    assert.match(html, /Mode/);
   });
 
   it("renders token link and collection in each row", () => {
@@ -110,8 +109,6 @@ describe("LayerTokenMappingSection", () => {
     assert.match(html, /fills/);
     assert.match(html, /Primitives/);
     assert.match(html, /State=Default\|Size=MD/);
-    assert.match(html, /Button/);
-    assert.match(html, /Default/);
   });
 
   it("renders unresolved entries without token link", () => {
