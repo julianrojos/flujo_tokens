@@ -660,6 +660,9 @@ export async function scanConsumerFile(
     const componentPropertyUsageByNode = new Map<string, ComponentPropertyUsageDetail>();
     const tokenBindingUsageByNode = new Map<string, TokenBindingDetail>();
 
+    // Built during scanNode to resolve page context for MCP-fallback nodeIds.
+    const nodeIdToPageName = new Map<string, string>();
+
     const getLocalComponentInfo = (node: FigmaNode): ComponentRef => {
       const fromFile = fileComponentIdToInfo.get(node.id);
       if (fromFile) return fromFile;
@@ -676,6 +679,8 @@ export async function scanConsumerFile(
         node.type === 'PAGE'
           ? String(node.name || '').trim() || currentPageName
           : currentPageName;
+
+      if (node.id) nodeIdToPageName.set(node.id, nextPageName);
 
       const isLocalComponentDefinition = node.type === 'COMPONENT';
       if (isLocalComponentDefinition) {
@@ -981,9 +986,10 @@ export async function scanConsumerFile(
                 ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY)
                 : [],
               sampleNodes: Array.isArray(entry.nodeIds)
-                ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY).map((nodeId) =>
-                    createSampleNodeRef(String(nodeId || '').trim(), ''),
-                  )
+                ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY).map((nodeId) => {
+                    const nid = String(nodeId || '').trim();
+                    return createSampleNodeRef(nid, nodeIdToPageName.get(nid) ?? '');
+                  })
                 : [],
               totalNodeCount: resolveEntryNodeCount(entry),
             });
@@ -1001,7 +1007,7 @@ export async function scanConsumerFile(
               existing.sampleNodes.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY &&
               !existingSampleNodeIds.has(normalized)
             ) {
-              existing.sampleNodes.push(createSampleNodeRef(normalized, ''));
+              existing.sampleNodes.push(createSampleNodeRef(normalized, nodeIdToPageName.get(normalized) ?? ''));
               existingSampleNodeIds.add(normalized);
             }
           }
