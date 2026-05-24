@@ -710,7 +710,7 @@ export function TokensPage() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="text-xs">{usageCount}</div>
+                          <div>{usageCount}</div>
                           {usageOwners.length > 0 ? (
                             <div className="font-mono text-xs text-muted-foreground">
                               {usageOwners.join(", ")}
