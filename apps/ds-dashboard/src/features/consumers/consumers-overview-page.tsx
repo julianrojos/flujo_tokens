@@ -10,7 +10,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
 import {
   buildConsumerComponentRankingRows,
@@ -36,7 +36,7 @@ import { toComponentDetail, toSystemAdmin, toSystemConsumerDetail, toSystemConsu
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
 import { buildComponentLookupMap, extractComponentParentAlias, resolveKnownComponentSlug } from "@/lib/component-identity";
 import type { TokenCatalog } from "@/types/token-catalog";
-import type { ImpactLevel } from "@/types/consumers";
+import type { DsSyncRun, ImpactLevel } from "@/types/consumers";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
@@ -50,6 +50,7 @@ const IMPACT_LEVEL_WEIGHT: Record<ImpactLevel, number> = {
 
 type ComponentRankingSortField = "component" | "impact" | "coverage" | "consumers" | "instances";
 type VariableRankingSortField = "variable" | "impact" | "coverage" | "consumers" | "nodes";
+type ConsumerAdoptionSortField = "consumer" | "components" | "variables" | "status" | "lastSynced";
 
 function formatAdoption(used: number, total: number, percent: number | null): string {
   if (total <= 0) return "—";
@@ -70,6 +71,25 @@ function compareStringValues(left: string, right: string, dir: "asc" | "desc") {
 
 function compareImpactValues(left: ImpactLevel, right: ImpactLevel, dir: "asc" | "desc") {
   return compareNumberValues(IMPACT_LEVEL_WEIGHT[left], IMPACT_LEVEL_WEIGHT[right], dir);
+}
+
+const CONSUMER_STATUS_WEIGHT: Record<NonNullable<DsSyncRun["status"]>, number> = {
+  error: 4,
+  partial: 3,
+  ok: 2,
+  skipped: 1,
+};
+
+function compareSyncStatusValues(left: DsSyncRun | undefined, right: DsSyncRun | undefined, dir: "asc" | "desc") {
+  const leftValue = left ? CONSUMER_STATUS_WEIGHT[left.status] ?? 0 : 0;
+  const rightValue = right ? CONSUMER_STATUS_WEIGHT[right.status] ?? 0 : 0;
+  return compareNumberValues(leftValue, rightValue, dir);
+}
+
+function getSyncedAtValue(syncRun: DsSyncRun | undefined): number | null {
+  if (!syncRun?.syncedAt) return null;
+  const parsed = Date.parse(syncRun.syncedAt);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function resolveConsumerTokenEntry(tokenCatalog: TokenCatalog | null, variableName: string) {
@@ -95,6 +115,10 @@ export function ConsumersOverviewPage() {
   });
   const [variableSort, toggleVariableSort] = useSortState<VariableRankingSortField>({
     field: "nodes",
+    dir: "desc",
+  });
+  const [consumerSort, toggleConsumerSort] = useSortState<ConsumerAdoptionSortField>({
+    field: "lastSynced",
     dir: "desc",
   });
 
@@ -168,21 +192,58 @@ export function ConsumersOverviewPage() {
     });
   }, [consumerRows, searchQuery]);
 
+  const sortedConsumerRows = useMemo(() => {
+    return [...filteredConsumerRows].sort((left, right) => {
+      let comparison = 0;
+      switch (consumerSort.field) {
+        case "consumer":
+          comparison = compareStringValues(left.consumerName, right.consumerName, consumerSort.dir);
+          break;
+        case "components":
+          comparison = compareNumberValues(left.componentUsage.adoptionPercent, right.componentUsage.adoptionPercent, consumerSort.dir);
+          if (comparison === 0) {
+            comparison = compareNumberValues(left.componentUsage.used, right.componentUsage.used, consumerSort.dir);
+          }
+          break;
+        case "variables":
+          comparison = compareNumberValues(left.variableUsage.adoptionPercent, right.variableUsage.adoptionPercent, consumerSort.dir);
+          if (comparison === 0) {
+            comparison = compareNumberValues(left.variableUsage.used, right.variableUsage.used, consumerSort.dir);
+          }
+          break;
+        case "status":
+          comparison = compareSyncStatusValues(left.latestSync, right.latestSync, consumerSort.dir);
+          break;
+        case "lastSynced":
+          comparison = compareNumberValues(
+            getSyncedAtValue(left.latestSync),
+            getSyncedAtValue(right.latestSync),
+            consumerSort.dir,
+          );
+          break;
+      }
+      if (comparison !== 0) return comparison;
+      const fallback = left.consumerName.localeCompare(right.consumerName);
+      if (fallback !== 0) return fallback;
+      return left.consumerId.localeCompare(right.consumerId);
+    });
+  }, [consumerSort, filteredConsumerRows]);
+
   const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, filteredConsumerRows.length)),
-    [filteredConsumerRows.length],
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedConsumerRows.length)),
+    [sortedConsumerRows.length],
   );
-  const pageSizeValue = consumerPageSize === PAGE_SIZE_ALL ? filteredConsumerRows.length : Number(consumerPageSize);
+  const pageSizeValue = consumerPageSize === PAGE_SIZE_ALL ? sortedConsumerRows.length : Number(consumerPageSize);
   const shouldPaginate =
     consumerPageSize !== PAGE_SIZE_ALL &&
     Number.isFinite(pageSizeValue) &&
     pageSizeValue > 0 &&
-    filteredConsumerRows.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(filteredConsumerRows.length / pageSizeValue)) : 1;
-  const showPageSizeSelect = shouldShowPageSizeSelect(filteredConsumerRows.length);
+    sortedConsumerRows.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedConsumerRows.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedConsumerRows.length);
 
   useEffect(() => {
-    if (consumerPageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(filteredConsumerRows.length)) {
+    if (consumerPageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedConsumerRows.length)) {
       setConsumerPageSize("25");
       return;
     }
@@ -195,26 +256,26 @@ export function ConsumersOverviewPage() {
       }
     }
     setConsumerCurrentPage(1);
-  }, [consumerPageSize, pageSizeOptions, searchQuery, filteredConsumerRows.length]);
+  }, [consumerPageSize, pageSizeOptions, searchQuery, sortedConsumerRows.length]);
 
   useEffect(() => {
     setConsumerCurrentPage((previous) => Math.min(previous, totalPages));
   }, [totalPages]);
 
   const pagedConsumerRows = useMemo(() => {
-    if (!shouldPaginate) return filteredConsumerRows;
+    if (!shouldPaginate) return sortedConsumerRows;
     const start = (consumerCurrentPage - 1) * pageSizeValue;
-    return filteredConsumerRows.slice(start, start + pageSizeValue);
-  }, [consumerCurrentPage, filteredConsumerRows, pageSizeValue, shouldPaginate]);
+    return sortedConsumerRows.slice(start, start + pageSizeValue);
+  }, [consumerCurrentPage, pageSizeValue, shouldPaginate, sortedConsumerRows]);
 
   const pageStart = shouldPaginate
     ? (consumerCurrentPage - 1) * pageSizeValue + 1
-    : filteredConsumerRows.length === 0
+    : sortedConsumerRows.length === 0
       ? 0
       : 1;
   const pageEnd = shouldPaginate
-    ? Math.min(filteredConsumerRows.length, consumerCurrentPage * pageSizeValue)
-    : filteredConsumerRows.length;
+    ? Math.min(sortedConsumerRows.length, consumerCurrentPage * pageSizeValue)
+    : sortedConsumerRows.length;
   const sortedComponentRankingRows = useMemo(() => {
     return [...componentRankingRows]
       .sort((left, right) => {
@@ -273,6 +334,7 @@ export function ConsumersOverviewPage() {
   }, [variableRankingRows, variableSort]);
   const componentSortAriaSort = componentSort.dir === "asc" ? "ascending" : "descending";
   const variableSortAriaSort = variableSort.dir === "asc" ? "ascending" : "descending";
+  const consumerSortAriaSort = consumerSort.dir === "asc" ? "ascending" : "descending";
 
   if (dsFileKeyLoading) {
     return (
@@ -371,7 +433,7 @@ export function ConsumersOverviewPage() {
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(filteredConsumerRows.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    {shouldAllowShowAll(sortedConsumerRows.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null
@@ -381,7 +443,7 @@ export function ConsumersOverviewPage() {
           {shouldPaginate ? (
             <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filteredConsumerRows.length}
+                Showing {pageStart}-{pageEnd} of {sortedConsumerRows.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -411,11 +473,36 @@ export function ConsumersOverviewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead showSortIcon={false}>Consumer</TableHead>
-                  <TableHead showSortIcon={false}>Components adoption</TableHead>
-                  <TableHead showSortIcon={false}>Variables adoption</TableHead>
-                  <TableHead showSortIcon={false}>Sync status</TableHead>
-                  <TableHead showSortIcon={false}>Last synced</TableHead>
+                  <SortableTableHead
+                    label="Consumer"
+                    ariaLabel="Sort by consumer"
+                    onSort={() => toggleConsumerSort("consumer")}
+                    ariaSort={consumerSort.field === "consumer" ? consumerSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Components adoption"
+                    ariaLabel="Sort by components adoption"
+                    onSort={() => toggleConsumerSort("components")}
+                    ariaSort={consumerSort.field === "components" ? consumerSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Variables adoption"
+                    ariaLabel="Sort by variables adoption"
+                    onSort={() => toggleConsumerSort("variables")}
+                    ariaSort={consumerSort.field === "variables" ? consumerSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Sync status"
+                    ariaLabel="Sort by sync status"
+                    onSort={() => toggleConsumerSort("status")}
+                    ariaSort={consumerSort.field === "status" ? consumerSortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Last synced"
+                    ariaLabel="Sort by last synced"
+                    onSort={() => toggleConsumerSort("lastSynced")}
+                    ariaSort={consumerSort.field === "lastSynced" ? consumerSortAriaSort : "none"}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -433,7 +520,6 @@ export function ConsumersOverviewPage() {
                         ) : (
                           <span>{row.consumerName}</span>
                         )}
-                        <div className="font-mono text-sm text-muted-foreground">{row.consumerFileKey}</div>
                       </div>
                     </TableCell>
                     <TableCell className="tabular-nums">
@@ -483,7 +569,7 @@ export function ConsumersOverviewPage() {
           {shouldPaginate ? (
             <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
               <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {filteredConsumerRows.length}
+                Showing {pageStart}-{pageEnd} of {sortedConsumerRows.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
