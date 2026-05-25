@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Inbox } from "lucide-react";
+import { Inbox, Unlink } from "lucide-react";
 
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { EmptyState, EmptyStateAction, FilterBar, PageHeader, StatsOverview } from "@/components/composites";
@@ -13,7 +13,6 @@ import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
 import {
-  buildConsumerComponentRankingRows,
   buildConsumerOverviewRows,
   buildConsumerOverviewSummary,
   buildConsumerVariableRankingRows,
@@ -34,7 +33,8 @@ import { resolveVariableRef } from "@/lib/token-reference";
 import { useSortState } from "@/lib/use-sort-state";
 import { toComponentDetail, toSystemAdmin, toSystemConsumerDetail, toSystemConsumers, toTokenDetail } from "@/lib/routes";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
-import { buildComponentLookupMap, extractComponentParentAlias, resolveKnownComponentSlug } from "@/lib/component-identity";
+import { buildConsumerTopComponentRankingRows } from "@/features/consumers/lib/consumer-top-component-ranking";
+import { cn } from "@/lib/utils";
 import type { TokenCatalog } from "@/types/token-catalog";
 import type { DsSyncRun, ImpactLevel } from "@/types/consumers";
 
@@ -162,11 +162,12 @@ export function ConsumersOverviewPage() {
     [query.data?.consumers],
   );
   const componentRankingRows = useMemo(
-    () => buildConsumerComponentRankingRows(
+    () => buildConsumerTopComponentRankingRows(
       query.data?.componentReports ?? [],
       summary.activeConsumers,
+      query.data?.componentCatalog ?? [],
     ),
-    [query.data?.componentReports, summary.activeConsumers],
+    [query.data?.componentReports, query.data?.componentCatalog, summary.activeConsumers],
   );
   const variableRankingRows = useMemo(
     () => buildConsumerVariableRankingRows(
@@ -174,10 +175,6 @@ export function ConsumersOverviewPage() {
       summary.activeConsumers,
     ),
     [query.data?.variableReports, summary.activeConsumers],
-  );
-  const componentSlugByLookup = useMemo(
-    () => buildComponentLookupMap(query.data?.componentCatalog ?? []),
-    [query.data?.componentCatalog],
   );
   const tokenCatalog = query.data?.tokenCatalog ?? null;
 
@@ -602,7 +599,7 @@ export function ConsumersOverviewPage() {
           <div className="space-y-4">
             <CardHeader className="px-0 pt-0">
               <CardTitle>Top variables</CardTitle>
-              <CardDescription>Top {RANKING_LIMIT} variables by total nodes across all consumers.</CardDescription>
+              <CardDescription>Top {RANKING_LIMIT} variables across all consumers. Sort by clicking the table headers.</CardDescription>
             </CardHeader>
 
             {sortedVariableRankingRows.length === 0 ? (
@@ -681,7 +678,7 @@ export function ConsumersOverviewPage() {
           <div className="space-y-4">
             <CardHeader className="px-0 pt-0">
               <CardTitle>Top components</CardTitle>
-              <CardDescription>Top {RANKING_LIMIT} components by total instances across all consumers.</CardDescription>
+              <CardDescription>Top {RANKING_LIMIT} components across all consumers. Sort by clicking the table headers.</CardDescription>
             </CardHeader>
 
             {sortedComponentRankingRows.length === 0 ? (
@@ -724,24 +721,31 @@ export function ConsumersOverviewPage() {
                 </TableHeader>
                 <TableBody>
                   {sortedComponentRankingRows.map((row) => {
-                    const resolvedSlug = resolveKnownComponentSlug({
-                      lookup: componentSlugByLookup,
-                      parentName: extractComponentParentAlias(row.componentName),
-                      variantName: row.componentName,
-                    });
                     return (
-                      <TableRow key={row.componentKey}>
+                      <TableRow key={row.componentKey} className={cn(row.isUncatalogued && "opacity-70")}>
                         <TableCell>
-                          {resolvedSlug ? (
-                            <Link
-                              to={toComponentDetail(resolvedSlug)}
-                              className="text-foreground hover:text-primary"
-                            >
-                              {row.componentName}
-                            </Link>
-                          ) : (
-                            <span>{row.componentName}</span>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {row.isUncatalogued && (
+                              <span
+                                title="Not in DS catalog"
+                                aria-label="Not in DS catalog"
+                                role="img"
+                                className="shrink-0"
+                              >
+                                <Unlink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                              </span>
+                            )}
+                            {row.resolvedSlug ? (
+                              <Link
+                                to={toComponentDetail(row.resolvedSlug)}
+                                className="text-foreground hover:text-primary"
+                              >
+                                {row.componentName}
+                              </Link>
+                            ) : (
+                              <span>{row.componentName}</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <ImpactLevelBadge level={row.impactLevel.level} />
