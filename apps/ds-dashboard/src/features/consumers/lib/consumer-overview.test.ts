@@ -73,13 +73,15 @@ describe("consumer-overview helpers", () => {
         componentName: "Beta",
         totalInstances: 9,
         consumers: [{ consumerId: "2", consumerName: "B", consumerFileKey: "f", lastSyncedAt: "2026-05-25T10:00:00.000Z", sampleNodeIds: [], sampleLinks: [] }],
-        impactLevel: { level: "LOW", description: "low" },
+        impactLevel: { level: "HIGH", description: "high" },
         sampleLinks: [],
       },
     ];
 
-    const rows = buildConsumerComponentRankingRows(reports);
+    const rows = buildConsumerComponentRankingRows(reports, 4);
     assert.deepEqual(rows.map((row) => row.componentName), ["Beta", "Alpha"]);
+    assert.equal(rows[0].impactLevel.level, "HIGH");
+    assert.equal(rows[0].coveragePercent, 25);
   });
 
   it("sorts variable ranking rows by total nodes", () => {
@@ -99,12 +101,14 @@ describe("consumer-overview helpers", () => {
         variableType: "color",
         totalNodes: 7,
         consumers: [{ consumerId: "2", consumerName: "B", consumerFileKey: "f", nodeCount: 1, sampleNodeIds: [], sampleLinks: [], lastSyncedAt: "2026-05-25T10:00:00.000Z" }],
-        impactLevel: { level: "LOW", description: "low" },
+        impactLevel: { level: "MEDIUM", description: "medium" },
         sampleLinks: [],
       },
     ];
 
-    const rows = buildConsumerVariableRankingRows(reports);
+    const rows = buildConsumerVariableRankingRows(reports, 4);
     assert.deepEqual(rows.map((row) => row.variableName), ["Beta", "Alpha"]);
+    assert.equal(rows[0].impactLevel.level, "MEDIUM");
+    assert.equal(rows[0].coveragePercent, 25);
   });
 });

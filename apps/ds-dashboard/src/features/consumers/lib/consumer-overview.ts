@@ -2,6 +2,7 @@ import type {
   ComponentUsageReport,
   DsConsumer,
   DsSyncRun,
+  ImpactLevel,
   VariableUsageReport,
 } from "@/types/consumers";
 
@@ -31,6 +32,11 @@ export interface ConsumerOverviewRow {
 export interface ConsumerComponentRankingRow {
   componentKey: string;
   componentName: string;
+  impactLevel: {
+    level: ImpactLevel;
+    description: string;
+  };
+  coveragePercent: number | null;
   totalInstances: number;
   consumers: number;
 }
@@ -38,6 +44,11 @@ export interface ConsumerComponentRankingRow {
 export interface ConsumerVariableRankingRow {
   variableKey: string;
   variableName: string;
+  impactLevel: {
+    level: ImpactLevel;
+    description: string;
+  };
+  coveragePercent: number | null;
   totalNodes: number;
   consumers: number;
 }
@@ -51,6 +62,11 @@ function toNonNegativeInt(value: number | null | undefined): number {
 function computeAdoptionPercent(used: number, total: number): number | null {
   if (total <= 0) return null;
   return Math.round((used / total) * 100);
+}
+
+function computeCoveragePercent(consumers: number, totalConsumers: number): number | null {
+  if (totalConsumers <= 0) return null;
+  return Math.round((consumers / totalConsumers) * 100);
 }
 
 function computeDsUsage(total: number, localCount: number | null | undefined): number {
@@ -132,11 +148,14 @@ export function buildConsumerOverviewRows(
 
 export function buildConsumerComponentRankingRows(
   reports: ReadonlyArray<ComponentUsageReport>,
+  totalConsumers: number,
 ): ConsumerComponentRankingRow[] {
   return [...reports]
     .map((report) => ({
       componentKey: report.componentKey,
       componentName: report.componentName,
+      impactLevel: report.impactLevel,
+      coveragePercent: computeCoveragePercent(report.consumers.length, totalConsumers),
       totalInstances: toNonNegativeInt(report.totalInstances),
       consumers: report.consumers.length,
     }))
@@ -153,11 +172,14 @@ export function buildConsumerComponentRankingRows(
 
 export function buildConsumerVariableRankingRows(
   reports: ReadonlyArray<VariableUsageReport>,
+  totalConsumers: number,
 ): ConsumerVariableRankingRow[] {
   return [...reports]
     .map((report) => ({
       variableKey: report.variableKey,
       variableName: report.variableName,
+      impactLevel: report.impactLevel,
+      coveragePercent: computeCoveragePercent(report.consumers.length, totalConsumers),
       totalNodes: toNonNegativeInt(report.totalNodes),
       consumers: report.consumers.length,
     }))
