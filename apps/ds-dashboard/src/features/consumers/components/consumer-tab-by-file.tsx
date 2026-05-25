@@ -2,38 +2,40 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Inbox, Loader2, Network } from "lucide-react";
+
+import { ApiErrorMessage } from "@/components/api-error-message";
+import { EmptyState, EmptyStateAction, FilterBar } from "@/components/composites";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EmptyState, EmptyStateAction, FilterBar, StatsOverview } from "@/components/composites";
 import { Modal, ModalCloseButton, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
-import { ApiErrorMessage } from "@/components/api-error-message";
-import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByFile, removeConsumer } from "@/lib/api";
-import { formatSyncedAt } from "@/lib/format-synced-at";
-import { toSystemConsumerDetail } from "@/lib/routes";
-import { useDesignSystem } from "@/lib/design-system-context";
-import { ExternalLink, Inbox, Network } from "lucide-react";
 import { Select } from "@/components/ui/select";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHeader,
   TableHead,
+  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import type { FileReport } from "@/types/consumers";
-import { QUERY_DEFAULTS } from "@/lib/query-client";
+import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
+import { useConsumerFilterParams } from "@/features/consumers/hooks/use-consumer-filter-params";
 import { useSortState } from "@/lib/use-sort-state";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { listConsumers, removeConsumer } from "@/lib/api";
+import { formatSyncedAt } from "@/lib/format-synced-at";
+import { toApiErrorDisplay } from "@/lib/api-error-ux";
+import { useDesignSystem } from "@/lib/design-system-context";
+import { toSystemConsumerDetail } from "@/lib/routes";
+import type { DsConsumer, DsSyncRun } from "@/types/consumers";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
   reloadToken?: number;
   onAddConsumer?: () => void;
+  isAddConsumerRefreshing?: boolean;
 }
 
 interface RemoveCandidate {
@@ -41,76 +43,33 @@ interface RemoveCandidate {
   name: string;
 }
 
-interface KpiData {
-  total: number;
-  withWarnings: number;
-  neverSynced: number;
-}
-
-interface ConsumerTabByFileData {
-  reports: FileReport[];
-}
-
-type ConsumerSortField = "consumer" | "lastSync" | "usage";
+type ConsumerSortField = "consumer" | "fileKey" | "lastSync";
 const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
 const PAGE_SIZE_ALL = "all";
 
-function computeKpis(reports: FileReport[]): KpiData {
-  let withWarnings = 0;
-  let neverSynced = 0;
-
-  for (const report of reports) {
-    if (!report.lastSyncedAt) {
-      neverSynced += 1;
-    }
-    if (report.warningCount > 0) {
-      withWarnings += 1;
-    }
-  }
-
-  return {
-    total: reports.length,
-    withWarnings,
-    neverSynced,
-  };
-}
-
-function buildFigmaFileUrl(fileKey: string): string {
-  const normalizedKey = String(fileKey || "").trim();
-  return normalizedKey ? `https://www.figma.com/file/${encodeURIComponent(normalizedKey)}` : "";
-}
-
-async function loadConsumerTabByFileData(dsFileKey: string): Promise<ConsumerTabByFileData> {
-  const reportResult = await fetchReportByFile(dsFileKey, {
-    staleOnly: false,
-  });
-
-  return {
-    reports: reportResult.data || [],
-  };
+function getSyncedAtMs(value: string | null | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const syncedAt = new Date(value).getTime();
+  return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
 }
 
 function applyFilters(
-  reports: FileReport[],
+  consumers: Array<DsConsumer & { latestSync?: DsSyncRun }>,
   filters: {
     searchQuery: string;
   },
-): FileReport[] {
-  const { searchQuery } = filters;
-  const normalizedQuery = searchQuery.toLowerCase().trim();
+): Array<DsConsumer & { latestSync?: DsSyncRun }> {
+  const normalizedQuery = filters.searchQuery.toLowerCase().trim();
 
-  return reports.filter((report) => {
-    // Search filter
-    if (normalizedQuery) {
-      const nameMatch = report.consumerName.toLowerCase().includes(normalizedQuery);
-      const keyMatch = report.consumerFileKey.toLowerCase().includes(normalizedQuery);
-      if (!nameMatch && !keyMatch) return false;
-    }
-    return true;
+  return consumers.filter((consumer) => {
+    if (!normalizedQuery) return true;
+    const nameMatch = consumer.consumerName.toLowerCase().includes(normalizedQuery);
+    const keyMatch = consumer.consumerFileKey.toLowerCase().includes(normalizedQuery);
+    return nameMatch || keyMatch;
   });
 }
 
-export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
+export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, isAddConsumerRefreshing = false }: ConsumerTabByFileProps) {
   const { searchQuery, setSearchQuery } = useConsumerFilterParams();
   const { activeSystem } = useDesignSystem();
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
@@ -121,20 +80,20 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [pageSize, setPageSize] = useState<string>("25");
   const [currentPage, setCurrentPage] = useState(1);
   const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
-  const query = useQuery<ConsumerTabByFileData>({
-    queryKey: ["consumer-tab-by-file", dsFileKey, reloadToken],
+
+  const query = useQuery({
+    queryKey: ["consumer-files-admin", dsFileKey, reloadToken],
     enabled: Boolean(dsFileKey),
-    queryFn: async () => loadConsumerTabByFileData(dsFileKey),
-    ...QUERY_DEFAULTS,
+    queryFn: async () => listConsumers(dsFileKey || ""),
   });
 
-  const reports = query.data?.reports ?? [];
+  const consumers = query.data?.data ?? [];
   const loading = query.isLoading;
   const error = mutationError ?? (query.error
     ? toApiErrorDisplay(query.error, {
-        fallbackTitle: "Load reports failed",
-        fallbackMessage: "Unable to load consumer file reports.",
-      })
+      fallbackTitle: "Load consumer files failed",
+      fallbackMessage: "Unable to load consumer files.",
+    })
     : null);
 
   const requestRemove = (consumerId: string, consumerName: string) => {
@@ -168,53 +127,42 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     }
   };
 
-  // Compute KPIs from all reports (before filtering)
-  const kpis = useMemo(() => computeKpis(reports), [reports]);
-
-  // Apply filters and sorting
-  const filteredReports = useMemo(() => applyFilters(reports, {
-    searchQuery,
-  }), [reports, searchQuery]);
-  const sortedReports = useMemo(() => {
-    const getSyncedAtMs = (value: string | null | undefined): number => {
-      if (!value) return Number.NEGATIVE_INFINITY;
-      const syncedAt = new Date(value).getTime();
-      return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
-    };
-    const getUsageCount = (report: FileReport): number => {
-      return report.componentCount + report.variableCount;
-    };
-    const valueFor = (report: FileReport): string | number => {
-      if (sort.field === "consumer") return report.consumerName.toLowerCase();
-      if (sort.field === "lastSync") return getSyncedAtMs(report.lastSyncedAt);
-      if (sort.field === "usage") return getUsageCount(report);
-      return report.consumerName.toLowerCase();
+  const filteredConsumers = useMemo(
+    () => applyFilters(consumers, { searchQuery }),
+    [consumers, searchQuery],
+  );
+  const sortedConsumers = useMemo(() => {
+    const getValue = (consumer: DsConsumer & { latestSync?: DsSyncRun }): string | number => {
+      if (sort.field === "consumer") return consumer.consumerName.toLowerCase();
+      if (sort.field === "fileKey") return consumer.consumerFileKey.toLowerCase();
+      return getSyncedAtMs(consumer.latestSync?.syncedAt);
     };
 
-    return [...filteredReports].sort((a, b) => {
-      const aValue = valueFor(a);
-      const bValue = valueFor(b);
-      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+    return [...filteredConsumers].sort((left, right) => {
+      const leftValue = getValue(left);
+      const rightValue = getValue(right);
+      const comparison = leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
       const dirAdjusted = sort.dir === "asc" ? comparison : comparison * -1;
       if (dirAdjusted !== 0) return dirAdjusted;
-      return a.consumerName.localeCompare(b.consumerName);
+      return left.consumerName.localeCompare(right.consumerName);
     });
-  }, [filteredReports, sort]);
+  }, [filteredConsumers, sort]);
+
   const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedReports.length)),
-    [sortedReports.length],
+    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedConsumers.length)),
+    [sortedConsumers.length],
   );
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedReports.length : Number(pageSize);
+  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedConsumers.length : Number(pageSize);
   const shouldPaginate =
     pageSize !== PAGE_SIZE_ALL &&
     Number.isFinite(pageSizeValue) &&
     pageSizeValue > 0 &&
-    sortedReports.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedReports.length / pageSizeValue)) : 1;
-  const showPageSizeSelect = shouldShowPageSizeSelect(sortedReports.length);
+    sortedConsumers.length > pageSizeValue;
+  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedConsumers.length / pageSizeValue)) : 1;
+  const showPageSizeSelect = shouldShowPageSizeSelect(sortedConsumers.length);
 
   useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedReports.length)) {
+    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedConsumers.length)) {
       setPageSize("25");
       return;
     }
@@ -227,23 +175,41 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
       }
     }
     setCurrentPage(1);
-  }, [pageSize, pageSizeOptions, searchQuery, sortedReports.length]);
+  }, [pageSize, pageSizeOptions, searchQuery, sortedConsumers.length]);
 
   useEffect(() => {
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
 
-  const pagedReports = useMemo(() => {
-    if (!shouldPaginate) return sortedReports;
+  const pagedConsumers = useMemo(() => {
+    if (!shouldPaginate) return sortedConsumers;
     const start = (currentPage - 1) * pageSizeValue;
-    return sortedReports.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, sortedReports]);
+    return sortedConsumers.slice(start, start + pageSizeValue);
+  }, [currentPage, pageSizeValue, shouldPaginate, sortedConsumers]);
 
-  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : sortedReports.length === 0 ? 0 : 1;
-  const pageEnd = shouldPaginate ? Math.min(sortedReports.length, currentPage * pageSizeValue) : sortedReports.length;
+  const pageStart = shouldPaginate
+    ? (currentPage - 1) * pageSizeValue + 1
+    : sortedConsumers.length === 0
+      ? 0
+      : 1;
+  const pageEnd = shouldPaginate
+    ? Math.min(sortedConsumers.length, currentPage * pageSizeValue)
+    : sortedConsumers.length;
   const rowLinkClassName = "text-foreground hover:text-primary";
 
-  if (!loading && reports.length === 0) {
+  if (loading && consumers.length === 0) {
+    return (
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        <div className="space-y-3">
+          <div className="h-10 animate-pulse rounded-lg bg-muted/60" />
+          <div className="h-10 animate-pulse rounded-lg bg-muted/60" />
+          <div className="h-10 animate-pulse rounded-lg bg-muted/60" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (!loading && consumers.length === 0) {
     return (
       <Card className="p-5 text-card-foreground backdrop-blur-sm">
         <EmptyState
@@ -260,24 +226,16 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   }
 
   return (
-    <div className="space-y-5">
-      <StatsOverview
-        items={[
-          { id: "consumers-total", label: "Total files", value: kpis.total },
-          { id: "consumers-warnings", label: "With warnings", value: kpis.withWarnings },
-          { id: "consumers-never", label: "Never synced", value: kpis.neverSynced },
-        ]}
-      />
-
-      <Card className="p-5 text-card-foreground backdrop-blur-sm">
-        <div className="space-y-4">
-          <FilterBar
-            searchValue={searchQuery}
-            onSearch={setSearchQuery}
-            searchPlaceholder="Search by name or file key"
-            searchAriaLabel="Search consumers"
-            rightSlot={
-              showPageSizeSelect ? (
+    <Card className="p-5 text-card-foreground backdrop-blur-sm">
+      <div className="space-y-4">
+        <FilterBar
+          searchValue={searchQuery}
+          onSearch={setSearchQuery}
+          searchPlaceholder="Search by name or file key"
+          searchAriaLabel="Search consumers"
+          rightSlot={
+            <div className="flex items-center gap-2">
+              {showPageSizeSelect ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Rows</span>
                   <Select
@@ -291,192 +249,169 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(sortedReports.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    {shouldAllowShowAll(sortedConsumers.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
-              ) : null
-            }
-          />
-
-          {error ? <ApiErrorMessage error={error} /> : null}
-
-          {shouldPaginate ? (
-            <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {sortedReports.length}
-              </p>
-              <div className="flex items-center gap-2">
+              ) : null}
+              {onAddConsumer ? (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
+                  onClick={onAddConsumer}
+                  disabled={isAddConsumerRefreshing}
                 >
-                  Prev
+                  {isAddConsumerRefreshing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    'Add Consumer File'
+                  )}
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+              ) : null}
             </div>
-          ) : null}
+          }
+        />
 
-          <Table>
-            <TableHeader>
+        {error ? <ApiErrorMessage error={error} /> : null}
+
+        {shouldPaginate && sortedConsumers.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+            <p className="text-xs text-muted-foreground">
+              Showing {pageStart}-{pageEnd} of {sortedConsumers.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage <= 1}
+              >
+                Prev
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                label="Consumer"
+                onSort={() => toggleSort("consumer")}
+                ariaLabel="Sort by consumer"
+                ariaSort={sort.field === "consumer" ? sortAriaSort : "none"}
+              />
+              <SortableTableHead
+                label="File key"
+                onSort={() => toggleSort("fileKey")}
+                ariaLabel="Sort by file key"
+                ariaSort={sort.field === "fileKey" ? sortAriaSort : "none"}
+              />
+              <TableHead showSortIcon={false}>Sync status</TableHead>
+              <SortableTableHead
+                label="Last sync"
+                onSort={() => toggleSort("lastSync")}
+                ariaLabel="Sort by last sync"
+                ariaSort={sort.field === "lastSync" ? sortAriaSort : "none"}
+              />
+              <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedConsumers.length === 0 ? (
               <TableRow>
-                <SortableTableHead
-                  label="Consumer"
-                  onSort={() => toggleSort("consumer")}
-                  ariaLabel="Sort by consumer"
-                  ariaSort={sort.field === "consumer" ? sortAriaSort : "none"}
-                />
-                <SortableTableHead
-                  label="Last sync"
-                  onSort={() => toggleSort("lastSync")}
-                  ariaLabel="Sort by last sync"
-                  ariaSort={sort.field === "lastSync" ? sortAriaSort : "none"}
-                />
-                <SortableTableHead
-                  label="Usage"
-                  onSort={() => toggleSort("usage")}
-                  ariaLabel="Sort by usage"
-                  ariaSort={sort.field === "usage" ? sortAriaSort : "none"}
-                />
-                <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>
+                <TableCell colSpan={5} className="py-8">
+                  <EmptyState
+                    icon={Inbox}
+                    title="No consumers match your filters"
+                    action={
+                      <EmptyStateAction onClick={() => setSearchQuery("")}>
+                        Clear filters
+                      </EmptyStateAction>
+                    }
+                  />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, index) => (
-                  <TableRow key={`consumer-loading-${index}`}>
-                    <TableCell colSpan={4} className="text-muted-foreground">
-                      Loading consumer files...
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : sortedReports.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="p-0">
-                    <EmptyState
-                      icon={Inbox}
-                      title="No results match your filters"
-                      description="Try adjusting your search or filter criteria."
-                      compact
-                    />
+            ) : (
+              pagedConsumers.map((consumer) => (
+                <TableRow key={consumer.id}>
+                  <TableCell>
+                    {activeSystem ? (
+                      <Link
+                        to={toSystemConsumerDetail(activeSystem, consumer.consumerName)}
+                        className={rowLinkClassName}
+                      >
+                        {consumer.consumerName}
+                      </Link>
+                    ) : (
+                      <span>{consumer.consumerName}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {consumer.consumerFileKey}
+                  </TableCell>
+                  <TableCell>
+                    <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatSyncedAt(consumer.latestSync?.syncedAt, "Never")}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={removingConsumerId === consumer.id}
+                      onClick={() => requestRemove(consumer.id, consumer.consumerName)}
+                    >
+                      {removingConsumerId === consumer.id ? "Removing..." : "Remove"}
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ) : (
-                pagedReports.map((report) => (
-                  <TableRow key={report.consumerId}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {report.consumerFileKey ? (
-                          <a
-                            href={buildFigmaFileUrl(report.consumerFileKey)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center text-muted-foreground hover:text-primary"
-                            title={`Open ${report.consumerName} in Figma`}
-                            aria-label={`Open ${report.consumerName} in Figma`}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        ) : null}
-                        {activeSystem ? (
-                          <Link
-                            to={toSystemConsumerDetail(activeSystem, report.consumerName)}
-                            className={rowLinkClassName}
-                          >
-                            {report.consumerName}
-                          </Link>
-                        ) : (
-                          <span>{report.consumerName}</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatSyncedAt(report.lastSyncedAt, "Never")}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-0.5 text-sm">
-                        <p>
-                          <span className="text-xs text-muted-foreground">Comp </span>
-                          <span className="tabular-nums">DS {report.componentCount}</span>
-                          {report.localComponentUsedCount != null && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · Non-DS {report.localComponentUsedCount}
-                            </span>
-                          )}
-                        </p>
-                        <p>
-                          <span className="text-xs text-muted-foreground">Vars </span>
-                          <span className="tabular-nums">DS {report.variableCount}</span>
-                          {report.localVariableUsedCount != null && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              · Non-DS {report.localVariableUsedCount}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={removingConsumerId === report.consumerId}
-                          onClick={() => requestRemove(report.consumerId, report.consumerName)}
-                        >
-                          {removingConsumerId === report.consumerId ? "Removing..." : "Remove"}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+              ))
+            )}
+          </TableBody>
+        </Table>
 
-          {shouldPaginate ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
-              <p className="text-xs text-muted-foreground">
-                Showing {pageStart}-{pageEnd} of {sortedReports.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage <= 1}
-                >
-                  Prev
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+        {shouldPaginate && sortedConsumers.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+            <p className="text-xs text-muted-foreground">
+              Showing {pageStart}-{pageEnd} of {sortedConsumers.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage <= 1}
+              >
+                Prev
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+              </Button>
             </div>
-          ) : null}
-        </div>
-      </Card>
+          </div>
+        ) : null}
+      </div>
 
       <Modal
         open={!!removeCandidate}
@@ -518,7 +453,12 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
             </div>
 
             <ModalFooter>
-              <Button type="button" variant="outline" onClick={closeRemoveModal} disabled={!!removingConsumerId}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeRemoveModal}
+                disabled={!!removingConsumerId}
+              >
                 Cancel
               </Button>
               <Button
@@ -526,12 +466,12 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                 variant="destructive"
                 disabled={!removeConfirmed || !!removingConsumerId}
               >
-                {removingConsumerId ? "Removing..." : "Remove consumer"}
+                {removingConsumerId ? 'Removing...' : 'Remove consumer file'}
               </Button>
             </ModalFooter>
           </form>
         </ModalContent>
       </Modal>
-    </div>
+    </Card>
   );
 }

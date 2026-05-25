@@ -1,21 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { Network } from 'lucide-react';
 
-import { PageHeader } from '@/components/composites/page-header';
-import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
-import {
-  EmptyState,
-  EmptyStateAction,
-} from '@/components/composites/empty-state';
-import { Button } from '@/components/ui/button';
-import { Loader2, Network } from 'lucide-react';
-import { ConsumerTabByFile } from './components/consumer-tab-by-file';
-import { AddConsumerModal } from './components/add-consumer-modal';
+import { EmptyState, EmptyStateAction, PageHeader } from '@/components/composites';
 import { useDsFileKey } from '@/hooks/use-ds-file-key';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { toSystemAdmin } from '@/lib/routes';
-import { fetchReportByFile } from '@/lib/api';
+import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
+import { ConsumerViewsNav } from './components/consumer-views-nav';
+import { AddConsumerModal } from './components/add-consumer-modal';
+import { ConsumerTabByFile } from './components/consumer-tab-by-file';
 
 export function ConsumersPage() {
   const navigate = useNavigate();
@@ -25,25 +20,16 @@ export function ConsumersPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
   const { activeSystem } = useDesignSystem();
-  const consumersPresenceQuery = useQuery({
-    queryKey: ['consumer-files-presence', dsFileKey, reloadToken],
-    queryFn: async () => {
-      const response = await fetchReportByFile(dsFileKey || '', {
-        staleOnly: false,
-      });
-      return (response.data?.length ?? 0) > 0;
-    },
-    enabled: Boolean(dsFileKey),
-  });
 
   if (resolvingDsFileKey) {
     return (
       <div className="space-y-5">
         <PageHeader
-          title="Consumer Files"
-          description="Cross-file usage tracking for design system tokens"
+          title="Consumers"
+          description="Administrative consumer file management"
         />
         <SystemTabsNav />
+        <ConsumerViewsNav />
         <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">
             Loading consumer context...
@@ -57,10 +43,11 @@ export function ConsumersPage() {
     return (
       <div className="space-y-5">
         <PageHeader
-          title="Consumer Files"
-          description="Cross-file usage tracking for design system tokens"
+          title="Consumers"
+          description="Administrative consumer file management"
         />
         <SystemTabsNav />
+        <ConsumerViewsNav />
         <EmptyState
           icon={Network}
           title="No Figma File ID configured"
@@ -82,33 +69,18 @@ export function ConsumersPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Consumer Files"
+        title="Consumers"
+        description="Administrative consumer file management"
       />
       <SystemTabsNav />
+      <ConsumerViewsNav />
 
       <ConsumerTabByFile
         dsFileKey={dsFileKey}
         reloadToken={reloadToken}
         onAddConsumer={() => setAddModalOpen(true)}
+        isAddConsumerRefreshing={refreshingPresence}
       />
-
-      {consumersPresenceQuery.data === true ? (
-        <div className="flex justify-end pt-2">
-          <Button
-            onClick={() => setAddModalOpen(true)}
-            disabled={refreshingPresence}
-          >
-            {refreshingPresence ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                Refreshing...
-              </>
-            ) : (
-              'Add Consumer File'
-            )}
-          </Button>
-        </div>
-      ) : null}
 
       <AddConsumerModal
         open={addModalOpen}
