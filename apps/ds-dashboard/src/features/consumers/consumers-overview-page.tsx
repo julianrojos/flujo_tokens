@@ -511,7 +511,86 @@ export function ConsumersOverviewPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="space-y-4">
+        <Card className="p-5 text-card-foreground backdrop-blur-sm">
+          <div className="space-y-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle>Top variables</CardTitle>
+              <CardDescription>Top {RANKING_LIMIT} variables by total nodes across all consumers.</CardDescription>
+            </CardHeader>
+
+            {sortedVariableRankingRows.length === 0 ? (
+              <EmptyState icon={Inbox} title="No variable usage yet" compact />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead
+                      label="Variable"
+                      ariaLabel="Sort by variable"
+                      onSort={() => toggleVariableSort("variable")}
+                      ariaSort={variableSort.field === "variable" ? variableSortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Impact"
+                      ariaLabel="Sort by impact"
+                      onSort={() => toggleVariableSort("impact")}
+                      ariaSort={variableSort.field === "impact" ? variableSortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Coverage"
+                      ariaLabel="Sort by coverage"
+                      onSort={() => toggleVariableSort("coverage")}
+                      ariaSort={variableSort.field === "coverage" ? variableSortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Consumers"
+                      ariaLabel="Sort by consumers"
+                      onSort={() => toggleVariableSort("consumers")}
+                      ariaSort={variableSort.field === "consumers" ? variableSortAriaSort : "none"}
+                    />
+                    <SortableTableHead
+                      label="Nodes"
+                      ariaLabel="Sort by total nodes"
+                      onSort={() => toggleVariableSort("nodes")}
+                      ariaSort={variableSort.field === "nodes" ? variableSortAriaSort : "none"}
+                    />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedVariableRankingRows.map((row) => {
+                    const tokenEntry = resolveConsumerTokenEntry(tokenCatalog, row.variableName);
+                    return (
+                      <TableRow key={row.variableKey}>
+                        <TableCell>
+                          {tokenEntry ? (
+                            <Link
+                              to={toTokenDetail(tokenEntry.path)}
+                              className="text-foreground hover:text-primary"
+                            >
+                              {row.variableName}
+                            </Link>
+                          ) : (
+                            <span>{row.variableName}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <ImpactLevelBadge level={row.impactLevel.level} />
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {row.coveragePercent == null ? "—" : `${row.coveragePercent}%`}
+                        </TableCell>
+                        <TableCell className="tabular-nums">{row.consumers}</TableCell>
+                        <TableCell className="tabular-nums">{row.totalNodes}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </Card>
+
         <Card className="p-5 text-card-foreground backdrop-blur-sm">
           <div className="space-y-4">
             <CardHeader className="px-0 pt-0">
@@ -586,85 +665,6 @@ export function ConsumersOverviewPage() {
                         </TableCell>
                         <TableCell className="tabular-nums">{row.consumers}</TableCell>
                         <TableCell className="tabular-nums">{row.totalInstances}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5 text-card-foreground backdrop-blur-sm">
-          <div className="space-y-4">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle>Top variables</CardTitle>
-              <CardDescription>Top {RANKING_LIMIT} variables by total nodes across all consumers.</CardDescription>
-            </CardHeader>
-
-            {sortedVariableRankingRows.length === 0 ? (
-              <EmptyState icon={Inbox} title="No variable usage yet" compact />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <SortableTableHead
-                      label="Variable"
-                      ariaLabel="Sort by variable"
-                      onSort={() => toggleVariableSort("variable")}
-                      ariaSort={variableSort.field === "variable" ? variableSortAriaSort : "none"}
-                    />
-                    <SortableTableHead
-                      label="Impact"
-                      ariaLabel="Sort by impact"
-                      onSort={() => toggleVariableSort("impact")}
-                      ariaSort={variableSort.field === "impact" ? variableSortAriaSort : "none"}
-                    />
-                    <SortableTableHead
-                      label="Coverage"
-                      ariaLabel="Sort by coverage"
-                      onSort={() => toggleVariableSort("coverage")}
-                      ariaSort={variableSort.field === "coverage" ? variableSortAriaSort : "none"}
-                    />
-                    <SortableTableHead
-                      label="Consumers"
-                      ariaLabel="Sort by consumers"
-                      onSort={() => toggleVariableSort("consumers")}
-                      ariaSort={variableSort.field === "consumers" ? variableSortAriaSort : "none"}
-                    />
-                    <SortableTableHead
-                      label="Nodes"
-                      ariaLabel="Sort by total nodes"
-                      onSort={() => toggleVariableSort("nodes")}
-                      ariaSort={variableSort.field === "nodes" ? variableSortAriaSort : "none"}
-                    />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedVariableRankingRows.map((row) => {
-                    const tokenEntry = resolveConsumerTokenEntry(tokenCatalog, row.variableName);
-                    return (
-                      <TableRow key={row.variableKey}>
-                        <TableCell>
-                          {tokenEntry ? (
-                            <Link
-                              to={toTokenDetail(tokenEntry.path)}
-                              className="text-foreground hover:text-primary"
-                            >
-                              {row.variableName}
-                            </Link>
-                          ) : (
-                            <span>{row.variableName}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <ImpactLevelBadge level={row.impactLevel.level} />
-                        </TableCell>
-                        <TableCell className="tabular-nums text-muted-foreground">
-                          {row.coveragePercent == null ? "—" : `${row.coveragePercent}%`}
-                        </TableCell>
-                        <TableCell className="tabular-nums">{row.consumers}</TableCell>
-                        <TableCell className="tabular-nums">{row.totalNodes}</TableCell>
                       </TableRow>
                     );
                   })}
