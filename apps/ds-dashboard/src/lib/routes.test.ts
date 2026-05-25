@@ -6,6 +6,7 @@ import {
   toSystemOverview,
   toSystemAdmin,
   toSystemConsumers,
+  toSystemConsumersOverview,
   toSystemConsumerDetail,
 } from './routes';
 import { resolveSystemTab } from './resolve-system-tab';
@@ -25,6 +26,13 @@ describe('ROUTE_PATTERNS', () => {
 
   it('defines system consumers pattern with :systemId', () => {
     assert.equal(ROUTE_PATTERNS.systemConsumers, '/:systemId/consumers');
+  });
+
+  it('defines system consumers overview pattern with :systemId', () => {
+    assert.equal(
+      ROUTE_PATTERNS.systemConsumersOverview,
+      '/:systemId/consumers/overview',
+    );
   });
 
   it('defines system consumer detail pattern with :systemId and :consumerName', () => {
@@ -97,6 +105,30 @@ describe('toSystemConsumers', () => {
   it('handles empty systemId gracefully', () => {
     assert.equal(toSystemConsumers(''), '/consumers');
     assert.equal(toSystemConsumers(null as unknown as string), '/consumers');
+  });
+});
+
+describe('toSystemConsumersOverview', () => {
+  it('builds consumers overview URL for a given systemId', () => {
+    assert.equal(
+      toSystemConsumersOverview('xyz-789'),
+      '/xyz-789/consumers/overview',
+    );
+  });
+
+  it('URL-encodes the systemId', () => {
+    assert.equal(
+      toSystemConsumersOverview('my system/id'),
+      '/my%20system%2Fid/consumers/overview',
+    );
+  });
+
+  it('handles empty systemId gracefully', () => {
+    assert.equal(toSystemConsumersOverview(''), '/consumers/overview');
+    assert.equal(
+      toSystemConsumersOverview(null as unknown as string),
+      '/consumers/overview',
+    );
   });
 });
 

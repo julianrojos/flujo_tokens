@@ -57,12 +57,13 @@ import { useDesignSystem } from '@/lib/design-system-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Modal, ModalCloseButton, ModalContent } from '@/components/ui/overlay';
-import { fetchComponentCatalog, fetchReportByFile, fetchTokenCatalog } from '@/lib/api';
+import { fetchComponentCatalog, fetchTokenCatalog, listConsumers } from '@/lib/api';
 import {
   ROUTE_PATTERNS,
   toComponentDetail,
   toSystemOverview,
   toSystemConsumers,
+  toSystemConsumersOverview,
   toTokenDetail,
 } from '@/lib/routes';
 
@@ -115,6 +116,12 @@ const TokenDetailPage = lazy(() =>
 const ConsumersPage = lazy(() =>
   import('@/features/consumers/consumers-page').then((module) => ({
     default: module.ConsumersPage,
+  })),
+);
+
+const ConsumersOverviewPage = lazy(() =>
+  import('@/features/consumers/consumers-overview-page').then((module) => ({
+    default: module.ConsumersOverviewPage,
   })),
 );
 
@@ -309,9 +316,7 @@ export default function App() {
   const consumersPresenceQuery = useQuery({
     queryKey: ['sidebar-consumers-presence', activeSystem, activeSystemDsFileKey],
     queryFn: async () => {
-      const response = await fetchReportByFile(activeSystemDsFileKey, {
-        staleOnly: false,
-      });
+      const response = await listConsumers(activeSystemDsFileKey);
       return (response.data?.length ?? 0) > 0;
     },
     enabled: Boolean(activeSystemDsFileKey),
@@ -363,12 +368,13 @@ export default function App() {
         prefetchComponentsRoutes();
         return;
       }
-      if (to.endsWith('/consumers')) {
+      if (to.endsWith('/consumers') || to.endsWith('/consumers/overview')) {
         if (Date.now() < consumersPrefetchRetryAfterRef.current) return;
         if (consumersPrefetchedRef.current) return;
         consumersPrefetchedRef.current = true;
         void Promise.all([
           import('@/features/consumers/consumers-page'),
+          import('@/features/consumers/consumers-overview-page'),
           import('@/features/consumers/consumer-detail-page'),
         ]).catch(() => {
           consumersPrefetchedRef.current = false;
@@ -421,17 +427,31 @@ export default function App() {
 
   const routeSearchItems = useMemo<SearchItem[]>(
     () =>
-      resolvedNavSections.flatMap((section) =>
-        section.items.map((item) => ({
-          id: `${section.id}:${item.to}`,
-          label: item.label,
-          section: section.label,
-          to: item.to,
-          icon: 'route',
-          searchText: `${item.label} ${section.label}`,
-        })),
-      ),
-    [resolvedNavSections],
+      [
+        ...resolvedNavSections.flatMap((section) =>
+          section.items.map((item) => ({
+            id: `${section.id}:${item.to}`,
+            label: item.label,
+            section: section.label,
+            to: item.to,
+            icon: 'route',
+            searchText: `${item.label} ${section.label}`,
+          })),
+        ),
+        ...(resolvedSidebarSystemId
+          ? [
+              {
+                id: `consumers-overview:${resolvedSidebarSystemId}`,
+                label: 'Consumers Overview',
+                section: 'Consumers',
+                to: toSystemConsumersOverview(resolvedSidebarSystemId),
+                icon: 'route' as const,
+                searchText: 'Consumers Overview Consumers adoption analytics',
+              },
+            ]
+          : []),
+      ],
+    [resolvedNavSections, resolvedSidebarSystemId],
   );
 
   const loadSearchIndex = useCallback(async () => {
@@ -528,12 +548,16 @@ export default function App() {
     const systemExists = systems.some((system) => system.id === systemId);
     if (!systemExists) return false;
     if (segments.length === 1) return true;
-    if (segments[1] === 'consumers' && segments.length > 2) return false;
-    return ['overview', 'admin', 'consumers'].includes(segments[1] || '');
+    if (segments[1] === 'consumers') return true;
+    return ['overview', 'admin'].includes(segments[1] || '');
   }, [location.pathname, systems]);
   const isConsumersSectionActive = useMemo(() => {
     const pathname = location.pathname;
-    return matchPath(ROUTE_PATTERNS.systemConsumerDetail, pathname) !== null;
+    return (
+      matchPath(ROUTE_PATTERNS.systemConsumers, pathname) !== null ||
+      matchPath(ROUTE_PATTERNS.systemConsumersOverview, pathname) !== null ||
+      matchPath(ROUTE_PATTERNS.systemConsumerDetail, pathname) !== null
+    );
   }, [location.pathname]);
 
   return (
@@ -728,6 +752,10 @@ export default function App() {
                       <Route
                         path="consumers"
                         element={<ConsumersPage />}
+                      />
+                      <Route
+                        path="consumers/overview"
+                        element={<ConsumersOverviewPage />}
                       />
                       <Route
                         path="consumers/:consumerName"
