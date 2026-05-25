@@ -812,11 +812,13 @@ export function ConsumerDetailPage() {
                     return (
                       <TableRow key={variant.componentKey} className={cn(isUncatalogued && "opacity-70")}>
                         <TableCell>
-                          <div className="flex items-start gap-1.5">
+                          <div className="flex items-center gap-1.5">
                             {isUncatalogued && (
                               <span
-                                title="This component is not in the DS catalog"
-                                className="mt-px shrink-0"
+                                title="Not in DS catalog"
+                                aria-label="Not in DS catalog"
+                                role="img"
+                                className="shrink-0"
                               >
                                 <Unlink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                               </span>
@@ -874,7 +876,9 @@ export function ConsumerDetailPage() {
                             </button>
                             {isUncatalogued && (
                               <span
-                                title="This component is not in the DS catalog"
+                                title="Not in DS catalog"
+                                aria-label="Not in DS catalog"
+                                role="img"
                                 className="shrink-0"
                               >
                                 <Unlink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
