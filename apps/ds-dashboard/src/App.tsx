@@ -24,6 +24,7 @@ import {
   Activity,
   Boxes,
   Layers3,
+  Menu,
   Network,
   Search,
   type LucideIcon,
@@ -284,6 +285,7 @@ function SystemConsumersRedirect() {
 export default function App() {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isFigmaConnectionModalOpen, setIsFigmaConnectionModalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -559,17 +561,38 @@ export default function App() {
     );
   }, [location.pathname]);
 
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  // Mobile drawer should always open expanded to avoid an icon-only dead end.
+  useEffect(() => {
+    if (mobileNavOpen) {
+      setSidebarCollapsed(false);
+    }
+  }, [mobileNavOpen]);
+
+  const handleMobileClose = useCallback(() => {
+    setMobileNavOpen(false);
+  }, []);
+
   return (
     <>
       <div className="min-h-screen text-foreground">
-        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1200px] border-x border-border-soft bg-surface-1">
-          <Sidebar collapsed={sidebarCollapsed}>
+        <SidebarProvider
+          className="relative mx-auto min-h-screen w-full max-w-[1200px] border-x border-border-soft bg-surface-1"
+          mobileOpen={mobileNavOpen}
+          onMobileClose={handleMobileClose}
+        >
+          <Sidebar id="app-sidebar" collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-0 pb-2">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <SidebarTrigger
                   collapsed={sidebarCollapsed}
                   onClick={() => setSidebarCollapsed((value) => !value)}
                   aria-label="DS Graph sidebar toggle"
+                  className="hidden lg:inline-flex"
                 />
               </div>
               <SystemSwitcher collapsed={sidebarCollapsed} />
@@ -646,67 +669,39 @@ export default function App() {
           </Sidebar>
 
           <SidebarInset>
+            {/* Mobile top bar — full-width sticky, hidden on desktop */}
+            <header className="sticky top-0 z-30 flex items-center justify-between border-b border-sidebar-foreground/10 bg-sidebar px-4 py-3 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={mobileNavOpen}
+                aria-controls="app-sidebar"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sidebar-foreground transition hover:bg-sidebar-active"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <div className="flex items-center gap-1">
+                <FigmaConnectionIconButton
+                  onClick={() => setIsFigmaConnectionModalOpen(true)}
+                  connectionState={connectionState}
+                  className="text-sidebar-foreground"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Open search"
+                  title="Search"
+                  className="text-sidebar-foreground"
+                >
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </header>
+
             <main className="w-full p-4 md:p-6 lg:p-8">
-              <header className="mb-5 rounded-xl border border-border/70 bg-card/75 p-4 shadow-panel backdrop-blur-lg lg:hidden">
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Menu
-                </p>
-                <div className="mt-3 space-y-3">
-                  {resolvedNavSections.map((section) => (
-                    <div key={section.id} className="space-y-2">
-                      {section.label === 'System' ||
-                      section.label === 'Tokens' ||
-                      section.label === 'Components' ||
-                      section.label === 'Consumers' ? null : (
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                          {section.label}
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {section.items.map((item) => (
-                          <NavLink
-                            key={item.to}
-                            to={item.to}
-                            onMouseEnter={() => prefetchRoute(item.to)}
-                            onFocus={() => prefetchRoute(item.to)}
-                            className={({ isActive }) => {
-                              const isPrimarySystemItem = isSystemPrimaryNavItem(section, item);
-                              const effectiveActive =
-                                section.id === 'consumers'
-                                  ? isConsumersSectionActive
-                                  : (isActive || (isPrimarySystemItem && isSystemSectionActive));
-                              return cn(
-                                'rounded-md px-3 py-2 text-sm font-semibold transition',
-                                effectiveActive
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-foreground',
-                              );
-                            }}
-                          >
-                            {item.label}
-                          </NavLink>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <FigmaConnectionIconButton
-                      onClick={() => setIsFigmaConnectionModalOpen(true)}
-                      connectionState={connectionState}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setSearchOpen(true)}
-                      aria-label="Open search"
-                      title="Search"
-                    >
-                      <Search className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-              </header>
 
               <div className="mb-4 flex items-center gap-3">
                 <div className="min-w-0 flex-1">

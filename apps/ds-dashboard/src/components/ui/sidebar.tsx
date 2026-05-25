@@ -4,9 +4,45 @@ import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+// ---------------------------------------------------------------------------
+// Mobile drawer context
+// ---------------------------------------------------------------------------
+
+type SidebarContextValue = {
+  mobileOpen: boolean;
+  closeMobile: () => void;
+};
+
+const SidebarContext = React.createContext<SidebarContextValue>({
+  mobileOpen: false,
+  closeMobile: () => {},
+});
+
+export function useSidebar(): SidebarContextValue {
+  return React.useContext(SidebarContext);
+}
+
+function useEscapeKey(onEscape: () => void, enabled: boolean) {
+  React.useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onEscape();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled, onEscape]);
+}
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
 export const sidebarProviderVariants = cva("group/sidebar-wrapper flex min-h-screen w-full");
+/** Base visual styles — display/positioning are handled by the Sidebar component directly. */
 export const sidebarVariants = cva(
-  "sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border/70 bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:flex",
+  "h-screen flex-col overflow-hidden border-r border-border/70 bg-sidebar text-sidebar-foreground",
 );
 export const sidebarInsetVariants = cva("min-w-0 flex-1");
 export const sidebarHeaderVariants = cva("p-5");
@@ -39,21 +75,40 @@ export const sidebarTriggerVariants = cva(
 
 export const SidebarProvider = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  React.HTMLAttributes<HTMLDivElement> & {
+    mobileOpen?: boolean;
+    onMobileClose?: () => void;
+  }
 >(function SidebarProvider(
-  {
-  className,
-  children,
-},
+  { className, children, mobileOpen = false, onMobileClose, ...props },
   ref,
 ) {
+  const closeMobile = React.useCallback(() => {
+    onMobileClose?.();
+  }, [onMobileClose]);
+  useEscapeKey(closeMobile, mobileOpen);
+
   return (
-    <div
-      ref={ref}
-      className={cn(sidebarProviderVariants(), className)}
-    >
-      {children}
-    </div>
+    <SidebarContext.Provider value={{ mobileOpen, closeMobile }}>
+      <div
+        ref={ref}
+        className={cn(sidebarProviderVariants(), className)}
+        {...props}
+      >
+        {/* Mobile backdrop */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 lg:hidden",
+            mobileOpen
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+          aria-hidden="true"
+          onClick={closeMobile}
+        />
+        {children}
+      </div>
+    </SidebarContext.Provider>
   );
 });
 SidebarProvider.displayName = "SidebarProvider";
@@ -62,11 +117,66 @@ export const Sidebar = React.forwardRef<
   HTMLElement,
   React.HTMLAttributes<HTMLElement> & { collapsed?: boolean }
 >(({ className, children, collapsed = false, ...props }, ref) => {
+  const { mobileOpen } = React.useContext(SidebarContext);
+  const sidebarNodeRef = React.useRef<HTMLElement | null>(null);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 1023.9px)").matches,
+  );
+
+  const setSidebarRef = React.useCallback(
+    (node: HTMLElement | null) => {
+      sidebarNodeRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+        return;
+      }
+      if (ref) {
+        ref.current = node;
+      }
+    },
+    [ref],
+  );
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023.9px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+    };
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  React.useEffect(() => {
+    const node = sidebarNodeRef.current;
+    if (!node) return;
+    const shouldInert = isMobile && !mobileOpen;
+
+    if (shouldInert) {
+      node.setAttribute("aria-hidden", "true");
+      node.setAttribute("inert", "");
+    } else {
+      node.removeAttribute("aria-hidden");
+      node.removeAttribute("inert");
+    }
+  }, [isMobile, mobileOpen]);
+
   return (
     <aside
-      ref={ref}
+      ref={setSidebarRef}
       data-collapsed={collapsed}
-      className={cn(sidebarVariants(), className)}
+      className={cn(
+        sidebarVariants(),
+        // Desktop: sticky inline sidebar
+        "hidden shrink-0 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:sticky lg:top-0 lg:flex",
+        // Mobile: fixed left drawer, slides in/out via transform
+        "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:flex",
+        "max-lg:transition-transform max-lg:duration-300 max-lg:ease-in-out max-lg:motion-reduce:transition-none",
+        mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full",
+        className,
+      )}
       style={{ width: collapsed ? "var(--app-sidebar-width-collapsed)" : "var(--app-sidebar-width)" }}
       {...props}
     >
