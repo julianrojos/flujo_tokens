@@ -4,11 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Network } from 'lucide-react';
 
 import { EmptyState, EmptyStateAction, PageHeader } from '@/components/composites';
+import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
 import { useDsFileKey } from '@/hooks/use-ds-file-key';
 import { useDesignSystem } from '@/lib/design-system-context';
 import { toSystemAdmin } from '@/lib/routes';
-import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
-import { ConsumerViewsNav } from './components/consumer-views-nav';
 import { AddConsumerModal } from './components/add-consumer-modal';
 import { ConsumerTabByFile } from './components/consumer-tab-by-file';
 
@@ -29,7 +28,6 @@ export function ConsumersPage() {
           description="Administrative consumer file management"
         />
         <SystemTabsNav />
-        <ConsumerViewsNav />
         <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">
             Loading consumer context...
@@ -47,7 +45,6 @@ export function ConsumersPage() {
           description="Administrative consumer file management"
         />
         <SystemTabsNav />
-        <ConsumerViewsNav />
         <EmptyState
           icon={Network}
           title="No Figma File ID configured"
@@ -73,7 +70,6 @@ export function ConsumersPage() {
         description="Administrative consumer file management"
       />
       <SystemTabsNav />
-      <ConsumerViewsNav />
 
       <ConsumerTabByFile
         dsFileKey={dsFileKey}

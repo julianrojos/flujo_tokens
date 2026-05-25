@@ -413,7 +413,7 @@ export default function App() {
               if (item.to === ROUTE_PATTERNS.systemConsumers) {
                 return {
                   ...item,
-                  to: toSystemConsumers(resolvedSidebarSystemId),
+                  to: toSystemConsumersOverview(resolvedSidebarSystemId),
                 };
               }
               return item;
@@ -441,12 +441,12 @@ export default function App() {
         ...(resolvedSidebarSystemId
           ? [
               {
-                id: `consumers-overview:${resolvedSidebarSystemId}`,
-                label: 'Consumers Overview',
+                id: `consumers-admin:${resolvedSidebarSystemId}`,
+                label: 'Consumers Admin',
                 section: 'Consumers',
-                to: toSystemConsumersOverview(resolvedSidebarSystemId),
+                to: toSystemConsumers(resolvedSidebarSystemId),
                 icon: 'route' as const,
-                searchText: 'Consumers Overview Consumers adoption analytics',
+                searchText: 'Consumers Admin Consumer file management',
               },
             ]
           : []),
@@ -548,13 +548,12 @@ export default function App() {
     const systemExists = systems.some((system) => system.id === systemId);
     if (!systemExists) return false;
     if (segments.length === 1) return true;
-    if (segments[1] === 'consumers') return true;
+    if (segments[1] === 'consumers') return segments.length === 2;
     return ['overview', 'admin'].includes(segments[1] || '');
   }, [location.pathname, systems]);
   const isConsumersSectionActive = useMemo(() => {
     const pathname = location.pathname;
     return (
-      matchPath(ROUTE_PATTERNS.systemConsumers, pathname) !== null ||
       matchPath(ROUTE_PATTERNS.systemConsumersOverview, pathname) !== null ||
       matchPath(ROUTE_PATTERNS.systemConsumerDetail, pathname) !== null
     );

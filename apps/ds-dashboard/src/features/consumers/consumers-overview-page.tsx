@@ -10,7 +10,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
-import { ConsumerViewsNav } from "@/features/consumers/components/consumer-views-nav";
 import {
   buildConsumerComponentRankingRows,
   buildConsumerOverviewRows,
@@ -32,7 +31,6 @@ import { formatSyncedAt } from "@/lib/format-synced-at";
 import { resolveVariableRef } from "@/lib/token-reference";
 import { toComponentDetail, toSystemAdmin, toSystemConsumerDetail, toSystemConsumers, toTokenDetail } from "@/lib/routes";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
-import { SystemTabsNav } from "@/components/composites/system-tabs-nav";
 import { buildComponentLookupMap, extractComponentParentAlias, resolveKnownComponentSlug } from "@/lib/component-identity";
 import type { TokenCatalog } from "@/types/token-catalog";
 
@@ -182,8 +180,6 @@ export function ConsumersOverviewPage() {
           title="Consumers Overview"
           description="Cross-consumer adoption analytics"
         />
-        <SystemTabsNav />
-        <ConsumerViewsNav />
         <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">Loading consumer analytics...</p>
         </div>
@@ -198,8 +194,6 @@ export function ConsumersOverviewPage() {
           title="Consumers Overview"
           description="Cross-consumer adoption analytics"
         />
-        <SystemTabsNav />
-        <ConsumerViewsNav />
         <EmptyState
           icon={Inbox}
           title="No Figma File ID configured"
@@ -225,8 +219,6 @@ export function ConsumersOverviewPage() {
           title="Consumers Overview"
           description="Cross-consumer adoption analytics"
         />
-        <SystemTabsNav />
-        <ConsumerViewsNav />
         <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">Loading consumer analytics...</p>
         </div>
@@ -240,8 +232,6 @@ export function ConsumersOverviewPage() {
         title="Consumers Overview"
         description="Cross-consumer adoption analytics"
       />
-      <SystemTabsNav />
-      <ConsumerViewsNav />
 
       <StatsOverview
         items={[

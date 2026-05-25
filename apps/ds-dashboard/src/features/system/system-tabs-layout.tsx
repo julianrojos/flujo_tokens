@@ -19,8 +19,10 @@ import {
  * - The URL :systemId is the single source of truth.
  * - This layout synchronizes activeSystem one-way: URL → context/localStorage.
  * - Callers (e.g. SystemSwitcher) must navigate only; they must not call setActiveSystem directly.
- * - This layout is a guard/sync shell only. Child routes under /:systemId/*
- *   must render <SystemTabsNav /> directly below their <PageHeader />.
+ * - This layout is a guard/sync shell only. Most child routes under /:systemId/*
+ *   render <SystemTabsNav /> directly below their <PageHeader />, but route-specific
+ *   sections may intentionally replace that secondary navigation when they need a
+ *   different UX contract.
  */
 export function SystemTabsLayout() {
   const { systemId } = useParams<{ systemId: string }>();
