@@ -106,6 +106,76 @@ describe('figma-mcp-variables', () => {
     assert.deepEqual(command.args, ['--path', 'C:\\Users\\name\\file.txt']);
   });
 
+  it('warns when MCP child PID file persistence fails after the overwrite fallback fails', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-pid-'));
+    const scriptPath = path.join(tempRoot, 'mock-mcp-pid.js');
+    const script = `
+let buffer = '';
+function send(payload) {
+  process.stdout.write(JSON.stringify(payload) + '\\n');
+}
+function handleMessage(message) {
+  if (message.method === 'initialize') {
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        serverInfo: { name: 'mock', version: '1.0.0' },
+      },
+    });
+  }
+}
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
+    handleMessage(parsed);
+  }
+});
+`;
+    fs.writeFileSync(scriptPath, script, 'utf8');
+
+    const pidScope = fs.realpathSync(process.cwd());
+    const pidFilePath = path.join(
+      os.tmpdir(),
+      `ds-dashboard-mcp-child-${createHash('sha1').update(pidScope).digest('hex').slice(0, 12)}.pid`,
+    );
+    fs.rmSync(pidFilePath, { recursive: true, force: true });
+    fs.mkdirSync(pidFilePath, { recursive: true });
+
+    const originalWarn = console.warn;
+    const warnCalls: unknown[][] = [];
+    console.warn = ((...args: unknown[]) => {
+      warnCalls.push(args);
+    }) as typeof console.warn;
+
+    try {
+      disposeSharedFigmaMcpClient();
+      await getOrCreateSharedMcpClient({
+        command: process.execPath,
+        args: [scriptPath],
+        timeoutMs: 2_000,
+      });
+
+      assert.equal(warnCalls.length, 1);
+      assert.match(String(warnCalls[0][0]), /Failed to persist MCP child PID file/);
+      assert.equal((warnCalls[0][1] as { stage?: string }).stage, 'fallback');
+    } finally {
+      disposeSharedFigmaMcpClient();
+      console.warn = originalWarn;
+      fs.rmSync(pidFilePath, { recursive: true, force: true });
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
 
   it('fetches paginated variables from MCP stdio server', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-'));

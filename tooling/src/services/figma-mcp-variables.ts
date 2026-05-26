@@ -132,6 +132,14 @@ function readMcpChildPidFile(): McpChildPidState | null {
   }
 }
 
+function warnMcpChildPidFileFailure(stage: 'write' | 'fallback', error: unknown): void {
+  console.warn('[figma-mcp-variables] Failed to persist MCP child PID file', {
+    stage,
+    pidFile: MCP_CHILD_PID_FILE,
+    error,
+  });
+}
+
 function writeMcpChildPidFile(record: McpChildPidRecordV1): void {
   const payload = JSON.stringify(record);
   const tmpPath = `${MCP_CHILD_PID_FILE}.${process.pid}.${Date.now()}.tmp`;
@@ -141,11 +149,15 @@ function writeMcpChildPidFile(record: McpChildPidRecordV1): void {
       fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
     } catch {
       // On some platforms rename-overwrite can fail; fallback to replace.
-      fs.rmSync(MCP_CHILD_PID_FILE, { force: true });
-      fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+      try {
+        fs.rmSync(MCP_CHILD_PID_FILE, { force: true });
+        fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+      } catch (error) {
+        warnMcpChildPidFileFailure('fallback', error);
+      }
     }
-  } catch {
-    // no-op
+  } catch (error) {
+    warnMcpChildPidFileFailure('write', error);
   } finally {
     try {
       fs.rmSync(tmpPath, { force: true });
@@ -806,16 +818,12 @@ class McpStdioClient {
 
     // Persist child PID for orphan cleanup on next server restart.
     if (this.child.pid != null) {
-      try {
-        writeMcpChildPidFile({
-          version: 1,
-          ownerPid: process.pid,
-          childPid: this.child.pid,
-          timestamp: Date.now(),
-        });
-      } catch {
-        // Best-effort: the file may be in a read-only tmpdir on some systems.
-      }
+      writeMcpChildPidFile({
+        version: 1,
+        ownerPid: process.pid,
+        childPid: this.child.pid,
+        timestamp: Date.now(),
+      });
     }
   }
 
