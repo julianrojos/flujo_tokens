@@ -20,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
 import { useConsumerFilterParams } from "@/features/consumers/hooks/use-consumer-filter-params";
 import { useSortState } from "@/lib/use-sort-state";
 import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
@@ -318,7 +317,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
                 ariaLabel="Sort by file key"
                 ariaSort={sort.field === "fileKey" ? sortAriaSort : "none"}
               />
-              <TableHead showSortIcon={false}>Sync status</TableHead>
               <SortableTableHead
                 label="Last sync"
                 onSort={() => toggleSort("lastSync")}
@@ -331,7 +329,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
           <TableBody>
             {sortedConsumers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8">
+                <TableCell colSpan={4} className="py-8">
                   <EmptyState
                     icon={Inbox}
                     title="No consumers match your filters"
@@ -360,9 +358,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
                   </TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {consumer.consumerFileKey}
-                  </TableCell>
-                  <TableCell>
-                    <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {formatSyncedAt(consumer.latestSync?.syncedAt, "Never")}
