@@ -111,4 +111,45 @@ describe("consumer-overview helpers", () => {
     assert.equal(rows[0].impactLevel.level, "MEDIUM");
     assert.equal(rows[0].coveragePercent, 25);
   });
+
+  it("counts unique consumers when computing coverage for component and variable rankings", () => {
+    const duplicatedConsumers = [
+      { consumerId: "1", consumerName: "A", consumerFileKey: "f", lastSyncedAt: "2026-05-25T10:00:00.000Z", sampleNodeIds: [], sampleLinks: [] },
+      { consumerId: "1", consumerName: "A", consumerFileKey: "f", lastSyncedAt: "2026-05-25T10:00:00.000Z", sampleNodeIds: [], sampleLinks: [] },
+      { consumerId: "2", consumerName: "B", consumerFileKey: "f", lastSyncedAt: "2026-05-25T10:00:00.000Z", sampleNodeIds: [], sampleLinks: [] },
+    ];
+
+    const componentRows = buildConsumerComponentRankingRows(
+      [
+        {
+          componentKey: "a",
+          componentName: "Alpha",
+          totalInstances: 4,
+          consumers: duplicatedConsumers,
+          impactLevel: { level: "LOW", description: "low" },
+          sampleLinks: [],
+        },
+      ],
+      2,
+    );
+    assert.equal(componentRows[0].consumers, 2);
+    assert.equal(componentRows[0].coveragePercent, 100);
+
+    const variableRows = buildConsumerVariableRankingRows(
+      [
+        {
+          variableKey: "a",
+          variableName: "Alpha",
+          variableType: "color",
+          totalNodes: 2,
+          consumers: duplicatedConsumers,
+          impactLevel: { level: "LOW", description: "low" },
+          sampleLinks: [],
+        },
+      ],
+      2,
+    );
+    assert.equal(variableRows[0].consumers, 2);
+    assert.equal(variableRows[0].coveragePercent, 100);
+  });
 });

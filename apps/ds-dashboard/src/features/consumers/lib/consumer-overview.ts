@@ -5,7 +5,7 @@ import type {
   ImpactLevel,
   VariableUsageReport,
 } from "@/types/consumers";
-import { computeCoveragePercent, toNonNegativeInt } from "./consumer-math";
+import { computeCoveragePercent, countUniqueConsumerIds, toNonNegativeInt } from "./consumer-math";
 
 export interface ConsumerOverviewSummary {
   activeConsumers: number;
@@ -141,14 +141,17 @@ export function buildConsumerComponentRankingRows(
   totalConsumers: number,
 ): ConsumerComponentRankingRow[] {
   return [...reports]
-    .map((report) => ({
-      componentKey: report.componentKey,
-      componentName: report.componentName,
-      impactLevel: report.impactLevel,
-      coveragePercent: computeCoveragePercent(report.consumers.length, totalConsumers),
-      totalInstances: toNonNegativeInt(report.totalInstances),
-      consumers: report.consumers.length,
-    }))
+    .map((report) => {
+      const uniqueConsumers = countUniqueConsumerIds(report.consumers);
+      return {
+        componentKey: report.componentKey,
+        componentName: report.componentName,
+        impactLevel: report.impactLevel,
+        coveragePercent: computeCoveragePercent(uniqueConsumers, totalConsumers),
+        totalInstances: toNonNegativeInt(report.totalInstances),
+        consumers: uniqueConsumers,
+      };
+    })
     .sort((left, right) => {
       if (right.totalInstances !== left.totalInstances) {
         return right.totalInstances - left.totalInstances;
@@ -165,14 +168,17 @@ export function buildConsumerVariableRankingRows(
   totalConsumers: number,
 ): ConsumerVariableRankingRow[] {
   return [...reports]
-    .map((report) => ({
-      variableKey: report.variableKey,
-      variableName: report.variableName,
-      impactLevel: report.impactLevel,
-      coveragePercent: computeCoveragePercent(report.consumers.length, totalConsumers),
-      totalNodes: toNonNegativeInt(report.totalNodes),
-      consumers: report.consumers.length,
-    }))
+    .map((report) => {
+      const uniqueConsumers = countUniqueConsumerIds(report.consumers);
+      return {
+        variableKey: report.variableKey,
+        variableName: report.variableName,
+        impactLevel: report.impactLevel,
+        coveragePercent: computeCoveragePercent(uniqueConsumers, totalConsumers),
+        totalNodes: toNonNegativeInt(report.totalNodes),
+        consumers: uniqueConsumers,
+      };
+    })
     .sort((left, right) => {
       if (right.totalNodes !== left.totalNodes) {
         return right.totalNodes - left.totalNodes;
