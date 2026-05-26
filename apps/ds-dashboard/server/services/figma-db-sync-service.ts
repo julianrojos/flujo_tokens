@@ -1983,6 +1983,7 @@ export function buildTokenUsageRowsFromFilesystem(options: {
   const { dsId, repoRoot, tokenCatalog, aliases, cssSources } = options;
   const paths = resolveSystemPaths(dsId, repoRoot);
   const rows: UsageOccurrenceRow[] = [];
+  const scanWarnings: string[] = [];
 
   const cssFiles = [
     path.join(paths.outputDir, 'primitives.css'),
@@ -1991,23 +1992,45 @@ export function buildTokenUsageRowsFromFilesystem(options: {
   const loadedCssSources =
     cssSources && cssSources.length > 0
       ? cssSources
-      : cssFiles
-          .filter((filePath) => fs.existsSync(filePath))
-          .map((filePath) => ({
-            file: filePath,
-            content: fs.readFileSync(filePath, 'utf8'),
-          }));
+      : cssFiles.flatMap((filePath) => {
+          try {
+            return [
+              {
+                file: filePath,
+                content: fs.readFileSync(filePath, 'utf8'),
+              },
+            ];
+          } catch (error) {
+            if (
+              typeof error === 'object' &&
+              error != null &&
+              'code' in error &&
+              (error as { code?: unknown }).code === 'ENOENT'
+            ) {
+              return [];
+            }
+            console.warn('[figma-db-sync-service] Skipping unreadable CSS source', {
+              filePath,
+              error,
+            });
+            scanWarnings.push(`Skipping unreadable CSS source: ${filePath}`);
+            return [];
+          }
+        });
   if (loadedCssSources.length === 0) {
     return {
       rows: [],
-      warnings: [],
+      warnings: scanWarnings,
       noSources: true,
     };
   }
 
-  const warnings = cssFiles
-    .filter((filePath) => !loadedCssSources.some((source) => source.file === filePath))
-    .map((filePath) => `Missing CSS source for usage scan: ${filePath}`);
+  const warnings = [
+    ...scanWarnings,
+    ...cssFiles
+      .filter((filePath) => !loadedCssSources.some((source) => source.file === filePath))
+      .map((filePath) => `Missing CSS source for usage scan: ${filePath}`),
+  ];
 
   const cssRefs = extractCssReferencesFromSources(loadedCssSources, tokenCatalog);
   const aliasChains = buildAliasChainsFromSources(loadedCssSources);

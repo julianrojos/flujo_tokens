@@ -12,7 +12,10 @@ import { createTestDatabase } from '../db/test-db-helpers.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
 import type { FullComponentSpecResult } from './figma-db-sync-service.js';
-import { syncDesignSystemFromPlugin } from './figma-db-sync-service.js';
+import {
+  buildTokenUsageRowsFromFilesystem,
+  syncDesignSystemFromPlugin,
+} from './figma-db-sync-service.js';
 
 function makeComponentRepoStub(): ComponentRepository {
   return {
@@ -56,6 +59,100 @@ describe('figma-db-sync-service', () => {
 
   after(() => {
     console.warn = originalConsoleWarn;
+  });
+
+  it('skips unreadable CSS files without aborting the usage scan', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-db-sync-css-'));
+    const dsId = 'sys-01';
+    const paths = resolveSystemPaths(dsId, tempRoot);
+    fs.mkdirSync(paths.outputDir, { recursive: true });
+
+    const primitivesPath = path.join(paths.outputDir, 'primitives.css');
+    const tokensPath = path.join(paths.outputDir, 'tokens.css');
+    fs.writeFileSync(primitivesPath, ':root { --color-ok: #ffffff; }', 'utf8');
+    fs.writeFileSync(tokensPath, ':root { --color-bad: #000000; }', 'utf8');
+    fs.chmodSync(tokensPath, 0o000);
+
+    const originalWarn = console.warn;
+    const warnCalls: unknown[][] = [];
+    console.warn = ((...args: unknown[]) => {
+      warnCalls.push(args);
+    }) as typeof console.warn;
+
+    try {
+      const result = buildTokenUsageRowsFromFilesystem({
+        dsId,
+        repoRoot: tempRoot,
+        tokenCatalog: {
+          entries: [
+            {
+              id: 'color.ok',
+              path: 'colors/ok',
+              $value: '#ffffff',
+              type: 'COLOR',
+              collection: 'Primitives',
+              cssVar: '--color-ok',
+            },
+          ],
+        },
+        aliases: [],
+      });
+
+      assert.equal(result.noSources, false);
+      assert.equal(result.warnings.length, 2);
+      assert.match(result.warnings[0], /Skipping unreadable CSS source/);
+      assert.match(result.warnings[1], /tokens\.css/);
+      assert.equal(warnCalls.length, 1);
+      assert.match(String(warnCalls[0][0]), /Skipping unreadable CSS source/);
+    } finally {
+      console.warn = originalWarn;
+      fs.chmodSync(tokensPath, 0o644);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('treats missing CSS files as missing sources without unreadable warnings', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-db-sync-css-missing-'));
+    const dsId = 'sys-01';
+    const paths = resolveSystemPaths(dsId, tempRoot);
+    fs.mkdirSync(paths.outputDir, { recursive: true });
+
+    const primitivesPath = path.join(paths.outputDir, 'primitives.css');
+    fs.writeFileSync(primitivesPath, ':root { --color-ok: #ffffff; }', 'utf8');
+
+    const originalWarn = console.warn;
+    const warnCalls: unknown[][] = [];
+    console.warn = ((...args: unknown[]) => {
+      warnCalls.push(args);
+    }) as typeof console.warn;
+
+    try {
+      const result = buildTokenUsageRowsFromFilesystem({
+        dsId,
+        repoRoot: tempRoot,
+        tokenCatalog: {
+          entries: [
+            {
+              id: 'color.ok',
+              path: 'colors/ok',
+              $value: '#ffffff',
+              type: 'COLOR',
+              collection: 'Primitives',
+              cssVar: '--color-ok',
+            },
+          ],
+        },
+        aliases: [],
+      });
+
+      assert.equal(result.noSources, false);
+      assert.equal(result.warnings.length, 1);
+      assert.match(result.warnings[0], /Missing CSS source for usage scan: .*tokens\.css/);
+      assert.equal(warnCalls.length, 0);
+    } finally {
+      console.warn = originalWarn;
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   const baseVariablesPayload = buildVariablesPayload({
