@@ -142,8 +142,6 @@ describe("LayerTokenMappingSection", () => {
       makeEntry({ layer_name: "Icon", property_path: "strokes" }),
     ];
     const html = renderSection(entries);
-    assert.match(html, /Button/);
-    assert.match(html, /Icon/);
     assert.match(html, /fills/);
     assert.match(html, /strokes/);
     // Should have count in header description

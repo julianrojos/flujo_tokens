@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Inbox, Unlink } from "lucide-react";
@@ -31,14 +31,12 @@ import { formatSyncedAt } from "@/lib/format-synced-at";
 import { resolveVariableRef } from "@/lib/token-reference";
 import { useSortState } from "@/lib/use-sort-state";
 import { toComponentDetail, toSystemAdmin, toSystemConsumerDetail, toSystemConsumers, toTokenDetail } from "@/lib/routes";
-import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
 import { buildConsumerTopComponentRankingRows } from "@/features/consumers/lib/consumer-top-component-ranking";
 import { cn } from "@/lib/utils";
 import type { TokenCatalog } from "@/types/token-catalog";
 import type { DsSyncRun, ImpactLevel } from "@/types/consumers";
 
-const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
-const PAGE_SIZE_ALL = "all";
 const RANKING_LIMIT = 10;
 const IMPACT_LEVEL_WEIGHT: Record<ImpactLevel, number> = {
   CRITICAL: 4,
@@ -93,8 +91,6 @@ export function ConsumersOverviewPage() {
   const { dsFileKey, loading: dsFileKeyLoading } = useDsFileKey();
   const { activeSystem } = useDesignSystem();
   const [searchQuery, setSearchQuery] = useState("");
-  const [consumerPageSize, setConsumerPageSize] = useState<string>("25");
-  const [consumerCurrentPage, setConsumerCurrentPage] = useState(1);
   const [componentSort, toggleComponentSort] = useSortState<ComponentRankingSortField>({
     field: "instances",
     dir: "desc",
@@ -209,53 +205,23 @@ export function ConsumersOverviewPage() {
     });
   }, [consumerSort, filteredConsumerRows]);
 
-  const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedConsumerRows.length)),
-    [sortedConsumerRows.length],
-  );
-  const pageSizeValue = consumerPageSize === PAGE_SIZE_ALL ? sortedConsumerRows.length : Number(consumerPageSize);
-  const shouldPaginate =
-    consumerPageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(pageSizeValue) &&
-    pageSizeValue > 0 &&
-    sortedConsumerRows.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedConsumerRows.length / pageSizeValue)) : 1;
-  const showPageSizeSelect = shouldShowPageSizeSelect(sortedConsumerRows.length);
-
-  useEffect(() => {
-    if (consumerPageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedConsumerRows.length)) {
-      setConsumerPageSize("25");
-      return;
-    }
-    if (consumerPageSize !== PAGE_SIZE_ALL) {
-      const numericValue = Number(consumerPageSize);
-      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
-        setConsumerPageSize(String(fallback));
-        return;
-      }
-    }
-    setConsumerCurrentPage(1);
-  }, [consumerPageSize, pageSizeOptions, searchQuery, sortedConsumerRows.length]);
-
-  useEffect(() => {
-    setConsumerCurrentPage((previous) => Math.min(previous, totalPages));
-  }, [totalPages]);
-
-  const pagedConsumerRows = useMemo(() => {
-    if (!shouldPaginate) return sortedConsumerRows;
-    const start = (consumerCurrentPage - 1) * pageSizeValue;
-    return sortedConsumerRows.slice(start, start + pageSizeValue);
-  }, [consumerCurrentPage, pageSizeValue, shouldPaginate, sortedConsumerRows]);
-
-  const pageStart = shouldPaginate
-    ? (consumerCurrentPage - 1) * pageSizeValue + 1
-    : sortedConsumerRows.length === 0
-      ? 0
-      : 1;
-  const pageEnd = shouldPaginate
-    ? Math.min(sortedConsumerRows.length, consumerCurrentPage * pageSizeValue)
-    : sortedConsumerRows.length;
+  const {
+    pageSize: consumerPageSize,
+    setPageSize: setConsumerPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage: consumerCurrentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedConsumerRows,
+  } = useTablePagination(sortedConsumerRows, {
+    resetKey: searchQuery,
+  });
   const sortedComponentRankingRows = useMemo(() => {
     return [...componentRankingRows]
       .sort((left, right) => {
@@ -413,7 +379,7 @@ export function ConsumersOverviewPage() {
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(sortedConsumerRows.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null
@@ -429,8 +395,8 @@ export function ConsumersOverviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setConsumerCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={consumerCurrentPage <= 1}
+                onClick={goPrevious}
+                disabled={consumerCurrentPage <= 1}
                 >
                   Prev
                 </Button>
@@ -440,8 +406,8 @@ export function ConsumersOverviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setConsumerCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={consumerCurrentPage >= totalPages}
+                onClick={goNext}
+                disabled={consumerCurrentPage >= totalPages}
                 >
                   Next
                 </Button>
@@ -550,8 +516,8 @@ export function ConsumersOverviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setConsumerCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={consumerCurrentPage <= 1}
+                onClick={goPrevious}
+                disabled={consumerCurrentPage <= 1}
                 >
                   Prev
                 </Button>
@@ -561,8 +527,8 @@ export function ConsumersOverviewPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setConsumerCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={consumerCurrentPage >= totalPages}
+                onClick={goNext}
+                disabled={consumerCurrentPage >= totalPages}
                 >
                   Next
                 </Button>

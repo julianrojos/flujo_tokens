@@ -2,7 +2,7 @@
  * Token Usage Section - displays usage by component.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,8 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { EmptyState } from "@/components/composites";
 import { toComponentDetail } from "@/lib/routes";
-import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
 import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
-
-const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
-const PAGE_SIZE_ALL = "all";
 
 interface TokenUsageFilters {
   componentMode: string;
@@ -50,8 +47,6 @@ export function TokenUsageSection({
     dir: "asc",
   });
   const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
-  const [pageSize, setPageSize] = useState<string>("25");
-  const [currentPage, setCurrentPage] = useState(1);
 
   const sortedComponentUsages = useMemo(() => {
     const rows = [...filteredComponentUsages];
@@ -74,49 +69,23 @@ export function TokenUsageSection({
     return rows;
   }, [filteredComponentUsages, sort]);
 
-  const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedComponentUsages.length)),
-    [sortedComponentUsages.length],
-  );
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedComponentUsages.length : Number(pageSize);
-  const shouldPaginate =
-    pageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(pageSizeValue) &&
-    pageSizeValue > 0 &&
-    sortedComponentUsages.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedComponentUsages.length / pageSizeValue)) : 1;
-  const showPageSizeSelect = shouldShowPageSizeSelect(sortedComponentUsages.length);
-
-  useEffect(() => {
-    if (pageSize !== PAGE_SIZE_ALL) {
-      const numericValue = Number(pageSize);
-      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
-        setPageSize(String(fallback));
-        return;
-      }
-    }
-    setCurrentPage(1);
-  }, [pageSize, pageSizeOptions, sortedComponentUsages.length]);
-
-  useEffect(() => {
-    setCurrentPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
-
-  const pagedComponentUsages = useMemo(() => {
-    if (!shouldPaginate) return sortedComponentUsages;
-    const start = (currentPage - 1) * pageSizeValue;
-    return sortedComponentUsages.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, sortedComponentUsages]);
-
-  const pageStart = shouldPaginate
-    ? (currentPage - 1) * pageSizeValue + 1
-    : sortedComponentUsages.length === 0
-      ? 0
-      : 1;
-  const pageEnd = shouldPaginate
-    ? Math.min(sortedComponentUsages.length, currentPage * pageSizeValue)
-    : sortedComponentUsages.length;
+  const {
+    pageSize,
+    setPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedComponentUsages,
+  } = useTablePagination(sortedComponentUsages, {
+    resetKey: `${filters.componentMode}|${filters.componentQuery}`,
+  });
 
   const toggleSort = (field: ComponentSortField) => {
     setSort((current) =>
@@ -175,7 +144,7 @@ export function TokenUsageSection({
                     {size}
                   </option>
                 ))}
-                {shouldAllowShowAll(sortedComponentUsages.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
               </Select>
             </div>
           ) : null}
@@ -191,7 +160,7 @@ export function TokenUsageSection({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={goPrevious}
                   disabled={currentPage <= 1}
                 >
                   Prev
@@ -202,7 +171,7 @@ export function TokenUsageSection({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={goNext}
                   disabled={currentPage >= totalPages}
                 >
                   Next

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useConsumerFilterParams } from "@/features/consumers/hooks/use-consumer-filter-params";
 import { useSortState } from "@/lib/use-sort-state";
-import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
 import { listConsumers, removeConsumer } from "@/lib/api";
 import { formatSyncedAt } from "@/lib/format-synced-at";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -43,9 +43,6 @@ interface RemoveCandidate {
 }
 
 type ConsumerSortField = "consumer" | "fileKey" | "lastSync";
-const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
-const PAGE_SIZE_ALL = "all";
-
 function getSyncedAtMs(value: string | null | undefined): number {
   if (!value) return Number.NEGATIVE_INFINITY;
   const syncedAt = new Date(value).getTime();
@@ -76,8 +73,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
   const [mutationError, setMutationError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [sort, toggleSort] = useSortState<ConsumerSortField>({ field: "lastSync", dir: "desc" });
-  const [pageSize, setPageSize] = useState<string>("25");
-  const [currentPage, setCurrentPage] = useState(1);
   const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
 
   const query = useQuery({
@@ -147,53 +142,23 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
     });
   }, [filteredConsumers, sort]);
 
-  const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, sortedConsumers.length)),
-    [sortedConsumers.length],
-  );
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? sortedConsumers.length : Number(pageSize);
-  const shouldPaginate =
-    pageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(pageSizeValue) &&
-    pageSizeValue > 0 &&
-    sortedConsumers.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(sortedConsumers.length / pageSizeValue)) : 1;
-  const showPageSizeSelect = shouldShowPageSizeSelect(sortedConsumers.length);
-
-  useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(sortedConsumers.length)) {
-      setPageSize("25");
-      return;
-    }
-    if (pageSize !== PAGE_SIZE_ALL) {
-      const numericValue = Number(pageSize);
-      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
-        setPageSize(String(fallback));
-        return;
-      }
-    }
-    setCurrentPage(1);
-  }, [pageSize, pageSizeOptions, searchQuery, sortedConsumers.length]);
-
-  useEffect(() => {
-    setCurrentPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
-
-  const pagedConsumers = useMemo(() => {
-    if (!shouldPaginate) return sortedConsumers;
-    const start = (currentPage - 1) * pageSizeValue;
-    return sortedConsumers.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, sortedConsumers]);
-
-  const pageStart = shouldPaginate
-    ? (currentPage - 1) * pageSizeValue + 1
-    : sortedConsumers.length === 0
-      ? 0
-      : 1;
-  const pageEnd = shouldPaginate
-    ? Math.min(sortedConsumers.length, currentPage * pageSizeValue)
-    : sortedConsumers.length;
+  const {
+    pageSize,
+    setPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedConsumers,
+  } = useTablePagination(sortedConsumers, {
+    resetKey: searchQuery,
+  });
   const rowLinkClassName = "text-foreground hover:text-primary";
 
   if (loading && consumers.length === 0) {
@@ -248,7 +213,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(sortedConsumers.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null}
@@ -282,7 +247,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onClick={goPrevious}
                 disabled={currentPage <= 1}
               >
                 Prev
@@ -293,7 +258,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                onClick={goNext}
                 disabled={currentPage >= totalPages}
               >
                 Next
@@ -387,7 +352,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onClick={goPrevious}
                 disabled={currentPage <= 1}
               >
                 Prev
@@ -398,7 +363,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                onClick={goNext}
                 disabled={currentPage >= totalPages}
               >
                 Next

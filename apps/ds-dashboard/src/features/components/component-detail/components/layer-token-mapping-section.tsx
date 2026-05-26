@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EmptyState, FilterBar } from "@/components/composites";
 import { Link } from "react-router-dom";
-import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
 import type { TokenCatalog } from "@/types/token-catalog";
 
 export interface LayerTokenMappingEntry {
@@ -38,9 +38,6 @@ interface LayerTokenMappingSectionProps {
 
 type SortField = "token" | "property" | "collection" | "variant" | "instances";
 type SortDirection = "asc" | "desc";
-const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
-const PAGE_SIZE_ALL = "all";
-
 type BindingWithCollection = {
   entry: LayerTokenMappingEntry;
   collection: string;
@@ -111,8 +108,6 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
   const [search, setSearch] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<string>("__all__");
   const [selectedCollection, setSelectedCollection] = useState<string>("__all__");
-  const [pageSize, setPageSize] = useState<string>("25");
-  const [currentPage, setCurrentPage] = useState(1);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDirection }>({
     field: "token",
     dir: "asc",
@@ -221,44 +216,23 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
     return sorted;
   }, [groupedSortedFilteredEntries, sort]);
 
-  const pageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.filter((size) => size <= Math.max(25, displayedEntries.length)),
-    [displayedEntries.length],
-  );
-  const showPageSizeSelect = shouldShowPageSizeSelect(displayedEntries.length);
-
-  const pageSizeValue = pageSize === PAGE_SIZE_ALL ? displayedEntries.length : Number(pageSize);
-  const shouldPaginate =
-    pageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(pageSizeValue) &&
-    pageSizeValue > 0 &&
-    displayedEntries.length > pageSizeValue;
-  const totalPages = shouldPaginate ? Math.max(1, Math.ceil(displayedEntries.length / pageSizeValue)) : 1;
-  useEffect(() => {
-    if (pageSize === PAGE_SIZE_ALL && !shouldAllowShowAll(displayedEntries.length)) {
-      setPageSize("25");
-      return;
-    }
-    if (pageSize !== PAGE_SIZE_ALL) {
-      const numericValue = Number(pageSize);
-      if (!pageSizeOptions.includes(numericValue as (typeof PAGE_SIZE_OPTIONS)[number])) {
-        const fallback = pageSizeOptions[pageSizeOptions.length - 1] ?? 25;
-        setPageSize(String(fallback));
-        return;
-      }
-    }
-    setCurrentPage(1);
-  }, [displayedEntries.length, pageSize, pageSizeOptions, search, selectedCollection, selectedVariant]);
-  useEffect(() => {
-    setCurrentPage((prev) => Math.min(prev, totalPages));
-  }, [totalPages]);
-  const pagedEntries = useMemo(() => {
-    if (!shouldPaginate) return displayedEntries;
-    const start = (currentPage - 1) * pageSizeValue;
-    return displayedEntries.slice(start, start + pageSizeValue);
-  }, [currentPage, pageSizeValue, shouldPaginate, displayedEntries]);
-  const pageStart = shouldPaginate ? (currentPage - 1) * pageSizeValue + 1 : displayedEntries.length === 0 ? 0 : 1;
-  const pageEnd = shouldPaginate ? Math.min(displayedEntries.length, currentPage * pageSizeValue) : displayedEntries.length;
+  const {
+    pageSize,
+    setPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedEntries,
+  } = useTablePagination(displayedEntries, {
+    resetKey: `${search}|${selectedVariant}|${selectedCollection}`,
+  });
 
   const hasFilteredEntries = displayedEntries.length > 0;
 
@@ -307,7 +281,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(displayedEntries.length) ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                    {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null
@@ -352,7 +326,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={goPrevious}
                       disabled={currentPage <= 1}
                     >
                       Prev
@@ -363,7 +337,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      onClick={goNext}
                       disabled={currentPage >= totalPages}
                     >
                       Next
@@ -461,7 +435,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={goPrevious}
                       disabled={currentPage <= 1}
                     >
                       Prev
@@ -472,7 +446,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      onClick={goNext}
                       disabled={currentPage >= totalPages}
                     >
                       Next
