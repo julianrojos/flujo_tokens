@@ -458,24 +458,28 @@ export function ConsumersOverviewPage() {
                     ariaLabel="Sort by consumer"
                     onSort={() => toggleConsumerSort("consumer")}
                     ariaSort={consumerSort.field === "consumer" ? consumerSortAriaSort : "none"}
+                    tooltip="Figma file that imports this design system."
                   />
                   <SortableTableHead
                     label="Components adoption"
                     ariaLabel="Sort by components adoption"
                     onSort={() => toggleConsumerSort("components")}
                     ariaSort={consumerSort.field === "components" ? consumerSortAriaSort : "none"}
+                    tooltip="DS components used by this consumer, out of the total available (used / total)."
                   />
                   <SortableTableHead
                     label="Variables adoption"
                     ariaLabel="Sort by variables adoption"
                     onSort={() => toggleConsumerSort("variables")}
                     ariaSort={consumerSort.field === "variables" ? consumerSortAriaSort : "none"}
+                    tooltip="DS variables (tokens) used by this consumer, out of the total available (used / total)."
                   />
                   <SortableTableHead
                     label="Import date"
                     ariaLabel="Sort by import date"
                     onSort={() => toggleConsumerSort("lastSynced")}
                     ariaSort={consumerSort.field === "lastSynced" ? consumerSortAriaSort : "none"}
+                    tooltip="Date of the last successful sync for this consumer."
                   />
                 </TableRow>
               </TableHeader>
@@ -587,30 +591,35 @@ export function ConsumersOverviewPage() {
                       ariaLabel="Sort by variable"
                       onSort={() => toggleVariableSort("variable")}
                       ariaSort={variableSort.field === "variable" ? variableSortAriaSort : "none"}
+                      tooltip="Design token name as defined in the DS."
                     />
                     <SortableTableHead
                       label="Impact"
                       ariaLabel="Sort by impact"
                       onSort={() => toggleVariableSort("impact")}
                       ariaSort={variableSort.field === "impact" ? variableSortAriaSort : "none"}
+                      tooltip="Change risk: how widely this token is used across consumers. Higher impact means more files and nodes are affected by modifications."
                     />
                     <SortableTableHead
                       label="Coverage"
                       ariaLabel="Sort by coverage"
                       onSort={() => toggleVariableSort("coverage")}
                       ariaSort={variableSort.field === "coverage" ? variableSortAriaSort : "none"}
+                      tooltip="% of active consumers that use this token. 100% means every consumer has at least one node bound to it."
                     />
                     <SortableTableHead
                       label="Consumers"
                       ariaLabel="Sort by consumers"
                       onSort={() => toggleVariableSort("consumers")}
                       ariaSort={variableSort.field === "consumers" ? variableSortAriaSort : "none"}
+                      tooltip="Number of consumer files with at least one node bound to this token."
                     />
                     <SortableTableHead
                       label="Nodes"
                       ariaLabel="Sort by total nodes"
                       onSort={() => toggleVariableSort("nodes")}
                       ariaSort={variableSort.field === "nodes" ? variableSortAriaSort : "none"}
+                      tooltip="Total Figma nodes bound to this token across all consumers."
                     />
                   </TableRow>
                 </TableHeader>
@@ -666,30 +675,35 @@ export function ConsumersOverviewPage() {
                       ariaLabel="Sort by component"
                       onSort={() => toggleComponentSort("component")}
                       ariaSort={componentSort.field === "component" ? componentSortAriaSort : "none"}
+                      tooltip="DS component name."
                     />
                     <SortableTableHead
                       label="Impact"
                       ariaLabel="Sort by impact"
                       onSort={() => toggleComponentSort("impact")}
                       ariaSort={componentSort.field === "impact" ? componentSortAriaSort : "none"}
+                      tooltip="Change risk: how widely this component is used across consumers. Higher impact means modifications affect more files and instances."
                     />
                     <SortableTableHead
                       label="Coverage"
                       ariaLabel="Sort by coverage"
                       onSort={() => toggleComponentSort("coverage")}
                       ariaSort={componentSort.field === "coverage" ? componentSortAriaSort : "none"}
+                      tooltip="% of active consumers that include at least one instance of this component."
                     />
                     <SortableTableHead
                       label="Consumers"
                       ariaLabel="Sort by consumers"
                       onSort={() => toggleComponentSort("consumers")}
                       ariaSort={componentSort.field === "consumers" ? componentSortAriaSort : "none"}
+                      tooltip="Number of consumer files that include at least one instance of this component."
                     />
                     <SortableTableHead
                       label="Instances"
                       ariaLabel="Sort by total instances"
                       onSort={() => toggleComponentSort("instances")}
                       ariaSort={componentSort.field === "instances" ? componentSortAriaSort : "none"}
+                      tooltip="Total component instances across all consumer files combined."
                     />
                   </TableRow>
                 </TableHeader>
