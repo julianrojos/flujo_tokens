@@ -10,7 +10,7 @@ import {
   toTokenDetail,
   toSystemOverview,
   toSystemAdmin,
-  toSystemConsumers,
+  toSystemConsumersOverview,
 } from '@/lib/routes';
 import {
   onCachedConsumerLabelUpdate,
@@ -118,7 +118,7 @@ function buildCrumbs(
         label: systemLabel,
         to: toSystemOverview(systemId),
       },
-      { label: 'Consumers' },
+      { label: 'Consumers', to: toSystemConsumersOverview(systemId) },
     ];
   }
 
@@ -134,7 +134,7 @@ function buildCrumbs(
       },
       {
         label: 'Consumers',
-        to: toSystemConsumers(systemId),
+        to: toSystemConsumersOverview(systemId),
       },
       { label: 'Overview' },
     ];
@@ -218,7 +218,7 @@ function buildCrumbs(
       },
       {
         label: 'Consumers',
-        to: toSystemConsumers(systemId),
+        to: toSystemConsumersOverview(systemId),
       },
       { label: options?.consumerDetailLabel || rawConsumerName },
     ];
