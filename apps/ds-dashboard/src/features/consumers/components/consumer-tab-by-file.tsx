@@ -318,9 +318,9 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
                 ariaSort={sort.field === "fileKey" ? sortAriaSort : "none"}
               />
               <SortableTableHead
-                label="Last sync"
+                label="Import date"
                 onSort={() => toggleSort("lastSync")}
-                ariaLabel="Sort by last sync"
+                ariaLabel="Sort by import date"
                 ariaSort={sort.field === "lastSync" ? sortAriaSort : "none"}
               />
               <TableHead showSortIcon={false} className="normal-case">Actions</TableHead>

@@ -11,7 +11,6 @@ import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
-import { ConsumerSyncStatusBadge } from "@/features/consumers/components/consumer-sync-status-badge";
 import {
   buildConsumerOverviewRows,
   buildConsumerOverviewSummary,
@@ -50,7 +49,7 @@ const IMPACT_LEVEL_WEIGHT: Record<ImpactLevel, number> = {
 
 type ComponentRankingSortField = "component" | "impact" | "coverage" | "consumers" | "instances";
 type VariableRankingSortField = "variable" | "impact" | "coverage" | "consumers" | "nodes";
-type ConsumerAdoptionSortField = "consumer" | "components" | "variables" | "status" | "lastSynced";
+type ConsumerAdoptionSortField = "consumer" | "components" | "variables" | "lastSynced";
 
 function formatAdoption(used: number, total: number, percent: number | null): string {
   if (total <= 0) return "—";
@@ -71,19 +70,6 @@ function compareStringValues(left: string, right: string, dir: "asc" | "desc") {
 
 function compareImpactValues(left: ImpactLevel, right: ImpactLevel, dir: "asc" | "desc") {
   return compareNumberValues(IMPACT_LEVEL_WEIGHT[left], IMPACT_LEVEL_WEIGHT[right], dir);
-}
-
-const CONSUMER_STATUS_WEIGHT: Record<NonNullable<DsSyncRun["status"]>, number> = {
-  error: 4,
-  partial: 3,
-  ok: 2,
-  skipped: 1,
-};
-
-function compareSyncStatusValues(left: DsSyncRun | undefined, right: DsSyncRun | undefined, dir: "asc" | "desc") {
-  const leftValue = left ? CONSUMER_STATUS_WEIGHT[left.status] ?? 0 : 0;
-  const rightValue = right ? CONSUMER_STATUS_WEIGHT[right.status] ?? 0 : 0;
-  return compareNumberValues(leftValue, rightValue, dir);
 }
 
 function getSyncedAtValue(syncRun: DsSyncRun | undefined): number | null {
@@ -207,9 +193,6 @@ export function ConsumersOverviewPage() {
           if (comparison === 0) {
             comparison = compareNumberValues(left.variableUsage.used, right.variableUsage.used, consumerSort.dir);
           }
-          break;
-        case "status":
-          comparison = compareSyncStatusValues(left.latestSync, right.latestSync, consumerSort.dir);
           break;
         case "lastSynced":
           comparison = compareNumberValues(
@@ -489,14 +472,8 @@ export function ConsumersOverviewPage() {
                     ariaSort={consumerSort.field === "variables" ? consumerSortAriaSort : "none"}
                   />
                   <SortableTableHead
-                    label="Sync status"
-                    ariaLabel="Sort by sync status"
-                    onSort={() => toggleConsumerSort("status")}
-                    ariaSort={consumerSort.field === "status" ? consumerSortAriaSort : "none"}
-                  />
-                  <SortableTableHead
-                    label="Last synced"
-                    ariaLabel="Sort by last synced"
+                    label="Import date"
+                    ariaLabel="Sort by import date"
                     onSort={() => toggleConsumerSort("lastSynced")}
                     ariaSort={consumerSort.field === "lastSynced" ? consumerSortAriaSort : "none"}
                   />
@@ -524,9 +501,6 @@ export function ConsumersOverviewPage() {
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {formatAdoption(row.variableUsage.used, row.variableUsage.total, row.variableUsage.adoptionPercent)}
-                    </TableCell>
-                    <TableCell>
-                      <ConsumerSyncStatusBadge latestSync={row.latestSync} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatSyncedAt(row.latestSync?.syncedAt, "Never")}
