@@ -33,6 +33,19 @@ async function waitForValue(values: string[], expected: string, timeoutMs = 500)
   throw new Error(`Timed out waiting for ${expected}`);
 }
 
+async function waitForActiveCount(
+  engine: { queueMetrics: () => { active: number } },
+  expected: number,
+  timeoutMs = 1000,
+): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (engine.queueMetrics().active === expected) return;
+    await sleep(10);
+  }
+  throw new Error(`Timed out waiting for active count ${expected}`);
+}
+
 function createEngine(overrides: Record<string, unknown> = {}) {
   const operationEvents: Array<Record<string, unknown>> = [];
   const engine = createQueueEngineService({
@@ -242,6 +255,81 @@ test("queue-engine-service: cancel running job transitions to cancelled terminal
   await sleep(80);
   assert.equal(job.status, "cancelled");
   assert.ok(job.result === undefined || job.result?.ok === false);
+});
+
+test("queue-engine-service: cancelled running job does not preserve execute result payload", async () => {
+  const { engine } = createEngine({ jobTimeoutMs: 1000 });
+  const job = engine.enqueueQueueJob({
+    label: "running-job-payload",
+    systemId: "core",
+    operationName: "test:cancel-running-payload",
+    execute: async () => {
+      await sleep(50);
+      return {
+        ok: true,
+        code: 7,
+        summary: "finished after cancel",
+        payload: { preserved: true },
+      };
+    },
+  });
+
+  await sleep(10);
+  const result = engine.cancelQueueJob(job.id);
+  assert.deepEqual(result, { ok: true });
+  await waitForFinal(job);
+  await sleep(80);
+
+  assert.equal(job.status, "cancelled");
+  assert.equal(job.finishedAt !== undefined, true);
+  assert.equal(job.result?.ok, false);
+  assert.equal(job.result?.code, 1);
+  assert.equal(job.result?.summary, "Cancelled.");
+  assert.equal(job.result?.payload, undefined);
+});
+
+test("queue-engine-service: cancelled hung job is killed by the watchdog and releases the queue", async () => {
+  const { engine } = createEngine({ jobTimeoutMs: 40 });
+  const killSignals: string[] = [];
+  const completion = deferred<{ ok: boolean; code?: number; summary?: string }>();
+
+  const job = engine.enqueueQueueJob({
+    label: "hung-job",
+    systemId: "core",
+    operationName: "test:cancel-hung",
+    execute: async ({ setProcess }) => {
+      setProcess({
+        killed: false,
+        kill: (signal = "SIGTERM") => {
+          killSignals.push(signal);
+          if (signal === "SIGKILL") {
+            completion.resolve({
+              ok: false,
+              code: 1,
+              summary: "Killed after cancel.",
+            });
+          }
+        },
+      });
+      return completion.promise;
+    },
+  });
+
+  await sleep(10);
+  const result = engine.cancelQueueJob(job.id);
+  assert.deepEqual(result, { ok: true });
+  assert.equal(job.status, "cancelled");
+  assert.ok(job.finishedAt);
+  assert.equal(job.result?.summary, "Cancelled.");
+
+  await waitForActiveCount(engine, 0, 500);
+  await sleep(10);
+
+  assert.ok(killSignals.includes("SIGTERM"));
+  assert.ok(killSignals.includes("SIGKILL"));
+  assert.equal(engine.queueMetrics().active, 0);
+  assert.equal(job.status, "cancelled");
+  assert.ok(job.finishedAt);
 });
 
 test("queue-engine-service: timeout marks job as error code 124", async () => {

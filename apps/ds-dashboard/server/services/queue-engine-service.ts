@@ -216,18 +216,20 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
     const timeoutMessage = `Job timed out after ${Math.round(jobTimeoutMs / 1000)} seconds.`;
     let didTimeout = false;
     const timeoutId = setTimeout(() => {
-      if (job.status !== "running" || didTimeout) return;
+      if ((job.status !== "running" && job.status !== "cancelled") || didTimeout) return;
       didTimeout = true;
-      appendQueueJobEvent(job, {
-        type: "error",
-        message: timeoutMessage,
-      });
       if (job.process && !job.process.killed) {
         try {
           job.process.kill("SIGKILL");
         } catch {
           // ignore
         }
+      }
+      if (job.status === "running") {
+        appendQueueJobEvent(job, {
+          type: "error",
+          message: timeoutMessage,
+        });
       }
     }, jobTimeoutMs);
 
@@ -242,6 +244,10 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
         },
         isCancelled: () => job.status === "cancelled",
       });
+
+      if (job.finishedAt) {
+        return;
+      }
 
       if (didTimeout) {
         job.status = "error";
@@ -275,38 +281,6 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
             ok: false,
             code: job.result.code,
             summary: timeoutMessage,
-          },
-        });
-        return;
-      }
-
-      if (job.status === "cancelled") {
-        const summary = result.summary || "Cancelled.";
-        job.result = { ...result, ok: false, summary };
-        job.finishedAt = nowIso();
-        appendQueueJobEvent(job, {
-          type: "end",
-          status: "cancelled",
-          code: typeof result.code === "number" ? result.code : 1,
-          summary,
-          payload: result.payload,
-        });
-        emitOperationEvent({
-          timestamp: job.finishedAt,
-          eventType: "job.finished",
-          operation: job.operationName,
-          systemId: job.systemId,
-          status: "cancelled",
-          durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-          requestId: job.requestId,
-          jobId: job.id,
-          sourceEventId: job.sourceEventId,
-          inputHash: job.inputHash,
-          outputHash: hashUnknown(result?.payload),
-          result: {
-            ok: false,
-            code: typeof result.code === "number" ? result.code : 1,
-            summary,
           },
         });
         return;
@@ -374,6 +348,9 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
             ...(structuredMessage ? { message: structuredMessage } : {}),
           }
         : undefined;
+      if (job.finishedAt) {
+        return;
+      }
       job.status = "error";
       job.result = {
         ok: false,
@@ -533,7 +510,37 @@ export function createQueueEngineService(config: QueueEngineServiceConfig): Queu
     }
 
     job.status = "cancelled";
+    job.finishedAt = nowIso();
     appendQueueJobEvent(job, { type: "status", status: "cancelled" });
+    job.result = {
+      ok: false,
+      code: 1,
+      summary: "Cancelled.",
+    };
+    appendQueueJobEvent(job, {
+      type: "end",
+      status: "cancelled",
+      code: 1,
+      summary: "Cancelled.",
+    });
+    emitOperationEvent({
+      timestamp: job.finishedAt,
+      eventType: "job.finished",
+      operation: job.operationName,
+      systemId: job.systemId,
+      status: "cancelled",
+      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+      requestId: job.requestId,
+      jobId: job.id,
+      sourceEventId: job.sourceEventId,
+      inputHash: job.inputHash,
+      outputHash: null,
+      result: {
+        ok: false,
+        code: 1,
+        summary: "Cancelled.",
+      },
+    });
     if (job.process && !job.process.killed) {
       job.process.kill("SIGTERM");
     }
