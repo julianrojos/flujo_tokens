@@ -38,6 +38,7 @@ import {
   getCachedComponentSnapshot,
   setCachedComponentSnapshot,
 } from './component-snapshot-cache.ts';
+import { createPreviewCache } from './preview-cache.ts';
 import { getCachedPrewarmComponentSnapshot } from './figma-prewarm-snapshot-cache.ts';
 import {
   getFreshCachedFigmaFileVersion,
@@ -87,24 +88,18 @@ const syncDiffDryRunInflightByKey = new Map<
 >();
 const SYNC_PREVIEW_CACHE_TTL_MS = 30 * 60 * 1000;
 const SYNC_PREVIEW_CACHE_MAX_ENTRIES = 300;
-const syncDiffDryRunResultCacheByKey = new Map<
-  string,
-  {
-    systemId: string;
-    cachedAt: number;
-    value: SyncDiffDryRunResult;
+const syncDiffDryRunResultCache = createPreviewCache<SyncDiffDryRunResult>({
+  ttlMs: SYNC_PREVIEW_CACHE_TTL_MS,
+  maxEntries: SYNC_PREVIEW_CACHE_MAX_ENTRIES,
+});
+const syncVariablesDryRunResultCache = createPreviewCache<
+  ReturnType<typeof summarizeVariablesStep> & {
+    _debug?: SyncVariablesDryRunDebug;
   }
->();
-const syncVariablesDryRunResultCacheByKey = new Map<
-  string,
-  {
-    systemId: string;
-    cachedAt: number;
-    value: ReturnType<typeof summarizeVariablesStep> & {
-      _debug?: SyncVariablesDryRunDebug;
-    };
-  }
->();
+>({
+  ttlMs: SYNC_PREVIEW_CACHE_TTL_MS,
+  maxEntries: SYNC_PREVIEW_CACHE_MAX_ENTRIES,
+});
 const syncVariablesDryRunInflightByKey = new Map<
   string,
   Promise<
@@ -157,44 +152,8 @@ function buildSyncVariablesDryRunInflightKey(input: {
   });
 }
 
-function pruneSyncPreviewCacheEntriesByAge(
-  map: Map<string, { cachedAt: number }>,
-  nowMs: number,
-): void {
-  for (const [key, entry] of map.entries()) {
-    if (nowMs - entry.cachedAt > SYNC_PREVIEW_CACHE_TTL_MS) {
-      map.delete(key);
-    }
-  }
-}
-
-function pruneSyncPreviewCacheEntriesBySize(map: Map<string, unknown>): void {
-  while (map.size > SYNC_PREVIEW_CACHE_MAX_ENTRIES) {
-    const oldestKey = map.keys().next().value;
-    if (!oldestKey) break;
-    map.delete(oldestKey);
-  }
-}
-
-function getCachedSyncDiffPreviewResult(
-  key: string,
-):
-  | SyncDiffDryRunResult
-  | null {
-  const nowMs = Date.now();
-  pruneSyncPreviewCacheEntriesByAge(syncDiffDryRunResultCacheByKey, nowMs);
-  const cached = syncDiffDryRunResultCacheByKey.get(key);
-  if (!cached) return null;
-  if (nowMs - cached.cachedAt > SYNC_PREVIEW_CACHE_TTL_MS) {
-    syncDiffDryRunResultCacheByKey.delete(key);
-    return null;
-  }
-  syncDiffDryRunResultCacheByKey.delete(key);
-  syncDiffDryRunResultCacheByKey.set(key, {
-    ...cached,
-    cachedAt: nowMs,
-  });
-  return cached.value;
+function getCachedSyncDiffPreviewResult(key: string): SyncDiffDryRunResult | null {
+  return syncDiffDryRunResultCache.get(key);
 }
 
 function setCachedSyncDiffPreviewResult(
@@ -202,34 +161,33 @@ function setCachedSyncDiffPreviewResult(
   systemId: string,
   value: SyncDiffDryRunResult,
 ): void {
-  const nowMs = Date.now();
-  pruneSyncPreviewCacheEntriesByAge(syncDiffDryRunResultCacheByKey, nowMs);
-  syncDiffDryRunResultCacheByKey.set(key, {
-    systemId: toTrimmedString(systemId),
-    cachedAt: nowMs,
-    value,
-  });
-  pruneSyncPreviewCacheEntriesBySize(syncDiffDryRunResultCacheByKey);
+  syncDiffDryRunResultCache.set(key, systemId, value);
 }
 
 function clearSyncDiffPreviewCacheForSystem(systemId: string): void {
-  const normalizedSystemId = toTrimmedString(systemId);
-  if (!normalizedSystemId) return;
-  for (const [key, entry] of syncDiffDryRunResultCacheByKey.entries()) {
-    if (entry.systemId === normalizedSystemId) {
-      syncDiffDryRunResultCacheByKey.delete(key);
-    }
-  }
+  syncDiffDryRunResultCache.clearForSystem(systemId);
+}
+
+function getCachedSyncVariablesPreviewResult(
+  key: string,
+): (ReturnType<typeof summarizeVariablesStep> & {
+  _debug?: SyncVariablesDryRunDebug;
+}) | null {
+  return syncVariablesDryRunResultCache.get(key);
+}
+
+function setCachedSyncVariablesPreviewResult(
+  key: string,
+  systemId: string,
+  value: ReturnType<typeof summarizeVariablesStep> & {
+    _debug?: SyncVariablesDryRunDebug;
+  },
+): void {
+  syncVariablesDryRunResultCache.set(key, systemId, value);
 }
 
 function clearSyncVariablesPreviewCacheForSystem(systemId: string): void {
-  const normalizedSystemId = toTrimmedString(systemId);
-  if (!normalizedSystemId) return;
-  for (const [key, entry] of syncVariablesDryRunResultCacheByKey.entries()) {
-    if (entry.systemId === normalizedSystemId) {
-      syncVariablesDryRunResultCacheByKey.delete(key);
-    }
-  }
+  syncVariablesDryRunResultCache.clearForSystem(systemId);
 }
 
 export function computeDesignSystemImportCoverage(
@@ -375,44 +333,6 @@ function toDurationMs(value: unknown): number | undefined {
 
 function formatDurationMs(durationMs: number): string {
   return `${Math.max(0, Math.round(durationMs))} ms`;
-}
-
-function getCachedSyncVariablesPreviewResult(
-  key: string,
-): (ReturnType<typeof summarizeVariablesStep> & {
-  _debug?: SyncVariablesDryRunDebug;
-}) | null {
-  const nowMs = Date.now();
-  pruneSyncPreviewCacheEntriesByAge(syncVariablesDryRunResultCacheByKey, nowMs);
-  const cached = syncVariablesDryRunResultCacheByKey.get(key);
-  if (!cached) return null;
-  if (nowMs - cached.cachedAt > SYNC_PREVIEW_CACHE_TTL_MS) {
-    syncVariablesDryRunResultCacheByKey.delete(key);
-    return null;
-  }
-  syncVariablesDryRunResultCacheByKey.delete(key);
-  syncVariablesDryRunResultCacheByKey.set(key, {
-    ...cached,
-    cachedAt: nowMs,
-  });
-  return cached.value;
-}
-
-function setCachedSyncVariablesPreviewResult(
-  key: string,
-  systemId: string,
-  value: ReturnType<typeof summarizeVariablesStep> & {
-    _debug?: SyncVariablesDryRunDebug;
-  },
-): void {
-  const nowMs = Date.now();
-  pruneSyncPreviewCacheEntriesByAge(syncVariablesDryRunResultCacheByKey, nowMs);
-  syncVariablesDryRunResultCacheByKey.set(key, {
-    systemId: toTrimmedString(systemId),
-    cachedAt: nowMs,
-    value,
-  });
-  pruneSyncPreviewCacheEntriesBySize(syncVariablesDryRunResultCacheByKey);
 }
 
 function buildNoPluginSocketForFileMessage(figmaFileId: string): string {
