@@ -169,11 +169,6 @@ export function WizardStepImport({
         </div>
 
         <ModalFooter className="justify-end">
-          {overviewHref ? (
-            <Link to={overviewHref} className={cn(buttonVariants({ variant: "default" }))}>
-              Go to System overview
-            </Link>
-          ) : null}
           {showTokensLink ? (
             <Link to="/tokens" className={cn(buttonVariants({ variant: "outline" }))}>
               View tokens
@@ -182,6 +177,11 @@ export function WizardStepImport({
           <Link to="/components" className={cn(buttonVariants({ variant: "outline" }))}>
             View components
           </Link>
+          {overviewHref ? (
+            <Link to={overviewHref} className={cn(buttonVariants({ variant: "default" }))}>
+              Go to System overview
+            </Link>
+          ) : null}
         </ModalFooter>
       </div>
     );

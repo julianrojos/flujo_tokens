@@ -392,7 +392,7 @@ export function NewSystemPage() {
           collectionsImported: null,
           collectionsTotal: null,
           variablesImported: importedTokens,
-          variablesTotal: null,
+          variablesTotal: importedTokens,
         });
       } catch (error) {
         if (stopped) return;
