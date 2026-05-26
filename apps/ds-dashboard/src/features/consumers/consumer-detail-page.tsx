@@ -8,14 +8,6 @@ import { Card } from "@/components/ui/card";
 import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { ArrowLeft, ChevronDown, ChevronRight, Inbox, Unlink } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
-import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import {
-  listConsumers,
-  fetchReportByComponent,
-  fetchReportByVariable,
-  fetchComponentCatalog,
-  fetchTokenCatalog,
-} from "@/lib/api";
 import { Select } from "@/components/ui/select";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +15,6 @@ import { useSortState } from "@/lib/use-sort-state";
 import { cn } from "@/lib/utils";
 import { dedupeSampleNodes } from "@/lib/sample-node-utils";
 import {
-  buildComponentLookupMap,
   extractComponentParentAlias,
   normalizeComponentLookupKey,
   resolveKnownComponentSlug,
@@ -32,75 +23,29 @@ import {
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
-import { shouldAllowShowAll, shouldShowPageSizeSelect } from "@/lib/table-pagination";
-import type {
-  DsConsumer,
-  DsSyncRun,
-  ComponentUsageReport,
-  VariableUsageReport,
-  SampleNodeRef,
-} from "@/types/consumers";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
+import type { SampleNodeRef } from "@/types/consumers";
 import type { ComponentCatalogItem } from "@/types/component-catalog";
 import { getComponentTableDisplayInfo } from "./lib/component-table-display";
 import { ConsumerSampleLinksModal } from "./components/consumer-sample-links-modal";
 import { groupByParentComponent } from "./lib/component-grouping";
+import { useConsumerDetailData } from "./hooks/use-consumer-detail-data";
+import {
+  resolveVariableTokenEntry,
+} from "./lib/consumer-detail-lookups";
 
 type ConsumerUsageTab = "components" | "variables";
 type VariableSortField = "variableName" | "nodes" | "variableType" | "collection";
 type ComponentSortField = "parentName" | "totalInstances" | "impactLevel";
 type ComponentStatusFilter = "all" | "imported" | "not-imported";
 
-const PAGE_SIZE_OPTIONS = [25, 50, 75, 100, 125, 150, 175] as const;
-const PAGE_SIZE_ALL = "all";
 const CONSUMER_USAGE_TABS: Array<{ id: ConsumerUsageTab; label: string }> = [
   { id: "variables", label: "Variables Usage" },
   { id: "components", label: "Components Usage" },
 ];
 
-function normalizeTokenLookupKey(value: string): string {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/^_+/, "")
-    .replace(/^semanticos[./]/, "")
-    .replace(/^primitivos[./]/, "")
-    .replace(/^theme[./]/, "")
-    .replace(/^tokens?[./]/, "")
-    .replace(/^--+/, "")
-    .replace(/[._]+/g, "/")
-    .replace(/\/+/g, "/")
-    .replace(/^\/+|\/+$/g, "");
-}
-
-type TokenLookupEntry = {
-  path: string;
-  slashPath: string;
-  collection: string;
-};
-
-function normalizeLookupKey(value: string): string {
-  return String(value || "").trim().toLowerCase();
-}
-
 function normalizeFilterText(value: string): string {
   return String(value || "").trim().toLowerCase();
-}
-
-function resolveVariableTokenEntry(
-  variableName: string,
-  variableKey: string,
-  exactLookup: Record<string, TokenLookupEntry>,
-  fallbackLookup: Record<string, TokenLookupEntry | null>,
-): TokenLookupEntry | null {
-  const variableNameExact = normalizeLookupKey(variableName);
-  const variableKeyExact = normalizeLookupKey(variableKey);
-  return (
-    (variableNameExact && exactLookup[variableNameExact]) ||
-    (variableKeyExact && exactLookup[variableKeyExact]) ||
-    fallbackLookup[normalizeTokenLookupKey(variableName)] ||
-    fallbackLookup[normalizeTokenLookupKey(variableKey)] ||
-    null
-  );
 }
 
 function renderComponentName(
@@ -169,30 +114,32 @@ function ConsumerUsageTabsNav({
 export function ConsumerDetailPage() {
   const { consumerName } = useParams<{ consumerName: string }>();
   const { dsFileKey, loading: dsFileKeyLoading } = useDsFileKey();
-  const [consumer, setConsumer] = useState<(DsConsumer & { latestSync?: DsSyncRun }) | null>(null);
-  const [components, setComponents] = useState<ComponentUsageReport[]>([]);
-  const [variables, setVariables] = useState<VariableUsageReport[]>([]);
-  const [componentSlugByLookup, setComponentSlugByLookup] = useState<Record<string, string>>({});
-  const [componentCatalogItems, setComponentCatalogItems] = useState<ComponentCatalogItem[]>([]);
-  const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
-  const [tokenByLookup, setTokenByLookup] = useState<Record<string, TokenLookupEntry | null>>({});
+  const {
+    consumer,
+    components,
+    variables,
+    lookups: {
+      componentSlugByLookup,
+      tokenByExactLookup,
+      tokenByLookup,
+    },
+    catalogs: {
+      componentCatalogItems,
+    },
+    loading,
+    error,
+  } = useConsumerDetailData(consumerName, dsFileKey, dsFileKeyLoading);
   const [activeUsageTab, setActiveUsageTab] = useState<ConsumerUsageTab>("variables");
   const [variableSort, toggleVariableSort] = useSortState<VariableSortField>({ field: "variableName", dir: "asc" });
   const [componentSort, toggleComponentSort] = useSortState<ComponentSortField>({ field: "impactLevel", dir: "asc" });
   const [componentSearch, setComponentSearch] = useState("");
   const [componentStatusFilter, setComponentStatusFilter] = useState<ComponentStatusFilter>("all");
-  const [componentPageSize, setComponentPageSize] = useState<string>("25");
-  const [componentCurrentPage, setComponentCurrentPage] = useState(1);
   const [variableSearch, setVariableSearch] = useState("");
   const [variableTypeFilter, setVariableTypeFilter] = useState("all");
-  const [variablePageSize, setVariablePageSize] = useState<string>("25");
-  const [variableCurrentPage, setVariableCurrentPage] = useState(1);
   const [sampleLinksModal, setSampleLinksModal] = useState<{
     title: string;
     sampleNodes: SampleNodeRef[];
   } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const consumerId = consumer?.id ?? "";
   const componentSortAriaSort = componentSort.dir === "asc" ? "ascending" : "descending";
@@ -205,109 +152,6 @@ export function ConsumerDetailPage() {
       return next;
     });
   }
-
-  useEffect(() => {
-    const loadData = async () => {
-      if (!consumerName || dsFileKeyLoading) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (!dsFileKey) {
-          setError(toApiErrorDisplay(new Error("No figmaFileId found for active system"), {
-            fallbackTitle: "Configuration error",
-            fallbackMessage: "Set the Figma File ID in Design Systems Admin.",
-          }));
-          setLoading(false);
-          return;
-        }
-
-        const consumersResponse = await listConsumers(dsFileKey);
-        const foundConsumer = consumersResponse.data.find(
-          (c) => c.consumerName === consumerName,
-        );
-        if (!foundConsumer) {
-          setError(toApiErrorDisplay(new Error("Consumer not found"), {
-            fallbackTitle: "Consumer not found",
-            fallbackMessage: "No consumer file matches the requested name.",
-          }));
-          setLoading(false);
-          return;
-        }
-        setConsumer(foundConsumer);
-
-        // Load component and variable reports
-        const [componentsResponse, variablesResponse, componentCatalog, tokenCatalog] = await Promise.all([
-          fetchReportByComponent(dsFileKey),
-          fetchReportByVariable(dsFileKey),
-          fetchComponentCatalog().catch((cause) => {
-            console.warn("[consumer-detail] Component registry fetch failed", cause);
-            return { components: [] };
-          }),
-          fetchTokenCatalog().catch((cause) => {
-            console.warn("[consumer-detail] Token registry fetch failed", cause);
-            return { entries: [] };
-          }),
-        ]);
-        setComponents(componentsResponse.data || []);
-        setVariables(variablesResponse.data || []);
-        setComponentCatalogItems(componentCatalog.components || []);
-        setComponentSlugByLookup(buildComponentLookupMap(componentCatalog.components || []));
-        const tokenLookup = (tokenCatalog.entries || []).reduce<{
-          exact: Record<string, TokenLookupEntry>;
-          fallback: Record<string, TokenLookupEntry | null>;
-        }>(
-          (acc, entry) => {
-            const path = String(entry.path || "").trim();
-            if (!path) return acc;
-            const slashPath = String(entry.slashPath || "").trim();
-            const cssVar = String(entry.cssVar || "").trim();
-            const collection = String(entry.collection || "").trim();
-            const tokenEntry: TokenLookupEntry = { path, slashPath, collection };
-
-            const exactKeys = [normalizeLookupKey(path), normalizeLookupKey(slashPath), normalizeLookupKey(cssVar)].filter(
-              Boolean,
-            );
-            for (const key of exactKeys) {
-              acc.exact[key] = tokenEntry;
-            }
-
-            const fallbackKeys = [
-              normalizeTokenLookupKey(path),
-              normalizeTokenLookupKey(slashPath),
-              normalizeTokenLookupKey(cssVar),
-            ].filter(Boolean);
-            for (const key of fallbackKeys) {
-              if (!(key in acc.fallback)) {
-                acc.fallback[key] = tokenEntry;
-                continue;
-              }
-              const existing = acc.fallback[key];
-              if (existing && existing.path !== tokenEntry.path) {
-                // Ambiguous normalized key; disable fallback for this key.
-                acc.fallback[key] = null;
-              }
-            }
-
-            return acc;
-          },
-          { exact: {}, fallback: {} },
-        );
-        setTokenByExactLookup(tokenLookup.exact);
-        setTokenByLookup(tokenLookup.fallback);
-      } catch (cause) {
-        setError(toApiErrorDisplay(cause, {
-          fallbackTitle: "Load consumer failed",
-          fallbackMessage: "Unable to load consumer details.",
-        }));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadData();
-  }, [consumerName, dsFileKey, dsFileKeyLoading]);
 
   useEffect(() => {
     if (!consumerName || !consumer?.consumerName) return;
@@ -398,38 +242,23 @@ export function ConsumerDetailPage() {
     variableTypeFilter,
     variableSort,
   ]);
-
-  useEffect(() => {
-    setVariableCurrentPage(1);
-  }, [variablePageSize, variableSearch, variableTypeFilter, variableSort]);
-
-  const variablePageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
-    [],
-  );
-  const variablePageSizeValue =
-    variablePageSize === PAGE_SIZE_ALL ? filteredVariables.length : Number(variablePageSize);
-  const shouldPaginateVariables =
-    variablePageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(variablePageSizeValue) &&
-    variablePageSizeValue > 0 &&
-    filteredVariables.length > variablePageSizeValue;
-  const variableTotalPages = shouldPaginateVariables
-    ? Math.max(1, Math.ceil(filteredVariables.length / variablePageSizeValue))
-    : 1;
-  const variablePagedRows = useMemo(() => {
-    if (!shouldPaginateVariables) return filteredVariables;
-    const start = (variableCurrentPage - 1) * variablePageSizeValue;
-    return filteredVariables.slice(start, start + variablePageSizeValue);
-  }, [filteredVariables, shouldPaginateVariables, variableCurrentPage, variablePageSizeValue]);
-  const variablePageStart = shouldPaginateVariables
-    ? (variableCurrentPage - 1) * variablePageSizeValue + 1
-    : filteredVariables.length === 0
-      ? 0
-      : 1;
-  const variablePageEnd = shouldPaginateVariables
-    ? Math.min(filteredVariables.length, variableCurrentPage * variablePageSizeValue)
-    : filteredVariables.length;
+  const {
+    pageSize: variablePageSize,
+    setPageSize: setVariablePageSize,
+    pageSizeOptions: variablePageSizeOptions,
+    showPageSizeSelect: showVariablePageSizeSelect,
+    allowShowAll: allowVariableShowAll,
+    currentPage: variableCurrentPage,
+    totalPages: variableTotalPages,
+    pageStart: variablePageStart,
+    pageEnd: variablePageEnd,
+    shouldPaginate: shouldPaginateVariables,
+    goPrevious: goVariablePrevious,
+    goNext: goVariableNext,
+    pagedItems: variablePagedRows,
+  } = useTablePagination(filteredVariables, {
+    resetKey: `${variableSearch}|${variableTypeFilter}|${variableSort.field}|${variableSort.dir}`,
+  });
 
   const componentDisplayNameBySlug = useMemo(
     () => new Map(componentCatalogItems.map((item) => [item.slug, item.display_name])),
@@ -534,45 +363,23 @@ export function ConsumerDetailPage() {
     componentSlugByLookup,
     componentStatusFilter,
   ]);
-
-  const componentPageSizeOptions = useMemo(
-    () => PAGE_SIZE_OPTIONS.map((size) => String(size)),
-    [],
-  );
-  const componentPageSizeValue =
-    componentPageSize === PAGE_SIZE_ALL ? filteredComponentGroups.length : Number(componentPageSize);
-  const shouldPaginateComponents =
-    componentPageSize !== PAGE_SIZE_ALL &&
-    Number.isFinite(componentPageSizeValue) &&
-    componentPageSizeValue > 0 &&
-    filteredComponentGroups.length > componentPageSizeValue;
-  const componentTotalPages = shouldPaginateComponents
-    ? Math.max(1, Math.ceil(filteredComponentGroups.length / componentPageSizeValue))
-    : 1;
-  const showComponentPageSizeSelect = shouldShowPageSizeSelect(filteredComponentGroups.length);
-
-  useEffect(() => {
-    setComponentCurrentPage(1);
-  }, [componentPageSize, componentSearch, componentSort, componentStatusFilter]);
-
-  useEffect(() => {
-    setComponentCurrentPage((prev) => Math.min(prev, componentTotalPages));
-  }, [componentTotalPages]);
-
-  const pagedComponentGroups = useMemo(() => {
-    if (!shouldPaginateComponents) return filteredComponentGroups;
-    const start = (componentCurrentPage - 1) * componentPageSizeValue;
-    return filteredComponentGroups.slice(start, start + componentPageSizeValue);
-  }, [componentCurrentPage, componentPageSizeValue, filteredComponentGroups, shouldPaginateComponents]);
-
-  const componentPageStart = shouldPaginateComponents
-    ? (componentCurrentPage - 1) * componentPageSizeValue + 1
-    : filteredComponentGroups.length === 0
-      ? 0
-      : 1;
-  const componentPageEnd = shouldPaginateComponents
-    ? Math.min(filteredComponentGroups.length, componentCurrentPage * componentPageSizeValue)
-    : filteredComponentGroups.length;
+  const {
+    pageSize: componentPageSize,
+    setPageSize: setComponentPageSize,
+    pageSizeOptions: componentPageSizeOptions,
+    showPageSizeSelect: showComponentPageSizeSelect,
+    allowShowAll: allowComponentShowAll,
+    currentPage: componentCurrentPage,
+    totalPages: componentTotalPages,
+    pageStart: componentPageStart,
+    pageEnd: componentPageEnd,
+    shouldPaginate: shouldPaginateComponents,
+    goPrevious: goComponentPrevious,
+    goNext: goComponentNext,
+    pagedItems: pagedComponentGroups,
+  } = useTablePagination(filteredComponentGroups, {
+    resetKey: `${componentSearch}|${componentStatusFilter}|${componentSort.field}|${componentSort.dir}`,
+  });
 
   const consumerFileKey = consumer?.consumerFileKey || dsFileKey || "";
 
@@ -700,9 +507,7 @@ export function ConsumerDetailPage() {
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(filteredComponentGroups.length) ? (
-                      <option value={PAGE_SIZE_ALL}>All</option>
-                    ) : null}
+                    {allowComponentShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null
@@ -728,7 +533,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setComponentCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={goComponentPrevious}
                   disabled={componentCurrentPage <= 1}
                 >
                   Prev
@@ -739,7 +544,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setComponentCurrentPage((prev) => Math.min(componentTotalPages, prev + 1))}
+                  onClick={goComponentNext}
                   disabled={componentCurrentPage >= componentTotalPages}
                 >
                   Next
@@ -944,8 +749,8 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setComponentCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={componentCurrentPage <= 1}
+                onClick={goComponentPrevious}
+                disabled={componentCurrentPage <= 1}
                 >
                   Prev
                 </Button>
@@ -955,8 +760,8 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setComponentCurrentPage((prev) => Math.min(componentTotalPages, prev + 1))}
-                  disabled={componentCurrentPage >= componentTotalPages}
+                onClick={goComponentNext}
+                disabled={componentCurrentPage >= componentTotalPages}
                 >
                   Next
                 </Button>
@@ -980,7 +785,7 @@ export function ConsumerDetailPage() {
             searchAriaLabel="Search variables"
             count={filteredVariables.length}
             rightSlot={
-              shouldShowPageSizeSelect(filteredVariables.length) ? (
+              showVariablePageSizeSelect ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Rows</span>
                   <Select
@@ -994,9 +799,7 @@ export function ConsumerDetailPage() {
                         {size}
                       </option>
                     ))}
-                    {shouldAllowShowAll(filteredVariables.length) ? (
-                      <option value={PAGE_SIZE_ALL}>All</option>
-                    ) : null}
+                    {allowVariableShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
                   </Select>
                 </div>
               ) : null
@@ -1025,7 +828,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setVariableCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={goVariablePrevious}
                   disabled={variableCurrentPage <= 1}
                 >
                   Prev
@@ -1036,7 +839,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setVariableCurrentPage((prev) => Math.min(variableTotalPages, prev + 1))}
+                  onClick={goVariableNext}
                   disabled={variableCurrentPage >= variableTotalPages}
                 >
                   Next
@@ -1146,7 +949,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setVariableCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={goVariablePrevious}
                   disabled={variableCurrentPage <= 1}
                 >
                   Prev
@@ -1157,7 +960,7 @@ export function ConsumerDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setVariableCurrentPage((prev) => Math.min(variableTotalPages, prev + 1))}
+                  onClick={goVariableNext}
                   disabled={variableCurrentPage >= variableTotalPages}
                 >
                   Next
