@@ -184,7 +184,9 @@ export function loadPersistedSyncState(
     }
     return {
       jobId: String(parsed.jobId || '').trim() || undefined,
-      error: String(parsed.error || '').trim() || undefined,
+      error: String(parsed.jobId || '').trim()
+        ? String(parsed.error || '').trim() || undefined
+        : undefined,
       updatedAt: String(parsed.updatedAt || '').trim() || undefined,
       steps: (() => {
         const components = toSyncStepStateFromPersisted(parsed.steps.components);
@@ -636,69 +638,6 @@ export function DesignSystemUpdateActions({
     );
   }, [suggestedUrl]);
 
-  useEffect(() => {
-    const persisted = loadPersistedSyncState(systemId);
-    if (!persisted) {
-      setHasTriggeredSyncInView(false);
-      setSyncSteps(cloneEmptySyncState());
-      setSyncError('');
-      setActiveSyncJobId(null);
-      setActiveSyncOperation(null);
-      setSyncSuccessModal(null);
-      lastSyncSuccessSignatureRef.current = '';
-      return;
-    }
-    setHasTriggeredSyncInView(false);
-    setSyncSteps(persisted.steps);
-    setSyncError(persisted.error || '');
-    setSyncSuccessModal(null);
-    lastSyncSuccessSignatureRef.current = '';
-    if (!persisted.jobId) return;
-
-    let cancelled = false;
-    void getQueueJob(persisted.jobId)
-      .then((jobState) => {
-        if (cancelled) return;
-        const hydrated = extractQueueJobState(jobState, persisted.steps);
-        const job = jobState?.job;
-        if (!hydrated) {
-          setActiveSyncJobId(null);
-          setActiveSyncOperation(null);
-          return;
-        }
-        setSyncSteps(hydrated.steps);
-        setSyncError(hydrated.error || '');
-        if (job?.status === 'running') {
-          setActiveSyncJobId(job.id);
-          setActiveSyncOperation(toActiveSyncOperation(job.operation));
-          return;
-        }
-        setActiveSyncJobId(null);
-        setActiveSyncOperation(null);
-      })
-      .catch((cause) => {
-        if (
-          cause instanceof ApiError &&
-          cause.status === 404 &&
-          cause.code === 'queue.job_not_found'
-        ) {
-          clearPersistedSyncState(systemId);
-          if (cancelled) return;
-          setHasTriggeredSyncInView(false);
-          setSyncSteps(cloneEmptySyncState());
-          setSyncError('');
-          setActiveSyncJobId(null);
-          setActiveSyncOperation(null);
-          return;
-        }
-        // Keep the local persisted snapshot if the server lookup fails.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [systemId]);
-
   const overallSyncStatus = useMemo(
     () =>
       resolveOverallSyncStatus({
@@ -937,6 +876,70 @@ export function DesignSystemUpdateActions({
     persistSyncState(syncSteps, pending.jobId, pending.error);
   }, [persistSyncState, syncSteps]);
 
+  useEffect(() => {
+    const persisted = loadPersistedSyncState(systemId);
+    if (!persisted) {
+      setHasTriggeredSyncInView(false);
+      setSyncSteps(cloneEmptySyncState());
+      setSyncError('');
+      setActiveSyncJobId(null);
+      setActiveSyncOperation(null);
+      setSyncSuccessModal(null);
+      lastSyncSuccessSignatureRef.current = '';
+      return;
+    }
+    setHasTriggeredSyncInView(false);
+    setSyncSteps(persisted.steps);
+    setSyncError('');
+    setSyncSuccessModal(null);
+    lastSyncSuccessSignatureRef.current = '';
+    if (!persisted.jobId) return;
+
+    let cancelled = false;
+    void getQueueJob(persisted.jobId)
+      .then((jobState) => {
+        if (cancelled) return;
+        const hydrated = extractQueueJobState(jobState, persisted.steps);
+        const job = jobState?.job;
+        if (!hydrated) {
+          setActiveSyncJobId(null);
+          setActiveSyncOperation(null);
+          return;
+        }
+        setSyncSteps(hydrated.steps);
+        if (job?.status === 'running') {
+          setActiveSyncJobId(job.id);
+          setActiveSyncOperation(toActiveSyncOperation(job.operation));
+          return;
+        }
+        setActiveSyncJobId(null);
+        setActiveSyncOperation(null);
+        setSyncError('');
+        persistSyncState(hydrated.steps, job?.id, '');
+      })
+      .catch((cause) => {
+        if (
+          cause instanceof ApiError &&
+          cause.status === 404 &&
+          cause.code === 'queue.job_not_found'
+        ) {
+          clearPersistedSyncState(systemId);
+          if (cancelled) return;
+          setHasTriggeredSyncInView(false);
+          setSyncSteps(cloneEmptySyncState());
+          setSyncError('');
+          setActiveSyncJobId(null);
+          setActiveSyncOperation(null);
+          return;
+        }
+        // Keep the local persisted snapshot if the server lookup fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [persistSyncState, systemId]);
+
   const cancelSync = useCallback(async () => {
     const jobId = activeSyncJobId;
     if (!jobId) return;
@@ -1164,6 +1167,39 @@ export function DesignSystemUpdateActions({
               : '';
           setSyncError(syncError);
           if (!overallFailed) {
+            const syncStatus = resolveOverallSyncStatus({
+              components: nextComponentsState.status,
+              variables: nextVariablesState.status,
+              tokens: nextTokensState.status,
+            });
+            const baseMessage =
+              syncStatus === 'completed_with_warnings'
+                ? 'Design system sync completed with warnings.'
+                : 'Design system sync completed successfully.';
+            const tokensTimingDetail = getTokensTimingDetail(nextTokensState);
+            const successMessage = tokensTimingDetail
+              ? `${baseMessage} ${tokensTimingDetail}`
+              : baseMessage;
+            const signature = [
+              syncSteps.components.jobId || '',
+              syncSteps.variables.jobId || '',
+              tokensResult.jobId || '',
+              nextComponentsState.status,
+              nextVariablesState.status,
+              nextTokensState.status,
+              nextComponentsState.summary?.headline || '',
+              nextVariablesState.summary?.headline || '',
+              nextTokensState.summary?.headline || '',
+              successMessage,
+            ].join('|');
+            lastSyncSuccessSignatureRef.current = signature;
+            setSyncSuccessModal(
+              buildSyncSuccessModalState(successMessage, {
+                components: nextComponentsState,
+                variables: nextVariablesState,
+                tokens: nextTokensState,
+              }),
+            );
             // Invalidate the design-systems-config cache so that any page
             // using the ['design-systems-config'] query key (e.g. components
             // page KPI counts) receives fresh data after this sync completes.

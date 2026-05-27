@@ -60,4 +60,31 @@ describe('design-system-update-actions storage helpers', () => {
       restore();
     }
   });
+
+  it('does not restore stale sync errors when no job id is stored', () => {
+    const storage = new Map<string, string>();
+    const restore = installFakeWindow(storage);
+    try {
+      const key = 'ds-design-system-sync-state:core';
+      storage.set(
+        key,
+        JSON.stringify({
+          systemId: 'core',
+          updatedAt: '2026-05-12T00:00:00.000Z',
+          error: 'Variables sync failed.',
+          steps: {
+            components: { status: 'completed', summary: null, jobId: 'job_1' },
+            variables: { status: 'failed', summary: null, jobId: 'job_1' },
+            tokens: { status: 'failed', summary: null, jobId: 'job_1' },
+          },
+        }),
+      );
+
+      const loaded = loadPersistedSyncState('core');
+      assert.equal(loaded?.error, undefined);
+      assert.equal(loaded?.steps.variables.status, 'failed');
+    } finally {
+      restore();
+    }
+  });
 });

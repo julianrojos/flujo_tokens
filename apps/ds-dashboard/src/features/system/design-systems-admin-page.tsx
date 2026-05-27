@@ -140,8 +140,11 @@ export function DesignSystemsAdminPage() {
     };
   }, [targetSystem]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading !== false;
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const config = await fetchDesignSystemsConfig();
@@ -171,7 +174,9 @@ export function DesignSystemsAdminPage() {
         }),
       );
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [replaceSystems]);
 
@@ -183,7 +188,7 @@ export function DesignSystemsAdminPage() {
   }, []);
 
   const handleRunSuccess = useCallback(() => {
-    void load();
+    void load({ showLoading: false });
   }, [load]);
 
   const setBusy = (id: string, value: boolean) => {
