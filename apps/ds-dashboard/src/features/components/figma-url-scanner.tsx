@@ -45,6 +45,7 @@ interface ExistingComponentScanModalState {
 const FIGMA_TOKEN_STORAGE_KEY = "ds-dashboard.figma-token.enc.v1";
 const FIGMA_TOKEN_SESSION_KEY = "ds-dashboard.figma-token.key.v1";
 const FIGMA_TOKEN_TTL_MS = 15 * 60 * 1000;
+let sessionKey: Uint8Array | null = null;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -64,11 +65,15 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 function getOrCreateSessionKey(): Uint8Array {
+  if (sessionKey) return sessionKey;
   const existing = sessionStorage.getItem(FIGMA_TOKEN_SESSION_KEY);
-  if (existing) return base64ToBytes(existing);
-  const fresh = crypto.getRandomValues(new Uint8Array(32));
-  sessionStorage.setItem(FIGMA_TOKEN_SESSION_KEY, bytesToBase64(fresh));
-  return fresh;
+  if (existing) {
+    sessionKey = base64ToBytes(existing);
+    return sessionKey;
+  }
+  sessionKey = crypto.getRandomValues(new Uint8Array(32));
+  sessionStorage.setItem(FIGMA_TOKEN_SESSION_KEY, bytesToBase64(sessionKey));
+  return sessionKey;
 }
 
 async function encryptToken(token: string): Promise<string> {
@@ -101,12 +106,10 @@ async function decryptToken(serialized: string): Promise<string | null> {
   if (parsed.v !== 1 || !parsed.iv || !parsed.data) return null;
   if (!parsed.expiresAt || parsed.expiresAt < Date.now()) return null;
 
-  const sessionKey = sessionStorage.getItem(FIGMA_TOKEN_SESSION_KEY);
-  if (!sessionKey) return null;
-
+  const keyMaterial = getOrCreateSessionKey();
   const key = await crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(base64ToBytes(sessionKey)),
+    toArrayBuffer(keyMaterial),
     "AES-GCM",
     false,
     ["decrypt"],
