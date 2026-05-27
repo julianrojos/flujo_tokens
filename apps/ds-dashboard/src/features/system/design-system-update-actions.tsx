@@ -1089,7 +1089,11 @@ export function DesignSystemUpdateActions({
             progress: null,
           };
           updateStepState('tokens', failedTokensState);
-          const overallError = result.warnings[0] || 'Sync failed.';
+          const overallError =
+            nextVariablesState.summary?.headline ||
+            nextVariablesState.summary?.warnings?.[0] ||
+            result.warnings[0] ||
+            'Sync failed.';
           setSyncError(overallError);
           persistSyncState(
             { components: nextComponentsState, variables: nextVariablesState, tokens: failedTokensState },

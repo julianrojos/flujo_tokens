@@ -552,6 +552,11 @@ function summarizeVariablesStep(result: unknown): SyncVariablesDryRunStepResult 
     const message = toTrimmedString(payload.error) || toTrimmedString(payload.message);
     if (message) warnings.push(message);
   }
+  const failureReason =
+    warnings
+      .slice()
+      .reverse()
+      .find((warning) => String(warning || '').trim().length > 0) || '';
   const status =
     payload.ok === false
       ? 'failed'
@@ -562,7 +567,9 @@ function summarizeVariablesStep(result: unknown): SyncVariablesDryRunStepResult 
     status,
     summary:
       status === 'failed'
-        ? 'Variables sync failed.'
+        ? failureReason
+          ? `Variables sync failed: ${failureReason}`
+          : 'Variables sync failed.'
         : status === 'completed_with_warnings'
           ? 'Variables synced with warnings.'
           : 'Variables synced.',
@@ -3517,10 +3524,10 @@ export async function handleSyncDesignSystemStepRoute(
         const jobResult = {
           ok: false,
           code: 1,
-          summary: 'Variables sync failed.',
+          summary: reason ? `Variables sync failed: ${reason}` : 'Variables sync failed.',
           payload: {
             status: 'failed',
-            summary: 'Variables sync failed.',
+            summary: reason ? `Variables sync failed: ${reason}` : 'Variables sync failed.',
             warnings: [reason],
             counts: {
               tokens: 0,
@@ -3873,7 +3880,7 @@ export async function handleSyncDesignSystemRoute(
       emitChunk('result', `Variables sync failed after ${formatDurationMs(durationMs)}.`);
       return {
         status: 'failed' as const,
-        summary: 'Variables sync failed.',
+        summary: reason ? `Variables sync failed: ${reason}` : 'Variables sync failed.',
         warnings: [reason],
         counts: {
           tokens: 0,

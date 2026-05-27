@@ -2189,6 +2189,7 @@ describe('command-routes', () => {
       assert.equal(runResult.payload?.steps?.components?.status, 'failed');
       assert.equal(runResult.payload?.steps?.variables?.status, 'failed');
     });
+
   });
 
   describe('/api/sync-design-system/step/:step', () => {
@@ -2258,6 +2259,49 @@ describe('command-routes', () => {
       assert.equal(runCalls[0]?.commandEnv?.DB_PROVIDER, 'local');
       assert.equal(runResult.payload?.status, 'completed');
       assert.equal(runResult.payload?.summary, 'Components synced.');
+    });
+
+    it('surfaces the variable sync failure reason when rerunning the variables step', async () => {
+      let queuedArgs: any = null;
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123',
+          figmaToken: 'token_123',
+        }),
+        db: {} as any,
+        componentRepo: {
+          getAll: () => [],
+          upsertFromRegistry: () => 1,
+        } as any,
+        syncDesignSystemFromPluginFn: async () => {
+          throw new Error(
+            'Cannot read variables from Figma file "abc123" because no plugin socket is connected for that file. Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
+          );
+        },
+        enqueueQueueJob: (args: any) => {
+          queuedArgs = args;
+          return { id: 'sync_design_system_step_variables_job' };
+        },
+      });
+
+      const res = await app.request('/api/sync-design-system/step/variables', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(typeof queuedArgs?.execute, 'function');
+
+      const runResult = await queuedArgs.execute({
+        emitChunk: () => {},
+        setProcess: () => {},
+      });
+
+      assert.equal(runResult.ok, false);
+      assert.match(
+        String(runResult.payload?.summary ?? ''),
+        /no plugin socket is connected for that file/i,
+      );
+      assert.match(
+        String(runResult.payload?.warnings?.[0] ?? ''),
+        /no plugin socket is connected for that file/i,
+      );
     });
 
     it('emits timing information for the token step', async () => {
