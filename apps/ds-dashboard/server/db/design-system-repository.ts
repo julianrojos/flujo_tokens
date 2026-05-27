@@ -344,6 +344,7 @@ export class DesignSystemRepository {
       // Legacy tokens table was created before design_systems existed and may
       // not have an FK in older migrated schemas.
       await tx`DELETE FROM tokens WHERE ds_id = ${id}`;
+      await tx`DELETE FROM figma_aliases WHERE ds_id = ${id}`;
       const documentChunksTable = (await tx`
         SELECT to_regclass('document_chunks') AS regclass
       `) as Array<{ regclass: string | null }>;

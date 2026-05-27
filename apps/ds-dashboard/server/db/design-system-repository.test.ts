@@ -140,6 +140,27 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(fetched, null);
         });
 
+        it('deletes figma aliases for the design system being removed', async () => {
+            await repo.create({
+                id: 'alias-cleanup',
+                name: 'Alias Cleanup',
+            });
+            await sql`
+                INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+                VALUES ('alias-cleanup', 'color.alias.from', 'color.alias.to', '[]'::jsonb)
+            `;
+
+            const deleted = await repo.delete('alias-cleanup');
+            assert.strictEqual(deleted, true);
+
+            const remaining = (await sql`
+                SELECT COUNT(*)::int AS count
+                FROM figma_aliases
+                WHERE ds_id = 'alias-cleanup'
+            `) as Array<{ count: number }>;
+            assert.strictEqual(remaining[0]?.count ?? -1, 0);
+        });
+
         it('deletes a design system even when document_chunks is absent', async () => {
             const queries: string[] = [];
             const tx = async (
