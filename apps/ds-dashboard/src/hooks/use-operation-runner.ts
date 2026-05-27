@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { getActiveSystemId } from "@/lib/api";
 import {
   buildOperationSystemHeaders,
@@ -33,6 +33,12 @@ export interface OperationRunnerOptions {
 const STORAGE_KEY_PREFIX = "ops:lastRunAt:";
 const JOB_POLL_INTERVAL_MS = 900;
 const JOB_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
+
+function createAbortError(): Error {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
 
 function buildStorageKey(systemId: string | undefined, operationId: string): string {
   const storageScope = String(systemId || "global").trim() || "global";
@@ -79,9 +85,43 @@ export function useOperationRunner(
   const [elapsedMs, setElapsedMs] = useState<number | undefined>(undefined);
 
   const startTimeRef = useRef<number | undefined>(undefined);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const runIdRef = useRef(0);
+
+  const clearPollingTimer = useCallback(() => {
+    if (pollingTimerRef.current === null) return;
+    window.clearTimeout(pollingTimerRef.current);
+    pollingTimerRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      runIdRef.current += 1;
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      clearPollingTimer();
+    };
+  }, [clearPollingTimer]);
 
   const run = useCallback(
     async (params?: Record<string, unknown>) => {
+      abortControllerRef.current?.abort();
+      clearPollingTimer();
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const runId = runIdRef.current + 1;
+      runIdRef.current = runId;
+
+      const isStaleRun = () =>
+        runIdRef.current !== runId || controller.signal.aborted;
+      const throwIfStale = () => {
+        if (isStaleRun()) {
+          throw createAbortError();
+        }
+      };
+
       setStatus("running");
       setLogLines([]);
       setSummary("");
@@ -118,10 +158,12 @@ export function useOperationRunner(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...systemHeaders
+            ...systemHeaders,
           },
+          signal: controller.signal,
           body: params ? JSON.stringify(params) : undefined,
         });
+        throwIfStale();
 
         const contentType = response.headers.get("Content-Type") ?? "";
         const isSSE = contentType.includes("text/event-stream");
@@ -211,24 +253,33 @@ export function useOperationRunner(
           const decoder = new TextDecoder();
           if (!reader) throw new Error("No readable stream from response.");
 
-          let buffer = "";
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value) {
-              buffer += decoder.decode(value, { stream: true });
-              let splitAt = buffer.indexOf("\n\n");
-              while (splitAt >= 0) {
-                const eventBlock = buffer.slice(0, splitAt);
-                buffer = buffer.slice(splitAt + 2);
-                processSseBlock(eventBlock);
-                splitAt = buffer.indexOf("\n\n");
+          try {
+            let buffer = "";
+            while (true) {
+              throwIfStale();
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) {
+                buffer += decoder.decode(value, { stream: true });
+                let splitAt = buffer.indexOf("\n\n");
+                while (splitAt >= 0) {
+                  const eventBlock = buffer.slice(0, splitAt);
+                  buffer = buffer.slice(splitAt + 2);
+                  processSseBlock(eventBlock);
+                  splitAt = buffer.indexOf("\n\n");
+                }
               }
             }
-          }
 
-          const remaining = buffer.trim();
-          if (remaining) processSseBlock(remaining);
+            const remaining = buffer.trim();
+            if (remaining) processSseBlock(remaining);
+          } finally {
+            try {
+              await reader.cancel();
+            } catch {
+              // ignore cleanup errors
+            }
+          }
         };
 
         const pollQueuedJob = async (statusUrl: string) => {
@@ -243,7 +294,9 @@ export function useOperationRunner(
                 Accept: "application/json",
                 ...systemHeaders,
               },
+              signal: controller.signal,
             });
+            throwIfStale();
             if (!pollResponse.ok) {
               throw new Error(`Polling failed: HTTP ${pollResponse.status}`);
             }
@@ -279,8 +332,26 @@ export function useOperationRunner(
               return;
             }
 
-            await new Promise<void>((resolve) => {
-              window.setTimeout(resolve, JOB_POLL_INTERVAL_MS);
+            await new Promise<void>((resolve, reject) => {
+              const timeoutId = window.setTimeout(() => {
+                pollingTimerRef.current = null;
+                controller.signal.removeEventListener("abort", onAbort);
+                resolve();
+              }, JOB_POLL_INTERVAL_MS);
+              pollingTimerRef.current = timeoutId;
+
+              const onAbort = () => {
+                window.clearTimeout(timeoutId);
+                pollingTimerRef.current = null;
+                reject(createAbortError());
+              };
+
+              if (controller.signal.aborted) {
+                onAbort();
+                return;
+              }
+
+              controller.signal.addEventListener("abort", onAbort, { once: true });
             });
           }
 
@@ -289,6 +360,7 @@ export function useOperationRunner(
 
         if (isSSE) {
           await consumeSse(response);
+          throwIfStale();
           if (!receivedEndEvent && !isError) {
             isError = true;
             finalSummary = "Stream ended without completion event";
@@ -301,16 +373,18 @@ export function useOperationRunner(
             const streamUrl = String(data.streamUrl ?? "").trim();
             const statusUrl = String(data.statusUrl ?? "").trim() || `/api/jobs/${encodeURIComponent(jobId)}`;
 
-              if (streamUrl) {
-                try {
+            if (streamUrl) {
+              try {
                 const streamResponse = await fetch(streamUrl, {
                   headers: {
                     Accept: "text/event-stream",
                     ...systemHeaders,
                   },
+                  signal: controller.signal,
                 });
                 await consumeSse(streamResponse);
               } catch {
+                throwIfStale();
                 pushLogLines("SSE disconnected; continuing with polling.", "system");
               }
             }
@@ -319,11 +393,11 @@ export function useOperationRunner(
               await pollQueuedJob(statusUrl);
             }
 
-              if (!receivedEndEvent && !isError) {
-                isError = true;
-                finalSummary = "The operation did not report a final status.";
-              }
-            } else {
+            if (!receivedEndEvent && !isError) {
+              isError = true;
+              finalSummary = "The operation did not report a final status.";
+            }
+          } else {
             isError = !response.ok || data.ok === false;
 
             const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
@@ -378,6 +452,7 @@ export function useOperationRunner(
           }
         }
 
+        throwIfStale();
         const elapsed = Date.now() - (startTimeRef.current ?? Date.now());
         setElapsedMs(elapsed);
         setStatus(isError ? "error" : "success");
@@ -394,14 +469,24 @@ export function useOperationRunner(
           onRunSuccess?.();
         }
       } catch (err: unknown) {
+        if (isStaleRun() || (err instanceof Error && err.name === "AbortError")) {
+          return;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         setStatus("error");
         setSummary(`Error: ${msg}`);
         setLogLines((prev) => [...prev, { text: msg, kind: "stderr" }]);
         setElapsedMs(Date.now() - (startTimeRef.current ?? Date.now()));
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+        if (runIdRef.current === runId) {
+          clearPollingTimer();
+        }
       }
     },
-    [endpoint, options?.systemId, storedKey, onRunSuccess]
+    [clearPollingTimer, endpoint, options?.systemId, storedKey, onRunSuccess],
   );
 
   const clearLogs = useCallback(() => {
