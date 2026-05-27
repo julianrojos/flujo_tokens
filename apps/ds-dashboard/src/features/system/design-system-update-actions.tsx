@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 
 import { FormField } from '@/components/common';
 import { Input } from '@/components/ui/input';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@/components/ui/overlay';
+import { StatusAlert } from '@/components/ui/status-alert';
 import {
   ApiError,
   cancelQueueJob,
@@ -24,6 +34,8 @@ import {
 } from '@/features/system/design-system-update-actions-logic';
 import { SyncDiffPreview } from '@/features/system/SyncDiffPreview';
 import { useDesignSystemSyncPreview } from '@/features/system/hooks/use-design-system-sync-preview';
+import { toSystemOverview } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 function toSuggestedFigmaUrl(figmaFileId: string | null | undefined): string {
   const trimmed = String(figmaFileId || '').trim();
@@ -43,6 +55,15 @@ type SyncStepState = {
   status: SyncStepStatus;
   summary: SyncStepSummary | null;
   progress: CaptureFigmaProgress | null;
+};
+
+type SyncSuccessModalState = {
+  message: string;
+  stepLines: Array<{
+    label: string;
+    summary: SyncStepSummary | null;
+  }>;
+  warnings: string[];
 };
 
 const EMPTY_SYNC_STEP_STATE: SyncStepState = {
@@ -409,6 +430,47 @@ function buildFailedSummary(
   };
 }
 
+function formatSyncSuccessStepLine(
+  label: string,
+  summary: SyncStepSummary | null,
+): string {
+  const headline = String(summary?.headline || '').trim();
+  const details = (summary?.details || [])
+    .map((detail) => String(detail || '').trim())
+    .filter(Boolean);
+  if (!headline && details.length === 0) {
+    return `${label} synced.`;
+  }
+  if (details.length === 0) {
+    return headline || `${label} synced.`;
+  }
+  return `${headline || `${label} synced.`} ${details.join(' · ')}`;
+}
+
+function buildSyncSuccessModalState(
+  syncOutcomeMessage: string,
+  steps: Record<SyncStepKey, SyncStepState>,
+): SyncSuccessModalState {
+  const warnings = Array.from(
+    new Set(
+      (['components', 'variables', 'tokens'] as SyncStepKey[])
+        .flatMap((step) => steps[step].summary?.warnings || [])
+        .map((warning) => String(warning || '').trim())
+        .filter(Boolean),
+    ),
+  );
+
+  return {
+    message: syncOutcomeMessage,
+    stepLines: [
+      { label: 'Components', summary: steps.components.summary },
+      { label: 'Variables', summary: steps.variables.summary },
+      { label: 'Tokens', summary: steps.tokens.summary },
+    ],
+    warnings,
+  };
+}
+
 function toProgressPercentFromStep(step: SyncStepState): number {
   const progress = step.progress;
   if (progress && progress.total > 0) {
@@ -522,7 +584,9 @@ export function DesignSystemUpdateActions({
   const [hasTriggeredSyncInView, setHasTriggeredSyncInView] = useState(false);
   const [activeSyncJobId, setActiveSyncJobId] = useState<string | null>(null);
   const [activeSyncOperation, setActiveSyncOperation] = useState<'full' | SyncStepKey | null>(null);
+  const [syncSuccessModal, setSyncSuccessModal] = useState<SyncSuccessModalState | null>(null);
   const syncRunIdRef = useRef(0);
+  const lastSyncSuccessSignatureRef = useRef<string>('');
   const pendingSyncPersistRef = useRef<{
     jobId?: string;
     error?: string;
@@ -580,11 +644,15 @@ export function DesignSystemUpdateActions({
       setSyncError('');
       setActiveSyncJobId(null);
       setActiveSyncOperation(null);
+      setSyncSuccessModal(null);
+      lastSyncSuccessSignatureRef.current = '';
       return;
     }
     setHasTriggeredSyncInView(false);
     setSyncSteps(persisted.steps);
     setSyncError(persisted.error || '');
+    setSyncSuccessModal(null);
+    lastSyncSuccessSignatureRef.current = '';
     if (!persisted.jobId) return;
 
     let cancelled = false;
@@ -807,6 +875,26 @@ export function DesignSystemUpdateActions({
     syncSteps,
   ]);
 
+  useEffect(() => {
+    if (!hasTriggeredSyncInView) return;
+    if (syncOutcome?.status !== 'success') return;
+    const signature = [
+      syncSteps.components.jobId || '',
+      syncSteps.variables.jobId || '',
+      syncSteps.tokens.jobId || '',
+      syncSteps.components.status,
+      syncSteps.variables.status,
+      syncSteps.tokens.status,
+      syncSteps.components.summary?.headline || '',
+      syncSteps.variables.summary?.headline || '',
+      syncSteps.tokens.summary?.headline || '',
+      syncOutcome.message,
+    ].join('|');
+    if (lastSyncSuccessSignatureRef.current === signature) return;
+    lastSyncSuccessSignatureRef.current = signature;
+    setSyncSuccessModal(buildSyncSuccessModalState(syncOutcome.message, syncSteps));
+  }, [hasTriggeredSyncInView, syncOutcome, syncSteps]);
+
   const updateStepState = useCallback(
     (
       step: SyncStepKey,
@@ -890,6 +978,8 @@ export function DesignSystemUpdateActions({
       syncRunIdRef.current = nextRunId;
       setHasTriggeredSyncInView(true);
       setSyncError('');
+      setSyncSuccessModal(null);
+      lastSyncSuccessSignatureRef.current = '';
       resetSyncDiffPreview();
 
       if (!url) {
@@ -1216,6 +1306,8 @@ export function DesignSystemUpdateActions({
     const retryRunId = syncRunIdRef.current + 1;
     syncRunIdRef.current = retryRunId;
     setHasTriggeredSyncInView(true);
+    setSyncSuccessModal(null);
+    lastSyncSuccessSignatureRef.current = '';
     if (needsUrl && !url) {
       setSyncError('Figma URL is required to sync the design system.');
       return;
@@ -1366,6 +1458,103 @@ export function DesignSystemUpdateActions({
           onRetryVariablesPreview={retrySyncVariablesPreview}
         />
       </div>
+
+      <Modal
+        open={Boolean(syncSuccessModal)}
+        onClose={() => {
+          setSyncSuccessModal(null);
+        }}
+        aria-labelledby="design-system-update-success-title"
+      >
+        <ModalContent size="md" className="max-h-[78vh] overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ModalHeader>
+              <div>
+                <h3
+                  id="design-system-update-success-title"
+                  className="text-base font-titles font-semibold titles-color"
+                >
+                  Update complete
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your design system was updated successfully.
+                </p>
+              </div>
+              <ModalCloseButton
+                onClick={() => {
+                  setSyncSuccessModal(null);
+                }}
+                label="Close design system update dialog"
+              />
+            </ModalHeader>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+              {syncSuccessModal ? (
+                <StatusAlert
+                  variant="success"
+                  title="Update complete"
+                  description={
+                    <div className="space-y-1">
+                      <p>{syncSuccessModal.message}</p>
+                      <div className="mt-2 space-y-2">
+                        {syncSuccessModal.stepLines.map((stepLine) => (
+                          <p key={stepLine.label}>
+                            <span className="font-medium text-foreground">
+                              {stepLine.label}:
+                            </span>{' '}
+                            {formatSyncSuccessStepLine(stepLine.label, stepLine.summary)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  }
+                />
+              ) : null}
+
+              {syncSuccessModal?.warnings.length ? (
+                <StatusAlert
+                  variant="warning"
+                  title="Warnings"
+                  description={
+                    <div className="space-y-1">
+                      {syncSuccessModal.warnings.map((warning) => (
+                        <p key={warning}>{warning}</p>
+                      ))}
+                    </div>
+                  }
+                />
+              ) : null}
+
+              <StatusAlert
+                variant="info"
+                title="Next steps"
+                description="Review the system overview, inspect the generated tokens, or browse the updated components to confirm the change."
+              />
+            </div>
+
+            <ModalFooter className="justify-end">
+              <Link
+                to="/tokens"
+                className={cn(buttonVariants({ variant: 'outline' }))}
+              >
+                View tokens
+              </Link>
+              <Link
+                to="/components"
+                className={cn(buttonVariants({ variant: 'outline' }))}
+              >
+                View components
+              </Link>
+              <Link
+                to={toSystemOverview(systemId)}
+                className={cn(buttonVariants({ variant: 'default' }))}
+              >
+                Go to System overview
+              </Link>
+            </ModalFooter>
+          </div>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
