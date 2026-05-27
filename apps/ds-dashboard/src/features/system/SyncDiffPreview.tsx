@@ -235,7 +235,7 @@ function toModalItems(
       key: `${item.nodeId}-${item.contentFingerprint}`,
       nodeId: item.nodeId,
       name: item.name,
-      detail: `variants ${item.variantCount}`,
+      detail: '',
       pageName: item.pageName || '',
       hasFigmaGlyph: true,
     }));
@@ -1003,10 +1003,12 @@ export function SyncDiffPreview({
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded outline-none">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h5>
+                            <h4 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">{meta.title}</h4>
                             <Badge variant={meta.badgeVariant}>{count}</Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                          {bucket === 'new_in_figma' ? null : (
+                            <p className="text-xs text-muted-foreground">{meta.description}</p>
+                          )}
                         </div>
                       </summary>
                       <div className="mt-3">
@@ -1065,14 +1067,16 @@ export function SyncDiffPreview({
                       key={bucket}
                       className="rounded border border-border/70 bg-surface-1 p-3"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground">
-                            {meta.title}
-                          </h5>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-titles font-semibold leading-none text-foreground">
+                              {meta.title}
+                            </h4>
                           <Badge variant={meta.badgeVariant}>0</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        {bucket === 'new_in_figma' ? null : (
+                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -1088,9 +1092,9 @@ export function SyncDiffPreview({
                     <div className="flex items-center justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h5 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">
+                          <h4 className="text-sm font-titles font-semibold leading-none text-foreground transition-colors hover:text-primary">
                             {meta.title}
-                          </h5>
+                          </h4>
                           <Badge variant={meta.badgeVariant}>{items.length}</Badge>
                           {isSelectable && bucketNodeIds.length > 0 ? (
                             <span className="text-xs text-muted-foreground">
@@ -1098,7 +1102,9 @@ export function SyncDiffPreview({
                             </span>
                           ) : null}
                         </div>
-                        <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        {bucket === 'new_in_figma' ? null : (
+                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        )}
                       </div>
                       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>

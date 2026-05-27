@@ -1565,11 +1565,6 @@ export function DesignSystemUpdateActions({
                 />
               ) : null}
 
-              <StatusAlert
-                variant="info"
-                title="Next steps"
-                description="Review the system overview, inspect the generated tokens, or browse the updated components to confirm the change."
-              />
             </div>
 
             <ModalFooter className="justify-end">
