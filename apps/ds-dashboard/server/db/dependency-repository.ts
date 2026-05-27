@@ -121,6 +121,14 @@ export class DependencyRepository {
     return dsFileKey.trim();
   }
 
+  private normalizeConsumerFileKey(consumerFileKey: string): string {
+    const normalizedKey = String(consumerFileKey || '').trim();
+    if (!normalizedKey) {
+      throw new Error('consumer_file_key is required and cannot be empty');
+    }
+    return normalizedKey;
+  }
+
   private async removeParentVariableUsageByDsFileKeyWithSql(
     sql: Sql,
     dsFileKey: string,
@@ -195,13 +203,15 @@ export class DependencyRepository {
 
   async addConsumer(params: AddConsumerParams): Promise<DsConsumer> {
     const id = randomUUID();
+    const dsFileKey = this.normalizeDsFileKey(params.ds_file_key);
+    const consumerFileKey = this.normalizeConsumerFileKey(params.consumer_file_key);
     const consumerName = this.normalizeConsumerName(params.consumer_name);
 
     try {
       await this.sql`
         INSERT INTO ds_consumers (
           id, ds_file_key, consumer_file_key, consumer_name
-        ) VALUES (${id}, ${params.ds_file_key}, ${params.consumer_file_key}, ${consumerName})
+        ) VALUES (${id}, ${dsFileKey}, ${consumerFileKey}, ${consumerName})
       `;
     } catch (error) {
       if (error instanceof Error && error.message.includes('duplicate')) {
@@ -325,9 +335,11 @@ export class DependencyRepository {
     consumerFileKey: string,
   ): Promise<DsConsumer | null> {
     try {
+      const normalizedDsFileKey = this.normalizeDsFileKey(dsFileKey);
+      const normalizedConsumerFileKey = this.normalizeConsumerFileKey(consumerFileKey);
       const rows = (await this.sql`
         SELECT * FROM ds_consumers
-        WHERE ds_file_key = ${dsFileKey} AND consumer_file_key = ${consumerFileKey}
+        WHERE ds_file_key = ${normalizedDsFileKey} AND consumer_file_key = ${normalizedConsumerFileKey}
         LIMIT 1
       `) as Array<DsConsumer>;
       return rows.length > 0 ? rows[0] : null;

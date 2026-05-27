@@ -42,6 +42,21 @@ describe('DependencyRepository', () => {
     assert.strictEqual(consumer.consumer_name, 'Trimmed App');
   });
 
+  test('addConsumer trims file keys before persisting and lookup', async () => {
+    const consumer = await repo.addConsumer({
+      ds_file_key: '  ds-trim-keys  ',
+      consumer_file_key: '  consumer-trim-keys  ',
+      consumer_name: 'Keyed App',
+    });
+
+    assert.strictEqual(consumer.ds_file_key, 'ds-trim-keys');
+    assert.strictEqual(consumer.consumer_file_key, 'consumer-trim-keys');
+
+    const byKeys = await repo.getConsumerByFileKeys(' ds-trim-keys ', ' consumer-trim-keys ');
+    assert.ok(byKeys);
+    assert.strictEqual(byKeys?.id, consumer.id);
+  });
+
   test('addConsumer rejects duplicates', async () => {
     await repo.addConsumer({
       ds_file_key: 'ds789',
