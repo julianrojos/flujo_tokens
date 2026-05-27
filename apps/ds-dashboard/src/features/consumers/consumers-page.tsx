@@ -23,10 +23,7 @@ export function ConsumersPage() {
   if (resolvingDsFileKey) {
     return (
       <div className="space-y-5">
-        <PageHeader
-          title="Consumers"
-          description="Administrative consumer file management"
-        />
+        <PageHeader title="Consumers" />
         <SystemTabsNav />
         <div className="rounded-lg border border-border bg-card p-6">
           <p className="text-sm text-muted-foreground">
@@ -40,10 +37,7 @@ export function ConsumersPage() {
   if (!dsFileKey) {
     return (
       <div className="space-y-5">
-        <PageHeader
-          title="Consumers"
-          description="Administrative consumer file management"
-        />
+        <PageHeader title="Consumers" />
         <SystemTabsNav />
         <EmptyState
           icon={Network}
@@ -65,10 +59,7 @@ export function ConsumersPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Consumers"
-        description="Administrative consumer file management"
-      />
+      <PageHeader title="Consumers" />
       <SystemTabsNav />
 
       <ConsumerTabByFile
