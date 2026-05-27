@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PaginationFooter } from "@/features/health/components/pagination-footer";
 import { useConsumerFilterParams } from "@/features/consumers/hooks/use-consumer-filter-params";
 import { parseSyncedAt } from "@/features/consumers/lib/date-utils";
 import { compareNullableNumbers, compareStrings } from "@/features/consumers/lib/table-sorting";
@@ -241,34 +242,18 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
 
         {error ? <ApiErrorMessage error={error} /> : null}
 
-        {shouldPaginate && sortedConsumers.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
-            <p className="text-xs text-muted-foreground">
-              Showing {pageStart}-{pageEnd} of {sortedConsumers.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goPrevious}
-                disabled={currentPage <= 1}
-              >
-                Prev
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goNext}
-                disabled={currentPage >= totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        ) : null}
+        <PaginationFooter
+          hasPagination={shouldPaginate && sortedConsumers.length > 0}
+          pageStart={pageStart}
+          pageEnd={pageEnd}
+          totalItems={sortedConsumers.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canGoPrevious={currentPage > 1}
+          canGoNext={currentPage < totalPages}
+          onPrevious={goPrevious}
+          onNext={goNext}
+        />
 
         <Table>
           <TableHeader>
@@ -346,34 +331,18 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
           </TableBody>
         </Table>
 
-        {shouldPaginate && sortedConsumers.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
-            <p className="text-xs text-muted-foreground">
-              Showing {pageStart}-{pageEnd} of {sortedConsumers.length}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goPrevious}
-                disabled={currentPage <= 1}
-              >
-                Prev
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goNext}
-                disabled={currentPage >= totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        ) : null}
+        <PaginationFooter
+          hasPagination={shouldPaginate && sortedConsumers.length > 0}
+          pageStart={pageStart}
+          pageEnd={pageEnd}
+          totalItems={sortedConsumers.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canGoPrevious={currentPage > 1}
+          canGoNext={currentPage < totalPages}
+          onPrevious={goPrevious}
+          onNext={goNext}
+        />
       </div>
 
       <Modal
