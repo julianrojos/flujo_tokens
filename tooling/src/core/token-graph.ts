@@ -6,7 +6,7 @@ import type { IndexingContext, ModeConfig, TokenEdge, TokenGraph, TokenNode, Tok
 import { isPlainObject, isVariableAlias } from '../types/tokens.js';
 import { W3C_REF_REGEX_COLLECT } from '../utils/regex.js';
 import { canonicalizeRefPath, normalizePathKey } from '../utils/paths.js';
-import { canEmitTokenValue } from '../utils/emittable.js';
+import { buildEmittableKeySetFromEntries } from '../utils/emittable.js';
 
 type CollectedRef =
     | { kind: 'w3c-ref'; ref: string; canonical: string; normalized: string }
@@ -136,7 +136,7 @@ export function createTokenGraph(
     const nodes = new Map<string, TokenNode>();
     const edges = new Map<string, TokenEdge[]>();
     const reverseEdges = new Map<string, TokenEdge[]>();
-    const collections = new Map<string, string[]>();
+    const collections = new Map<string, Set<string>>();
     const modes = new Map<string, ModeConfig>();
     const pathToNodeId = new Map<string, string>();
     const idToNodeId = new Map<string, string>();
@@ -203,10 +203,10 @@ export function createTokenGraph(
     const recordCollectionMembership = (nodeId: string, collection: string): void => {
         const bucket = collections.get(collection);
         if (bucket) {
-            if (!bucket.includes(nodeId)) bucket.push(nodeId);
+            bucket.add(nodeId);
             return;
         }
-        collections.set(collection, [nodeId]);
+        collections.set(collection, new Set([nodeId]));
     };
 
     for (const [nodeId, node] of nodes.entries()) {
@@ -259,7 +259,7 @@ export function createTokenGraph(
         nodes,
         edges,
         reverseEdges,
-        collections,
+        collections: new Map(Array.from(collections.entries(), ([collection, members]) => [collection, Array.from(members)])),
         modes,
         pathToNodeId,
         idToNodeId,
@@ -295,10 +295,7 @@ export function buildCycleStatusFromGraph(graph: TokenGraph): Map<string, boolea
 }
 
 export function buildEmittableKeySetFromGraph(graph: TokenGraph): Set<string> {
-    const emittableNodeIds = new Set<string>();
-    for (const [nodeId, node] of graph.nodes.entries()) {
-        if (canEmitTokenValue(node.type, node.value)) emittableNodeIds.add(nodeId);
-    }
+    const emittableNodeIds = buildEmittableKeySetFromEntries(graph.nodes.entries(), (node) => node.type, (node) => node.value);
 
     const out = new Set<string>(emittableNodeIds);
     for (const [aliasKey, nodeId] of graph.pathToNodeId.entries()) {

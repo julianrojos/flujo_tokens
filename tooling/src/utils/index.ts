@@ -23,7 +23,6 @@ export {
   CSS_CUSTOM_PROP_DECL_RE,
   A11Y_MODE_DOT_RE,
   A11Y_MODE_SLASH_RE,
-  parseBooleanOption,
   parsePositiveInteger,
   extractCssVarReferences,
   extractCssDeclarations,
@@ -40,6 +39,10 @@ export {
   computeSha256,
   computeFileSha256,
 } from '../services/token-utils.js';
+
+export {
+  parseBooleanOption,
+} from './parse-options.js';
 
 // Token services (runners)
 export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';

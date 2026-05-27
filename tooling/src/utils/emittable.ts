@@ -48,3 +48,17 @@ export function canEmitTokenValue(varType: string | undefined, rawValue: TokenVa
 
     return true;
 }
+
+export function buildEmittableKeySetFromEntries<T>(
+    entries: Iterable<readonly [string, T]>,
+    getVarType: (entry: T) => string | undefined,
+    getValue: (entry: T) => TokenValue['$value'],
+): Set<string> {
+    const emittable = new Set<string>();
+    for (const [key, entry] of entries) {
+        if (canEmitTokenValue(getVarType(entry), getValue(entry))) {
+            emittable.add(key);
+        }
+    }
+    return emittable;
+}

@@ -13,6 +13,7 @@ import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
 import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { loadDesignSystemsConfigAsync } from '../utils/system-context.js';
+import { parseBooleanOption } from '../utils/parse-options.js';
 
 import {
   buildAliasChainsFromSources,
@@ -52,19 +53,6 @@ const CLI_CONFIG = {
     },
   ],
 };
-
-function parseBooleanOption(
-  rawValue: unknown,
-  optionName: string,
-  fallback: boolean = false,
-): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  throw new Error(
-    `Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`,
-  );
-}
 
 export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   const parsed = parseArgs(args);

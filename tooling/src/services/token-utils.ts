@@ -12,6 +12,7 @@ import type {
   TokenCatalog,
   TokenCatalogEntry,
 } from './token-types.js';
+export { parseBooleanOption } from '../utils/parse-options.js';
 
 /**
  * Regex for CSS variable references: var(--name) or var(--name, fallback)
@@ -33,22 +34,6 @@ export const A11Y_MODE_DOT_RE = /^A11y\.A11y\.mode[A-Za-z0-9_-]+\./;
  * Regex for A11y mode slash notation
  */
 export const A11Y_MODE_SLASH_RE = /^A11y\/A11y\/mode[A-Za-z0-9_-]+\//;
-
-/**
- * Parse boolean option from string
- */
-export function parseBooleanOption(
-  rawValue: unknown,
-  optionName: string,
-  fallback: boolean = false,
-): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  throw new Error(
-    `Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`,
-  );
-}
 
 /**
  * Parse positive integer option from string
