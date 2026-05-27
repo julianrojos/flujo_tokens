@@ -261,24 +261,24 @@ export function TokenUsageSection({
               Showing {pageStart}-{pageEnd} of {sortedComponentUsages.length}
             </p>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage <= 1}
-              >
-                Prev
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goPrevious}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
               </Button>
               <span className="text-xs text-muted-foreground">
                 {currentPage} / {totalPages}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage >= totalPages}
-              >
-                Next
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goNext}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
               </Button>
             </div>
           </div>
