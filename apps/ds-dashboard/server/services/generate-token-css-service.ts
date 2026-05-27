@@ -106,7 +106,7 @@ export async function generateTokenCssFromDb(options: {
     modeValueMap.set(tokenPath, existing);
   }
 
-  const rows = (tokenRows as Array<
+  const rawRows = (tokenRows as Array<
     {
       id: string;
       css_var: string;
@@ -124,6 +124,31 @@ export async function generateTokenCssFromDb(options: {
       type: row.type,
       resolved_value: resolvedValue == null ? '' : String(resolvedValue),
     };
+  });
+
+  // Build a dot-path → css_var lookup.
+  //
+  // Token IDs stored in the DB are the dot-path representation of the Figma
+  // variable name (e.g. "Color.Grey.100"). When a token is an alias its
+  // resolved_value is the dot-path of the target token rather than a concrete
+  // CSS value (e.g. "Color.Grey.100" instead of "#ECECEC" or
+  // "var(--color-grey-100)"). Leaving that string as-is produces invalid CSS
+  // and prevents the alias-chain scanner from detecting the relationship.
+  //
+  // We resolve one pass here: any resolved_value that exactly matches a known
+  // token dot-path is rewritten to var(<target-css-var>) so that:
+  //   --bottom-bar-background-default: var(--color-grey-100);
+  // is emitted instead of the opaque Figma path string.
+  const dotPathToCssVar = new Map<string, string>(
+    rawRows.map((r) => [String(r.id || '').trim(), r.css_var]),
+  );
+
+  const rows = rawRows.map((row) => {
+    const rv = String(row.resolved_value || '').trim();
+    const aliasCssVar = rv ? dotPathToCssVar.get(rv) : undefined;
+    return aliasCssVar
+      ? { ...row, resolved_value: `var(${aliasCssVar})` }
+      : row;
   });
 
   const tokenCatalog = {

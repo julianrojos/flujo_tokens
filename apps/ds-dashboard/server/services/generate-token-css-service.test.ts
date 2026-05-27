@@ -45,6 +45,51 @@ function createMockDb(): Sql {
   }) as unknown as Sql;
 }
 
+/** Mock DB with an alias token whose resolved_value is a dot-path (Figma format). */
+function createMockDbWithAlias(): Sql {
+  return (async (
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ) => {
+    const query = String.raw({ raw: strings }, ...values);
+    if (query.includes('FROM tokens t')) {
+      return [
+        {
+          id: 'Color.Grey.100',
+          css_var: '--color-grey-100',
+          collection: 'Primitives',
+          type: 'color',
+          raw_value: '#ECECEC',
+        },
+        {
+          id: 'Bottom-Bar.Background-Default',
+          css_var: '--bottom-bar-background-default',
+          collection: 'Components',
+          type: 'color',
+          raw_value: 'Color.Grey.100',
+        },
+      ];
+    }
+    if (query.includes('FROM token_mode_values tmv')) {
+      return [
+        {
+          token_path: 'Color.Grey.100',
+          mode: 'Default',
+          resolved_value: '#ECECEC',
+        },
+        {
+          // Alias: resolved_value is the dot-path of the target token, as
+          // stored by toResolvedValue() when it encounters a VARIABLE_ALIAS.
+          token_path: 'Bottom-Bar.Background-Default',
+          mode: 'Default',
+          resolved_value: 'Color.Grey.100',
+        },
+      ];
+    }
+    throw new Error(`Unexpected query: ${query}`);
+  }) as unknown as Sql;
+}
+
 describe('generate-token-css-service', () => {
   it('returns split css contents and token catalog entries from db state', async () => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-token-css-'));
@@ -82,6 +127,29 @@ describe('generate-token-css-service', () => {
     assert.equal(fs.existsSync(result.tokensPath), false);
     assert.match(result.primitivesCss, /--color-primary:\s+#00ff00;/);
     assert.match(result.tokensCss, /--color-secondary:\s+#00ff00;/);
+  });
+
+  it('resolves alias dot-paths to var() references in CSS output', async () => {
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-token-css-alias-'));
+    const db = createMockDbWithAlias();
+
+    const result = await generateTokenCssFromDb({
+      db,
+      dsId: 'sys-01',
+      repoRoot: tmpRoot,
+      skipDiskWrite: true,
+    });
+
+    // Primitive stays as a concrete value.
+    assert.match(result.primitivesCss, /--color-grey-100:\s+#ECECEC;/);
+    // Alias token must emit var() instead of the raw Figma dot-path.
+    assert.match(result.tokensCss, /--bottom-bar-background-default:\s+var\(--color-grey-100\);/);
+    // tokenCatalog $value also reflects the resolved var() reference.
+    const aliasEntry = result.tokenCatalog.entries.find(
+      (e) => e.cssVar === '--bottom-bar-background-default',
+    );
+    assert.ok(aliasEntry, 'alias token entry must be present in tokenCatalog');
+    assert.equal(aliasEntry.$value, 'var(--color-grey-100)');
   });
 
   it('flushCssToDisk writes css files after skipDiskWrite generation', async () => {
