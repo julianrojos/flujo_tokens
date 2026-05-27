@@ -16,6 +16,12 @@ import {
   buildConsumerOverviewSummary,
   buildConsumerVariableRankingRows,
 } from "@/features/consumers/lib/consumer-overview";
+import { parseSyncedAt } from "@/features/consumers/lib/date-utils";
+import {
+  compareNullableNumbers,
+  compareStrings,
+  compareWeightedValues,
+} from "@/features/consumers/lib/table-sorting";
 import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -54,26 +60,8 @@ function formatAdoption(used: number, total: number, percent: number | null): st
   return percent == null ? `${used} / ${total}` : `${used} / ${total} (${percent}%)`;
 }
 
-function compareNumberValues(left: number | null, right: number | null, dir: "asc" | "desc") {
-  const leftValue = left ?? Number.NEGATIVE_INFINITY;
-  const rightValue = right ?? Number.NEGATIVE_INFINITY;
-  const comparison = leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
-  return dir === "asc" ? comparison : comparison * -1;
-}
-
-function compareStringValues(left: string, right: string, dir: "asc" | "desc") {
-  const comparison = left.localeCompare(right);
-  return dir === "asc" ? comparison : comparison * -1;
-}
-
-function compareImpactValues(left: ImpactLevel, right: ImpactLevel, dir: "asc" | "desc") {
-  return compareNumberValues(IMPACT_LEVEL_WEIGHT[left], IMPACT_LEVEL_WEIGHT[right], dir);
-}
-
 function getSyncedAtValue(syncRun: DsSyncRun | undefined): number | null {
-  if (!syncRun?.syncedAt) return null;
-  const parsed = Date.parse(syncRun.syncedAt);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseSyncedAt(syncRun?.syncedAt, null);
 }
 
 function resolveConsumerTokenEntry(tokenCatalog: TokenCatalog | null, variableName: string) {
@@ -173,28 +161,28 @@ export function ConsumersOverviewPage() {
 
   const sortedConsumerRows = useMemo(() => {
     return [...filteredConsumerRows].sort((left, right) => {
-      let comparison = 0;
-      switch (consumerSort.field) {
-        case "consumer":
-          comparison = compareStringValues(left.consumerName, right.consumerName, consumerSort.dir);
-          break;
-        case "components":
-          comparison = compareNumberValues(left.componentUsage.adoptionPercent, right.componentUsage.adoptionPercent, consumerSort.dir);
-          if (comparison === 0) {
-            comparison = compareNumberValues(left.componentUsage.used, right.componentUsage.used, consumerSort.dir);
-          }
-          break;
-        case "variables":
-          comparison = compareNumberValues(left.variableUsage.adoptionPercent, right.variableUsage.adoptionPercent, consumerSort.dir);
-          if (comparison === 0) {
-            comparison = compareNumberValues(left.variableUsage.used, right.variableUsage.used, consumerSort.dir);
-          }
-          break;
-        case "lastSynced":
-          comparison = compareNumberValues(
-            getSyncedAtValue(left.latestSync),
-            getSyncedAtValue(right.latestSync),
-            consumerSort.dir,
+        let comparison = 0;
+        switch (consumerSort.field) {
+          case "consumer":
+            comparison = compareStrings(left.consumerName, right.consumerName, consumerSort.dir);
+            break;
+          case "components":
+            comparison = compareNullableNumbers(left.componentUsage.adoptionPercent, right.componentUsage.adoptionPercent, consumerSort.dir);
+            if (comparison === 0) {
+              comparison = compareNullableNumbers(left.componentUsage.used, right.componentUsage.used, consumerSort.dir);
+            }
+            break;
+          case "variables":
+            comparison = compareNullableNumbers(left.variableUsage.adoptionPercent, right.variableUsage.adoptionPercent, consumerSort.dir);
+            if (comparison === 0) {
+              comparison = compareNullableNumbers(left.variableUsage.used, right.variableUsage.used, consumerSort.dir);
+            }
+            break;
+          case "lastSynced":
+            comparison = compareNullableNumbers(
+              getSyncedAtValue(left.latestSync),
+              getSyncedAtValue(right.latestSync),
+              consumerSort.dir,
           );
           break;
       }
@@ -228,19 +216,24 @@ export function ConsumersOverviewPage() {
         let comparison = 0;
         switch (componentSort.field) {
           case "component":
-            comparison = compareStringValues(left.componentName, right.componentName, componentSort.dir);
+            comparison = compareStrings(left.componentName, right.componentName, componentSort.dir);
             break;
           case "impact":
-            comparison = compareImpactValues(left.impactLevel.level, right.impactLevel.level, componentSort.dir);
+            comparison = compareWeightedValues(
+              left.impactLevel.level,
+              right.impactLevel.level,
+              componentSort.dir,
+              IMPACT_LEVEL_WEIGHT,
+            );
             break;
           case "coverage":
-            comparison = compareNumberValues(left.coveragePercent, right.coveragePercent, componentSort.dir);
+            comparison = compareNullableNumbers(left.coveragePercent, right.coveragePercent, componentSort.dir);
             break;
           case "consumers":
-            comparison = compareNumberValues(left.consumers, right.consumers, componentSort.dir);
+            comparison = compareNullableNumbers(left.consumers, right.consumers, componentSort.dir);
             break;
           case "instances":
-            comparison = compareNumberValues(left.totalInstances, right.totalInstances, componentSort.dir);
+            comparison = compareNullableNumbers(left.totalInstances, right.totalInstances, componentSort.dir);
             break;
         }
         if (comparison !== 0) return comparison;
@@ -256,19 +249,24 @@ export function ConsumersOverviewPage() {
         let comparison = 0;
         switch (variableSort.field) {
           case "variable":
-            comparison = compareStringValues(left.variableName, right.variableName, variableSort.dir);
+            comparison = compareStrings(left.variableName, right.variableName, variableSort.dir);
             break;
           case "impact":
-            comparison = compareImpactValues(left.impactLevel.level, right.impactLevel.level, variableSort.dir);
+            comparison = compareWeightedValues(
+              left.impactLevel.level,
+              right.impactLevel.level,
+              variableSort.dir,
+              IMPACT_LEVEL_WEIGHT,
+            );
             break;
           case "coverage":
-            comparison = compareNumberValues(left.coveragePercent, right.coveragePercent, variableSort.dir);
+            comparison = compareNullableNumbers(left.coveragePercent, right.coveragePercent, variableSort.dir);
             break;
           case "consumers":
-            comparison = compareNumberValues(left.consumers, right.consumers, variableSort.dir);
+            comparison = compareNullableNumbers(left.consumers, right.consumers, variableSort.dir);
             break;
           case "nodes":
-            comparison = compareNumberValues(left.totalNodes, right.totalNodes, variableSort.dir);
+            comparison = compareNullableNumbers(left.totalNodes, right.totalNodes, variableSort.dir);
             break;
         }
         if (comparison !== 0) return comparison;

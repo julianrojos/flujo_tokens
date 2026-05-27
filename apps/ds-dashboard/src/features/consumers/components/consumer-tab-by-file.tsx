@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useConsumerFilterParams } from "@/features/consumers/hooks/use-consumer-filter-params";
+import { parseSyncedAt } from "@/features/consumers/lib/date-utils";
+import { compareNullableNumbers, compareStrings } from "@/features/consumers/lib/table-sorting";
 import { useSortState } from "@/lib/use-sort-state";
 import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
 import { listConsumers, removeConsumer } from "@/lib/api";
@@ -43,11 +45,6 @@ interface RemoveCandidate {
 }
 
 type ConsumerSortField = "consumer" | "fileKey" | "lastSync";
-function getSyncedAtMs(value: string | null | undefined): number {
-  if (!value) return Number.NEGATIVE_INFINITY;
-  const syncedAt = new Date(value).getTime();
-  return Number.isFinite(syncedAt) ? syncedAt : Number.NEGATIVE_INFINITY;
-}
 
 function applyFilters(
   consumers: Array<DsConsumer & { latestSync?: DsSyncRun }>,
@@ -126,18 +123,24 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer, i
     [consumers, searchQuery],
   );
   const sortedConsumers = useMemo(() => {
-    const getValue = (consumer: DsConsumer & { latestSync?: DsSyncRun }): string | number => {
-      if (sort.field === "consumer") return consumer.consumerName.toLowerCase();
-      if (sort.field === "fileKey") return consumer.consumerFileKey.toLowerCase();
-      return getSyncedAtMs(consumer.latestSync?.syncedAt);
-    };
-
     return [...filteredConsumers].sort((left, right) => {
-      const leftValue = getValue(left);
-      const rightValue = getValue(right);
-      const comparison = leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
-      const dirAdjusted = sort.dir === "asc" ? comparison : comparison * -1;
-      if (dirAdjusted !== 0) return dirAdjusted;
+      let comparison = 0;
+      switch (sort.field) {
+        case "consumer":
+          comparison = compareStrings(left.consumerName.toLowerCase(), right.consumerName.toLowerCase(), sort.dir);
+          break;
+        case "fileKey":
+          comparison = compareStrings(left.consumerFileKey.toLowerCase(), right.consumerFileKey.toLowerCase(), sort.dir);
+          break;
+        case "lastSync":
+          comparison = compareNullableNumbers(
+            parseSyncedAt(left.latestSync?.syncedAt, Number.NEGATIVE_INFINITY),
+            parseSyncedAt(right.latestSync?.syncedAt, Number.NEGATIVE_INFINITY),
+            sort.dir,
+          );
+          break;
+      }
+      if (comparison !== 0) return comparison;
       return left.consumerName.localeCompare(right.consumerName);
     });
   }, [filteredConsumers, sort]);
