@@ -128,7 +128,7 @@ const bucketMeta: Record<
   }
 > = {
   new_in_figma: {
-    title: 'New',
+    title: 'Not imported',
     description: 'Items in Figma that do not exist in the database yet.',
     badgeVariant: 'success',
     itemKind: 'figma',
