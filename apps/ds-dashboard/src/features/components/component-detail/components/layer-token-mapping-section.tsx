@@ -385,7 +385,7 @@ export function LayerTokenMappingSection({ entries, tokenCatalog }: LayerTokenMa
                     <TableRow
                       key={`${entry.variant_node_id}-${entry.layer_node_id}-${entry.property_path}-${entry.variable_id}-${entry.mode_id}`}
                     >
-                      <TableCell className="max-w-[200px]">
+                      <TableCell>
                         {entry.token_path ? (
                           <Link
                             to={`/tokens/${encodeURIComponent(entry.token_path)}`}
