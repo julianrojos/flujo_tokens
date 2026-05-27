@@ -38,12 +38,26 @@ import {
   getCachedComponentSnapshot,
   setCachedComponentSnapshot,
 } from './component-snapshot-cache.ts';
-import { createPreviewCache } from './preview-cache.ts';
 import { getCachedPrewarmComponentSnapshot } from './figma-prewarm-snapshot-cache.ts';
 import {
   getFreshCachedFigmaFileVersion,
   setFigmaFileVersionCache,
 } from './figma-file-version-cache.ts';
+import {
+  buildSyncDiffDryRunInflightKey,
+  buildSyncVariablesDryRunInflightKey,
+  clearSyncDiffPreviewCacheForSystem,
+  clearSyncVariablesPreviewCacheForSystem,
+  getCachedSyncDiffPreviewResult,
+  getCachedSyncVariablesPreviewResult,
+  setCachedSyncDiffPreviewResult,
+  setCachedSyncVariablesPreviewResult,
+  syncDiffDryRunInflightByKey,
+  syncVariablesDryRunInflightByKey,
+  type SyncDiffDryRunResult,
+  type SyncVariablesDryRunResult,
+  type SyncVariablesDryRunStepResult,
+} from './sync-preview-cache.ts';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DesignSystemSyncJobRepository } from '../db/design-system-sync-job-repository.js';
 import { DependencySyncService } from './dependency-sync-service.js';
@@ -61,58 +75,6 @@ import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.
 import type { FigmaNode } from '../../../../tooling/src/utils/figma.js';
 
 const PARENT_USAGE_SYNC_TIMEOUT_MS = 15_000;
-type SyncDiffDryRunResultOk = {
-  ok: true;
-  sourceCandidates: Array<Record<string, unknown>>;
-  diff: ReturnType<typeof diffFigmaVsDb>;
-  pathUsed: 'plugin' | 'rest' | 'cache';
-  fileVersion: string;
-  componentsDurationMs: number;
-};
-
-type SyncDiffDryRunResult =
-  | SyncDiffDryRunResultOk
-  | {
-      ok: false;
-      error: string;
-    };
-
-type SyncVariablesDryRunDebug = {
-  fileVersion: string;
-  durationMs: number;
-};
-
-const syncDiffDryRunInflightByKey = new Map<
-  string,
-  Promise<SyncDiffDryRunResult>
->();
-const SYNC_PREVIEW_CACHE_TTL_MS = 30 * 60 * 1000;
-const SYNC_PREVIEW_CACHE_MAX_ENTRIES = 300;
-const syncDiffDryRunResultCache = createPreviewCache<SyncDiffDryRunResult>({
-  ttlMs: SYNC_PREVIEW_CACHE_TTL_MS,
-  maxEntries: SYNC_PREVIEW_CACHE_MAX_ENTRIES,
-});
-const syncVariablesDryRunResultCache = createPreviewCache<
-  ReturnType<typeof summarizeVariablesStep> & {
-    _debug?: SyncVariablesDryRunDebug;
-  }
->({
-  ttlMs: SYNC_PREVIEW_CACHE_TTL_MS,
-  maxEntries: SYNC_PREVIEW_CACHE_MAX_ENTRIES,
-});
-const syncVariablesDryRunInflightByKey = new Map<
-  string,
-  Promise<
-    | {
-        ok: true;
-        summary: ReturnType<typeof summarizeVariablesStep>;
-      }
-    | {
-        ok: false;
-        error: string;
-      }
-  >
->();
 const syncDiffApplyInflightByKey = new Map<
   string,
   Promise<
@@ -127,68 +89,6 @@ const syncDiffApplyInflightByKey = new Map<
       }
   >
 >();
-
-function buildSyncDiffDryRunInflightKey(input: {
-  systemId: string;
-  fileKey: string;
-  fileVersion: string;
-}): string {
-  return JSON.stringify({
-    systemId: toTrimmedString(input.systemId),
-    fileKey: toTrimmedString(input.fileKey),
-    fileVersion: toTrimmedString(input.fileVersion),
-  });
-}
-
-function buildSyncVariablesDryRunInflightKey(input: {
-  systemId: string;
-  fileKey: string;
-  fileVersion: string;
-}): string {
-  return JSON.stringify({
-    systemId: toTrimmedString(input.systemId),
-    fileKey: toTrimmedString(input.fileKey),
-    fileVersion: toTrimmedString(input.fileVersion),
-  });
-}
-
-function getCachedSyncDiffPreviewResult(key: string): SyncDiffDryRunResult | null {
-  return syncDiffDryRunResultCache.get(key);
-}
-
-function setCachedSyncDiffPreviewResult(
-  key: string,
-  systemId: string,
-  value: SyncDiffDryRunResult,
-): void {
-  syncDiffDryRunResultCache.set(key, systemId, value);
-}
-
-function clearSyncDiffPreviewCacheForSystem(systemId: string): void {
-  syncDiffDryRunResultCache.clearForSystem(systemId);
-}
-
-function getCachedSyncVariablesPreviewResult(
-  key: string,
-): (ReturnType<typeof summarizeVariablesStep> & {
-  _debug?: SyncVariablesDryRunDebug;
-}) | null {
-  return syncVariablesDryRunResultCache.get(key);
-}
-
-function setCachedSyncVariablesPreviewResult(
-  key: string,
-  systemId: string,
-  value: ReturnType<typeof summarizeVariablesStep> & {
-    _debug?: SyncVariablesDryRunDebug;
-  },
-): void {
-  syncVariablesDryRunResultCache.set(key, systemId, value);
-}
-
-function clearSyncVariablesPreviewCacheForSystem(systemId: string): void {
-  syncVariablesDryRunResultCache.clearForSystem(systemId);
-}
 
 export function computeDesignSystemImportCoverage(
   components: Array<{ name: string; status: string; nodeId: string | null }>,
@@ -635,14 +535,7 @@ function extractSourceCandidatesFromCapturedStep(
   return [];
 }
 
-function summarizeVariablesStep(result: unknown): {
-  status: 'completed' | 'completed_with_warnings' | 'failed';
-  summary: string;
-  warnings: string[];
-  counts: Record<string, number>;
-  durationMs?: number;
-  raw: Record<string, unknown>;
-} {
+function summarizeVariablesStep(result: unknown): SyncVariablesDryRunStepResult {
   const payload = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
   const durationMs = toDurationMs(payload.durationMs);
   const warnings: string[] = [];
@@ -2552,9 +2445,7 @@ export async function handleSyncDesignSystemVariablesDryRunRoute(
   let variablesResult:
     | {
         ok: true;
-        summary: ReturnType<typeof summarizeVariablesStep> & {
-          _debug?: SyncVariablesDryRunDebug;
-        };
+        summary: SyncVariablesDryRunResult;
       }
     | {
         ok: false;
