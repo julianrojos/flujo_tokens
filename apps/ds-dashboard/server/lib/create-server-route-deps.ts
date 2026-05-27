@@ -55,6 +55,7 @@ export interface CreateServerRouteDepsConfig {
   toNumberString: (value: unknown, fallback: number, max?: number) => string;
   validateGitRef: (...args: unknown[]) => string | null;
   exitDelayMs?: number;
+  preloadDesignSystemTimeoutMs?: number;
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   healthRepo?: import('../db/health-repository.js').HealthRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
@@ -110,6 +111,7 @@ export function buildCreateServerRouteDeps(
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,
     exitDelayMs: deps.exitDelayMs,
+    preloadDesignSystemTimeoutMs: deps.preloadDesignSystemTimeoutMs,
     componentRepo: deps.componentRepo,
     healthRepo: deps.healthRepo,
     tokenRepo: deps.tokenRepo,

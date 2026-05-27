@@ -334,7 +334,7 @@ test('figma-plugin-debug route wiring: registerAllRoutes exposes debug endpoint'
 
   try {
     initializeAiJobsStore(new AiJobsStore());
-    registerAllRoutes(app, createServerDepsForRouteWiring());
+    await registerAllRoutes(app, createServerDepsForRouteWiring());
     const allowedResponse = await app.request('/api/figma-plugin/debug', {
       method: 'GET',
     });

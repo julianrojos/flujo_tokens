@@ -5,7 +5,7 @@ import { createServerHttpApp } from "./lib/create-server-http-app.ts";
 import { createHealthPayloadBuilder, type HealthPayloadBuilderDeps } from "./lib/api-response-service.js";
 import { buildCreateServerRouteDeps, type CreateServerRouteDepsConfig } from "./lib/create-server-route-deps.js";
 
-test("create-server-http-app: wires routes and middleware with derived helpers", () => {
+test("create-server-http-app: wires routes and middleware with derived helpers", async () => {
   const calls: any = {
     createFailJson: null,
     createHealthPayloadBuilder: null,
@@ -19,7 +19,7 @@ test("create-server-http-app: wires routes and middleware with derived helpers",
   const buildHealthPayload = () => ({ status: "ok" });
   const routeDeps = { repoRoot: "/repo", someDep: true };
 
-  const result = createServerHttpApp({
+  const result = await createServerHttpApp({
     queueMetrics: () => ({ active: 0 }),
     nowIso: () => "2026-01-01T00:00:00.000Z",
     createApiRequestId: () => "req_1",
@@ -65,7 +65,7 @@ test("create-server-http-app: wires routes and middleware with derived helpers",
 });
 
 test("create-server-http-app: applies configured CORS allowlist", async () => {
-  const result = createServerHttpApp({
+  const result = await createServerHttpApp({
     queueMetrics: () => ({ active: 0 }),
     nowIso: () => "2026-01-01T00:00:00.000Z",
     createApiRequestId: () => "req_1",
@@ -153,7 +153,7 @@ test("create-server-http-app: applies configured CORS allowlist", async () => {
 });
 
 test("create-server-http-app: rejects malformed wildcard origin patterns", async () => {
-  const result = createServerHttpApp({
+  const result = await createServerHttpApp({
     queueMetrics: () => ({ active: 0 }),
     nowIso: () => "2026-01-01T00:00:00.000Z",
     createApiRequestId: () => "req_1",

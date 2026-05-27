@@ -106,7 +106,7 @@ function createCorsOriginMatcher(env: NodeJS.ProcessEnv): (originHeader: string 
   };
 }
 
-export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateServerHttpAppResult {
+export async function createServerHttpApp(config: CreateServerHttpAppConfig): Promise<CreateServerHttpAppResult> {
   const {
     queueMetrics,
     nowIso,
@@ -173,7 +173,7 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
     failJson: failJsonForRoutes,
   };
 
-  registerAllRoutesFn(
+  await registerAllRoutesFn(
     app,
     buildCreateServerRouteDepsFn(routeDepsConfig),
   );

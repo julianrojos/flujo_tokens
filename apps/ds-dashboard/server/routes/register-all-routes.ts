@@ -126,14 +126,43 @@ function hasDbDesignSystemRepo(value: unknown): value is DbDesignSystemRepoShape
   return typeof value === 'object' && value !== null && typeof (value as DbDesignSystemRepoShape).getAll === 'function';
 }
 
-export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
+const DEFAULT_FIGMA_TOKEN_PRELOAD_TIMEOUT_MS = 5_000;
+
+async function preloadFigmaTokenReferences(
+  repo: DbDesignSystemRepoShape,
+  timeoutMs: number,
+): Promise<Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }> | undefined> {
+  const preload = Promise.resolve(repo.getAll?.());
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return await preload;
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`DB Figma token preload timed out after ${Math.floor(timeoutMs)}ms`));
+    }, timeoutMs);
+    timeoutId.unref?.();
+  });
+
+  try {
+    return await Promise.race([preload, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+export async function registerAllRoutes(app: Hono, deps: ServerDeps): Promise<void> {
   const routeDeps = buildAllRouteDeps(deps);
   const figmaTokenByDsFileKey = new Map<string, string>();
   const figmaTokenBySystemId = new Map<string, string>();
   if (hasDbDesignSystemRepo(deps.designSystemRepository)) {
-    Promise.resolve(deps.designSystemRepository.getAll?.())
-      .then((systems) => {
-        if (!Array.isArray(systems)) return;
+    try {
+      const systems = await preloadFigmaTokenReferences(
+        deps.designSystemRepository,
+        deps.preloadDesignSystemTimeoutMs ?? DEFAULT_FIGMA_TOKEN_PRELOAD_TIMEOUT_MS,
+      );
+      if (Array.isArray(systems)) {
         for (const system of systems) {
           const systemId = String((system as { id?: unknown })?.id || '').trim();
           const dsFileKey = String(system?.figmaFileId || '').trim();
@@ -145,13 +174,13 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
             figmaTokenBySystemId.set(systemId, tokenRef);
           }
         }
-      })
-      .catch((error) => {
-        console.warn(
-          '[register-all-routes] Failed to preload DB Figma token references',
-          error,
-        );
-      });
+      }
+    } catch (error) {
+      console.warn(
+        '[register-all-routes] Failed to preload DB Figma token references',
+        error,
+      );
+    }
   }
   const resolveFigmaTokenRefByDsFileKey = (dsFileKey: string): string => {
     const normalizedDsFileKey = String(dsFileKey || '').trim();

@@ -337,7 +337,7 @@ export async function createServerApp(
     writeStructuredLog(level, { ...payload, level } as StructuredLogPayload);
   };
 
-  const { app } = createServerHttpApp({
+  const { app } = await createServerHttpApp({
     queueMetrics,
     nowIso,
     createApiRequestId,

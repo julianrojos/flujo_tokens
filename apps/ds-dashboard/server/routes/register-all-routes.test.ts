@@ -81,7 +81,7 @@ test('register-all-routes preserves payload from queued spawn commands', async (
 
   const app = new Hono();
   const deps = createServerDeps();
-  registerAllRoutes(app, deps as never);
+  await registerAllRoutes(app, deps as never);
 
   const response = await app.request('/api/sync-design-system/step/components', {
     method: 'POST',
@@ -103,4 +103,60 @@ test('register-all-routes preserves payload from queued spawn commands', async (
     };
   };
   assert.equal(executedPayload?.payload?.raw?.error, 'boom');
+});
+
+test('register-all-routes awaits the design system preload before completing', async () => {
+  initializeAiJobsStore(new AiJobsStore());
+
+  const app = new Hono();
+  let resolveSystems:
+    | ((value: Array<{ id?: string; figmaFileId?: string; figmaApiToken?: string }>) => void)
+    | undefined;
+  const preload = new Promise<Array<{ id?: string; figmaFileId?: string; figmaApiToken?: string }>>(
+    (resolve) => {
+      resolveSystems = resolve;
+    },
+  );
+
+  const deps = {
+    ...createServerDeps(),
+    designSystemRepository: {
+      getAll: () => preload,
+    },
+  };
+
+  let settled = false;
+  const registerPromise = registerAllRoutes(app, deps as never).then(() => {
+    settled = true;
+  });
+
+  await Promise.resolve();
+  assert.equal(settled, false);
+
+  resolveSystems?.([
+    {
+      id: 'system_1',
+      figmaFileId: 'file_123',
+      figmaApiToken: 'token_ref',
+    },
+  ]);
+
+  await registerPromise;
+  assert.equal(settled, true);
+});
+
+test('register-all-routes times out the design system preload and still completes', async () => {
+  initializeAiJobsStore(new AiJobsStore());
+
+  const app = new Hono();
+  const deps = {
+    ...createServerDeps(),
+    preloadDesignSystemTimeoutMs: 1,
+    designSystemRepository: {
+      getAll: () => new Promise<Array<{ id?: string; figmaFileId?: string; figmaApiToken?: string }>>(() => {}),
+    },
+  };
+
+  const registerPromise = registerAllRoutes(app, deps as never);
+  await assert.doesNotReject(async () => registerPromise);
 });
