@@ -337,7 +337,9 @@ export async function runWithTimeout<T>({
     operation,
     new Promise<T>((_resolve, reject) => {
       timeout = setTimeout(() => {
-        void onTimeout().catch(() => {});
+        void onTimeout().catch((error) => {
+          console.warn('[runWithTimeout] onTimeout cleanup failed', error);
+        });
         reject(new DatabaseValidationTimeoutError(timeoutMs));
       }, timeoutMs);
     }),

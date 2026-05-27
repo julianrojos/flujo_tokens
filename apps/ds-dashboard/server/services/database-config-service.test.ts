@@ -221,6 +221,34 @@ describe('database-config-service', () => {
     assert.equal(cleanedUp, true);
   });
 
+  it('logs cleanup failures from timeout handlers', async () => {
+    const originalWarn = console.warn;
+    const warnings: unknown[][] = [];
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args);
+    };
+
+    try {
+      await assert.rejects(
+        () =>
+          runWithTimeout({
+            operation: new Promise<string>(() => {}),
+            timeoutMs: 1,
+            onTimeout: async () => {
+              throw new Error('cleanup failed');
+            },
+          }),
+        /Database validation timed out after 1ms/,
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    assert.equal(warnings.length > 0, true);
+    assert.equal(warnings[0]?.[0], '[runWithTimeout] onTimeout cleanup failed');
+    assert.match(String(warnings[0]?.[1] ?? ''), /cleanup failed/);
+  });
+
   it('parses single-quoted env values without JSON.parse', async () => {
     const repoRoot = await createTempRepoRoot();
     const envText = [
