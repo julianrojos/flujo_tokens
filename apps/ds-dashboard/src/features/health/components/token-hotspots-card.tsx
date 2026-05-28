@@ -115,7 +115,7 @@ export function TokenHotspotsCard() {
     <Card>
       <CardHeader>
         <CardTitle>Token hotspots</CardTitle>
-        <CardDescription>Most-used tokens in the parent design system.</CardDescription>
+        <CardDescription>Most-used tokens in the design system.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
