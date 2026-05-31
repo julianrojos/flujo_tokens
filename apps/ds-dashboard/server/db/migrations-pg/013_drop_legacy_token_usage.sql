@@ -1,0 +1,3 @@
+-- Migration 013: drop_legacy_token_usage
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

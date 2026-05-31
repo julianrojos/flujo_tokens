@@ -25,20 +25,19 @@ describe("design-system update actions logic", () => {
     assert.equal(result.ok, true);
     if (!result.ok) return;
 
-    assert.deepEqual(result.payload, {
-      figmaUrl: "https://www.figma.com/design/abc123/Test",
-      includeVariants: false,
-      variantLimit: 6,
-      requireExistingDoc: true,
-      continueOnError: true,
-      refreshIndices: true,
-      dryRun: false,
-      injectDocSpecs: false,
-      mainCaptureMode: "rest",
-      componentKind: "component_set",
-      tokensSource: "mcp",
-      figmaToken: "figd_secret",
-    });
+      assert.deepEqual(result.payload, {
+        figmaUrl: "https://www.figma.com/design/abc123/Test",
+        includeVariants: false,
+        variantLimit: 6,
+        requireExistingDoc: true,
+        continueOnError: true,
+        dryRun: false,
+        injectDocSpecs: false,
+        mainCaptureMode: "rest",
+        componentKind: "all",
+        tokensSource: "mcp",
+        figmaToken: "figd_secret",
+      });
   });
 
   it("builds variables payload with optional fields", () => {

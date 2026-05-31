@@ -1,6 +1,6 @@
 ---
 name: ui-curation-governor
-version: "1.1.0"
+version: '1.1.0'
 context:
   doc_type: frontend
   stage: frontend
@@ -19,20 +19,20 @@ inputs:
     type: path[]
     required: false
     default:
-      - "apps/ds-dashboard/src/components"
-      - "apps/ds-dashboard/src/features"
-      - "apps/ds-dashboard/src/index.css"
-      - "apps/ds-dashboard/tailwind.config.ts"
-    description: "Paths under UI curation governance."
+      - 'apps/ds-dashboard/src/components'
+      - 'apps/ds-dashboard/src/features'
+      - 'apps/ds-dashboard/src/index.css'
+      - 'apps/ds-dashboard/tailwind.config.ts'
+    description: 'Paths under UI curation governance.'
   - name: ui_registry_path
     type: path
     required: false
-    default: "docs/ui/COMPONENT_REGISTRY.md"
-    description: "Canonical UI component registry."
+    default: 'apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md'
+    description: 'Canonical UI component registry.'
 outputs:
   - name: report
     type: report
-    description: "Compliance report covering architecture, style, and governance."
+    description: 'Compliance report covering architecture, style, and governance.'
 ---
 
 # UI Curation Governor
@@ -43,9 +43,9 @@ Activate for **any** task that modifies files in:
 
 - `apps/ds-dashboard/src/components/**` — UI primitives and composites
 - `apps/ds-dashboard/src/features/**/*.tsx` — feature components
-- `apps/ds-dashboard/src/index.css` — token foundation
+- `apps/ds-dashboard/src/index.css` — base token layer
 - `apps/ds-dashboard/tailwind.config.ts` — token mapping
-- `docs/ui/COMPONENT_REGISTRY.md` — component catalog
+- `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md` — component catalog
 
 This skill encodes the design identity and architecture rules for the DS Dashboard UI. It is the single source of truth for how the interface should look, feel, and be built.
 
@@ -81,35 +81,31 @@ Not "dark mode because it's trendy" — dark because this is a power tool. Desig
 
 ### Color palette
 
-| Role | Token | Value | Usage |
-|------|-------|-------|-------|
-| Background | `--app-bg` | `#0C0C0D` | Page background, deepest surface |
-| Surface 1 | `--app-surface-1` | `#161618` | Cards, panels, sidebar |
-| Surface 2 | `--app-surface-2` | `#1F1F22` | Inputs, muted areas, nested surfaces |
-| Surface 3 | `--app-surface-3` | `#2A2A2E` | Hover states, active rows |
-| Accent | `--app-accent` | `#6366F1` | Primary actions, focus rings, links |
-| Accent hover | `--app-accent-hover` | `#818CF8` | Hover state for accent elements |
-| Error | `--app-status-error-text` | `#F87171` | Error text, destructive actions |
-| Success | `--app-status-success-text` | `#34D399` | Success messages, confirmations |
-| Warning | `--app-status-warning-text` | `#FBBF24` | Warnings, caution states |
+| Role         | Token                       | Value     | Usage                                |
+| ------------ | --------------------------- | --------- | ------------------------------------ |
+| Background   | `--app-bg`                  | `#0C0C0D` | Page background, deepest surface     |
+| Surface 1    | `--app-surface-1`           | `#161618` | Cards, panels, sidebar               |
+| Surface 2    | `--app-surface-2`           | `#1F1F22` | Inputs, muted areas, nested surfaces |
+| Surface 3    | `--app-surface-3`           | `#2A2A2E` | Hover states, active rows            |
+| Accent       | `--app-accent`              | `#6366F1` | Primary actions, focus rings, links  |
+| Accent hover | `--app-accent-hover`        | `#818CF8` | Hover state for accent elements      |
+| Error        | `--app-status-error-text`   | `#F87171` | Error text, destructive actions      |
+| Success      | `--app-status-success-text` | `#34D399` | Success messages, confirmations      |
+| Warning      | `--app-status-warning-text` | `#FBBF24` | Warnings, caution states             |
 
 The palette intentionally avoids pure black (`#000`) — `#0C0C0D` has a subtle warm undertone that prevents the clinical feel of true black. Surfaces progress in 6-8% luminance steps for clear visual hierarchy without harsh contrast.
 
 ### Typography
 
-| Element | Font | Weight | Rationale |
-|---------|------|--------|-----------|
-| Page headings (`h1`, `h2`) | Bitter (serif) | 600–700 | Warmth and personality in a dark interface. Serif headings on sans body creates intentional contrast — the app feels curated, not generated. |
-| UI text, labels, body | Geist (sans) | 400–500 | Designed by Vercel for interfaces. Excellent legibility at small sizes in dark mode. Geometric but humanist. |
-| Token paths, code values | Geist Mono | 400 | Technical content needs monospace. Geist Mono shares metrics with Geist — they sit together naturally. |
+| Element                                            | Hierarchy                         | Weight  | Rationale                                                       |
+| -------------------------------------------------- | --------------------------------- | ------- | --------------------------------------------------------------- |
+| Page headings (`h1`, `h2`, `h3`, `h4`, `h5`, `h6`) | Title hierarchy (`font-titles`)   | 600–700 | Clear visual hierarchy and personality for top-level structure. |
+| UI text, labels, body                              | Body hierarchy (`font-body`)      | 400–500 | Readability and consistency for dense interface content.        |
+| Token paths, code values                           | Technical hierarchy (`font-mono`) | 400     | Monospace rhythm improves scanability of technical strings.     |
 
 ### Motion
 
-| Token | Duration | Easing | Use case |
-|-------|----------|--------|----------|
-| `--app-motion-fast` | 150ms | ease-out | Hover states, toggles, micro-feedback |
-| `--app-motion-base` | 250ms | ease-out | Panel reveals, content transitions |
-| `--app-motion-slow` | 400ms | ease-in-out | Modal entrances, page transitions |
+See `ui-style-contract.mdc` § Motion for the canonical duration token table (`duration-fast`, `duration-base`, `duration-slow`) and easing rules.
 
 Motion exists to communicate state — not to decorate. Every animation must answer: "what changed and why?"
 
@@ -118,7 +114,7 @@ Motion exists to communicate state — not to decorate. Every animation must ans
 ## Architecture: Layer model
 
 ```
-Tier 0   Foundations     index.css, tailwind.config.ts
+Tier 0   Base tokens      index.css, tailwind.config.ts
   ↓                     (tokens — the single source of visual truth)
 Tier 1   Primitives      ui/button, ui/card, ui/input, ui/overlay/modal...
   ↓                     (generic building blocks, CVA + cn + forwardRef)
@@ -140,32 +136,32 @@ See `ui-architecture-boundaries.mdc` for detailed import rules.
 
 ### Tier 1: Primitives
 
-| Component | Path | Variants | Key props |
-|-----------|------|----------|-----------|
-| Button | `ui/button` | default, outline, ghost, destructive, loading | `variant`, `size`, `loading` |
-| Badge | `ui/badge` | default, success, warning, neutral, error | `variant` |
-| Card | `ui/card` | default, elevated, glass | `variant` |
-| Input | `ui/input` | — | Standard HTML input props |
-| Select | `ui/select` | — | Standard HTML select props |
-| Table | `ui/table` | — | Composition: Table > TableHeader > TableRow > TableCell |
-| StatusAlert | `ui/status-alert` | error, success, warning, info | `variant`, `title`, `description` |
-| Loader | `ui/loader` | spinner, skeleton | `variant`, `size` |
-| Modal | `ui/overlay/modal` | sm, md, lg, full | `open`, `onClose`, `zIndex` |
-| MarkdownViewer | `ui/markdown-viewer` | — | `content`, `className` |
-| Sidebar | `ui/sidebar` | — | 13 sub-components, collapsible |
+| Component      | Path                 | Variants                                      | Key props                                               |
+| -------------- | -------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| Button         | `ui/button`          | default, outline, ghost, destructive, loading | `variant`, `size`, `loading`                            |
+| Badge          | `ui/badge`           | default, success, warning, neutral, error     | `variant`                                               |
+| Card           | `ui/card`            | default, elevated, glass                      | `variant`                                               |
+| Input          | `ui/input`           | —                                             | Standard HTML input props                               |
+| Select         | `ui/select`          | —                                             | Standard HTML select props                              |
+| Table          | `ui/table`           | —                                             | Composition: Table > TableHeader > TableRow > TableCell |
+| StatusAlert    | `ui/status-alert`    | error, success, warning, info                 | `variant`, `title`, `description`                       |
+| Loader         | `ui/loader`          | spinner, skeleton                             | `variant`, `size`                                       |
+| Modal          | `ui/overlay/modal`   | sm, md, lg, full                              | `open`, `onClose`, `zIndex`                             |
+| MarkdownViewer | `ui/markdown-viewer` | —                                             | `content`, `className`                                  |
+| Sidebar        | `ui/sidebar`         | —                                             | 13 sub-components, collapsible                          |
 
 ### Tier 1.5: Composites
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| PageHeader | `composites/page-header` | Page title (serif) + description + action slot |
-| SectionHeader | `composites/section-header` | Section title + badge + action |
-| MetricCard | `composites/metric-card` | Label + value + trend indicator |
-| FilterBar | `composites/filter-bar` | Search input + filter slots + count badge |
-| EmptyState | `composites/empty-state` | Icon + message + action for empty views |
-| DataPanel | `composites/data-panel` | Card with header + scrollable content area |
+| Component     | Path                        | Purpose                                                  |
+| ------------- | --------------------------- | -------------------------------------------------------- |
+| PageHeader    | `composites/page-header`    | Page title (title hierarchy) + description + action slot |
+| SectionHeader | `composites/section-header` | Section title + badge + action                           |
+| MetricCard    | `composites/metric-card`    | Label + value + trend indicator                          |
+| FilterBar     | `composites/filter-bar`     | Search input + filter slots + count badge                |
+| EmptyState    | `composites/empty-state`    | Icon + message + action for empty views                  |
+| DataPanel     | `composites/data-panel`     | Card with header + scrollable content area               |
 
-Full reference: `docs/ui/COMPONENT_REGISTRY.md`
+Full reference: `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md`
 
 ---
 
@@ -195,13 +191,16 @@ See `ui-component-governance.mdc` for the full pattern. The short version: if it
 // ✓ Always
 <Modal open={isOpen} onClose={() => setIsOpen(false)}>
   <ModalContent size="lg">...</ModalContent>
-</Modal>
+</Modal>;
 
 // ✗ Never
-{isMounted && createPortal(
-  <div className="fixed inset-0 z-[1000]">...</div>,
-  document.body
-)}
+{
+  isMounted &&
+    createPortal(
+      <div className="fixed inset-0 z-[1000]">...</div>,
+      document.body,
+    );
+}
 ```
 
 ### 4. Composites for repeated layout patterns
@@ -244,20 +243,7 @@ All portals go through `ui/overlay/modal.tsx`. Zero exceptions.
 
 ---
 
-## Automation guard
-
-Run this quick guard whenever a UI task touches `components/**`, `features/**`, `index.css`, or `tailwind.config.ts`:
-
-```bash
-npm run ds:ui:guard
-```
-
-What it enforces today:
-- No raw status color classes (`text-red-*`, `bg-emerald-*`, etc.) inside `features/**`.
-- No `dark:` prefix inside `features/**` (dark-first contract).
-- No `createPortal` outside `components/ui/overlay/modal.tsx`.
-
-Use this before final verification to catch regressions early.
+Use the UI style and governance rules in `.agents/rules/ui-style-contract.mdc` and `.agents/rules/ui-component-governance.mdc` after any UI task touches `components/**`, `features/**`, `index.css`, or `tailwind.config.ts`.
 
 ---
 
@@ -268,6 +254,7 @@ Before marking any UI task as complete, ask:
 > Would a designer using this tool feel confident in the product's craft?
 
 The audience builds design systems professionally. They notice:
+
 - Inconsistent spacing between similar elements
 - Color values that don't match across states
 - Typography that switches fonts without reason
@@ -303,7 +290,7 @@ Run before considering any UI change done:
 
 ### Visual coherence
 
-- [ ] Headings use `font-serif` (Bitter) via PageHeader/SectionHeader
+- [ ] Headings use title hierarchy (`font-titles`) via PageHeader/SectionHeader
 - [ ] Status messages use `<StatusAlert>` or `<Badge>`, not inline markup
 - [ ] Spacing is consistent within the feature being modified
 - [ ] Empty states are handled (not blank screens)
@@ -314,10 +301,10 @@ Run before considering any UI change done:
 
 This skill works in conjunction with three `.mdc` rules that are automatically applied when editing UI files:
 
-| Rule | Scope | Governs |
-|------|-------|---------|
-| `ui-architecture-boundaries.mdc` | `src/**/*.{ts,tsx}` | Layer isolation, import direction |
-| `ui-style-contract.mdc` | `src/**/*.tsx` | Token usage, prohibited colors, portals, typography, motion |
-| `ui-component-governance.mdc` | `src/components/**/*.tsx` | CVA pattern, registry, naming, a11y, orphan criteria |
+| Rule                             | Scope                     | Governs                                                     |
+| -------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| `ui-architecture-boundaries.mdc` | `src/**/*.{ts,tsx}`       | Layer isolation, import direction                           |
+| `ui-style-contract.mdc`          | `src/**/*.tsx`            | Token usage, prohibited colors, portals, typography, motion |
+| `ui-component-governance.mdc`    | `src/components/**/*.tsx` | CVA pattern, registry, naming, a11y, orphan criteria        |
 
 When in doubt about a specific rule, check the relevant `.mdc` file — it has the authoritative detail.

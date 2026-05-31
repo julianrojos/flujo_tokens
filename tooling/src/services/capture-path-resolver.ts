@@ -33,7 +33,7 @@ export function resolveDocsPaths(params: {
   return {
     docsRootDir,
     componentDocsDir,
-    markdownPath: path.join(componentDocsDir, `${slug}.md`),
+    docPath: path.join(componentDocsDir, `${slug}.md`),
     specPath: path.join(docsRootDir, '_spec', 'components', `${slug}.yml`),
   };
 }

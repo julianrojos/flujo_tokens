@@ -78,7 +78,6 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
  */
 export type ModeContext = {
     preferredMode?: string;
-    foundModes?: Set<string>; // legacy alias of detectedModes
     detectedModes?: Set<string>;
     emittedModes?: Set<string>;
     modeStrict?: boolean;
@@ -108,7 +107,7 @@ export function logChangeDetection(
     console.log('            CHANGES DETECTED            ');
     console.log('----------------------------------------');
 
-    const detectedModes = sortedModeLabels(modeContext?.detectedModes ?? modeContext?.foundModes);
+    const detectedModes = sortedModeLabels(modeContext?.detectedModes);
     const emittedModes = sortedModeLabels(modeContext?.emittedModes);
 
     if (detectedModes.length > 0 || emittedModes.length > 0) {

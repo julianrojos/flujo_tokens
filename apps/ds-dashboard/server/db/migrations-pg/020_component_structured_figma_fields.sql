@@ -1,0 +1,3 @@
+-- Migration 020: component_structured_figma_fields
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

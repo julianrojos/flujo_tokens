@@ -7,44 +7,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildEmptyComponentsHealthReport,
-  buildEmptyTokenHealthReport,
   filterSnapshotsByRange,
   normalizeHealthHistoryPayload,
   normalizeHealthHistoryRange,
 } from './health-artifacts-service.js';
 
 describe('health-artifacts-service', () => {
-  describe('buildEmptyTokenHealthReport()', () => {
-    it('keeps bootstrap shape', () => {
-      const report = buildEmptyTokenHealthReport({
-        tokenRegistryPath: '/repo/docs/_generated/token-registry.json',
-        tokenUsageIndexPath: '/repo/docs/_generated/token-usage-index.json',
-        tokenGraphVizPath: '/repo/docs/_generated/token-graph-viz.json',
-        wcagPairsPath: '/repo/docs/_generated/wcag-pairs.json',
-        reason: 'not found',
-      });
-
-      assert.equal(report.ok, false);
-      assert.equal(report.bootstrapped, true);
-      assert.equal(report.summary.tokens_total, 0);
-      assert.equal(report.warnings.length, 1);
-    });
-  });
-
-  describe('buildEmptyComponentsHealthReport()', () => {
-    it('keeps bootstrap shape', () => {
-      const report = buildEmptyComponentsHealthReport({
-        componentRegistryPath: '/repo/docs/_generated/component-registry.json',
-      });
-
-      assert.equal(report.ok, false);
-      assert.equal(report.bootstrapped, true);
-      assert.equal(report.summary.total_components, 0);
-      assert.deepEqual(report.filters.needs_review.items, []);
-    });
-  });
-
   describe('normalizeHealthHistoryRange()', () => {
     it('defaults unknown values', () => {
       assert.equal(normalizeHealthHistoryRange('7d'), '7d');
@@ -61,7 +29,7 @@ describe('health-artifacts-service', () => {
           {
             captured_at: '2026-02-20T00:00:00.000Z',
             metrics: { wcag_failures_total: '2' },
-            fingerprints: { token_health: 'abc' },
+            fingerprints: { token_usage: 'abc' },
             meta: { before_ref: 'HEAD~2' },
           },
           {
@@ -86,7 +54,7 @@ describe('health-artifacts-service', () => {
 
       const filtered = filterSnapshotsByRange(
         [{ captured_at: old }, { captured_at: recent }],
-        '30d'
+        '30d',
       );
 
       assert.equal(filtered.length, 1);

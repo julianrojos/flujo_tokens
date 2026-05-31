@@ -34,9 +34,7 @@ describe('ai-ollama-adapter', () => {
             componentId: '68:4097',
             title: 'Button',
             summary: 'A button component',
-            anatomy: [],
             variants: [],
-            tokens: [],
             accessibilityNotes: [],
             markdown: '',
         };
@@ -108,6 +106,32 @@ describe('ai-ollama-adapter', () => {
         );
     });
 
+    it('should throw ai.llm.timeout (retryable) for timeout/abort failures', async () => {
+        mockFetch = async () => {
+            const timeoutError = new Error('The operation was aborted due to timeout');
+            timeoutError.name = 'TimeoutError';
+            throw timeoutError;
+        };
+        globalThis.fetch = mockFetch;
+
+        const adapter = createOllamaAdapter('http://localhost:11434');
+
+        await assert.rejects(
+            async () => adapter.generate({
+                systemPrompt: 'You are a helpful assistant.',
+                userPrompt: 'Generate component doc',
+                jsonSchema: { type: 'object' },
+                timeoutMs: 120000,
+            }),
+            (err: unknown) => {
+                if (!isAiError(err)) throw new Error('Expected AI error');
+                assert.equal(err.code, AI_ERROR_CODES.LLM_TIMEOUT.code);
+                assert.equal(err.retryable, true);
+                return true;
+            }
+        );
+    });
+
     it('should throw ai.llm.api_error (non-retryable) for 404 model not found', async () => {
         const mockResponse = new Response('Model not found', { status: 404 });
         mockFetch = async () => mockResponse;
@@ -160,9 +184,7 @@ describe('ai-ollama-adapter', () => {
             componentId: '68:4097',
             title: 'Button',
             summary: 'A button component',
-            anatomy: [],
             variants: [],
-            tokens: [],
             accessibilityNotes: [],
             markdown: '',
         };

@@ -25,14 +25,14 @@ const MarkdownViewer = React.forwardRef<HTMLDivElement, MarkdownViewerProps>(
         ref={ref}
         className={cn(
           markdownViewerVariants(),
-          "prose-headings:font-serif prose-headings:font-semibold",
+          "prose-headings:font-titles prose-headings:font-semibold",
           "prose-h1:text-2xl prose-h1:mb-4",
           "prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3",
           "prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2",
           "prose-p:text-muted-foreground prose-p:leading-relaxed",
           "prose-a:text-accent prose-a:no-underline hover:prose-a:underline",
           "prose-code:text-foreground prose-code:bg-surface-2 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:text-xs",
-          "prose-pre:bg-surface-2 prose-pre:border prose-pre:border-border/70 prose-pre:rounded-lg",
+          "prose-pre:bg-surface-2 prose-pre:border prose-pre:border-border/70 prose-pre:rounded",
           "prose-code:before:content-none prose-code:after:content-none",
           "prose-ul:list-disc prose-ol:list-decimal",
           "prose-li:text-muted-foreground",

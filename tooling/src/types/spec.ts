@@ -1,8 +1,5 @@
 /**
- * Spec types for ds-spec-to-markdown
- *
- * Types for component specification data structures used in
- * the spec-to-markdown injection pipeline.
+ * Spec types for component specification extraction.
  */
 
 /**
@@ -113,14 +110,4 @@ export interface SpecVariant {
   token?: string;
   fallback?: string;
   notes?: string;
-}
-
-/**
- * Input type for spec-to-markdown injection.
- */
-export interface SpecToMarkdownInput {
-  anatomy?: SpecAnatomyItem[];
-  properties?: SpecProperty[];
-  layout?: SpecLayoutItem[];
-  variants?: SpecVariant[];
 }

@@ -3,9 +3,13 @@
  * No React hooks, no JSX — pure transformations only.
  */
 
-import type { PipelineStage } from "@/types/component-registry";
-import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
-import type { TokenUsageOccurrence } from "@/types/token-usage-index";
+import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
+
+export {
+  buildTokenUsageTargets,
+  normalizeUsageKeyForMatch,
+  variableReportMatchesTokenTargets,
+} from "@/lib/token-usage-matching";
 
 /**
  * Extract hex color from token value if present
@@ -19,19 +23,9 @@ export function resolveColorSwatch(value: string): string | null {
 }
 
 /**
- * Extract line number from token usage detail string
- */
-export function extractLineNumber(detail: string): number | null {
-  const match = String(detail || "").match(/\bline:(\d+)\b/i);
-  if (!match) return null;
-  const parsed = Number.parseInt(match[1], 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-/**
  * Resolve the target token for an alias reference
  */
-export function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | undefined): TokenEntry | null {
+export function resolveAliasTarget(registry: TokenCatalog | null, aliasOf: string | null): TokenCatalogEntry | null {
   const ref = String(aliasOf || "").trim();
   if (!registry || !ref) return null;
   const directMatch = registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;
@@ -69,45 +63,25 @@ export function parseDimensionPreview(value: string) {
 }
 
 /**
- * Compact a file path for display (e.g., ".../src/components/Button.tsx")
+ * Derive the visual token type shown in the detail page from the resolved value.
+ * This prefers the actual rendered value over the stored catalog type when they diverge.
  */
-export function compactPathLabel(filePath: string) {
-  const value = String(filePath || "").trim();
-  if (!value) return "—";
-  const parts = value.split("/");
-  if (parts.length <= 3) return value;
-  return `…/${parts.slice(-3).join("/")}`;
-}
-
-/**
- * Build a Figma URL with node-id parameter for a component usage
- */
-export function buildComponentFigmaUrl(fileUrl: string | null, nodeId: string | null): string | null {
-  const base = String(fileUrl || "").trim();
-  if (!base) return null;
-  try {
-    const parsed = new URL(base);
-    const normalizedNodeId = String(nodeId || "").trim().replace(/:/g, "-");
-    if (normalizedNodeId) {
-      parsed.searchParams.set("node-id", normalizedNodeId);
-    }
-    return parsed.toString();
-  } catch {
-    return base;
-  }
-}
-
-/**
- * Build a unique key for a token usage occurrence
- */
-export function buildOccurrenceKey(kind: string, occ: TokenUsageOccurrence, index: number): string {
-  return `${kind}:${occ.owner}:${occ.source}:${occ.detail}:${index}`;
+export function deriveTokenDisplayType(args: {
+  token: TokenCatalogEntry | null;
+  resolvedValue?: string;
+}): string {
+  const tokenType = String(args.token?.type || "").trim().toLowerCase();
+  const resolvedValue = String(args.resolvedValue ?? args.token?.resolvedValue ?? "").trim();
+  if (resolveColorSwatch(resolvedValue)) return "color";
+  if (parseDimensionPreview(resolvedValue)) return "dimension";
+  if (tokenType) return tokenType;
+  return "string";
 }
 
 /**
  * Check if a token matches a reference value
  */
-export function tokenMatchesRef(token: TokenEntry, value: string): boolean {
+export function tokenMatchesRef(token: TokenCatalogEntry, value: string): boolean {
   const ref = String(value || "").trim();
   if (!ref) return false;
   return ref === token.path || ref === token.slashPath || ref === token.cssVar;
@@ -116,11 +90,11 @@ export function tokenMatchesRef(token: TokenEntry, value: string): boolean {
 /**
  * Build the alias chain for a token (following aliasOf references)
  */
-export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntry | null) {
+export function buildAliasChain(registry: TokenCatalog | null, token: TokenCatalogEntry | null) {
   if (!registry || !token) {
-    return { chain: [] as TokenEntry[], brokenRef: null as string | null, hasCycle: false };
+    return { chain: [] as TokenCatalogEntry[], brokenRef: null as string | null, hasCycle: false };
   }
-  const chain: TokenEntry[] = [token];
+  const chain: TokenCatalogEntry[] = [token];
   const visited = new Set<string>([token.path]);
   let current = token;
   let brokenRef: string | null = null;
@@ -145,44 +119,11 @@ export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntr
 }
 
 /**
- * Get badge variant for a pipeline stage
- */
-export function stageBadge(stage: PipelineStage): "success" | "warning" | "neutral" {
-  if (stage === "render" || stage === "visual-proof") return "success";
-  if (stage === "markdown") return "warning";
-  return "neutral";
-}
-
-/**
- * Parse component usage detail to extract slot and condition
- */
-export function parseComponentUsageDetail(detail: string) {
-  const raw = String(detail || "").trim();
-  if (!raw) return { slot: null as string | null, condition: null as string | null };
-  const tokenMappingMatch = raw.match(/^token_mapping\.([^:]+)(?::(.+))?$/i);
-  if (!tokenMappingMatch) {
-    return { slot: null as string | null, condition: null as string | null };
-  }
-  const slot = tokenMappingMatch[1] ? tokenMappingMatch[1].trim() : null;
-  const condition = tokenMappingMatch[2] ? tokenMappingMatch[2].trim() : null;
-  return { slot, condition };
-}
-
-/**
  * Labels for token usage kinds
  */
 export const KIND_LABELS: Record<string, string> = {
-  "component-spec": "Component spec",
   "css-alias": "CSS alias",
-};
-
-/**
- * Labels for component pipeline stages
- */
-export const COMPONENT_STAGE_LABELS: Record<PipelineStage, string> = {
-  "missing-spec": "Missing spec",
-  spec: "Spec",
-  markdown: "Markdown",
-  render: "Render",
-  "visual-proof": "Visual proof",
+  "figma-alias": "Figma alias",
+  "figma-applied": "Figma parent usage",
+  "figma-consumer-applied": "Figma consumer usage",
 };

@@ -1,61 +1,63 @@
-# Master Workflow
+# Component Docs Workflow
 
-This is the single entry point for the Design System documentation pipeline.
+This is the canonical editing order for component documentation assets.
 
-Canonical sequence:
+Sequence:
 
-1. `spec` -> create/update `docs/_spec/components/<snake_case>.yml`
-2. `markdown` -> generate/update `docs/components/<snake_case>.md`
+1. `spec` -> review/edit the DB-backed component spec in the dashboard
+2. `markdown` -> download rendered markdown from DB-backed data; the spec remains the editable source of truth
 
 ## Prerequisites
 
-- Token registry available: `docs/_generated/token-registry.json`
+- PostgreSQL must be available and at least one design system configured (`DATABASE_URL` must point to the dashboard database)
 - Agent CLI available (`codex`, `claude`, or `gemini`)
+- Confirm the active system in the dashboard or pass `--system <id>` explicitly when using CLI capture commands.
+
+### System Bootstrap (once per environment)
+
+1. Create at least one design system in the Dashboard Systems UI.
+2. Set the default system (or always pass `--system <id>`).
+3. Validate dashboard and tooling readiness:
+
+```bash
+npm run test:tooling:core
+```
 
 ## Recommended commands
 
-### 1) Generate or refresh spec from Figma
+### 1) Review spec in the dashboard
+
+Open the component spec editor in the dashboard and update the DB-backed spec fields. Structured Figma capture is consumed upstream; the dashboard persists spec state in PostgreSQL.
+
+### 2) Edit component docs
+
+Open the component docs page in the dashboard and update the editorial fields directly. AI suggestions are available. The dashboard renders documentation from DB-backed data for download.
+
+### 3) Capture/update visual proof
+
+Use `ds:capture-from-url` for import flows; it can add spec exhibits automatically. Use `ds:capture-visual-proof` only for isolated screenshots.
 
 ```bash
-npm run ds:spec-from-figma -- \
-  --component-name Alert \
-  --component-set-node-id 2304:1892 \
-  --agent codex
-```
+npm run ds:capture-from-url -- \
+  --url "https://www.figma.com/design/<fileKey>/<name>" \
+  --system my-system
 
-### 2) Generate markdown from spec
-
-```bash
-npm run ds:component-doc -- \
-  --component-name Alert \
-  --agent codex
-```
-
-### 3) Capture/update visual proof (standalone)
-
-```bash
 npm run ds:capture-visual-proof -- \
+  --system my-system \
   --component-name Alert \
   --agent codex
 ```
 
-### 4) Auto-mark stale docs as `needs-review`
+### 4) Validate and audit
 
 ```bash
-npm run ds:mark-needs-review
-```
-
-### 5) Validate and audit
-
-```bash
-npm run validate:docs
-npm run ds:audit-consistency -- --component-name Alert
-npm run ds:doctor
+npm run test:tooling:core
 ```
 
 ## Guardrails
 
 - Never skip stage order (`spec` -> `markdown`).
-- Keep one spec and one markdown file per component slug.
-- Visual proof capture (`ds:capture-visual-proof`) is a standalone operation, not part of the canonical pipeline.
-- For `doc_status: ready`, visual proof must contain a concrete screenshot URL.
+- Always target the correct design system (`--system <id>`) for multi-system repositories.
+- The backend only allows `doc_status: ready` when visual proof includes a concrete screenshot URL.
+- If no CLI is available, the dashboard stores a fallback prompt in `docs/_generated/agent_prompts/`.
+- Use consistent terms: spec, rendered markdown, visual proof, dashboard.

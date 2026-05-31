@@ -1,0 +1,3 @@
+-- Migration 032: add_editorial_behaviour_column
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

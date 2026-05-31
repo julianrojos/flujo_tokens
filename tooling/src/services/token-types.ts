@@ -1,13 +1,13 @@
 /**
  * Type definitions for Token Services
  *
- * Shared types for token-health, token-usage-index, and token-graph services.
+ * Shared types for token-usage-index and token analysis services.
  */
 
 /**
  * Token registry entry structure
  */
-export interface TokenRegistryEntry {
+export interface TokenCatalogEntry {
   /** Token ID (internal identifier) */
   id: string;
   /** Token path (e.g., "Semantic.Color.Focus-Outline.Inner") */
@@ -29,9 +29,9 @@ export interface TokenRegistryEntry {
 /**
  * Token registry structure
  */
-export interface TokenRegistry {
+export interface TokenCatalog {
   /** Registry entries */
-  entries: TokenRegistryEntry[];
+  entries: TokenCatalogEntry[];
   /** Registry metadata */
   meta: {
     generatedAt: string;
@@ -74,58 +74,6 @@ export interface TokenUsage {
 }
 
 /**
- * Token graph node
- */
-export interface TokenGraphNode {
-  /** Token ID */
-  id: string;
-  /** Token path */
-  path: string;
-  /** Token value */
-  value: string;
-  /** Type */
-  type: string;
-  /** CSS variable name */
-  cssVar?: string;
-  /** Dependency depth */
-  depth: number;
-  /** In-degree (number of tokens that depend on this one) */
-  inDegree: number;
-  /** Out-degree (number of tokens this one depends on) */
-  outDegree: number;
-}
-
-/**
- * Token graph edge
- */
-export interface TokenGraphEdge {
-  /** Source token ID */
-  from: string;
-  /** Target token ID */
-  to: string;
-  /** Edge kind */
-  kind: 'w3c-ref' | 'alias-id';
-  /** Reference string */
-  ref: string;
-}
-
-/**
- * Token graph structure
- */
-export interface TokenGraph {
-  /** Graph nodes */
-  nodes: TokenGraphNode[];
-  /** Graph edges */
-  edges: TokenGraphEdge[];
-  /** Cycles detected */
-  cycles: string[][];
-  /** Collections */
-  collections: Map<string, string[]>;
-  /** Modes */
-  modes: Map<string, { key: string; selector?: string; isDefault?: boolean }>;
-}
-
-/**
  * WCAG contrast pair configuration
  */
 export interface WcagPair {
@@ -137,137 +85,6 @@ export interface WcagPair {
   level: 'AA' | 'AAA';
   /** Context description */
   context: string;
-}
-
-/**
- * Token health status
- */
-export type TokenHealthStatus = 'healthy' | 'warning' | 'error';
-
-/**
- * Token health issue
- */
-export interface TokenHealthIssue {
-  /** Issue code */
-  code: string;
-  /** Severity */
-  severity: 'error' | 'warning';
-  /** Token ID */
-  tokenId: string;
-  /** Token path */
-  tokenPath: string;
-  /** Issue message */
-  message: string;
-  /** Suggested fix */
-  suggestedFix?: string;
-}
-
-/**
- * Token health report
- */
-export interface TokenHealthReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Overall health status */
-  status: TokenHealthStatus;
-  /** Summary statistics */
-  summary: {
-    totalTokens: number;
-    healthyTokens: number;
-    warningTokens: number;
-    errorTokens: number;
-    brokenAliases: number;
-    brokenRefs: number;
-    wcagFailures: number;
-    highCouplingTokens: number;
-  };
-  /** Issues by token */
-  issues: TokenHealthIssue[];
-  /** High coupling tokens (usage) */
-  highUsageTokens: Array<{
-    tokenId: string;
-    tokenPath: string;
-    usageCount: number;
-  }>;
-  /** High coupling tokens (graph in-degree) */
-  highIndegreeTokens: Array<{
-    tokenId: string;
-    tokenPath: string;
-    inDegree: number;
-  }>;
-  /** WCAG failures */
-  wcagFailures: Array<{
-    fgToken: string;
-    bgToken: string;
-    contrastRatio: number;
-    requiredLevel: 'AA' | 'AAA';
-    actualLevel: 'AA' | 'AAA' | 'fail';
-  }>;
-}
-
-/**
- * Token usage index report
- */
-export interface TokenUsageIndexReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Total tokens in registry */
-  totalTokens: number;
-  /** Tokens with usage */
-  tokensWithUsage: number;
-  /** Usage entries */
-  usage: TokenUsage[];
-  /** Unresolved references */
-  unresolved: Array<{
-    ref: string;
-    file: string;
-    context: 'spec' | 'css' | 'other';
-  }>;
-  /** Summary statistics */
-  summary: {
-    totalReferences: number;
-    specReferences: number;
-    cssReferences: number;
-    unresolvedCount: number;
-  };
-}
-
-/**
- * Token graph report
- */
-export interface TokenGraphReport {
-  /** Report timestamp */
-  timestamp: string;
-  /** Graph data */
-  graph: TokenGraph;
-  /** Cycles detected */
-  cycles: string[][];
-  /** High indirection chains */
-  highIndirection: Array<{
-    tokenId: string;
-    tokenPath: string;
-    chainLength: number;
-    chain: string[];
-  }>;
-  /** Unused primitive terminals */
-  unusedPrimitives: string[];
-  /** Unresolved aliases */
-  unresolvedAliases: string[];
-  /** Identity collisions */
-  collisions: Array<{
-    cssVar: string;
-    tokenIds: string[];
-  }>;
-  /** Summary statistics */
-  summary: {
-    totalNodes: number;
-    totalEdges: number;
-    cycleCount: number;
-    highIndirectionCount: number;
-    unusedPrimitiveCount: number;
-    unresolvedAliasCount: number;
-    collisionCount: number;
-  };
 }
 
 /**
@@ -285,9 +102,9 @@ export interface TokenServiceOptions {
 }
 
 /**
- * Extended token usage kinds (including figma-alias)
+ * Extended token usage kinds used by the usage index.
  */
-export type TokenUsageKindExtended = 'component-spec' | 'css-alias' | 'figma-alias';
+export type TokenUsageKindExtended = 'css-alias' | 'figma-alias';
 
 /**
  * Token usage occurrence with extended kinds

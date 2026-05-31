@@ -9,6 +9,8 @@ export interface SyncConsumersParams {
   consumerIds?: string[];
   force?: boolean;
   token?: string;  // Optional override
+  captureParentUsage?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface SyncRunSummary {
@@ -21,6 +23,10 @@ export interface SyncRunSummary {
   warningCount: number;
   errorMessage?: string;
   skippedReason?: string;
+  localComponentUsedCount?: number | null;
+  parentDerivedComponentCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
 }
 
 export interface SyncResult {
@@ -42,21 +48,31 @@ export class DependencySyncService {
   constructor(
     private repository: DependencyRepository,
     private getSystemConfig: () => SystemConfig
-  ) {}
+  ) { }
 
   /**
    * Sync all or selected consumers for a DS
    */
   async syncConsumers(params: SyncConsumersParams): Promise<SyncResult> {
-    const { dsFileKey, consumerIds, force = false, token: tokenOverride } = params;
+    const {
+      dsFileKey,
+      consumerIds,
+      force = false,
+      token: tokenOverride,
+      captureParentUsage = false,
+      signal,
+    } = params;
+
+    this.throwIfAborted(signal);
 
     // Resolve Figma token
     const token = tokenOverride || this.resolveFigmaToken();
 
     // Get consumers to sync
-    const consumers = this.getConsumersToSync(dsFileKey, consumerIds);
+    const consumers = await this.getConsumersToSync(dsFileKey, consumerIds);
+    this.throwIfAborted(signal);
 
-    if (consumers.length === 0) {
+    if (consumers.length === 0 && !captureParentUsage) {
       return {
         synced: 0,
         skipped: 0,
@@ -66,9 +82,15 @@ export class DependencySyncService {
       };
     }
 
-    // Build DS catalog once (shared across all consumers)
-    const dsCatalog = await this.buildDsCatalogWithRetry(dsFileKey, token);
-    const dsMetadata = await this.fetchMetadataWithRetry(dsFileKey, token);
+    // Build DS catalog once (shared across parent snapshot + all consumers)
+    const dsCatalog = await this.buildDsCatalogWithRetry(dsFileKey, token, signal);
+    this.throwIfAborted(signal);
+    const dsMetadata = await this.fetchMetadataWithRetry(dsFileKey, token, signal);
+    this.throwIfAborted(signal);
+    if (captureParentUsage) {
+      await this.captureParentVariableUsageSnapshot(dsFileKey, dsCatalog, token, signal);
+      this.throwIfAborted(signal);
+    }
 
     const result: SyncResult = {
       synced: 0,
@@ -80,10 +102,18 @@ export class DependencySyncService {
 
     // Process consumers sequentially with rate limiting
     for (let i = 0; i < consumers.length; i++) {
+      this.throwIfAborted(signal);
       const consumer = consumers[i];
 
       try {
-        const summary = await this.syncConsumer(consumer, dsCatalog, token, force, dsMetadata.lastModified);
+        const summary = await this.syncConsumer(
+          consumer,
+          dsCatalog,
+          token,
+          force,
+          dsMetadata.lastModified,
+          signal,
+        );
         result.runs.push(summary);
 
         if (summary.status === 'ok' || summary.status === 'partial') {
@@ -96,9 +126,12 @@ export class DependencySyncService {
 
         // Rate limiting: 1 second delay between consumers (except last one)
         if (i < consumers.length - 1) {
-          await this.delay(1000);
+          await this.delay(1000, signal);
         }
       } catch (error) {
+        if (signal?.aborted) {
+          throw error;
+        }
         // This should not happen due to error handling in syncConsumer
         result.errored++;
         result.runs.push({
@@ -118,6 +151,42 @@ export class DependencySyncService {
   }
 
   /**
+   * Capture and persist variable usage from the DS parent file itself.
+   * This keeps token-detail "Used In" data deterministic and DB-backed.
+   */
+  private async captureParentVariableUsageSnapshot(
+    dsFileKey: string,
+    dsCatalog: DsCatalog,
+    token: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    try {
+      this.throwIfAborted(signal);
+      const scanResult = await this.scanFileWithRetry(dsFileKey, token, dsCatalog, signal);
+      this.throwIfAborted(signal);
+      await this.repository.replaceParentVariableUsage(
+        dsFileKey,
+        scanResult.variableBindings.map((binding) => ({
+          variable_key: binding.variableKey,
+          variable_name: binding.variableName,
+          variable_type: binding.variableType,
+          node_count: binding.totalNodeCount,
+          sample_node_ids_json: JSON.stringify(binding.sampleNodes),
+        })),
+      );
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
+      // Parent snapshot is best-effort and must not block consumer sync.
+      console.warn(
+        `[DependencySyncService] Failed to capture parent usage snapshot for ${dsFileKey}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
+  /**
    * Sync a single consumer
    */
   private async syncConsumer(
@@ -125,15 +194,17 @@ export class DependencySyncService {
     dsCatalog: DsCatalog,
     token: string,
     force: boolean,
-    dsLastModified?: string
+    dsLastModified?: string,
+    signal?: AbortSignal,
   ): Promise<SyncRunSummary> {
     const startTime = Date.now();
     let consumerMetadataLastModified: string | undefined;
 
     try {
+      this.throwIfAborted(signal);
       // Check if we should skip this consumer (also returns metadata to avoid double fetch)
       if (!force) {
-        const skipResult = await this.shouldSkipConsumer(consumer, token);
+        const skipResult = await this.shouldSkipConsumer(consumer, token, signal);
         if (skipResult.skip) {
           return {
             consumerId: consumer.id,
@@ -154,15 +225,17 @@ export class DependencySyncService {
 
       // Only fetch metadata if not already obtained from skip check
       if (!consumerMetadataLastModified) {
-        const metadata = await fetchConsumerFileMetadata(consumer.consumer_file_key, token);
+        const metadata = await fetchConsumerFileMetadata(consumer.consumer_file_key, token, signal);
         consumerMetadataLastModified = metadata.lastModified;
       }
 
+      this.throwIfAborted(signal);
       // Scan the consumer file
-      const scanResult = await this.scanConsumerWithRetry(consumer, dsCatalog, token);
+      const scanResult = await this.scanConsumerWithRetry(consumer, dsCatalog, token, signal);
 
+      this.throwIfAborted(signal);
       // Save the sync run
-      const syncRun = this.repository.saveSyncRun({
+      const syncRun = await this.repository.saveSyncRun({
         consumer_id: consumer.id,
         duration_ms: Date.now() - startTime,
         status: scanResult.warnings.length > 0 ? 'partial' : 'ok',
@@ -172,20 +245,26 @@ export class DependencySyncService {
           component_key: instance.componentKey,
           component_name: instance.componentName,
           instance_count: instance.nodeIds.length,
-          sample_node_ids_json: JSON.stringify(instance.nodeIds),
+          sample_node_ids_json: JSON.stringify(instance.sampleNodes),
         })),
         variable_usage: scanResult.variableBindings.map(binding => ({
           variable_key: binding.variableKey,
           variable_name: binding.variableName,
           variable_type: binding.variableType,
-          node_count: binding.nodeIds.length,
-          sample_node_ids_json: JSON.stringify(binding.nodeIds),
+          node_count: binding.totalNodeCount,
+          sample_node_ids_json: JSON.stringify(binding.sampleNodes),
         })),
         warnings: scanResult.warnings,
+        local_component_used_count: scanResult.localComponentUsedCount,
+        parent_derived_component_count: scanResult.parentDerivedComponentCount,
+        local_variable_defined_count: scanResult.localVariableDefinedCount,
+        local_variable_used_count: scanResult.localVariableUsedCount,
+        consumer_usage_details_json: scanResult.usageDetails,
       });
 
+      this.throwIfAborted(signal);
       // Prune old runs for this consumer
-      this.repository.pruneOldRuns(consumer.id, 20);
+      await this.repository.pruneOldRuns(consumer.id, 20);
 
       return {
         consumerId: consumer.id,
@@ -196,10 +275,17 @@ export class DependencySyncService {
         variableCount: syncRun.variable_count,
         warningCount: syncRun.warning_count,
         errorMessage: syncRun.error_message,
+        localComponentUsedCount: syncRun.local_component_used_count,
+        parentDerivedComponentCount: syncRun.parent_derived_component_count,
+        localVariableDefinedCount: syncRun.local_variable_defined_count,
+        localVariableUsedCount: syncRun.local_variable_used_count,
       };
     } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
       // Save error run
-      const syncRun = this.repository.saveSyncRun({
+      const syncRun = await this.repository.saveSyncRun({
         consumer_id: consumer.id,
         duration_ms: Date.now() - startTime,
         status: 'error',
@@ -231,10 +317,12 @@ export class DependencySyncService {
    */
   private async shouldSkipConsumer(
     consumer: DsConsumer,
-    token: string
+    token: string,
+    signal?: AbortSignal,
   ): Promise<{ skip: true; reason: string } | { skip: false; metadata?: { name: string; lastModified: string } }> {
+    this.throwIfAborted(signal);
     // Get latest sync run for this consumer
-    const latestRun = this.repository.getLatestSyncRun(consumer.id);
+    const latestRun = await this.repository.getLatestSyncRun(consumer.id);
 
     if (!latestRun) {
       return { skip: false }; // No previous sync, don't skip
@@ -253,8 +341,9 @@ export class DependencySyncService {
     }
 
     try {
+      this.throwIfAborted(signal);
       // Fetch current file metadata
-      const metadata = await fetchConsumerFileMetadata(consumer.consumer_file_key, token);
+      const metadata = await fetchConsumerFileMetadata(consumer.consumer_file_key, token, signal);
 
       // Compare with previous sync
       if (latestRun.consumer_last_modified === metadata.lastModified) {
@@ -262,7 +351,10 @@ export class DependencySyncService {
       }
 
       return { skip: false, metadata }; // File changed — pass metadata to avoid re-fetch
-    } catch {
+    } catch (error) {
+      if (signal?.aborted) {
+        throw error;
+      }
       // If we can't fetch metadata, don't skip (better to sync and fail)
       return { skip: false };
     }
@@ -271,15 +363,11 @@ export class DependencySyncService {
   /**
    * Get consumers to sync, optionally filtered by consumerIds
    */
-  private getConsumersToSync(dsFileKey: string, consumerIds?: string[]): DsConsumer[] {
-    const allConsumers = this.repository.listConsumers(dsFileKey);
+  private async getConsumersToSync(dsFileKey: string, consumerIds?: string[]): Promise<DsConsumer[]> {
+    const allConsumers = await this.repository.listConsumers(dsFileKey);
 
-    // Filter by enabled status and optionally by specific IDs
+    // Filter only by specific IDs when requested.
     return allConsumers.filter(consumer => {
-      if (!consumer.enabled) {
-        return false;
-      }
-
       if (consumerIds && !consumerIds.includes(consumer.id)) {
         return false;
       }
@@ -291,19 +379,27 @@ export class DependencySyncService {
   /**
    * Build DS catalog with retry logic
    */
-  private async buildDsCatalogWithRetry(dsFileKey: string, token: string): Promise<DsCatalog> {
+  private async buildDsCatalogWithRetry(
+    dsFileKey: string,
+    token: string,
+    signal?: AbortSignal,
+  ): Promise<DsCatalog> {
     let lastError: Error | unknown;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        return await buildDsCatalog(dsFileKey, token);
+        this.throwIfAborted(signal);
+        return await buildDsCatalog(dsFileKey, token, signal);
       } catch (error) {
         lastError = error;
+        if (signal?.aborted) {
+          throw error;
+        }
 
         // Check if it's a rate limit error
         if (this.isRateLimitError(error) && attempt < 3) {
           const retryAfter = this.getRetryAfterSeconds(error);
-          await this.delay(retryAfter * 1000);
+          await this.delay(retryAfter * 1000, signal);
           continue;
         }
 
@@ -321,20 +417,25 @@ export class DependencySyncService {
   private async scanConsumerWithRetry(
     consumer: DsConsumer,
     dsCatalog: DsCatalog,
-    token: string
+    token: string,
+    signal?: AbortSignal,
   ): Promise<ConsumerScanResult> {
     let lastError: Error | unknown;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        return await scanConsumerFile(consumer.consumer_file_key, token, dsCatalog);
+        this.throwIfAborted(signal);
+        return await scanConsumerFile(consumer.consumer_file_key, token, dsCatalog, signal);
       } catch (error) {
         lastError = error;
+        if (signal?.aborted) {
+          throw error;
+        }
 
         // Check if it's a rate limit error
         if (this.isRateLimitError(error) && attempt < 3) {
           const retryAfter = this.getRetryAfterSeconds(error);
-          await this.delay(retryAfter * 1000);
+          await this.delay(retryAfter * 1000, signal);
           continue;
         }
 
@@ -347,18 +448,57 @@ export class DependencySyncService {
   }
 
   /**
+   * Scan a file (DS parent or consumer) with retry logic.
+   */
+  private async scanFileWithRetry(
+    fileKey: string,
+    token: string,
+    dsCatalog: DsCatalog,
+    signal?: AbortSignal,
+  ): Promise<ConsumerScanResult> {
+    let lastError: Error | unknown;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        this.throwIfAborted(signal);
+        return await scanConsumerFile(fileKey, token, dsCatalog, signal);
+      } catch (error) {
+        lastError = error;
+        if (signal?.aborted) {
+          throw error;
+        }
+        if (this.isRateLimitError(error) && attempt < 3) {
+          const retryAfter = this.getRetryAfterSeconds(error);
+          await this.delay(retryAfter * 1000, signal);
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError;
+  }
+
+  /**
    * Fetch file metadata with retry logic.
    */
-  private async fetchMetadataWithRetry(fileKey: string, token: string): Promise<{ name: string; lastModified: string }> {
+  private async fetchMetadataWithRetry(
+    fileKey: string,
+    token: string,
+    signal?: AbortSignal,
+  ): Promise<{ name: string; lastModified: string }> {
     let lastError: Error | unknown;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        return await fetchConsumerFileMetadata(fileKey, token);
+        this.throwIfAborted(signal);
+        return await fetchConsumerFileMetadata(fileKey, token, signal);
       } catch (error) {
         lastError = error;
+        if (signal?.aborted) {
+          throw error;
+        }
         if (this.isRateLimitError(error) && attempt < 3) {
           const retryAfter = this.getRetryAfterSeconds(error);
-          await this.delay(retryAfter * 1000);
+          await this.delay(retryAfter * 1000, signal);
           continue;
         }
         throw error;
@@ -421,7 +561,36 @@ export class DependencySyncService {
   /**
    * Simple delay utility
    */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) {
+      throw new Error('Operation aborted');
+    }
+  }
+
+  private delay(ms: number, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) {
+      return Promise.reject(new Error('Operation aborted'));
+    }
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, ms);
+
+      const onAbort = () => {
+        cleanup();
+        reject(new Error('Operation aborted'));
+      };
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+      };
+
+      if (signal) {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    });
   }
 }

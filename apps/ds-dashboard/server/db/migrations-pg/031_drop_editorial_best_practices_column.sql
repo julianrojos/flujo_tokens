@@ -1,0 +1,3 @@
+-- Migration 031: drop_editorial_best_practices_column
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

@@ -1,0 +1,3 @@
+-- Migration 018: component_visual_proofs_indexes
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

@@ -32,16 +32,16 @@ describe('create-server-runtime-utils', () => {
   });
 
   describe('createSystemContextResolver()', () => {
-    it('delegates to repository', () => {
+    it('delegates to repository', async () => {
       const calls: string[] = [];
       const resolver = createSystemContextResolver({
         resolveDashboardSystemContext(systemHeader) {
           calls.push(systemHeader);
-          return { systemId: 'core', header: systemHeader };
+          return Promise.resolve({ systemId: 'core', header: systemHeader });
         },
       });
 
-      const resolved = resolver('core');
+      const resolved = await resolver('core');
       assert.deepEqual(resolved, { systemId: 'core', header: 'core' });
       assert.deepEqual(calls, ['core']);
     });

@@ -14,19 +14,18 @@ import type { Hono } from 'hono';
 import type { StructuredLogPayload } from './lib/api-response-service.js';
 import type { BuildApiErrorPayloadOptions } from './lib/api-response-service.js';
 
+import { DesignSystemRepository } from './db/design-system-repository.js';
+import { ComponentRepository } from './db/component-repository.js';
+import { HealthRepository } from './db/health-repository.js';
 import {
-  createDesignSystemRepository,
-  ensureRelativeDir,
+  normalizeSystemId,
   normalizeCollectionList,
   normalizeFigmaApiTokenRef,
-  normalizeSystemId,
+  ensureRelativeDir,
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
-} from './system-repository.ts';
-import {
-  computeNamingDebtReport,
-  validateGitRef,
-} from './services/analysis-artifacts-service.ts';
+} from './lib/system-utils.ts';
+import { validateGitRef } from './services/analysis-artifacts-service.ts';
 import {
   isQueueJobFinalStatus,
   listQueueJobEvents,
@@ -40,7 +39,6 @@ import { createServerRuntimeServices } from './lib/create-server-runtime-service
 import {
   buildApiErrorPayload,
   createApiRequestId,
-  createOperationEventId,
   nowIso,
   writeStructuredLog,
 } from './lib/api-response-service.ts';
@@ -54,10 +52,15 @@ import {
   toBooleanString,
   toNumberString,
 } from './lib/request-file-helpers.ts';
+import { disposeFigmaMcpPingService } from './services/figma-mcp-ping-service.ts';
 import {
-  disposeFigmaMcpPingService,
-} from './services/figma-mcp-ping-service.ts';
-import { bootstrapDatabase } from './db/db-service.js';
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+  closeDatabase,
+} from './db/pg-db-service.js';
+import type { Sql } from 'postgres';
+import { PendingOperationsRepository } from './db/pending-operations-repository.js';
+import { reconcileDeleteDesignSystemOps } from './lib/pending-operations-service.js';
 import { AiJobsStoreWithPersistence } from './services/ai-jobs-store-with-persistence.js';
 import { initializeAiJobsStore } from './services/ai-jobs-store.js';
 import { TokenRepository } from './db/token-repository.js';
@@ -65,7 +68,6 @@ import { TokenRepository } from './db/token-repository.js';
 export interface CreateServerAppOptions {
   env?: NodeJS.ProcessEnv;
   repoRoot?: string;
-  watch?: boolean;
 }
 
 export interface ServerApp {
@@ -73,7 +75,36 @@ export interface ServerApp {
   port: number;
   host: string;
   repoRoot: string;
-  disposeDesignSystemRepository: () => void;
+  disposeDesignSystemRepository: () => Promise<void>;
+}
+
+function formatDatabaseInitError(error: unknown): string {
+  if (error instanceof AggregateError && Array.isArray(error.errors)) {
+    const messages = error.errors
+      .map((entry) => {
+        if (entry instanceof Error) {
+          const code =
+            typeof (entry as { code?: unknown }).code === 'string'
+              ? String((entry as { code?: unknown }).code)
+              : '';
+          const base = String(entry.message || entry.name || '').trim();
+          return code ? `${code}: ${base}` : base;
+        }
+        return String(entry || '').trim();
+      })
+      .filter(Boolean);
+    if (messages.length > 0) {
+      return messages.join(' | ');
+    }
+  }
+
+  if (error instanceof Error) {
+    const base = String(error.message || '').trim();
+    if (base) return base;
+    return String(error.name || 'Unknown error');
+  }
+
+  return String(error || 'Unknown error');
 }
 
 function defaultRepoRoot(): string {
@@ -89,7 +120,9 @@ function formatHostForHttpUrl(host: string): string {
   return normalized.includes(':') ? `[${normalized}]` : normalized;
 }
 
-function ensureDashboardInternalToken(env: NodeJS.ProcessEnv = process.env): string {
+function ensureDashboardInternalToken(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const fromEnvArg = String(env?.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
   if (fromEnvArg) {
     process.env.DS_DASHBOARD_INTERNAL_TOKEN = fromEnvArg;
@@ -102,31 +135,36 @@ function ensureDashboardInternalToken(env: NodeJS.ProcessEnv = process.env): str
   return generated;
 }
 
-export function createServerApp(options: CreateServerAppOptions = {}): ServerApp {
-  const {
-    env = process.env,
-    repoRoot = defaultRepoRoot(),
-    watch = true,
-  } = options;
+export async function createServerApp(
+  options: CreateServerAppOptions = {},
+): Promise<ServerApp> {
+  const { env = process.env, repoRoot = defaultRepoRoot() } = options;
 
-  // Initialize SQLite database
-  const dbPath = path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
-  let db: import('better-sqlite3').Database | undefined;
+  // Initialize PostgreSQL database
+  let sql: Sql | undefined;
   let aiJobsStore!: AiJobsStoreWithPersistence;
   let tokenRepo!: TokenRepository;
+  let componentRepo!: ComponentRepository;
+  let databaseUrl = '';
+  let healthRepo!: HealthRepository;
   let resumeTimer: NodeJS.Timeout | undefined;
   let designSystemRepositoryDisposed = false;
+  let designSystemRepository: DesignSystemRepository | null = null;
 
   try {
-    db = bootstrapDatabase({ dbPath });
-    aiJobsStore = new AiJobsStoreWithPersistence({ db });
-    tokenRepo = new TokenRepository(db);
+    databaseUrl = resolveDashboardDbUrl(env);
+    sql = await bootstrapDatabase(databaseUrl);
+    designSystemRepository = new DesignSystemRepository(sql, repoRoot);
+    componentRepo = new ComponentRepository(sql);
+    healthRepo = new HealthRepository(sql);
+    aiJobsStore = new AiJobsStoreWithPersistence({ sql });
+    tokenRepo = new TokenRepository(sql);
 
     // Wire the persistent store to the singleton so routes use it
     initializeAiJobsStore(aiJobsStore);
 
     // Load existing jobs from DB into memory (without auto-resume)
-    aiJobsStore.loadJobsFromDb(100, { autoResume: false });
+    await aiJobsStore.loadJobsFromDb(100, { autoResume: false });
 
     // Resume execution of recovered queued jobs after routes are set up
     // This ensures job handlers are registered before dequeue
@@ -135,31 +173,11 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
         aiJobsStore.resumeRecoveredQueue();
       }
     }, 0);
-
-    // Try to rebuild token cache from JSON files only if DB is empty (cold start)
-    const generatedDir = path.join(repoRoot, 'docs/_generated');
-    const jsonPaths = {
-      tokenRegistry: path.join(generatedDir, 'token-registry.json'),
-      tokenUsageIndex: path.join(generatedDir, 'token-usage-index.json'),
-      figmaAliasGraph: path.join(generatedDir, 'figma-alias-graph.json'),
-    };
-
-    // Check if DB already has data before rebuilding
-    const existingMetadata = tokenRepo.getLastRebuildMetadata();
-    if (existingMetadata) {
-      console.log(`[Server] Token cache already populated (last rebuild: ${new Date(existingMetadata.timestamp!).toISOString()})`);
-    } else {
-      console.log('[Server] Token cache empty, rebuilding from JSON files...');
-      const rebuildResult = tokenRepo.rebuildFromJsonFiles(jsonPaths);
-      if (rebuildResult.warnings.length > 0) {
-        console.log('[Server] Token cache rebuild warnings:', rebuildResult.warnings);
-      }
-      if (rebuildResult.tokensLoaded > 0) {
-        console.log(`[Server] Token cache rebuilt: ${rebuildResult.tokensLoaded} tokens loaded`);
-      }
-    }
   } catch (error) {
-    console.error('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
+    console.error(
+      '[Server] Failed to initialize PostgreSQL database:',
+      formatDatabaseInitError(error),
+    );
 
     // Stop in-memory cleanup timer if store was initialized before failure.
     if (aiJobsStore) {
@@ -167,21 +185,69 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     }
 
     // Close DB if it was partially initialized before re-throwing
-    if (db) {
+    if (sql) {
       try {
-        db.close();
-        console.log('[Server] Database connection closed due to initialization failure');
+        await closeDatabase(sql);
+        console.log(
+          '[Server] Database connection closed due to initialization failure',
+        );
       } catch (closeError) {
-        console.warn('[Server] Error closing database during cleanup:', closeError instanceof Error ? closeError.message : String(closeError));
+        console.warn(
+          '[Server] Error closing database during cleanup:',
+          closeError instanceof Error ? closeError.message : String(closeError),
+        );
       }
     }
 
     throw error;
   }
 
-  const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
+  // Reconcile incomplete delete operations from previous server runs
+  try {
+    const pendingOpsRepo = new PendingOperationsRepository(sql);
+    const reconcileResult = await reconcileDeleteDesignSystemOps({
+      sql,
+      fsSync,
+      pendingOpsRepo,
+      designSystemRepository,
+    });
+    if (reconcileResult.errors.length > 0) {
+      console.error(
+        '[Server] Pending operation reconciliation errors:',
+        reconcileResult.errors,
+      );
+    }
+    if (
+      reconcileResult.completed.length > 0 ||
+      reconcileResult.abandoned.length > 0
+    ) {
+      console.warn(
+        '[Server] Reconciled incomplete delete operations:',
+        reconcileResult,
+      );
+    }
+  } catch (error) {
+    console.error(
+      '[Server] Failed to reconcile pending operations:',
+      error instanceof Error ? error.message : String(error),
+    );
 
-  function disposeDesignSystemRepository(): void {
+    aiJobsStore.stopCleanup();
+    if (sql) {
+      try {
+        await closeDatabase(sql);
+      } catch (closeError) {
+        console.warn(
+          '[Server] Error closing database during reconciliation failure:',
+          closeError instanceof Error ? closeError.message : String(closeError),
+        );
+      }
+    }
+
+    throw error;
+  }
+
+  async function disposeDesignSystemRepository(): Promise<void> {
     if (designSystemRepositoryDisposed) return;
     designSystemRepositoryDisposed = true;
 
@@ -196,16 +262,21 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       aiJobsStore.stopCleanup();
     }
 
-    designSystemRepository.dispose();
+    if (designSystemRepository) {
+      designSystemRepository.dispose();
+    }
     disposeFigmaMcpPingService();
     // Close database connection
     try {
-      if (db) {
-        db.close();
+      if (sql) {
+        await closeDatabase(sql);
         console.log('[Server] Database connection closed');
       }
     } catch (error) {
-      console.warn('[Server] Error closing database:', error instanceof Error ? error.message : String(error));
+      console.warn(
+        '[Server] Error closing database:',
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
@@ -220,55 +291,9 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     JOB_RETENTION_MS,
     MAX_RETAINED_EVENTS,
     MAX_RETAINED_JOBS,
-    OPS_LOG_MAX_FILE_BYTES,
-    OPS_LOG_RETENTION_DAYS,
-    OPS_HISTORY_DEFAULT_LIMIT,
-    OPS_HISTORY_MAX_LIMIT,
-    OPS_REGRESSION_DEFAULT_LIMIT,
-    OPS_REGRESSION_MAX_LIMIT,
-    OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-    OPS_LOG_FILE_RE,
-    REPLAYABLE_NPM_SCRIPTS,
-    SUPPORTED_REPLAY_OPERATIONS,
   } = createServerConfig(env);
 
-  // Adapter for createServerRuntimeServices compatibility.
-  // Preserve all original context properties to avoid regressions.
-  const designSystemRepositoryAdapter: import('./lib/create-server-runtime-utils.js').DesignSystemRepository = {
-    resolveDashboardSystemContext: (systemHeader: string) => {
-      const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
-
-      // Runtime guardrail to catch invalid context early.
-      if (!context || !context.systemId) {
-        throw new Error(`Invalid system context for header: ${systemHeader}`);
-      }
-
-      // Preserve all context properties (not just systemId/header)
-      // to avoid breaking consumers that rely on additional fields.
-      const result = {
-        header: systemHeader,
-        // Full spread preserves additional properties (including systemId).
-        ...context,
-      };
-
-      // Debug logging for adapter compatibility checks.
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('DesignSystemRepositoryAdapter: context mapping', {
-          inputHeader: systemHeader,
-          outputSystemId: result.systemId,
-          preservedProperties: Object.keys(context).length,
-        });
-      }
-
-      return result;
-    },
-  };
-
   const {
-    toFiniteTimestamp,
-    readOperationHistory,
-    findOperationEventById,
-    buildOperationRegressionsReport,
     queueJobs,
     queueMetrics,
     enqueueQueueJob,
@@ -280,12 +305,10 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     getSystemContext,
     queueNpmScript,
     queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
-    enqueueReplayJobFromOperation,
   } = createServerRuntimeServices({
     repoRoot,
     env,
-    designSystemRepository: designSystemRepositoryAdapter,
+    designSystemRepository,
     maxOutputBytes: MAX_OUTPUT_BYTES,
     maxSnippetLines: MAX_SNIPPET_LINES,
     jobQueueConcurrency: JOB_QUEUE_CONCURRENCY,
@@ -293,95 +316,116 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     jobRetentionMs: JOB_RETENTION_MS,
     maxRetainedEvents: MAX_RETAINED_EVENTS,
     maxRetainedJobs: MAX_RETAINED_JOBS,
-    opsLogMaxFileBytes: OPS_LOG_MAX_FILE_BYTES,
-    opsLogRetentionDays: OPS_LOG_RETENTION_DAYS,
-    opsHistoryMaxLimit: OPS_HISTORY_MAX_LIMIT,
-    opsLogFileRegex: OPS_LOG_FILE_RE,
-    replayableNpmScripts: REPLAYABLE_NPM_SCRIPTS,
-    supportedReplayOperations: SUPPORTED_REPLAY_OPERATIONS,
-    normalizeSystemId,
-    writeStructuredLog: writeStructuredLog as (level: string, payload: Record<string, unknown>) => void,
     nowIso,
-    createOperationEventId,
-    computeNamingDebtReportFn: computeNamingDebtReport,
+    tokenRepo,
   });
 
-  // Type adapters for createServerHttpApp compatibility
-  const buildApiErrorPayloadAdapter = (...args: unknown[]): Record<string, unknown> => {
-    return buildApiErrorPayload(args[0] as BuildApiErrorPayloadOptions, createApiRequestId);
+  // Adapt helper signatures to createServerHttpApp contracts.
+  const buildApiErrorPayloadAdapter = (
+    ...args: unknown[]
+  ): Record<string, unknown> => {
+    return buildApiErrorPayload(
+      args[0] as BuildApiErrorPayloadOptions,
+      createApiRequestId,
+    );
   };
 
-  const writeStructuredLogAdapter = (level: string, payload: Record<string, unknown>): void => {
+  const writeStructuredLogAdapter = (
+    level: string,
+    payload: Record<string, unknown>,
+  ): void => {
     writeStructuredLog(level, { ...payload, level } as StructuredLogPayload);
   };
 
-  const { app } = createServerHttpApp({
+  const { app } = await createServerHttpApp({
     queueMetrics,
     nowIso,
     createApiRequestId,
     buildApiErrorPayload: buildApiErrorPayloadAdapter,
     writeStructuredLog: writeStructuredLogAdapter,
+    env,
     routeDeps: buildCreateServerAppRouteDeps({
-      readJsonBody: readJsonBody as (c: unknown) => Promise<Record<string, unknown>>,
-      designSystemRepository: designSystemRepository as unknown as Record<string, unknown>,
-      normalizeSystemId: normalizeSystemId as (...args: unknown[]) => string,
-      ensureRelativeDir: ensureRelativeDir as unknown as (...args: unknown[]) => string,
-      normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (...args: unknown[]) => string,
-      normalizeCollectionList: normalizeCollectionList as unknown as (...args: unknown[]) => string,
-      summarizeDesignSystemsConfig: summarizeDesignSystemsConfig as (...args: unknown[]) => unknown,
-      resolveSafeSystemPathsForDeletion: resolveSafeSystemPathsForDeletion as (...args: unknown[]) => unknown,
-      repoRoot,
-      fsSync,
-      toFiniteTimestamp: toFiniteTimestamp as unknown as (...args: unknown[]) => number,
-      OPS_HISTORY_MAX_LIMIT,
-      OPS_HISTORY_DEFAULT_LIMIT,
-      OPS_REGRESSION_MAX_LIMIT,
-      OPS_REGRESSION_DEFAULT_LIMIT,
-      OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-      readOperationHistory: readOperationHistory as (...args: unknown[]) => unknown,
-      buildOperationRegressionsReport: buildOperationRegressionsReport as (...args: unknown[]) => unknown,
       createApiRequestId,
-      findOperationEventById,
-      enqueueReplayJobFromOperation,
-      queueJobAcceptedPayload: queueJobAcceptedPayload as (...args: unknown[]) => unknown,
+      queueJobAcceptedPayload,
+      readJsonBody: readJsonBody as (
+        c: unknown,
+      ) => Promise<Record<string, unknown>>,
+      designSystemRepository,
+      componentRepo,
+      tokenRepo,
+      healthRepo,
+      normalizeSystemId: normalizeSystemId as (...args: unknown[]) => string,
+      ensureRelativeDir: ensureRelativeDir as unknown as (
+        ...args: unknown[]
+      ) => string,
+      normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (
+        ...args: unknown[]
+      ) => string,
+      normalizeCollectionList: normalizeCollectionList as unknown as (
+        ...args: unknown[]
+      ) => string,
+      summarizeDesignSystemsConfig: summarizeDesignSystemsConfig as (
+        ...args: unknown[]
+      ) => unknown,
+      resolveSafeSystemPathsForDeletion: resolveSafeSystemPathsForDeletion as (
+        ...args: unknown[]
+      ) => unknown,
+      repoRoot,
+      databaseUrl,
+      fsSync,
       getSystemContext,
       isDevRuntime,
       resolveRepoFilePath,
       sha256Text,
-      readTextFileLimited: readTextFileLimited as (...args: unknown[]) => Promise<{ content: string; truncated: boolean; }>,
-      findLineForQuery: findLineForQuery as unknown as (...args: unknown[]) => number | null,
-      buildSnippet: buildSnippet as unknown as (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string; },
+      readTextFileLimited: readTextFileLimited as (
+        ...args: unknown[]
+      ) => Promise<{ content: string; truncated: boolean }>,
+      findLineForQuery: findLineForQuery as unknown as (
+        ...args: unknown[]
+      ) => number | null,
+      buildSnippet: buildSnippet as unknown as (...args: unknown[]) => {
+        targetLine: number;
+        startLine: number;
+        endLine: number;
+        snippet: string;
+      },
       guessContentType,
       MAX_FILE_BYTES,
       queueJobs,
-      listQueueJobEvents: listQueueJobEvents as (...args: unknown[]) => { seq: number; }[],
+      listQueueJobEvents: listQueueJobEvents as (
+        ...args: unknown[]
+      ) => { seq: number }[],
       queueJobSnapshot: queueJobSnapshot as (...args: unknown[]) => unknown,
       isQueueJobFinalStatus,
       cancelQueueJob,
-      toQueueTerminalEvent: toQueueTerminalEvent as (...args: unknown[]) => unknown,
-      buildApiErrorPayload: buildApiErrorPayload as (...args: unknown[]) => Record<string, unknown>,
+      toQueueTerminalEvent: toQueueTerminalEvent as (
+        ...args: unknown[]
+      ) => unknown,
+      buildApiErrorPayload: buildApiErrorPayload as (
+        ...args: unknown[]
+      ) => Record<string, unknown>,
       MAX_RETAINED_EVENTS,
       enqueueQueueJob,
       runQueuedSpawnCommand,
       queueNpmScript,
-      enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand,
       toBooleanString,
       toNumberString,
       validateGitRef,
-      tokenRepo: db ? tokenRepo : undefined,
-      db,
-    }) as unknown as Record<string, unknown>,
+      tokenRepo: sql ? tokenRepo : undefined,
+      db: sql,
+    }),
   });
 
   // Advertise the server's internal URL to child processes spawned from this
   // server (e.g., the tokens-from-figma sync subprocess).  When this variable
   // is present, subprocesses can proxy their MCP variable fetches through the
   // server's /api/figma-mcp-variables endpoint, which uses the shared MCP
-  // client that the MCP Management is already connected to — avoiding
+  // client that the DS Graph is already connected to — avoiding
   // the port-mismatch problem that occurs when subprocesses spawn their own
-  // fresh MCP Management instances.
-  const internalHostRaw = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+  // fresh DS Graph instances.
+  const internalHostRaw =
+    HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
   const internalHost = formatHostForHttpUrl(internalHostRaw);
   process.env.DS_DASHBOARD_INTERNAL_URL = `http://${internalHost}:${PORT}`;
   ensureDashboardInternalToken(env);

@@ -49,11 +49,23 @@ interface HandlerBody {
  *   nameContains?: string – Case-insensitive substring filter
  *   namePattern?: string – Regex pattern filter
  *   includeVariants?: boolean – Include variant COMPONENTs (default: false)
- *   limit?: number – Max results (default: 50, max: 200)
+ *   limit?: number – Max results per page (default: 50, max: 1000)
+ *   offset?: number – Page start index (default: 0)
+ *   scanSessionId?: string – Optional session key to scope plugin-side page cache
  *   compact?: boolean – Return compact format (default: true)
  *
  * Response:
- *   { success: true, components: [...], count: number, truncated: boolean }
+ *   {
+ *     success: true,
+ *     components: [...],
+ *     count: number,            // returned items
+ *     total: number,            // total matches before pagination
+ *     hasMore: boolean,         // true when more pages exist
+ *     nextOffset: number | null, // offset for next page
+ *     truncated: boolean,       // true when guardrail cutoff hit
+ *     totalIsEstimated: boolean, // true when total is a lower-bound estimate
+ *     limit: number              // effective page size
+ *   }
  */
 async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteDeps): Promise<Response> {
   const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());
@@ -94,6 +106,8 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
       includeVariants: body.includeVariants as boolean | undefined,
       limit: body.limit as number | undefined,
       compact: body.compact as boolean | undefined,
+      offset: body.offset as number | undefined,
+      scanSessionId: body.scanSessionId as string | undefined,
     });
 
     return c.json({ ok: true, ...result }, 200);
@@ -129,10 +143,10 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
  *   figmaUrl?: string – Figma file URL
  *   nodeId: string – Component or ComponentSet nodeId
  *   depth?: number – Anatomy depth (default: 3, -1 = unlimited)
- *   compact?: boolean – Compact anatomy (default: false)
+ *   compact?: boolean – Compact structural tree (default: false)
  *
  * Response:
- *   { success: true, nodeId, name, type, description, anatomy, variants?, variantAxes?, props, states, tokenBindings }
+ *   { success: true, nodeId, name, type, description, variants?, variantAxes?, props, states, tokenBindings }
  */
 async function handleGetComponentSpec(c: Context, deps: FigmaMcpComponentsRouteDeps): Promise<Response> {
   const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());

@@ -1,0 +1,50 @@
+---
+description: Language and tone consistency for Design System documentation suggestions.
+---
+
+# Language and tone consistency
+
+## Default language policy
+
+- Default language for docs is English.
+- Do not mix languages within the same suggestion or document unless a system convention explicitly requires it.
+
+## Tone policy
+
+- Use technical, prescriptive, and neutral tone.
+- Prioritize clarity and scanability over narrative style.
+- Avoid marketing language, slogans, and subjective claims.
+- Keep statements evidence-based (Figma, explicit decisions).
+
+## Writing style
+
+- Prefer short paragraphs, bullets, and tables.
+- Use active voice and direct instructions when describing usage.
+- Use `TBD` instead of speculative wording.
+
+## Tone violation examples
+
+### Marketing language (forbidden)
+
+| ❌ Violation | ✅ Replacement |
+|---|---|
+| `A beautifully crafted button component.` | `A button component with four visual variants.` |
+| `Intuitive and delightful interactions.` | `Follows WCAG 2.1 AA keyboard navigation.` |
+| `Simply the best choice for CTAs.` | `Recommended for primary call-to-action flows.` |
+
+### Speculative wording (forbidden)
+
+| ❌ Violation | ✅ Replacement |
+|---|---|
+| `This might support RTL in the future.` | `RTL behavior: \`TBD\`` |
+| `We plan to add a loading variant soon.` | `Loading variant: \`TBD\`` |
+| `Probably best used for primary actions.` | `Use for primary actions.` |
+| `Could be used in modals as well.` | evidence-based or `TBD` |
+
+### Passive / vague voice (avoid)
+
+| ❌ Avoid | ✅ Prefer |
+|---|---|
+| `The button can be configured to...` | `Set \`Type\` to \`Primary\` to...` |
+| `It is recommended to avoid...` | `Do not use...` |
+| `Should be noted that...` | remove the hedge; state the rule |

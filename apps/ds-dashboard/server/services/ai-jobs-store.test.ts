@@ -22,15 +22,15 @@ function makeInput(overrides: Partial<AiJobInput> = {}): AiJobInput {
 
 function makeOutput(): ComponentDocOutput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     componentId: '68:1',
     title: 'Test',
     summary: 'Test',
-    anatomy: [],
     variants: [],
-    tokens: [],
     accessibilityNotes: [],
     markdown: '# Test',
+    states: [],
+    accessibilityFacts: [],
   };
 }
 
@@ -100,6 +100,17 @@ describe('ai-jobs-store', () => {
       assert.equal(key1.length, 16, 'Key should be 16 characters (64-bit hash)');
     });
 
+    it('should produce a versioned hash value for the current algorithm', () => {
+      const input = makeInput({
+        componentId: '68:1',
+        figmaUrl: 'https://figma.com/file/abc',
+        model: 'claude-sonnet-4-20250514',
+      });
+      const key = store.computeIdempotencyKey(input);
+
+      assert.equal(key, '2e2c73ed1e49dd5d');
+    });
+
     it('should produce different hash for different input', () => {
       const input1 = makeInput({ componentId: '68:1' });
       const input2 = makeInput({ componentId: '68:2' });
@@ -108,6 +119,32 @@ describe('ai-jobs-store', () => {
       const key2 = store.computeIdempotencyKey(input2);
 
       assert.notEqual(key1, key2, 'Different input should produce different key');
+    });
+
+    it('should include systemId in hash input', () => {
+      const input1 = makeInput({ componentId: '68:1', systemId: 'core' });
+      const input2 = makeInput({ componentId: '68:1', systemId: 'marketing' });
+
+      const key1 = store.computeIdempotencyKey(input1);
+      const key2 = store.computeIdempotencyKey(input2);
+
+      assert.notEqual(key1, key2, 'Different systems should not share idempotency keys');
+    });
+
+    it('should normalize prompt whitespace in hash input', () => {
+      const input1 = makeInput({
+        systemPrompt: 'System prompt',
+        userPrompt: 'User prompt',
+      });
+      const input2 = makeInput({
+        systemPrompt: '  System prompt  \n',
+        userPrompt: '\nUser prompt   ',
+      });
+
+      const key1 = store.computeIdempotencyKey(input1);
+      const key2 = store.computeIdempotencyKey(input2);
+
+      assert.equal(key1, key2, 'Whitespace-only prompt differences should not change idempotency');
     });
   });
 
@@ -166,14 +203,14 @@ describe('ai-jobs-store', () => {
       assert.equal(job.id, job2.id, 'Same key should return same running job');
     });
 
-    it('should return existing job for same idempotency key (completed)', () => {
+    it('should create new job for same idempotency key when previous job is completed', () => {
       const input = makeInput({ idempotencyKey: 'test-key-3' });
       const job = store.enqueue(input);
       store.tryDequeue('anthropic');
       store.complete(job.id, makeOutput(), makeUsage());
 
       const job2 = store.enqueue(input);
-      assert.equal(job.id, job2.id, 'Same key should return same completed job');
+      assert.notEqual(job.id, job2.id, 'Completed job should not be reused — a new job must be created');
     });
 
     it('should create new job for same key if previous job failed', () => {
@@ -367,15 +404,15 @@ describe('ai-jobs-store', () => {
       store.tryDequeue('anthropic');
 
       const output = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         componentId: '68:1',
         title: 'Test',
         summary: 'Test',
-        anatomy: [],
         variants: [],
-        tokens: [],
         accessibilityNotes: [],
         markdown: '# Test',
+        states: [],
+        accessibilityFacts: [],
       };
 
       const usage = {
@@ -396,6 +433,73 @@ describe('ai-jobs-store', () => {
       assert.doesNotThrow(() => {
         store.complete('non-existent', {} as any, {} as any);
       });
+    });
+
+    it('should store validationReport and canPublish when provided in options', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+
+      const output = makeOutput();
+      const usage = makeUsage();
+      const editorialPatch = {
+        schemaVersion: 2 as const,
+        summary: { purpose: 'Test' },
+      };
+      const validationReport = {
+        schemaVersion: 1,
+        passes: true,
+        severity: 'info' as const,
+        score: 90,
+        structureWarnings: [],
+        missingSections: [],
+        unsupportedClaims: [],
+        editorialConflicts: [],
+        terminologyMismatches: [],
+        a11yWarnings: [],
+        notes: [],
+      };
+
+      store.complete(job.id, output, usage, editorialPatch, {
+        validationReport,
+        canPublish: true,
+        pipelineSeverity: 'info',
+        pipelineScore: 90,
+      });
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.status, 'completed');
+      assert.equal(completedJob?.canPublish, true);
+      assert.equal(completedJob?.pipelineSeverity, 'info');
+      assert.equal(completedJob?.pipelineScore, 90);
+      assert.deepEqual(completedJob?.validationReport, validationReport);
+      assert.equal(completedJob?.editorialPatch, editorialPatch);
+    });
+
+    it('should set canPublish to false when validation blocks', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+
+      const output = makeOutput();
+      const usage = makeUsage();
+
+      store.complete(job.id, output, usage, undefined, {
+        canPublish: false,
+      });
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.canPublish, false);
+    });
+
+    it('should clear pipelineStage when job completes', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+      store.setPipelineStage(job.id, 'validating');
+
+      store.complete(job.id, makeOutput(), makeUsage());
+
+      const completedJob = store.findById(job.id);
+      assert.equal(completedJob?.status, 'completed');
+      assert.equal(completedJob?.pipelineStage, null);
     });
   });
 
@@ -433,14 +537,35 @@ describe('ai-jobs-store', () => {
       assert.equal(status.queued, 0, 'Cancelled job should be removed from queue');
     });
 
-    it('should be no-op for running job', () => {
+    it('should cancel running job', () => {
       const job = store.enqueue(makeInput());
       store.tryDequeue('anthropic');
 
       store.cancel(job.id);
 
       const runningJob = store.findById(job.id);
-      assert.equal(runningJob?.status, 'running', 'Running job should not be cancelled');
+      assert.equal(runningJob?.status, 'cancelled', 'Running job should be cancellable');
+      assert.equal(runningJob?.pipelineStage, null, 'Cancelled running job should clear pipeline stage');
+    });
+
+    it('should release running slot and dequeue next queued job when cancelling a running job', () => {
+      const job1 = store.enqueue(makeInput({ idempotencyKey: 'cancel-running-1' }));
+      const job2 = store.enqueue(makeInput({ idempotencyKey: 'cancel-running-2' }));
+
+      const running = store.tryDequeue('anthropic');
+      assert.equal(running?.id, job1.id);
+
+      store.cancel(job1.id);
+
+      const cancelledJob = store.findById(job1.id);
+      assert.equal(cancelledJob?.status, 'cancelled');
+
+      const dequeuedNext = store.findById(job2.id);
+      assert.equal(dequeuedNext?.status, 'running', 'Next queued job should be dequeued after cancellation releases slot');
+
+      const status = store.getQueueStatus('anthropic');
+      assert.equal(status.running, 1, 'Running count should remain at 1 after replacing cancelled running job');
+      assert.equal(status.queued, 0, 'Queue should be drained after auto-dequeue');
     });
 
     it('should be no-op for completed job', () => {
@@ -452,6 +577,22 @@ describe('ai-jobs-store', () => {
 
       const completedJob = store.findById(job.id);
       assert.equal(completedJob?.status, 'completed', 'Completed job should not be cancelled');
+    });
+
+    it('complete/fail should not override cancelled status', () => {
+      const job = store.enqueue(makeInput());
+      store.tryDequeue('anthropic');
+      store.cancel(job.id);
+
+      store.complete(job.id, makeOutput(), makeUsage());
+      let current = store.findById(job.id);
+      assert.equal(current?.status, 'cancelled');
+      assert.ok(current?.events.some((evt) => evt.event === 'job.complete_attempted_after_cancel'));
+
+      store.fail(job.id, 'late failure', 'ai.test', false);
+      current = store.findById(job.id);
+      assert.equal(current?.status, 'cancelled');
+      assert.ok(current?.events.some((evt) => evt.event === 'job.fail_attempted_after_cancel'));
     });
 
     it('should be no-op for non-existent job', () => {

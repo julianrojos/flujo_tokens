@@ -3,7 +3,7 @@
 /**
  * Capture from Figma URL Runner
  *
- * Capture visual proof from a Figma URL and update matching component markdown pages.
+ * Capture visual proof from a Figma URL and persist capture artifacts.
  * TypeScript runner for ds-capture-from-figma-url script.
  */
 
@@ -18,7 +18,7 @@ const CLI_CONFIG = {
   command:
     'npm run ds:capture-from-url -- --url "https://www.figma.com/design/<fileKey>/<slug>?node-id=123-456"',
   description:
-    'Capture visual proof from a Figma URL (single component node or full document) and update matching component markdown detail pages.',
+    'Capture visual proof from a Figma URL (single component node or full document) and persist capture artifacts.',
   options: [
     {
       name: '--url <figma-url>',
@@ -32,18 +32,17 @@ const CLI_CONFIG = {
     },
     {
       name: '--docs-root <path>',
-      description: 'Docs root or docs/components directory.',
-      defaultValue: 'docs/components',
+      description: 'Docs root or docs/components directory for the active system context.',
     },
     {
       name: '--proof-dir <path>',
-      description: 'Visual proof JSON output directory.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      description: 'Visual proof assets directory.',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--proof-image-dir <path>',
       description: 'Visual proof images output directory.',
-      defaultValue: 'docs/_generated/visual-proofs/images',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs/images',
     },
     {
       name: '--component-slug <slug>',
@@ -55,12 +54,6 @@ const CLI_CONFIG = {
       description:
         'Component node kinds processed for document URLs. `component_set` is recommended.',
       defaultValue: 'component_set',
-    },
-    {
-      name: '--require-existing-doc <true|false>',
-      description:
-        'Only capture for components that already have markdown docs.',
-      defaultValue: 'true',
     },
     {
       name: '--include-variants <true|false>',
@@ -103,26 +96,14 @@ const CLI_CONFIG = {
       defaultValue: 'true',
     },
     {
-      name: '--refresh-indices <true|false>',
-      description:
-        'Refresh component registry + overview once after batch capture.',
-      defaultValue: 'true',
-    },
-    {
       name: '--dry-run <true|false>',
       description: 'Resolve targets and report without writing changes.',
       defaultValue: 'false',
     },
     {
-      name: '--inject-doc-specs <true|false>',
-      description:
-        'When markdown exists, refresh Anatomy, Component API and Visual Specifications from the source Figma node.',
-      defaultValue: 'false',
-    },
-    {
       name: '--include-spec-exhibits <true|false>',
       description:
-        'Append Specs screenshots (Anatomy, Properties, Layout and spacing) to injected documentation sections when available.',
+        'Include Specs screenshots (Anatomy, Properties, Layout and spacing) in the capture payload when available.',
       defaultValue: 'true',
     },
     {

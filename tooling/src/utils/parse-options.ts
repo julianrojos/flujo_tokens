@@ -13,9 +13,11 @@ export function parseBooleanOption(
   fallback = false,
 ): boolean {
   const normalized = String(rawValue ?? fallback).trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  throw new Error(`Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`);
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  throw new Error(
+    `Invalid ${optionName} value: ${rawValue}. Allowed: true, false, 1, 0, yes, no.`,
+  );
 }
 
 /**

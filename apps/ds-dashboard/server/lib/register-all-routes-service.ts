@@ -14,6 +14,7 @@ export interface SystemDeps {
   failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: unknown;
+  db?: unknown;
   normalizeSystemId: (id: string) => string;
   ensureRelativeDir: (path: string) => string;
   normalizeFigmaApiTokenRef: (token: string) => string;
@@ -21,26 +22,8 @@ export interface SystemDeps {
   summarizeDesignSystemsConfig: (config: unknown) => unknown;
   resolveSafeSystemPathsForDeletion: (args: unknown) => unknown;
   repoRoot: string;
+  databaseUrl?: string;
   fsSync: unknown;
-}
-
-export interface OperationsDeps {
-  failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
-  toFiniteTimestamp: (value: unknown) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  designSystemRepository: unknown;
-  readOperationHistory: (args: unknown) => unknown;
-  buildOperationRegressionsReport: (args: unknown) => unknown;
-  createApiRequestId: () => string;
-  readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-  normalizeSystemId: (id: string) => string;
-  findOperationEventById: (id: string) => unknown;
-  enqueueReplayJobFromOperation: (args: unknown) => unknown;
-  queueJobAcceptedPayload: (job: unknown) => unknown;
 }
 
 export interface ComponentSpecDeps extends SharedSystemContextDeps {
@@ -48,15 +31,8 @@ export interface ComponentSpecDeps extends SharedSystemContextDeps {
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
-}
-
-export interface FileDeps extends SharedSystemContextDeps {
-  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
-  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
-  findLineForQuery: (content: string, query: string) => number | null;
-  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
-  guessContentType: (filePath: string) => string;
-  MAX_FILE_BYTES: number;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
 
 export interface JobDeps {
@@ -69,6 +45,7 @@ export interface JobDeps {
   toQueueTerminalEvent: (args: unknown) => unknown;
   buildApiErrorPayload: (args: unknown) => unknown;
   MAX_RETAINED_EVENTS: number;
+  db?: import('postgres').Sql;
 }
 
 export interface CommandDeps {
@@ -76,21 +53,19 @@ export interface CommandDeps {
   createApiRequestId: () => string;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   getSystemContext: (systemHeader: string) => unknown;
+  databaseUrl?: string;
   queueJobAcceptedPayload: (job: unknown) => unknown;
   enqueueQueueJob: (args: unknown) => unknown;
   sha256Text: (value: string) => string;
   runQueuedSpawnCommand: (args: unknown) => Promise<unknown>;
   queueNpmScript: (args: unknown) => unknown;
-  enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  designSystemRepository?: import('../db/design-system-repository.js').DesignSystemRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  db?: import('postgres').Sql;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
-  validateGitRef: (value: string) => string | null;
-}
-
-export interface FigmaPingDeps {
-  failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
-  readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
 }
 
 export interface FigmaMcpPingDeps {
@@ -100,16 +75,15 @@ export interface FigmaMcpPingDeps {
 
 export interface AllRouteDeps {
   systemDeps: SystemDeps;
-  operationsDeps: OperationsDeps;
   registryDeps: SharedSystemContextDeps;
-  tokenGraphDeps: SharedSystemContextDeps & { tokenRepo?: import('../db/token-repository.js').TokenRepository };
+  tokenUsageIndexDeps: SharedSystemContextDeps;
   healthDeps: SharedSystemContextDeps;
-  analysisDeps: SharedSystemContextDeps;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   componentSpecDeps: ComponentSpecDeps;
-  fileDeps: FileDeps;
   jobDeps: JobDeps;
   commandDeps: CommandDeps;
-  figmaPingDeps: FigmaPingDeps;
   figmaMcpPingDeps: FigmaMcpPingDeps;
 }
 
@@ -119,6 +93,9 @@ export interface ServerDeps {
   buildHealthPayload: (args: unknown) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: unknown;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   normalizeSystemId: (id: string) => string;
   ensureRelativeDir: (path: string) => string;
   normalizeFigmaApiTokenRef: (token: string) => string;
@@ -127,18 +104,6 @@ export interface ServerDeps {
   resolveSafeSystemPathsForDeletion: (args: unknown) => unknown;
   repoRoot: string;
   fsSync: unknown;
-  toFiniteTimestamp: (value: unknown) => number;
-  OPS_HISTORY_MAX_LIMIT: number;
-  OPS_HISTORY_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_MAX_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_LIMIT: number;
-  OPS_REGRESSION_DEFAULT_MIN_SAMPLES: number;
-  readOperationHistory: (args: unknown) => unknown;
-  buildOperationRegressionsReport: (args: unknown) => unknown;
-  createApiRequestId: () => string;
-  findOperationEventById: (id: string) => unknown;
-  enqueueReplayJobFromOperation: (args: unknown) => unknown;
-  queueJobAcceptedPayload: (job: unknown) => unknown;
   isDevRuntime: () => boolean;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
@@ -155,16 +120,16 @@ export interface ServerDeps {
   toQueueTerminalEvent: (args: unknown) => unknown;
   buildApiErrorPayload: (args: unknown) => unknown;
   MAX_RETAINED_EVENTS: number;
+  queueJobAcceptedPayload: (job: unknown) => unknown;
   enqueueQueueJob: (args: unknown) => unknown;
   runQueuedSpawnCommand: (args: unknown) => Promise<unknown>;
   queueNpmScript: (args: unknown) => unknown;
-  enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
-  db?: import('better-sqlite3').Database;
+  db?: import('postgres').Sql;
 }
 
 export function buildSharedSystemContextDeps(deps: ServerDeps): SharedSystemContextDeps {
@@ -183,6 +148,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       failJson: deps.failJson,
       readJsonBody: deps.readJsonBody,
       designSystemRepository: deps.designSystemRepository,
+      db: deps.db,
       normalizeSystemId: deps.normalizeSystemId,
       ensureRelativeDir: deps.ensureRelativeDir,
       normalizeFigmaApiTokenRef: deps.normalizeFigmaApiTokenRef,
@@ -192,43 +158,20 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       repoRoot: deps.repoRoot,
       fsSync: deps.fsSync,
     },
-    operationsDeps: {
-      failJson: deps.failJson,
-      toFiniteTimestamp: deps.toFiniteTimestamp,
-      OPS_HISTORY_MAX_LIMIT: deps.OPS_HISTORY_MAX_LIMIT,
-      OPS_HISTORY_DEFAULT_LIMIT: deps.OPS_HISTORY_DEFAULT_LIMIT,
-      OPS_REGRESSION_MAX_LIMIT: deps.OPS_REGRESSION_MAX_LIMIT,
-      OPS_REGRESSION_DEFAULT_LIMIT: deps.OPS_REGRESSION_DEFAULT_LIMIT,
-      OPS_REGRESSION_DEFAULT_MIN_SAMPLES: deps.OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-      designSystemRepository: deps.designSystemRepository,
-      readOperationHistory: deps.readOperationHistory,
-      buildOperationRegressionsReport: deps.buildOperationRegressionsReport,
-      createApiRequestId: deps.createApiRequestId,
-      readJsonBody: deps.readJsonBody,
-      normalizeSystemId: deps.normalizeSystemId,
-      findOperationEventById: deps.findOperationEventById,
-      enqueueReplayJobFromOperation: deps.enqueueReplayJobFromOperation,
-      queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
-    },
     registryDeps: sharedSystemContextDeps,
-    tokenGraphDeps: { ...sharedSystemContextDeps, tokenRepo: deps.tokenRepo },
+    tokenUsageIndexDeps: sharedSystemContextDeps,
     healthDeps: sharedSystemContextDeps,
-    analysisDeps: sharedSystemContextDeps,
+    componentRepo: deps.componentRepo,
+    tokenRepo: deps.tokenRepo,
+    healthRepo: deps.healthRepo,
     componentSpecDeps: {
       ...sharedSystemContextDeps,
       isDevRuntime: deps.isDevRuntime,
       readJsonBody: deps.readJsonBody,
       resolveRepoFilePath: deps.resolveRepoFilePath,
       sha256Text: deps.sha256Text,
-    },
-    fileDeps: {
-      ...sharedSystemContextDeps,
-      resolveRepoFilePath: deps.resolveRepoFilePath,
-      readTextFileLimited: deps.readTextFileLimited,
-      findLineForQuery: deps.findLineForQuery,
-      buildSnippet: deps.buildSnippet,
-      guessContentType: deps.guessContentType,
-      MAX_FILE_BYTES: deps.MAX_FILE_BYTES,
+      tokenRepo: deps.tokenRepo,
+      componentRepo: deps.componentRepo,
     },
     jobDeps: {
       failJson: deps.failJson,
@@ -240,26 +183,26 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       toQueueTerminalEvent: deps.toQueueTerminalEvent,
       buildApiErrorPayload: deps.buildApiErrorPayload,
       MAX_RETAINED_EVENTS: deps.MAX_RETAINED_EVENTS,
+      db: deps.db,
     },
     commandDeps: {
       failJson: deps.failJson,
       createApiRequestId: deps.createApiRequestId,
       readJsonBody: deps.readJsonBody,
       getSystemContext: deps.getSystemContext,
+      databaseUrl: deps.databaseUrl,
       queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
       enqueueQueueJob: deps.enqueueQueueJob,
       sha256Text: deps.sha256Text,
       runQueuedSpawnCommand: deps.runQueuedSpawnCommand,
       queueNpmScript: deps.queueNpmScript,
-      enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
+      componentRepo: deps.componentRepo,
+      designSystemRepository: deps.designSystemRepository,
+      tokenRepo: deps.tokenRepo,
+      db: deps.db,
       toBooleanString: deps.toBooleanString,
       toNumberString: deps.toNumberString,
-      validateGitRef: deps.validateGitRef,
-    },
-    figmaPingDeps: {
-      failJson: deps.failJson,
-      readJsonBody: deps.readJsonBody,
     },
     figmaMcpPingDeps: {
       failJson: deps.failJson,

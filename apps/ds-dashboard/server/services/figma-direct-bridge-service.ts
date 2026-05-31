@@ -92,6 +92,11 @@ export interface StyleData {
 
 const DIRECT_REQUEST_TIMEOUT_MS = 60_000;
 
+export interface DirectRequestOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
 /**
  * Cache TTL for variables and design system kit (5 minutes).
  * Primary invalidation is via DOCUMENT_CHANGE events.
@@ -118,17 +123,20 @@ function isNoSocketForFileError(error: unknown): boolean {
 async function requestDirectWithFileKeyFallback<T>(
   method: string,
   params: unknown,
-  fileKey?: string | null
+  fileKey?: string | null,
+  options: DirectRequestOptions = {},
 ): Promise<T> {
   const manager = getPluginConnectionManager();
   const requestedFileKey = resolveFileKey(fileKey);
+  const timeoutMs = options.timeoutMs ?? DIRECT_REQUEST_TIMEOUT_MS;
 
   try {
     return await manager.requestForFileKey<T>(
       requestedFileKey,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS
+      timeoutMs,
+      options.signal
     );
   } catch (error) {
     if (!requestedFileKey || !isNoSocketForFileError(error)) {
@@ -152,7 +160,8 @@ async function requestDirectWithFileKeyFallback<T>(
       null,
       method,
       params as Record<string, unknown>,
-      DIRECT_REQUEST_TIMEOUT_MS
+      timeoutMs,
+      options.signal
     );
   }
 }
@@ -243,9 +252,10 @@ export async function fetchDesignSystemKitDirect(
   // Timeout promise that only rejects (never resolves) - use Promise<never> to avoid
   // contaminating the type inference of Promise.race
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       reject(new Error(`Design system kit fetch timeout after ${DESIGN_SYSTEM_KIT_TIMEOUT_MS}ms`));
     }, DESIGN_SYSTEM_KIT_TIMEOUT_MS);
+    timeoutId.unref?.();
   });
 
   const [variablesResult, stylesResult] = await Promise.race([allSettledPromise, timeoutPromise]);
@@ -302,6 +312,7 @@ export function normalizeVariablesMeta(result: GetVariablesDataResult): FigmaVar
       variableCollectionId: variable.variableCollectionId,
       resolvedType: variable.resolvedType,
       valuesByMode: variable.valuesByMode,
+      ...(typeof variable.key === 'string' ? { key: variable.key } : {}),
     };
   }
 
@@ -476,12 +487,14 @@ export type GetTokenUsageResult = BridgeGetTokenUsageResult;
 
 export async function getTokenUsageDirect(
   fileKey: string | null,
-  params: GetTokenUsageParams
+  params: GetTokenUsageParams,
+  signal?: AbortSignal
 ): Promise<GetTokenUsageResult> {
   return await requestDirectWithFileKeyFallback<GetTokenUsageResult>(
     'GET_TOKEN_USAGE',
     params,
-    fileKey
+    fileKey,
+    { signal }
   );
 }
 
@@ -495,6 +508,9 @@ export async function searchComponentsDirect(
   fileKey: string | null,
   params: SearchComponentsParams
 ): Promise<SearchComponentsResult> {
+  // Keep this as a transparent pass-through to the plugin protocol:
+  // pagination/session fields in params and result (offset/hasMore/nextOffset/scanSessionId)
+  // are intentionally not remapped here.
   return await requestDirectWithFileKeyFallback<SearchComponentsResult>(
     'SEARCH_COMPONENTS',
     params,

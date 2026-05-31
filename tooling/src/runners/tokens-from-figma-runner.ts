@@ -3,24 +3,24 @@
 /**
  * Tokens From Figma Runner
  *
- * Imports Figma local variables into design-token JSON files
- * and optionally compiles them to CSS custom properties.
+ * Imports Figma local variables from the Figma API into the PostgreSQL token database.
  */
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import {
   loadDesignSystemsConfig,
+  loadDesignSystemsConfigAsync,
   PROJECT_ROOT,
   type DesignSystemConfig,
 } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
 import type { FigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 
 import {
-  syncFigmaTokensToInput,
-  runTokensCompile,
+  syncFigmaTokensToDatabase,
   isFatalSyncReason,
 } from '../services/figma-token-sync.js';
 
@@ -29,19 +29,34 @@ const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
   options?: { defaultValue?: FigmaVariableSource; optionName?: string },
 ) => FigmaVariableSource;
 
+function emitProgressSnapshot(snapshot: {
+  completed: number;
+  total: number;
+  remaining: number;
+  slug?: string;
+  state: 'starting' | 'tokens' | 'mode-values' | 'aliases' | 'completed';
+}): void {
+  try {
+    process.stderr.write(`[capture-progress] ${JSON.stringify(snapshot)}\n`);
+  } catch {
+    // best-effort progress event
+  }
+}
+
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',
   description:
-    'Imports Figma local variables into design-token JSON files and optionally compiles them to CSS custom properties.',
+    'Imports Figma local variables into the database.',
   options: [
     {
-      name: '--system',
-      description: 'Design system identifier (from design-systems.json).',
+      name: '--system <id>',
+      description: 'Design system identifier (from PostgreSQL design_systems).',
       required: true,
     },
     {
       name: '--url',
-      description: 'Full Figma file URL (https://www.figma.com/design/<fileKey>/...).',
+      description:
+        'Full Figma file URL (https://www.figma.com/design/<fileKey>/...).',
     },
     {
       name: '--file-key',
@@ -49,27 +64,23 @@ const CLI_CONFIG = {
     },
     {
       name: '--figma-token',
-      description: 'Figma personal access token (fallback: FIGMA_TOKEN env var).',
+      description:
+        'Figma personal access token (fallback: FIGMA_TOKEN env var).',
     },
     {
       name: '--source',
       description: 'Variables source: auto, mcp or rest.',
-      defaultValue: 'mcp',
+      defaultValue: 'auto',
     },
     {
       name: '--force',
-      description: 'Overwrite existing input JSON files.',
+      description: 'Overwrite existing persisted token rows.',
       defaultValue: 'false',
     },
     {
       name: '--merge',
-      description: 'Deep-merge incoming variables (requires --force true).',
+      description: 'Merge incoming variables into existing token rows (requires --force true).',
       defaultValue: 'false',
-    },
-    {
-      name: '--compile',
-      description: 'Run ds-tokens-sync after writing.',
-      defaultValue: 'true',
     },
     {
       name: '--dry-run',
@@ -84,7 +95,9 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanArg(rawValue: unknown, fallback: boolean): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  const normalized = String(rawValue ?? fallback)
+    .trim()
+    .toLowerCase();
   if (normalized === 'true') return true;
   if (normalized === 'false') return false;
   throw new Error(`Expected true or false, got: ${rawValue}`);
@@ -130,30 +143,46 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   }
 
   // ── Resolve system ───────────────────────────────────────────────────────
-  const systemId = String(parsed.system || '').trim();
-  if (!systemId) {
+  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(
+    parsed,
+    'system',
+  );
+  if (!hasExplicitSystem) {
     console.error('[ds:tokens-from-figma] --system is required.');
     printUsage(CLI_CONFIG);
     process.exit(1);
   }
+  await loadDesignSystemsConfigAsync();
+  const systemCtx = resolveRunnerSystemContextOrExit({
+    parsedArgs: parsed,
+    logger,
+  });
+  const systemId = systemCtx.id;
 
   let system: DesignSystemConfig;
   try {
     const config = loadDesignSystemsConfig();
-    const resolved = config.systems.find((entry) => String(entry.id || '').trim() === systemId);
+    const resolved = config.systems.find(
+      (entry) => String(entry.id || '').trim() === systemId,
+    );
     if (!resolved) {
-      throw new Error(`System "${systemId}" not found in tooling/config/design-systems.json`);
+      throw new Error(
+        `System "${systemId}" not found in PostgreSQL design_systems table`,
+      );
     }
     system = resolved;
   } catch (err) {
-    logger.error(`Cannot resolve system "${systemId}": ${err instanceof Error ? err.message : String(err)}`);
+    logger.error(
+      `Cannot resolve system "${systemId}": ${err instanceof Error ? err.message : String(err)}`,
+    );
     process.exit(1);
   }
 
   // ── Resolve Figma file key ───────────────────────────────────────────────
   const fileKeyFromUrl = extractFileKeyFromUrl(parsed.url);
   const fileKeyFromArg = String(parsed['file-key'] || '').trim() || null;
-  const fileKey = fileKeyFromArg || fileKeyFromUrl;
+  const fileKeyFromSystem = String(system.figmaFileId || '').trim() || null;
+  const fileKey = fileKeyFromArg || fileKeyFromUrl || fileKeyFromSystem;
 
   if (!fileKey) {
     console.error(
@@ -166,11 +195,13 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const figmaTokenArg = String(parsed['figma-token'] || '').trim();
   const figmaTokenSystem = String(system.figmaApiToken || '').trim();
   const figmaTokenEnv = String(process.env.FIGMA_TOKEN || '').trim();
-  const figmaToken = resolveEnvRef(figmaTokenArg || figmaTokenSystem || figmaTokenEnv);
+  const figmaToken = resolveEnvRef(
+    figmaTokenArg || figmaTokenSystem || figmaTokenEnv,
+  );
 
   // ── Resolve source mode ──────────────────────────────────────────────────
   const source = parseFigmaVariableSource(parsed.source, {
-    defaultValue: 'mcp',
+    defaultValue: 'auto',
     optionName: '--source',
   });
 
@@ -184,21 +215,22 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   // ── Resolve flags ────────────────────────────────────────────────────────
   const force = parseBooleanArg(parsed.force, false);
   const merge = parseBooleanArg(parsed.merge, false);
-  const compile = parseBooleanArg(parsed.compile, true);
   const dryRun = parseBooleanArg(parsed.dryRun, false);
 
   if (merge && !force) {
-    console.error(
-      '[ds:tokens-from-figma] --merge true requires --force true.',
-    );
+    console.error('[ds:tokens-from-figma] --merge true requires --force true.');
     process.exit(1);
   }
 
   // ── Sync tokens from Figma ───────────────────────────────────────────────
   try {
-    const syncResult = await syncFigmaTokensToInput({
-      repoRoot: PROJECT_ROOT,
-      system,
+    const syncResult = await syncFigmaTokensToDatabase({
+      system: {
+        id: systemId,
+        paths: {
+          databaseUrl: systemCtx.paths.databaseUrl,
+        },
+      },
       fileKey,
       figmaToken,
       force,
@@ -206,44 +238,46 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
       dryRun,
       source,
       mcpFileUrl: String(parsed.url || '').trim() || undefined,
+      onProgress: emitProgressSnapshot,
     });
 
     if (syncResult.reason) {
       if (isFatalSyncReason(syncResult.reason)) {
-        logger.error(`Sync failed: ${syncResult.reason}${syncResult.error ? ` - ${syncResult.error}` : ''}`);
+        logger.error(
+          `Sync failed: ${syncResult.reason}${syncResult.error ? ` - ${syncResult.error}` : ''}`,
+        );
         process.exit(1);
       }
-      // Non-fatal reasons (like 'input-json-exists') are just informational
+      // Non-fatal reasons are just informational.
     }
 
     if (dryRun) {
-      console.log('[dry-run] Sync preview:', JSON.stringify(syncResult, null, 2));
+      console.log(
+        '[dry-run] Sync preview:',
+        JSON.stringify(syncResult, null, 2),
+      );
       return;
     }
 
-    // ── Optional compile ───────────────────────────────────────────────────
-    if (compile) {
-      await runTokensCompile({ repoRoot: PROJECT_ROOT, system });
-    }
-
-    console.log(JSON.stringify(
-      {
-        ok: true,
-        dryRun,
-        system: systemId,
-        fileKey,
-        // Note: variablesImported is deprecated, use tokensImported instead
-        variablesImported: syncResult.tokens_written || 0,  // Deprecated but kept for backward compatibility
-        tokensImported: syncResult.tokens_written || 0,
-        sourceRequested: source,
-        sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
-        compiled: compile,
-      },
-      null,
-      2,
-    ));
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          dryRun,
+          system: systemId,
+          fileKey,
+          tokensImported: syncResult.tokens_written || 0,
+          sourceRequested: source,
+          sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
+        },
+        null,
+        2,
+      ),
+    );
   } catch (error) {
-    logger.error(`Tokens from Figma failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Tokens from Figma failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   }
 }
@@ -251,7 +285,9 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokensFromFigma(process.argv.slice(2)).catch((error) => {
-    logger.error(`Tokens from Figma runner failed: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Tokens from Figma runner failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   });
 }

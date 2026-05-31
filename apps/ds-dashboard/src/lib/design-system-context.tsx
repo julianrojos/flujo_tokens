@@ -2,11 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { fetchDesignSystemsConfig, setActiveSystemId } from "./api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "./api-error-ux";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import type { DatabaseProvider } from "./api";
 
 export interface DesignSystem {
   id: string;
   name: string;
   figmaFileId?: string;
+  databaseProvider?: DatabaseProvider;
 }
 
 export interface DesignSystemsConfig {
@@ -123,9 +125,7 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
         error,
       }}
     >
-      <React.Fragment key={activeSystem}>
-        {children}
-      </React.Fragment>
+      {children}
     </DesignSystemContext.Provider>
   );
 }

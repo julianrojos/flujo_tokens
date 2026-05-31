@@ -84,18 +84,6 @@ function createServerDepsForRouteWiring(): ServerDeps {
     resolveSafeSystemPathsForDeletion: () => [],
     repoRoot: '/repo',
     fsSync: {},
-    toFiniteTimestamp: () => 0,
-    OPS_HISTORY_MAX_LIMIT: 1000,
-    OPS_HISTORY_DEFAULT_LIMIT: 100,
-    OPS_REGRESSION_MAX_LIMIT: 500,
-    OPS_REGRESSION_DEFAULT_LIMIT: 100,
-    OPS_REGRESSION_DEFAULT_MIN_SAMPLES: 3,
-    readOperationHistory: () => ({}),
-    buildOperationRegressionsReport: () => ({}),
-    createApiRequestId: () => 'req_1',
-    findOperationEventById: () => ({}),
-    enqueueReplayJobFromOperation: () => ({}),
-    queueJobAcceptedPayload: () => ({}),
     isDevRuntime: () => true,
     resolveRepoFilePath: () => '/repo/file',
     sha256Text: () => 'hash',
@@ -115,7 +103,6 @@ function createServerDepsForRouteWiring(): ServerDeps {
     enqueueQueueJob: () => ({}),
     runQueuedSpawnCommand: async () => ({}),
     queueNpmScript: () => ({}),
-    enqueueRefreshNamingDebtJob: () => ({}),
     queueNodeJsonCommand: () => ({}),
     toBooleanString: () => 'false',
     toNumberString: () => '0',
@@ -182,7 +169,7 @@ function createTestApp(options?: { internalToken?: string; nodeEnv?: string }) {
   const originalNodeEnv = process.env.NODE_ENV;
   const hadToken = originalToken !== undefined;
   const hadNodeEnv = originalNodeEnv !== undefined;
-  
+
   process.env.DS_DASHBOARD_INTERNAL_TOKEN = internalToken;
   process.env.NODE_ENV = nodeEnv;
 
@@ -347,7 +334,7 @@ test('figma-plugin-debug route wiring: registerAllRoutes exposes debug endpoint'
 
   try {
     initializeAiJobsStore(new AiJobsStore());
-    registerAllRoutes(app, createServerDepsForRouteWiring());
+    await registerAllRoutes(app, createServerDepsForRouteWiring());
     const allowedResponse = await app.request('/api/figma-plugin/debug', {
       method: 'GET',
     });

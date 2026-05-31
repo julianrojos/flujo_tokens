@@ -90,9 +90,26 @@ export function hasNoCaptureTargets(result: {
   targets_total?: number;
   targets?: unknown[];
   captured?: unknown[];
+  report?: {
+    targets_total?: number;
+    targets?: unknown[];
+  } | null;
 }): boolean {
   if (result.ok === false) return false;
-  const targetsCount = result.targets_total ?? result.targets?.length ?? 0;
+  const reportTargetsTotal =
+    result.report && typeof result.report === "object"
+      ? result.report.targets_total
+      : undefined;
+  const reportTargetsLength =
+    result.report && typeof result.report === "object" && Array.isArray(result.report.targets)
+      ? result.report.targets.length
+      : undefined;
+  const targetsCount =
+    result.targets_total ??
+    result.targets?.length ??
+    reportTargetsTotal ??
+    reportTargetsLength ??
+    0;
   const capturedCount = result.captured?.length ?? 0;
   return targetsCount === 0 && capturedCount === 0;
 }
@@ -167,7 +184,6 @@ export function extractCaptureFailureFromPayload(payload: unknown): string {
   const result = toRecord(job?.result);
   const resultPayload = toRecord(result?.payload);
   const sync = toRecord(resultPayload?.sync);
-  const registryRefresh = toRecord(resultPayload?.registry_refresh);
   const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(root.events) ? root.events : [];
@@ -201,7 +217,6 @@ export function extractCaptureFailureFromPayload(payload: unknown): string {
     sync?.error,
     sync?.reason,
     sync?.stderr,
-    registryRefresh?.stderr,
     lastErrorEventMessage,
     result?.summary,
     formatPipelinePhaseMessage(pipelinePhase),
@@ -254,14 +269,8 @@ export function mapTokensBootstrapReason(reason: string): string {
   if (normalized === "variables-empty") {
     return "No Figma local variables were found in this file.";
   }
-  if (normalized === "input-json-exists") {
-    return "Input token JSON already exists, so bootstrap was skipped.";
-  }
   if (normalized === "figma-file-key-missing") {
     return "Figma file key could not be resolved for token bootstrap.";
-  }
-  if (normalized === "system-input-dir-missing") {
-    return "Input directory is not configured for this system.";
   }
   if (normalized === "system-missing") {
     return "System configuration could not be resolved for token bootstrap.";
@@ -288,47 +297,6 @@ export function getTokensBootstrapErrorHint(errorMessage: string): string | null
 }
 
 /**
- * Check if tokens bootstrap failure is critical (not skippable)
- */
-export function isCriticalTokensBootstrapFailure(result: { reason?: string } | null): boolean {
-  if (!result) return false;
-  if ("error" in result && result.error) return true;
-  const normalized = normalizeReason(result.reason || "");
-  return (
-    normalized === "fetch-failed" ||
-    normalized === "system-missing" ||
-    normalized === "system-input-dir-missing" ||
-    normalized === "figma-file-key-missing"
-  );
-}
-
-/**
- * Map tokens compile reason to human-readable message
- */
-export function mapTokensCompileReason(reason: string): string {
-  const normalized = normalizeReason(reason);
-  if (normalized === "disabled-by-config") {
-    return "Token compilation is disabled for this system (compileVariablesOnCapture is off).";
-  }
-  if (normalized === "input-json-missing") {
-    return "Token compilation was skipped because no input JSON files were available.";
-  }
-  if (normalized === "system-input-dir-missing") {
-    return "Input directory is not configured for this system.";
-  }
-  if (normalized === "system-missing") {
-    return "System configuration could not be resolved for token compilation.";
-  }
-  if (normalized === "compile-failed") {
-    return "Token compilation command failed.";
-  }
-  if (normalized === "compiled") {
-    return "Token compilation completed successfully.";
-  }
-  return reason ? `Unknown reason: ${reason}` : "No compilation reason was provided.";
-}
-
-/**
  * Get the error message from a capture error
  */
 export function getCaptureErrorMessage(error: unknown): string {
@@ -349,13 +317,11 @@ export function getCaptureErrorMessage(error: unknown): string {
       error?: string;
       message?: string;
       failed?: Array<{ error?: string }>;
-      registry_refresh?: { stderr?: string };
     };
     return (
       parsed.error ||
       parsed.message ||
       parsed.failed?.[0]?.error ||
-      parsed.registry_refresh?.stderr ||
       message
     );
   } catch {
@@ -435,6 +401,7 @@ export function makeInlineErrorDisplay(args: {
   return {
     title: args.title,
     message: args.message,
+    reason: null,
     action: args.action ?? null,
     code: null,
     requestId: null,

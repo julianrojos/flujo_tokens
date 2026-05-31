@@ -42,8 +42,15 @@ Applies when instructions conflict (high → low):
 - Workflows and rules are complementary: the workflow defines procedure; applicable `.mdc`
   rules still govern any files produced.
 
+## Restricciones de entorno
+
+- NUNCA crear worktrees ni ramas auxiliares (`isolation: "worktree"` prohibido).
+- Trabajar siempre en la rama activa del repositorio principal.
+- El usuario es quien decide cuándo crear ramas y commits. No hacerlo de forma autónoma.
+
 ## Repo Conventions
 
-- Canonical component docs directory: `docs/components`.
-- Treat `docs/_generated/**` as generated artifacts; modify via scripts/workflows,
-  not manual editing.
+- Canonical component docs directories are system-scoped:
+  `design-systems/<id>/docs/components` and `design-systems/<id>/docs/_spec/components`.
+- Treat `design-systems/<id>/docs/_generated/**` as generated artifacts; modify via
+  scripts/workflows, not manual editing.

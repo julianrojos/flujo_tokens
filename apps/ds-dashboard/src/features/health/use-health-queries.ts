@@ -1,59 +1,82 @@
 import {
-  fetchComponentsHealth,
+  fetchComponentCatalog,
+  fetchDesignSystemsConfig,
   fetchHealthHistory,
-  fetchNamingDebt,
-  fetchTokenHealth,
-} from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
-import { QUERY_DEFAULTS } from "@/lib/query-client";
-import type { ComponentsHealthReport } from "@/types/components-health";
+  fetchReportByVariable,
+  fetchTokenCatalog,
+  fetchTokenUsageIndex,
+} from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { resolveDesignSystemContext } from '@/lib/design-system-keys';
+import { QUERY_DEFAULTS } from '@/lib/query-client';
+import type { VariableUsageReport } from '@/types/consumers';
+import type { ComponentCatalog } from '@/types/component-catalog';
 import type {
   HealthHistoryBucket,
   HealthHistoryRange,
   HealthHistoryReport,
-} from "@/types/health-history";
-import type { NamingDebtReport } from "@/types/naming-debt";
-import type { TokenHealthReport } from "@/types/token-health";
+} from '@/types/health-history';
+import type { TokenCatalog } from '@/types/token-catalog';
+import type { TokenUsageIndex } from '@/types/token-usage-index';
 
 export const healthQueryKeys = {
-  token: ["health", "token"] as const,
-  components: ["health", "components"] as const,
-  namingDebt: ["health", "naming-debt"] as const,
-  history: (range: HealthHistoryRange, bucket: HealthHistoryBucket) =>
-    ["health", "history", range, bucket] as const,
+  componentCatalog: (systemId: string) => ['health', systemId, 'component-catalog'] as const,
+  tokenCatalog: (systemId: string) => ['health', systemId, 'token-catalog'] as const,
+  tokenUsageIndex: (systemId: string) => ['health', systemId, 'token-usage-index'] as const,
+  tokenVariableReports: (systemId: string) => ['health', systemId, 'token-variable-reports'] as const,
+  history: (
+    systemId: string,
+    range: HealthHistoryRange,
+    bucket: HealthHistoryBucket,
+  ) => ['health', systemId, 'history', range, bucket] as const,
 };
 
-export function useTokenHealthQuery() {
-  return useQuery<TokenHealthReport>({
-    queryKey: healthQueryKeys.token,
-    queryFn: () => fetchTokenHealth(),
+export function useComponentCatalogQuery(systemId: string) {
+  return useQuery<ComponentCatalog>({
+    queryKey: healthQueryKeys.componentCatalog(systemId),
+    queryFn: () => fetchComponentCatalog(systemId || undefined),
     ...QUERY_DEFAULTS,
   });
 }
 
-export function useComponentsHealthQuery() {
-  return useQuery<ComponentsHealthReport>({
-    queryKey: healthQueryKeys.components,
-    queryFn: () => fetchComponentsHealth(),
+export function useTokenCatalogQuery(systemId: string) {
+  return useQuery<TokenCatalog>({
+    queryKey: healthQueryKeys.tokenCatalog(systemId),
+    queryFn: () => fetchTokenCatalog(systemId || undefined),
     ...QUERY_DEFAULTS,
   });
 }
 
-export function useNamingDebtQuery() {
-  return useQuery<NamingDebtReport>({
-    queryKey: healthQueryKeys.namingDebt,
-    queryFn: () => fetchNamingDebt(),
+export function useTokenUsageIndexQuery(systemId: string) {
+  return useQuery<TokenUsageIndex>({
+    queryKey: healthQueryKeys.tokenUsageIndex(systemId),
+    queryFn: () => fetchTokenUsageIndex(systemId || undefined),
+    ...QUERY_DEFAULTS,
+  });
+}
+
+export function useTokenVariableReportsQuery(systemId: string) {
+  return useQuery<VariableUsageReport[]>({
+    queryKey: healthQueryKeys.tokenVariableReports(systemId),
+    queryFn: async () => {
+      const config = await fetchDesignSystemsConfig();
+      const { dsFileKey } = resolveDesignSystemContext(config, String(systemId || "").trim());
+      if (!dsFileKey) return [];
+      const payload = await fetchReportByVariable(dsFileKey);
+      return payload.data ?? [];
+    },
     ...QUERY_DEFAULTS,
   });
 }
 
 export function useHealthHistoryQuery(
+  systemId: string,
   range: HealthHistoryRange,
   bucket: HealthHistoryBucket,
 ) {
   return useQuery<HealthHistoryReport>({
-    queryKey: healthQueryKeys.history(range, bucket),
-    queryFn: () => fetchHealthHistory({ range, bucket }),
+    queryKey: healthQueryKeys.history(systemId, range, bucket),
+    queryFn: () => fetchHealthHistory({ systemId, range, bucket }),
     ...QUERY_DEFAULTS,
   });
 }

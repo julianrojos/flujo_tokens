@@ -11,9 +11,9 @@ import {
   ERROR_CODES,
 } from '../protocol';
 
-export async function handleGetFileInfo(
+export function handleGetFileInfo(
   _params: GetFileInfoParams
-): Promise<GetFileInfoResult> {
+): GetFileInfoResult {
   try {
     const selection = figma.currentPage.selection;
 

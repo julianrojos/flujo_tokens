@@ -49,7 +49,7 @@ interface CapabilitiesResponse {
     message: string;
   };
   /**
-   * @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics.
+   * @deprecated Deprecated flags. Use supportsV2 for clearer semantics.
    */
   supports: {
     searchNodes: boolean;

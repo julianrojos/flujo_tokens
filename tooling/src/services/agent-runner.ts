@@ -179,8 +179,6 @@ function candidateCommands(
           "exec",
           "--full-auto",
           "--ephemeral",
-          "-c",
-          "mcp_servers.figma-console.startup_timeout_sec=60",
           "-C",
           cwd,
           prompt,

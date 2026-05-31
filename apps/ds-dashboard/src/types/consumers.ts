@@ -9,7 +9,6 @@ export interface DsConsumer {
   dsFileKey: string;
   consumerFileKey: string;
   consumerName: string;
-  enabled: boolean;
   createdAt: string;
 }
 
@@ -25,6 +24,80 @@ export interface DsSyncRun {
   componentCount: number;
   variableCount: number;
   warningCount: number;
+  localComponentUsedCount?: number | null;
+  parentDerivedComponentCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
+  usageDetails?: ConsumerUsageDetails | null;
+}
+
+export type UsageScope = "page" | "local-component" | "nested-local-component";
+
+export interface SampleNodeRef {
+  nodeId: string;
+  pageName: string;
+}
+
+export interface ConsumerUsageDetails {
+  parentComponentUsages: Array<{
+    localComponentKey: string;
+    localComponentName: string;
+    parentComponentKey: string;
+    parentComponentName: string;
+    usageScope: UsageScope;
+    usageCount: number;
+    sampleNodeIds: string[];
+  }>;
+  localComponentGraph: Array<{
+    parentComponentKey: string;
+    parentComponentName: string;
+    childComponentKey: string;
+    childComponentName: string;
+    usageCount: number;
+    sampleNodeIds: string[];
+  }>;
+  componentPropertyUsages: Array<{
+    nodeId: string;
+    nodeName: string;
+    componentKey: string;
+    componentName: string;
+    usageScope: UsageScope;
+    localComponentKey?: string;
+    localComponentName?: string;
+    properties: Array<{
+      name: string;
+      value: string;
+      valueType: string;
+    }>;
+  }>;
+  tokenBindingDetails: Array<{
+    nodeId: string;
+    nodeName: string;
+    usageScope: UsageScope;
+    localComponentKey?: string;
+    localComponentName?: string;
+    bindings: Array<{
+      field: string;
+      variableId: string;
+      variableKey: string | null;
+      variableName: string | null;
+      variableType: string | null;
+      status: "resolved" | "unresolved";
+      resolvedTokenPath: string | null;
+    }>;
+  }>;
+  usageShape: {
+    components: {
+      page: number;
+      localComponent: number;
+      nestedLocalComponent: number;
+    };
+    tokens: {
+      page: number;
+      localComponent: number;
+      nestedLocalComponent: number;
+    };
+  };
 }
 
 // API response wrappers
@@ -51,6 +124,10 @@ export interface SyncRunSummary {
       componentCount: number;
       variableCount: number;
       warningCount: number;
+      localComponentUsedCount?: number | null;
+      parentDerivedComponentCount?: number | null;
+      localVariableDefinedCount?: number | null;
+      localVariableUsedCount?: number | null;
     }>;
   };
 }
@@ -70,6 +147,7 @@ export interface ConsumerUsage {
   instanceCount?: number; // For components
   nodeCount?: number; // For variables
   sampleNodeIds: string[];
+  sampleNodes?: SampleNodeRef[];
   lastSyncedAt: string;
   sampleLinks: string[];
 }
@@ -125,59 +203,24 @@ export interface FileReport {
     level: ImpactLevel;
     description: string;
   };
-}
-
-// Simulation types
-export interface AffectedConsumer {
-  consumerId: string;
-  consumerName: string;
-  consumerFileKey: string;
-  nodeCount: number;
-  sampleNodeIds: string[];
-  sampleLinks: string[];
-  lastSyncedAt: string;
-  freshnessHours: number;
-}
-
-export interface SimulationWarning {
-  code: string;
-  message: string;
-  consumerId?: string;
-}
-
-export interface SimulationResult {
-  variableKey: string;
-  variableName: string;
-  variableType: string;
-  proposedValue: unknown;
-  totalNodes: number;
-  totalConsumers: number;
-  impactLevel: ImpactLevel;
-  affectedConsumers: AffectedConsumer[];
-  warnings: SimulationWarning[];
-  disclaimer: string;
+  localComponentUsedCount?: number | null;
+  parentDerivedComponentCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
 }
 
 // Request types
 export interface AddConsumerRequest {
   dsFileKey?: string;
-  dsFileUrl?: string;
   consumerFileKey?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  enabled?: boolean;
 }
 
 export interface SyncConsumersRequest {
   dsFileKey: string;
   consumerIds?: string[];
   force?: boolean;
-}
-
-export interface SimulateVariableChangeRequest {
-  dsFileKey: string;
-  variableKey: string;
-  proposedValue: unknown;
 }
 
 // Response types for API endpoints
@@ -194,16 +237,6 @@ export interface ByComponentReportResponse {
 export interface ByVariableReportResponse {
   ok: true;
   data: VariableUsageReport[];
-}
-
-export interface SimulationResponse {
-  ok: true;
-  data: SimulationResult;
-}
-
-export interface SyncRunsResponse {
-  ok: true;
-  data: DsSyncRun[];
 }
 
 // Common filter/sort types

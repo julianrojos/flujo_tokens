@@ -25,21 +25,11 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
   }
 
   const status = latestSync.status;
-  const syncedAt = new Date(latestSync.syncedAt);
-  const hoursAgo = Math.floor((Date.now() - syncedAt.getTime()) / (1000 * 60 * 60));
 
   if (status === 'error') {
     return (
       <Badge variant="error" title={latestSync.errorMessage}>
         Sync error
-      </Badge>
-    );
-  }
-
-  if (status === 'partial') {
-    return (
-      <Badge variant="warning" title={latestSync.errorMessage}>
-        Partial ({hoursAgo}h ago)
       </Badge>
     );
   }
@@ -52,18 +42,10 @@ export function ConsumerSyncStatusBadge({ latestSync, syncing }: ConsumerSyncSta
     );
   }
 
-  // status === 'ok'
-  if (hoursAgo > 72) {
-    return (
-      <Badge variant="warning">
-        {hoursAgo}h ago
-      </Badge>
-    );
-  }
-
+  // status === 'ok' | 'partial' — both render as Synced
   return (
     <Badge variant="success">
-      {hoursAgo}h ago
+      Synced
     </Badge>
   );
 }

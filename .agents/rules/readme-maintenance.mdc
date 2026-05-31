@@ -6,7 +6,6 @@ globs:
   - "tooling/scripts/ds-*.mjs"
   - "tooling/src/cli/**/*.ts"
   - "tooling/scripts/lib/agent-runner.mjs"
-  - "docs/_spec/**/*.yml"
   - ".agents/rules/*.mdc"
 ---
 
@@ -17,7 +16,7 @@ globs:
 This repository has two public workflows only:
 
 1. Token compilation from JSON to CSS custom properties.
-2. Figma component documentation (Figma -> Markdown -> Figma section).
+2. Figma component documentation (Markdown-centric component docs and related artifacts).
 
 README changes must preserve that split and avoid introducing unrelated scopes.
 
@@ -48,7 +47,7 @@ If rules under `.agents/rules/*.mdc` add or change author-facing requirements, u
 
 Examples:
 
-- New required frontmatter fields.
+- New required documentation metadata fields.
 - New mandatory section ordering.
 - New markdown subset constraints for Figma rendering.
 - New overview/index synchronization requirements.

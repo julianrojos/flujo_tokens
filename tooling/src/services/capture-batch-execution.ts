@@ -2,13 +2,13 @@
  * Capture Batch Execution
  *
  * Executes capture operations in batch mode across multiple targets.
- * Handles error tolerance, result aggregation, and registry refresh.
+ * Handles error tolerance, result aggregation, and DB persistence.
  */
 
 import * as path from 'node:path';
-import * as fs from 'node:fs';
 import type { CaptureTarget } from '../types/capture-targets.js';
-import { syncDocumentationIndices } from './component-registry-index.js';
+import { persistCaptureReportToDb } from './capture-db-persistence.js';
+import { buildNodeScriptCommandArgs, buildNodeScriptDisplayArgs } from '../utils/exec.js';
 
 /**
  * Captured component result.
@@ -18,16 +18,30 @@ export interface CapturedComponent {
   slug: string;
   /** Figma node ID. */
   node_id: string;
-  /** Markdown file path (relative). */
-  markdown_path: string;
-  /** Proof file path. */
-  proof_file_path: string | null;
   /** Screenshot URL. */
   screenshot_url: string | null;
   /** Local image path. */
   local_image_path: string | null;
   /** Number of variants captured. */
   variants_count: number;
+  /** Capture timestamp (ISO 8601). */
+  captured_at: string | null;
+  /** Main image SHA256 hash. */
+  image_sha256: string | null;
+  /** Main image bytes. */
+  image_bytes: number | null;
+  /** Main image content type. */
+  image_content_type: string | null;
+  /** Main image width in px. */
+  image_width: number | null;
+  /** Main image height in px. */
+  image_height: number | null;
+  /** Logical node width in px. */
+  node_width: number | null;
+  /** Logical node height in px. */
+  node_height: number | null;
+  /** Variant captures metadata. */
+  variants: Array<Record<string, unknown>>;
 }
 
 /**
@@ -38,8 +52,6 @@ export interface FailedCapture {
   slug: string;
   /** Figma node ID. */
   node_id: string;
-  /** Markdown file path (relative). */
-  markdown_path: string;
   /** Error message. */
   error: string;
 }
@@ -106,11 +118,17 @@ function emitCaptureProgress(snapshot: {
   }
 }
 
+function toPositiveIntegerOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
 /**
  * Build capture script arguments for a target.
- *
- * @param params - Capture parameters.
- * @returns Array of script arguments.
  */
 export function buildCaptureArgs(params: {
   target: CaptureTarget;
@@ -138,8 +156,8 @@ export function buildCaptureArgs(params: {
   } = params;
 
   const captureArgs: string[] = [
-    '--markdown',
-    target.markdownPath,
+    '--component-name',
+    target.name,
     '--component-set-id',
     target.nodeId,
     '--url',
@@ -162,22 +180,15 @@ export function buildCaptureArgs(params: {
     agent,
     '--main-capture-mode',
     mainCaptureMode,
-    '--skip-index-sync',
+    '--skip-db-persistence',
     'true',
   ];
-
-  if (target.specExists) {
-    captureArgs.push('--spec-file', target.specPath);
-  }
 
   return captureArgs;
 }
 
 /**
  * Execute capture batch across multiple targets.
- *
- * @param options - Batch execution options.
- * @returns Batch result with captured and failed components.
  */
 export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResult {
   const {
@@ -232,12 +243,22 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
       captured.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
-        proof_file_path: (captureResult.proofFilePath as string) || null,
         screenshot_url: (captureResult.screenshotUrl as string) || null,
         local_image_path: (captureResult.localImagePath as string) || null,
         variants_count: Number(captureResult.variantsCount || 0),
+        captured_at: (captureResult.capturedAt as string) || null,
+        image_sha256: (captureResult.imageSha256 as string) || null,
+        image_bytes: toPositiveIntegerOrNull(captureResult.imageBytes),
+        image_content_type: (captureResult.imageContentType as string) || null,
+        image_width: toPositiveIntegerOrNull(captureResult.imageWidth),
+        image_height: toPositiveIntegerOrNull(captureResult.imageHeight),
+        node_width: toPositiveIntegerOrNull(captureResult.nodeWidth),
+        node_height: toPositiveIntegerOrNull(captureResult.nodeHeight),
+        variants: Array.isArray(captureResult.variants)
+          ? (captureResult.variants as Array<Record<string, unknown>>)
+          : [],
       });
+
       const completed = captured.length + failed.length;
       emitCaptureProgress({
         completed,
@@ -250,9 +271,9 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
       failed.push({
         slug: target.slug,
         node_id: target.nodeId,
-        markdown_path: path.relative(repoRoot, target.markdownPath),
         error: error instanceof Error ? error.message : String(error),
       });
+
       const completed = captured.length + failed.length;
       emitCaptureProgress({
         completed,
@@ -280,16 +301,6 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
 }
 
 /**
- * Registry refresh result.
- */
-export interface RegistryRefreshResult {
-  /** Whether refresh succeeded. */
-  ok: boolean;
-  /** Refresh output/data. */
-  data?: unknown;
-}
-
-/**
  * Convert unknown errors to message strings.
  */
 function toErrorMessage(error: unknown): string {
@@ -297,53 +308,7 @@ function toErrorMessage(error: unknown): string {
 }
 
 /**
- * Count markdown component docs excluding overview.
- */
-function countComponentDocs(docsDir: string): number {
-  if (!fs.existsSync(docsDir)) return 0;
-  return fs
-    .readdirSync(docsDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
-    .map((entry) => entry.name.toLowerCase())
-    .filter((name) => name !== 'overview.md')
-    .length;
-}
-
-/**
- * Read component count from the registry artifact.
- */
-function readRegistryComponentCount(registryPath: string): number {
-  if (!fs.existsSync(registryPath)) return 0;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as {
-      components?: unknown[];
-    };
-    return Array.isArray(parsed.components) ? parsed.components.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Type guard to check if a value is a valid refresh result.
- *
- * @param obj - Value to check.
- * @returns True if the value has a valid `ok` boolean property.
- */
-function isRefreshResult(obj: unknown): obj is { ok: boolean } {
-  return (
-    obj !== null &&
-    typeof obj === 'object' &&
-    'ok' in obj &&
-    typeof (obj as { ok: unknown }).ok === 'boolean'
-  );
-}
-
-/**
- * Execute capture batch and refresh registry indices.
- *
- * @param params - Batch execution and refresh parameters.
- * @returns Updated report with captured/failed counts and refresh status.
+ * Execute capture batch and persist component proofs in DB.
  */
 export function executeCaptureBatchAndRefresh(params: {
   report: Record<string, unknown>;
@@ -367,14 +332,13 @@ export function executeCaptureBatchAndRefresh(params: {
   variantLimit: number;
   agent: string;
   mainCaptureMode: string;
-  refreshIndices: boolean;
+  skipDbPersistence?: boolean;
 }): Record<string, unknown> {
   const {
     report,
     targets,
     projectRoot,
     systemId,
-    docsRootDir,
     runCaptureBatchFn = runCaptureBatch,
     runJsonCommandFn,
     continueOnError,
@@ -387,29 +351,16 @@ export function executeCaptureBatchAndRefresh(params: {
     variantLimit,
     agent,
     mainCaptureMode,
-    refreshIndices,
+    skipDbPersistence = false,
   } = params;
 
   const captureScriptPath = path.join(
     projectRoot,
     'tooling',
-    'scripts',
-    'ds-capture-visual-proof.mjs',
+    'src',
+    'runners',
+    'capture-visual-proof-runner.ts',
   );
-
-  const registryRefreshScriptPath = path.join(
-    projectRoot,
-    'tooling',
-    'scripts',
-    'ds-registry-refresh.mjs',
-  );
-  const tokenUsageIndexScriptPath = path.join(
-    projectRoot,
-    'tooling',
-    'scripts',
-    'ds-token-usage-index.mjs',
-  );
-
   const captureBatch = runCaptureBatchFn({
     targets,
     repoRoot: projectRoot,
@@ -435,105 +386,51 @@ export function executeCaptureBatchAndRefresh(params: {
   report.captured = captureBatch.captured;
   report.failed = captureBatch.failed;
 
-  if (refreshIndices) {
-    const resolvedDocsRootDir = docsRootDir
-      ? path.resolve(docsRootDir)
-      : path.dirname(path.dirname(proofDir));
-    const docsDir = path.join(resolvedDocsRootDir, 'components');
-    const specsDir = path.join(resolvedDocsRootDir, '_spec', 'components');
-    const generatedDir = path.join(resolvedDocsRootDir, '_generated');
-    const registryPath = path.join(generatedDir, 'component-registry.json');
-    const overviewPath = path.join(docsDir, 'overview.md');
-    const renderDir = path.join(generatedDir, 'figma_doc_models');
-    const proofsDir = proofDir;
-
-    const refreshArgs = ['--system', systemId];
-    let refreshResult: unknown = null;
-    let refreshError: unknown = null;
+  if (!skipDbPersistence) {
     try {
-      refreshResult = runNodeScriptJson({
-        repoRoot: projectRoot,
-        scriptPath: registryRefreshScriptPath,
-        scriptArgs: refreshArgs,
-        runJsonCommandFn,
+      const persistence = persistCaptureReportToDb({
+        projectRoot,
+        systemId,
+        payload: report,
       });
-    } catch (error) {
-      refreshError = error;
-    }
-
-    const primaryRefreshOk = isRefreshResult(refreshResult) && refreshResult.ok;
-    const docsCount = countComponentDocs(docsDir);
-    const registryComponentCount = readRegistryComponentCount(registryPath);
-    const hasDocsButRegistryEmpty = docsCount > 0 && registryComponentCount === 0;
-
-    if (primaryRefreshOk && !hasDocsButRegistryEmpty) {
-      report.indices_refreshed = true;
-      report.registry_refresh = refreshResult;
-    } else {
-      try {
-        const fallbackResult = syncDocumentationIndices({
-          registryPath,
-          overviewPath,
-          specsDir,
-          docsDir,
-          proofsDir,
-          renderDir,
-          dryRun: false,
-        });
-        report.indices_refreshed = fallbackResult.ok;
-        report.registry_refresh = {
-          ok: fallbackResult.ok,
-          strategy: 'direct-sync-fallback',
-          fallback_reason: hasDocsButRegistryEmpty
-            ? 'docs-present-registry-empty'
-            : 'primary-refresh-failed',
-          primary_result: refreshResult,
-          primary_error: refreshError ? toErrorMessage(refreshError) : null,
-          data: fallbackResult,
-        };
-      } catch (fallbackError) {
-        report.indices_refreshed = false;
-        report.registry_refresh = {
-          ok: false,
-          strategy: 'direct-sync-fallback',
-          fallback_reason: hasDocsButRegistryEmpty
-            ? 'docs-present-registry-empty'
-            : 'primary-refresh-failed',
-          primary_result: refreshResult,
-          primary_error: refreshError ? toErrorMessage(refreshError) : null,
-          fallback_error: toErrorMessage(fallbackError),
-        };
-      }
-    }
-
-    try {
-      const tokenUsageResult = runNodeScriptJson({
-        repoRoot: projectRoot,
-        scriptPath: tokenUsageIndexScriptPath,
-        scriptArgs: ['--system', systemId],
-        runJsonCommandFn,
-      });
-      report.token_usage_refresh = tokenUsageResult;
-    } catch (tokenUsageError) {
-      report.token_usage_refresh = {
-        ok: false,
-        error: toErrorMessage(tokenUsageError),
+      report.db_persistence = {
+        ok: true,
+        ...persistence,
       };
+    } catch (error) {
+      report.db_persistence = {
+        ok: false,
+        error: toErrorMessage(error),
+      };
+      report.failed = [
+        ...(report.failed as FailedCapture[]),
+        {
+          slug: 'db-sync',
+          node_id: '',
+          error: `Failed to persist capture results to DB: ${toErrorMessage(error)}`,
+        },
+      ];
+      report.ok = false;
+      return report;
     }
+  } else {
+    report.db_persistence = {
+      ok: false,
+      skipped: true,
+    };
   }
 
   report.ok =
     (report.captured as CapturedComponent[]).length > 0 &&
-    (report.failed as FailedCapture[]).length === 0;
+    (report.failed as FailedCapture[]).length === 0 &&
+    (skipDbPersistence ||
+      Boolean((report.db_persistence as { ok?: boolean } | undefined)?.ok));
 
   return report;
 }
 
 /**
  * Run a Node.js script with JSON output.
- *
- * @param params - Script execution parameters.
- * @returns Parsed JSON result.
  */
 function runNodeScriptJson(params: {
   repoRoot: string;
@@ -556,10 +453,14 @@ function runNodeScriptJson(params: {
     displayArgs[tokenArgIndex + 1] = '***redacted***';
   }
 
-  const result = runJsonCommandFn(process.execPath, [scriptPath, ...scriptArgsList], {
-    cwd: repoRoot,
-    displayArgs: [path.relative(repoRoot, scriptPath), ...displayArgs],
-  });
+  const result = runJsonCommandFn(
+    process.execPath,
+    buildNodeScriptCommandArgs(scriptPath, scriptArgsList),
+    {
+      cwd: repoRoot,
+      displayArgs: buildNodeScriptDisplayArgs(repoRoot, scriptPath, displayArgs),
+    },
+  );
 
   return result.data;
 }

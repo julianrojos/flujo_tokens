@@ -1,9 +1,33 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as fs from "node:fs";
+import { createDesignSystemRepository } from "../../scripts/lib/system-repository.ts";
+import { resolveDashboardDbUrl } from "../../../apps/ds-dashboard/server/db/pg-db-service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../../..");
+const systemRepository = createDesignSystemRepository({ repoRoot: PROJECT_ROOT });
+let repositoryDisposed = false;
+let cachedDesignSystemsConfig: DesignSystemsFile | null = null;
+
+function disposeSystemRepository(): void {
+  if (repositoryDisposed) return;
+  repositoryDisposed = true;
+  try {
+    systemRepository.dispose();
+  } catch {
+    // Ignore shutdown dispose errors.
+  }
+}
+
+process.once("exit", disposeSystemRepository);
+process.once("SIGINT", () => {
+  disposeSystemRepository();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  disposeSystemRepository();
+  process.exit(143);
+});
 
 /**
  * Design system configuration structure.
@@ -18,7 +42,6 @@ export interface DesignSystemConfig {
   outputDir: string;
   docsDir: string;
   collections: string[];
-  compileVariablesOnCapture?: boolean;
 }
 
 /**
@@ -29,20 +52,11 @@ export interface DesignSystemsFile {
   defaultSystem?: string;
 }
 
-/**
- * Legacy fallback paths for module-level defaults when design-systems.json
- * is missing or broken.
- */
-const LEGACY_PATHS = Object.freeze({
-  generated: path.resolve(PROJECT_ROOT, "docs/_generated"),
-  specs: path.resolve(PROJECT_ROOT, "docs/_spec/components"),
-  docs: path.resolve(PROJECT_ROOT, "docs/components"),
-  registry: path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json"),
-  tokenRegistry: path.resolve(PROJECT_ROOT, "docs/_generated/token-registry.json"),
-  figmaAliasGraph: path.resolve(PROJECT_ROOT, "docs/_generated/figma-alias-graph.json"),
-});
-
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
+
+function resolveDashboardDatabaseUrl(): string {
+  return resolveDashboardDbUrl(process.env);
+}
 
 export interface ScriptSystemContext {
   id: string;
@@ -54,9 +68,7 @@ export interface ScriptSystemContext {
     generated: string;
     specs: string;
     docs: string;
-    registry: string;
-    tokenRegistry: string;
-    figmaAliasGraph: string;
+    databaseUrl: string;
   };
 }
 
@@ -75,72 +87,122 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       generated: path.resolve(docsDir, "_generated"),
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
-      registry: path.resolve(docsDir, "_generated/component-registry.json"),
-      tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
-      figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
+      databaseUrl: resolveDashboardDatabaseUrl(),
     },
   };
 }
 
 /**
- * Load design systems configuration from the central config file.
+ * Resolve canonical design-system directories by convention.
  */
-export function loadDesignSystemsConfig(): DesignSystemsFile {
-  const configPath = path.join(PROJECT_ROOT, "tooling/config/design-systems.json");
+function deriveSystemDirs(systemId: string): { inputDir: string; outputDir: string; docsDir: string } {
+  const baseDir = path.join("design-systems", systemId);
+  return {
+    inputDir: path.join(baseDir, "input"),
+    outputDir: path.join(baseDir, "output"),
+    docsDir: path.join(baseDir, "docs"),
+  };
+}
+
+function toDesignSystemConfig(system: {
+  id: string;
+  name: string;
+  appName?: string;
+  figmaFileId?: string;
+  figmaApiToken?: string;
+  collections?: string[];
+}): DesignSystemConfig {
+  const dirs = deriveSystemDirs(system.id);
+  return {
+    id: system.id,
+    name: system.name,
+    appName: system.appName,
+    figmaFileId: system.figmaFileId,
+    figmaApiToken: system.figmaApiToken,
+    inputDir: dirs.inputDir,
+    outputDir: dirs.outputDir,
+    docsDir: dirs.docsDir,
+    collections: Array.isArray(system.collections) ? system.collections : [],
+  };
+}
+
+/**
+ * Load design systems configuration from DB (single source of truth).
+ */
+export async function loadDesignSystemsConfigAsync(): Promise<DesignSystemsFile> {
   try {
-    const configRaw = fs.readFileSync(configPath, "utf8");
-    return JSON.parse(configRaw) as DesignSystemsFile;
+    const rawSystems = await systemRepository.getAll();
+    const systems = rawSystems.map(toDesignSystemConfig);
+    const defaultRaw = await systemRepository.getDefaultSystemId();
+    const defaultSystem = defaultRaw || (systems.length > 0 ? systems[0].id : undefined);
+    const config = { systems, defaultSystem };
+    cachedDesignSystemsConfig = config;
+    return config;
   } catch (err) {
     throw new Error(
-      `Cannot load design-systems.json at ${configPath}: ${err instanceof Error ? err.message : String(err)}`
+      `Cannot load design systems from DB: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 }
 
 /**
- * Resolve system context from the central repository.
- * Returns the active system context based on defaultSystem or explicit system ID.
- * Falls back to legacy paths if design-systems.json is unreadable.
+ * Sync compatibility accessor.
+ * Requires an async preload call before using the sync API.
  */
-export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSystemContext {
-  try {
-    const config = loadDesignSystemsConfig();
-    const systemId = opts?.system || config.defaultSystem;
-
-    // Try to find requested system or default
-    if (config.systems && systemId) {
-      const system = config.systems.find(s => s.id === systemId);
-      if (system) {
-        return systemContext(system);
-      }
-    }
-
-    // Fallback to first system or ultimate legacy
-    const firstSystem = config.systems?.[0];
-    return firstSystem
-      ? systemContext(firstSystem)
-      : legacyContext("_legacy");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[system-context] Falling back to legacy paths: ${msg}`);
-    return legacyContext("_legacy");
+export function loadDesignSystemsConfig(): DesignSystemsFile {
+  if (cachedDesignSystemsConfig) {
+    return cachedDesignSystemsConfig;
   }
+  throw new Error(
+    'Design systems config is not preloaded. Call loadDesignSystemsConfigAsync() first ' +
+      'or switch to resolveSystemContextSafeAsync().'
+  );
 }
 
 /**
- * Create a legacy context object with the given id.
+ * Resolve system context from the central repository.
+ * Returns the active system context based on defaultSystem or explicit system ID.
+ * Throws when no design systems are configured.
  */
-function legacyContext(id: string): ScriptSystemContext {
-  return {
-    id,
-    name: "Legacy",
-    docsDir: LEGACY_PATHS.docs,
-    paths: {
-      input: LEGACY_PATHS.generated,
-      output: LEGACY_PATHS.generated,
-      ...LEGACY_PATHS,
-    },
-  };
+function resolveSystemContextFromConfig(
+  config: DesignSystemsFile,
+  opts?: { system?: string },
+): ScriptSystemContext {
+  const systems = Array.isArray(config.systems) ? config.systems : [];
+  if (systems.length === 0) {
+    throw new Error("No systems configured. Create one first.");
+  }
+  const systemId = String(opts?.system || config.defaultSystem || "").trim();
+
+  // Try to find requested system or default
+  if (systemId) {
+    const system = systems.find((s) => s.id === systemId);
+    if (system) {
+      return systemContext(system);
+    }
+    const available = systems.map((s) => s.id).filter(Boolean).join(", ");
+    throw new Error(`Unknown system: "${systemId}". Available: ${available || "none"}`);
+  }
+
+  return systemContext(systems[0]);
+}
+
+/**
+ * Resolve system context from DB asynchronously.
+ */
+export async function resolveSystemContextSafeAsync(
+  opts?: { system?: string },
+): Promise<ScriptSystemContext> {
+  const config = await loadDesignSystemsConfigAsync();
+  return resolveSystemContextFromConfig(config, opts);
+}
+
+/**
+ * Sync compatibility accessor.
+ * Requires an async preload call before using the sync API.
+ */
+export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSystemContext {
+  return resolveSystemContextFromConfig(loadDesignSystemsConfig(), opts);
 }
 
 /**
@@ -149,8 +211,3 @@ function legacyContext(id: string): ScriptSystemContext {
 export function getDefaultSystemContext(): ScriptSystemContext {
   return resolveSystemContextSafe();
 }
-
-/**
- * Export legacy paths for backward compatibility.
- */
-export { LEGACY_PATHS };

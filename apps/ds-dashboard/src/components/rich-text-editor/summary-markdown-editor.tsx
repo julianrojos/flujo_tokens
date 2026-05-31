@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import Document from "@tiptap/extension-document";
@@ -23,15 +23,22 @@ interface SummaryMarkdownEditorProps {
   value: string;
   onChange: (markdown: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
+  id?: string;
+  editorClassName?: string;
 }
 
 export function SummaryMarkdownEditor({
   value,
   onChange,
   placeholder = "Enter markdown content...",
+  ariaLabel,
+  id,
+  editorClassName,
 }: SummaryMarkdownEditorProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const bubbleMenuRef = useRef<HTMLDivElement | null>(null);
 
   const editor = useEditor(
     {
@@ -69,7 +76,14 @@ export function SummaryMarkdownEditor({
       editorProps: {
         attributes: {
           class:
-            "prose prose-sm prose-invert max-w-none min-h-[80px] rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+            [
+              "prose prose-sm max-w-none min-h-[80px] rounded border border-border bg-surface-2 p-2 text-sm text-foreground prose-li:text-foreground prose-li:marker:text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+              editorClassName,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          ...(id ? { id } : {}),
+          ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
         },
       },
       onUpdate: ({ editor }) => {
@@ -84,6 +98,11 @@ export function SummaryMarkdownEditor({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!bubbleMenuRef.current) return;
+    bubbleMenuRef.current.style.zIndex = "2000";
+  }, [isMounted]);
 
   // Sync external value changes only on mount or when editor is not focused
   // This prevents cursor jumps while user is actively editing
@@ -111,8 +130,13 @@ export function SummaryMarkdownEditor({
   return (
     <div className="relative">
       <BubbleMenu
+        ref={bubbleMenuRef}
         editor={editor}
         updateDelay={100}
+        appendTo={() => document.body}
+        options={{
+          strategy: "fixed",
+        }}
         shouldShow={() => {
           // Keep menu visible when link popover is open to prevent focus loss
           if (linkPopoverOpen) return true;

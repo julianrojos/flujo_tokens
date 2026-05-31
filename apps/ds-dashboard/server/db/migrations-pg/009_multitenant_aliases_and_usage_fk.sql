@@ -1,0 +1,3 @@
+-- Migration 009: multitenant_aliases_and_usage_fk
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

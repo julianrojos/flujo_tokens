@@ -1,0 +1,3 @@
+-- Migration 028: drop_editorial_tokens_column
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

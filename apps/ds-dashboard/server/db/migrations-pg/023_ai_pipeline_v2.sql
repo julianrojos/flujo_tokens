@@ -1,0 +1,3 @@
+-- Migration 023: ai_pipeline_v2
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

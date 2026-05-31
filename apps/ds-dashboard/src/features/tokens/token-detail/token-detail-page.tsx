@@ -4,53 +4,54 @@
  */
 
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { PageHeader } from "@/components/composites";
+import { PageHeader, PrevNextNav } from "@/components/composites";
 import { useTokenDetail } from "./hooks/use-token-detail";
 import { TokenIdentitySection } from "./components/token-identity-section";
-import { TokenAliasSection } from "./components/token-alias-section";
+import { TokenUsageInTokensSection } from "./components/token-usage-in-tokens-section";
 import { TokenUsageSection } from "./components/token-usage-section";
-import { TokenHealthSection } from "./components/token-health-section";
+
+function decodeSafe(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 export function TokenDetailPage() {
   const { tokenPath } = useParams<{ tokenPath: string }>();
   const navigate = useNavigate();
+  const displayTokenPath = decodeSafe(String(tokenPath || "").trim()).replace(/\./g, "/");
   const {
     loading,
     error,
     token,
     swatch,
     dimensionPreview,
+    displayType,
     tokenAliasChain,
     aliasFinal,
-    aliasDescendantChains,
+    aliasConsumers,
     filteredComponentUsages,
     componentUsageSummary,
-    occurrencesByKind,
-    healthIssues,
     scopedTokens,
     currentTokenIndex,
     previousToken,
     nextToken,
+    tokenUsageInTokensRows,
     componentMode,
     componentQuery,
-    copiedField,
-    handleCopyValue,
     setComponentFilter,
     handleNavigate,
   } = useTokenDetail(tokenPath);
 
-  if (loading) {
+  if (loading && !token) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading token details" />
-        <div className="space-y-4">
-          <div className="h-48 animate-pulse rounded-xl bg-muted" />
-          <div className="h-48 animate-pulse rounded-xl bg-muted" />
-        </div>
+        <PageHeader title="Loading…" />
       </div>
     );
   }
@@ -58,8 +59,8 @@ export function TokenDetailPage() {
   if (error || !token) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Token not found" description={tokenPath} />
-        <StatusAlert variant="error" description={error || `Token "${tokenPath}" not found in registry.`} />
+        <PageHeader title="Token not found" />
+        <StatusAlert variant="error" description={error || `Token "${displayTokenPath}" not found in registry.`} />
         <Button variant="outline" onClick={() => navigate("/tokens")}>← Back to tokens</Button>
       </div>
     );
@@ -67,58 +68,34 @@ export function TokenDetailPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={token.path}
-        description={`${token.collection} · ${token.type}`}
-      />
+      <PageHeader title={token.slashPath} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        {previousToken && (
-          <Button variant="outline" size="sm" onClick={() => handleNavigate(previousToken)}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Prev
-          </Button>
-        )}
-        {nextToken && (
-          <Button variant="outline" size="sm" onClick={() => handleNavigate(nextToken)}>
-            Next → <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        )}
-        {scopedTokens.length > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {currentTokenIndex + 1} / {scopedTokens.length}
-          </span>
-        )}
-      </div>
+      <PrevNextNav
+        hasPrevious={Boolean(previousToken)}
+        hasNext={Boolean(nextToken)}
+        onPrevious={() => handleNavigate(previousToken!)}
+        onNext={() => handleNavigate(nextToken!)}
+        onFirst={scopedTokens[0] ? () => handleNavigate(scopedTokens[0]) : undefined}
+        onLast={scopedTokens[scopedTokens.length - 1] ? () => handleNavigate(scopedTokens[scopedTokens.length - 1]) : undefined}
+        currentIndex={currentTokenIndex}
+        totalItems={scopedTokens.length}
+      />
 
       <TokenIdentitySection
         token={token}
+        displayType={displayType}
+        tokenAliasChain={tokenAliasChain}
+        aliasFinal={aliasFinal}
+        aliasConsumers={aliasConsumers}
         swatch={swatch}
         dimensionPreview={dimensionPreview}
-        onCopyField={handleCopyValue}
-        copiedField={copiedField}
-        onNavigate={handleNavigate}
-        previousToken={previousToken}
-        nextToken={nextToken}
-        currentTokenIndex={currentTokenIndex}
-        scopedTokens={scopedTokens}
       />
 
-      {tokenAliasChain.length > 0 && (
-        <TokenAliasSection
-          token={token}
-          tokenAliasChain={tokenAliasChain}
-          aliasFinal={aliasFinal}
-          aliasDescendantChains={aliasDescendantChains}
-          onCopyField={handleCopyValue}
-          copiedField={copiedField}
-        />
-      )}
+      <TokenUsageInTokensSection rows={tokenUsageInTokensRows} />
 
       <TokenUsageSection
-        token={token}
         filteredComponentUsages={filteredComponentUsages}
         componentUsageSummary={componentUsageSummary}
-        occurrencesByKind={occurrencesByKind}
         filters={{
           componentMode,
           componentQuery,
@@ -128,7 +105,16 @@ export function TokenDetailPage() {
         }}
       />
 
-      <TokenHealthSection healthIssues={healthIssues} />
+      <PrevNextNav
+        hasPrevious={Boolean(previousToken)}
+        hasNext={Boolean(nextToken)}
+        onPrevious={() => handleNavigate(previousToken!)}
+        onNext={() => handleNavigate(nextToken!)}
+        onFirst={scopedTokens[0] ? () => handleNavigate(scopedTokens[0]) : undefined}
+        onLast={scopedTokens[scopedTokens.length - 1] ? () => handleNavigate(scopedTokens[scopedTokens.length - 1]) : undefined}
+        currentIndex={currentTokenIndex}
+        totalItems={scopedTokens.length}
+      />
     </div>
   );
 }

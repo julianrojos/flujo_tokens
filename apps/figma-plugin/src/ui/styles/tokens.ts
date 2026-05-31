@@ -5,6 +5,8 @@
  * constants. All components import from here — never use inline magic values.
  */
 
+import { PLUGIN_UI_WIDTH } from '../../shared/ui-dimensions';
+
 export const COLOR = {
   // Semantic status colors (Figma-native palette)
   connected:    '#1BC47D',
@@ -78,7 +80,4 @@ export const RADIUS = {
   full: 9999,
 } as const;
 
-// Plugin window dimensions
-export const UI_WIDTH            = 320;
-export const UI_HEIGHT_COLLAPSED = 460;
-export const UI_HEIGHT_EXPANDED  = 860;
+export const UI_WIDTH = PLUGIN_UI_WIDTH;

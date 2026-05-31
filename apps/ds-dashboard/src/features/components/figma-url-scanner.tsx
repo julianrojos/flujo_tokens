@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Modal, ModalContent } from "@/components/ui/overlay/modal";
+import { Modal, ModalCloseButton, ModalContent, ModalHeader } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
 import {
   captureFigmaScreenshot,
-  fetchComponentRegistry,
+  fetchComponentCatalog,
   type CaptureFigmaProgress,
   type CaptureFigmaScreenshotResult,
   type CaptureFigmaScreenshotArgs,
@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { buildCaptureFromFigmaPayload } from "@/lib/figma-capture-payload";
 
 interface FigmaUrlScannerProps {
   /** Called after a successful scan to trigger a data refresh in the parent. */
@@ -44,6 +45,7 @@ interface ExistingComponentScanModalState {
 const FIGMA_TOKEN_STORAGE_KEY = "ds-dashboard.figma-token.enc.v1";
 const FIGMA_TOKEN_SESSION_KEY = "ds-dashboard.figma-token.key.v1";
 const FIGMA_TOKEN_TTL_MS = 15 * 60 * 1000;
+let sessionKey: Uint8Array | null = null;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -63,11 +65,15 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 function getOrCreateSessionKey(): Uint8Array {
+  if (sessionKey) return sessionKey;
   const existing = sessionStorage.getItem(FIGMA_TOKEN_SESSION_KEY);
-  if (existing) return base64ToBytes(existing);
-  const fresh = crypto.getRandomValues(new Uint8Array(32));
-  sessionStorage.setItem(FIGMA_TOKEN_SESSION_KEY, bytesToBase64(fresh));
-  return fresh;
+  if (existing) {
+    sessionKey = base64ToBytes(existing);
+    return sessionKey;
+  }
+  sessionKey = crypto.getRandomValues(new Uint8Array(32));
+  sessionStorage.setItem(FIGMA_TOKEN_SESSION_KEY, bytesToBase64(sessionKey));
+  return sessionKey;
 }
 
 async function encryptToken(token: string): Promise<string> {
@@ -100,12 +106,10 @@ async function decryptToken(serialized: string): Promise<string | null> {
   if (parsed.v !== 1 || !parsed.iv || !parsed.data) return null;
   if (!parsed.expiresAt || parsed.expiresAt < Date.now()) return null;
 
-  const sessionKey = sessionStorage.getItem(FIGMA_TOKEN_SESSION_KEY);
-  if (!sessionKey) return null;
-
+  const keyMaterial = getOrCreateSessionKey();
   const key = await crypto.subtle.importKey(
     "raw",
-    toArrayBuffer(base64ToBytes(sessionKey)),
+    toArrayBuffer(keyMaterial),
     "AES-GCM",
     false,
     ["decrypt"],
@@ -151,7 +155,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   const [figmaToken, setFigmaToken] = useState("");
   const [rememberToken, setRememberToken] = useState(true);
   const [componentSlug, setComponentSlug] = useState("");
-  const [requireExistingDoc, setRequireExistingDoc] = useState(false);
   const [includeVariants, setIncludeVariants] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -218,7 +221,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         return;
       }
       try {
-        const registry = await fetchComponentRegistry();
+        const registry = await fetchComponentCatalog();
         if (cancelled) return;
         const next = new Set(
           (registry.components || [])
@@ -239,15 +242,18 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   }, [activeSystem, isSystemLoading]);
 
   const buildScanRequest = (): CaptureFigmaScreenshotArgs => ({
-    figmaUrl: url.trim(),
-    figmaToken: figmaToken.trim() || undefined,
+    ...buildCaptureFromFigmaPayload({
+      figmaUrl: url.trim(),
+      figmaToken: figmaToken.trim() || undefined,
+      includeVariants,
+      requireExistingDoc: false,
+      dryRun: false,
+      mainCaptureMode: "rest",
+      componentKind: "component_set",
+      tokensSource: "mcp",
+      injectDocSpecs: true,
+    }),
     componentSlug: componentSlug.trim() || undefined,
-    componentKind: "component_set",
-    requireExistingDoc,
-    includeVariants,
-    injectDocSpecs: true,
-    refreshIndices: true,
-    continueOnError: true,
   });
 
   const extractExistingTargets = (
@@ -302,7 +308,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       let currentExistingSlugs = existingSlugs;
       if (!registryLoaded) {
         try {
-          const registry = await fetchComponentRegistry();
+          const registry = await fetchComponentCatalog();
           currentExistingSlugs = new Set(
             (registry.components || [])
               .map((item) => String(item?.slug || "").trim())
@@ -320,14 +326,12 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       let preview = await captureFigmaScreenshot({
         ...requestWithKind,
         dryRun: true,
-        refreshIndices: false,
       });
       if (hasNoCaptureTargets(preview)) {
         requestWithKind = { ...request, componentKind: "component" as const };
         preview = await captureFigmaScreenshot({
           ...requestWithKind,
           dryRun: true,
-          refreshIndices: false,
         });
       }
 
@@ -385,7 +389,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
     result?.message ||
     result?.stderr ||
     result?.failed?.[0]?.error ||
-    result?.registry_refresh?.stderr ||
     "Scan failed";
 
   const primarySuccessSlug = result?.captured?.[0]?.slug || result?.targets?.[0]?.slug || null;
@@ -403,7 +406,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           <div>
             <CardTitle className="text-base">Import from Figma</CardTitle>
             <CardDescription className="text-xs">
-              Paste a Figma URL to generate docs, capture visual proof and refresh the registry.
+              Paste a Figma URL to capture visual proof from the current file.
             </CardDescription>
           </div>
         </div>
@@ -436,7 +439,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         {!!url.trim() && urlValidationError ? (
           <p className="text-xs text-status-warning">{urlValidationError}</p>
         ) : null}
-        <FigmaMcpConnectionTestButton figmaUrl={url} />
         {loading && progress ? (
           <p className="text-xs text-muted-foreground">
             {progress.total > 0
@@ -460,7 +462,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         {showAdvanced && (
           <div
             id={advancedOptionsId}
-            className="rounded-lg border border-border bg-muted/30 p-3 space-y-3 text-sm"
+            className="rounded border border-border bg-muted/30 p-3 space-y-3 text-sm"
           >
             <div className="flex items-center gap-2">
               <span className="w-36 text-xs text-muted-foreground">Figma token (optional)</span>
@@ -474,8 +476,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={rememberToken}
                 onChange={(e) => setRememberToken(e.target.checked)}
                 disabled={loading}
@@ -494,18 +495,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
               />
             </div>
             <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={requireExistingDoc}
-                onChange={(e) => setRequireExistingDoc(e.target.checked)}
-                disabled={loading}
-                className="h-3.5 w-3.5"
-              />
-              <span>Require existing doc (skip new components)</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={includeVariants}
                 onChange={(e) => setIncludeVariants(e.target.checked)}
                 disabled={loading}
@@ -561,12 +551,18 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       </CardContent>
 
       <Modal open={!!confirmModal} onClose={() => setConfirmModal(null)} aria-labelledby="figma-scanner-confirm-title">
-        <ModalContent size="md">
+        <ModalContent size="md" className="relative">
           {confirmModal ? (
-            <div className="p-5">
-              <h2 id="figma-scanner-confirm-title" className="mb-2 text-lg font-serif font-semibold">
-                Overwrite existing component data?
-              </h2>
+            <>
+              <ModalHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <h2 id="figma-scanner-confirm-title" className="text-lg font-titles font-semibold tracking-tight titles-color">
+                    Overwrite existing component data?
+                  </h2>
+                  <ModalCloseButton onClick={() => setConfirmModal(null)} label="Close overwrite confirmation dialog" />
+                </div>
+              </ModalHeader>
+              <div className="p-5 pt-4">
               <p className="mb-3 text-sm text-muted-foreground">
                 This scan targets {confirmModal.totalTargets} component
                 {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing
@@ -601,7 +597,8 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
                   )}
                 </Button>
               </div>
-            </div>
+              </div>
+            </>
           ) : null}
         </ModalContent>
       </Modal>

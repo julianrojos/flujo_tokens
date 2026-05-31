@@ -1,17 +1,15 @@
-import fs from 'fs';
 import path from 'path';
 
 import { formatDiagnostic } from '../utils/logging.js';
 import type { PipelinePhase } from '../runtime/pipeline-cache.js';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.ts';
 
 export type CliOptions = {
     inputDir: string;
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
-    registryOutput: string;
     split: boolean;
-    registry: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -28,9 +26,7 @@ type ParseState = {
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
-    registryOutput: string;
     split: boolean;
-    registry: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -80,17 +76,42 @@ function resolveSystemOverride(argv: string[]): string | null | undefined {
 }
 
 function getSystemPaths(rootDir: string, systemId?: string) {
-    const configRaw = fs.readFileSync(path.join(rootDir, 'tooling/config/design-systems.json'), 'utf8');
-    const config = JSON.parse(configRaw);
-    const sid = systemId || config.defaultSystem;
-    const sys = config.systems.find((s: any) => s.id === sid);
-    if (!sys) throw new Error(`Unknown system: ${sid}`);
+    const repository = createDesignSystemRepository({ repoRoot: rootDir });
+    const systems = repository.getAll();
+    if (!Array.isArray(systems)) {
+        const sid = String(systemId || '').trim();
+        const resolvedSid = sid || 'sys-01';
+        const baseDir = path.join('design-systems', resolvedSid);
+        const outputDir = path.join(baseDir, 'output');
+        return {
+            inputDir: path.resolve(rootDir, baseDir, 'input'),
+            outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
+            outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
+            outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
+        };
+    }
+    const configuredDefault = repository.getDefaultSystemId();
+    if (configuredDefault && typeof configuredDefault !== 'string') {
+        throw new Error('Default system id is not available in synchronous mode.');
+    }
+    const sid = String(systemId || configuredDefault || systems[0]?.id || '').trim();
+    if (!sid) {
+        repository.dispose();
+        throw new Error('No active design system. Configure one in PostgreSQL or pass --system <id>.');
+    }
+    const sys = repository.getById(sid);
+    if (!sys) {
+        repository.dispose();
+        throw new Error(`Unknown system: ${sid}`);
+    }
+    repository.dispose();
+    const baseDir = path.join('design-systems', sid);
+    const outputDir = path.join(baseDir, 'output');
     return {
-        inputDir: path.resolve(rootDir, sys.inputDir),
-        outputPrimitives: path.resolve(rootDir, sys.outputDir, 'primitives.css'),
-        outputTokens: path.resolve(rootDir, sys.outputDir, 'tokens.css'),
-        outputFile: path.resolve(rootDir, sys.outputDir, 'custom-properties.css'),
-        registryOutput: path.resolve(rootDir, sys.docsDir, '_generated/token-registry.json'),
+        inputDir: path.resolve(rootDir, baseDir, 'input'),
+        outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
+        outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
+        outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
     };
 }
 
@@ -99,14 +120,12 @@ export function printUsage(): void {
 
 Options:
   -h, --help           Show this help and exit
-  -i, --input <dir>    Directory with token JSON files (default: ./input)
-  -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
+  -i, --input <dir>    Directory with token JSON files (default: system inputDir)
+  -o, --output <file>  Output CSS file (default: <system>/output/custom-properties.css)
       --split          Emit two files: primitives + tokens (default)
       --single         Emit one file (disables split)
-      --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
-      --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
-      --registry       Also export docs token registry JSON (default: off)
-      --registry-output <file>    Token registry output (default: system dependent)
+      --output-primitives <file>  Primitives CSS output (default: <system>/output/primitives.css)
+      --output-tokens <file>      Tokens CSS output (default: <system>/output/tokens.css)
       --system <id>        Set active design system (default: from config)
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
@@ -171,22 +190,6 @@ const OPTION_SPECS: OptionSpec[] = [
         takesValue: true,
         apply: (state, { value, cwd }) => {
             state.outputTokens = path.resolve(cwd, String(value || ''));
-            return true;
-        }
-    },
-    {
-        names: ['--registry'],
-        apply: (state) => {
-            state.registry = true;
-            return true;
-        }
-    },
-    {
-        names: ['--registry-output'],
-        takesValue: true,
-        apply: (state, { value, cwd }) => {
-            state.registryOutput = path.resolve(cwd, String(value || ''));
-            state.registry = true;
             return true;
         }
     },
@@ -295,9 +298,7 @@ export function parseArgs(
         outputFile: sysPaths.outputFile,
         outputPrimitives: sysPaths.outputPrimitives,
         outputTokens: sysPaths.outputTokens,
-        registryOutput: sysPaths.registryOutput,
         split: true,
-        registry: false,
         help: false,
         mode: undefined,
         modeStrict: false,
@@ -343,9 +344,7 @@ export function parseArgs(
         outputFile: state.outputFile,
         outputPrimitives: state.outputPrimitives,
         outputTokens: state.outputTokens,
-        registryOutput: state.registryOutput,
         split: state.split,
-        registry: state.registry,
         help: state.help,
         mode: state.mode,
         modeStrict: state.modeStrict,

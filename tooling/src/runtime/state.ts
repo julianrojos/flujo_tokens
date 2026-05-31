@@ -22,23 +22,34 @@ export const foundModeKeys = new Set<string>();
 export const modeFallbackCounts = new Map<string, number>();
 export const modeFallbackExamples = new Map<string, string[]>();
 
+const memoizationCaches = [
+    kebabCaseCache,
+    refCanonicalCache,
+    findTokenByIdCache,
+] as const;
+
+const warningSets = [
+    warnedAliasVarCollisions,
+    warnedDuplicateTokenIds,
+    warnedFindTokenByIdDepthLimit,
+    warnedAmbiguousModeDefaultAt,
+    warnedBaseValueSkippedForMode,
+    warnedPreferredModeFallback,
+    warnedInvalidTokenDetails,
+    foundModeKeys,
+] as const;
+
 /**
  * Clears all runtime state for a fresh run.
  * Must be called at the start of each CLI execution.
  */
 export function resetRuntimeState(): void {
-    kebabCaseCache.clear();
-    refCanonicalCache.clear();
-    findTokenByIdCache.clear();
-
-    warnedAliasVarCollisions.clear();
-    warnedDuplicateTokenIds.clear();
-    warnedFindTokenByIdDepthLimit.clear();
-    warnedAmbiguousModeDefaultAt.clear();
-    warnedBaseValueSkippedForMode.clear();
-    warnedPreferredModeFallback.clear();
-    warnedInvalidTokenDetails.clear();
-    foundModeKeys.clear();
+    for (const cache of memoizationCaches) {
+        cache.clear();
+    }
+    for (const warningSet of warningSets) {
+        warningSet.clear();
+    }
     modeFallbackCounts.clear();
     modeFallbackExamples.clear();
 }

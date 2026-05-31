@@ -1,7 +1,7 @@
 /**
  * Command Execution - Shared Utilities
  *
- * Shared logic between command-execution-service.mjs and command-execution-service.ts
+ * Shared logic between command-execution-service.ts implementations
  * to prevent duplication and drift.
  */
 

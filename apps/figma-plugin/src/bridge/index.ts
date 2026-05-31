@@ -15,6 +15,7 @@ export { dispatchRequest } from './dispatcher';
 
 // Individual handlers (for testing)
 export { handleGetFileInfo } from './handlers/get-file-info';
+export { handleGetCurrentSelection } from './handlers/get-current-selection';
 export { handleExecuteCode } from './handlers/execute-code';
 export {
   handleGetVariablesData,

@@ -10,6 +10,7 @@ export interface EmptyStateProps {
   description?: string;
   action?: React.ReactNode;
   className?: string;
+  compact?: boolean;
 }
 
 export function EmptyState({
@@ -18,11 +19,13 @@ export function EmptyState({
   description,
   action,
   className,
+  compact = false,
 }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-xl border border-border/70 bg-surface-1/50 p-8 text-center",
+        "flex flex-col items-center justify-center gap-4 text-center",
+        compact ? "min-h-0" : "min-h-[320px] p-8",
         className,
       )}
     >
@@ -32,7 +35,7 @@ export function EmptyState({
         </div>
       ) : null}
       <div className="max-w-md space-y-1">
-        <h3 className="text-lg font-serif font-semibold">{title}</h3>
+        <h3 className="text-base font-titles font-semibold titles-color">{title}</h3>
         {description ? (
           <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}

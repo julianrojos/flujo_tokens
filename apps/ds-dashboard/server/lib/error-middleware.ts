@@ -2,7 +2,6 @@
  * Error Middleware
  *
  * Registers unhandled error middleware for Hono apps.
- * Migrated from apps/ds-dashboard/server/lib/error-middleware.mjs
  */
 
 import type { Context, ErrorHandler } from 'hono';

@@ -3,7 +3,6 @@
  *
  * Utilities for capturing and restoring file snapshots.
  * Used for rollback on failed operations.
- * Migrated from tooling/scripts/lib/file-snapshot.mjs
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';

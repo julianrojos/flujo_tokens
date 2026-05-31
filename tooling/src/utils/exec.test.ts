@@ -1,6 +1,11 @@
-import { describe, it, before } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert";
-import { parseJsonFromText, runJsonCommand } from "./exec.js";
+import {
+  buildNodeScriptCommandArgs,
+  buildNodeScriptDisplayArgs,
+  parseJsonFromText,
+  runJsonCommand,
+} from "./exec.js";
 
 describe("exec utils", () => {
   describe("parseJsonFromText", () => {
@@ -78,6 +83,50 @@ describe("exec utils", () => {
       assert.throws(
         () => runJsonCommand("node", ["-e", 'console.log("not json")']),
         /invalid JSON/
+      );
+    });
+  });
+
+  describe("buildNodeScriptCommandArgs", () => {
+    it("adds tsx loader for TypeScript runners", () => {
+      assert.deepStrictEqual(
+        buildNodeScriptCommandArgs("tooling/src/runners/capture-visual-proof-runner.ts", [
+          "--system",
+          "core",
+        ]),
+        [
+          "--import",
+          "tsx",
+          "tooling/src/runners/capture-visual-proof-runner.ts",
+          "--system",
+          "core",
+        ],
+      );
+    });
+
+    it("keeps plain JS runners unchanged", () => {
+      assert.deepStrictEqual(
+        buildNodeScriptCommandArgs("tooling/scripts/capture.mjs", ["--system", "core"]),
+        ["tooling/scripts/capture.mjs", "--system", "core"],
+      );
+    });
+  });
+
+  describe("buildNodeScriptDisplayArgs", () => {
+    it("shows relative path and tsx loader for TypeScript runners", () => {
+      assert.deepStrictEqual(
+        buildNodeScriptDisplayArgs(
+          "/repo",
+          "/repo/tooling/src/runners/capture-visual-proof-runner.ts",
+          ["--system", "core"],
+        ),
+        [
+          "--import",
+          "tsx",
+          "tooling/src/runners/capture-visual-proof-runner.ts",
+          "--system",
+          "core",
+        ],
       );
     });
   });

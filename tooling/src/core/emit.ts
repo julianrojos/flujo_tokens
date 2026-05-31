@@ -12,11 +12,10 @@ import {
 import { pathStr, normalizePathKey, buildPathKey, buildVisitedRefSet } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix } from '../utils/strings.js';
 import { formatDiagnostic } from '../utils/logging.js';
-import { canEmitUntypedTokenValue, canEmitTokenValue } from '../utils/emittable.js';
+import { canEmitUntypedTokenValue, buildEmittableKeySetFromEntries } from '../utils/emittable.js';
 import { ReferenceResolver } from './reference-resolver.js';
 import { processValueWithRegistry } from './value-processors.js';
 
-// Re-export processValue for backward compatibility
 export { processValueWithRegistry as processValue };
 
 // Local alias for use within this file
@@ -60,16 +59,7 @@ function incrementUniqueTokenTypeCount(summary: ExecutionSummary, currentPath: s
  * can be flagged as unresolved instead of silently resolving to ghost vars.
  */
 export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
-    const emittable = new Set<string>();
-
-    for (const [key, token] of ctx.valueMap.entries()) {
-        if (!token) continue;
-        if (canEmitTokenValue(token.$type, token.$value)) {
-            emittable.add(key);
-        }
-    }
-
-    return emittable;
+    return buildEmittableKeySetFromEntries(ctx.valueMap.entries(), (token) => token?.$type, (token) => token?.$value);
 }
 
 /**

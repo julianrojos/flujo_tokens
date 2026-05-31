@@ -6,12 +6,14 @@ import { cn } from "@/lib/utils";
 
 export const tableVariants = cva("w-full caption-bottom text-sm");
 export const tableHeaderVariants = cva("[&_tr]:border-b");
-export const tableBodyVariants = cva("[&_tr:last-child]:border-0");
+export const tableBodyVariants = cva(
+  "[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-table-row-alt",
+);
 export const tableRowVariants = cva(
-  "border-b border-border/70 transition-colors hover:bg-muted/40",
+  "transition-colors hover:bg-muted/40",
 );
 export const tableHeadVariants = cva(
-  "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+  "h-11 px-3 text-left align-middle text-xs font-semibold tracking-wide",
 );
 export const tableHeadContentVariants = cva("flex w-full items-center gap-2", {
   variants: {
@@ -44,7 +46,11 @@ export const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn(tableHeaderVariants(), className)} {...props} />
+  <thead
+    ref={ref}
+    className={cn(tableHeaderVariants(), "titles-color", className)}
+    {...props}
+  />
 ));
 TableHeader.displayName = "TableHeader";
 
@@ -80,6 +86,7 @@ export const TableHead = React.forwardRef<
   return (
     <th
       ref={ref}
+      scope="col"
       className={cn(tableHeadVariants(), className)}
       {...props}
     >

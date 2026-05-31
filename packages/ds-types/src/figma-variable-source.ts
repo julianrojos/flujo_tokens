@@ -1,5 +1,17 @@
 export type FigmaVariableSource = 'auto' | 'mcp' | 'rest';
 
+export const VALID_FIGMA_VARIABLE_SOURCES = [
+  'auto',
+  'mcp',
+  'rest',
+] as const satisfies readonly FigmaVariableSource[];
+
+export function isFigmaVariableSource(
+  value: string,
+): value is FigmaVariableSource {
+  return VALID_FIGMA_VARIABLE_SOURCES.includes(value as FigmaVariableSource);
+}
+
 export class InvalidFigmaVariableSourceError extends Error {
   readonly rawValue: unknown;
   readonly optionName: string;
@@ -28,7 +40,7 @@ export function parseFigmaVariableSource(
 
   const rawNormalized = String(rawValue ?? '').trim().toLowerCase();
   const normalized = rawNormalized || defaultValue;
-  if (normalized === 'auto' || normalized === 'mcp' || normalized === 'rest') {
+  if (isFigmaVariableSource(normalized)) {
     return normalized;
   }
 

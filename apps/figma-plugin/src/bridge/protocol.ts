@@ -7,6 +7,8 @@
  * Data flow: Plugin (code.ts) <-> UI (ws-runtime.ts) <-> WebSocket Server
  */
 
+import { DEFAULT_DIRECT_WS_URL } from '../config/runtime-config';
+
 // ============================================================================
 // WebSocket Message Envelopes
 // ============================================================================
@@ -48,6 +50,8 @@ export type WSResponse = WSResponseSuccess | WSResponseError;
 export const BRIDGE_METHODS = {
   // File info
   GET_FILE_INFO: 'GET_FILE_INFO',
+  // Current selection snapshot
+  GET_CURRENT_SELECTION: 'GET_CURRENT_SELECTION',
   // Code execution
   EXECUTE_CODE: 'EXECUTE_CODE',
   // Variables - read
@@ -182,6 +186,11 @@ export interface GetFileInfoResult {
   currentPage: string;
   currentPageId: string;
   selectionCount: number;
+}
+
+// --- GET_CURRENT_SELECTION ---
+export interface GetCurrentSelectionParams {
+  // No params required
 }
 
 // --- EXECUTE_CODE ---
@@ -700,6 +709,10 @@ export interface GetTokenUsageParams {
 export interface TokenUsageEntry {
   variableId: string;
   variableName: string;
+  /** Global Figma key resolved via getVariableByIdAsync (includes library variables). */
+  variableKey?: string;
+  /** Resolved type from Figma: COLOR | FLOAT | STRING | BOOLEAN. */
+  variableType?: string;
   nodeCount: number;
   nodeIds: string[];
 }
@@ -721,8 +734,10 @@ export interface SearchComponentsParams {
   nameContains?: string;
   namePattern?: string;
   includeVariants?: boolean; // default false
-  limit?: number;            // default 50, max 200
+  limit?: number;            // default 50, max 1000
   compact?: boolean;         // default true
+  offset?: number;           // default 0, page start index
+  scanSessionId?: string;    // optional client scan session scope for ephemeral pagination cache
 }
 
 export interface CompactComponentResult {
@@ -731,13 +746,27 @@ export interface CompactComponentResult {
   name: string;
   type: 'COMPONENT' | 'COMPONENT_SET';
   variantCount?: number;
+  pageName?: string;  // Figma page containing the component
+  width?: number;
+  height?: number;
 }
 
 export interface SearchComponentsResult {
   success: true;
   components: CompactComponentResult[];
+  /** Number of returned items in `components` (after applying `limit`). */
   count: number;
   truncated: boolean;
+  /** Total components matching the filters before applying `limit`. */
+  total: number;
+  /** True when `total` is a lower-bound estimate due to guardrail cutoff. */
+  totalIsEstimated: boolean;
+  /** Effective limit applied by the handler (1..1000). */
+  limit: number;
+  /** True when more results exist beyond this page. */
+  hasMore: boolean;
+  /** Offset for the next page, or null when no more pages. */
+  nextOffset: number | null;
 }
 
 // --- GET_COMPONENT_SPEC ---
@@ -753,14 +782,41 @@ export interface SpecLayerNode {
   type: string;
   children?: SpecLayerNode[];
   boundVariables?: Record<string, Array<{ variableId: string }>>;
+  // Layout metadata (SC-05)
+  layout?: {
+    mode?: 'horizontal' | 'vertical' | 'none';
+    spacing?: number;
+    padding?: { top: number; right: number; bottom: number; left: number };
+    alignment?: { horizontal: string; vertical: string };
+    sizing?: { horizontal: string; vertical: string };
+  };
 }
 
 export interface VariantSpec {
   key: string;
   nodeId: string;
   name: string;
+  description: string | null;
   variantProperties: Record<string, string>;
-  layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+  width: number;
+  height: number;
+  layerTokens: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+    modeId?: string;
+    modeName?: string;
+  }>;
+}
+
+export interface InstanceDependencySpec {
+  instanceNodeId: string;
+  instanceNodeName: string;
+  usedComponentNodeId: string;
+  usedComponentName: string;
+  usedComponentKey?: string;
+  status?: 'resolved' | 'unresolved';
 }
 
 export interface GetComponentSpecResult {
@@ -769,12 +825,15 @@ export interface GetComponentSpecResult {
   name: string;
   type: 'COMPONENT' | 'COMPONENT_SET';
   description: string | null;
+  width?: number;
+  height?: number;
   anatomy: SpecLayerNode;
   variants?: VariantSpec[];
   variantAxes?: Array<{ name: string; values: string[] }>;
   props: Array<{ name: string; type: string; defaultValue: unknown }>;
   states: string[];
   tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+  instanceDependencies?: InstanceDependencySpec[];
 }
 
 // --- GET_COMPONENT_IMAGE ---
@@ -1008,7 +1067,7 @@ export interface WSRuntimeConfig {
 
 export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
   transportMode: 'direct',
-  directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
+  directWsUrl: DEFAULT_DIRECT_WS_URL,
   connectionTimeout: 3000,
   requestTimeout: 15000,
   reconnectDelay: 500,

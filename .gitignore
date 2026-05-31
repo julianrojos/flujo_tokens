@@ -15,6 +15,9 @@ apps/ds-dashboard/dist/
 apps/figma-plugin/dist/
 packages/shared/dist/
 
+# Design system artifacts
+design-systems/
+
 # Generated docs artifacts
 docs/**/_generated/agent_prompts/
 docs/_generated/.sync-state.json
@@ -24,10 +27,6 @@ docs/_generated/token-registry.json
 docs/_generated/token-graph*
 /.sync-state.json
 
-# Generated output artifacts
-output/**/.emit-manifest.json
-output/**/.ops/
-
 # App-local generated config/types
 apps/ds-dashboard/vite.config.d.ts
 apps/ds-dashboard/vite.config.js
@@ -36,15 +35,19 @@ apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/.env
 apps/ds-dashboard/.env.*
 !apps/ds-dashboard/.env.example
+apps/ds-dashboard/ds-dashboard.db
 
 # Local/ephemeral DS work artifacts
-/docs/sys-*/
-/input/
-/output/
 /tooling/config/design-systems.json
 
 # Local scratch docs
 PLAN_MEJORA_MCP
 QWEN.md
+.qwen/
 .refactor-pending/
 tooling/.tmp/
+.tmp-tests/
+apps/ds-dashboard/token-test-*
+apps/ds-dashboard/usage-test-*
+apps/ds-dashboard/test-temp-*
+.kilo/

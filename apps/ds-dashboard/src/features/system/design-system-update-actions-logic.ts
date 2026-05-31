@@ -1,3 +1,8 @@
+import {
+  buildCaptureFromFigmaPayload,
+  type CaptureFigmaScreenshotPayload,
+} from "@/lib/figma-capture-payload";
+
 export interface BuildUpdateComponentsPayloadArgs {
   figmaUrl: string;
   figmaToken?: string;
@@ -8,9 +13,36 @@ export interface BuildUpdateVariablesPayloadArgs {
   figmaToken?: string;
 }
 
+export interface TokensSyncProgressMessage {
+  label: string;
+  detail?: string;
+}
+
+function stripNodeIdFromFigmaUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    for (const key of ["node-id", "node_id", "nodeId"]) {
+      url.searchParams.delete(key);
+    }
+    const rawHash = String(url.hash || "").replace(/^#/, "");
+    if (rawHash) {
+      const hashParams = new URLSearchParams(rawHash.replace(/^[/?]+/, ""));
+      for (const key of ["node-id", "node_id", "nodeId"]) {
+        hashParams.delete(key);
+      }
+      url.hash = hashParams.toString() ? `#${hashParams.toString()}` : "";
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 export function buildUpdateComponentsPayload(
   args: BuildUpdateComponentsPayloadArgs,
-): { ok: true; payload: Record<string, unknown> } | { ok: false; error: string } {
+): { ok: true; payload: CaptureFigmaScreenshotPayload } | { ok: false; error: string } {
   const figmaUrl = String(args.figmaUrl || "").trim();
   if (!figmaUrl) {
     return {
@@ -19,24 +51,22 @@ export function buildUpdateComponentsPayload(
     };
   }
 
-  const payload: Record<string, unknown> = {
-    figmaUrl,
-    includeVariants: false,
-    variantLimit: 6,
-    requireExistingDoc: true,
-    continueOnError: true,
-    refreshIndices: true,
-    dryRun: false,
-    injectDocSpecs: false,
-    mainCaptureMode: "rest",
-    componentKind: "component_set",
-    tokensSource: "mcp",
+  return {
+    ok: true,
+    payload: buildCaptureFromFigmaPayload({
+      figmaUrl: stripNodeIdFromFigmaUrl(figmaUrl),
+      figmaToken: args.figmaToken,
+      includeVariants: false,
+      variantLimit: 6,
+      requireExistingDoc: true,
+      continueOnError: true,
+      dryRun: false,
+      mainCaptureMode: "rest",
+      componentKind: "all",
+      tokensSource: "mcp",
+      injectDocSpecs: false,
+    }),
   };
-
-  const token = String(args.figmaToken || "").trim();
-  if (token) payload.figmaToken = token;
-
-  return { ok: true, payload };
 }
 
 export function buildUpdateVariablesPayload(
@@ -64,4 +94,25 @@ export function resolveUpdateButtonLabel(args: {
 }): string {
   if (args.isRunning) return "Updating...";
   return args.type === "components" ? "Update components" : "Update variables";
+}
+
+export function resolveTokensSyncProgressMessage(
+  step: {
+    status: 'idle' | 'queued' | 'running' | 'completed' | 'completed_with_warnings' | 'failed';
+  },
+): TokensSyncProgressMessage {
+  if (step.status === 'queued') {
+    return {
+      label: 'Queueing token CSS and usage index…',
+    };
+  }
+  if (step.status === 'running') {
+    return {
+      label: 'Generating CSS and indexing token usage…',
+      detail: 'CSS generation, usage indexing, and persistence.',
+    };
+  }
+  return {
+    label: 'Generating CSS tokens…',
+  };
 }

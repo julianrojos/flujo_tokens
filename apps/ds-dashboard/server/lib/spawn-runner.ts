@@ -2,7 +2,6 @@
  * Spawn Runner
  *
  * Executes child processes with output capture and limits.
- * Migrated from apps/ds-dashboard/server/lib/spawn-runner.mjs
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';

@@ -2,7 +2,6 @@
  * API Response Service
  *
  * Provides utilities for building API responses, error payloads, and health checks.
- * Migrated from apps/ds-dashboard/server/lib/api-response-service.mjs
  */
 
 export interface StructuredLogPayload {
@@ -63,13 +62,6 @@ export function nowIso(): string {
  */
 function createPrefixedId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/**
- * Create an operation event ID.
- */
-export function createOperationEventId(): string {
-  return createPrefixedId('op');
 }
 
 /**

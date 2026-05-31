@@ -17,13 +17,14 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
+      id="PageHeader"
       className={cn(
         "flex flex-col gap-4 border-b border-border/70 pb-6 md:flex-row md:items-center md:justify-between",
         className,
       )}
     >
       <div className="space-y-1">
-        <h1 className="text-2xl font-serif font-semibold tracking-tight">
+        <h1 className="text-2xl font-titles font-semibold tracking-tight titles-color">
           {title}
         </h1>
         {description ? (

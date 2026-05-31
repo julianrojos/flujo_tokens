@@ -1,0 +1,138 @@
+import { useMemo } from "react";
+import { Link, useParams } from "react-router-dom";
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusAlert } from "@/components/ui/status-alert";
+import { toComponentDetail } from "@/lib/routes";
+import { PaginationFooter } from "./pagination-footer";
+import { useComponentCatalogQuery } from "../use-health-queries";
+import { getTopComponentTokenDebt } from "../lib/component-token-debt";
+import { usePaginatedItems } from "../lib/use-paginated-items";
+
+const TOP_COMPONENTS_LIMIT = 8;
+const PAGE_SIZE = 5;
+
+export function ComponentTokenDebtCard() {
+  const { systemId } = useParams<{ systemId: string }>();
+  const resolvedSystemId = String(systemId || "").trim();
+  const { data, isLoading, isError } = useComponentCatalogQuery(resolvedSystemId);
+
+  const rows = useMemo(
+    () => getTopComponentTokenDebt(data ?? null, TOP_COMPONENTS_LIMIT),
+    [data],
+  );
+  const maxUnresolved = rows.reduce((max, row) => Math.max(max, row.unresolvedCount), 0);
+  const {
+    pagedItems,
+    pageStart,
+    pageEnd,
+    hasPagination,
+    currentPage,
+    totalPages,
+    canGoPrevious,
+    canGoNext,
+    goPrevious,
+    goNext,
+  } = usePaginatedItems(rows, PAGE_SIZE);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Components with token debt</CardTitle>
+          <CardDescription>Loading unresolved bindings.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="h-8 animate-pulse rounded-full bg-muted/60" />
+            <div className="h-8 animate-pulse rounded-full bg-muted/60" />
+            <div className="h-8 animate-pulse rounded-full bg-muted/60" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Components with token debt</CardTitle>
+          <CardDescription>Token debt chart unavailable.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StatusAlert variant="warning" title="Token debt chart unavailable">
+            Could not load unresolved bindings for the current system.
+          </StatusAlert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Components with token debt</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <StatusAlert variant="success" title="No token debt">
+            No components have unresolved layer bindings in this system.
+          </StatusAlert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Components with token debt</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {pagedItems.map((row) => {
+            const width = maxUnresolved > 0 ? Math.max(4, (row.unresolvedCount / maxUnresolved) * 100) : 0;
+            return (
+              <div key={row.slug} className="space-y-1">
+                <div className="min-w-0">
+                  <Link
+                    to={toComponentDetail(row.slug)}
+                    className="block truncate text-sm text-foreground hover:text-primary"
+                    title={`Open ${row.displayName} detail`}
+                  >
+                    {row.displayName}
+                  </Link>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-muted/70">
+                    <div
+                      className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+                      style={{ width: `${width}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="shrink-0 tabular-nums text-sm font-semibold text-foreground">
+                    {row.unresolvedCount}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <PaginationFooter
+          hasPagination={hasPagination}
+          pageStart={pageStart}
+          pageEnd={pageEnd}
+          totalItems={rows.length}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          canGoPrevious={canGoPrevious}
+          canGoNext={canGoNext}
+          onPrevious={goPrevious}
+          onNext={goNext}
+        />
+      </CardContent>
+    </Card>
+  );
+}

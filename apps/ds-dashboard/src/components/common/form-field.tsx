@@ -1,6 +1,6 @@
-import * as React from "react";
+import * as React from 'react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 export interface FormFieldProps {
   label?: string;
@@ -10,6 +10,7 @@ export interface FormFieldProps {
   children: React.ReactNode;
   className?: string;
   id?: string;
+  hideLabel?: boolean;
 }
 
 export function FormField({
@@ -20,13 +21,14 @@ export function FormField({
   children,
   className,
   id,
+  hideLabel = false,
 }: FormFieldProps) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn('space-y-1.5', className)}>
       {label ? (
         <label
           htmlFor={id}
-          className="text-sm font-medium text-foreground"
+          className={cn('text-sm text-foreground', hideLabel && 'sr-only')}
         >
           {label}
           {required ? (

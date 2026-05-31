@@ -2,170 +2,165 @@
  * Component Detail Page - orchestrator only.
  */
 
-import { Suspense, lazy } from "react";
-import { useParams } from "react-router-dom";
+import { useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { Button } from "@/components/ui/button";
-import { FigmaCaptureModal } from "./figma-capture-modal";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useComponentDetail } from "./hooks/use-component-detail";
+import { useFigmaDescriptions } from "./hooks/use-figma-descriptions";
 import { ComponentNavBar } from "./components/component-nav-bar";
-import { ComponentPipelineSection } from "./components/component-pipeline-section";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
+import { ComponentPropertiesSection } from "./components/component-properties-section";
+import { LayerTokenMappingSection } from "./components/layer-token-mapping-section";
+import { ComponentGraphSection } from "./components/component-graph-section";
+import { ComponentAdoptionSection } from "./components/component-adoption-section";
+import { toComponentEditDocs } from "@/lib/routes";
 
-const SpecEditorDrawer = lazy(() => import("./spec-editor-drawer").then(m => ({ default: m.SpecEditorDrawer })));
-const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(m => ({ default: m.ComponentDocsModal })));
-const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(m => ({ default: m.ComponentSpecEditor })));
+function buildFigmaNodeUrl(fileUrl: string | null | undefined, nodeId: string | null | undefined) {
+  const normalizedFileUrl = String(fileUrl || "").trim();
+  if (!normalizedFileUrl) return null;
+
+  const normalizedNodeId = String(nodeId || "").trim();
+  if (!normalizedNodeId) return normalizedFileUrl;
+
+  if (typeof URL.canParse === "function" && !URL.canParse(normalizedFileUrl)) {
+    return normalizedFileUrl;
+  }
+
+  try {
+    const parsed = new URL(normalizedFileUrl);
+    parsed.searchParams.set("node-id", normalizedNodeId);
+    return parsed.toString();
+  } catch {
+    return normalizedFileUrl;
+  }
+}
 
 export function ComponentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
 
   const {
     loading,
     error,
     item,
+    usage,
+    allItems,
     spec,
-    specRaw,
-    specRawHash,
-    tokenRegistry,
-    captureModalOpen,
-    docsModalOpen,
-    specEditorOpen,
-    editorialEditorOpen,
-    captureSummary,
-    docsFilePath,
+    hasEditorialSpec,
+    isEditorialSpecStatusUnknown,
+    tokenCatalog,
+    canOpenDocs,
     previousItem,
     nextItem,
     currentIndex,
     totalItems,
-    setCaptureModalOpen,
-    setDocsModalOpen,
-    setSpecEditorOpen,
-    setEditorialEditorOpen,
-    setCaptureSummary,
-    handleSpecSaved,
-    handleReload,
+    downloadError,
+    downloadWarnings,
+    isDownloadingMarkdown,
     handleNavigate,
     handleBack,
-    openDocsModal,
+    downloadMarkdown,
   } = useComponentDetail();
 
-  if (loading) {
-    return (
-      <div className="space-y-5">
-        <PageHeader title="Loading…" description="Loading component details" />
-        <div className="h-64 animate-pulse rounded-xl bg-muted" />
-      </div>
-    );
-  }
+  const { data: figmaDesc } = useFigmaDescriptions(slug);
+  const handleDownloadMarkdown = useCallback(() => {
+    void downloadMarkdown();
+  }, [downloadMarkdown]);
 
-  if (error || !item) {
+  const descriptionsData = figmaDesc ?? {
+    componentSetDescription: null,
+    variantDescriptions: [],
+  };
+
+  if (error || (!loading && !item)) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Component not found" description={slug} />
-        <StatusAlert variant="error" description={error || `Component "${slug}" not found`} />
+        <PageHeader title="Component not found" />
+        <StatusAlert
+          variant="error"
+          description={error || `Component "${slug}" not found`}
+        />
         <Button variant="outline" onClick={handleBack}>← Back</Button>
       </div>
     );
   }
 
+  const pageTitle = item?.display_name || slug || "Component";
+  const figmaUrl = buildFigmaNodeUrl(
+    item?.figma.file_url,
+    item?.figma.component_set_node_id,
+  );
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title={item.display_name}
-        description={item.slug}
+        title={pageTitle}
+        actions={
+          figmaUrl ? (
+            <a
+              href={figmaUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
+              aria-label={`Open ${pageTitle} in Figma`}
+            >
+              <span>Open in Figma</span>
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : null
+        }
       />
 
       <ComponentNavBar
         previousItem={previousItem}
         nextItem={nextItem}
+        firstItem={allItems[0] ?? null}
+        lastItem={allItems.length > 0 ? allItems[allItems.length - 1] : null}
         currentIndex={currentIndex}
         totalItems={totalItems}
         onNavigate={handleNavigate}
-        onBack={handleBack}
-      />
-
-      <ComponentPipelineSection
-        currentStage={item.pipeline_stage}
-        hasFigmaUrl={Boolean(item.figma.file_url)}
-        hasDocs={Boolean(docsFilePath)}
-        onCapture={() => setCaptureModalOpen(true)}
-        onOpenSpec={() => setSpecEditorOpen(true)}
-        onOpenDocs={openDocsModal}
       />
 
       <ComponentVisualProofSection
         item={item}
-        captureSummary={captureSummary}
-        onOpenCapture={() => setCaptureModalOpen(true)}
+        variantVisuals={spec?.variant_visuals}
       />
 
       <ComponentSpecSection
         spec={spec}
-        hasDocs={Boolean(docsFilePath)}
-        onOpenSpecEditor={() => setSpecEditorOpen(true)}
-        onOpenDocs={openDocsModal}
-        onOpenEditorial={() => setEditorialEditorOpen(true)}
+        canOpenDocs={canOpenDocs}
+        showDownloadMarkdown={hasEditorialSpec || isEditorialSpecStatusUnknown}
+        isDownloadingMarkdown={isDownloadingMarkdown}
+        downloadError={downloadError}
+        downloadWarnings={downloadWarnings}
+        onDownloadMarkdown={handleDownloadMarkdown}
+        onOpenEditorial={() => navigate(toComponentEditDocs(slug ?? ""))}
+        figmaComponentSetDescription={descriptionsData.componentSetDescription}
+        figmaVariantDescriptions={descriptionsData.variantDescriptions}
       />
 
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>
-        {specEditorOpen && (
-          <SpecEditorDrawer
-            slug={slug!}
-            open={specEditorOpen}
-            displayName={item.display_name}
-            specPath={item.paths.spec}
-            initialRaw={specRaw}
-            initialHash={specRawHash}
-            tokenRegistry={tokenRegistry}
-            onClose={() => setSpecEditorOpen(false)}
-            onSaved={({ raw, rawHash }) => {
-              if (raw !== undefined) {
-                handleSpecSaved(raw, rawHash ?? null);
-              } else {
-                handleReload();
-              }
-            }}
-          />
-        )}
-        {docsModalOpen && docsFilePath && (
-          <ComponentDocsModal
-            open={docsModalOpen}
-            onClose={() => setDocsModalOpen(false)}
-            filePath={docsFilePath}
-            displayName={item.display_name}
-          />
-        )}
-        {editorialEditorOpen && (
-          <ComponentSpecEditor
-            open={editorialEditorOpen}
-            slug={slug!}
-            spec={spec}
-            expectedHash={specRawHash}
-            onSaved={() => {
-              setEditorialEditorOpen(false);
-              handleReload();
-            }}
-            onCancel={() => setEditorialEditorOpen(false)}
-          />
-        )}
-      </Suspense>
+      <ComponentPropertiesSection spec={spec} />
 
-      {captureModalOpen && (
-        <FigmaCaptureModal
-          open={captureModalOpen}
-          onClose={() => setCaptureModalOpen(false)}
-          defaultFigmaUrl={item.figma.file_url || ""}
-          componentSlug={slug!}
-          onCaptured={(summary) => {
-            setCaptureSummary(
-              `Captured ${summary.capturedCount}, failed ${summary.failedCount}, skipped ${summary.skippedCount}.`,
-            );
-            handleReload();
-          }}
-        />
-      )}
+      <LayerTokenMappingSection entries={spec?.layer_token_mapping ?? []} tokenCatalog={tokenCatalog} />
+
+      <ComponentGraphSection usage={usage} allItems={allItems} />
+
+      {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
+
+      <ComponentNavBar
+        previousItem={previousItem}
+        nextItem={nextItem}
+        firstItem={allItems[0] ?? null}
+        lastItem={allItems.length > 0 ? allItems[allItems.length - 1] : null}
+        currentIndex={currentIndex}
+        totalItems={totalItems}
+        onNavigate={handleNavigate}
+      />
     </div>
   );
 }

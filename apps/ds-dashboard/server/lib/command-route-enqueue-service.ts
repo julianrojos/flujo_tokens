@@ -2,14 +2,11 @@
  * Command Route Enqueue Service
  *
  * Builds queue arguments for command route handlers.
- * Migrated from apps/ds-dashboard/server/lib/command-route-enqueue-service.mjs
  */
 
 export interface SystemContext {
   repoRoot: string;
   systemId: string;
-  healthSnapshotScriptPath: string;
-  tokensFromFigmaScriptPath: string;
   captureFromFigmaUrlScriptPath: string;
 }
 
@@ -30,6 +27,10 @@ type ParseScriptNameFailure = {
 };
 
 export type ParseScriptNameResult = ParseScriptNameSuccess | ParseScriptNameFailure;
+
+const ALLOWED_RUN_SCRIPTS = new Set<string>([
+  'ds:token-usage-index',
+]);
 
 export interface RefreshScriptQueueArgs {
   repoRoot: string;
@@ -64,26 +65,6 @@ export interface BuildRunScriptQueueConfigOptions {
   sha256TextFn: (value: string) => string;
 }
 
-export interface HealthSnapshotQueueArgs {
-  repoRoot: string;
-  commandLabel: string;
-  scriptPath: string;
-  systemId: string;
-  requestId: string;
-  scriptArgs: string[];
-  commandEnv?: Record<string, string>;
-}
-
-export interface SyncFigmaTokensQueueArgs {
-  repoRoot: string;
-  commandLabel: string;
-  scriptPath: string;
-  systemId: string;
-  requestId: string;
-  scriptArgs: string[];
-  commandEnv?: Record<string, string>;
-  allowNonZeroJson: boolean;
-}
 
 export interface CaptureFigmaScreenshotQueueArgs {
   repoRoot: string;
@@ -94,12 +75,6 @@ export interface CaptureFigmaScreenshotQueueArgs {
   scriptArgs: string[];
   commandEnv?: Record<string, string>;
   allowNonZeroJson: boolean;
-}
-
-export interface ParsedHealthCommandConfig {
-  commandLabel: string;
-  scriptArgs: string[];
-  commandEnv?: Record<string, string>;
 }
 
 export interface ParsedNodeJsonCommandConfig {
@@ -113,17 +88,31 @@ export interface ParsedNodeJsonCommandConfig {
  */
 export function parseScriptNameFromRoute(rawScriptName: unknown, requestId: string): ParseScriptNameResult {
   const scriptName = String(rawScriptName || '').trim();
-  if (scriptName) return { ok: true, scriptName };
-  return {
-    ok: false,
-    statusCode: 400,
-    errorArgs: {
-      code: 'validation.missing_script_name',
-      userMessage: 'Missing script name in URL.',
-      recoverable: true,
-      requestId,
-    },
-  };
+  if (!scriptName) {
+    return {
+      ok: false,
+      statusCode: 400,
+      errorArgs: {
+        code: 'validation.missing_script_name',
+        userMessage: 'Missing script name in URL.',
+        recoverable: true,
+        requestId,
+      },
+    };
+  }
+  if (!ALLOWED_RUN_SCRIPTS.has(scriptName)) {
+    return {
+      ok: false,
+      statusCode: 400,
+      errorArgs: {
+        code: 'validation.unsupported_script_name',
+        userMessage: `Unsupported script "${scriptName}".`,
+        recoverable: true,
+        requestId,
+      },
+    };
+  }
+  return { ok: true, scriptName };
 }
 
 /**
@@ -183,47 +172,6 @@ export function buildRunScriptQueueConfig(options: BuildRunScriptQueueConfigOpti
 }
 
 /**
- * Build queue args for health snapshot job.
- */
-export function buildHealthSnapshotQueueArgs(options: {
-  sysCtx: SystemContext;
-  requestId: string;
-  parsed: ParsedHealthCommandConfig;
-}): HealthSnapshotQueueArgs {
-  const { sysCtx, requestId, parsed } = options;
-  return {
-    repoRoot: sysCtx.repoRoot,
-    commandLabel: parsed.commandLabel,
-    scriptPath: sysCtx.healthSnapshotScriptPath,
-    systemId: sysCtx.systemId,
-    requestId,
-    scriptArgs: parsed.scriptArgs,
-    commandEnv: parsed.commandEnv,
-  };
-}
-
-/**
- * Build queue args for syncing Figma tokens.
- */
-export function buildSyncFigmaTokensQueueArgs(options: {
-  sysCtx: SystemContext;
-  requestId: string;
-  parsed: ParsedNodeJsonCommandConfig;
-}): SyncFigmaTokensQueueArgs {
-  const { sysCtx, requestId, parsed } = options;
-  return {
-    repoRoot: sysCtx.repoRoot,
-    commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${parsed.commandDisplayArgs.join(' ')}`,
-    scriptPath: sysCtx.tokensFromFigmaScriptPath,
-    systemId: sysCtx.systemId,
-    requestId,
-    scriptArgs: parsed.commandArgs,
-    commandEnv: parsed.commandEnv,
-    allowNonZeroJson: true,
-  };
-}
-
-/**
  * Build queue args for capturing Figma screenshot.
  */
 export function buildCaptureFigmaScreenshotQueueArgs(options: {
@@ -234,7 +182,7 @@ export function buildCaptureFigmaScreenshotQueueArgs(options: {
   const { sysCtx, requestId, parsed } = options;
   return {
     repoRoot: sysCtx.repoRoot,
-    commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${parsed.commandDisplayArgs.join(' ')}`,
+    commandLabel: `node --import tsx tooling/src/runners/capture-from-figma-url-runner.ts ${parsed.commandDisplayArgs.join(' ')}`,
     scriptPath: sysCtx.captureFromFigmaUrlScriptPath,
     systemId: sysCtx.systemId,
     requestId,

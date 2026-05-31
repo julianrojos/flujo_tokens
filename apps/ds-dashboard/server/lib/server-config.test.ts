@@ -14,13 +14,14 @@ describe('server-config', () => {
       const cfg = createServerConfig({});
       assert.equal(cfg.PORT, 8787);
       assert.equal(cfg.HOST, '127.0.0.1');
-      assert.equal(cfg.JOB_TIMEOUT_MS, 600000);
-      assert.equal(cfg.OPS_LOG_MAX_FILE_BYTES, 1_048_576);
-      assert.equal(cfg.OPS_LOG_RETENTION_DAYS, 30);
-      assert.equal(cfg.OPS_HISTORY_MAX_LIMIT, 500);
-      assert.equal(cfg.OPS_REGRESSION_MAX_LIMIT, 500);
-      assert.equal(cfg.REPLAYABLE_NPM_SCRIPTS.has('ds:token-graph'), true);
-      assert.equal(cfg.SUPPORTED_REPLAY_OPERATIONS.has('script:ds:token-graph'), true);
+      assert.equal(cfg.MAX_OUTPUT_BYTES, 2 * 1024 * 1024);
+      assert.equal(cfg.MAX_FILE_BYTES, 450_000);
+      assert.equal(cfg.MAX_SNIPPET_LINES, 15);
+      assert.equal(cfg.JOB_QUEUE_CONCURRENCY, 2);
+      assert.equal(cfg.JOB_TIMEOUT_MS, 45 * 60 * 1000);
+      assert.equal(cfg.JOB_RETENTION_MS, 30 * 60 * 1000);
+      assert.equal(cfg.MAX_RETAINED_EVENTS, 2_000);
+      assert.equal(cfg.MAX_RETAINED_JOBS, 200);
     });
   });
 
@@ -29,30 +30,26 @@ describe('server-config', () => {
       const cfg = createServerConfig({
         DS_DASHBOARD_API_PORT: '9999',
         DS_DASHBOARD_API_HOST: '0.0.0.0',
+        DS_DASHBOARD_JOB_QUEUE_CONCURRENCY: '4',
         DS_DASHBOARD_JOB_TIMEOUT_MS: '120000',
-        DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES: '2048',
-        DS_DASHBOARD_OPS_LOG_RETENTION_DAYS: '7',
       });
       assert.equal(cfg.PORT, 9999);
       assert.equal(cfg.HOST, '0.0.0.0');
+      assert.equal(cfg.JOB_QUEUE_CONCURRENCY, 4);
       assert.equal(cfg.JOB_TIMEOUT_MS, 120000);
-      assert.equal(cfg.OPS_LOG_MAX_FILE_BYTES, 2048);
-      assert.equal(cfg.OPS_LOG_RETENTION_DAYS, 7);
     });
 
     it('invalid env values fall back to defaults', () => {
       const cfg = createServerConfig({
         DS_DASHBOARD_API_PORT: 'abc',
         DS_DASHBOARD_API_HOST: '',
+        DS_DASHBOARD_JOB_QUEUE_CONCURRENCY: '-1',
         DS_DASHBOARD_JOB_TIMEOUT_MS: '-5',
-        DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES: '0',
-        DS_DASHBOARD_OPS_LOG_RETENTION_DAYS: '',
       });
       assert.equal(cfg.PORT, 8787);
       assert.equal(cfg.HOST, '127.0.0.1');
-      assert.equal(cfg.JOB_TIMEOUT_MS, 600000);
-      assert.equal(cfg.OPS_LOG_MAX_FILE_BYTES, 1_048_576);
-      assert.equal(cfg.OPS_LOG_RETENTION_DAYS, 30);
+      assert.equal(cfg.JOB_QUEUE_CONCURRENCY, 2);
+      assert.equal(cfg.JOB_TIMEOUT_MS, 45 * 60 * 1000);
     });
   });
 });

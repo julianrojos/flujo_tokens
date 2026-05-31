@@ -77,6 +77,7 @@ export interface FigmaVariablesResponse {
 export interface FigmaApiOptions {
   token: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 export interface FetchFigmaFileOptions extends FigmaApiOptions {
@@ -95,6 +96,25 @@ export interface FetchFigmaNodesOptions extends FigmaApiOptions {
 
 export interface FetchFigmaVariablesOptions extends FigmaApiOptions {
   fileKey: string;
+}
+
+export interface FetchFigmaFileComponentsOptions extends FigmaApiOptions {
+  fileKey: string;
+}
+
+export interface FigmaFileComponentsResponse {
+  status: number;
+  error: boolean;
+  meta: {
+    components: Array<{
+      key: string;
+      name: string;
+      node_id: string;
+      description: string;
+      componentSetId?: string;
+      [key: string]: unknown;
+    }>;
+  };
 }
 
 export interface FetchFigmaImagesOptions extends FigmaApiOptions {

@@ -4,27 +4,63 @@ import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+// ---------------------------------------------------------------------------
+// Mobile drawer context
+// ---------------------------------------------------------------------------
+
+type SidebarContextValue = {
+  mobileOpen: boolean;
+  closeMobile: () => void;
+};
+
+const SidebarContext = React.createContext<SidebarContextValue>({
+  mobileOpen: false,
+  closeMobile: () => {},
+});
+
+export function useSidebar(): SidebarContextValue {
+  return React.useContext(SidebarContext);
+}
+
+function useEscapeKey(onEscape: () => void, enabled: boolean) {
+  React.useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onEscape();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled, onEscape]);
+}
+
+// ---------------------------------------------------------------------------
+// Variants
+// ---------------------------------------------------------------------------
+
 export const sidebarProviderVariants = cva("group/sidebar-wrapper flex min-h-screen w-full");
+/** Base visual styles — display/positioning are handled by the Sidebar component directly. */
 export const sidebarVariants = cva(
-  "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-card/85 backdrop-blur-lg lg:flex",
+  "h-screen flex-col overflow-hidden border-r border-border/70 bg-sidebar text-sidebar-foreground",
 );
 export const sidebarInsetVariants = cva("min-w-0 flex-1");
 export const sidebarHeaderVariants = cva("p-5");
-export const sidebarContentVariants = cva("flex-1 overflow-auto px-3");
+export const sidebarContentVariants = cva("flex-1 overflow-auto px-3 pt-2");
 export const sidebarFooterVariants = cva("mt-auto p-3");
 export const sidebarGroupVariants = cva("space-y-1 pb-2");
 export const sidebarGroupContentVariants = cva("space-y-1");
 export const sidebarGroupLabelVariants = cva(
-  "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+  "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/80",
 );
 export const sidebarMenuVariants = cva("space-y-1");
 export const sidebarMenuItemVariants = cva("list-none");
 export const sidebarMenuButtonVariants = cva(
-  "group w-full rounded-xl border border-transparent px-3 py-3 text-left transition",
+  "group w-full rounded border border-transparent px-3 py-3 text-left transition",
   {
     variants: {
       state: {
-        active: "border-primary/20 bg-primary/10",
+        active: "border-sidebar-active-border bg-sidebar-active",
         idle: "hover:border-border/70 hover:bg-accent/60",
       },
     },
@@ -34,26 +70,45 @@ export const sidebarMenuButtonVariants = cva(
   },
 );
 export const sidebarTriggerVariants = cva(
-  "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground",
+  "inline-flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-white transition hover:bg-transparent hover:text-white",
 );
 
 export const SidebarProvider = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  React.HTMLAttributes<HTMLDivElement> & {
+    mobileOpen?: boolean;
+    onMobileClose?: () => void;
+  }
 >(function SidebarProvider(
-  {
-  className,
-  children,
-},
+  { className, children, mobileOpen = false, onMobileClose, ...props },
   ref,
 ) {
+  const closeMobile = React.useCallback(() => {
+    onMobileClose?.();
+  }, [onMobileClose]);
+  useEscapeKey(closeMobile, mobileOpen);
+
   return (
-    <div
-      ref={ref}
-      className={cn(sidebarProviderVariants(), className)}
-    >
-      {children}
-    </div>
+    <SidebarContext.Provider value={{ mobileOpen, closeMobile }}>
+      <div
+        ref={ref}
+        className={cn(sidebarProviderVariants(), className)}
+        {...props}
+      >
+        {/* Mobile backdrop */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 lg:hidden",
+            mobileOpen
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+          aria-hidden="true"
+          onClick={closeMobile}
+        />
+        {children}
+      </div>
+    </SidebarContext.Provider>
   );
 });
 SidebarProvider.displayName = "SidebarProvider";
@@ -62,11 +117,66 @@ export const Sidebar = React.forwardRef<
   HTMLElement,
   React.HTMLAttributes<HTMLElement> & { collapsed?: boolean }
 >(({ className, children, collapsed = false, ...props }, ref) => {
+  const { mobileOpen } = React.useContext(SidebarContext);
+  const sidebarNodeRef = React.useRef<HTMLElement | null>(null);
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 1023.9px)").matches,
+  );
+
+  const setSidebarRef = React.useCallback(
+    (node: HTMLElement | null) => {
+      sidebarNodeRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+        return;
+      }
+      if (ref) {
+        ref.current = node;
+      }
+    },
+    [ref],
+  );
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023.9px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+    };
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  React.useEffect(() => {
+    const node = sidebarNodeRef.current;
+    if (!node) return;
+    const shouldInert = isMobile && !mobileOpen;
+
+    if (shouldInert) {
+      node.setAttribute("aria-hidden", "true");
+      node.setAttribute("inert", "");
+    } else {
+      node.removeAttribute("aria-hidden");
+      node.removeAttribute("inert");
+    }
+  }, [isMobile, mobileOpen]);
+
   return (
     <aside
-      ref={ref}
+      ref={setSidebarRef}
       data-collapsed={collapsed}
-      className={cn(sidebarVariants(), className)}
+      className={cn(
+        sidebarVariants(),
+        // Desktop: sticky inline sidebar
+        "hidden shrink-0 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:sticky lg:top-0 lg:flex",
+        // Mobile: fixed left drawer, slides in/out via transform
+        "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-50 max-lg:flex",
+        "max-lg:transition-transform max-lg:duration-300 max-lg:ease-in-out max-lg:motion-reduce:transition-none",
+        mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full",
+        className,
+      )}
       style={{ width: collapsed ? "var(--app-sidebar-width-collapsed)" : "var(--app-sidebar-width)" }}
       {...props}
     >
@@ -152,15 +262,20 @@ export const SidebarMenuItem = React.forwardRef<
 ));
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
-type SidebarMenuButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+type SidebarNavItemProps = React.HTMLAttributes<HTMLDivElement> & {
   isActive?: boolean;
 };
 
-export const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  SidebarMenuButtonProps
+/**
+ * Navigation item shell for sidebar links.
+ * Use it inside an interactive wrapper (<a>, <button>).
+ * It does not manage its own focus or keyboard activation.
+ */
+export const SidebarNavItem = React.forwardRef<
+  HTMLDivElement,
+  SidebarNavItemProps
 >(({ className, isActive = false, ...props }, ref) => (
-  <button
+  <div
     ref={ref}
     data-active={isActive}
     className={cn(
@@ -170,31 +285,33 @@ export const SidebarMenuButton = React.forwardRef<
     {...props}
   />
 ));
-SidebarMenuButton.displayName = "SidebarMenuButton";
+SidebarNavItem.displayName = "SidebarNavItem";
 
 export const SidebarTrigger = React.forwardRef<
   HTMLButtonElement,
-  {
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
     collapsed?: boolean;
-    onClick?: () => void;
-    className?: string;
   }
 >(function SidebarTrigger(
   {
   collapsed,
-  onClick,
   className,
+  "aria-label": ariaLabel,
+  title,
+  ...props
 },
   ref,
 ) {
+  const fallbackLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+
   return (
     <button
       ref={ref}
       type="button"
-      onClick={onClick}
       className={cn(sidebarTriggerVariants(), className)}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-label={ariaLabel || fallbackLabel}
+      title={title || fallbackLabel}
+      {...props}
     >
       {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
     </button>

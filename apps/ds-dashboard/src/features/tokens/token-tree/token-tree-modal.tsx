@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw, Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import {
   Modal,
   ModalContent,
   ModalHeader,
+  ModalCloseButton,
 } from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import type { ApiErrorDisplay } from "@/lib/api-error-ux";
@@ -24,7 +25,6 @@ interface TokenTreeModalProps {
   } | null;
   loading: boolean;
   error: ApiErrorDisplay | null;
-  onReload: () => void;
 }
 
 export function TokenTreeModal({
@@ -34,7 +34,6 @@ export function TokenTreeModal({
   summary,
   loading,
   error,
-  onReload,
 }: TokenTreeModalProps) {
   const [query, setQuery] = useState("");
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
@@ -105,16 +104,14 @@ export function TokenTreeModal({
       <ModalContent className="max-h-[92vh] w-[min(980px,96vw)] overflow-hidden">
         <ModalHeader>
           <div>
-            <h3 id="token-collection-tree-title" className="text-lg font-semibold">
+            <h3 id="token-collection-tree-title" className="text-base font-titles font-semibold titles-color">
               Token Collections Tree
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Estructura jerárquica derivada de `token-registry.json` por colección.
+              Hierarchical structure derived from the token inventory by collection.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
-            <X className="h-4 w-4" />
-          </Button>
+          <ModalCloseButton onClick={onClose} />
         </ModalHeader>
 
         <div className="border-b border-border/70 p-4">
@@ -134,15 +131,6 @@ export function TokenTreeModal({
               </Button>
               <Button variant="outline" size="sm" onClick={collapseAll} disabled={loading}>
                 Collapse all
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onReload}
-                disabled={loading}
-                aria-label="Reload tree data"
-              >
-                <RefreshCcw className="h-4 w-4" />
               </Button>
             </div>
           </div>

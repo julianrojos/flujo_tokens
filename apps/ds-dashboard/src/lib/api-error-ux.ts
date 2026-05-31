@@ -3,10 +3,12 @@ import {
   API_ERROR_CODES,
   getApiErrorMeta,
 } from "@/lib/api-errors";
+import { getDashboardApiBaseUrl } from "@/lib/api-base";
 
 export interface ApiErrorDisplay {
   title: string;
   message: string;
+  reason: string | null;
   action: string | null;
   code: string | null;
   requestId: string | null;
@@ -20,6 +22,37 @@ interface BuildApiErrorDisplayOptions {
 
 function toTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isFetchFailureMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("failed to fetch") ||
+    normalized.includes("fetch failed") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("load failed") ||
+    normalized.includes("the operation was aborted") ||
+    normalized.includes("connection refused")
+  );
+}
+
+export function resolveApiUnavailableDisplay(apiBaseUrl: string): {
+  message: string;
+  action: string;
+} {
+  if (apiBaseUrl) {
+    return {
+      message:
+        `The dashboard API at ${apiBaseUrl} is not reachable. Make sure the backend is running, PostgreSQL is available, and then restart \`npm run preview:split\`.`,
+      action: "Check the backend and PostgreSQL, then restart preview:split.",
+    };
+  }
+
+  return {
+    message:
+      "The dashboard API is not reachable. Make sure `npm run db:up` is running and then restart `npm run dashboard:dev`.",
+    action: "Check PostgreSQL and restart the dashboard.",
+  };
 }
 
 function resolveTitle(code: string, status: number, fallbackTitle: string) {
@@ -38,6 +71,10 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
       return "System not found";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Delete blocked";
+    case API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE:
+      return "Consumer already exists";
+    case API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE:
+      return "Consumer file rejected";
     case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
       return "Event not found";
     case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:
@@ -58,6 +95,7 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
   if (code.startsWith("design_system.")) return "Design system error";
   if (code.startsWith("queue.")) return "Background job error";
   if (code.startsWith("file.")) return "File request failed";
+  if (code.startsWith("sync.")) return "Sync error";
   if (status >= 500) return "Server error";
   if (status >= 400) return "Request failed";
   return fallbackTitle;
@@ -77,6 +115,8 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
       return "Use a different ID or update the existing system.";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Create another system before deleting this one.";
+    case API_ERROR_CODES.DEPS_CONSUMER_DUPLICATE:
+      return "Use a different consumer name for this design system.";
     case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
       return "Refresh operation history and choose a valid event.";
     case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:
@@ -94,6 +134,12 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
   if (code.startsWith("validation.")) {
     return fallbackAction || "Review inputs and retry.";
   }
+  if (code === API_ERROR_CODES.DEPS_CONSUMER_NO_PARENT_USAGE) {
+    return "Use a file that references at least one component and one variable from the parent design system.";
+  }
+  if (code.startsWith("sync.")) {
+    return "Re-open the Figma plugin, capture missing screenshots, and retry.";
+  }
   if (fallbackAction) return fallbackAction;
   if (retryable) return "Retry the action.";
   return null;
@@ -106,11 +152,13 @@ export function toApiErrorDisplay(
   if (error instanceof ApiError) {
     const meta = getApiErrorMeta(error.code);
     const message = toTrimmedString(error.message) || meta?.description || options.fallbackMessage;
+    const reason = toTrimmedString(error.context?.reason);
     const title = resolveTitle(error.code, error.status, options.fallbackTitle);
     const action = resolveAction(error.code, error.recoverable, meta?.fix ?? null);
     return {
       title,
       message,
+      reason: reason || null,
       action,
       code: error.code,
       requestId: error.requestId,
@@ -121,9 +169,23 @@ export function toApiErrorDisplay(
   const message =
     toTrimmedString(error instanceof Error ? error.message : error) || options.fallbackMessage;
 
+  if (isFetchFailureMessage(message)) {
+    const apiUnavailableDisplay = resolveApiUnavailableDisplay(getDashboardApiBaseUrl());
+    return {
+      title: "API unavailable",
+      message: apiUnavailableDisplay.message,
+      reason: null,
+      action: apiUnavailableDisplay.action,
+      code: null,
+      requestId: null,
+      retryable: true,
+    };
+  }
+
   return {
     title: options.fallbackTitle,
     message,
+    reason: null,
     action: "Retry the action.",
     code: null,
     requestId: null,

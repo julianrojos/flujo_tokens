@@ -373,14 +373,8 @@ export async function searchVariablesViaMcp(
 
   try {
     const mcpModule = await getMcpModule();
-    const client = await mcpModule.getOrCreateSharedMcpClient({
-      fileUrl: options.fileUrl,
-      env: options.env,
-      timeoutMs,
-    });
 
     let items: VariableResult[] = [];
-    let source: 'mcp_tool' | 'fallback' = 'fallback';
 
     try {
       // Use existing fetchFigmaLocalVariablesViaMcp and filter locally
@@ -449,7 +443,7 @@ export async function searchVariablesViaMcp(
 
     return {
       ok: true,
-      source,
+      source: 'fallback',
       items: items.slice(0, limit),
       count: items.length,
       truncated: items.length >= limit,

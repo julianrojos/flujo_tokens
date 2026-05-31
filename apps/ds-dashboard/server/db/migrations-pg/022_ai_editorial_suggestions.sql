@@ -1,0 +1,3 @@
+-- Migration 022: ai_editorial_suggestions
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

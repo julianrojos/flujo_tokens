@@ -10,20 +10,43 @@ import { getRequestListener } from '@hono/node-server';
 import { createServerApp } from './create-server-app.ts';
 import { createFigmaPluginWsServer } from './services/figma-plugin-ws-server.ts';
 
-const { app, port, host, disposeDesignSystemRepository } = createServerApp();
+const { app, port, host, disposeDesignSystemRepository } =
+  await createServerApp();
 const displayHost =
   host.includes(':') && !(host.startsWith('[') && host.endsWith(']'))
     ? `[${host}]`
     : host;
 
-function handleProcessShutdown(signal: string): void {
-  disposeDesignSystemRepository();
-  console.log(`[ds-dashboard-api] received ${signal}, shutting down`);
-  process.exit(0);
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+let httpServer: http.Server | undefined;
+let shuttingDown = false;
+async function handleProcessShutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try {
+    if (httpServer) {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          httpServer!.close(() => resolve());
+        }),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, SHUTDOWN_TIMEOUT_MS);
+        }),
+      ]);
+    }
+    await disposeDesignSystemRepository();
+  } finally {
+    console.log(`[ds-dashboard-api] received ${signal}, shutting down`);
+    process.exit(0);
+  }
 }
 
-process.once('SIGINT', () => handleProcessShutdown('SIGINT'));
-process.once('SIGTERM', () => handleProcessShutdown('SIGTERM'));
+process.once('SIGINT', () => {
+  void handleProcessShutdown('SIGINT');
+});
+process.once('SIGTERM', () => {
+  void handleProcessShutdown('SIGTERM');
+});
 
 // Get the request listener from Hono
 const requestListener = await getRequestListener(
@@ -32,12 +55,14 @@ const requestListener = await getRequestListener(
 );
 
 // Create HTTP server with the request listener
-const httpServer = http.createServer(requestListener);
+httpServer = http.createServer(requestListener);
 
 // Create WebSocket server for Figma plugin connections
 // This attaches its own upgrade handler that only processes /ws/figma-plugin
 // Other upgrade paths are destroyed to prevent orphaned connections
-createFigmaPluginWsServer(httpServer);
+createFigmaPluginWsServer(httpServer, {
+  prewarmOnSessionInfo: true,
+});
 
 // Start the server
 httpServer.listen(port, host, () => {

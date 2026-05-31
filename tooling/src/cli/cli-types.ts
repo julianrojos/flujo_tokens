@@ -208,8 +208,6 @@ export type EmitCheckpointPayload = {
     emitHash: string;
     /** Snapshots of all emitted CSS files */
     outputs: EmitOutputSnapshot[];
-    /** Optional token registry output snapshot */
-    registry?: { filePath: string; contentHash: string };
     /** Execution summary metrics */
     summary: SummarySnapshot;
     /** All mode keys detected during indexing */
@@ -266,7 +264,7 @@ export type PipelineExecutionState = {
     analyzedScopes: SerializedAnalyzedScope[];
     /** Output file targets to generate */
     outputs: OutputTarget[];
-    /** Path to the emit manifest (registry) */
+    /** Path to the emit manifest */
     emitManifestPath: string;
     /** Dependency hash for the emit phase */
     emitDependencyHash: string;

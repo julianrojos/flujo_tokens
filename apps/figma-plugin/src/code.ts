@@ -11,18 +11,18 @@
 import {
   dispatchRequest,
   VariablesDataEventData,
-  DocumentChangeEventData,
   SelectionChangeEventData,
   PageChangeEventData,
   ConsoleCaptureEventData,
   BridgePluginResponseMessage,
   BridgeError,
 } from './bridge';
+import { PLUGIN_UI_HEIGHT, PLUGIN_UI_WIDTH } from './shared/ui-dimensions';
 
 // Show the plugin UI
 figma.showUI(__html__, {
-  width: 320,
-  height: 460,
+  width: PLUGIN_UI_WIDTH,
+  height: PLUGIN_UI_HEIGHT,
 });
 
 // Send document info to UI so it can show the design system name.
@@ -83,22 +83,30 @@ async function forwardVariablesData(): Promise<void> {
 }
 
 /**
- * Forward document change event to UI.
- */
-function forwardDocumentChange(eventData: DocumentChangeEventData): void {
-  figma.ui.postMessage({
-    type: 'DOCUMENT_CHANGE',
-    data: eventData,
-  });
-}
-
-/**
  * Forward selection change event to UI.
  */
 function forwardSelectionChange(eventData: SelectionChangeEventData): void {
   figma.ui.postMessage({
     type: 'SELECTION_CHANGE',
     data: eventData,
+  });
+}
+
+function publishCurrentSelection(): void {
+  const selection = figma.currentPage.selection;
+  const selectedNodes = selection.slice(0, 50).map((node) => ({
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    width: node.width,
+    height: node.height,
+  }));
+
+  forwardSelectionChange({
+    nodes: selectedNodes,
+    count: selection.length,
+    page: figma.currentPage.name,
+    timestamp: Date.now(),
   });
 }
 
@@ -134,64 +142,15 @@ function asRecord(value: unknown): Record<string, unknown> {
 // Figma Event Listeners
 // ============================================================================
 
-// Document change listener - forwards changes for cache invalidation
 figma.loadAllPagesAsync().then(() => {
-  figma.on('documentchange', (event) => {
-    let hasStyleChanges = false;
-    let hasNodeChanges = false;
-    const changedNodeIds: string[] = [];
-
-    for (const change of event.documentChanges) {
-      if (
-        change.type === 'STYLE_CREATE' ||
-        change.type === 'STYLE_DELETE' ||
-        change.type === 'STYLE_PROPERTY_CHANGE'
-      ) {
-        hasStyleChanges = true;
-      } else if (
-        change.type === 'CREATE' ||
-        change.type === 'DELETE' ||
-        change.type === 'PROPERTY_CHANGE'
-      ) {
-        hasNodeChanges = true;
-        if (change.id && changedNodeIds.length < 50) {
-          changedNodeIds.push(change.id);
-        }
-      }
-    }
-
-    if (hasStyleChanges || hasNodeChanges) {
-      forwardDocumentChange({
-        hasStyleChanges,
-        hasNodeChanges,
-        changedNodeIds,
-        changeCount: event.documentChanges.length,
-        timestamp: Date.now(),
-      });
-    }
-  });
-
   // Selection change listener - tracks user selection
   figma.on('selectionchange', () => {
-    const selection = figma.currentPage.selection;
-    const selectedNodes = selection.slice(0, 50).map((node) => ({
-      id: node.id,
-      name: node.name,
-      type: node.type,
-      width: node.width,
-      height: node.height,
-    }));
-
-    forwardSelectionChange({
-      nodes: selectedNodes,
-      count: selection.length,
-      page: figma.currentPage.name,
-      timestamp: Date.now(),
-    });
+    publishCurrentSelection();
   });
 
   // Page change listener - tracks current page
   figma.on('currentpagechange', () => {
+    publishCurrentSelection();
     forwardPageChange({
       pageId: figma.currentPage.id,
       pageName: figma.currentPage.name,
@@ -199,7 +158,8 @@ figma.loadAllPagesAsync().then(() => {
     });
   });
 
-  console.log('[Plugin] Document change, selection, and page listeners registered');
+  publishCurrentSelection();
+  console.log('[Plugin] Selection and page listeners registered');
 }).catch((err) => {
   console.warn('[Plugin] Could not register event listeners:', err);
 });
@@ -322,24 +282,6 @@ figma.ui.onmessage = async (
         { error: true }
       );
       break;
-
-    case 'RESIZE':
-      if (typeof msg.height === 'number' && msg.height > 0) {
-        figma.ui.resize(320, msg.height);
-      }
-      break;
-
-    case 'SYNC_COMPLETE':
-      figma.notify('Tokens synced successfully ✓', { timeout: 3000 });
-      break;
-
-    case 'SYNC_ERROR':
-      figma.notify(
-        `Sync failed: ${msg.error ?? 'Unknown error'}`,
-        { error: true }
-      );
-      break;
-
 
     default:
       console.warn('[Plugin] Unknown message type:', messageType);

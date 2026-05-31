@@ -6,17 +6,14 @@
 
 import type { Hono } from 'hono';
 
-import { registerSystemRoutes } from './system-routes.mjs';
-import { registerOperationsRoutes } from './operations-routes.mjs';
-import { registerRegistryRoutes } from './registry-routes.mjs';
-import { registerTokenGraphRoutes } from './token-graph-routes.ts';
-import { registerHealthRoutes } from './health-routes.mjs';
-import { registerAnalysisRoutes } from './analysis-routes.mjs';
-import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
-import { registerFileRoutes } from './file-routes.mjs';
-import { registerJobRoutes } from './job-routes.mjs';
-import { registerCommandRoutes } from './command-routes.mjs';
-import { registerFigmaPingRoute } from './figma-ping-route.mjs';
+import { registerSystemRoutes } from './system-routes.ts';
+import { registerAssetRoutes } from './asset-routes.ts';
+import { registerCatalogRoutes } from './catalog-routes.ts';
+import { registerTokenUsageIndexRoutes } from './token-usage-index-routes.ts';
+import { registerHealthRoutes } from './health-routes.ts';
+import { registerComponentSpecRoutes } from './component-spec-routes.ts';
+import { registerJobRoutes } from './job-routes.ts';
+import { registerCommandRoutes } from './command-routes.ts';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
 import { registerFigmaMcpPortRoute } from './figma-mcp-port-route.ts';
 import { registerFigmaMcpSearchNodesRoute } from './figma-mcp-search-nodes-route.ts';
@@ -36,6 +33,7 @@ import { registerFigmaMcpTokenBindingsRoutes } from './figma-mcp-token-bindings-
 import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.ts';
 import { registerAiJobsRoutes } from './ai-jobs-route.ts';
 import type { CommandRoutesDeps } from './command-routes.ts';
+import { registerComponentDocsRoutes } from './component-docs-route.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,26 +55,19 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
     failJson: (c, statusCode, args) => ensureResponse(deps.failJson(c, statusCode, args), 'commandDeps.failJson'),
     createApiRequestId: deps.createApiRequestId,
     readJsonBody: deps.readJsonBody,
-    getSystemContext: (systemHeader) => {
-      const context = deps.getSystemContext(systemHeader);
+    getSystemContext: async (systemHeader) => {
+      const context = await deps.getSystemContext(systemHeader);
       if (!isRecord(context)) {
         throw new TypeError('commandDeps.getSystemContext must return an object');
       }
       return {
         repoRoot: ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot'),
         systemId: ensureString(context.systemId, 'commandDeps.getSystemContext.systemId'),
-        healthSnapshotScriptPath: ensureString(
-          context.healthSnapshotScriptPath,
-          'commandDeps.getSystemContext.healthSnapshotScriptPath',
-        ),
-        tokensFromFigmaScriptPath: ensureString(
-          context.tokensFromFigmaScriptPath,
-          'commandDeps.getSystemContext.tokensFromFigmaScriptPath',
-        ),
-        captureFromFigmaUrlScriptPath: ensureString(
-          context.captureFromFigmaUrlScriptPath,
-          'commandDeps.getSystemContext.captureFromFigmaUrlScriptPath',
-        ),
+        figmaFileId:
+          typeof context.figmaFileId === 'string' && context.figmaFileId.trim()
+            ? context.figmaFileId
+            : undefined,
+        captureFromFigmaUrlScriptPath: `${ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot')}/tooling/src/runners/capture-from-figma-url-runner.ts`,
       };
     },
     queueJobAcceptedPayload: (job) => {
@@ -97,21 +88,14 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
     runQueuedSpawnCommand: async (options) => {
       const result = await deps.runQueuedSpawnCommand(options);
       if (!isRecord(result) || typeof result.ok !== 'boolean') {
-        throw new TypeError('commandDeps.runQueuedSpawnCommand must resolve to { ok: boolean }');
+        throw new TypeError('commandDeps.runQueuedSpawnCommand must resolve to an object with boolean ok');
       }
-      return { ok: result.ok };
+      return result as Record<string, unknown> & { ok: boolean };
     },
     queueNpmScript: (args) => {
       const job = deps.queueNpmScript(args);
       if (!isRecord(job) || typeof job.id !== 'string') {
         throw new TypeError('commandDeps.queueNpmScript must return { id: string }');
-      }
-      return { id: job.id };
-    },
-    enqueueRefreshNamingDebtJob: (args) => {
-      const job = deps.enqueueRefreshNamingDebtJob(args);
-      if (!isRecord(job) || typeof job.id !== 'string') {
-        throw new TypeError('commandDeps.enqueueRefreshNamingDebtJob must return { id: string }');
       }
       return { id: job.id };
     },
@@ -122,26 +106,96 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
       }
       return { id: job.id };
     },
+    componentRepo: deps.componentRepo,
+    designSystemRepository: deps.designSystemRepository,
+    tokenRepo: deps.tokenRepo,
+    healthRepo: deps.healthRepo,
+    db: deps.db,
+    databaseUrl: deps.databaseUrl,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,
   };
 }
 
-export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
+type DbDesignSystemRepoShape = {
+  getAll?: () => Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }>;
+};
+
+function hasDbDesignSystemRepo(value: unknown): value is DbDesignSystemRepoShape {
+  return typeof value === 'object' && value !== null && typeof (value as DbDesignSystemRepoShape).getAll === 'function';
+}
+
+const DEFAULT_FIGMA_TOKEN_PRELOAD_TIMEOUT_MS = 5_000;
+
+async function preloadFigmaTokenReferences(
+  repo: DbDesignSystemRepoShape,
+  timeoutMs: number,
+): Promise<Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }> | undefined> {
+  const preload = Promise.resolve(repo.getAll?.());
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return await preload;
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`DB Figma token preload timed out after ${Math.floor(timeoutMs)}ms`));
+    }, timeoutMs);
+    timeoutId.unref?.();
+  });
+
+  try {
+    return await Promise.race([preload, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+export async function registerAllRoutes(app: Hono, deps: ServerDeps): Promise<void> {
   const routeDeps = buildAllRouteDeps(deps);
+  const figmaTokenByDsFileKey = new Map<string, string>();
+  const figmaTokenBySystemId = new Map<string, string>();
+  if (hasDbDesignSystemRepo(deps.designSystemRepository)) {
+    try {
+      const systems = await preloadFigmaTokenReferences(
+        deps.designSystemRepository,
+        deps.preloadDesignSystemTimeoutMs ?? DEFAULT_FIGMA_TOKEN_PRELOAD_TIMEOUT_MS,
+      );
+      if (Array.isArray(systems)) {
+        for (const system of systems) {
+          const systemId = String((system as { id?: unknown })?.id || '').trim();
+          const dsFileKey = String(system?.figmaFileId || '').trim();
+          const tokenRef = String(system?.figmaApiToken || '').trim();
+          if (dsFileKey && tokenRef) {
+            figmaTokenByDsFileKey.set(dsFileKey, tokenRef);
+          }
+          if (systemId && tokenRef) {
+            figmaTokenBySystemId.set(systemId, tokenRef);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(
+        '[register-all-routes] Failed to preload DB Figma token references',
+        error,
+      );
+    }
+  }
+  const resolveFigmaTokenRefByDsFileKey = (dsFileKey: string): string => {
+    const normalizedDsFileKey = String(dsFileKey || '').trim();
+    if (!normalizedDsFileKey) return '';
+    return figmaTokenByDsFileKey.get(normalizedDsFileKey) || '';
+  };
 
   registerSystemRoutes(app, routeDeps.systemDeps);
-  registerOperationsRoutes(app, routeDeps.operationsDeps);
-  registerRegistryRoutes(app, routeDeps.registryDeps);
-  registerTokenGraphRoutes(app, routeDeps.tokenGraphDeps);
-  registerHealthRoutes(app, routeDeps.healthDeps);
-  registerAnalysisRoutes(app, routeDeps.analysisDeps);
+  registerAssetRoutes(app, routeDeps.componentSpecDeps);
+  registerCatalogRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
+  registerTokenUsageIndexRoutes(app, { ...routeDeps.tokenUsageIndexDeps, tokenRepo: routeDeps.tokenRepo });
+  registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);
-  registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
   registerCommandRoutes(app, ensureCommandRoutesDeps(routeDeps.commandDeps));
-  registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
   registerFigmaMcpVariablesRoute(app, {
     readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
   });
@@ -171,8 +225,14 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
       db: deps.db,
       getSystemConfig: (c) => {
         const systemHeader = String(c.req.header('x-ds-system') || '');
-        const context = deps.getSystemContext(systemHeader) as Record<string, unknown>;
-        const rawRef = String(context?.figmaApiToken || process.env.FIGMA_API_TOKEN || '');
+        const rawRef = String(
+          figmaTokenBySystemId.get(systemHeader) || process.env.FIGMA_TOKEN || '',
+        );
+        return { figmaApiToken: rawRef };
+      },
+      getSystemConfigByDsFileKey: (dsFileKey) => {
+        const rawRef = resolveFigmaTokenRefByDsFileKey(dsFileKey);
+        if (!rawRef) return null;
         return { figmaApiToken: rawRef };
       },
     });
@@ -182,5 +242,10 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   });
   registerAiJobsRoutes(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
+    getSystemContext: deps.getSystemContext,
+    componentRepo: routeDeps.componentRepo,
+  });
+  registerComponentDocsRoutes(app, {
+    componentRepo: routeDeps.componentRepo,
   });
 }

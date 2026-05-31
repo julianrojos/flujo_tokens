@@ -204,7 +204,7 @@ export async function handleFigmaMcpVariablesRoute(
       }, {} as Record<string, typeof paginatedResult.items[0]>);
 
       responseData = {
-        // Preserve legacy contract: variableCollections as Record, not array
+        // Keep variableCollections as a Record, not an array.
         meta: {
           variables: paginatedVariables,
           variableCollections: directResult.meta.variableCollections,

@@ -1,4 +1,5 @@
 export { Badge, badgeVariants } from "./badge";
+export { Checkbox } from "./checkbox";
 export { Button, buttonVariants } from "./button";
 export {
   Card,
@@ -10,6 +11,12 @@ export {
   cardVariants,
 } from "./card";
 export { Input, inputVariants } from "./input";
+export {
+  FigmaConnectionStatusDot,
+  connectionStatusDotVariants,
+  getConnectionStatusTitle,
+  getConnectionStatusTone,
+} from "./connection-status-dot";
 export { Loader, loaderVariants } from "./loader";
 export { MarkdownViewer, markdownViewerVariants } from "./markdown-viewer";
 export { Select, selectVariants } from "./select";
@@ -23,7 +30,7 @@ export {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuButton,
+  SidebarNavItem,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,

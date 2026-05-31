@@ -1,57 +1,34 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Network } from 'lucide-react';
 
-import { PageHeader } from "@/components/composites/page-header";
-import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
-import { Button } from "@/components/ui/button";
-import { Network } from "lucide-react";
-import { ConsumerTabByFile } from "./components/consumer-tab-by-file";
-import { ConsumerTabByComponent } from "./components/consumer-tab-by-component";
-import { ConsumerTabByVariable } from "./components/consumer-tab-by-variable";
-import { AddConsumerModal } from "./components/add-consumer-modal";
-import { useDsFileKey } from "./hooks/use-ds-file-key";
-
-type TabKey = "by-file" | "by-component" | "by-variable";
-const TAB_KEYS: TabKey[] = ["by-file", "by-component", "by-variable"];
-
-function resolveActiveTab(value: string | null): TabKey {
-  if (value && TAB_KEYS.includes(value as TabKey)) {
-    return value as TabKey;
-  }
-  return "by-file";
-}
+import { EmptyState, EmptyStateAction, PageHeader } from '@/components/composites';
+import { SystemTabsNav } from '@/components/composites/system-tabs-nav';
+import { useDsFileKey } from '@/hooks/use-ds-file-key';
+import { useDesignSystem } from '@/lib/design-system-context';
+import { toSystemAdmin } from '@/lib/routes';
+import { AddConsumerModal } from './components/add-consumer-modal';
+import { ConsumerTabByFile } from './components/consumer-tab-by-file';
 
 export function ConsumersPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [refreshingPresence, setRefreshingPresence] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
-
-  const activeTab = resolveActiveTab(searchParams.get("tab"));
-
-  const setActiveTab = (tab: TabKey) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("tab", tab);
-      return next;
-    });
-  };
-
-  const tabs: Array<{ key: TabKey; label: string }> = [
-    { key: "by-file", label: "By File" },
-    { key: "by-component", label: "By Component" },
-    { key: "by-variable", label: "By Variable" },
-  ];
+  const { activeSystem } = useDesignSystem();
 
   if (resolvingDsFileKey) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Consumer Files"
-          description="Cross-file usage tracking for design system tokens"
-        />
-        <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Loading consumer context...</p>
+      <div className="space-y-5">
+        <PageHeader title="Consumers" />
+        <SystemTabsNav />
+        <div className="rounded-lg border border-border bg-card p-6">
+          <p className="text-sm text-muted-foreground">
+            Loading consumer context...
+          </p>
         </div>
       </div>
     );
@@ -59,17 +36,19 @@ export function ConsumersPage() {
 
   if (!dsFileKey) {
     return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Consumer Files"
-          description="Cross-file usage tracking for design system tokens"
-        />
+      <div className="space-y-5">
+        <PageHeader title="Consumers" />
+        <SystemTabsNav />
         <EmptyState
           icon={Network}
           title="No Figma File ID configured"
           description="Set the Figma File ID in Design Systems Admin to enable consumer file tracking."
           action={
-            <EmptyStateAction onClick={() => navigate("/system/admin")}>
+            <EmptyStateAction
+              onClick={() =>
+                navigate(activeSystem ? toSystemAdmin(activeSystem) : '/new')
+              }
+            >
               Go to Admin
             </EmptyStateAction>
           }
@@ -79,46 +58,32 @@ export function ConsumersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Consumer Files"
-        description="Track cross-file design system token usage"
+    <div className="space-y-5">
+      <PageHeader title="Consumers" />
+      <SystemTabsNav />
+
+      <ConsumerTabByFile
+        dsFileKey={dsFileKey}
+        reloadToken={reloadToken}
+        onAddConsumer={() => setAddModalOpen(true)}
+        isAddConsumerRefreshing={refreshingPresence}
       />
-
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.key}
-              variant={activeTab === tab.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setAddModalOpen(true)}>
-          Add Consumer File
-        </Button>
-      </div>
-
-      {activeTab === "by-file" && (
-        <ConsumerTabByFile
-          dsFileKey={dsFileKey}
-          onAddConsumer={() => setAddModalOpen(true)}
-        />
-      )}
-      {activeTab === "by-component" && <ConsumerTabByComponent dsFileKey={dsFileKey} />}
-      {activeTab === "by-variable" && <ConsumerTabByVariable dsFileKey={dsFileKey} />}
 
       <AddConsumerModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         dsFileKey={dsFileKey}
-        onSuccess={() => {
+        onSuccess={async () => {
           setAddModalOpen(false);
-          // Refresh will happen in the tab component
+          setReloadToken((value) => value + 1);
+          setRefreshingPresence(true);
+          try {
+            await queryClient.invalidateQueries({
+              queryKey: ['sidebar-consumers-presence', activeSystem, dsFileKey],
+            });
+          } finally {
+            setRefreshingPresence(false);
+          }
         }}
       />
     </div>

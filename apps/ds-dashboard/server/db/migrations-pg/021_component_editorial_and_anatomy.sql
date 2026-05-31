@@ -1,0 +1,3 @@
+-- Migration 021: component_editorial_and_anatomy
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

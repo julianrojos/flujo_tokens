@@ -1,7 +1,7 @@
 version: 1
 
 enforcement:
-  blocking_source: checks
+  blocking_source: validation.checks
   informational_only:
     - rules[].blocking
     - rules[].layer
@@ -9,132 +9,6 @@ enforcement:
     - matrix.by_stage
 
 rules:
-  - id: inclusive-docs
-    file: inclusive-docs.mdc
-    owner: docs-governance
-    applies_to: [markdown, spec]
-    blocking: true
-    layer: domain
-  - id: agent-output-contract
-    file: agent-output-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
-  - id: agent-prompt-contract
-    file: agent-prompt-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
-  - id: component-doc
-    file: component-doc.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: stage
-  - id: component-figma-traceability
-    file: component-figma-traceability.mdc
-    owner: docs-governance
-    applies_to: [markdown, spec]
-    blocking: true
-    layer: stage
-  - id: component-visual-usage
-    file: component-visual-usage.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: false
-    layer: domain
-  - id: component-indices-sync
-    file: component-indices-sync.mdc
-    owner: docs-governance
-    applies_to: [pipeline, markdown]
-    blocking: true
-    layer: domain
-  - id: component-name-normalization
-    file: component-name-normalization.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
-    blocking: true
-    layer: stage
-  - id: component-spec-properties-order
-    file: component-spec-properties-order.mdc
-    owner: docs-governance
-    applies_to: [spec]
-    blocking: true
-    layer: stage
-  - id: component-spec-yaml
-    file: component-spec-yaml.mdc
-    owner: docs-governance
-    applies_to: [spec]
-    blocking: true
-    layer: stage
-  - id: component-versioning
-    file: component-versioning.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown]
-    blocking: true
-    layer: domain
-  - id: design-token-discrepancies
-    file: design-token-discrepancies.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: docs-language-tone
-    file: docs-language-tone.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: stage
-  - id: error-codes
-    file: error-codes.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
-  - id: docs-governance-ops
-    file: docs-governance-ops.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: docs-pipeline-contract
-    file: docs-pipeline-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-    layer: domain
-  - id: evidence-gated-mutations
-    file: evidence-gated-mutations.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
-    blocking: true
-    layer: core
-  - id: docs-taxonomy
-    file: docs-taxonomy.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: ds-docs-guardrails
-    file: ds-docs-guardrails.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
-    blocking: true
-    layer: core
-  - id: figma-rendering
-    file: figma-rendering.mdc
-    owner: docs-governance
-    applies_to: [markdown, pipeline]
-    blocking: true
-    layer: stage
-  - id: frontmatter-contract
-    file: frontmatter-contract.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: stage
   - id: general-programming-principles
     file: general-programming-principles.mdc
     owner: docs-governance
@@ -145,36 +19,6 @@ rules:
     file: git-constraints.mdc
     owner: docs-governance
     applies_to: [pipeline]
-    blocking: true
-    layer: core
-  - id: markdown-lifecycle-status
-    file: markdown-lifecycle-status.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: stage
-  - id: overview-components-canonical-list
-    file: overview-components-canonical-list.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: overview-index-maintenance
-    file: overview-index-maintenance.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: pattern-doc-workflow
-    file: pattern-doc-workflow.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-    layer: domain
-  - id: prohibited-patterns
-    file: prohibited-patterns.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
     blocking: true
     layer: core
   - id: readme-maintenance
@@ -219,209 +63,36 @@ rules:
     applies_to: [frontend]
     blocking: true
     layer: domain
-  - id: token-references
-    file: token-references.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown]
-    blocking: true
-    layer: domain
-  - id: token-registry-validation
-    file: token-registry-validation.mdc
-    owner: docs-governance
-    applies_to: [spec, markdown]
-    blocking: true
-    layer: stage
-
-checks:
-  source_catalog: error-codes
-  REG01:
-    rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
-    blocking: true
-  DOC01:
-    rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
-    blocking: true
-  FM01:
-    rule_ids:
-      [frontmatter-contract, component-figma-traceability, docs-taxonomy]
-    blocking: true
-  FM02:
-    rule_ids: [frontmatter-contract, markdown-lifecycle-status]
-    blocking: true
-  SEC01:
-    rule_ids: [component-doc]
-    blocking: true
-  SEC02:
-    rule_ids: [component-doc]
-    blocking: true
-  TOK01:
-    rule_ids: [token-references, token-registry-validation]
-    blocking: true
-  TOK02:
-    rule_ids: [token-references, token-registry-validation]
-    blocking: true
-  TOK03:
-    rule_ids:
-      [
-        prohibited-patterns,
-        ds-docs-guardrails,
-        token-references,
-        token-registry-validation,
-      ]
-    blocking: true
-  SPEC01:
-    rule_ids: [component-spec-yaml, token-registry-validation]
-    blocking: true
-  REL01:
-    rule_ids: [component-spec-yaml]
-    blocking: false
-  DET01:
-    rule_ids: [component-spec-properties-order]
-    blocking: true
-  NAME01:
-    rule_ids: [component-name-normalization]
-    blocking: true
-  NAME02:
-    rule_ids: [component-name-normalization, component-spec-yaml]
-    blocking: true
-  TRACE01:
-    rule_ids: [component-figma-traceability, component-spec-yaml]
-    blocking: true
-  TRACE02:
-    rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
-    blocking: true
-  TRACE03:
-    rule_ids: [component-figma-traceability, docs-pipeline-contract]
-    blocking: true
-  LINK01:
-    rule_ids: [overview-index-maintenance]
-    blocking: true
-  LINK02:
-    rule_ids: [overview-components-canonical-list]
-    blocking: true
-  LINK03:
-    rule_ids: [ds-docs-guardrails]
-    blocking: true
-  GAP00:
-    rule_ids: [component-doc]
-    blocking: false
-  GAP01:
-    rule_ids: [component-doc, ds-docs-guardrails]
-    blocking: true
-  GAP02:
-    rule_ids: [component-spec-yaml, markdown-lifecycle-status]
-    blocking: true
-  PAIR01:
-    rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
-    blocking: true
-  READY01:
-    rule_ids:
-      [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
-    blocking: true
-  QLT01:
-    rule_ids: [ds-docs-guardrails]
-    blocking: true
-  VIS01:
-    rule_ids: [component-doc, markdown-lifecycle-status, ds-docs-guardrails]
-    blocking: true
-  DEP01:
-    rule_ids: [docs-governance-ops]
-    blocking: true
-    description: "Detects references to deprecated rule IDs in skill metadata."
-  SLOT01:
-    rule_ids: [skill-input-output-contract, skill-versioning]
-    blocking: true
-  VER01:
-    rule_ids: [component-versioning]
-    blocking: true
-  GOV01:
-    rule_ids: [docs-pipeline-contract]
-    blocking: true
-  EVID01:
-    rule_ids: [evidence-gated-mutations, ds-docs-guardrails]
-    blocking: true
-  EVID02:
-    rule_ids: [evidence-gated-mutations, docs-pipeline-contract]
-    blocking: true
-  UI01:
-    rule_ids: [ui-architecture-boundaries]
-    blocking: true
-  UI02:
-    rule_ids: [ui-style-contract]
-    blocking: true
-  UI03:
-    rule_ids: [ui-component-governance]
-    blocking: true
-  GIT01:
-    rule_ids: [git-constraints]
-    blocking: true
+validation:
+  checks:
+    SLOT01:
+      rule_ids: [skill-input-output-contract, skill-versioning]
+      blocking: true
+    UI01:
+      rule_ids: [ui-architecture-boundaries]
+      blocking: true
+    UI02:
+      rule_ids: [ui-style-contract]
+      blocking: true
+    UI03:
+      rule_ids: [ui-component-governance]
+      blocking: true
+    GIT01:
+      rule_ids: [git-constraints]
+      blocking: true
 
 matrix:
   by_doc_type:
     component:
       [
-        frontmatter-contract,
-        component-doc,
-        component-visual-usage,
-        component-figma-traceability,
-        inclusive-docs,
-        design-token-discrepancies,
-        token-references,
-        token-registry-validation,
-        markdown-lifecycle-status,
-        docs-language-tone,
-        ds-docs-guardrails,
-        evidence-gated-mutations,
-        prohibited-patterns,
         general-programming-principles,
         git-constraints,
       ]
-    overview:
-      [
-        frontmatter-contract,
-        docs-taxonomy,
-        overview-index-maintenance,
-        overview-components-canonical-list,
-        markdown-lifecycle-status,
-        docs-language-tone,
-        ds-docs-guardrails,
-        git-constraints,
-      ]
-    foundation:
-      [
-        frontmatter-contract,
-        docs-taxonomy,
-        inclusive-docs,
-        token-references,
-        token-registry-validation,
-        design-token-discrepancies,
-        markdown-lifecycle-status,
-        docs-language-tone,
-        ds-docs-guardrails,
-        git-constraints,
-      ]
+    overview: [git-constraints]
     workflow:
-      [
-        frontmatter-contract,
-        docs-taxonomy,
-        docs-governance-ops,
-        pattern-doc-workflow,
-        inclusive-docs,
-        markdown-lifecycle-status,
-        docs-language-tone,
-        ds-docs-guardrails,
-        git-constraints,
-      ]
+      [git-constraints]
     spec:
       [
-        component-spec-yaml,
-        component-spec-properties-order,
-        component-name-normalization,
-        token-references,
-        token-registry-validation,
-        inclusive-docs,
-        ds-docs-guardrails,
-        evidence-gated-mutations,
-        prohibited-patterns,
         git-constraints,
       ]
     frontend:
@@ -436,31 +107,15 @@ matrix:
   by_stage:
     spec:
       [
-        component-spec-yaml,
-        component-spec-properties-order,
-        component-name-normalization,
-        token-registry-validation,
         general-programming-principles,
         git-constraints,
       ]
     markdown:
       [
-        component-doc,
-        frontmatter-contract,
-        markdown-lifecycle-status,
-        docs-language-tone,
         general-programming-principles,
         git-constraints,
       ]
-    figma: [figma-rendering]
-    visual-proof: [component-figma-traceability]
-    pipeline:
-      [
-        docs-pipeline-contract,
-        component-indices-sync,
-        review-judge-workflow-format,
-        git-constraints,
-      ]
+    pipeline: [review-judge-workflow-format, git-constraints]
     frontend:
       [
         ui-architecture-boundaries,

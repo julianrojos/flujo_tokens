@@ -187,6 +187,8 @@ export interface PluginConnectionManagerConfig {
     maxPendingRequests?: number;
     /** Callback when a plugin connects */
     onConnect?: (sessionInfo: PluginSessionInfo) => void;
+    /** Callback when SESSION_INFO updates the resolved session metadata */
+    onSessionInfoUpdate?: (sessionInfo: PluginSessionInfo, previousSessionInfo: PluginSessionInfo) => void;
     /** Callback when a plugin disconnects */
     onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
     /** Callback when a DOCUMENT_CHANGE push event is received from the plugin */
@@ -211,6 +213,7 @@ export class PluginConnectionManager {
     private maxPendingRequests: number;
     private bufferCleanupTtlMs: number;
     private onConnect?: (sessionInfo: PluginSessionInfo) => void;
+    private onSessionInfoUpdate?: (sessionInfo: PluginSessionInfo, previousSessionInfo: PluginSessionInfo) => void;
     private onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
     private onDocumentChange?: (fileKey: string) => void;
     private socketCounter = 0;
@@ -220,6 +223,7 @@ export class PluginConnectionManager {
         this.maxPendingRequests = config.maxPendingRequests ?? 50;
         this.bufferCleanupTtlMs = config.bufferCleanupTtlMs ?? 60000; // 60s TTL default
         this.onConnect = config.onConnect;
+        this.onSessionInfoUpdate = config.onSessionInfoUpdate;
         this.onDisconnect = config.onDisconnect;
         this.onDocumentChange = config.onDocumentChange;
     }
@@ -574,7 +578,8 @@ export class PluginConnectionManager {
         socketId: string,
         method: string,
         params: Record<string, unknown> = {},
-        timeoutMs?: number
+        timeoutMs?: number,
+        signal?: AbortSignal,
     ): Promise<T> {
         const connection = this.connections.get(socketId);
 
@@ -597,8 +602,26 @@ export class PluginConnectionManager {
             // Set up timeout
             const timeoutId = setTimeout(() => {
                 this.pendingRequests.delete(requestId);
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
                 reject(new Error(`ws.request.timeout:${method}`));
             }, timeout);
+
+            const onAbort = () => {
+                clearTimeout(timeoutId);
+                this.pendingRequests.delete(requestId);
+                reject(new Error(`ws.request.aborted:${method}`));
+            };
+
+            if (signal?.aborted) {
+                clearTimeout(timeoutId);
+                reject(new Error(`ws.request.aborted:${method}`));
+                return;
+            }
+            if (signal) {
+                signal.addEventListener('abort', onAbort, { once: true });
+            }
 
             // Track pending request with socketId
             this.pendingRequests.set(requestId, {
@@ -621,6 +644,9 @@ export class PluginConnectionManager {
             } catch (err) {
                 clearTimeout(timeoutId);
                 this.pendingRequests.delete(requestId);
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
                 reject(new Error(`ws.request.send_failed:${method}`));
             }
         });
@@ -633,13 +659,14 @@ export class PluginConnectionManager {
         fileKey: string | null | undefined,
         method: string,
         params: Record<string, unknown> = {},
-        timeoutMs?: number
+        timeoutMs?: number,
+        signal?: AbortSignal,
     ): Promise<T> {
         const socketId = this.getPreferredSocketId(fileKey ?? null);
         if (!socketId) {
             throw new Error(`ws.request.no_socket_for_file:${method}`);
         }
-        return this.request<T>(socketId, method, params, timeoutMs);
+        return this.request<T>(socketId, method, params, timeoutMs, signal);
     }
 
     /**
@@ -668,6 +695,7 @@ export class PluginConnectionManager {
             connection.socket.send(JSON.stringify({ type: 'PONG', timestamp: Date.now() }));
         } else if (messageType === 'SESSION_INFO') {
             const raw = (message.sessionInfo as Record<string, unknown> | undefined) ?? message;
+            const previousSessionInfo = connection.sessionInfo;
             const updatedInfo: PluginSessionInfo = {
                 fileKey:
                     typeof raw.fileKey === 'string'
@@ -682,6 +710,7 @@ export class PluginConnectionManager {
                 ...connection,
                 sessionInfo: updatedInfo,
             });
+            this.onSessionInfoUpdate?.(updatedInfo, previousSessionInfo);
             console.log(`[PluginConnectionManager] Updated session: ${updatedInfo.docName} (fileKey: ${updatedInfo.fileKey})`);
         } else if (isBridgeEvent(messageType)) {
             this.handlePushEvent(socketId, messageType, message);
@@ -821,6 +850,12 @@ export class PluginConnectionManager {
         connectionCount: number;
         pendingRequestCount: number;
         activeFileKeys: string[];
+        openConnections: Array<{
+            docName: string;
+            fileKey: string | null;
+            pluginVersion: string;
+            uptimeMs: number;
+        }>;
         connections: Array<{
             docName: string;
             fileKey: string | null;
@@ -834,20 +869,32 @@ export class PluginConnectionManager {
             pluginVersion: string;
             uptimeMs: number;
         }> = [];
+        const openConnections: Array<{
+            docName: string;
+            fileKey: string | null;
+            pluginVersion: string;
+            uptimeMs: number;
+        }> = [];
 
         for (const conn of this.connections.values()) {
-            connections.push({
+            const connectionInfo = {
                 docName: conn.sessionInfo.docName,
                 fileKey: conn.sessionInfo.fileKey,
                 pluginVersion: conn.sessionInfo.pluginVersion,
                 uptimeMs: Date.now() - conn.createdAt,
-            });
+            };
+            connections.push(connectionInfo);
+
+            if (conn.socket.readyState === WS_OPEN_STATE) {
+                openConnections.push(connectionInfo);
+            }
         }
 
         return {
-            connectionCount: this.connections.size,
+            connectionCount: this.getConnectionCount(),
             pendingRequestCount: this.pendingRequests.size,
             activeFileKeys: this.getActiveFileKeys(),
+            openConnections,
             connections,
         };
     }

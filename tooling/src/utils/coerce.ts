@@ -15,6 +15,8 @@ export interface CoerceDimensionResult {
     varType: string | undefined;
 }
 
+const NUMERIC_VALUE_REGEX = /^-?\d+(?:\.\d+)?$/;
+
 function formatNumber(value: number): string {
     return value.toFixed(4).replace(/\.?0+$/, '');
 }
@@ -74,7 +76,7 @@ function parseNumericValue(value: string | number): ParsedNumericValue | undefin
         return { numeric, isUnitless: false };
     }
 
-    if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+    if (NUMERIC_VALUE_REGEX.test(trimmed)) {
         const numeric = parseFloat(trimmed);
         if (!Number.isFinite(numeric)) return undefined;
         return { numeric, isUnitless: true, raw: trimmed };
@@ -128,7 +130,7 @@ export function coerceBorderDimension(
 
     if (typeof value === 'string') {
         const trimmed = value.trim();
-        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+        if (NUMERIC_VALUE_REGEX.test(trimmed)) {
             return { value: `${trimmed}px`, varType };
         }
     }

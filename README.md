@@ -1,823 +1,337 @@
-# Design System Tooling
+# DS Graph
 
-This repository has two independent workflows:
+DS Graph is a local design-system operations app for importing, synchronizing, auditing, and documenting Figma-based design systems.
 
-1. Token compilation from JSON (DTCG) to CSS custom properties.
-2. Component documentation from Figma to Markdown.
+It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL storage, and TypeScript tooling for token CSS generation and visual proof capture.
 
-For the end-to-end docs pipeline entry point, see `MASTER_WORKFLOW.md`.
+## What This App Does
 
-## 1) Token Compilation (CSS Custom Properties Generator)
+### Design systems
 
-TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom properties for `:root` and mode scopes.
+- Creates and manages multiple design systems.
+- Stores system metadata, Figma file keys, Figma token references, import snapshots, and database-provider settings.
+- Supports default-system selection and deletion with a confirmation preview of linked consumer data.
+- Imports a new system from a Figma file URL after scanning available components.
 
-### Requirements
+### Tokens
 
-- Node.js 18+
-- npm or yarn
+- Imports/synchronizes Figma variables into the active system database.
+- Shows a token explorer with path, slash path, CSS variable, collection, type, resolved value, aliases, and usage.
+- Generates CSS custom properties from token JSON/database state.
+- Builds token relation data, token usage indexes, and token collection trees.
+- Shows token detail pages with identity, alias chain, token-to-token usage, and component/consumer usage.
 
-### Installation
+### Components
 
-```bash
-npm install
+- Shows a component explorer with import/scanned counts, documentation coverage, variant counts, token coverage, and component usage.
+- Shows component detail pages with visual proof, spec data, properties, Figma descriptions, layer-token mappings, dependency graph, and adoption data.
+- Captures visual proof assets from Figma.
+- Stores structured component data and editorial documentation in PostgreSQL.
+- Lets authors edit editorial documentation from the dashboard: summary, editorial behaviour, variants, content guidelines, and accessibility.
+
+### Consumer files and impact
+
+Consumer files are external Figma files that use the components and variables of a given design system. They are tracked per design system file key, and the dashboard keeps each consumer file linked to a human-readable consumer name plus the original Figma file key.
+
+What the feature does:
+
+- Registers consumer files for a design system and keeps them visible in the dashboard.
+- Syncs each consumer file against the parent design system file to capture cross-file component and variable usage.
+- Stores per-sync metrics such as component count, variable count, warning count, sync status, and the counts of DS vs non-DS usage.
+- Captures sample node references for each reported usage. Each sample includes the Figma node ID and the page name where that node was found, capped to a small fixed sample set per row.
+- Resolves consumer file names from the consumer file itself, so the dashboard can present detail pages with a readable URL and title.
+- Exposes reports by file, by component, and by variable.
+- Shows a consumer detail page with:
+  - KPI cards for DS vs non-DS component and variable usage
+  - separate tables for component usage and variable usage
+  - filters for component status and variable type
+  - clickable example counts that open a modal with the captured Figma node samples
+- Simulates the impact of changing a token value so you can see which consumer files would be affected before applying a change.
+
+Operational notes:
+
+- The consumer files page lists all tracked consumer files for the active design system.
+- A consumer file can be added from its Figma file URL or file key.
+- A sync run can be forced or limited to selected consumer files.
+- The latest sync run determines the file-level status shown in the dashboard, including partial runs and warnings.
+- The parent design system itself is also scanned for variable usage so token detail pages can show deterministic "Used In" data backed by the database.
+- Sample links are intended as representative evidence, not a complete export of every node in the file.
+
+Key fields surfaced by the backend:
+
+- `componentCount` and `variableCount`: DS usage captured in the latest sync.
+- `localComponentUsedCount` and `localVariableUsedCount`: non-DS usage detected in the consumer file.
+- `parentDerivedComponentCount`: local components that derive directly from parent design system components.
+- `warningCount`: non-fatal issues recorded during the latest sync.
+- `sampleNodes`: captured node samples with node IDs and page names.
+
+### AI documentation
+
+- Generates component documentation suggestions with AI.
+- Supports Anthropic, OpenAI, OpenRouter, Ollama, and Gemini providers.
+- Streams job state through SSE.
+- Persists AI jobs and job events in PostgreSQL.
+- Provides diff/review/apply flows before writing generated documentation.
+
+### Figma integration
+
+- Includes a Figma plugin under `apps/figma-plugin`.
+- Uses a WebSocket bridge between the plugin and dashboard API.
+- Sends plugin heartbeat, file info, selection changes, page changes, document changes, and console logs to the dashboard.
+- Exposes bridge operations for variables, styles, components, nodes, screenshots, token export, token sync, and token binding.
+
+### Health and analytics
+
+- Shows a system dashboard with token and component health widgets.
+- Tracks token hotspots, shared-value clusters, component token debt, and editorial coverage.
+- Stores health snapshots/history for trend-oriented reporting.
+
+## Repository Layout
+
+```text
+apps/ds-dashboard/     React dashboard + Hono API server
+apps/figma-plugin/     Figma plugin UI and WebSocket bridge runtime
+tooling/src/           Token, Figma capture, sync, and pipeline CLIs
+packages/shared/       Shared connection/state utilities
+packages/ds-types/     Shared design-system types
+design-systems/<id>/   Per-system input/output/docs artifacts
 ```
 
-### Monorepo Execution Policy
+## Stack
 
-- Supported mode: full monorepo install and execution from repository root only.
-- Run commands from root (detected via `git rev-parse --show-toplevel` or equivalent), not from `apps/*` or `packages/*`.
-- Root scripts enforce this policy via `npm run assert:repo-root`.
-- Partial workspace-only installs/execution are out of support in this repository.
-- `@flujo/shared` manifest convention in this repo is intentionally mixed for npm compatibility:
-  - root `package.json`: `workspace:*`
-  - `apps/figma-plugin/package.json`: `file:../../packages/shared`
-  - enforced by `npm run assert:shared-manifest-convention`
+- Frontend: React 18, React Router, TanStack Query, Tailwind, Tiptap, D3.
+- Backend: Hono, `@hono/node-server`, `ws`, PostgreSQL via `postgres`.
+- Database: PostgreSQL with pgvector support.
+- Figma: local Figma plugin plus direct WebSocket bridge.
+- AI: Anthropic SDK, OpenAI SDK, OpenRouter-compatible API, Ollama HTTP adapter, Gemini adapter.
+- Build/tooling: Vite, TypeScript, npm workspaces, `tsx`.
 
-### CI Policy (Root-Only)
+## Requirements
+
+- Node.js 18+
+- npm
+- Docker, for the local PostgreSQL service
+- Figma Desktop, when using plugin/bridge workflows
+- A Figma access token for REST-based Figma operations
+
+## Environment Setup
+
+The repo keeps per-app examples in:
+
+- `apps/ds-dashboard/.env.example`
+- `apps/figma-plugin/.env.example`
+
+Use them as the source of truth for local configuration. Copy the example you need
+and keep the resulting `.env` files out of git. Edit values only when you need to
+change the local defaults or enable Figma, AI, split deployments, or non-default
+infrastructure.
+
+For day-to-day dashboard work, `apps/ds-dashboard/.env.example` is the file that
+matters. `apps/figma-plugin/.env.example` only matters when you build or run the
+Figma plugin.
+
+Minimum local setup for the happy path:
 
 ```bash
 npm ci
-npm run ci:preflight
+cp apps/ds-dashboard/.env.example apps/ds-dashboard/.env
+npm run db:up
+npm run dashboard:dev
 ```
 
-Then run the needed root test/typecheck scripts (for example `npm run typecheck:plugin`, `npm run test:tooling`, `npm run test:plugin:bridge`).
+The dashboard example already covers the local defaults for PostgreSQL and the core
+app. You only need to add extra values if you use Figma sync, AI jobs, split
+deployments, or non-default infrastructure.
 
-### Token Compilation Scripts
+## Local Setup
 
-- **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
-- **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
-- **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
-- **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
-- **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
-- **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
-- **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
-- **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
-- **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
-- **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
-- **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
-
-### Team/CI Test Entry Points
-
-- **`npm run test:plugin:bridge`**: Runs bridge/unit tests for `apps/figma-plugin` via package-local `test:bridge`.
-- **`npm run test:dashboard:routes`**: Runs server route tests for `apps/ds-dashboard` via package-local `test:server:routes`.
-- **`npm run test:changed-surface`**: Runs both commands above (recommended for changes touching plugin bridge + dashboard routes).
-
-CI/external runners should call these root scripts instead of ad-hoc package commands.
-
-### Usage
-
-1. Place your token JSON files (exported from Figma/Token Forge) in the `input/` folder.
-2. Run `npm run generate`.
-3. By default, two CSS files are generated:
-   - `output/primitives.css`
-   - `output/tokens.css`
-
-You can override input/output via CLI args (`--input`, `--output-primitives`, `--output-tokens`).
-If you want a single file output, use `--single` with `--output`.
-
-### Architecture and Pipeline
-
-The system operates in 4 sequential phases orchestrated by a phase scheduler:
-
-1.  **Ingest (`tooling/src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
-2.  **Indexing (`tooling/src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
-3.  **Analysis (`tooling/src/core/analyze.ts`)**: Detects cycles and validates data integrity.
-4.  **Emission (`tooling/src/core/emit.ts`)**: Generates final CSS declarations for base scope (`:root`) and mode scopes (`[data-theme="..."]`) when mode branches exist.
-
-Core phases are implemented as plugins (`core:*`). Optional external plugins can be attached per phase without modifying the core CLI.
-
-### Project Structure
-
-- `tooling/src/cli`: Command-line entry point (`index.ts`).
-- `tooling/src/core`: Core pipeline logic (Ingest, Index, Analyze, Emit).
-- `tooling/src/runtime`: State management, configuration, and execution context.
-- `tooling/src/utils`: String, regex, and validation utilities.
-- `tooling/src/types`: TypeScript type definitions.
-
-### Configuration
-
-Behavior can be adjusted using environment variables:
-
-- `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
-- `ALLOW_ALIAS_SCAN=true` (default: false): Enables O(N) tree-scan fallback for unresolved `VARIABLE_ALIAS` IDs. Keep disabled for large token sets/perf safety; enable only for debugging/migrations.
-- `PIPELINE_PLUGIN_TIMEOUT_MS=<ms>` (default: `60000`): Max execution time per plugin before the run fails with a timeout error.
-- Mode selection flags (CLI):
-  - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`). When present, only that mode scope is emitted (plus `:root`).
-  - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
-  - `--mode-strict`: fail if the preferred mode is missing anywhere (effective when used together with `--mode <name>`).
-- Split output flags (CLI):
-  - `--split`: generate two files (default behavior).
-  - `--single`: generate one file (`--output`) instead of split outputs.
-  - `--output-primitives <file>`: primitives output path (default: `output/primitives.css`).
-  - `--output-tokens <file>`: semantic/component tokens output path (default: `output/tokens.css`).
-- Registry export flags (CLI):
-  - `--registry`: also generate docs token registry JSON.
-  - `--registry-output <file>`: registry output path (default: `docs/_generated/token-registry.json`).
-- Pipeline extension flags (CLI):
-  - `--plugin <path>`: load an external phase plugin module (`plugin`, `plugins`, or `default` export). Repeatable.
-
-Example:
+Install dependencies from the repository root:
 
 ```bash
-ALLOW_JSON_REPAIR=true ALLOW_ALIAS_SCAN=true npm run generate
+npm ci
 ```
 
-Split example:
+Start PostgreSQL:
 
 ```bash
-npm run generate -- --split
+npm run db:up
 ```
 
-Single-file example:
-
-```bash
-npm run generate -- --single --output output/custom-properties.css
-```
-
-Strict mode example (preferred mode required):
-
-```bash
-npm run generate:strict -- --mode dark
-```
-
-Registry example:
-
-```bash
-npm run generate:registry
-```
-
-Sync variables directly from Figma:
-
-```bash
-# Default source mode: auto (tries MCP first, then REST fallback)
-npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>"
-```
-
-```bash
-# Force MCP-only mode (no FIGMA_TOKEN required)
-npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>" --source mcp
-```
-
-```bash
-# Force REST-only mode (requires FIGMA_TOKEN or --figma-token)
-npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>" --source rest
-```
-
-MCP command resolution for token sync:
-
-- Default: `npx -y MCP Management`
-- Override full command: `FIGMA_MCP_COMMAND` (treated as literal command path; pass args in `FIGMA_MCP_COMMAND_ARGS`)
-- Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
-
-Migration note:
-
-- Legacy setups that used `FIGMA_MCP_COMMAND="node /path/to/server.js"` must be split into:
-  - `FIGMA_MCP_COMMAND=node`
-  - `FIGMA_MCP_COMMAND_ARGS="/path/to/server.js"`
-
-### Troubleshooting: MCP token sync
-
-| Síntoma                                        | Causa probable                                                      | Solución                                                                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `MCP server reports no Figma connection`       | Figma Desktop no está abierto o el MCP Management no está corriendo | Abre Figma Desktop → Plugins → Development → MCP Management                                                     |
-| Timeout tras 15s sin respuesta                 | El servidor MCP no arrancó correctamente                            | Verifica que `npx MCP Management` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
-| `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado                  | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp`                                                          |
-| `Both sources failed`                          | Ni MCP ni REST funcionan                                            | Comprueba el MCP Management (para MCP) y `FIGMA_TOKEN` (para REST)                                              |
-
-Plugin example:
-
-```bash
-npm run generate -- --plugin ./tooling/plugins/custom-normalize.mjs
-```
-
-Writing a plugin:
-
-```javascript
-// tooling/plugins/custom-normalize.mjs
-export default {
-  name: 'custom-normalize',
-  phase: 'analyze', // ingest | index | analyze | emit
-  placement: 'after-core', // before-core | after-core
-  async transform(ctx) {
-    const { state } = ctx;
-    console.log(`Analyzed scopes: ${state.analyzedScopes.length}`);
-  },
-};
-```
-
-Placement notes:
-
-- `before-core`: runs before the built-in phase plugin.
-- `after-core`: runs after the built-in phase plugin (default).
-- Core plugins are owned by the generator runtime; external plugins are for phase extensions.
-
-Plugin execution emits structured JSON logs (`pipeline_start`, `plugin_start`, `plugin_finish`, `plugin_error`, `pipeline_complete`).
-
-Incremental sync example:
-
-```bash
-npm run ds:tokens-sync
-```
-
-Token diff examples:
-
-```bash
-# Compare against HEAD registry snapshot
-npm run ds:token-diff
-
-# Compare against an explicit previous file and write artifacts
-npm run ds:token-diff -- \
-  --before docs/_generated/token-registry.prev.json \
-  --out-json docs/_generated/token-diffs/latest.json \
-  --out-md docs/_generated/token-diffs/latest.md
-
-# Fail CI when breaking changes exist
-npm run ds:token-diff -- --strict true
-```
-
-Token graph examples:
-
-```bash
-# Generate JSON + markdown + mermaid graph
-npm run ds:token-graph
-
-# Print human summary only (no file writes)
-npm run ds:token-graph -- --format text --dry-run true
-
-# Fail CI when cycles exist
-npm run ds:token-graph -- --strict-cycles true
-
-# Fail CI when unresolved aliases or identity collisions exist
-npm run ds:token-graph -- --strict-unresolved true --strict-collisions true
-
-# Limit graph size in mermaid output for large registries
-npm run ds:token-graph -- --mermaid-max-edges 1000
-```
-
-Token usage index examples:
-
-```bash
-# Generate usage index JSON for dashboard + audits
-npm run ds:token-usage-index
-
-# Print human-readable summary without writing files
-npm run ds:token-usage-index -- --format text --dry-run true
-
-# Fail CI when unresolved references exist
-npm run ds:token-usage-index -- --strict-unresolved true
-```
-
-Token health examples:
-
-```bash
-# Generate operational health snapshot
-npm run ds:token-health
-
-# Print summary without writing files
-npm run ds:token-health -- --format text --dry-run true
-
-# Capture one historical KPI snapshot for trends
-npm run ds:health-snapshot
-
-# Regenerate health artifacts + capture snapshot in one step
-npm run ds:health:record
-```
-
-### Typography unit coercion (runtime)
-
-- To avoid touching exported JSONs, during emission typography dimensions are converted when token paths match font size/line-height conventions (`font.size`, `font.lineHeight`, `fontSize`, `lineHeight`):
-  - Font sizes in `px` → `rem` (16px base, rounded to 4 decimals).
-  - Line-heights in `px` → unitless values.
-- Applied only to typography-like paths; other dimensions are not altered.
-
-### Multi-mode output
-
-- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.
-- Without `--mode`, each detected mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides.
-- With `--mode <name>`, only the selected mode block is emitted (tokens that exist only inside other mode branches are omitted).
-- `modeDefault` is folded into `:root` and is not emitted as a separate `[data-theme="mode-default"]` block.
-- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks.
-- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing (when `--mode` is provided), `--mode-loose` logs a fallback warning.
-
-### Output order (primitives first)
-
-- Within each emitted CSS block, variables with primitive values (no references) are written before alias variables (that reference other tokens).
-- Section comments per file are kept in both groups for readability.
-- When using `--split`, load `primitives.css` before `tokens.css`.
-
-### Split classification rule
-
-- Files whose basename starts with `_` are treated as primitive sources (for `primitives.css`).
-- All other JSON files are treated as semantic/component token sources (for `tokens.css`).
-- In `--single` mode, all sources are emitted into the single target file.
-
-### Naming behavior
-
-- CSS custom property names are derived from the internal token path (the source filename is not prefixed into `--...` names).
-- If two token paths normalize to the same CSS variable name, the CLI reports a collision warning and CSS cascade decides the winner.
-
-### Troubleshooting
-
-- `--unresolved-*`: The referenced token does not exist or the name does not match.
-- `There are two tokens with the same name: --...`: two different token paths normalized to the same CSS variable name; only one value can win at runtime.
-- Parsing errors: Validate the JSONs in `input/`; with `ALLOW_JSON_REPAIR=true`, basic repairs are attempted.
-
-### References
-
-- Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
-
-## 2) Figma Component Documentation
-
-This workflow documents Design System components from Figma.
-
-### Master Pipeline (Orchestrator)
-
-The recommended way to run the component documentation workflow is via the **`ds:pipeline`** orchestrator. It automatically plans and executes the entire sequence deterministically (Token sync -> Spec -> Markdown) by reading the component registry.
-
-```bash
-# Run the pipeline for all components
-npm run ds:pipeline -- --all
-
-# Run the pipeline for a specific component
-npm run ds:pipeline -- --component Alert
-
-# Plan and preview what needs to be run (identifies orphans)
-npm run ds:pipeline -- --status-only
-
-# Run from a specific step (spec | markdown)
-npm run ds:pipeline -- --component Alert --from-step markdown
-
-```
-
-Migration notes (legacy cleanup):
-
-- Pipeline steps `render/proof` were removed from `ds:pipeline` (canonical flow is now `spec -> markdown`).
-- Visual proof capture remains available as a standalone command: `npm run ds:capture-visual-proof`.
-- Removed scripts: `npm run ds:active-md-to-figma` and `npm run ds:render-figma:all`.
-  - Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
-- Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
-
-### Documentation Scripts
-
-- **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
-- **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
-- **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
-- **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata JSON + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
-- **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
-- **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec status.
-- **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).
-- **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
-- **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
-- **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
-- **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
-- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
-- **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
-- **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
-- **`npm run dashboard:build`**: Builds the local dashboard app.
-- **`npm run dashboard:preview`**: Previews the dashboard production build locally.
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
-  - Validation findings are annotated with rule IDs using `.agents/rules/_manifest.yml`.
-  - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
-  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot reference: URL or local proof image).
-
-### Documentation folders
-
-- `docs/components/`: component documentation pages (e.g. `alert.md`)
-- `docs/_spec/`: documentation specs and visual theme contract
-- `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
-- `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
-- `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
-- `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
-- `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
-
-### Local dashboard (React, local-only)
-
-The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
-
-- `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`, plus `Used In` from `docs/_generated/token-usage-index.json`)
-- `Componentes` (component pipeline state from `docs/_generated/component-registry.json`)
-
-No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
-
-Tokens accessibility checker:
-
-- In `Tokens & Properties`, when `Type` filter is set to `color`, an accessibility icon button appears next to the type selector.
-- The button opens a contrast modal with two semantic color selects (background and foreground for text/icon).
-- The modal computes WCAG 2.2 contrast results dynamically (ratio + Level A informational note + Level AA/AAA pass-fail indicators).
-
-Setup:
-
-```bash
-npm --prefix apps/ds-dashboard install
-```
-
-Run:
+Start the dashboard:
 
 ```bash
 npm run dashboard:dev
 ```
 
-API-only mode:
+The local database defaults to:
 
-```bash
-npm --prefix apps/ds-dashboard run dev:api
+```text
+postgres://ds:local@localhost:5432/ds_dashboard
 ```
 
-Before opening the Tokens view, ensure token usage data is generated at least once:
+The dashboard dev script starts the local app/API supervisor. The API can also be started directly:
 
 ```bash
-npm run ds:token-usage-index
+npm --prefix apps/ds-dashboard run start
 ```
 
-The dashboard also exposes a `Sync Usage Index` action in the Tokens page that runs this command locally.
+## Common Commands
 
-Markdown regeneration from the dashboard (`Edit summary (markdown)` -> save) runs `ds:component-doc` under the API process.
-That specific action requires an AI CLI available to the API runtime (`codex`, `claude`, or `gemini`).
-
-Agent configuration for dashboard API:
-
-- Select agent explicitly: `DS_AGENT=codex|claude|gemini`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CODEX_BIN=/abs/path/to/codex`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
-- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
-- `auto` mode is still supported (`DS_AGENT` unset): tries `codex`, then `claude`, then `gemini`.
-- Migration note: IDE extension discovery fallback for Codex was removed. If `codex` is not in PATH, set `CODEX_BIN` (or `DS_CODEX_PATH`) explicitly.
-
-Examples:
+### Dashboard
 
 ```bash
-# Force Claude for dashboard markdown regeneration
-DS_AGENT=claude CLAUDE_BIN="/abs/path/to/claude" npm --prefix apps/ds-dashboard run dev:api
-
-# Force Gemini
-DS_AGENT=gemini GEMINI_BIN="/abs/path/to/gemini" npm --prefix apps/ds-dashboard run dev:api
-```
-
-If the editor shows `No compatible agent CLI found (codex/claude/gemini)`, restart the API with one of the commands above.
-
-Build/preview:
-
-```bash
+npm run dashboard:dev
 npm run dashboard:build
-npm run dashboard:preview
+npm --prefix apps/ds-dashboard run preview:split
 ```
 
-### Documentation governance (rules)
-
-Component pages are governed by rules in `.agents/rules/` and must include:
-
-- YAML frontmatter metadata:
-  - `doc_type: component`
-  - `doc_status: draft | ready | needs-review`
-  - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
-  - optional `figma.component_set_node_id` (must match spec if declared)
-- Stable section order from `component-doc.mdc`
-  - H2 headings are strict: only canonical allowed section titles, in canonical order
-- `### Visual Proof` must live inside `## Overview` (never as an extra H2)
-- `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
-- Optional `## Design–Token Discrepancies` when design/token mismatches are real
-- No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
-- Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
-- `component_name` normalization contract:
-  - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
-  - infer default file paths with `snake_case` (`status_bar`)
-  - explicit path flags (`--output`, `--spec-file`) always take precedence
-- Canonical pipeline order is enforced:
-  - `(1) spec` -> `(2) markdown`
-  - do not run markdown generation without a valid spec
-  - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
-  - optional spec `related_components` is validated:
-    - values must be `snake_case` slugs, unique, and must not self-reference
-    - in `ready` specs, every entry must resolve to an existing component spec YAML
-  - component index artifacts must be refreshed atomically (`docs/_generated/component-registry.json` + `docs/components/overview.md`)
-  - validation is a gate after spec and markdown generation
-  - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
-- `## Gaps / TBD` contract is enforced:
-  - include only when linked spec has unresolved gaps
-  - omit when linked spec has no unresolved gaps
-  - checklist format required: `- [ ] [GAP_TYPE] ...` in canonical order
-- Evidence-gated mutations are enforced for component docs/specs:
-  - default mode is deny-by-default for key/value mutations
-  - known values can only change when verifiable evidence proves they are wrong, incomplete, outdated, or missing
-  - known values cannot be downgraded to unknown markers (`TBD`, empty, etc.) without explicit forced override
-  - component-targeted generation is scope-limited to target file + index artifacts; out-of-scope writes are blocked and rolled back
-- Editorial quality gates:
-  - no `TODO` / `XXX` / `{placeholder}` / `<placeholder>`
-  - internal markdown links must resolve to existing local targets
-- Deterministic placement contract:
-  - prefer `figma.component_set_node_id` from the spec
-  - in `ready` specs, `figma.component_set_node_id` is mandatory
-  - runtime resolution order: `--component-set-id` -> `spec.figma.component_set_node_id` -> name lookup (`draft` only)
-- Workflow pattern docs are supported as a workflow subtype:
-  - recommended path: `docs/workflows/patterns/*.md`
-  - expected focus: problem, decision guide, composition, behavior, accessibility, i18n, governance, and metrics
-  - component APIs remain canonical in `docs/components/*.md` and should be linked, not duplicated
-- Governance workflow docs should explicitly define:
-  - ownership model, review cadence, and contribution/review path
-  - deprecation policy with replacement and migration window
-  - feedback intake channel plus KPI definitions (source, formula, cadence)
-- Internationalization expectations:
-  - component `Usage Guidelines -> Behavior` should cover RTL/LTR, text expansion, and locale-dependent formats
-  - interactive docs should state reduced-motion and zoom behavior (or `TBD` with a tracked gap)
-
-For markdown rendered to Figma, prefer the supported subset:
-
-- Headings (`#`, `##`, `###`), paragraphs, flat lists, markdown tables, inline emphasis
-- Avoid code fences, blockquotes, images, nested lists, and deep headings (`####+`)
-
-### Requirements
-
-- A compatible agent CLI installed: `codex`, `claude`, or `gemini`
-- Figma MCP configured for the selected agent
-- For Figma write operations, Figma Desktop + MCP Management running
-
-Agent selection options:
-
-- Pass `--agent codex|claude|gemini`
-- Or set `DS_AGENT=codex|claude|gemini`
-- Default is `auto` (tries `codex`, then `claude`, then `gemini`)
-
-If non-interactive execution is unavailable, the command stores a fallback prompt in:
-
-- `docs/_generated/agent_prompts/`
-
-### 1) Figma URL -> component markdown
-
-Generate/update one component markdown page from a Figma URL:
+### Database
 
 ```bash
-npm run ds:doc-from-figma-url -- \
-  --url "https://www.figma.com/design/<file>?node-id=<node>" \
-  --component-name Alert \
-  --output docs/components/alert.md \
-  --agent codex
+npm run db:up
+npm run db:down
 ```
 
-Useful flags:
-
-- `--docs-root docs/components` (default)
-- `--component-name <Name>`
-- `--output <path/to/component.md>` (default inferred as `docs/components/<snake_case>.md`)
-- `--figma-token <token>` (or `FIGMA_TOKEN` env var; required for file URL discovery mode)
-- `--auto-component-map <true|false>` (default: `true`)
-- `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
-- `--capture-proof <true|false>` (default: `true`)
-- `--capture-proof-strict <true|false>` (default: `false`)
-- `--capture-proof-variants <true|false>` (default: `true`)
-- `--capture-proof-variant-limit <number>` (default: `6`)
-- `--allow-doc-status-change true` (exceptional override; requires `--force true`)
-- `--force true` (required when `--allow-doc-status-change true`)
-- `--agent <codex|claude|gemini>`
-
-If the provided URL has no `node-id`, the command switches to discovery mode and writes:
-
-- `docs/_generated/figma-component-map/<fileKey>.json`
-
-Then it prints a sample list of component URLs so you can rerun documentation for a specific node.
-
-### 2) Spec YAML -> component markdown
-
-Generate/update one component markdown page from a local spec YAML:
+### Token compilation
 
 ```bash
-npm run ds:component-doc -- \
-  --component-name Alert \
-  --spec-file docs/_spec/components/alert.yml \
-  --output docs/components/alert.md \
-  --agent codex
+npm run generate
+npm run generate:strict -- --mode dark
+npm run generate -- --single --output design-systems/<id>/output/custom-properties.css
 ```
 
-Useful flags:
+There are two code paths that can write token CSS:
 
-- `--component-name <Name>`
-- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--output <path/to/component.md>` (default: `docs/components/<snake_case>.md`)
-- `--docs-root <path>` (default: `docs`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--skip-validation true`
-- `--force true` (ignore incremental cache)
-- `--allow-doc-status-change true` (exceptional override; requires `--force true`)
-- `--agent <codex|claude|gemini>`
+- The dashboard tokens step generates CSS from the token registry in PostgreSQL. That registry is populated from Figma variables through the plugin/MCP sync flow.
+- `npm run generate` is the standalone file-based CLI. It reads token JSON files from `design-systems/<id>/input` unless `--input` is provided.
 
-Preflight behavior:
+Both paths write the same default split files for the resolved design system:
 
-- Fails fast if the spec file does not exist.
-- Validates the target spec before generating markdown; generation is blocked on spec errors.
-- Synchronizes `## Gaps / TBD` from spec + token registry using canonical checkbox format.
-- Validation bypass requires `--force true` when `--skip-validation true` is used.
+```text
+design-systems/<id>/output/primitives.css
+design-systems/<id>/output/tokens.css
+```
 
-### 2b) Batch markdown regeneration (operational)
+`<id>` comes from `--system <id>`, the configured default system, or the first configured system.
 
-Regenerate all component markdown docs from current specs:
+Useful token CLI flags:
+
+- `--system <id>`: target a specific design system.
+- `--input <dir>`: override token JSON input.
+- `--split`: emit `primitives.css` and `tokens.css`.
+- `--single`: emit one CSS file.
+- `--mode <name>`: emit a preferred mode branch.
+- `--mode-strict`: fail when the preferred mode is missing.
+- `--from-phase <ingest|index|analyze|emit>`: rerun from a pipeline phase.
+- `--plugin <path>`: load an external phase plugin.
+
+### Figma and capture tooling
 
 ```bash
-npm run ds:regenerate-docs -- --agent codex
+npm run ds:figma-mcp-status
+npm run ds:tokens-from-figma -- --system <id> --url "https://www.figma.com/design/<fileKey>/<name>"
+npm run ds:token-usage-index -- --system <id>
+npm run ds:capture-from-url -- --system <id> --url "https://www.figma.com/design/<fileKey>/<name>"
+npm run ds:capture-visual-proof -- --system <id> --component-name Button
 ```
 
-Useful flags:
+`ds:capture-from-url` is the import-oriented capture flow. `ds:capture-visual-proof` is the narrower standalone screenshot flow.
 
-- `--component <Name|snake_case>` (regenerate one component only)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--docs-root <path>` (default: `docs/components`)
-- `--skip-validation true` (passes through to `ds:component-doc`)
-- `--continue-on-error true` (process remaining components)
-- `--dry-run true` (print commands without executing)
-
-### 3) Figma component -> spec YAML
-
-Generate/update one component spec YAML from Figma:
+### Tests and validation
 
 ```bash
-npm run ds:spec-from-figma -- \
-  --url "https://www.figma.com/design/<file>?node-id=<node>" \
-  --component-name Alert \
-  --output docs/_spec/components/alert.yml \
-  --agent codex
+npm run ci:preflight
+npm run test:tooling
+npm run test:server
+npm run test:plugin:bridge
+npm run typecheck:plugin
+npm run test:dashboard:routes
+npm run test:changed-surface
 ```
 
-Useful flags:
+## Environment Variables
 
-- `--url <figma-url>`
-- `--component-set-node-id <figma-node-id>` (deterministic fallback when URL is not used)
-- `--component-name <Name>`
-- `--output <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--template <path>` (default: `docs/_spec/components/_template.yml`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--skip-validation true`
-- `--force true` (required when using `--skip-validation true`)
-- `--allow-non-evidence-updates true` (exceptional override; requires `--force true`)
-- `--agent <codex|claude|gemini>`
+### Dashboard core
 
-Note: when `--url` or `--component-set-node-id` provides a node id, `ds:spec-from-figma` persists it into `figma.component_set_node_id` in the generated spec.
+These are the values that matter for a normal local dashboard run:
 
-### 3b) Figma file URL -> component map (all pages)
+- `DATABASE_URL`: PostgreSQL connection string for the dashboard.
+- `DB_PROVIDER=local|supabase|custom`: selects the database backend mode.
+- `TEST_DATABASE_URL`: test database URL; used by the test helpers when present.
+- `DS_DASHBOARD_INTERNAL_TOKEN`: optional internal auth token for API and bridge routes.
+- `DS_DASHBOARD_API_HOST`: API bind host.
 
-Extract all component nodes for one Figma file and persist a deterministic map:
+If you use the bundled local database, the default `apps/ds-dashboard/.env.example`
+already shows a working `DATABASE_URL` and `DB_PROVIDER=local` combination.
+
+### Database provider specifics
+
+- `SUPABASE_DATABASE_URL`: required when `DB_PROVIDER=supabase`.
+
+### Dashboard and deployment
+
+- `VITE_API_URL`: frontend API origin for split deployments and the plugin UI.
+- `DS_DASHBOARD_ALLOWED_ORIGINS`: explicit CORS origins for the API.
+
+### Figma
+
+- `FIGMA_TOKEN`: REST Figma API token for import/sync and capture workflows.
+- `VITE_DIRECT_WS_URL`: plugin direct WebSocket URL when you want to override the default derivation from `VITE_API_URL`.
+- `FIGMA_PLUGIN_ALLOWED_DOMAINS`: extra allowlist entries for plugin builds.
+
+### AI providers
+
+- Set the key for the provider you plan to use:
+  - `ANTHROPIC_API_KEY`
+  - `OPENAI_API_KEY`
+  - `OPENROUTER_API_KEY`
+  - `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+  - `OLLAMA_BASE_URL`
+- Optional model overrides:
+  - `AI_ANTHROPIC_MODEL`
+  - `AI_OPENAI_MODEL`
+  - `AI_OPENROUTER_MODEL`
+  - `AI_GEMINI_MODEL`
+  - `AI_OLLAMA_MODEL`
+- Optional timeouts and provider tuning:
+  - `AI_JOB_TIMEOUT_MS`
+  - `AI_VALIDATION_SHADOW`
+  - `AI_VALIDATION_TIMEOUT_MS`
+  - `AI_OLLAMA_TIMEOUT_MS`
+  - `AI_OPENROUTER_TIMEOUT_MS`
+  - `OPENROUTER_BASE_URL`
+
+### Token pipeline
+
+- `ALLOW_JSON_REPAIR=true`: attempt basic JSON repair during ingest.
+- `ALLOW_ALIAS_SCAN=true`: enable fallback alias scanning.
+- `PIPELINE_PLUGIN_TIMEOUT_MS=<ms>`: max plugin execution time.
+
+## Figma Plugin
+
+The plugin lives in `apps/figma-plugin`.
+
+Build it with:
 
 ```bash
-npm run ds:figma-component-map -- \
-  --url "https://www.figma.com/design/<fileKey>/<slug>" \
-  --token "$FIGMA_TOKEN"
+npm --prefix apps/figma-plugin run build
 ```
 
-Default output:
+The build renders `manifest.json`, builds plugin code/UI, and inlines the UI HTML. The plugin connects to the dashboard API and WebSocket bridge using `VITE_API_URL` and `VITE_DIRECT_WS_URL` when provided; otherwise it uses local defaults.
 
-- `docs/_generated/figma-component-map/<fileKey>.json`
+When the plugin is open in Figma, the dashboard can inspect connection status, selection, file info, variables, components, token bindings, screenshots, and console logs through the bridge.
 
-Useful flags:
+## Documentation Model
 
-- `--out <path/to/map.json>`
-- `--depth <number>` (optional Figma API depth override)
-- `--include-instances <true|false>` (default: `true`)
-- `--strict-unresolved-instances <true|false>` (default: `false`)
-- `--format <json|text>` (default: `json`)
-- `--timeout-ms <number>` (default: `30000`)
-- `--dry-run true`
+Component documentation is database-backed. The editorial editor is separate from the strict component spec validator.
 
-### 4) Capture visual proof (standalone)
+- Structured editorial fields are stored through the dashboard/API.
+- Editable editorial fields include summary, behaviour, variants, content guidelines, and accessibility.
+- Strict component spec validation still expects the core spec fields: name, status, figma, summary, properties, content guidelines, accessibility, and QA.
+- Markdown is a downloadable/rendered artifact.
+- Canonical per-system docs/spec paths are:
+  - `design-systems/<id>/docs/components`
+  - `design-systems/<id>/docs/_spec/components`
+- Generated artifacts live under `design-systems/<id>/docs/_generated/**`.
 
-```bash
-npm run ds:capture-visual-proof -- \
-  --component-name Alert \
-  --agent codex
-```
-
-Useful flags:
-
-- `--component-name <Name>`
-- `--markdown <path/to/component.md>`
-- `--spec-file <path/to/spec.yml>`
-- `--component-set-id <figma-node-id>` (override spec node id)
-- `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
-- `--proof-image-dir <path>` (default: `docs/_generated/visual-proofs/images`)
-- `--format <png|jpg|svg|pdf>`
-- `--scale <number>`
-- `--store-local-image <true|false>` (default: `true`)
-- `--require-local-image <true|false>` (default: `true`)
-- `--download-timeout-ms <number>` (default: `30000`)
-- `--figma-token <token>` (or `FIGMA_TOKEN`; required to capture variant screenshots via REST API)
-- `--include-variants <true|false>` (default: `true`)
-- `--variant-limit <number>` (default: `6`)
-- `--dry-run true`
-
-### 4c) Auto-mark stale docs as needs-review
-
-```bash
-npm run ds:mark-needs-review
-```
-
-Useful flags:
-
-- `--file <path/to/component.md>` (single file mode)
-- `--spec-file <path/to/spec.yml>` (single file mode)
-- `--dry-run true`
-
-### 4d) Component registry and overview sync
-
-```bash
-npm run ds:registry:sync
-npm run ds:registry:validate
-npm run ds:registry:overview
-npm run ds:registry:report
-```
-
-Useful flags:
-
-- `--registry <path>` (default: `docs/_generated/component-registry.json`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--docs-root <path>` (default: `docs/components`)
-- `--render-dir <path>` (default: `docs/_generated/figma_doc_models`)
-- `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
-- `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
-
-Registry report specific flags:
-
-- `--out-md <path>` (default: `docs/COMPONENTS_INDEX.md`)
-- `--out-json <path>` (default: `docs/_generated/components-health.json`)
-- `--format <json|text>` (default: `json`)
-- `--max-filter-items <number>` (default: `20`)
-- `--no-md true` / `--no-json true`
-- `--dry-run true`
-
-### 4e) Foundations docs sync from token registry
-
-```bash
-npm run ds:foundations:sync -- --create-root true
-```
-
-Useful flags:
-
-- `--docs-root <path>` (default: `docs`)
-- `--foundations-root <path>` (default: `docs/foundations`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--status <draft|ready|needs-review>` (default: `draft`)
-- `--max-samples <number>` (default: `2`)
-- `--create-root <true|false>` (default: `false`)
-- `--dry-run true`
-
-Recommended sequence before rendering:
-
-```bash
-npm run generate:registry
-npm run ds:registry:validate
-npm run validate:docs
-```
-
-Validation command options:
-
-- `npm run validate:docs` -> full docs + specs + overview checks
-- `npm run validate:docs -- --check token-registry` -> token-registry-focused report (codes: `TOKEN_MISSING` / `TOKEN_AMBIGUOUS` / `TOKEN_DEPRECATED`, mapped from validator findings)
-- `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
-- `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
-- `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
-- validation output includes `rule_ids` per finding when mapped in `.agents/rules/_manifest.yml`
-
-Doctor command examples:
-
-- `npm run ds:doctor` -> full docs-pipeline health checks + `validate:docs`
-- `npm run ds:doctor -- --component-name Button` -> include pair check for one component slug
-- `npm run ds:doctor -- --skip-validate true` -> quick preflight without full validation gate
-
-Consistency audit examples:
-
-- `npm run ds:audit-consistency` -> audit all detected component pairs
-- `npm run ds:audit-consistency -- --component-name Button` -> audit one component pair
-
-Internally, this command runs a two-step generation flow:
-
-- Markdown -> doc model JSON
-- Doc model + theme (`docs/_spec/figma_doc_theme.yml`) -> Figma execute script
-
-Generated files are written to:
-
-- `docs/_generated/figma_doc_models/`
-
-Useful flags:
-
-- `--markdown <path>`
-- `--component-name <Name>`
-- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--component-set-id <figma-node-id>`
-- `--generated-dir <path>` (default: `docs/_generated/figma_doc_models`)
-- `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
-- `--token-registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--offset-x <number>` (default: `200`)
-- `--capture-proof <true|false>` (default: `true`)
-- `--capture-proof-strict <true|false>` (default: `false`)
-- `--force true` (ignore incremental cache and always rebuild + re-render)
-- `--agent <codex|claude|gemini>`
-
-If `--component-set-id` conflicts with `spec.figma.component_set_node_id`, the command fails unless `--force true` is provided.
-
-Theme color values can be:
-
-- direct hex values (for example `#FFFFFF`)
-- local color aliases under `theme.colors`
-- token paths resolved through the token registry (for example `Color/BW/White`, `_primitives/BW/White`)
-
-Theme radius values can also use token paths from the registry (for example `Dimension/Border/Radius/200`).
+For component docs, edit through the dashboard when possible so spec/editorial data, generated markdown, AI suggestions, and visual proof metadata stay aligned.

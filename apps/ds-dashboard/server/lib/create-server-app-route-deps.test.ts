@@ -21,18 +21,6 @@ function createConfig() {
     resolveSafeSystemPathsForDeletion: fn,
     repoRoot: '/repo',
     fsSync: {},
-    toFiniteTimestamp: fn,
-    OPS_HISTORY_MAX_LIMIT: 500,
-    OPS_HISTORY_DEFAULT_LIMIT: 100,
-    OPS_REGRESSION_MAX_LIMIT: 500,
-    OPS_REGRESSION_DEFAULT_LIMIT: 300,
-    OPS_REGRESSION_DEFAULT_MIN_SAMPLES: 4,
-    readOperationHistory: fn,
-    buildOperationRegressionsReport: fn,
-    createApiRequestId: fn,
-    findOperationEventById: fn,
-    enqueueReplayJobFromOperation: fn,
-    queueJobAcceptedPayload: fn,
     getSystemContext: fn,
     isDevRuntime: fn,
     resolveRepoFilePath: fn,
@@ -53,7 +41,6 @@ function createConfig() {
     enqueueQueueJob: fn,
     runQueuedSpawnCommand: fn,
     queueNpmScript: fn,
-    enqueueRefreshNamingDebtJob: fn,
     queueNodeJsonCommand: fn,
     toBooleanString: fn,
     toNumberString: fn,
@@ -68,7 +55,6 @@ function createMockConfig() {
   return {
     readJsonBody: fn,
     repoRoot: '/repo' as const,
-    OPS_HISTORY_MAX_LIMIT: 500 as const,
     getSystemContext: fn,
     MAX_FILE_BYTES: 450_000 as const,
     queueJobs: new Map(),
@@ -87,7 +73,6 @@ describe('create-server-app-route-deps', () => {
 
       assert.equal(deps.readJsonBody, config.readJsonBody);
       assert.equal(deps.repoRoot, '/repo');
-      assert.equal(deps.OPS_HISTORY_MAX_LIMIT, 500);
       assert.equal(deps.getSystemContext, config.getSystemContext);
       assert.equal(deps.MAX_FILE_BYTES, 450_000);
       assert.equal(deps.queueJobs, config.queueJobs);

@@ -8,87 +8,112 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
-import { runJsonCommand } from '../utils/exec.js';
-import { fetchFigmaFile, fetchFigmaImages, fetchFigmaNodes } from '../utils/figma-api.js';
-import { writeTextAtomic, buildMarkdownSeed } from './capture-doc-scaffold.js';
-import { renderEnrichedMarkdownSeed, extractComponentSpec } from '../utils/figma-node-spec-extractor.js';
-import { injectExtractedSpecSectionsIntoMarkdown } from './capture-markdown-sections.js';
+import {
+  buildNodeScriptCommandArgs,
+  buildNodeScriptDisplayArgs,
+  runJsonCommand,
+} from '../utils/exec.js';
+import {
+  fetchFigmaFile,
+  fetchFigmaImages,
+  fetchFigmaNodes,
+} from '../utils/figma-api.js';
+import { extractComponentSpec } from '../utils/figma-node-spec-extractor.js';
 import type { PipelineContext } from './pipeline-context.js';
+import {
+  bootstrapDatabase,
+  resolveDashboardDbUrl,
+} from '../../../apps/ds-dashboard/server/db/pg-db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 /**
  * Capture services interface.
  */
 export interface CaptureServices {
-  readComponentRegistry: () => unknown[];
-  readSpecContents: () => Array<{ slug: string; content: string }>;
+  readComponentRegistry: () => Promise<
+    Array<{
+      slug: string;
+      figma?: {
+        component_set_node_id?: string | null;
+      };
+    }>
+  >;
   readMarkdownContent: (path: string) => string;
   markdownExists: (path: string) => boolean;
   specExists: (path: string) => boolean;
-  runScriptJson: (params: { scriptPath: string; scriptArgs: string[] }) => unknown;
+  runScriptJson: (params: {
+    scriptPath: string;
+    scriptArgs: string[];
+  }) => unknown;
   fetchFigmaFile: typeof fetchFigmaFile;
   fetchFigmaNodes: typeof fetchFigmaNodes;
   fetchFigmaImages: typeof fetchFigmaImages;
-  writeTextAtomic: typeof writeTextAtomic;
   stderrWrite: (message: string) => void;
-  renderEnrichedMarkdownSeed: typeof renderEnrichedMarkdownSeed;
-  injectExtractedSpecSectionsIntoMarkdown: typeof injectExtractedSpecSectionsIntoMarkdown;
-  buildMarkdownSeed: typeof buildMarkdownSeed;
   extractComponentSpec: typeof extractComponentSpec;
 }
 
 /**
  * Create capture services for pipeline context.
  */
-export function createCaptureServices(params: { context: PipelineContext }): CaptureServices {
+export function createCaptureServices(params: {
+  context: PipelineContext;
+}): CaptureServices {
   const { context } = params;
 
   return {
-    readComponentRegistry: () => {
-      const p = context.paths.registryIndexPath;
-      if (!fs.existsSync(p)) return [];
+    readComponentRegistry: async () => {
+      const databaseUrl = resolveDashboardDbUrl(process.env);
+      let db;
       try {
-        const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
-        return Array.isArray(parsed?.components) ? parsed.components : [];
-      } catch {
-        return [];
-      }
-    },
-    readSpecContents: () => {
-      const dir = context.paths.resolvedSpecRoot;
-      if (!fs.existsSync(dir)) return [];
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      return entries
-        .filter((e) => e.isFile() && e.name.endsWith('.yml') && e.name !== '_template.yml')
-        .map((e) => ({
-          slug: path.basename(e.name, '.yml'),
-          content: fs.readFileSync(path.join(dir, e.name), 'utf8'),
+        db = await bootstrapDatabase(databaseUrl);
+        const repo = new ComponentRepository(db);
+        const entries = await repo.getAll(context.system.id);
+        return entries.map((entry) => ({
+          slug: entry.slug,
+          figma: {
+            component_set_node_id: entry.figmaComponentSetNodeId || null,
+          },
         }));
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `[capture-services] Failed to read component catalog from DB at ${databaseUrl} for system "${context.system.id}": ${reason}`,
+        );
+      } finally {
+        if (db) await db.end();
+      }
     },
     readMarkdownContent: (p: string) => fs.readFileSync(p, 'utf8'),
     markdownExists: (p: string) => fs.existsSync(p),
     specExists: (p: string) => fs.existsSync(p),
     runScriptJson: (params: { scriptPath: string; scriptArgs: string[] }) => {
-      const scriptArgsList = Array.isArray(params.scriptArgs) ? [...params.scriptArgs] : [];
+      const scriptArgsList = Array.isArray(params.scriptArgs)
+        ? [...params.scriptArgs]
+        : [];
       const displayArgs = [...scriptArgsList];
       const tokenArgIndex = displayArgs.indexOf('--figma-token');
       if (tokenArgIndex >= 0 && tokenArgIndex + 1 < displayArgs.length) {
         displayArgs[tokenArgIndex + 1] = '***redacted***';
       }
 
-      const result = runJsonCommand(process.execPath, [params.scriptPath, ...scriptArgsList], {
-        cwd: context.repoRoot,
-        displayArgs: [path.relative(context.repoRoot, params.scriptPath), ...displayArgs],
-      });
+      const result = runJsonCommand(
+        process.execPath,
+        buildNodeScriptCommandArgs(params.scriptPath, scriptArgsList),
+        {
+          cwd: context.repoRoot,
+          displayArgs: buildNodeScriptDisplayArgs(
+            context.repoRoot,
+            params.scriptPath,
+            displayArgs,
+          ),
+        },
+      );
       return result.data;
     },
     fetchFigmaFile: fetchFigmaFile,
     fetchFigmaNodes: fetchFigmaNodes,
     fetchFigmaImages: fetchFigmaImages,
-    writeTextAtomic: writeTextAtomic,
     stderrWrite: (message: string) => process.stderr.write(message),
-    renderEnrichedMarkdownSeed,
-    injectExtractedSpecSectionsIntoMarkdown,
-    buildMarkdownSeed,
     extractComponentSpec,
   };
 }

@@ -71,6 +71,13 @@ alwaysApply: true
 - `SHOULD`: Prefer shipping a focused, correct change over a large change that touches many concerns.
 - `NICE_TO_HAVE`: Propose follow-up tasks for improvements that would benefit from their own review cycle.
 
+### 4.5 Formatting and mechanical style
+- `MUST`: Treat Prettier as the mechanical formatting source of truth for files it covers.
+- `SHOULD`: Keep formatting changes out of functional commits unless they are needed to normalize files you are already touching.
+- `SHOULD`: Avoid broad reformat-only diffs; prefer formatting only the edited scope or a dedicated cleanup commit.
+- `SHOULD`: If Prettier and local style conventions appear to conflict, prefer the repo config in `.prettierrc` / `.prettierignore` over ad hoc file-by-file formatting.
+- `NICE_TO_HAVE`: When introducing new file types or generated artifacts, add them to `.prettierignore` if formatting them creates churn without value.
+
 ## 5) TypeScript general guidelines (style and architecture)
 
 ### 5.1 Core principles
@@ -226,9 +233,9 @@ Run `npx tsc --noEmit` from `apps/ds-dashboard/` in addition to the checks above
 - [ ] `MUST`: No `createPortal` outside `ui/overlay/` — `grep -rn "createPortal" src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l` returns 0
 - [ ] `MUST`: No `dark:` prefix — app is permanently dark, the prefix is dead code
 - [ ] `MUST`: No cross-feature imports — `grep -rn "from.*@/features/" src/components/ --include="*.tsx" | wc -l` returns 0
-- [ ] `MUST`: New `ui/` or `composites/` components have an entry in `docs/ui/COMPONENT_REGISTRY.md`
+- [ ] `MUST`: New `ui/` or `composites/` components have an entry in `apps/ds-dashboard/docs/ui/COMPONENT_REGISTRY.md`
 - [ ] `MUST`: New `ui/` primitives follow CVA + cn() + forwardRef pattern (see `ui-component-governance.mdc`)
-- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use `font-serif` (Bitter)
+- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use the title hierarchy token/class (`font-titles`)
 - [ ] `SHOULD`: Status feedback uses `<StatusAlert>` or `<Badge>` — not inline markup with raw color classes
 
 ## 10) Specialized rules by scope

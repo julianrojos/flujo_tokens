@@ -89,13 +89,10 @@ function classifyCategory(path: string): SpecDiffEntry["category"] {
   if (path === "name" || path === "status" || path.startsWith("version")) return "metadata";
   if (path.startsWith("figma")) return "figma";
   if (path.startsWith("summary")) return "summary";
-  if (path.startsWith("anatomy")) return "anatomy";
   if (path.startsWith("properties")) return "properties";
-  if (path.startsWith("token_mapping")) return "token_mapping";
   if (path.startsWith("accessibility")) return "accessibility";
-  if (path.startsWith("content_guidelines") || path.startsWith("best_practices")) return "content";
+  if (path.startsWith("content_guidelines")) return "content";
   if (path.startsWith("qa")) return "qa";
-  if (path.startsWith("related_components")) return "related_components";
   return "other";
 }
 
@@ -104,8 +101,7 @@ function classifyRisk(path: string): SpecDiffEntry["risk"] {
     path === "name" ||
     path === "status" ||
     path.startsWith("figma.component_set_node_id") ||
-    path.startsWith("properties") ||
-    path.startsWith("token_mapping")
+    path.startsWith("properties")
   ) {
     return "high";
   }
@@ -145,4 +141,3 @@ export function buildSpecDiff(beforeSpec: unknown, afterSpec: unknown): SpecDiff
 
   return diffs;
 }
-

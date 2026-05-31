@@ -2,8 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   extractComponentSpec,
-  generateSpecSections,
-  generateSpecMarkdown,
   type FigmaNode,
 } from "./figma-node-spec-extractor.js";
 
@@ -171,74 +169,6 @@ describe("figma-node-spec-extractor utils", () => {
       assert.equal(spec.anatomy.length, 0);
       assert.equal(spec.properties.length, 0);
       assert.equal(spec.variantProperties.length, 0);
-    });
-  });
-
-  describe("generateSpecSections", () => {
-    it("generates anatomy section", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const sections = generateSpecSections(spec);
-      assert.ok(sections.anatomy.includes("Background"));
-      assert.ok(sections.anatomy.includes("Label"));
-    });
-
-    it("generates component API section", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const sections = generateSpecSections(spec);
-      assert.ok(sections.componentApi.includes("Variant Type"));
-      assert.ok(sections.componentApi.includes("Is Disabled"));
-    });
-
-    it("generates visual specifications", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const sections = generateSpecSections(spec);
-      assert.ok(sections.visualSpecifications.includes("Fill: #0080FF"));
-    });
-
-    it("generates variants table rows", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const sections = generateSpecSections(spec);
-      assert.ok(sections.variantsTableRows.includes("Variant Type"));
-    });
-
-    it("handles empty spec", () => {
-      const sections = generateSpecSections({ 
-        anatomy: [], 
-        properties: [], 
-        layoutTree: { name: "Empty", type: "FRAME" },
-        layout: [],
-        variants: [],
-        variantProperties: [],
-      });
-      assert.ok(sections.anatomy.includes("No anatomy items"));
-      assert.ok(sections.componentApi.includes("No properties"));
-    });
-  });
-
-  describe("generateSpecMarkdown", () => {
-    it("generates complete markdown spec", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const markdown = generateSpecMarkdown(spec, "Button", "1:2", "https://figma.com/file/abc");
-      
-      assert.ok(markdown.includes("---"));
-      assert.ok(markdown.includes("doc_type: component"));
-      assert.ok(markdown.includes("# Button"));
-      assert.ok(markdown.includes("## Anatomy"));
-      assert.ok(markdown.includes("## Component API"));
-      assert.ok(markdown.includes("## Visual Specifications"));
-      assert.ok(markdown.includes("## Variants"));
-    });
-
-    it("includes Figma URL", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const markdown = generateSpecMarkdown(spec, "Button", "1:2", "https://figma.com/file/abc123");
-      assert.ok(markdown.includes("https://figma.com/file/abc123"));
-    });
-
-    it("handles missing node info", () => {
-      const spec = extractComponentSpec(mockFigmaNode);
-      const markdown = generateSpecMarkdown(spec, "Button");
-      assert.ok(markdown.includes("TBD"));
     });
   });
 });

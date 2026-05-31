@@ -1,9 +1,10 @@
 import { ChevronRight, FileJson2, Folder, FolderTree } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { TokenTreeNode } from "@/types/token-tree";
-import { normalizeToHex6 } from "../accessibility/color-utils";
+import { normalizeToHex6 } from "@/lib/color-utils";
 import { countTokens, shouldRenderNodeByQuery } from "./tree-utils";
 
 interface TokenTreeNodeProps {
@@ -74,66 +75,106 @@ export function TokenTreeNodeItem({
   const isExpanded = expandedNodeIds.has(node.id);
   const Icon = getNodeIcon(node.type);
   const resolvedValue = String(node.tokenData?.resolvedValue || "").trim();
+  const tokenPath = String(node.tokenData?.path || "").trim();
+  const displayTokenPath = String(node.tokenData?.slashPath || "").trim() || tokenPath.replace(/\./g, "/");
   const swatchColor =
     node.type === "token"
       ? resolveSwatchColor(resolvedValue, tokenValueByCssVar)
       : null;
+  const rowClassName = cn(
+    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors",
+    "hover:bg-accent/70",
+    node.type === "token" && "text-muted-foreground",
+  );
+  const rowStyle = { paddingLeft: `${depth * 14 + 8}px` };
 
   return (
     <div>
-      <button
-        type="button"
-        className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors",
-          "hover:bg-accent/70",
-          node.type === "token" && "text-muted-foreground",
-        )}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
-        onClick={() => {
-          if (hasChildren) onToggle(node.id);
-        }}
-        aria-expanded={hasChildren ? isExpanded : undefined}
-      >
-        {hasChildren ? (
-          <ChevronRight
+      {node.type === "token" && tokenPath ? (
+        <Link
+          to={`/tokens/${encodeURIComponent(tokenPath)}`}
+          className={rowClassName}
+          style={rowStyle}
+          title={`Open token detail: ${displayTokenPath}`}
+        >
+          <span className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+          <Icon
             className={cn(
-              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-              isExpanded && "rotate-90",
+              "h-4 w-4 shrink-0",
+              node.type === "token" ? "text-muted-foreground" : "text-foreground",
             )}
           />
-        ) : (
-          <span className="h-4 w-4 shrink-0" aria-hidden="true" />
-        )}
 
-        <Icon
-          className={cn(
-            "h-4 w-4 shrink-0",
-            node.type === "token" ? "text-muted-foreground" : "text-foreground",
+          <span className="truncate">{node.name}</span>
+
+          {resolvedValue ? (
+            <span className="ml-auto flex min-w-0 items-center gap-2 pl-2 font-mono text-xs text-muted-foreground">
+              <span className="truncate">{resolvedValue}</span>
+              {swatchColor ? (
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-border/80"
+                  // User-provided token color swatch; data-driven, not design-token styling.
+                  style={{ backgroundColor: swatchColor }}
+                  aria-label={`Token color ${swatchColor}`}
+                  title={swatchColor}
+                />
+              ) : null}
+            </span>
+          ) : null}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className={rowClassName}
+          style={rowStyle}
+          onClick={() => {
+            if (hasChildren) onToggle(node.id);
+          }}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+        >
+          {hasChildren ? (
+            <ChevronRight
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                isExpanded && "rotate-90",
+              )}
+            />
+          ) : (
+            <span className="h-4 w-4 shrink-0" aria-hidden="true" />
           )}
-        />
 
-        <span className="truncate">{node.name}</span>
+          <Icon
+            className={cn(
+              "h-4 w-4 shrink-0",
+              node.type === "token" ? "text-muted-foreground" : "text-foreground",
+            )}
+          />
 
-        {node.type === "collection" ? (
-          <Badge variant="neutral" className="ml-auto">
-            {countTokens(node)} tokens
-          </Badge>
-        ) : null}
+          <span className="truncate">{node.name}</span>
 
-        {node.type === "token" && resolvedValue ? (
-          <span className="ml-auto flex min-w-0 items-center gap-2 pl-2 font-mono text-xs text-muted-foreground">
-            <span className="truncate">{resolvedValue}</span>
-            {swatchColor ? (
-              <span
-                className="h-3.5 w-3.5 shrink-0 rounded-full border border-border/80"
-                style={{ backgroundColor: swatchColor }}
-                aria-label={`Token color ${swatchColor}`}
-                title={swatchColor}
-              />
-            ) : null}
-          </span>
-        ) : null}
-      </button>
+          {node.type === "collection" ? (
+            <Badge variant="neutral" className="ml-auto">
+              {countTokens(node)} tokens
+            </Badge>
+          ) : null}
+
+          {node.type === "token" && resolvedValue ? (
+            <span className="ml-auto flex min-w-0 items-center gap-2 pl-2 font-mono text-xs text-muted-foreground">
+              <span className="truncate">{resolvedValue}</span>
+              {swatchColor ? (
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-border/80"
+                  // User-provided token color swatch; data-driven, not design-token styling.
+                  style={{ backgroundColor: swatchColor }}
+                  aria-label={`Token color ${swatchColor}`}
+                  title={swatchColor}
+                />
+              ) : null}
+            </span>
+          ) : null}
+        </button>
+      )}
 
       {hasChildren && isExpanded ? (
         <div>

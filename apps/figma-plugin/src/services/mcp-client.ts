@@ -4,16 +4,18 @@
  * Handles communication with dashboard API for MCP management.
  */
 
-export interface McpCapabilities {
-  ok: true;
-  mcp: {
-    connected: boolean;
-    code: string;
-    message: string;
-    currentPort: number;
-    portFallbackUsed: boolean;
+import {
+  deriveMcpConnectionState,
+  isTimeoutLikeError,
+  type McpCapabilitiesLike,
+  type McpConnectionState,
+  type McpErrorLike,
+} from '@flujo/shared';
+import { DEFAULT_API_BASE_URL } from '../config/runtime-config';
+
+export interface McpCapabilities extends McpCapabilitiesLike {
+  mcp: McpCapabilitiesLike['mcp'] & {
     availablePorts: number[];
-    activePort: number;
   };
   transport?: {
     mode?: 'direct' | 'ws' | 'none';
@@ -27,19 +29,9 @@ export interface McpCapabilities {
   };
 }
 
-export interface McpError {
-  ok: false;
-  code: string;
-  message: string;
-}
+export type McpError = McpErrorLike;
 
-
-export interface ConnectionState {
-  configuredPort: number;
-  connectedPort: number | null;
-  state: 'connected' | 'connecting' | 'disconnected' | 'mismatch' | 'fallback';
-  cause?: string;
-}
+export type ConnectionState = McpConnectionState;
 
 
 export interface HeartbeatResponse {
@@ -53,26 +45,7 @@ export interface HeartbeatResponse {
   pluginBuild?: string | null;
 }
 
-const DEFAULT_API_BASE = 'http://localhost:8787';
-const LOCAL_API_BASES = ['http://localhost:8787', 'http://127.0.0.1:8787'] as const;
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
-
-function isTimeoutLikeError(error: unknown): boolean {
-  if (!error) return false;
-  const name =
-    typeof error === 'object' && error !== null && 'name' in error
-      ? String((error as { name?: unknown }).name || '').toLowerCase()
-      : '';
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  return (
-    name.includes('abort') ||
-    name.includes('timeout') ||
-    message.includes('signal timed out') ||
-    message.includes('timed out') ||
-    message.includes('aborterror') ||
-    message.includes('timeouterror')
-  );
-}
 
 function isMcpCapabilitiesPayload(
   value: Partial<McpCapabilities> | Partial<McpError>
@@ -90,7 +63,7 @@ export class McpClientService {
   private lastKnownConfiguredPort = 9223;
   private readonly CACHE_TTL_MS = 60_000; // 60 seconds
 
-  constructor(apiBase: string = DEFAULT_API_BASE, internalToken?: string) {
+  constructor(apiBase: string = DEFAULT_API_BASE_URL, internalToken?: string) {
     this.apiBase = apiBase.replace(/\/$/, '');
     this.apiBaseCandidates = this.buildApiBaseCandidates(this.apiBase);
     this.internalToken = internalToken;
@@ -98,9 +71,6 @@ export class McpClientService {
 
   private buildApiBaseCandidates(apiBase: string): string[] {
     const normalized = apiBase.replace(/\/$/, '');
-    if (LOCAL_API_BASES.includes(normalized as (typeof LOCAL_API_BASES)[number])) {
-      return [normalized, ...LOCAL_API_BASES.filter((base) => base !== normalized)];
-    }
     return [normalized];
   }
 
@@ -246,106 +216,11 @@ export class McpClientService {
    * Compute connection state from capabilities.
    */
   computeConnectionState(capabilities: McpCapabilities | McpError): ConnectionState {
-    if (!capabilities.ok) {
-      if (capabilities.code === 'capabilities.timeout') {
-        return {
-          configuredPort: this.lastKnownConfiguredPort,
-          connectedPort: null,
-          state: 'connecting',
-          cause: capabilities.message,
-        };
-      }
-      return {
-        configuredPort: this.lastKnownConfiguredPort,
-        connectedPort: null,
-        state: 'disconnected',
-        cause: capabilities.message,
-      };
-    }
-
-    const configuredPort = capabilities.mcp.activePort;
-    const connectedPort = capabilities.mcp.currentPort;
-    const isConnected = capabilities.mcp.connected;
-
-    if (!isConnected) {
-      return {
-        configuredPort,
-        connectedPort: null,
-        state: 'disconnected',
-        cause: capabilities.mcp.message,
-      };
-    }
-
-    if (configuredPort === connectedPort) {
-      if (capabilities.mcp.portFallbackUsed) {
-        return {
-          configuredPort,
-          connectedPort,
-          state: 'fallback',
-          cause: `Connected on fallback port ${connectedPort}`,
-        };
-      }
-      return {
-        configuredPort,
-        connectedPort,
-        state: 'connected',
-      };
-    }
-
-    // Ports don't match - this is a mismatch state
-    return {
-      configuredPort,
-      connectedPort,
-      state: 'mismatch',
-      cause: `Bridge connected to ${connectedPort}, dashboard configured for ${configuredPort}`,
-    };
+    return deriveMcpConnectionState(capabilities, this.lastKnownConfiguredPort);
   }
 
   getLastKnownConfiguredPort(): number {
     return this.lastKnownConfiguredPort;
-  }
-
-  /**
-   * Fetch a design system kit summary (tokens + styles counts).
-   * Uses format=summary to get accurate variable counts — compact may return false zeros.
-   */
-  async getDesignSystemKit(): Promise<DesignSystemKitResponse | McpError> {
-    try {
-      const response = await this.fetchFromDashboard(
-        '/api/figma-mcp/design-system-kit?format=summary&include=tokens,styles',
-        {
-          method: 'GET',
-          headers: this.getHeaders(),
-          signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-        },
-      );
-      return await response.json() as DesignSystemKitResponse | McpError;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'kit.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to fetch design system kit',
-      };
-    }
-  }
-
-  /**
-   * Compute a human-readable summary from a kit response.
-   * Returns null when the kit response is not ok.
-   */
-  computeKitSummary(kit: DesignSystemKitResponse | McpError): KitSummary | null {
-    if (!kit.ok) return null;
-
-    const variableCount = Object.keys(kit.tokens?.variables ?? {}).length;
-    const collectionCount = Object.keys(kit.tokens?.variableCollections ?? {}).length;
-
-    const stylesByType: Record<string, number> = {};
-    for (const style of kit.styles ?? []) {
-      const key = style.styleType || 'OTHER';
-      stylesByType[key] = (stylesByType[key] ?? 0) + 1;
-    }
-
-    return { variableCount, collectionCount, stylesByType, fetchedAt: new Date() };
   }
 
   /**
@@ -415,25 +290,6 @@ export class McpClientService {
     }
   }
 
-}
-
-/** Shape returned by GET /api/figma-mcp/design-system-kit */
-export interface DesignSystemKitResponse {
-  ok: true;
-  tokens?: {
-    variables: Record<string, { id: string; name: string; resolvedType: string }>;
-    variableCollections: Record<string, { id: string; name: string; modes: unknown[] }>;
-  };
-  styles?: Array<{ id: string; name: string; styleType: string }>;
-  elapsedMs: number;
-}
-
-/** Computed summary from DesignSystemKitResponse */
-export interface KitSummary {
-  variableCount: number;
-  collectionCount: number;
-  stylesByType: Record<string, number>;
-  fetchedAt: Date;
 }
 
 /** Shape returned by POST /api/figma-mcp-variables */

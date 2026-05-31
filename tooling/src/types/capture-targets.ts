@@ -23,14 +23,12 @@ export interface SpecExhibits {
 }
 
 /**
- * Capture target representing a component to be documented.
+ * Capture target representing a component and its associated docs metadata.
  */
 export interface CaptureTarget {
   slug: string;
   kind: string;
   nodeId: string;
-  specPath: string;
-  markdownPath: string;
   name: string;
   specExists: boolean;
   nodeUrl: string;

@@ -1,163 +1,735 @@
-/**
- * Token Repository Tests
- */
-
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import Database from 'better-sqlite3';
-import { bootstrapDatabase } from './db-service.js';
+import type { Sql } from 'postgres';
+
+import { createTestDatabase } from './test-db-helpers.js';
 import { TokenRepository } from './token-repository.js';
 
 describe('token-repository', () => {
-    let db: Database.Database;
-    let repo: TokenRepository;
+  let sql: Sql | undefined;
+  let repo: TokenRepository | undefined;
+  let cleanup: (() => Promise<void>) | undefined;
+  let db: {
+    prepare: (query: string) => {
+      run: (...params: unknown[]) => Promise<{ lastInsertRowid?: number }>;
+    };
+  };
 
-    beforeEach(() => {
-        db = bootstrapDatabase({ dbPath: ':memory:' });
-        repo = new TokenRepository(db);
-    });
-
-    afterEach(() => {
-        if (db) {
-            db.close();
-        }
-    });
-
-    describe('getTokenByCssVar()', () => {
-        it('returns null for non-existent CSS var', () => {
-            const token = repo.getTokenByCssVar('--nonexistent');
-            assert.strictEqual(token, null);
-        });
-
-        it('returns token for existing CSS var', () => {
-            // Insert test data directly
-            db.prepare(`
-                INSERT INTO tokens (id, slash_path, css_var, type, collection, raw_value)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `).run('test.token', 'test/token', '--test-token', 'color', 'test', JSON.stringify({ $value: '#ff0000' }));
-
-            const token = repo.getTokenByCssVar('--test-token');
-            assert.ok(token);
-            assert.strictEqual(token.cssVar, '--test-token');
-            assert.strictEqual(token.type, 'color');
-        });
-    });
-
-    describe('getTokenByPath()', () => {
-        it('returns null for non-existent path', () => {
-            const token = repo.getTokenByPath('nonexistent.path');
-            assert.strictEqual(token, null);
-        });
-
-        it('returns token for existing path', () => {
-            db.prepare(`
-                INSERT INTO tokens (id, slash_path, css_var, type, collection, raw_value)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `).run('test.token', 'test/token', '--test-token', 'color', 'test', JSON.stringify({ $value: '#ff0000' }));
-
-            const token = repo.getTokenByPath('test.token');
-            assert.ok(token);
-            assert.strictEqual(token.id, 'test.token');
-        });
-    });
-
-    describe('rebuildFromJsonFiles()', () => {
-        it('loads tokens from token-registry.json', () => {
-            const tempDir = fs.mkdtempSync('token-test-');
-            const registryPath = path.join(tempDir, 'token-registry.json');
-
-            fs.writeFileSync(registryPath, JSON.stringify({
-                entries: [
-                    { id: 'color.blue', path: 'color.blue', cssVar: '--color-blue', type: 'color', collection: 'color', $value: '#0000ff' },
-                ],
-            }));
-
-            const result = repo.rebuildFromJsonFiles({ tokenRegistry: registryPath });
-
-            assert.strictEqual(result.tokensLoaded, 1);
-            // Warnings for missing usage + alias files (optional)
-            assert.ok(result.warnings.length >= 0);
-
-            const token = repo.getTokenByPath('color.blue');
-            assert.ok(token);
-            assert.strictEqual(token.cssVar, '--color-blue');
-
-            fs.rmSync(tempDir, { recursive: true, force: true });
-        });
-
-        it('handles missing files gracefully', () => {
-            const result = repo.rebuildFromJsonFiles({
-                tokenRegistry: '/nonexistent/registry.json',
-                tokenUsageIndex: '/nonexistent/usage.json',
-                figmaAliasGraph: '/nonexistent/aliases.json',
-            });
-
-            assert.strictEqual(result.tokensLoaded, 0);
-            assert.strictEqual(result.warnings.length, 3);
-        });
-
-        it('populates token_usage from usedIn entries', () => {
-            const tempDir = fs.mkdtempSync('usage-test-');
-            const usagePath = path.join(tempDir, 'usage.json');
-            fs.writeFileSync(usagePath, JSON.stringify({
-                entries: [
-                    {
-                        path: 'color.blue', usedIn: [
-                            { kind: 'css-variable', source: 'css-alias', owner: 'tokens.css', detail: '--color-blue' },
-                            { kind: 'css-variable', source: 'css-alias', owner: 'tokens2.css', detail: '--color-blue' },
-                        ]
-                    },
-                ],
-            }));
-            const result = repo.rebuildFromJsonFiles({ tokenUsageIndex: usagePath });
-            assert.strictEqual(result.usageLoaded, 2);
-            fs.rmSync(tempDir, { recursive: true, force: true });
-        });
-
-        it('populates token_usage from legacy usage shape', () => {
-            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'usage-legacy-test-'));
-            const usagePath = path.join(tempDir, 'usage-legacy.json');
-            const registryPath = path.join(tempDir, 'token-registry.json');
-            try {
-                fs.writeFileSync(registryPath, JSON.stringify({
-                    entries: [
-                        { id: 'color.blue', path: 'color.blue', cssVar: '--color-blue', type: 'color', collection: 'color', $value: '#0000ff' },
-                    ],
-                }));
-                fs.writeFileSync(usagePath, JSON.stringify({
-                    usage: [
-                        {
-                            tokenPath: 'color.blue',
-                            usedIn: [
-                                { context: 'spec', file: 'button.yml', property: 'token_mapping.bg' },
-                                { context: 'css', file: 'tokens.css', property: '--color-blue' },
-                            ],
-                        },
-                    ],
-                }));
-
-                const result = repo.rebuildFromJsonFiles({
-                    tokenRegistry: registryPath,
-                    tokenUsageIndex: usagePath,
-                });
-                assert.strictEqual(result.usageLoaded, 2);
-
-                const usageIndex = repo.getTokenUsageIndex();
-                assert.ok(usageIndex);
-                const blue = usageIndex.byPath['color.blue'];
-                assert.ok(blue);
-                assert.strictEqual(blue.usedIn.length, 2);
-                assert.equal(blue.usedIn.some((u) => u.kind === 'component-spec'), true);
-                assert.equal(blue.usedIn.some((u) => u.kind === 'css-alias'), true);
-                assert.equal(blue.usedIn.some((u) => u.source === 'component-spec' && u.owner === 'button.yml'), true);
-                assert.equal(blue.usedIn.some((u) => u.source === 'css-alias' && u.owner === 'tokens.css'), true);
-            } finally {
-                fs.rmSync(tempDir, { recursive: true, force: true });
+  beforeEach(async () => {
+    try {
+      const testDb = await createTestDatabase({
+        designSystems: [{ id: 'sys-01', name: 'System 01' }],
+      });
+      sql = testDb.sql;
+      cleanup = testDb.cleanup;
+      repo = new TokenRepository(sql);
+      db = {
+        prepare: (query: string) => ({
+          run: async (...params: unknown[]) => {
+            let i = 0;
+            let text = query.replace(/\?/g, () => `$${++i}`);
+            if (
+              /^\s*insert\s+into\s+components\b/i.test(text) &&
+              !/\breturning\b/i.test(text)
+            ) {
+              text = `${text.trim()} RETURNING id`;
             }
-        });
+            const rows = await sql!.unsafe(text, params);
+            const first = rows?.[0] as { id?: number | string } | undefined;
+            const idNumber =
+              first?.id === undefined ? undefined : Number(first.id);
+            return {
+              lastInsertRowid:
+                idNumber !== undefined && Number.isFinite(idNumber)
+                  ? idNumber
+                  : undefined,
+            };
+          },
+        }),
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('ECONNREFUSED')) {
+        throw new Error(
+          'PostgreSQL not available. Set DATABASE_URL to run these tests.',
+        );
+      }
+      throw error;
+    }
+  });
+
+  afterEach(async () => {
+    if (cleanup) {
+      await cleanup();
+      cleanup = undefined;
+    }
+    sql = undefined;
+    repo = undefined;
+  });
+
+  it('getTokenCatalog returns entries scoped by ds_id', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.primary',
+      'sys-01',
+      'color/primary',
+      '--color-primary',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'Default', '#ffffff');
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '#ffffff');
+    assert.equal(payload.byPath['color.primary'].cssVar, '--color-primary');
+  });
+
+  it('getTokenCatalog preserves empty resolved values instead of falling back to raw_value', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.empty',
+      'sys-01',
+      'color/empty',
+      '--color-empty',
+      'color',
+      'Core',
+      '{"value":"fallback"}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.empty', 'Default', '');
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '');
+  });
+
+  it('allows the same token id in multiple design systems', async () => {
+    const { sql, cleanup } = await createTestDatabase({
+      designSystems: [
+        { id: 'sys-01', name: 'System 01' },
+        { id: 'sys-02', name: 'System 02' },
+      ],
     });
+    try {
+      await sql`
+        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+        VALUES ('color.primary', 'sys-01', 'color/primary', '--color-primary', 'color', 'Core', '{}')
+      `;
+      await sql`
+        INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+        VALUES ('color.primary', 'sys-02', 'color/primary', '--color-primary', 'color', 'Core', '{}')
+      `;
+
+      const rows = await sql`
+        SELECT ds_id, id
+        FROM tokens
+        WHERE id = 'color.primary'
+        ORDER BY ds_id
+      `;
+
+      assert.equal(rows.length, 2);
+      assert.deepEqual(
+        rows.map((row) => ({ dsId: row.ds_id, id: row.id })),
+        [
+          { dsId: 'sys-01', id: 'color.primary' },
+          { dsId: 'sys-02', id: 'color.primary' },
+        ],
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('getTokenCatalog falls back to raw_value when mode values are missing', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'spacing.sm',
+      'sys-01',
+      'spacing/sm',
+      '--spacing-sm',
+      'dimension',
+      'Core',
+      '{"value":"8px","type":"dimension"}',
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(
+      payload.entries[0].resolvedValue,
+      '{"value":"8px","type":"dimension"}',
+    );
+  });
+
+  it('getTokenCatalog prefers exact Default mode over other default-like mode names', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.primary',
+      'sys-01',
+      'color/primary',
+      '--color-primary',
+      'color',
+      'Core',
+      '{}',
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'default', '#111111');
+
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'Default', '#ffffff');
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '#ffffff');
+  });
+
+  it('getTokenUsageIndex aggregates occurrences by token and kind', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.primary',
+      'sys-01',
+      'color/primary',
+      '--color-primary',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.primary',
+      'css-alias',
+      'css-alias',
+      'button',
+      'background',
+    );
+
+    const payload = await repo.getTokenUsageIndex('sys-01');
+    assert.equal(payload.summary.tokens_total, 1);
+    assert.equal(payload.summary.tokens_with_usage, 1);
+    assert.equal(payload.byPath['color.primary'].usageCount, 1);
+    assert.equal(
+      payload.byPath['color.primary'].usageByKind['css-alias'],
+      1,
+    );
+  });
+
+  it('getTokenGraph returns parsed graph json or null', async () => {
+    assert.equal(await repo.getTokenGraph('sys-01'), null);
+    await db.prepare(
+      `
+      INSERT INTO token_graph (ds_id, graph_json)
+      VALUES (?, ?)
+    `,
+    ).run(
+      'sys-01',
+      JSON.stringify({
+        ok: true,
+        summary: {
+          nodes: 1,
+          edges: 0,
+          cycles: 0,
+          cycle_nodes: 0,
+          unresolved_css_var_refs_total: 0,
+          ambiguous_css_vars_total: 0,
+          graph_collisions: 0,
+        },
+        source: { registry_path: '', graph_viz_path: '' },
+        nodes: [],
+        edges: [],
+        cycles: [],
+        cycle_node_ids: [],
+        fingerprint: 'abc',
+      }),
+    );
+    const graph = await repo.getTokenGraph('sys-01') as { ok: boolean };
+    assert.equal(graph.ok, true);
+  });
+
+  it('getTokenGraph round-trips JSONB objects from postgres.js', async () => {
+    await sql!`
+      INSERT INTO token_graph (ds_id, graph_json)
+      VALUES (
+        ${'sys-01'},
+        ${JSON.stringify({
+          ok: true,
+          summary: {
+            nodes: 2,
+            edges: 1,
+            cycles: 0,
+            cycle_nodes: 0,
+            unresolved_css_var_refs_total: 0,
+            ambiguous_css_vars_total: 0,
+            graph_collisions: 0,
+          },
+          source: { registry_path: 'registry.json', graph_viz_path: 'graph.svg' },
+          nodes: [],
+          edges: [],
+          cycles: [],
+          cycle_node_ids: [],
+          fingerprint: 'def',
+        })}
+      )
+    `;
+
+    const graph = await repo.getTokenGraph('sys-01') as {
+      ok: boolean;
+      summary: { nodes: number };
+      source: { registry_path: string };
+    };
+    assert.equal(graph.ok, true);
+    assert.equal(graph.summary.nodes, 2);
+    assert.equal(graph.source.registry_path, 'registry.json');
+  });
+
+  it('getTokenCatalog returns exactly 1 row per token with multi-mode aliases', async () => {
+    // Insert a token
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.primary',
+      'sys-01',
+      'color/primary',
+      '--color-primary',
+      'color',
+      'Core',
+      '{}',
+    );
+
+    // Insert Default mode value
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'Default', '#ffffff');
+
+    // Insert two aliases with different modes
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.primary',
+      'semantic.brand',
+      JSON.stringify(['Default', 'Brand']),
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'other.alias', JSON.stringify(['Dark']));
+
+    const payload = await repo.getTokenCatalog('sys-01');
+
+    // Exactly 1 row
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.primary');
+    // Should prefer the Default mode alias
+    assert.equal(entry.aliasOf, 'semantic.brand');
+  });
+
+  it('getTokenCatalog resolves alias when token has aliases but no token_mode_values row', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.ghost',
+      'sys-01',
+      'color/ghost',
+      '--color-ghost',
+      'color',
+      'Core',
+      '{"value":"#f0f0f0"}',
+    );
+
+    // No token_mode_values inserted on purpose.
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.ghost',
+      'semantic.ghost.default',
+      JSON.stringify(['Default']),
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.ghost',
+      'semantic.ghost.dark',
+      JSON.stringify(['Dark']),
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.ghost');
+    assert.equal(entry.resolvedValue, '{"value":"#f0f0f0"}');
+    // With no winning mode available, query should still pick the stable fallback
+    // that prioritizes Default aliases.
+    assert.equal(entry.aliasOf, 'semantic.ghost.default');
+  });
+
+  it('getTokenCatalog falls back to stable insertion order when no winning mode and no Default alias exist', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.brand.cta',
+      'sys-01',
+      'color/brand/cta',
+      '--color-brand-cta',
+      'color',
+      'Core',
+      '{"value":"#123456"}',
+    );
+
+    // No token_mode_values and no Default aliases on purpose.
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.brand.cta',
+      'semantic.brand.dark',
+      JSON.stringify(['Dark']),
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO figma_aliases (ds_id, from_path, to_path, modes)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run(
+      'sys-01',
+      'color.brand.cta',
+      'semantic.brand.high-contrast',
+      JSON.stringify(['Brand']),
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.entries.length, 1);
+    const entry = payload.entries[0];
+    assert.equal(entry.path, 'color.brand.cta');
+    // Contract: when no winning mode and no Default are available, fall back to
+    // a stable first-inserted alias choice (fa.id order).
+    assert.equal(entry.aliasOf, 'semantic.brand.dark');
+  });
+
+  it('getTokenCatalog exposes byVariableId mapping using latest captured token binding', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.background.accent',
+      'sys-01',
+      'color/background/accent',
+      '--color-background-accent',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.legacy',
+      'sys-01',
+      'color/legacy',
+      '--color-legacy',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.legacy', 'Default', '#000000');
+
+    const component = await db
+      .prepare(
+        `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+      )
+      .run('sys-01', 'button', 'Button');
+    const componentId = Number(component.lastInsertRowid);
+
+    await db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      componentId,
+      '1:1',
+      'Frame',
+      'fills',
+      'VariableID:1:12',
+      'color.legacy',
+      'Default',
+      100,
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      componentId,
+      '1:2',
+      'Frame',
+      'fills',
+      'VariableID:1:12',
+      'color.background.accent',
+      'Default',
+      200,
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(
+      payload.byVariableId['VariableID:1:12']?.path,
+      'color.background.accent',
+    );
+    assert.equal(
+      payload.byVariableId['VariableID:1:12']?.resolvedValue,
+      '#5B6CFF',
+    );
+  });
+
+  it('getTokenCatalog ranks latest binding across bare and prefixed variable id forms', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.background.accent',
+      'sys-01',
+      'color/background/accent',
+      '--color-background-accent',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.legacy',
+      'sys-01',
+      'color/legacy',
+      '--color-legacy',
+      'color',
+      'Core',
+      '{}',
+    );
+
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.legacy', 'Default', '#000000');
+
+    const component = await db
+      .prepare(
+        `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+      )
+      .run('sys-01', 'badge', 'Badge');
+    const componentId = Number(component.lastInsertRowid);
+
+    // Older capture with prefixed variable id points to legacy token.
+    await db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      componentId,
+      '3:1',
+      'Frame',
+      'fills',
+      'VariableID:1:12',
+      'color.legacy',
+      'Default',
+      100,
+    );
+
+    // Newer capture with bare id points to the correct current token.
+    await db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      componentId,
+      '3:2',
+      'Frame',
+      'fills',
+      '1:12',
+      'color.background.accent',
+      'Default',
+      200,
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
+    assert.equal(
+      payload.byVariableId['VariableID:1:12']?.path,
+      'color.background.accent',
+    );
+  });
+
+  it('getTokenCatalog indexes variable ids in prefixed and bare forms', async () => {
+    await db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'color.background.accent',
+      'sys-01',
+      'color/background/accent',
+      '--color-background-accent',
+      'color',
+      'Core',
+      '{}',
+    );
+    await db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.background.accent', 'Default', '#5B6CFF');
+
+    const component = await db
+      .prepare(
+        `
+      INSERT INTO components (ds_id, slug, name)
+      VALUES (?, ?, ?)
+    `,
+      )
+      .run('sys-01', 'chip', 'Chip');
+    const componentId = Number(component.lastInsertRowid);
+
+    await db.prepare(
+      `
+      INSERT INTO component_figma_token_bindings
+      (component_id, node_id, node_name, field, variable_id, token_path, mode, captured_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      componentId,
+      '2:1',
+      'Frame',
+      'fills',
+      '1:12',
+      'color.background.accent',
+      'Default',
+      100,
+    );
+
+    const payload = await repo.getTokenCatalog('sys-01');
+    assert.equal(payload.byVariableId['1:12']?.path, 'color.background.accent');
+    assert.equal(
+      payload.byVariableId['VariableID:1:12']?.path,
+      'color.background.accent',
+    );
+  });
 });

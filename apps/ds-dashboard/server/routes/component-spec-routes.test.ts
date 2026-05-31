@@ -1,217 +1,836 @@
-import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import test from "node:test";
+/**
+ * Component Spec Routes Tests (DB-first)
+ *
+ * Tests for GET /api/component-spec/:slug and PATCH /api/component-spec/:slug/editorial
+ */
 
-import { Hono } from "hono";
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import type { Sql } from 'postgres';
 
-import { registerComponentSpecRoutes } from "./component-spec-routes.mjs";
+import { ComponentRepository } from '../db/component-repository.js';
+import { createTestDatabase } from '../db/test-db-helpers.js';
+import { registerComponentSpecRoutes } from './component-spec-routes.ts';
+import { Hono } from 'hono';
 
 function createFailJson() {
-  return (c: any, statusCode: number, args: any) =>
-    c.json(
-      {
-        ok: false,
-        code: args.code,
-        message: args.userMessage,
-      },
-      statusCode,
-    );
+  return (c: any, statusCode: number, payload: any) =>
+    c.json({ ok: false, code: payload.code, userMessage: payload.userMessage }, statusCode);
 }
 
-async function withTempDir(run: (dir: string) => Promise<void>) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ds-component-spec-routes-"));
-  try {
-    await run(dir);
-  } finally {
-    await fs.rm(dir, { recursive: true, force: true });
-  }
-}
-
-function resolveRepoFilePath(repoRoot: string, relPath: string) {
-  const absolute = path.resolve(repoRoot, String(relPath || ""));
-  const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
-  if (absolute === repoRoot || absolute.startsWith(rootWithSep)) return absolute;
-  return null;
-}
-
-function createTestApp(overrides: Partial<Record<string, unknown>> = {}) {
+function createTestApp(componentRepo: ComponentRepository) {
   const app = new Hono();
   registerComponentSpecRoutes(app, {
     failJson: createFailJson(),
-    getSystemContext: () => ({
-      repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
-      specBackupsDirPath: "/repo/docs/_generated/spec-backups",
-      tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
-    }),
+    getSystemContext: () => ({ repoRoot: '/repo', systemId: 'sys-01' }),
     isDevRuntime: () => true,
     readJsonBody: async () => ({}),
-    resolveRepoFilePath,
-    sha256Text: () => "hash",
-    ...overrides,
+    resolveRepoFilePath: () => null,
+    sha256Text: () => 'hash',
+    componentRepo,
   });
   return app;
 }
 
-test("component-spec-routes: rejects invalid slug", async () => {
-  const app = createTestApp();
-  const res = await app.request("/api/component-spec/INVALID-SLUG");
-  assert.equal(res.status, 400);
-  const payload = await res.json();
-  assert.equal(payload.code, "validation.invalid_component_slug");
-});
+describe('component-spec-routes (DB-first)', () => {
+  let sql: Sql;
+  let cleanup: () => Promise<void>;
+  let repo: ComponentRepository;
+  let app: Hono;
 
-test("component-spec-routes: write endpoints are blocked outside development", async () => {
-  const app = createTestApp({
-    isDevRuntime: () => false,
+  before(async () => {
+    ({ sql, cleanup } = await createTestDatabase({ designSystems: [{ id: 'sys-01', name: 'Test System' }] }));
+    repo = new ComponentRepository(sql);
+    app = createTestApp(repo);
   });
-  const res = await app.request("/api/component-spec/button/validate", { method: "POST" });
-  assert.equal(res.status, 403);
-  const payload = await res.json();
-  assert.equal(payload.code, "component_spec.editing_disabled");
-});
 
-test("component-spec-routes: patch editorial is blocked outside development", async () => {
-  const app = createTestApp({
-    isDevRuntime: () => false,
+  after(async () => {
+    await cleanup();
   });
-  const res = await app.request("/api/component-spec/button/editorial", { method: "PATCH" });
-  assert.equal(res.status, 403);
-  const payload = await res.json();
-  assert.equal(payload.code, "component_spec.editing_disabled");
-});
 
-test("component-spec-routes: get returns current spec document payload", async () => {
-  await withTempDir(async (dir) => {
-    const componentRegistryPath = path.join(dir, "docs/_generated/component-registry.json");
-    const specRelPath = "docs/_spec/components/button.yml";
-    const specAbsPath = path.join(dir, specRelPath);
-    await fs.mkdir(path.dirname(componentRegistryPath), { recursive: true });
-    await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
-    await fs.writeFile(
-      componentRegistryPath,
-      JSON.stringify({
-        components: [
-          {
-            slug: "button",
-            paths: { spec: specRelPath },
-          },
-        ],
-      }),
-      "utf8",
-    );
-    await fs.writeFile(specAbsPath, "name: button\nstatus: draft\n", "utf8");
+  it('returns 404 for non-existent component', async () => {
+    const res = await app.request('/api/component-spec/nonexistent');
+    assert.equal(res.status, 404);
+    const payload = await res.json();
+    assert.equal(payload.userMessage, 'Component "nonexistent" not found');
+  });
 
-    const app = createTestApp({
-      getSystemContext: () => ({
-        repoRoot: dir,
-        componentRegistryPath,
-        specBackupsDirPath: path.join(dir, "docs/_generated/spec-backups"),
-        tokenRegistryPath: path.join(dir, "docs/_generated/token-registry.json"),
-      }),
+  it('does not expose legacy editorial-suggestion routes', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion');
+    assert.equal(res.status, 404);
+  });
+
+  it('does not expose legacy editorial-suggestion discard route', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion/discard', {
+      method: 'POST',
+    });
+    assert.equal(res.status, 404);
+  });
+
+  it('does not expose legacy editorial-suggestion mark-applied route', async () => {
+    const res = await app.request('/api/component-spec/button/editorial-suggestion/mark-applied', {
+      method: 'POST',
+    });
+    assert.equal(res.status, 404);
+  });
+
+  it('passes x-ds-system header to getSystemContext', async () => {
+    let capturedHeader: string | undefined;
+    const appWithSpy = new Hono();
+    registerComponentSpecRoutes(appWithSpy, {
+      failJson: createFailJson(),
+      getSystemContext: (header?: string) => {
+        capturedHeader = header;
+        return { repoRoot: '/repo', systemId: 'sys-01' };
+      },
+      componentRepo: repo,
     });
 
-    const res = await app.request("/api/component-spec/button");
+    await appWithSpy.request('/api/component-spec/button', {
+      headers: { 'x-ds-system': 'sys-01' },
+    });
+    assert.equal(capturedHeader, 'sys-01');
+  });
+
+  it('GET returns 200 with exists=false when no editorial row', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'button', name: 'Button', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/button');
     assert.equal(res.status, 200);
     const payload = await res.json();
     assert.equal(payload.ok, true);
-    assert.equal(payload.slug, "button");
-    assert.equal(payload.path, specRelPath);
-    assert.equal(payload.rawHash, "hash");
-    assert.equal(payload.parsed.name, "button");
+    assert.equal(payload.exists, false);
+    // Anatomy is no longer returned in spec
+    assert.equal(payload.spec?.anatomy, undefined);
   });
-});
 
-test("component-spec-routes: patch editorial updates allowed fields", async () => {
-  await withTempDir(async (dir) => {
-    const componentRegistryPath = path.join(dir, "docs/_generated/component-registry.json");
-    const specRelPath = "docs/_spec/components/button.yml";
-    const docRelPath = "docs/components/button.md";
-    const specAbsPath = path.join(dir, specRelPath);
-    const docAbsPath = path.join(dir, docRelPath);
-    await fs.mkdir(path.dirname(componentRegistryPath), { recursive: true });
-    await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
-    await fs.mkdir(path.dirname(docAbsPath), { recursive: true });
-    await fs.writeFile(
-      componentRegistryPath,
-      JSON.stringify({
-        components: [
-          {
-            slug: "button",
-            paths: { spec: specRelPath, doc: docRelPath },
-          },
-        ],
+  it('GET exposes figma_token_bindings as an array payload', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'badge',
+        name: 'Badge',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          tokenBindings: [
+            {
+              nodeId: '10:2',
+              nodeName: 'Badge',
+              field: 'fills',
+              variableId: 'var:123',
+              tokenPath: 'color.badge.background',
+              mode: 'Default',
+            },
+          ],
+        },
+      },
+    ]);
+
+    const res = await app.request('/api/component-spec/badge');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.ok(Array.isArray(payload.spec?.figma_token_bindings));
+    assert.equal(payload.spec.figma_token_bindings.length, 1);
+    assert.equal(payload.spec.figma_token_bindings[0].node_id, '10:2');
+    assert.equal(payload.spec.figma_token_bindings[0].variable_id, 'var:123');
+  });
+
+  it('GET returns spec.properties from captured Figma props (Migration 034)', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'button-props',
+        name: 'Button Props',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          props: [
+            { name: 'size', type: 'enum', values: ['sm', 'md', 'lg'], defaultValue: 'md', required: true, description: 'Button size' },
+            { name: 'disabled', type: 'boolean', defaultValue: false, required: false, description: 'Whether the button is disabled' },
+            { name: 'icon', type: 'slot', required: false, description: 'Optional icon slot' },
+            { name: 'component', type: 'instance_swap', required: false, description: 'Swapped component' },
+          ],
+        },
+      },
+    ]);
+
+    const res = await app.request('/api/component-spec/button-props');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.ok(Array.isArray(payload.spec?.properties));
+    assert.equal(payload.spec.properties.length, 4);
+    assert.equal(payload.spec.properties[0].name, 'size');
+    assert.equal(payload.spec.properties[0].type, 'enum');
+    assert.deepEqual(payload.spec.properties[0].values, ['sm', 'md', 'lg']);
+    assert.equal(payload.spec.properties[0].default, 'md');
+    assert.equal(payload.spec.properties[0].required, true);
+    assert.equal(payload.spec.properties[2].type, 'slot');
+    assert.equal(payload.spec.properties[3].type, 'instance_swap');
+  });
+
+  it('GET returns empty properties when no Figma props captured', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'no-props', name: 'No Props', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/no-props');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.spec.properties, null);
+  });
+
+  it('GET builds figma_metadata from component record, not from token bindings', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'chip',
+        name: 'Chip',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          fileUrl: 'https://www.figma.com/file/ABC123/My-File',
+          componentSetNodeId: '77:88',
+          pageName: 'Components',
+          tokenBindings: [
+            {
+              nodeId: '10:999',
+              nodeName: 'Internal node',
+              field: 'fills',
+              variableId: 'var:chip',
+            },
+          ],
+        },
+      },
+    ]);
+
+    const res = await app.request('/api/component-spec/chip');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.spec.figma_metadata?.page_name, 'Components');
+    assert.equal(payload.spec.figma_metadata?.component_set_node_id, '77:88');
+    assert.equal(payload.spec.figma_metadata?.file_url, 'https://www.figma.com/file/ABC123/My-File');
+  });
+
+  it('GET keeps figma_metadata when pageName is missing but file/node are present', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'tag',
+        name: 'Tag',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          fileUrl: 'https://www.figma.com/file/TAG123/Tag-File',
+          componentSetNodeId: '11:22',
+        },
+      },
+    ]);
+
+    const res = await app.request('/api/component-spec/tag');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.spec.figma_metadata?.page_name, null);
+    assert.equal(payload.spec.figma_metadata?.component_set_node_id, '11:22');
+    assert.equal(payload.spec.figma_metadata?.file_url, 'https://www.figma.com/file/TAG123/Tag-File');
+  });
+
+  it('GET returns 200 with exists=true when editorial row exists', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'card', name: 'Card', status: 'draft', docType: 'component' },
+    ]);
+
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'card'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'A card component' })}, now())
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const res = await app.request('/api/component-spec/card');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.exists, true);
+  });
+
+  it('PATCH /editorial returns 200 when creating editorial row', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'input', name: 'Input', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/input/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: { summary: { purpose: 'An input component' } },
       }),
-      "utf8",
-    );
-    await fs.writeFile(
-      specAbsPath,
-      [
-        "name: Button",
-        "status: draft",
-        "summary:",
-        "  purpose: old",
-        "  when_to_use: old",
-        "  when_not_to_use: old",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
-    await fs.writeFile(
-      docAbsPath,
-      [
-        "# Button",
-        "",
-        "## Overview",
-        "",
-        "- Purpose: old purpose",
-        "",
-        "## Usage Guidelines",
-        "",
-        "### When to use",
-        "",
-        "- old use",
-        "",
-        "### When not to use",
-        "",
-        "- old dont",
-        "",
-      ].join("\n"),
-      "utf8",
-    );
+    });
 
-    const app = createTestApp({
-      readJsonBody: async () => ({
-        expectedHash: null,
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.deepEqual(payload.savedKeys, ['summary']);
+  });
+
+  it('PATCH /editorial returns 400 for unknown fields', async () => {
+    const res = await app.request('/api/component-spec/button/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: { unknown_field: 'value' },
+      }),
+    });
+
+    assert.equal(res.status, 400);
+  });
+
+  it('PATCH /editorial returns 400 for non-integer expectedUpdatedAt', async () => {
+    const res = await app.request('/api/component-spec/button/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 'not-a-number',
+        fields: { summary: { purpose: 'x' } },
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const payload = await res.json();
+    assert.equal(payload.code, 'invalid.expected_updated_at');
+  });
+
+  it('PATCH /editorial returns 409 for optimistic locking conflict', async () => {
+    // First create editorial row with known updatedAt
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'checkbox', name: 'Checkbox', status: 'draft', docType: 'component' },
+    ]);
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'checkbox'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Old' })}, to_timestamp(1))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    // Try to update with wrong expectedUpdatedAt
+    const res = await app.request('/api/component-spec/checkbox/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 999999, // Wrong timestamp
+        fields: { summary: { purpose: 'New' } },
+      }),
+    });
+
+    assert.equal(res.status, 409);
+    const payload = await res.json();
+    assert.equal(payload.code, 'optimistic_lock_failed');
+  });
+
+  it('PATCH /editorial returns 400 when updating existing row without expectedUpdatedAt', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'radio', name: 'Radio', status: 'draft', docType: 'component' },
+    ]);
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'radio'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Old radio' })}, to_timestamp(2))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const res = await app.request('/api/component-spec/radio/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: { summary: { purpose: 'New radio' } },
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const payload = await res.json();
+    assert.equal(payload.code, 'invalid.expected_updated_at');
+  });
+
+  it('PATCH /editorial stores accessibility.notes only in accessibility_notes_json', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'a11y-notes', name: 'A11y Notes', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/a11y-notes/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
         fields: {
-          summary: {
-            purpose: "new",
-            when_to_use: "new",
-            when_not_to_use: "new",
+          accessibility: {
+            role: 'button',
+            labeling: { rules: ['Rule 1'] },
+            notes: ['Screen reader validated'],
           },
         },
       }),
-      getSystemContext: () => ({
-        repoRoot: dir,
-        componentRegistryPath,
-        specBackupsDirPath: path.join(dir, "docs/_generated/spec-backups"),
-        tokenRegistryPath: path.join(dir, "docs/_generated/token-registry.json"),
+    });
+
+    assert.equal(res.status, 200);
+    const [row] = await sql`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'a11y-notes'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
+
+    assert.ok(row.accessibility_json);
+    const accessibilityJson = JSON.parse(row.accessibility_json as string) as Record<string, unknown>;
+    assert.equal('notes' in accessibilityJson, false);
+    assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Screen reader validated']);
+  });
+
+  it('PATCH /editorial with notes-only preserves existing accessibility_json', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'a11y-preserve', name: 'A11y Preserve', status: 'draft', docType: 'component' },
+    ]);
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'a11y-preserve'}` as [{ id: number }];
+    const originalAccessibility = {
+      role: 'button',
+      focus: { tokens: { inner: '{color.focus.inner}' } },
+      labeling: { rules: ['Rule A'] },
+    };
+    await sql`
+      INSERT INTO component_editorial (component_id, accessibility_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify(originalAccessibility)}, to_timestamp(1.111))
+      ON CONFLICT (component_id) DO UPDATE SET
+        accessibility_json = EXCLUDED.accessibility_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const res = await app.request('/api/component-spec/a11y-preserve/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 1111,
+        fields: {
+          accessibility: {
+            notes: ['Keep original accessibility object'],
+          },
+        },
       }),
     });
 
-    const res = await app.request("/api/component-spec/button/editorial", { method: "PATCH" });
+    assert.equal(res.status, 200);
+    const [row] = await sql`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'a11y-preserve'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
+
+    assert.deepEqual(JSON.parse(row.accessibility_json as string), originalAccessibility);
+    assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Keep original accessibility object']);
+  });
+
+  it('PATCH /editorial persists variants and omits tokens from GET response', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'vt-test', name: 'VT Test', status: 'draft', docType: 'component' },
+    ]);
+
+    const variants = [
+      { id: 'v1', name: 'Primary', description: 'Primary variant', properties: { variant: 'primary' } },
+      { id: 'v2', name: 'Secondary', description: 'Secondary variant', properties: { variant: 'secondary' } },
+    ];
+
+    const patchRes = await app.request('/api/component-spec/vt-test/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          summary: { purpose: 'Test component' },
+          variants,
+        },
+      }),
+    });
+    assert.equal(patchRes.status, 200);
+    const patchPayload = await patchRes.json();
+    assert.equal(patchPayload.ok, true);
+    assert.ok(patchPayload.savedKeys.includes('variants'));
+
+    const getRes = await app.request('/api/component-spec/vt-test');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.ok, true);
+    assert.equal(getPayload.exists, true);
+    assert.deepEqual(getPayload.spec.variants, variants);
+    assert.equal('tokens' in getPayload.spec, false);
+  });
+
+  it('PATCH /editorial persists behaviour, content_guidelines, and accessibility labeling', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'menu-button', name: 'Menu Button', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/menu-button/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          summary: {
+            purpose: 'Opens a menu',
+            when_to_use: 'Use when actions are contextual',
+            when_not_to_use: 'Avoid for single primary actions',
+          },
+          behaviour: 'Opens the menu and keeps focus on the trigger until the menu is navigated.',
+          content_guidelines: {
+            rules: ['Use a verb that reflects the menu content'],
+          },
+          accessibility: {
+            role: 'button',
+            labeling: { rules: ['If icon-only, provide an accessible name'] },
+            notes: ['Supports keyboard activation'],
+          },
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+    const patchPayload = await patchRes.json();
+    assert.ok(patchPayload.savedKeys.includes('behaviour'));
+    assert.ok(patchPayload.savedKeys.includes('content_guidelines'));
+    assert.ok(patchPayload.savedKeys.includes('accessibility'));
+
+    const getRes = await app.request('/api/component-spec/menu-button');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.deepEqual(getPayload.spec.summary, {
+      purpose: 'Opens a menu',
+      when_to_use: 'Use when actions are contextual',
+      when_not_to_use: 'Avoid for single primary actions',
+    });
+    // Properties now come from Figma capture, not editorial
+    assert.equal(getPayload.spec.properties, null);
+    assert.equal(
+      getPayload.spec.behaviour,
+      'Opens the menu and keeps focus on the trigger until the menu is navigated.',
+    );
+    assert.equal('best_practices' in getPayload.spec, false);
+    assert.deepEqual(getPayload.spec.content_guidelines, {
+      rules: ['Use a verb that reflects the menu content'],
+    });
+    assert.equal(getPayload.spec.accessibility.role, 'button');
+    assert.deepEqual(getPayload.spec.accessibility.labeling, {
+      rules: ['If icon-only, provide an accessible name'],
+    });
+    assert.deepEqual(getPayload.spec.accessibility.notes, ['Supports keyboard activation']);
+  });
+
+  it('PATCH /editorial rejects properties as a read-only field (hard cut, Migration 034) without mutating captured props', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      {
+        slug: 'readonly-props',
+        name: 'Readonly Props',
+        status: 'draft',
+        docType: 'component',
+        figma: {
+          props: [
+            { name: 'size', type: 'enum', values: ['sm', 'md'], defaultValue: 'md', required: true, description: 'Captured from Figma' },
+          ],
+        },
+      },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/readonly-props/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          properties: [
+            { name: 'size', type: 'enum', values: ['sm', 'md'], default: 'md', required: false, description: 'Button size' },
+          ],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /read-only/i);
+    assert.match(String(payload.userMessage), /Figma capture/i);
+
+    const getRes = await app.request('/api/component-spec/readonly-props');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.ok(Array.isArray(getPayload.spec?.properties));
+    assert.equal(getPayload.spec.properties.length, 1);
+    assert.equal(getPayload.spec.properties[0].name, 'size');
+    assert.equal(getPayload.spec.properties[0].type, 'enum');
+    assert.deepEqual(getPayload.spec.properties[0].values, ['sm', 'md']);
+    assert.equal(getPayload.spec.properties[0].default, 'md');
+  });
+
+  it('PATCH /editorial rejects tokens as an unknown field', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'vt-legacy', name: 'VT Legacy', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/vt-legacy/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          tokens: [{ name: 'fill-primary', value: '#6366F1', type: 'color' }],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Unknown field: tokens/);
+  });
+
+  it('PATCH /editorial rejects token_mapping as an unknown field', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'legacy-token-mapping', name: 'Legacy Token Mapping', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/legacy-token-mapping/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          token_mapping: {
+            surface: { default: 'color.surface.default' },
+          },
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Unknown field: token_mapping/);
+  });
+
+  it('PATCH /editorial rejects non-string behaviour payload', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'bad-behaviour', name: 'Bad Behaviour', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/bad-behaviour/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          behaviour: ['invalid'],
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Invalid field: behaviour/);
+  });
+
+  it('PATCH /editorial rejects best_practices as an unknown field', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'unknown-best-practices', name: 'Unknown Best Practices', status: 'draft', docType: 'component' },
+    ]);
+
+    const patchRes = await app.request('/api/component-spec/unknown-best-practices/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          best_practices: 'invalid',
+        },
+      }),
+    });
+
+    assert.equal(patchRes.status, 400);
+    const payload = await patchRes.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'invalid.field');
+    assert.match(String(payload.userMessage), /Unknown field: best_practices/);
+  });
+
+  it('PATCH /editorial with summary: null clears summary_json and returns summary = null', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'clear-summary', name: 'Clear Summary', status: 'draft', docType: 'component' },
+    ]);
+
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'clear-summary'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Will be cleared' })}, to_timestamp(5))
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const patchRes = await app.request('/api/component-spec/clear-summary/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 5000,
+        fields: { summary: null },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+
+    const [row] = await sql`
+      SELECT summary_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'clear-summary'}
+    ` as [{ summary_json: string | null }];
+    assert.equal(row.summary_json, null);
+
+    const getRes = await app.request('/api/component-spec/clear-summary');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.spec.summary, null);
+  });
+
+  it('PATCH /editorial with accessibility: null clears both accessibility columns', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'clear-a11y', name: 'Clear A11y', status: 'draft', docType: 'component' },
+    ]);
+
+    const [component] = await sql`SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'clear-a11y'}` as [{ id: number }];
+    await sql`
+      INSERT INTO component_editorial (component_id, accessibility_json, accessibility_notes_json, updated_at)
+      VALUES (
+        ${component.id},
+        ${JSON.stringify({ role: 'button', labeling: { rules: ['Rule 1'] } })},
+        ${JSON.stringify(['legacy note'])},
+        to_timestamp(5.1)
+      )
+      ON CONFLICT (component_id) DO UPDATE SET
+        accessibility_json = EXCLUDED.accessibility_json,
+        accessibility_notes_json = EXCLUDED.accessibility_notes_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const patchRes = await app.request('/api/component-spec/clear-a11y/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: 5100,
+        fields: { accessibility: null },
+      }),
+    });
+
+    assert.equal(patchRes.status, 200);
+
+    const [row] = await sql`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ${'sys-01'} AND c.slug = ${'clear-a11y'}
+    ` as [{ accessibility_json: string | null; accessibility_notes_json: string | null }];
+    assert.equal(row.accessibility_json, null);
+    assert.equal(row.accessibility_notes_json, null);
+
+    const getRes = await app.request('/api/component-spec/clear-a11y');
+    assert.equal(getRes.status, 200);
+    const getPayload = await getRes.json();
+    assert.equal(getPayload.spec.accessibility, null);
+  });
+
+  it('exposes layer_token_mapping in GET /api/component-spec/:slug', async () => {
+    await sql`
+      INSERT INTO components (ds_id, slug, name, status, doc_type)
+      VALUES ('sys-01', 'ltm-button', 'LTM Button', 'draft', 'component')
+    `;
+
+    const [comp] = await sql`SELECT id FROM components WHERE slug = 'ltm-button' AND ds_id = 'sys-01'` as [{ id: number }];
+    await sql`
+      INSERT INTO component_figma_token_bindings (
+        component_id, node_id, node_name, field, variable_id, token_path, mode,
+        variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+      ) VALUES (
+        ${comp.id}, ${'10:1'}, ${'Button/Default'}, ${'fills'}, ${'123:456'}, ${'primitives.blue.500'}, ${'Default'},
+        ${'10:0'}, ${'State=Default'}, ${'fills'}, ${'resolved'}, ${'mode:1'}, ${'Default'}
+      )
+    `;
+    await sql`
+      INSERT INTO component_figma_token_bindings (
+        component_id, node_id, node_name, field, variable_id, token_path, mode,
+        variant_node_id, variant_signature, property_path, status, mode_id, mode_name
+      ) VALUES (
+        ${comp.id}, ${'10:2'}, ${'Button/Hover'}, ${'fills'}, ${'999:999'}, ${null}, ${'Default'},
+        ${'10:3'}, ${'State=Hover'}, ${'fills'}, ${'unresolved'}, ${'mode:1'}, ${'Default'}
+      )
+    `;
+
+    // Create an editorial row so exists=true
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${comp.id}, ${'{"purpose":"test"}'}, now())
+    `;
+
+    const res = await app.request('/api/component-spec/ltm-button');
     assert.equal(res.status, 200);
     const payload = await res.json();
     assert.equal(payload.ok, true);
-    assert.deepEqual(payload.savedKeys, ["summary"]);
-    assert.equal(payload.markdownSynced, true);
-    const updated = await fs.readFile(specAbsPath, "utf8");
-    assert.match(updated, /purpose: new/);
-    const updatedDoc = await fs.readFile(docAbsPath, "utf8");
-    assert.match(updatedDoc, /- Purpose: new/);
-    assert.match(updatedDoc, /### When to use[\s\S]*new/);
-    assert.match(updatedDoc, /### When not to use[\s\S]*new/);
+    assert.equal(payload.exists, true);
+    assert.ok(Array.isArray(payload.spec.layer_token_mapping));
+    assert.equal(payload.spec.layer_token_mapping.length, 2);
+
+    const resolved = payload.spec.layer_token_mapping.find((e: any) => e.status === 'resolved');
+    assert.ok(resolved);
+    assert.equal(resolved.variant_node_id, '10:0');
+    assert.equal(resolved.variant_signature, 'State=Default');
+    assert.equal(resolved.layer_node_id, '10:1');
+    assert.equal(resolved.token_path, 'primitives.blue.500');
+
+    const unresolved = payload.spec.layer_token_mapping.find((e: any) => e.status === 'unresolved');
+    assert.ok(unresolved);
+    assert.equal(unresolved.variant_node_id, '10:3');
+    assert.equal(unresolved.variant_signature, 'State=Hover');
+    assert.equal(unresolved.token_path, null);
+  });
+
+  it('GET /api/component-spec/:slug does not expose token_mapping', async () => {
+    await repo.upsertFromRegistry('sys-01', [
+      { slug: 'token-mapping-cutover', name: 'Token Mapping Cutover', status: 'draft', docType: 'component' },
+    ]);
+
+    const [component] = await sql`
+      SELECT id FROM components WHERE ds_id = ${'sys-01'} AND slug = ${'token-mapping-cutover'}
+    ` as [{ id: number }];
+
+    await sql`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      VALUES (${component.id}, ${JSON.stringify({ purpose: 'Legacy editorial row with token mapping' })}, now())
+      ON CONFLICT (component_id) DO UPDATE SET
+        summary_json = EXCLUDED.summary_json,
+        updated_at = EXCLUDED.updated_at
+    `;
+
+    const res = await app.request('/api/component-spec/token-mapping-cutover');
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.exists, true);
+    assert.equal('token_mapping' in payload.spec, false);
   });
 });

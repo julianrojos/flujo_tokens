@@ -1,0 +1,3 @@
+-- Migration 024: component_docs_and_figma_descriptions
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

@@ -2,38 +2,26 @@
  * Hook for token-detail page - encapsulates state, derived data, and handlers.
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTokenDetailData } from "../use-token-detail-data";
-import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
-import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
-import type { TokenUsageOccurrence } from "@/types/token-usage-index";
+import type { TokenCatalogEntry, TokenCatalog } from "@/types/token-catalog";
 import {
   resolveColorSwatch,
-  extractLineNumber,
-  resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
-  parseComponentUsageDetail,
-  tokenMatchesRef,
+  deriveTokenDisplayType,
+  resolveAliasTarget,
 } from "../lib/token-detail-transforms";
-
-export interface ComponentTokenUsage {
-  slug: string;
-  displayName: string;
-  pipelineStage: PipelineStage | null;
-  figmaUrl: string | null;
-  figmaNodeId: string | null;
-  mode: "direct" | "via_alias";
-  occurrences: number;
-  slots: string[];
-  conditions: string[];
-  aliasChains: string[][];
-}
+import {
+  buildComponentTokenUsageRows,
+  buildComponentUsagePropertiesIndex,
+  buildTokenUsageInTokensRows,
+  type ComponentTokenUsage,
+  type TokenUsageInTokensRow,
+} from "../lib/token-detail-usage-derivation";
 
 interface TokenDetailViewModel {
-  // State
-  copiedField: string | null;
   fromCollection: string;
   fromType: string;
   fromSearch: string;
@@ -43,29 +31,27 @@ interface TokenDetailViewModel {
   // Derived data
   loading: boolean;
   error: string | null;
-  registry: TokenRegistry | null;
-  token: TokenEntry | null;
+  registry: TokenCatalog | null;
+  token: TokenCatalogEntry | null;
   swatch: string | null;
   dimensionPreview: { amount: number; unit: string; width: number } | null;
-  tokenAliasChain: TokenEntry[];
+  displayType: string;
+  tokenAliasChain: TokenCatalogEntry[];
   aliasBrokenRef: string | null;
   aliasHasCycle: boolean;
-  aliasFinal: TokenEntry | null;
-  scopedTokens: TokenEntry[];
+  aliasFinal: TokenCatalogEntry | null;
+  aliasConsumers: TokenCatalogEntry[];
+  scopedTokens: TokenCatalogEntry[];
   currentTokenIndex: number;
-  previousToken: TokenEntry | null;
-  nextToken: TokenEntry | null;
-  reverseAliasMap: Map<string, TokenEntry[]>;
-  aliasDescendantChains: Map<string, TokenEntry[]>;
+  previousToken: TokenCatalogEntry | null;
+  nextToken: TokenCatalogEntry | null;
+  tokenUsageInTokensRows: TokenUsageInTokensRow[];
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
-  occurrencesByKind: Map<string, TokenUsageOccurrence[]>;
-  healthIssues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }>;
 
   // Handlers
-  handleCopyValue: (key: string, value: string) => Promise<void>;
   setComponentFilter: (key: "cmode" | "cq", value: string) => void;
-  handleNavigate: (token: TokenEntry) => void;
+  handleNavigate: (token: TokenCatalogEntry) => void;
 }
 
 export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
@@ -73,43 +59,45 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   const [searchParams, setSearchParams] = useSearchParams();
   const decoded = tokenPath ? decodeURIComponent(tokenPath) : "";
 
-  const [copiedField, setCopiedField] = useState<string | null>(null);
   const {
     loading,
     error,
     registry,
     token,
-    usage,
-    usageByPath,
-    tokenHealth,
-    graphQuery,
     components,
   } = useTokenDetailData(decoded);
 
   // Derived data
-  const swatch = useMemo(
-    () => (token ? resolveColorSwatch(token.resolvedValue) : null),
-    [token],
-  );
-
-  const dimensionPreview = useMemo(
-    () => (token?.type === "dimension" ? parseDimensionPreview(token.resolvedValue) : null),
-    [token?.resolvedValue, token?.type],
-  );
-
   const aliasChain = useMemo(() => buildAliasChain(registry, token), [registry, token]);
   const tokenAliasChain = aliasChain.chain;
   const aliasBrokenRef = aliasChain.brokenRef;
   const aliasHasCycle = aliasChain.hasCycle;
   const aliasFinal = tokenAliasChain.length > 0 ? tokenAliasChain[tokenAliasChain.length - 1] : null;
+  const resolvedVisualValue = aliasFinal?.resolvedValue || token?.resolvedValue || "";
+
+  const swatch = useMemo(
+    () => resolveColorSwatch(resolvedVisualValue),
+    [resolvedVisualValue],
+  );
+
+  const dimensionPreview = useMemo(
+    () => parseDimensionPreview(resolvedVisualValue),
+    [resolvedVisualValue],
+  );
+
+  const displayType = useMemo(
+    () =>
+      deriveTokenDisplayType({
+        token,
+        resolvedValue: resolvedVisualValue,
+      }),
+    [resolvedVisualValue, token],
+  );
 
   // Filter params
   const fromCollection = searchParams.get("fromCollection") || "all";
   const fromType = searchParams.get("fromType") || "all";
   const fromSearch = String(searchParams.get("fromSearch") || "").trim().toLowerCase();
-  const usageKindFilter = searchParams.get("uk") || "all";
-  const usageOwnerFilter = searchParams.get("uo") || "all";
-  const usageQuery = String(searchParams.get("uq") || "");
   const componentMode = searchParams.get("cmode") || "all";
   const componentQuery = String(searchParams.get("cq") || "").trim().toLowerCase();
 
@@ -142,159 +130,60 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       ? scopedTokens[currentTokenIndex + 1]
       : null;
 
-  // Component lookup
-  const componentBySlug = useMemo(() => {
-    const map: Record<string, ComponentRegistryItem> = {};
-    for (const component of components) {
-      map[component.slug] = component;
-    }
-    return map;
-  }, [components]);
-
-  // Reverse alias map
-  const reverseAliasMap = useMemo(() => {
-    const map = new Map<string, TokenEntry[]>();
-    if (!registry) return map;
-    for (const entry of registry.entries ?? []) {
-      if (!entry.aliasOf) continue;
-      const target = resolveAliasTarget(registry, entry.aliasOf);
-      if (!target) continue;
-      const list = map.get(target.path) ?? [];
-      list.push(entry);
-      map.set(target.path, list);
-    }
-    return map;
-  }, [registry]);
-
-  // Descendant chains
-  const aliasDescendantChains = useMemo(() => {
-    const chains = new Map<string, TokenEntry[]>();
-    if (!token) return chains;
-    const queue: Array<{ entry: TokenEntry; chain: TokenEntry[] }> = [{ entry: token, chain: [token] }];
-    const visited = new Set<string>([token.path]);
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current) break;
-      const children = reverseAliasMap.get(current.entry.path) ?? [];
-      for (const child of children) {
-        if (visited.has(child.path)) continue;
-        const chain = [child, ...current.chain];
-        chains.set(child.path, chain);
-        visited.add(child.path);
-        queue.push({ entry: child, chain });
-      }
-    }
-    return chains;
-  }, [reverseAliasMap, token]);
+  const aliasConsumers = useMemo(() => {
+    if (!registry || !token) return [];
+    const consumers = (registry.entries ?? [])
+      .filter((entry) => {
+        if (!entry.aliasOf) return false;
+        const target = resolveAliasTarget(registry, entry.aliasOf);
+        return target?.path === token.path;
+      })
+      .sort((left, right) => left.path.localeCompare(right.path));
+    return consumers;
+  }, [registry, token]);
 
   // Component usages
-  const componentUsages = useMemo(() => {
-    if (!token) return [] as ComponentTokenUsage[];
+  const componentUsages = useMemo<ComponentTokenUsage[]>(
+    () =>
+      buildComponentTokenUsageRows({
+        tokenPath: decoded,
+        registry,
+        components,
+      }),
+    [components, decoded, registry],
+  );
 
-    const rows = new Map<
-      string,
-      {
-        slug: string;
-        displayName: string;
-        pipelineStage: PipelineStage | null;
-        figmaUrl: string | null;
-        figmaNodeId: string | null;
-        mode: "direct" | "via_alias";
-        occurrences: number;
-        slotSet: Set<string>;
-        conditionSet: Set<string>;
-        aliasChainMap: Map<string, string[]>;
-      }
-    >();
+  const componentUsagePropertiesByTokenPath = useMemo(
+    () =>
+      buildComponentUsagePropertiesIndex({
+        registry,
+        components,
+      }),
+    [components, registry],
+  );
 
-    const ensureRow = (slug: string) => {
-      const trimmed = String(slug || "").trim();
-      if (!trimmed) return null;
-      const component = componentBySlug[trimmed];
-      const existing = rows.get(trimmed);
-      if (existing) return existing;
-      const created = {
-        slug: trimmed,
-        displayName: component?.display_name ?? trimmed,
-        pipelineStage: component?.pipeline_stage ?? null,
-        figmaUrl: component?.figma?.file_url ?? null,
-        figmaNodeId: component?.figma?.component_set_node_id ?? null,
-        mode: "via_alias" as const,
-        occurrences: 0,
-        slotSet: new Set<string>(),
-        conditionSet: new Set<string>(),
-        aliasChainMap: new Map<string, string[]>(),
-      };
-      rows.set(trimmed, created);
-      return created;
-    };
-
-    const registerOccurrence = (
-      occ: TokenUsageOccurrence,
-      mode: "direct" | "via_alias",
-      aliasChain: string[] | null,
-    ) => {
-      if (occ.kind !== "component-spec") return;
-      const row = ensureRow(occ.owner);
-      if (!row) return;
-
-      row.occurrences += 1;
-      const parsed = parseComponentUsageDetail(occ.detail || "");
-      if (parsed.slot) row.slotSet.add(parsed.slot);
-      if (parsed.condition) row.conditionSet.add(parsed.condition);
-
-      if (mode === "direct") {
-        row.mode = "direct";
-        row.aliasChainMap.clear();
-      } else if (row.mode !== "direct" && aliasChain && aliasChain.length > 1) {
-        const signature = aliasChain.join(" -> ");
-        if (!row.aliasChainMap.has(signature)) {
-          row.aliasChainMap.set(signature, aliasChain);
-        }
-      }
-    };
-
-    const directUsage = usageByPath[token.path];
-    for (const occ of directUsage?.usedIn ?? []) {
-      registerOccurrence(occ, "direct" as const, null);
-    }
-
-    for (const [aliasPath, chain] of aliasDescendantChains) {
-      const aliasUsage = usageByPath[aliasPath];
-      if (!aliasUsage) continue;
-      const chainPaths = chain.map((entry) => entry.path);
-      for (const occ of aliasUsage.usedIn ?? []) {
-        registerOccurrence(occ, "via_alias" as const, chainPaths);
-      }
-    }
-
-    return Array.from(rows.values())
-      .map((row) => ({
-        slug: row.slug,
-        displayName: row.displayName,
-        pipelineStage: row.pipelineStage,
-        figmaUrl: row.figmaUrl,
-        figmaNodeId: row.figmaNodeId,
-        mode: row.mode,
-        occurrences: row.occurrences,
-        slots: Array.from(row.slotSet).sort((a, b) => a.localeCompare(b)),
-        conditions: Array.from(row.conditionSet).sort((a, b) => a.localeCompare(b)),
-        aliasChains: Array.from(row.aliasChainMap.values()),
-      }))
-      .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  }, [aliasDescendantChains, componentBySlug, token, usageByPath]);
+  const tokenUsageInTokensRows = useMemo<TokenUsageInTokensRow[]>(
+    () =>
+      buildTokenUsageInTokensRows({
+        tokenPath: decoded,
+        registry,
+        components,
+        componentUsagePropertiesByTokenPath,
+      }),
+    [componentUsagePropertiesByTokenPath, components, decoded, registry],
+  );
 
   const filteredComponentUsages = useMemo(() => {
     return componentUsages.filter((entry) => {
-      const matchesMode = componentMode === "all" || entry.mode === componentMode;
+      const matchesMode =
+        componentMode === "all" ||
+        (componentMode === "direct" && (entry.mode === "direct" || entry.mode === "both")) ||
+        (componentMode === "via_alias" && (entry.mode === "via_alias" || entry.mode === "both"));
       if (!matchesMode) return false;
       if (!componentQuery) return true;
       const searchable = [
         entry.displayName,
         entry.slug,
-        ...entry.slots,
-        ...entry.conditions,
-        ...entry.aliasChains.map((chain) => chain.join(" ")),
       ]
         .join(" ")
         .toLowerCase();
@@ -303,8 +192,8 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   }, [componentMode, componentQuery, componentUsages]);
 
   const componentUsageSummary = useMemo(() => {
-    const direct = componentUsages.filter((entry) => entry.mode === "direct").length;
-    const viaAlias = componentUsages.filter((entry) => entry.mode === "via_alias").length;
+    const direct = componentUsages.filter((entry) => entry.mode === "direct" || entry.mode === "both").length;
+    const viaAlias = componentUsages.filter((entry) => entry.mode === "via_alias" || entry.mode === "both").length;
     return {
       total: componentUsages.length,
       direct,
@@ -312,91 +201,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       occurrences: componentUsages.reduce((sum, entry) => sum + entry.occurrences, 0),
     };
   }, [componentUsages]);
-
-  // Occurrences by kind
-  const occurrencesByKind = useMemo(() => {
-    if (!usage?.usedIn?.length) return new Map<string, TokenUsageOccurrence[]>();
-    const map = new Map<string, TokenUsageOccurrence[]>();
-    const loweredQuery = usageQuery.trim().toLowerCase();
-    for (const occ of usage.usedIn) {
-      const matchesKind = usageKindFilter === "all" || occ.kind === usageKindFilter;
-      const matchesOwner = usageOwnerFilter === "all" || occ.owner === usageOwnerFilter;
-      const searchValue = `${occ.owner} ${occ.source} ${occ.detail}`.toLowerCase();
-      const matchesQuery = !loweredQuery || searchValue.includes(loweredQuery);
-      if (!matchesKind || !matchesOwner || !matchesQuery) continue;
-      const list = map.get(occ.kind) ?? [];
-      list.push(occ);
-      map.set(occ.kind, list);
-    }
-    const order = ["component-spec", "css-alias"];
-    const sorted = new Map<string, TokenUsageOccurrence[]>();
-    for (const key of order) {
-      if (map.has(key)) sorted.set(key, map.get(key)!);
-    }
-    for (const [key, value] of map) {
-      if (!sorted.has(key)) sorted.set(key, value);
-    }
-    return sorted;
-  }, [usage, usageKindFilter, usageOwnerFilter, usageQuery]);
-
-  // Health issues
-  const healthIssues = useMemo(() => {
-    if (!token || !tokenHealth) return [];
-    const issues: Array<{ key: string; severity: "error" | "warning"; label: string; detail: string }> = [];
-    if (tokenHealth.unused_tokens.items.some((item) => item.path === token.path)) {
-      issues.push({
-        key: "unused",
-        severity: "warning",
-        label: "Unused token",
-        detail: "No references found in the usage index.",
-      });
-    }
-    if (tokenHealth.high_coupling_tokens.items.some((item) => item.path === token.path)) {
-      issues.push({
-        key: "high-coupling",
-        severity: "warning",
-        label: "High coupling",
-        detail: "Token has many downstream references and change risk is elevated.",
-      });
-    }
-    if (
-      tokenHealth.broken_aliases.items.some(
-        (item) => tokenMatchesRef(token, item.token) || tokenMatchesRef(token, item.aliasCssVar),
-      )
-    ) {
-      issues.push({
-        key: "broken-alias",
-        severity: "error",
-        label: "Broken alias",
-        detail: "Alias reference cannot be resolved to an existing token.",
-      });
-    }
-    if (
-      tokenHealth.broken_css_var_refs.items.some(
-        (item) => tokenMatchesRef(token, item.from) || tokenMatchesRef(token, item.cssVar),
-      )
-    ) {
-      issues.push({
-        key: "broken-css-ref",
-        severity: "error",
-        label: "Broken CSS var reference",
-        detail: "Resolved value references an unknown CSS variable.",
-      });
-    }
-    if (
-      tokenHealth.wcag_failures.items.some(
-        (item) => tokenMatchesRef(token, item.foreground) || tokenMatchesRef(token, item.background),
-      )
-    ) {
-      issues.push({
-        key: "wcag",
-        severity: "error",
-        label: "WCAG contrast failure",
-        detail: "Token participates in at least one failing contrast pair.",
-      });
-    }
-    return issues;
-  }, [token, tokenHealth]);
 
   // Handlers
   const setComponentFilter = useCallback((key: "cmode" | "cq", value: string) => {
@@ -406,29 +210,13 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const handleCopyValue = useCallback(async (key: string, value: string) => {
-    const content = String(value || "").trim();
-    if (!content) return;
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedField(key);
-      window.setTimeout(() => {
-        setCopiedField((current) => (current === key ? null : current));
-      }, 1500);
-    } catch {
-      setCopiedField(null);
-    }
-  }, []);
-
-  const handleNavigate = useCallback((token: TokenEntry) => {
+  const handleNavigate = useCallback((token: TokenCatalogEntry) => {
     navigate({
       pathname: `/tokens/${encodeURIComponent(token.path)}`,
     });
   }, [navigate]);
 
   return {
-    // State
-    copiedField,
     fromCollection,
     fromType,
     fromSearch,
@@ -442,23 +230,21 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     token,
     swatch,
     dimensionPreview,
+    displayType,
     tokenAliasChain,
     aliasBrokenRef,
     aliasHasCycle,
     aliasFinal,
+    aliasConsumers,
     scopedTokens,
     currentTokenIndex,
     previousToken,
     nextToken,
-    reverseAliasMap,
-    aliasDescendantChains,
+    tokenUsageInTokensRows,
     filteredComponentUsages,
     componentUsageSummary,
-    occurrencesByKind,
-    healthIssues,
 
     // Handlers
-    handleCopyValue,
     setComponentFilter,
     handleNavigate,
   };

@@ -1,47 +1,41 @@
-import type { ComponentRegistry } from "@/types/component-registry";
-import type { ComponentUsageIndex } from "@/types/component-usage-index";
-import type { TokenRegistry } from "@/types/token-registry";
-import type { TokenCollectionTreeIndex } from "@/types/token-tree";
-import type { TokenUsageIndex } from "@/types/token-usage-index";
-import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } from "@/types/token-graph";
-import type { TokenHealthReport } from "@/types/token-health";
-import type { ComponentsHealthReport } from "@/types/components-health";
-import type { TokenDiffReport } from "@/types/token-diff";
-import type { ImpactReport } from "@/types/impact";
-import type { NamingDebtReport } from "@/types/naming-debt";
+import type { ComponentCatalog } from '@/types/component-catalog';
+import type { ComponentUsageIndex } from '@/types/component-usage-index';
+import type { TokenCatalog } from '@/types/token-catalog';
+import type { TokenCollectionTreeIndex } from '@/types/token-tree';
+import type { TokenUsageIndex } from '@/types/token-usage-index';
 import type {
-  CaptureHealthSnapshotResult,
   HealthHistoryBucket,
   HealthHistoryRange,
   HealthHistoryReport,
-} from "@/types/health-history";
-import type {
-  ComponentSpecPatchEditorialResponse,
-  ComponentSpecRestoreResponse,
-  ComponentSpecSaveResponse,
-  ComponentSpecValidateResponse,
-} from "@/types/spec-editor";
+} from '@/types/health-history';
+import type { ComponentSpecPatchEditorialResponse } from '@/types/spec-editor';
 import type {
   DsConsumer,
   SyncResult,
   FileReport,
   ComponentUsageReport,
   VariableUsageReport,
-  SimulationResult,
   DsSyncRun,
-  SyncRunsResponse,
-} from "@/types/consumers";
-import { API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-errors";
-import { normalizeEnvRef } from "@/lib/env-ref";
-import { resolveDsFileKeyFromConfig } from "@/lib/design-system-keys";
+  UsageScope,
+} from '@/types/consumers';
+import { API_ERROR_CODES, type ApiErrorCode } from '@/lib/api-errors';
+import { normalizeEnvRef } from '@/lib/env-ref';
+import { resolveDsFileKeyFromConfig } from '@/lib/design-system-keys';
+import { bumpEditDocsStorageEpoch } from '@/lib/edit-docs-storage-namespace';
+import { getDashboardApiBaseUrl } from '@/lib/api-base';
+import type {
+  McpConnectionPayload,
+  McpErrorLike,
+} from '@flujo/shared';
+import { isTimeoutLikeError } from '@flujo/shared';
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
-  return activeSystemId || localStorage.getItem("ds-system-id") || "";
+  return activeSystemId || localStorage.getItem('ds-system-id') || '';
 }
 export function setActiveSystemId(id: string) {
   activeSystemId = id;
-  localStorage.setItem("ds-system-id", id);
+  localStorage.setItem('ds-system-id', id);
 }
 
 /**
@@ -95,7 +89,7 @@ export class ApiError extends Error {
     payload?: unknown;
   }) {
     super(args.userMessage);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.status = args.status;
     this.statusText = args.statusText;
     this.code = args.code;
@@ -107,29 +101,164 @@ export class ApiError extends Error {
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    return null;
   const proto = Object.getPrototypeOf(value);
   if (proto !== Object.prototype && proto !== null) return null;
   return value as Record<string, unknown>;
 }
 
 function toNonEmptyString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      return toRecord(parsed);
+    } catch {
+      return null;
+    }
+  }
+  return toRecord(value);
+}
+
+function extractVariableKeyFromVariableId(variableId: string): string | null {
+  const normalized = String(variableId || "").trim();
+  if (!normalized) return null;
+
+  const match = normalized.match(/^VariableID:([^/]+)(?:\/.*)?$/);
+  if (match?.[1]) {
+    return match[1].trim() || null;
+  }
+
+  return null;
+}
+
+function normalizeUsageScopeSummary(value: unknown) {
+  const record = toRecord(value);
+  return {
+    page: Number(record?.page ?? 0) || 0,
+    localComponent: Number(record?.localComponent ?? 0) || 0,
+    nestedLocalComponent: Number(record?.nestedLocalComponent ?? 0) || 0,
+  };
+}
+
+function normalizeUsageScope(value: unknown): UsageScope {
+  return value === "local-component" || value === "nested-local-component" ? value : "page";
+}
+
+function normalizeUsageDetails(value: unknown): DsSyncRun['usageDetails'] {
+  const record = parseJsonRecord(value);
+  if (!record) return null;
+
+  const normalizeArray = (input: unknown): unknown[] => (
+    Array.isArray(input) ? input : []
+  );
+
+  return {
+    parentComponentUsages: normalizeArray(record.parentComponentUsages).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        localComponentKey: toNonEmptyString(item?.localComponentKey),
+        localComponentName: toNonEmptyString(item?.localComponentName),
+        parentComponentKey: toNonEmptyString(item?.parentComponentKey),
+        parentComponentName: toNonEmptyString(item?.parentComponentName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        usageCount: Number(item?.usageCount ?? 0) || 0,
+        sampleNodeIds: Array.isArray(item?.sampleNodeIds)
+          ? item.sampleNodeIds.map((nodeId) => toNonEmptyString(nodeId)).filter(Boolean)
+          : [],
+      };
+    }).filter((entry) => entry.parentComponentKey && entry.localComponentKey),
+    localComponentGraph: normalizeArray(record.localComponentGraph).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        parentComponentKey: toNonEmptyString(item?.parentComponentKey),
+        parentComponentName: toNonEmptyString(item?.parentComponentName),
+        childComponentKey: toNonEmptyString(item?.childComponentKey),
+        childComponentName: toNonEmptyString(item?.childComponentName),
+        usageCount: Number(item?.usageCount ?? 0) || 0,
+        sampleNodeIds: Array.isArray(item?.sampleNodeIds)
+          ? item.sampleNodeIds.map((nodeId) => toNonEmptyString(nodeId)).filter(Boolean)
+          : [],
+      };
+    }).filter((entry) => entry.parentComponentKey && entry.childComponentKey),
+    componentPropertyUsages: normalizeArray(record.componentPropertyUsages).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        nodeId: toNonEmptyString(item?.nodeId),
+        nodeName: toNonEmptyString(item?.nodeName),
+        componentKey: toNonEmptyString(item?.componentKey),
+        componentName: toNonEmptyString(item?.componentName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        localComponentKey: toNonEmptyString(item?.localComponentKey) || undefined,
+        localComponentName: toNonEmptyString(item?.localComponentName) || undefined,
+        properties: Array.isArray(item?.properties)
+          ? item.properties.map((property) => {
+              const prop = toRecord(property);
+              return {
+                name: toNonEmptyString(prop?.name),
+                value: toNonEmptyString(prop?.value),
+                valueType: toNonEmptyString(prop?.valueType) || "unknown",
+              };
+            }).filter((property) => property.name.length > 0)
+          : [],
+      };
+    }).filter((entry) => entry.nodeId && entry.componentKey),
+    tokenBindingDetails: normalizeArray(record.tokenBindingDetails).map((entry) => {
+      const item = toRecord(entry);
+      return {
+        nodeId: toNonEmptyString(item?.nodeId),
+        nodeName: toNonEmptyString(item?.nodeName),
+        usageScope: normalizeUsageScope(item?.usageScope),
+        localComponentKey: toNonEmptyString(item?.localComponentKey) || undefined,
+        localComponentName: toNonEmptyString(item?.localComponentName) || undefined,
+        bindings: Array.isArray(item?.bindings)
+          ? item.bindings.map((binding) => {
+              const normalizedBinding = toRecord(binding);
+            return {
+              field: toNonEmptyString(normalizedBinding?.field),
+              variableId: toNonEmptyString(normalizedBinding?.variableId),
+              variableKey:
+                normalizedBinding?.variableKey == null
+                  ? extractVariableKeyFromVariableId(toNonEmptyString(normalizedBinding?.variableId))
+                  : toNonEmptyString(normalizedBinding?.variableKey),
+              variableName: normalizedBinding?.variableName == null ? null : toNonEmptyString(normalizedBinding?.variableName),
+              variableType: normalizedBinding?.variableType == null ? null : toNonEmptyString(normalizedBinding?.variableType),
+              status: normalizedBinding?.status === 'resolved' ? ('resolved' as const) : ('unresolved' as const),
+                resolvedTokenPath: normalizedBinding?.resolvedTokenPath == null ? null : toNonEmptyString(normalizedBinding?.resolvedTokenPath),
+              };
+            }).filter((binding) => binding.field.length > 0 && binding.variableId.length > 0)
+          : [],
+      };
+    }).filter((entry) => entry.nodeId),
+    usageShape: {
+      components: normalizeUsageScopeSummary(record.usageShape && toRecord(record.usageShape)?.components),
+      tokens: normalizeUsageScopeSummary(record.usageShape && toRecord(record.usageShape)?.tokens),
+    },
+  };
 }
 
 async function buildApiError(response: Response): Promise<ApiError> {
-  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  const contentType = String(
+    response.headers.get('content-type') || '',
+  ).toLowerCase();
   let payload: unknown = null;
-  let bodyText = "";
+  let bodyText = '';
 
-  if (contentType.includes("application/json")) {
+  if (contentType.includes('application/json')) {
     try {
       payload = await response.json();
     } catch {
-      bodyText = await response.text().catch(() => "");
+      bodyText = await response.text().catch(() => '');
     }
   } else {
-    bodyText = await response.text().catch(() => "");
+    bodyText = await response.text().catch(() => '');
     if (bodyText.trim()) {
       try {
         payload = JSON.parse(bodyText);
@@ -143,15 +272,22 @@ async function buildApiError(response: Response): Promise<ApiError> {
   const structured = toRecord(envelope?.error);
   const structuredMessage = toNonEmptyString(structured?.userMessage);
   const topLevelMessage = toNonEmptyString(envelope?.message);
+  const topLevelDetails = toNonEmptyString(envelope?.details);
   const textMessage = bodyText.trim();
-  const fallbackMessage = `${response.status} ${response.statusText}`.trim() || "Request failed.";
-  const userMessage = structuredMessage || topLevelMessage || textMessage || fallbackMessage;
+  const fallbackMessage =
+    `${response.status} ${response.statusText}`.trim() || 'Request failed.';
+  const userMessage =
+    structuredMessage ||
+    topLevelMessage ||
+    topLevelDetails ||
+    textMessage ||
+    fallbackMessage;
 
   const structuredCode = toNonEmptyString(structured?.code);
   const code = (structuredCode || `http.${response.status}`) as ApiErrorCode;
 
   const recoverable =
-    typeof structured?.recoverable === "boolean"
+    typeof structured?.recoverable === 'boolean'
       ? structured.recoverable
       : response.status >= 500 || response.status === 429;
 
@@ -161,9 +297,7 @@ async function buildApiError(response: Response): Promise<ApiError> {
     null;
 
   const context =
-    toRecord(structured?.context) ||
-    toRecord(envelope?.context) ||
-    null;
+    toRecord(structured?.context) || toRecord(envelope?.context) || null;
 
   return new ApiError({
     status: response.status,
@@ -182,11 +316,11 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const extraHeaders = init?.headers
     ? Object.fromEntries(new Headers(init.headers).entries())
     : {};
-  const response = await fetch(url, {
+  const response = await fetch(`${getDashboardApiBaseUrl()}${url}`, {
     ...init,
     headers: {
-      Accept: "application/json",
-      ...(systemId ? { "x-ds-system": systemId } : {}),
+      Accept: 'application/json',
+      ...(systemId ? { 'x-ds-system': systemId } : {}),
       ...extraHeaders,
     },
   });
@@ -198,12 +332,17 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
   return getJson<T>(url, init);
 }
 
-export function fetchComponentRegistry() {
-  return getJson<ComponentRegistry>("/api/component-registry");
+export function fetchComponentCatalog(systemId?: string) {
+  return getJson<ComponentCatalog>('/api/component-catalog', {
+    headers: systemId ? { 'x-ds-system': systemId } : undefined,
+  });
 }
 
 export interface CreateDesignSystemPayload {
@@ -212,12 +351,13 @@ export interface CreateDesignSystemPayload {
   appName?: string;
   figmaFileId?: string;
   figmaApiToken?: string;
-  inputDir?: string;
-  outputDir?: string;
-  docsDir?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export interface CreateDesignSystemResponse {
@@ -227,7 +367,11 @@ export interface CreateDesignSystemResponse {
     name: string;
   };
   config: {
-    systems: Array<{ id: string; name: string }>;
+    systems: Array<{
+      id: string;
+      name: string;
+      databaseProvider?: DatabaseProvider;
+    }>;
     defaultSystem: string;
   };
 }
@@ -236,18 +380,46 @@ export interface DesignSystemConfigEntry {
   id: string;
   name: string;
   appName?: string;
+  databaseProvider?: DatabaseProvider;
   figmaFileId?: string;
   figmaApiToken?: string;
-  inputDir?: string;
-  outputDir?: string;
-  docsDir?: string;
   collections?: string[];
-  compileVariablesOnCapture?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export interface DesignSystemsConfigResponse {
   systems: DesignSystemConfigEntry[];
   defaultSystem: string;
+}
+
+export type DatabaseProvider = 'local' | 'supabase' | 'custom';
+
+export interface DatabaseConfig {
+  provider: DatabaseProvider;
+  databaseUrlMasked: string;
+  databaseUrlConfigured: boolean;
+  activeDatabaseUrlMasked: string;
+  activeProvider: DatabaseProvider;
+  envPath: string;
+  restartRequired: boolean;
+  saved?: boolean;
+  restartCommand?: string;
+}
+
+export interface DatabaseValidationResult {
+  ok: boolean;
+  provider: DatabaseProvider;
+  databaseUrlMasked: string;
+  database: string;
+  user: string;
+  serverVersion: string;
+  vectorExtensionInstalled: boolean;
+  preparedStatements: boolean;
+  ssl: boolean;
 }
 
 export interface MutateDesignSystemResponse {
@@ -257,9 +429,27 @@ export interface MutateDesignSystemResponse {
     name: string;
   };
   config: {
-    systems: Array<{ id: string; name: string }>;
+    systems: Array<{
+      id: string;
+      name: string;
+      databaseProvider?: DatabaseProvider;
+    }>;
     defaultSystem: string;
   };
+  deletedConsumersCount?: number;
+  deletedConsumerNames?: string[];
+  filesystemCleanupPending?: boolean;
+}
+
+export interface UpdateDesignSystemPayload {
+  name?: string;
+  appName?: string;
+  makeDefault?: boolean;
+  detectedComponentsCount?: number;
+  importedComponentsCount?: number;
+  pendingComponentsCount?: number;
+  importedComponentNames?: string[];
+  pendingComponentNames?: string[];
 }
 
 export function createDesignSystem(args: CreateDesignSystemPayload) {
@@ -270,276 +460,172 @@ export function createDesignSystem(args: CreateDesignSystemPayload) {
         ? normalizeEnvRef(args.figmaApiToken) || undefined
         : undefined,
   };
-  return getJson<CreateDesignSystemResponse>("/api/design-systems", {
-    method: "POST",
+  return getJson<CreateDesignSystemResponse>('/api/design-systems', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
 }
 
+/**
+ * Fetch all design systems config.
+ * NOTE: There is no single-system endpoint (GET /api/design-systems/:id).
+ * For per-system admin views, callers must filter the returned list by id.
+ * This avoids backend changes in the tabs migration iteration.
+ * Consider adding a dedicated single-system endpoint in a future iteration
+ * if performance or clarity demands it.
+ */
 export function fetchDesignSystemsConfig() {
-  return getJson<DesignSystemsConfigResponse>("/api/design-systems");
+  return getJson<DesignSystemsConfigResponse>('/api/design-systems');
 }
 
-export function updateDesignSystem(id: string, args: Partial<CreateDesignSystemPayload>) {
-  const payload = {
-    ...args,
-    figmaApiToken:
-      args.figmaApiToken !== undefined
-        ? normalizeEnvRef(args.figmaApiToken) || undefined
-        : undefined,
-  };
-  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
+export function fetchDatabaseConfig() {
+  return getJson<{ ok: boolean; config: DatabaseConfig }>(
+    '/api/database-config',
+  );
+}
+
+export function validateDatabaseConfig(args: {
+  provider: DatabaseProvider;
+  databaseUrl: string;
+}) {
+  return getJson<{ ok: boolean; result: DatabaseValidationResult }>(
+    '/api/database-config/validate',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(args),
     },
-    body: JSON.stringify(payload),
-  });
+  );
+}
+
+export function saveDatabaseConfig(args: {
+  provider: DatabaseProvider;
+  databaseUrl: string;
+}) {
+  return getJson<{ ok: boolean; config: DatabaseConfig }>(
+    '/api/database-config',
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(args),
+    },
+  );
+}
+
+export function updateDesignSystem(
+  id: string,
+  args: UpdateDesignSystemPayload,
+) {
+  const payload = { ...args };
+  return getJson<MutateDesignSystemResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function deleteDesignSystem(id: string) {
-  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  return getJson<MutateDesignSystemResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
+export interface DeletePreviewResponse {
+  ok: boolean;
+  data: {
+    system: {
+      id: string;
+      name: string;
+    };
+    consumers: Array<{
+      id: string;
+      name: string;
+      fileKey: string;
+      lastSyncedAt?: string;
+    }>;
+    totalConsumerCount: number;
+    counts: {
+      syncRuns: number;
+      componentUsage: number;
+      variableUsage: number;
+      parentVariableUsage: number;
+    };
+  };
+}
+
+export function fetchDeletePreview(id: string) {
+  return getJson<DeletePreviewResponse>(
+    `/api/design-systems/${encodeURIComponent(id)}/delete-preview`,
+  );
 }
 
 export function fetchComponentUsageIndex() {
-  return getJson<ComponentUsageIndex>("/api/component-usage-index");
+  return getJson<ComponentUsageIndex>('/api/component-usage-index');
 }
 
-export function fetchTokenRegistry() {
-  return getJson<TokenRegistry>("/api/token-registry");
+export function fetchTokenCatalog(systemId?: string) {
+  const normalizedSystemId = String(systemId || '').trim();
+  return getJson<TokenCatalog>('/api/token-catalog', {
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
+  });
 }
 
 export function fetchTokenCollectionTrees() {
-  return getJson<TokenCollectionTreeIndex>("/api/token-collection-trees");
+  return getJson<TokenCollectionTreeIndex>('/api/token-collection-trees');
 }
 
-export function fetchTokenUsageIndex() {
-  return getJson<TokenUsageIndex>("/api/token-usage-index");
-}
-
-export function fetchTokenGraph() {
-  return getJson<TokenGraphViz>("/api/token-graph");
-}
-
-export function fetchTokenGraphQuery(args: {
-  tokenPath: string;
-  direction?: TokenGraphQueryDirection;
-  depth?: number;
-}) {
-  const params = new URLSearchParams({ token: args.tokenPath });
-  if (args.direction) params.set("direction", args.direction);
-  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
-    params.set("depth", String(args.depth));
-  }
-  return getJson<TokenGraphQueryResult>(`/api/token-graph-query?${params.toString()}`);
-}
-
-export function fetchTokenHealth() {
-  return getJson<TokenHealthReport>("/api/token-health");
-}
-
-export function fetchNamingDebt(args?: { refresh?: boolean }) {
-  const params = new URLSearchParams();
-  if (args?.refresh) params.set("refresh", "true");
-  const suffix = params.size ? `?${params.toString()}` : "";
-  return getJson<NamingDebtReport>(`/api/naming-debt${suffix}`);
-}
-
-export function fetchComponentsHealth() {
-  return getJson<ComponentsHealthReport>("/api/components-health");
+export function fetchTokenUsageIndex(systemId?: string) {
+  const normalizedSystemId = String(systemId || '').trim();
+  return getJson<TokenUsageIndex>('/api/token-usage-index', {
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
+  });
 }
 
 export function fetchHealthHistory(args?: {
+  systemId?: string;
   range?: HealthHistoryRange;
   bucket?: HealthHistoryBucket;
 }) {
   const params = new URLSearchParams();
-  if (args?.range) params.set("range", args.range);
-  if (args?.bucket) params.set("bucket", args.bucket);
-  const suffix = params.size ? `?${params.toString()}` : "";
-  return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
-}
-
-export interface OperationHistoryEvent {
-  id: string;
-  timestamp: string;
-  eventType: string;
-  operation: string;
-  system: string;
-  status: string;
-  durationMs: number | null;
-  requestId: string | null;
-  jobId: string | null;
-  sourceEventId: string | null;
-  inputHash: string | null;
-  outputHash: string | null;
-  result: {
-    ok: boolean;
-    code: number | string | null;
-    summary: string | null;
-  };
-}
-
-export interface OperationsHistoryResponse {
-  ok: boolean;
-  events: OperationHistoryEvent[];
-  filters: {
-    systemId: string | null;
-    operation: string | null;
-    status: string | null;
-    from: string | null;
-    to: string | null;
-    limit: number;
-  };
-  summary: {
-    returned: number;
-    scannedRows: number;
-    scannedFiles: number;
-  };
-}
-
-export function fetchOperationsHistory(args?: {
-  systemId?: string;
-  operation?: string;
-  status?: string;
-  from?: string;
-  to?: string;
-  limit?: number;
-  all?: boolean;
-}) {
-  const params = new URLSearchParams();
-  if (args?.systemId) params.set("system", args.systemId);
-  if (args?.operation) params.set("operation", args.operation);
-  if (args?.status) params.set("status", args.status);
-  if (args?.from) params.set("from", args.from);
-  if (args?.to) params.set("to", args.to);
-  if (typeof args?.limit === "number" && Number.isFinite(args.limit)) {
-    params.set("limit", String(Math.max(1, Math.floor(args.limit))));
-  }
-  if (args?.all === true) params.set("all", "true");
-  const suffix = params.size ? `?${params.toString()}` : "";
-  return getJson<OperationsHistoryResponse>(`/api/operations/history${suffix}`);
-}
-
-export interface OperationRegressionSignal {
-  kind: "duration" | "failure_rate";
-  severity: "medium" | "high";
-  message: string;
-  metrics: Record<string, number | null>;
-}
-
-export interface OperationRegression {
-  operation: string;
-  system: string | null;
-  latestTimestamp: string | null;
-  latestStatus: string | null;
-  severity: "medium" | "high";
-  signals: OperationRegressionSignal[];
-  samples: {
-    total: number;
-    terminal: number;
-    recentDuration: number;
-    baselineDuration: number;
-    recentFailure: number;
-    baselineFailure: number;
-  };
-}
-
-export interface OperationsRegressionsResponse {
-  ok: boolean;
-  generatedAt: string;
-  regressions: OperationRegression[];
-  filters: {
-    systemId: string | null;
-    limit: number;
-    minSamples: number;
-  };
-  summary: {
-    operationsAnalyzed: number;
-    regressionsDetected: number;
-    scannedRows: number;
-    scannedFiles: number;
-  };
-}
-
-export function fetchOperationsRegressions(args?: {
-  systemId?: string;
-  limit?: number;
-  minSamples?: number;
-  all?: boolean;
-}) {
-  const params = new URLSearchParams();
-  if (args?.systemId) params.set("system", args.systemId);
-  if (typeof args?.limit === "number" && Number.isFinite(args.limit)) {
-    params.set("limit", String(Math.max(1, Math.floor(args.limit))));
-  }
-  if (typeof args?.minSamples === "number" && Number.isFinite(args.minSamples)) {
-    params.set("minSamples", String(Math.max(1, Math.floor(args.minSamples))));
-  }
-  if (args?.all === true) params.set("all", "true");
-  const suffix = params.size ? `?${params.toString()}` : "";
-  return getJson<OperationsRegressionsResponse>(`/api/operations/regressions${suffix}`);
-}
-
-export interface ReplayOperationResponse {
-  ok: boolean;
-  accepted: boolean;
-  jobId: string;
-  requestId: string | null;
-  status: string;
-  statusUrl: string;
-  streamUrl: string;
-  replay?: {
-    sourceEventId: string;
-    sourceOperation: string;
-    sourceSystem: string | null;
-    targetSystem: string;
-  };
-}
-
-export function replayOperationEvent(eventId: string, args?: { systemId?: string }) {
-  const payload = args?.systemId ? { systemId: args.systemId } : {};
-  return getJson<ReplayOperationResponse>(`/api/operations/replay/${encodeURIComponent(eventId)}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+  if (args?.range) params.set('range', args.range);
+  if (args?.bucket) params.set('bucket', args.bucket);
+  const suffix = params.size ? `?${params.toString()}` : '';
+  const normalizedSystemId = String(args?.systemId || '').trim();
+  return getJson<HealthHistoryReport>(`/api/health-history${suffix}`, {
+    headers: normalizedSystemId
+      ? { 'x-ds-system': normalizedSystemId }
+      : undefined,
   });
-}
-
-export function fetchTokenDiff(beforeRef: string) {
-  const params = new URLSearchParams({ beforeRef });
-  return getJson<TokenDiffReport>(`/api/token-diff?${params.toString()}`);
-}
-
-export function fetchImpact(args: {
-  tokenPath: string;
-  newValue?: string | null;
-  depth?: number;
-}) {
-  const params = new URLSearchParams({ tokenPath: args.tokenPath });
-  if (args.newValue) params.set("newValue", args.newValue);
-  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
-    params.set("depth", String(args.depth));
-  }
-  return getJson<ImpactReport>(`/api/impact?${params.toString()}`);
 }
 
 export interface ComponentSpecPayload {
   ok: boolean;
   slug: string;
-  path: string;
   exists: boolean;
-  raw: string;
-  rawHash: string | null;
-  parsed: unknown;
-  parseError?: string | null;
+  spec: unknown;
+  updatedAt: number | null;
+  savedKeys?: string[];
+  message?: string;
+  markdownSynced?: boolean;
 }
 
 export function fetchComponentSpec(slug: string) {
@@ -548,101 +634,58 @@ export function fetchComponentSpec(slug: string) {
   );
 }
 
-export function validateComponentSpecInput(args: { slug: string; raw: string }) {
-  return getJson<ComponentSpecValidateResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/validate`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ raw: args.raw }),
-    },
-  );
-}
-
-export function saveComponentSpec(args: {
-  slug: string;
-  raw: string;
-  expectedHash?: string | null;
-  refreshRegistry?: boolean;
-  confirmRiskyChanges?: boolean;
-}) {
-  return getJson<ComponentSpecSaveResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/save`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        raw: args.raw,
-        expectedHash: args.expectedHash ?? null,
-        refreshRegistry: args.refreshRegistry !== false,
-        confirmRiskyChanges: args.confirmRiskyChanges === true,
-      }),
-    },
-  );
-}
-
-export function restoreComponentSpecBackup(args: {
-  slug: string;
-  refreshRegistry?: boolean;
-}) {
-  return getJson<ComponentSpecRestoreResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/restore-backup`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        refreshRegistry: args.refreshRegistry !== false,
-      }),
-    },
-  );
-}
-
 export function patchEditorialSpec(args: {
   slug: string;
-  expectedHash?: string | null;
+  expectedUpdatedAt?: number | null;
   fields: Record<string, unknown>;
-}) {
+}): Promise<ComponentSpecPatchEditorialResponse> {
   const timeoutMs = 15_000;
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
 
-  return getJson<ComponentSpecPatchEditorialResponse>(
+  return getJson<ComponentSpecPayload>(
     `/api/component-spec/${encodeURIComponent(args.slug)}/editorial`,
     {
-      method: "PATCH",
+      method: 'PATCH',
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        expectedHash: args.expectedHash ?? null,
+        expectedUpdatedAt: args.expectedUpdatedAt ?? null,
         fields: args.fields,
       }),
     },
   )
+    .then((payload) => ({
+      ok: Boolean(payload.ok),
+      slug: payload.slug,
+      exists: Boolean(payload.exists),
+      updatedAt: payload.updatedAt,
+      savedKeys: Array.isArray(payload.savedKeys)
+        ? payload.savedKeys
+        : Object.keys(args.fields),
+      // DB-first flow no longer depends on markdown regeneration.
+      markdownSynced: payload.markdownSynced ?? true,
+      message: payload.message || 'Editorial fields saved successfully.',
+    }))
     .catch((error) => {
       const isAbortError =
-        (typeof DOMException !== "undefined" &&
+        (typeof DOMException !== 'undefined' &&
           error instanceof DOMException &&
-          error.name === "AbortError") ||
-        (error instanceof Error && error.name === "AbortError");
+          error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError');
       if (!isAbortError) throw error;
       throw new ApiError({
         status: 408,
-        statusText: "Request Timeout",
-        code: "http.408" as ApiErrorCode,
+        statusText: 'Request Timeout',
+        code: 'http.408' as ApiErrorCode,
         userMessage:
-          "Saving summary timed out. The API may be busy; retry in a few seconds.",
+          'Saving summary timed out. The API may be busy; retry in a few seconds.',
         recoverable: true,
         context: {
           timeoutMs,
-          endpoint: "/api/component-spec/:slug/editorial",
+          endpoint: '/api/component-spec/:slug/editorial',
         },
       });
     })
@@ -652,8 +695,12 @@ export function patchEditorialSpec(args: {
 }
 
 const DEFAULT_QUEUE_POLL_INTERVAL_MS = 900;
+// Initial poll delay — ramps up to DEFAULT_QUEUE_POLL_INTERVAL_MS via doubling.
+// Keeps latency low for fast jobs (apply+sync, tokens step) without hammering
+// the server during long ones.
+const MIN_QUEUE_POLL_INTERVAL_MS = 200;
 const DEFAULT_QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
-const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = "script.missing_npm_script";
+const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = 'script.missing_npm_script';
 
 type QueuedRefreshAcceptedPayload = {
   ok?: boolean;
@@ -662,6 +709,26 @@ type QueuedRefreshAcceptedPayload = {
   output?: string;
   stderr?: string;
 };
+
+export interface QueueJobResponse {
+  ok: boolean;
+  job: {
+    id: string;
+    label?: string;
+    operation?: string;
+    status: string;
+    createdAt?: string;
+    startedAt?: string;
+    finishedAt?: string;
+    systemId?: string;
+    requestId?: string | null;
+    sourceEventId?: string | null;
+    result?: Record<string, unknown> | null;
+  };
+  done: boolean;
+  events: Array<Record<string, unknown>>;
+  nextCursor: number;
+}
 
 type QueueWaitOptions = {
   timeoutMs?: number;
@@ -672,18 +739,29 @@ type QueueWaitOptions = {
 function isLowSignalQueueSummary(rawValue: unknown): boolean {
   const value = toNonEmptyString(rawValue).toLowerCase();
   if (!value) return true;
-  if (value === "unknown error." || value === "unknown queue error.") return true;
+  if (value === 'unknown error.' || value === 'unknown queue error.')
+    return true;
   if (/^failed with code \d+$/i.test(value)) return true;
-  if (/^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(value)) return true;
+  if (
+    /^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(
+      value,
+    )
+  )
+    return true;
   return false;
 }
 
-function pickQueueFailureSummary(candidates: unknown[], fallback: string): string {
+function pickQueueFailureSummary(
+  candidates: unknown[],
+  fallback: string,
+): string {
   const normalized = candidates
     .map((candidate) => toNonEmptyString(candidate))
     .filter(Boolean);
   if (normalized.length === 0) return fallback;
-  const highSignal = normalized.find((candidate) => !isLowSignalQueueSummary(candidate));
+  const highSignal = normalized.find(
+    (candidate) => !isLowSignalQueueSummary(candidate),
+  );
   return highSignal || normalized[0] || fallback;
 }
 
@@ -696,35 +774,38 @@ function findQueuePayloadFailureSummary(
   const result = toRecord(job?.result);
   const resultPayload = toRecord(result?.payload);
   const sync = toRecord(resultPayload?.sync);
-  const registryRefresh = toRecord(resultPayload?.registry_refresh);
   const figmaError = toRecord(resultPayload?.figma_error);
   const figmaErrorMessage = toNonEmptyString(figmaError?.message);
   const figmaErrorStatus =
-    typeof figmaError?.status === "number"
+    typeof figmaError?.status === 'number'
       ? String(figmaError.status)
       : toNonEmptyString(figmaError?.status);
   const figmaErrorEndpoint = toNonEmptyString(figmaError?.endpoint);
   const figmaErrorSummary =
     figmaErrorMessage ||
-    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : "") ||
-    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : "");
-  const pipelinePhase = toNonEmptyString(resultPayload?.pipeline_phase).toLowerCase();
-  const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
+    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : '') ||
+    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : '');
+  const pipelinePhase = toNonEmptyString(
+    resultPayload?.pipeline_phase,
+  ).toLowerCase();
+  const failed = Array.isArray(resultPayload?.failed)
+    ? resultPayload.failed
+    : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(payload.events) ? payload.events : [];
 
-  let lastErrorEventMessage = "";
+  let lastErrorEventMessage = '';
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = toRecord(events[index]);
     if (!event) continue;
     const eventType = toNonEmptyString(event.type).toLowerCase();
-    if (eventType === "error") {
+    if (eventType === 'error') {
       lastErrorEventMessage = toNonEmptyString(event.message);
       if (lastErrorEventMessage) break;
     }
-    if (eventType === "end") {
+    if (eventType === 'end') {
       const endStatus = toNonEmptyString(event.status).toLowerCase();
-      if (endStatus === "error" || endStatus === "cancelled") {
+      if (endStatus === 'error' || endStatus === 'cancelled') {
         lastErrorEventMessage = toNonEmptyString(event.summary);
         if (lastErrorEventMessage) break;
       }
@@ -734,7 +815,7 @@ function findQueuePayloadFailureSummary(
   return pickQueueFailureSummary(
     [
       figmaErrorSummary,
-      pipelinePhase ? `Failed during '${pipelinePhase}' phase.` : "",
+      pipelinePhase ? `Failed during '${pipelinePhase}' phase.` : '',
       resultPayload?.error,
       resultPayload?.message,
       resultPayload?.stderr,
@@ -742,7 +823,6 @@ function findQueuePayloadFailureSummary(
       sync?.error,
       sync?.reason,
       sync?.stderr,
-      registryRefresh?.stderr,
       lastErrorEventMessage,
       result?.summary,
     ],
@@ -761,7 +841,7 @@ function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   const statusUrl = toNonEmptyString(payload.statusUrl);
   if (statusUrl) return statusUrl;
   if (jobId) return `/api/jobs/${encodeURIComponent(jobId)}`;
-  return "";
+  return '';
 }
 
 function hasQueuePayloadErrorCode(error: ApiError, code: string): boolean {
@@ -777,21 +857,41 @@ export interface CancelQueueJobResult {
   job?: Record<string, unknown>;
 }
 
-export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobResult> {
+export async function cancelQueueJob(
+  jobId: string,
+): Promise<CancelQueueJobResult> {
   const trimmedJobId = toNonEmptyString(jobId);
   if (!trimmedJobId) {
     throw new ApiError({
       status: 400,
-      statusText: "Bad Request",
-      code: "validation.missing_required_fields" as ApiErrorCode,
-      userMessage: "Job id is required to cancel a queued operation.",
+      statusText: 'Bad Request',
+      code: 'validation.missing_required_fields' as ApiErrorCode,
+      userMessage: 'Job id is required to cancel a queued operation.',
       recoverable: true,
-      context: { field: "jobId" },
+      context: { field: 'jobId' },
     });
   }
-  return requestJson<CancelQueueJobResult>(`/api/jobs/${encodeURIComponent(trimmedJobId)}`, {
-    method: "DELETE",
-  });
+  return requestJson<CancelQueueJobResult>(
+    `/api/jobs/${encodeURIComponent(trimmedJobId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}
+
+export async function getQueueJob(jobId: string): Promise<QueueJobResponse> {
+  const trimmedJobId = toNonEmptyString(jobId);
+  if (!trimmedJobId) {
+    throw new ApiError({
+      status: 400,
+      statusText: 'Bad Request',
+      code: 'validation.missing_required_fields' as ApiErrorCode,
+      userMessage: 'Job id is required to load a queued operation.',
+      recoverable: true,
+      context: { field: 'jobId' },
+    });
+  }
+  return requestJson<QueueJobResponse>(`/api/jobs/${encodeURIComponent(trimmedJobId)}`);
 }
 
 async function waitForQueuedJob(
@@ -808,9 +908,13 @@ async function waitForQueuedJob(
   );
   let cursor = 0;
   const deadline = Date.now() + timeoutMs;
+  // Adaptive backoff: start fast, double each poll, cap at pollIntervalMs.
+  // Minimises detected-completion latency for short jobs (apply+sync, tokens)
+  // while staying cheap for long-running ones.
+  let currentPollIntervalMs = Math.min(MIN_QUEUE_POLL_INTERVAL_MS, pollIntervalMs);
 
   while (Date.now() < deadline) {
-    const separator = statusUrl.includes("?") ? "&" : "?";
+    const separator = statusUrl.includes('?') ? '&' : '?';
     let payload: Record<string, unknown>;
     try {
       payload = await requestJson<Record<string, unknown>>(
@@ -823,8 +927,9 @@ async function waitForQueuedJob(
         (error.status >= 500 || error.status === 429)
       ) {
         await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, pollIntervalMs);
+          window.setTimeout(resolve, currentPollIntervalMs);
         });
+        currentPollIntervalMs = Math.min(currentPollIntervalMs * 2, pollIntervalMs);
         continue;
       }
       throw error;
@@ -843,13 +948,13 @@ async function waitForQueuedJob(
 
     const job = toRecord(payload.job);
     const status = toNonEmptyString(job?.status).toLowerCase();
-    if (status === "success") return payload;
-    if (status === "error" || status === "cancelled") {
+    if (status === 'success') return payload;
+    if (status === 'error' || status === 'cancelled') {
       const summary = findQueuePayloadFailureSummary(payload, status);
       throw new ApiError({
         status: 409,
-        statusText: "Conflict",
-        code: "queue.job_failed_or_cancelled" as ApiErrorCode,
+        statusText: 'Conflict',
+        code: 'queue.job_failed_or_cancelled' as ApiErrorCode,
         userMessage: summary,
         recoverable: true,
         context: {
@@ -862,15 +967,16 @@ async function waitForQueuedJob(
     }
 
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, pollIntervalMs);
+      window.setTimeout(resolve, currentPollIntervalMs);
     });
+    currentPollIntervalMs = Math.min(currentPollIntervalMs * 2, pollIntervalMs);
   }
 
   throw new ApiError({
     status: 408,
-    statusText: "Request Timeout",
-    code: "queue.stream_timeout" as ApiErrorCode,
-    userMessage: "Timeout waiting for queued operation.",
+    statusText: 'Request Timeout',
+    code: 'queue.stream_timeout' as ApiErrorCode,
+    userMessage: 'Timeout waiting for queued operation.',
     recoverable: true,
     context: {
       statusUrl,
@@ -879,14 +985,30 @@ async function waitForQueuedJob(
   });
 }
 
+function extractLatestQueueChunkMessage(events: unknown[]): string | undefined {
+  const chunks = events
+    .map((event) => toRecord(event))
+    .filter((event): event is Record<string, unknown> => Boolean(event))
+    .filter((event) => toNonEmptyString(event.type) === 'chunk');
+  for (let index = chunks.length - 1; index >= 0; index -= 1) {
+    const text = String(chunks[index].text || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop();
+    if (text) return text;
+  }
+  return undefined;
+}
+
 async function runQueuedRefresh(
   endpoint: string,
   options: QueueWaitOptions = {},
-  init?: Omit<RequestInit, "method">,
+  init?: Omit<RequestInit, 'method'>,
 ) {
   const accepted = await getJson<QueuedRefreshAcceptedPayload>(endpoint, {
     ...(init || {}),
-    method: "POST",
+    method: 'POST',
   });
 
   const statusUrl = toQueuedStatusUrl(accepted);
@@ -918,73 +1040,8 @@ async function runQueuedRefresh(
   };
 }
 
-export async function refreshRegistry(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-registry", options);
-}
-
 export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-usage-index", options);
-}
-
-export async function refreshTokenGraph(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-graph", options);
-}
-
-export async function refreshTokenHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-token-health", options);
-}
-
-export async function refreshComponentsHealth(options?: QueueWaitOptions) {
-  return runQueuedRefresh("/api/refresh-components-health", options);
-}
-
-export async function regenerateComponentMarkdown(
-  args: { slug: string; specFile?: string | null },
-  options?: QueueWaitOptions,
-) {
-  const endpoint = "/api/run/ds:component-doc";
-  const requestInit = {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      component: args.slug,
-      componentName: args.slug,
-      componentSlug: args.slug,
-      specFile: args.specFile ?? null,
-      spec_file: args.specFile ?? null,
-    }),
-  } as const;
-
-  try {
-    return await runQueuedRefresh(endpoint, options, requestInit);
-  } catch (error) {
-    const argsRequiredError =
-      error instanceof ApiError &&
-      error.code === API_ERROR_CODES.VALIDATION_COMPONENT_DOC_ARGS_REQUIRED;
-    const missingScriptError =
-      error instanceof ApiError &&
-      error.code === API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED &&
-      hasQueuePayloadErrorCode(error, QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT);
-    if (!argsRequiredError && !missingScriptError) {
-      throw error;
-    }
-    const pipelineEndpoint = "/api/run/ds:pipeline";
-    return runQueuedRefresh(
-      pipelineEndpoint,
-      options,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          component: args.slug,
-          onlyStep: "markdown",
-          fromStep: "markdown",
-        }),
-      },
-    );
-  }
+  return runQueuedRefresh('/api/refresh-token-usage-index', options);
 }
 
 export function restartApiServer() {
@@ -994,65 +1051,25 @@ export function restartApiServer() {
     restartCommand?: string;
     message?: string;
     requestId?: string;
-  }>("/api/admin/restart-api", {
-    method: "POST",
+  }>('/api/admin/restart-api', {
+    method: 'POST',
   });
-}
-
-export async function refreshNamingDebt() {
-  return getJson<{
-    ok: boolean;
-    generatedAt: string;
-    totalViolations: number;
-    overallScore: number;
-  }>("/api/refresh-naming-debt", { method: "POST" });
-}
-
-export async function captureHealthSnapshot(args?: {
-  beforeRef?: string;
-  retentionDays?: number;
-  skipDiff?: boolean;
-}) {
-  return getJson<CaptureHealthSnapshotResult>("/api/capture-health-snapshot", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(args || {}),
-  });
-}
-
-export interface FilePayload {
-  ok: boolean;
-  file: string;
-  truncated?: boolean;
-  content: string;
-}
-
-export interface FileSnippetPayload {
-  ok: boolean;
-  file: string;
-  line: number;
-  startLine: number;
-  endLine: number;
-  matchedBy: "line" | "query";
-  snippet: string;
 }
 
 export interface CaptureFigmaScreenshotArgs {
   figmaUrl: string;
   figmaToken?: string;
+  tokensSource?: 'auto' | 'mcp' | 'rest';
   componentSlug?: string;
   includeVariants?: boolean;
   variantLimit?: number;
   requireExistingDoc?: boolean;
   continueOnError?: boolean;
-  refreshIndices?: boolean;
   dryRun?: boolean;
   scale?: number;
   format?: string;
-  mainCaptureMode?: "auto" | "agent" | "rest";
-  componentKind?: "component_set" | "component" | "all";
+  mainCaptureMode?: 'auto' | 'agent' | 'rest';
+  componentKind?: 'component_set' | 'component' | 'all';
   injectDocSpecs?: boolean;
 }
 
@@ -1060,20 +1077,11 @@ export interface TokensBootstrapResult {
   attempted?: boolean;
   created?: boolean;
   reason?: string;
-  files_written?: number;
   collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
   error?: string;
-}
-
-export interface TokensCompileResult {
-  attempted?: boolean;
-  compiled?: boolean;
-  reason?: string;
-  stderr?: string;
-  output?: string;
 }
 
 export interface CaptureFigmaErrorDetail {
@@ -1113,7 +1121,7 @@ export interface CaptureFigmaScreenshotResult {
     node_id: string;
     kind?: string;
     page_name?: string | null;
-    markdown_path: string;
+    doc_path: string;
     spec_path?: string;
     spec_exists?: boolean;
     figma_url?: string;
@@ -1121,7 +1129,7 @@ export interface CaptureFigmaScreenshotResult {
   captured?: Array<{
     slug: string;
     node_id: string;
-    markdown_path: string;
+    doc_path: string;
     proof_file_path?: string | null;
     screenshot_url?: string | null;
     local_image_path?: string | null;
@@ -1130,18 +1138,11 @@ export interface CaptureFigmaScreenshotResult {
   failed?: Array<{
     slug: string;
     node_id: string;
-    markdown_path: string;
+    doc_path: string;
     error: string;
   }>;
   skipped?: Array<Record<string, unknown>>;
-  indices_refreshed?: boolean;
-  registry_refresh?: {
-    ok?: boolean;
-    output?: string;
-    stderr?: string;
-  };
   tokens_bootstrap?: TokensBootstrapResult;
-  tokens_compile?: TokensCompileResult;
   figma_error?: CaptureFigmaErrorDetail;
   error?: string;
   message?: string;
@@ -1150,7 +1151,7 @@ export interface CaptureFigmaScreenshotResult {
 
 export interface CaptureFigmaProgress {
   jobId?: string;
-  status: "queued" | "running" | "success" | "error" | "cancelled";
+  status: 'queued' | 'running' | 'success' | 'error' | 'cancelled';
   completed: number;
   total: number;
   remaining: number;
@@ -1158,27 +1159,91 @@ export interface CaptureFigmaProgress {
   message?: string;
 }
 
-export interface FigmaPingResult {
-  ok: boolean;
-  /** Resolved file name from Figma (on success). */
-  fileName?: string;
-  /** Extracted file key (on success or partial failure). */
+export interface SyncFigmaTokensArgs {
+  url?: string;
   fileKey?: string;
-  /** Machine-readable error code (on failure). */
-  code?: string;
-  /** Human-readable error message (on failure). */
-  message?: string;
+  figmaToken?: string;
+  tokensSource?: 'mcp';
+  includeComponents?: boolean;
+  dryRun?: boolean;
+  selectedComponentNodeIds?: string[];
+  /** When true, import fails if any imported component lacks a main screenshot. */
+  requireComponentProofs?: boolean;
+  /** When true, import fails if any component with variants lacks variant screenshots. */
+  requireVariantProofsWhenPresent?: boolean;
 }
 
-export async function pingFigmaFile(args: {
+export interface SyncFigmaTokensResult {
+  ok: boolean;
+  jobId?: string;
+  tokens: number;
+  tokenModeValues: number;
+  aliases: number;
+  components: number;
+  componentsTruncated: boolean;
+  usageRestored: number;
+  usageDropped: number;
+  dryRun: boolean;
+  importMode?: 'full' | 'partial';
+  selectedCount?: number;
+  notSelectedCount?: number;
+}
+
+export interface SyncDesignSystemStepResult {
+  jobId?: string;
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  summary: string;
+  warnings: string[];
+  counts: Record<string, number>;
+  raw?: Record<string, unknown>;
+  _debug?: {
+    fileVersion?: string;
+    durationMs?: number;
+    cacheHit?: boolean;
+  };
+}
+
+export interface SyncDesignSystemResult {
+  ok: boolean;
+  jobId?: string;
+  enrichmentJobId?: string;
+  status: 'completed' | 'completed_with_warnings' | 'failed';
+  steps: {
+    components: SyncDesignSystemStepResult;
+    variables: SyncDesignSystemStepResult;
+  };
+  warnings: string[];
+}
+
+export interface ScanComponentsArgs {
   figmaUrl: string;
-  figmaToken: string;
-}): Promise<FigmaPingResult> {
-  return requestJson<FigmaPingResult>("/api/figma-ping", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(args),
-  });
+  figmaToken?: string;
+  /** Page size (1..1000, default 500). */
+  limit?: number;
+  /** Page start index (default 0). */
+  offset?: number;
+  /** Optional session id to scope plugin-side pagination cache to a single scan flow. */
+  scanSessionId?: string;
+}
+
+export interface ScanComponentEntry {
+  nodeId: string;
+  name: string;
+  pageName: string;
+}
+
+export interface ScanComponentsResult {
+  components: ScanComponentEntry[];
+  truncated: boolean;
+  limit: number;
+  /** Total components matching filters before applying limit. */
+  total: number;
+  /** True when total is a lower-bound estimate due to guardrail. */
+  totalIsEstimated: boolean;
+  /** True when more results exist beyond this page. */
+  hasMore: boolean;
+  /** Offset for the next page, or null when no more pages. */
+  nextOffset: number | null;
 }
 
 export interface FigmaMcpPingResult {
@@ -1190,9 +1255,8 @@ export interface FigmaMcpPingResult {
   variablesDetected?: number;
   /** True if the plugin connected successfully at any point this session. */
   everConnected?: boolean;
-  /** 
+  /**
    * Diagnostic details for disconnection (additive field for better UX).
-   * Preserves backward compatibility - existing consumers ignore this field.
    */
   details?: {
     /** Reason for disconnection: no_plugin_session | reachable_but_no_session */
@@ -1252,7 +1316,7 @@ export interface FigmaMcpDesignContextCompactResponse {
   component?: {
     nodeId: string;
     name: string;
-    type: "COMPONENT" | "COMPONENT_SET";
+    type: 'COMPONENT' | 'COMPONENT_SET';
     description: string | null;
     props: Array<{ name: string; type: string }>;
     states: string[];
@@ -1280,11 +1344,16 @@ export interface FigmaMcpDesignContextCompactResponse {
   warnings?: string[];
 }
 
-
 interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
   ok?: boolean;
   tools?: string[];
   toolsDiscoveryError?: string;
+  transport?: {
+    mode?: 'direct' | 'ws' | 'none';
+    wsAlive?: boolean;
+    heartbeatAlive?: boolean;
+    livenessSource?: 'ws' | 'legacy' | 'hybrid' | 'none';
+  };
   mcp?: {
     connected?: boolean;
     code?: string;
@@ -1298,13 +1367,108 @@ async function fetchFigmaMcpCapabilities(
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await requestJson<FigmaMcpCapabilitiesResponse>("/api/figma-mcp/capabilities", {
-      method: "GET",
-      signal: controller.signal,
-    });
+    return await requestJson<FigmaMcpCapabilitiesResponse>(
+      '/api/figma-mcp/capabilities',
+      {
+        method: 'GET',
+        signal: controller.signal,
+      },
+    );
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
+}
+
+function isMcpCapabilitiesPayload(value: unknown): value is McpConnectionPayload {
+  const record = value as {
+    ok?: unknown;
+    mcp?: {
+      connected?: unknown;
+      code?: unknown;
+      message?: unknown;
+      currentPort?: unknown;
+      portFallbackUsed?: unknown;
+      activePort?: unknown;
+    } | null;
+  } | null;
+
+  if (record?.ok === true && record.mcp) {
+    return (
+      typeof record.mcp.connected === 'boolean' &&
+      typeof record.mcp.code === 'string' &&
+      typeof record.mcp.message === 'string' &&
+      Number.isFinite(Number(record.mcp.currentPort)) &&
+      typeof record.mcp.portFallbackUsed === 'boolean' &&
+      Number.isFinite(Number(record.mcp.activePort))
+    );
+  }
+
+  if (record?.ok === false) {
+    return (
+      typeof (record as { code?: unknown }).code === 'string' &&
+      typeof (record as { message?: unknown }).message === 'string'
+    );
+  }
+
+  return false;
+}
+
+export async function getFigmaMcpCapabilities(
+  timeoutMs: number = 10_000,
+): Promise<McpConnectionPayload> {
+  try {
+    const payload = await fetchFigmaMcpCapabilities(timeoutMs);
+    if (isMcpCapabilitiesPayload(payload)) {
+      return payload;
+    }
+    return {
+      ok: false,
+      code: 'capabilities.invalid_response',
+      message:
+        'Dashboard API is reachable, but /api/figma-mcp/capabilities returned an invalid response.',
+    } satisfies McpErrorLike;
+  } catch (error) {
+    if (
+      (error instanceof ApiError && error.status === 408) ||
+      isTimeoutLikeError(error)
+    ) {
+      return {
+        ok: false,
+        code: 'capabilities.timeout',
+        message: 'MCP status request timed out.',
+      } satisfies McpErrorLike;
+    }
+    return {
+      ok: false,
+      code: 'capabilities.fetch_failed',
+      message:
+        error instanceof Error ? error.message : 'Failed to fetch capabilities',
+    } satisfies McpErrorLike;
+  }
+}
+
+interface McpTransportSignals {
+  mode: 'direct' | 'ws' | 'none';
+  wsAlive: boolean;
+  heartbeatAlive: boolean;
+}
+
+function getMcpTransportSignals(
+  payload: FigmaMcpCapabilitiesResponse,
+): McpTransportSignals {
+  return {
+    mode: payload.transport?.mode ?? 'none',
+    wsAlive: payload.transport?.wsAlive === true,
+    heartbeatAlive: payload.transport?.heartbeatAlive === true,
+  };
+}
+
+function isDirectTransportSessionUnavailable(
+  signals: McpTransportSignals,
+): boolean {
+  return (
+    signals.mode === 'direct' && !signals.wsAlive && signals.heartbeatAlive
+  );
 }
 
 /**
@@ -1315,6 +1479,11 @@ async function fetchFigmaMcpCapabilities(
 function classifyPingDisconnectionReason(
   payload: FigmaMcpCapabilitiesResponse,
 ): 'no_plugin_session' | 'reachable_but_no_session' {
+  const signals = getMcpTransportSignals(payload);
+  if (isDirectTransportSessionUnavailable(signals)) {
+    return 'reachable_but_no_session';
+  }
+
   // Use mcp.code for accurate classification (payload.ok is always true for /capabilities)
   const mcpCode = payload.mcp?.code;
 
@@ -1336,13 +1505,19 @@ function toMcpPingResultFromCapabilities(
   payload: FigmaMcpCapabilitiesResponse,
 ): FigmaMcpPingResult {
   const normalized = normalizeMcpCapabilities(payload);
-  const connected = payload.mcp?.connected === true;
+  const signals = getMcpTransportSignals(payload);
+  // In direct mode, a live WebSocket session is required for file-scoped operations
+  // like component scan/spec. Heartbeat-only fallback should not be treated as connected.
+  const connected =
+    signals.mode === 'direct'
+      ? signals.wsAlive
+      : payload.mcp?.connected === true;
   if (connected) {
     return {
       ok: true,
       connected: true,
-      code: "mcp.connected",
-      message: "MCP Management connection is active.",
+      code: 'mcp.connected',
+      message: 'DS Graph connection is active.',
     };
   }
 
@@ -1352,21 +1527,22 @@ function toMcpPingResultFromCapabilities(
   return {
     ok: false,
     connected: false,
-    code: "mcp.not_connected",
+    code: 'mcp.not_connected',
     message:
-      payload.mcp?.message ||
+      (isDirectTransportSessionUnavailable(signals)
+        ? 'Plugin heartbeat is active, but transport is not connected yet.'
+        : payload.mcp?.message) ||
       (normalized.hasVariablesData
-        ? "MCP Management is reachable, but no active plugin session was found."
-        : "No MCP Management plugin session is active. Open the Figma plugin and retry."),
+        ? 'DS Graph is reachable, but no active plugin session was found.'
+        : 'No DS Graph plugin session is active. Open the Figma plugin and retry.'),
     details: { reason },
   };
 }
 
-
 /**
- * Ping MCP Management to check connectivity.
+ * Ping DS Graph to check connectivity.
  * Note: figmaUrl/figmaToken args are deprecated in direct-only mode.
- * @deprecated Use direct capabilities endpoint instead. This function is maintained for backward compatibility.
+ * @deprecated Use direct capabilities endpoint instead.
  */
 export async function pingFigmaMcp(
   _args?: {
@@ -1387,37 +1563,107 @@ export async function pingFigmaMcp(
     .then((payload) => toMcpPingResultFromCapabilities(payload))
     .catch((error) => {
       const isAbortError =
-        (typeof DOMException !== "undefined" &&
+        (typeof DOMException !== 'undefined' &&
           error instanceof DOMException &&
-          error.name === "AbortError") ||
-        (error instanceof Error && error.name === "AbortError");
+          error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError');
       if (!isAbortError) throw error;
       throw new ApiError({
         status: 408,
-        statusText: "Request Timeout",
-        code: "http.408" as ApiErrorCode,
+        statusText: 'Request Timeout',
+        code: 'http.408' as ApiErrorCode,
         userMessage:
-          "MCP Management connectivity test timed out. Check that the Figma plugin is open and retry.",
+          'DS Graph connectivity test timed out. Check that the Figma plugin is open and retry.',
         recoverable: true,
         context: {
           timeoutMs,
-          endpoint: "/api/figma-mcp/capabilities",
+          endpoint: '/api/figma-mcp/capabilities',
         },
       });
     });
 }
 
 export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
-  return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
-    method: "GET",
+  return requestJson<FigmaMcpHeartbeatResult>('/api/figma-mcp/heartbeat', {
+    method: 'GET',
   });
 }
 
+export async function scanFigmaComponents(
+  args: ScanComponentsArgs,
+): Promise<ScanComponentsResult> {
+  const rawLimit = Number(args.limit ?? 500);
+  const requestedLimit = Number.isFinite(rawLimit)
+    ? Math.max(1, Math.min(Math.floor(rawLimit), 1000))
+    : 500;
+  const rawOffset = Number(args.offset ?? 0);
+  const offset = Number.isFinite(rawOffset)
+    ? Math.max(0, Math.floor(rawOffset))
+    : 0;
+  const payload = await requestJson<Record<string, unknown>>(
+    '/api/figma-mcp/search-components',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        figmaUrl: args.figmaUrl,
+        figmaToken: args.figmaToken,
+        limit: requestedLimit,
+        offset,
+        scanSessionId: args.scanSessionId,
+        compact: true,
+        includeVariants: false,
+      }),
+    },
+  );
+
+  const ok = payload.success === true || payload.ok === true;
+  if (!ok) {
+    const code = toNonEmptyString(payload.code);
+    const msg =
+      toNonEmptyString(payload.message) ||
+      toNonEmptyString(payload.error) ||
+      'Component scan failed';
+    throw new Error(code ? `[${code}] ${msg}` : msg);
+  }
+
+  const components: ScanComponentEntry[] = Array.isArray(payload.components)
+    ? payload.components
+        .filter(
+          (value): value is Record<string, unknown> =>
+            value !== null &&
+            typeof value === 'object' &&
+            typeof (value as Record<string, unknown>).nodeId === 'string',
+        )
+        .map((entry) => ({
+          nodeId: toNonEmptyString(entry.nodeId),
+          name: toNonEmptyString(entry.name) || 'Unnamed',
+          pageName: toNonEmptyString(entry.pageName) || 'Unknown',
+        }))
+        .filter((entry) => entry.nodeId.length > 0)
+    : [];
+
+  const rawNextOffset = Number(payload.nextOffset);
+  const nextOffset = Number.isFinite(rawNextOffset)
+    ? Math.max(0, Math.floor(rawNextOffset))
+    : null;
+
+  return {
+    components,
+    truncated: payload.truncated === true,
+    limit: Number(payload.limit) || requestedLimit,
+    total: Number(payload.total) || Number(payload.count) || components.length,
+    totalIsEstimated: payload.totalIsEstimated === true,
+    hasMore: payload.hasMore === true,
+    nextOffset,
+  };
+}
+
 export async function reconnectFigmaMcp(): Promise<FigmaMcpReconnectResult> {
-  return requestJson<FigmaMcpReconnectResult>("/api/figma-mcp/reconnect", {
-    method: "POST",
+  return requestJson<FigmaMcpReconnectResult>('/api/figma-mcp/reconnect', {
+    method: 'POST',
     headers: {
-      "x-ds-mcp-reconcile-confirm": "true",
+      'x-ds-mcp-reconcile-confirm': 'true',
     },
   });
 }
@@ -1436,11 +1682,11 @@ export async function getFigmaMcpDesignContextCompact(
   const fileUrl = toNonEmptyString(args?.fileUrl);
   const nodeId = toNonEmptyString(args?.nodeId);
   const modeId = toNonEmptyString(args?.modeId);
-  if (fileUrl) params.set("fileUrl", fileUrl);
-  if (nodeId) params.set("nodeId", nodeId);
-  if (modeId) params.set("modeId", modeId);
+  if (fileUrl) params.set('fileUrl', fileUrl);
+  if (nodeId) params.set('nodeId', nodeId);
+  if (modeId) params.set('modeId', modeId);
 
-  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const query = params.size > 0 ? `?${params.toString()}` : '';
   const timeoutMsRaw = Number(options?.timeoutMs);
   const timeoutMs =
     Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0
@@ -1454,7 +1700,7 @@ export async function getFigmaMcpDesignContextCompact(
     return await requestJson<FigmaMcpDesignContextCompactResponse>(
       `/api/figma-mcp/design-context-compact${query}`,
       {
-        method: "GET",
+        method: 'GET',
         signal: controller.signal,
       },
     );
@@ -1477,7 +1723,9 @@ function toProgressInt(value: unknown): number {
   return Math.floor(parsed);
 }
 
-function parseCaptureProgressSnapshot(raw: unknown): CaptureProgressSnapshot | null {
+function parseCaptureProgressSnapshot(
+  raw: unknown,
+): CaptureProgressSnapshot | null {
   const value = toRecord(raw);
   if (!value) return null;
   return {
@@ -1502,14 +1750,14 @@ function parseCaptureProgressChunks(args: {
 
   for (const rawEvent of events) {
     const event = toRecord(rawEvent);
-    if (!event || toNonEmptyString(event.type) !== "chunk") continue;
-    const text = typeof event.text === "string" ? event.text : "";
+    if (!event || toNonEmptyString(event.type) !== 'chunk') continue;
+    const text = typeof event.text === 'string' ? event.text : '';
     if (!text) continue;
     buffer += text;
     const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() ?? "";
+    buffer = lines.pop() ?? '';
     for (const line of lines) {
-      const marker = "[capture-progress]";
+      const marker = '[capture-progress]';
       const markerIndex = line.indexOf(marker);
       if (markerIndex < 0) continue;
       const jsonPart = line.slice(markerIndex + marker.length).trim();
@@ -1527,26 +1775,6 @@ function parseCaptureProgressChunks(args: {
   return { buffer, snapshots };
 }
 
-export function fetchFile(filePath: string) {
-  const params = new URLSearchParams({ path: filePath });
-  return getJson<FilePayload>(`/api/file?${params.toString()}`);
-}
-
-export function fetchFileSnippet(args: {
-  file: string;
-  line?: number;
-  q?: string;
-  before?: number;
-  after?: number;
-}) {
-  const params = new URLSearchParams({ file: args.file });
-  if (args.line) params.set("line", String(args.line));
-  if (args.q) params.set("q", args.q);
-  if (args.before !== undefined) params.set("before", String(args.before));
-  if (args.after !== undefined) params.set("after", String(args.after));
-  return getJson<FileSnippetPayload>(`/api/file-snippet?${params.toString()}`);
-}
-
 export async function captureFigmaScreenshot(
   args: CaptureFigmaScreenshotArgs,
   options?: {
@@ -1554,48 +1782,52 @@ export async function captureFigmaScreenshot(
     onProgress?: (progress: CaptureFigmaProgress) => void;
   },
 ): Promise<CaptureFigmaScreenshotResult> {
-  const accepted = await getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
+  const accepted = await getJson<CaptureFigmaScreenshotResult>(
+    '/api/capture-figma-screenshot',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
     },
-    body: JSON.stringify(args),
-  });
+  );
 
   const statusUrl = toQueuedStatusUrl(accepted);
   if (!statusUrl) return accepted;
 
   const onProgress = options?.onProgress;
-  const jobId = toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
-  let progressBuffer = "";
+  const jobId =
+    toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+  let progressBuffer = '';
   let latestCompleted = 0;
   let latestTotal = 0;
   let latestSlug: string | undefined;
 
   onProgress?.({
     jobId,
-    status: "queued",
+    status: 'queued',
     completed: 0,
     total: 0,
     remaining: 0,
-    message: "Queued",
+    message: 'Queued',
   });
 
   const finalState = await waitForQueuedJob(statusUrl, {
     onPoll: (payload) => {
       const job = toRecord(payload.job);
       const statusRaw = toNonEmptyString(job?.status).toLowerCase();
-      const status: CaptureFigmaProgress["status"] =
-        statusRaw === "running"
-          ? "running"
-          : statusRaw === "success"
-            ? "success"
-            : statusRaw === "error"
-              ? "error"
-              : statusRaw === "cancelled"
-                ? "cancelled"
-                : "queued";
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+                ? 'cancelled'
+                : 'queued';
 
       const events = Array.isArray(payload.events) ? payload.events : [];
       const parsed = parseCaptureProgressChunks({
@@ -1642,7 +1874,7 @@ export async function captureFigmaScreenshot(
         : latestCompleted;
     onProgress?.({
       jobId,
-      status: typed.ok ? "success" : "error",
+      status: typed.ok ? 'success' : 'error',
       completed,
       total,
       remaining: Math.max(0, total - completed),
@@ -1654,16 +1886,492 @@ export async function captureFigmaScreenshot(
   return accepted;
 }
 
+function toSyncFigmaTokensResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncFigmaTokensResult {
+  const payload = toRecord(value) || {};
+  const toNonNegativeInt = (input: unknown): number => {
+    const parsed = Number(input);
+    if (!Number.isFinite(parsed) || parsed < 0) return 0;
+    return Math.floor(parsed);
+  };
+  const importModeRaw = toNonEmptyString(payload.importMode);
+  return {
+    ok: true,
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    tokens: toNonNegativeInt(payload.tokens),
+    tokenModeValues: toNonNegativeInt(payload.tokenModeValues),
+    aliases: toNonNegativeInt(payload.aliases),
+    components: toNonNegativeInt(payload.components),
+    componentsTruncated: payload.componentsTruncated === true,
+    usageRestored: toNonNegativeInt(payload.usageRestored),
+    usageDropped: toNonNegativeInt(payload.usageDropped),
+    dryRun: payload.dryRun === true,
+    importMode: importModeRaw === 'partial' ? 'partial' : 'full',
+    selectedCount: toNonNegativeInt(payload.selectedCount),
+    notSelectedCount: toNonNegativeInt(payload.notSelectedCount),
+  };
+}
+
+export async function syncFigmaTokens(
+  args: SyncFigmaTokensArgs,
+  options?: {
+    systemId?: string;
+    onProgress?: (progress: CaptureFigmaProgress) => void;
+  },
+): Promise<SyncFigmaTokensResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    '/api/sync-figma-tokens',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    },
+  );
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  if (!statusUrl) {
+    return toSyncFigmaTokensResult(accepted);
+  }
+
+  const onProgress = options?.onProgress;
+  const acceptedJobId =
+    toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+  let progressBuffer = '';
+  let latestCompleted = 0;
+  let latestTotal = 0;
+  let latestSlug: string | undefined;
+
+  onProgress?.({
+    jobId: acceptedJobId,
+    status: 'queued',
+    completed: 0,
+    total: 0,
+    remaining: 0,
+    message: 'Queued',
+  });
+
+  const finalState = await waitForQueuedJob(statusUrl, {
+    onPoll: (payload) => {
+      const job = toRecord(payload.job);
+      const statusRaw = toNonEmptyString(job?.status).toLowerCase();
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+              ? 'cancelled'
+              : 'queued';
+
+      const events = Array.isArray(payload.events) ? payload.events : [];
+      const parsed = parseCaptureProgressChunks({
+        events,
+        buffer: progressBuffer,
+      });
+      progressBuffer = parsed.buffer;
+      const lastSnapshot =
+        parsed.snapshots.length > 0
+          ? parsed.snapshots[parsed.snapshots.length - 1]
+          : null;
+      if (lastSnapshot) {
+        latestCompleted = toProgressInt(lastSnapshot.completed);
+        latestTotal = toProgressInt(lastSnapshot.total);
+        latestSlug = toNonEmptyString(lastSnapshot.slug) || latestSlug;
+      }
+
+      const total = latestTotal;
+      const completed = Math.min(latestCompleted, total || latestCompleted);
+      const remaining = Math.max(0, (total || 0) - completed);
+      onProgress?.({
+        jobId: toNonEmptyString(job?.id) || acceptedJobId,
+        status,
+        completed,
+        total,
+        remaining,
+        currentSlug: latestSlug,
+      });
+    },
+  });
+
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  const typed = toSyncFigmaTokensResult(
+    payload || {},
+    toNonEmptyString(job?.id) || acceptedJobId,
+  );
+  const scopeSystemId = String(
+    options?.systemId || getActiveSystemId() || '',
+  ).trim();
+  if (scopeSystemId) {
+    // Invalidate edit-docs localStorage scope after each successful sync/import for this system.
+    bumpEditDocsStorageEpoch(scopeSystemId);
+  }
+  onProgress?.({
+    jobId: typed.jobId,
+    status: 'success',
+    completed: typed.components,
+    total: typed.components,
+    remaining: 0,
+    currentSlug: latestSlug,
+  });
+  return typed;
+}
+
+function toSyncDesignSystemStepResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncDesignSystemStepResult {
+  const payload = toRecord(value) || {};
+  const counts = toRecord(payload.counts) || {};
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter(
+        (warning): warning is string => typeof warning === 'string',
+      )
+    : [];
+  return {
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    status:
+      payload.status === 'completed_with_warnings' ||
+      payload.status === 'failed'
+        ? payload.status
+        : 'completed',
+    summary: toNonEmptyString(payload.summary) || 'Sync completed.',
+    warnings,
+    counts: {
+      captured: Number(counts.captured) || 0,
+      failed: Number(counts.failed) || 0,
+      skipped: Number(counts.skipped) || 0,
+      targets: Number(counts.targets) || 0,
+      tokens: Number(counts.tokens) || 0,
+      tokenModeValues: Number(counts.tokenModeValues) || 0,
+      aliases: Number(counts.aliases) || 0,
+      components: Number(counts.components) || 0,
+      usageRestored: Number(counts.usageRestored) || 0,
+      usageDropped: Number(counts.usageDropped) || 0,
+      primitives: Number(counts.primitives) || 0,
+      usageIndexed: Number(counts.usageIndexed) || 0,
+    },
+    raw: payload,
+  };
+}
+
+function toSyncDesignSystemResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncDesignSystemResult {
+  const payload = toRecord(value) || {};
+  const steps = toRecord(payload.steps) || {};
+  const components = toSyncDesignSystemStepResult(steps.components);
+  const variables = toSyncDesignSystemStepResult(steps.variables);
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter(
+        (warning): warning is string => typeof warning === 'string',
+      )
+    : [...components.warnings, ...variables.warnings];
+  return {
+    ok: payload.ok !== false,
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    enrichmentJobId: toNonEmptyString(payload.enrichmentJobId) || undefined,
+    status:
+      payload.status === 'completed_with_warnings' ||
+      payload.status === 'failed'
+        ? payload.status
+        : 'completed',
+    steps: {
+      components,
+      variables,
+    },
+    warnings,
+  };
+}
+
+export async function syncDesignSystem(
+  args: {
+    url?: string;
+    fileKey?: string;
+    figmaToken?: string;
+    dryRun?: boolean;
+    selectedComponentNodeIds?: string[];
+    /** Skip Figma file download + screenshot capture. Use after apply+sync when
+     *  component metadata was already committed from the preview diff. */
+    skipComponentCapture?: boolean;
+  },
+  options?: {
+    systemId?: string;
+    onQueued?: (jobId?: string) => void;
+  },
+): Promise<SyncDesignSystemResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    '/api/sync-design-system',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    },
+  );
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  options?.onQueued?.(toNonEmptyString(accepted.jobId) || undefined);
+  if (!statusUrl) {
+    return toSyncDesignSystemResult(accepted);
+  }
+
+  const finalState = await waitForQueuedJob(statusUrl);
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  return toSyncDesignSystemResult(
+    payload || {},
+    toNonEmptyString(job?.id) ||
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) ||
+      undefined,
+  );
+}
+
+export async function syncDesignSystemStep(
+  step: 'components' | 'variables' | 'tokens',
+  args: {
+    url?: string;
+    fileKey?: string;
+    figmaToken?: string;
+    dryRun?: boolean;
+  },
+  options?: {
+    systemId?: string;
+    onQueued?: (jobId?: string) => void;
+    onProgress?: (progress: CaptureFigmaProgress) => void;
+    pollIntervalMs?: number;
+  },
+): Promise<SyncDesignSystemStepResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(
+    `/api/sync-design-system/step/${encodeURIComponent(step)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options?.systemId ? { 'x-ds-system': options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    },
+  );
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  const queuedJobId = toNonEmptyString(accepted.jobId) || undefined;
+  options?.onQueued?.(queuedJobId);
+  options?.onProgress?.({
+    jobId: queuedJobId,
+    status: 'queued',
+    completed: 0,
+    total: 0,
+    remaining: 0,
+    message: 'Queued',
+  });
+  if (!statusUrl) {
+    return toSyncDesignSystemStepResult(
+      accepted,
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined,
+    );
+  }
+
+  const finalState = await waitForQueuedJob(statusUrl, {
+    pollIntervalMs: options?.pollIntervalMs,
+    onPoll: (payload) => {
+      const job = toRecord(payload.job);
+      const statusRaw = toNonEmptyString(job?.status).toLowerCase();
+      const status: CaptureFigmaProgress['status'] =
+        statusRaw === 'running'
+          ? 'running'
+          : statusRaw === 'success'
+            ? 'success'
+            : statusRaw === 'error'
+              ? 'error'
+              : statusRaw === 'cancelled'
+                ? 'cancelled'
+                : 'queued';
+      const events = Array.isArray(payload.events) ? payload.events : [];
+      const message = extractLatestQueueChunkMessage(events);
+      options?.onProgress?.({
+        jobId: toNonEmptyString(job?.id) || queuedJobId,
+        status,
+        completed: 0,
+        total: 0,
+        remaining: 0,
+        message,
+      });
+    },
+  });
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  options?.onProgress?.({
+    jobId: toNonEmptyString(job?.id) || queuedJobId,
+    status: 'success',
+    completed: 1,
+    total: 1,
+    remaining: 0,
+    message: 'Completed',
+  });
+  return toSyncDesignSystemStepResult(
+    payload || {},
+    toNonEmptyString(job?.id) ||
+      toNonEmptyString((accepted as { jobId?: unknown }).jobId) ||
+      undefined,
+  );
+}
+
+export interface SyncDesignSystemNodeSnapshot {
+  nodeId: string;
+  name: string;
+  type: string;
+  pageName?: string;
+  variantCount: number;
+  contentFingerprint: string;
+}
+
+export interface SyncDesignSystemDiffDbComponentRef {
+  id: number;
+  nodeId: string;
+  slug: string;
+  name: string;
+  status: string;
+  contentFingerprint: string | null;
+}
+
+export interface SyncDesignSystemDiffResult {
+  new_in_figma: SyncDesignSystemNodeSnapshot[];
+  updated_in_figma: Array<{
+    figma: SyncDesignSystemNodeSnapshot;
+    db: SyncDesignSystemDiffDbComponentRef;
+  }>;
+  unchanged: Array<{
+    figma: SyncDesignSystemNodeSnapshot;
+    db: SyncDesignSystemDiffDbComponentRef;
+  }>;
+  missing_in_figma: SyncDesignSystemDiffDbComponentRef[];
+}
+
+export interface SyncDesignSystemDryRunResponse {
+  ok: boolean;
+  requestId?: string;
+  diff: SyncDesignSystemDiffResult;
+  error?: string;
+  details?: string;
+  _debug?: {
+    pathUsed?: 'plugin' | 'rest' | 'cache';
+    fileVersion?: string;
+    componentsDurationMs?: number;
+    versionLookupDurationMs?: number;
+    cacheHit?: boolean;
+  };
+}
+
+export interface SyncDesignSystemApplySummary {
+  created: number;
+  updated: number;
+  unchanged: number;
+  missing: number;
+  upserted: number;
+  markedMissing: number;
+}
+
+export interface SyncDesignSystemApplyResponse {
+  ok: boolean;
+  requestId?: string;
+  summary: SyncDesignSystemApplySummary;
+  error?: string;
+  details?: string;
+}
+
+function buildSyncDesignSystemRequest(
+  systemId: string,
+  body: Record<string, unknown>,
+): RequestInit {
+  return {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-ds-system': String(systemId || '').trim(),
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+export async function previewSyncDesignSystem(args: {
+  systemId: string;
+  figmaUrl: string;
+  figmaToken?: string;
+  fileVersionHint?: string;
+}): Promise<SyncDesignSystemDryRunResponse> {
+  return requestJson<SyncDesignSystemDryRunResponse>(
+    `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/dry-run`,
+    buildSyncDesignSystemRequest(args.systemId, {
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+      fileVersionHint: args.fileVersionHint,
+    }),
+  );
+}
+
+export async function previewSyncDesignSystemVariables(args: {
+  systemId: string;
+  figmaUrl: string;
+  figmaToken?: string;
+  fileVersion?: string;
+}): Promise<SyncDesignSystemStepResult> {
+  return requestJson<SyncDesignSystemStepResult>(
+    `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/variables/dry-run`,
+    buildSyncDesignSystemRequest(args.systemId, {
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+      fileVersion: args.fileVersion,
+    }),
+  );
+}
+
+export async function applySyncDesignSystem(args: {
+  systemId: string;
+  figmaUrl: string;
+  figmaToken?: string;
+  selectedComponentNodeIds?: string[];
+  /** Figma file version captured during the preview dry-run. When provided the
+   *  server can reuse the in-process component snapshot cache and skip the
+   *  expensive full-file re-download. */
+  previewFileVersion?: string;
+}): Promise<SyncDesignSystemApplyResponse> {
+  return requestJson<SyncDesignSystemApplyResponse>(
+    `/api/${encodeURIComponent(String(args.systemId || '').trim())}/sync/apply`,
+    buildSyncDesignSystemRequest(args.systemId, {
+      figmaUrl: args.figmaUrl,
+      figmaToken: args.figmaToken,
+      ...(args.selectedComponentNodeIds !== undefined && {
+        selectedComponentNodeIds: args.selectedComponentNodeIds,
+      }),
+      ...(args.previewFileVersion && {
+        previewFileVersion: args.previewFileVersion,
+      }),
+    }),
+  );
+}
+
 // ============================================================================
 // Consumer File Management (Cross-file Dependency Tracking)
 // ============================================================================
 
 export interface AddConsumerPayload {
   dsFileKey?: string;
-  dsFileUrl?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  enabled?: boolean;
 }
 
 export interface AddConsumerResponse {
@@ -1676,20 +2384,21 @@ export interface ListConsumersResponse {
   data: (DsConsumer & { latestSync?: DsSyncRun })[];
 }
 
+export interface GetConsumerResponse {
+  ok: boolean;
+  data: DsConsumer & { latestSync?: DsSyncRun };
+}
+
 export interface RemoveConsumerResponse {
   ok: boolean;
   data: { consumerId: string };
-}
-
-export interface UpdateConsumerResponse {
-  ok: boolean;
-  data: DsConsumer;
 }
 
 export interface SyncConsumersPayload {
   dsFileKey: string;
   consumerIds?: string[];
   force?: boolean;
+  captureParentUsage?: boolean;
 }
 
 export interface ByFileReportResponse {
@@ -1707,53 +2416,164 @@ export interface ByVariableReportResponse {
   data: VariableUsageReport[];
 }
 
-export interface SimulateChangePayload {
-  dsFileKey: string;
-  variableKey: string;
-  proposedValue: unknown;
+function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
+  const row = toRecord(value);
+  if (!row) return null;
+
+  const durationRaw = row.durationMs ?? row.duration_ms;
+  const componentCountRaw = row.componentCount ?? row.component_count;
+  const variableCountRaw = row.variableCount ?? row.variable_count;
+  const warningCountRaw = row.warningCount ?? row.warning_count;
+  const parentDerivedComponentCountRaw =
+    row.parentDerivedComponentCount ?? row.parent_derived_component_count;
+  const durationMs = Number(durationRaw);
+  const componentCount = Number(componentCountRaw);
+  const variableCount = Number(variableCountRaw);
+  const warningCount = Number(warningCountRaw);
+  const parentDerivedComponentCount =
+    parentDerivedComponentCountRaw == null
+      ? null
+      : Number(parentDerivedComponentCountRaw);
+
+  return {
+    id: toNonEmptyString(row.id),
+    consumerId: toNonEmptyString(row.consumerId ?? row.consumer_id),
+    syncedAt: toNonEmptyString(row.syncedAt ?? row.synced_at),
+    durationMs: Number.isFinite(durationMs) ? durationMs : 0,
+    status: (toNonEmptyString(row.status) as DsSyncRun['status']) || 'error',
+    errorMessage:
+      toNonEmptyString(row.errorMessage ?? row.error_message) || undefined,
+    dsLastModified:
+      toNonEmptyString(row.dsLastModified ?? row.ds_last_modified) || undefined,
+    consumerLastModified:
+      toNonEmptyString(
+        row.consumerLastModified ?? row.consumer_last_modified,
+      ) || undefined,
+    componentCount: Number.isFinite(componentCount) ? componentCount : 0,
+    variableCount: Number.isFinite(variableCount) ? variableCount : 0,
+    warningCount: Number.isFinite(warningCount) ? warningCount : 0,
+    parentDerivedComponentCount:
+      parentDerivedComponentCount != null &&
+      Number.isFinite(parentDerivedComponentCount)
+        ? parentDerivedComponentCount
+        : null,
+    usageDetails: normalizeUsageDetails(
+      row.usageDetails ??
+        row.usage_details ??
+        row.consumerUsageDetails ??
+        row.consumer_usage_details_json,
+    ),
+  };
 }
 
-export interface SimulationResponse {
-  ok: boolean;
-  data: SimulationResult;
+function normalizeDsConsumerRecord(
+  value: unknown,
+): (DsConsumer & { latestSync?: DsSyncRun }) | null {
+  const row = toRecord(value);
+  if (!row) return null;
+
+  const latestSync = normalizeDsSyncRunRecord(
+    row.latestSync ?? row.latest_sync,
+  );
+
+  return {
+    id: toNonEmptyString(row.id),
+    dsFileKey: toNonEmptyString(row.dsFileKey ?? row.ds_file_key),
+    consumerFileKey: toNonEmptyString(
+      row.consumerFileKey ?? row.consumer_file_key,
+    ),
+    consumerName: toNonEmptyString(row.consumerName ?? row.consumer_name),
+    createdAt: toNonEmptyString(row.createdAt ?? row.created_at),
+    ...(latestSync ? { latestSync } : {}),
+  };
+}
+
+function warnInvalidConsumerPayload(context: string, value: unknown): void {
+  // Keep this lightweight and only emit when server payload is structurally invalid.
+  console.warn(`[api:${context}] Invalid consumer payload shape`, value);
 }
 
 export function addConsumer(payload: AddConsumerPayload) {
-  return requestJson<AddConsumerResponse>("/api/figma-mcp/dependencies/consumers", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return requestJson<{ ok: boolean; data: unknown }>(
+    '/api/figma-mcp/dependencies/consumers',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
+  ).then((response) => {
+    const normalized = normalizeDsConsumerRecord(response.data);
+    if (!normalized) {
+      warnInvalidConsumerPayload('addConsumer', response.data);
+    }
+    return {
+      ok: response.ok,
+      data: normalized || {
+        id: '',
+        dsFileKey: '',
+        consumerFileKey: '',
+        consumerName: '',
+        createdAt: '',
+      },
+    } satisfies AddConsumerResponse;
   });
 }
 
 export function listConsumers(dsFileKey: string) {
   const params = new URLSearchParams({ dsFileKey });
-  return getJson<ListConsumersResponse>(`/api/figma-mcp/dependencies/consumers?${params.toString()}`);
+  return getJson<{ ok: boolean; data: unknown[] }>(
+    `/api/figma-mcp/dependencies/consumers?${params.toString()}`,
+  ).then((response) => {
+    const rows = Array.isArray(response.data) ? response.data : [];
+    const data = rows.flatMap((row) => {
+      const normalized = normalizeDsConsumerRecord(row);
+      if (!normalized || !normalized.id) {
+        warnInvalidConsumerPayload('listConsumers', row);
+        return [];
+      }
+      return [normalized];
+    });
+    return { ok: response.ok, data } satisfies ListConsumersResponse;
+  });
+}
+
+export function fetchConsumer(consumerId: string) {
+  return getJson<{ ok: boolean; data: unknown }>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
+  ).then((response) => {
+    const normalized = normalizeDsConsumerRecord(response.data);
+    if (!normalized) {
+      warnInvalidConsumerPayload('fetchConsumer', response.data);
+    }
+    return {
+      ok: response.ok,
+      data: normalized || {
+        id: consumerId,
+        dsFileKey: '',
+        consumerFileKey: '',
+        consumerName: '',
+        createdAt: '',
+      },
+    } satisfies GetConsumerResponse;
+  });
 }
 
 export function removeConsumer(consumerId: string) {
-  return requestJson<RemoveConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
-    method: "DELETE",
-  });
-}
-
-export function updateConsumer(consumerId: string, payload: Partial<{ enabled: boolean }>) {
-  return requestJson<UpdateConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
+  return requestJson<RemoveConsumerResponse>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
+    {
+      method: 'DELETE',
     },
-    body: JSON.stringify(payload),
-  });
+  );
 }
 
 export function syncConsumers(payload: SyncConsumersPayload) {
-  return requestJson<SyncResult>("/api/figma-mcp/dependencies/sync", {
-    method: "POST",
+  return requestJson<SyncResult>('/api/figma-mcp/dependencies/sync', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
@@ -1766,35 +2586,29 @@ export function fetchReportByFile(
   },
 ) {
   const params = new URLSearchParams({ dsFileKey });
-  if (options?.staleOnly) params.set("stale", "true");
-  return getJson<ByFileReportResponse>(`/api/figma-mcp/dependencies/report/by-file?${params.toString()}`);
+  if (options?.staleOnly) params.set('stale', 'true');
+  return getJson<ByFileReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-file?${params.toString()}`,
+  );
 }
 
-export function fetchReportByComponent(dsFileKey: string, componentKey?: string) {
+export function fetchReportByComponent(
+  dsFileKey: string,
+  componentKey?: string,
+) {
   const params = new URLSearchParams({ dsFileKey });
-  if (componentKey) params.set("componentKey", componentKey);
-  return getJson<ByComponentReportResponse>(`/api/figma-mcp/dependencies/report/by-component?${params.toString()}`);
+  if (componentKey) params.set('componentKey', componentKey);
+  return getJson<ByComponentReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-component?${params.toString()}`,
+  );
 }
 
 export function fetchReportByVariable(dsFileKey: string, variableKey?: string) {
   const params = new URLSearchParams({ dsFileKey });
-  if (variableKey) params.set("variableKey", variableKey);
-  return getJson<ByVariableReportResponse>(`/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`);
-}
-
-export function simulateVariableChange(payload: SimulateChangePayload) {
-  return requestJson<SimulationResponse>("/api/figma-mcp/dependencies/simulate-change", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
-  const params = new URLSearchParams({ limit: String(limit) });
-  return getJson<SyncRunsResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}/runs?${params.toString()}`);
+  if (variableKey) params.set('variableKey', variableKey);
+  return getJson<ByVariableReportResponse>(
+    `/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`,
+  );
 }
 
 // ============================================================================
@@ -1821,10 +2635,10 @@ export interface NormalizedSupportFlags {
 /**
  * MCP Capabilities response shape (server payload).
  * Note: supportsV2 is always present in direct-only mode.
- * supports legacy is maintained for backward compatibility during transition.
+ * supports remains available for older clients during transition.
  */
 export interface McpCapabilitiesPayload {
-  /** @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics. */
+  /** @deprecated Deprecated flags. Use supportsV2 for clearer semantics. */
   supports?: {
     searchNodes?: boolean;
     getChildren?: boolean;
@@ -1844,12 +2658,14 @@ export interface McpCapabilitiesPayload {
 
 /**
  * Normalize MCP capabilities payload to stable support flags.
- * Prioritizes supportsV2 (canonical) with fallback to supports (legacy).
+ * Prioritizes supportsV2 (canonical) with fallback to supports (deprecated).
  *
  * @param payload - Raw capabilities payload from server
  * @returns Normalized support flags with safe defaults
  */
-export function normalizeMcpCapabilities(payload: McpCapabilitiesPayload): NormalizedSupportFlags {
+export function normalizeMcpCapabilities(
+  payload: McpCapabilitiesPayload,
+): NormalizedSupportFlags {
   // supportsV2 is always present in direct-only mode
   return {
     hasFileInfo: payload.supportsV2.hasFileInfo ?? false,

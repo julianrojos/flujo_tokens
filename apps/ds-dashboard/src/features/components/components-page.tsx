@@ -1,32 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ExternalLink, RefreshCcw } from "lucide-react";
-
-import { FigmaUrlScanner } from "./figma-url-scanner";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
+import { ExternalLink, LayoutGrid } from "lucide-react";
 
 import {
-  fetchComponentRegistry,
+  fetchComponentCatalog,
+  fetchDesignSystemsConfig,
   fetchComponentUsageIndex,
-  refreshRegistry,
+  getActiveSystemId,
 } from "@/lib/api";
+import { useDesignSystem } from "@/lib/design-system-context";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
+import { resolveCollectionPageFilter } from "@/lib/collection-page-filter";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
-import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentCatalogItem } from "@/types/component-catalog";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FilterBar, PageHeader } from "@/components/composites";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+  EmptyState,
+  FilterBar,
+  PageHeader,
+  PrevNextNav,
+  StatsOverview,
+} from "@/components/composites";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { Select } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
+import { toComponentDetail } from "@/lib/routes";
+import {
+  prefetchComponentDetailSnapshot,
+} from "./component-detail/hooks/use-component-detail";
 import {
   Table,
   TableBody,
@@ -37,55 +45,146 @@ import {
 
 type SortField =
   | "display_name"
-  | "pipeline_stage"
-  | "doc_status"
-  | "spec_status"
-  | "usage_count"
-  | "ready_for_publish";
+  | "variants_count"
+  | "spec_exists"
+  | "token_coverage"
+  | "usage_count";
 
-function stageBadge(stage: string) {
-  if (stage === "render" || stage === "visual-proof") return "success" as const;
-  if (stage === "markdown") return "warning" as const;
-  return "neutral" as const;
+function specBadgeVariant(exists: boolean) {
+  return exists ? ("success" as const) : ("neutral" as const);
 }
 
-function statusBadge(status: string) {
-  if (status === "ready") return "success" as const;
-  if (status === "needs-review") return "warning" as const;
-  return "neutral" as const;
+function getVariantCount(item: ComponentCatalogItem) {
+  const figmaVariants = Array.isArray(item.figma.variants) ? item.figma.variants.length : null;
+  if (figmaVariants !== null) return figmaVariants;
+  return Number(item.visual_proof?.variants_count ?? 0) || 0;
+}
+
+function getTokenBindingCoverage(item: ComponentCatalogItem): {
+  resolved: number;
+  total: number;
+} {
+  const bindings = Array.isArray(item.figma.token_bindings) ? item.figma.token_bindings : [];
+  const total = bindings.length;
+  const resolved = bindings.filter((binding) => binding.status === "resolved").length;
+  return { resolved, total };
+}
+
+function buildTokenCoverage(item: ComponentCatalogItem) {
+  const { resolved, total } = getTokenBindingCoverage(item);
+  const variant =
+    total <= 0
+      ? ("neutral" as const)
+      : resolved >= total
+        ? ("success" as const)
+        : resolved === 0
+          ? ("warning" as const)
+          : ("default" as const);
+  const className = total > 0 ? "border-status-success-border/30" : "";
+  const percent = total > 0 ? Math.round((resolved / total) * 100) : null;
+  const label = percent === null ? "—" : `${percent}%`;
+  return { resolved, total, variant, className, label };
 }
 
 export function ComponentsPage() {
-  const [rows, setRows] = useState<ComponentRegistryItem[]>([]);
+  const { activeSystem } = useDesignSystem();
+  const [searchParams] = useSearchParams();
+  const [rows, setRows] = useState<ComponentCatalogItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
   >({});
+  const [docsEditedPercent, setDocsEditedPercent] = useState(0);
+  const [usageLoadFailed, setUsageLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
-  const [stage, setStage] = useState("all");
-  const [docStatus, setDocStatus] = useState("all");
+  const [specFilter, setSpecFilter] = useState("all");
   const [sort, toggleSort] = useSortState<SortField>({
     field: "display_name",
     dir: "asc",
   });
-  const [syncing, setSyncing] = useState(false);
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
+  const filterState = resolveCollectionPageFilter(
+    "components",
+    searchParams.get("group"),
+    searchParams.get("value"),
+  );
+  const filterValue = String(searchParams.get("value") ?? "").trim().toLowerCase();
+  const multiVariantFilter =
+    searchParams.get("group") === "multiVariant" && filterValue === "multi"
+      ? filterValue
+      : "";
+  const docsCoverageFilter =
+    searchParams.get("group") === "docsCoverage" && filterValue === "with-spec"
+      ? filterValue
+      : "";
+  const hasActiveKpiFilter = filterState.isFiltered;
+  const pageHeaderDescription = filterState.description;
+
+  // Fetched via React Query so that invalidating ['design-systems-config']
+  // (e.g. after a sync/apply) causes the KPI counts to update automatically.
+  const {
+    data: designSystemsConfig,
+    isError: designSystemsConfigError,
+    isPending: designSystemsConfigPending,
+  } = useQuery({
+    queryKey: ['design-systems-config'],
+    queryFn: fetchDesignSystemsConfig,
+    ...QUERY_DEFAULTS,
+  });
+
+  const activeSystemId = String(getActiveSystemId() || "").trim();
+  const activeSystemConfig =
+    designSystemsConfig?.systems.find((entry) => entry.id === activeSystemId) ?? null;
+
+  const importedComponentsCount =
+    activeSystemConfig && typeof activeSystemConfig.importedComponentsCount === "number" &&
+      Number.isFinite(activeSystemConfig.importedComponentsCount)
+      ? activeSystemConfig.importedComponentsCount
+      : null;
+
+  const scannedComponentsCount =
+    activeSystemConfig && typeof activeSystemConfig.detectedComponentsCount === "number" &&
+      Number.isFinite(activeSystemConfig.detectedComponentsCount)
+      ? activeSystemConfig.detectedComponentsCount
+      : null;
+
+  // hasPartialData: true when any secondary data source failed to load.
+  const hasPartialData =
+    !designSystemsConfigPending &&
+    (usageLoadFailed ||
+      designSystemsConfigError ||
+      activeSystemConfig === null ||
+      importedComponentsCount === null ||
+      scannedComponentsCount === null);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [registryPayload, usagePayload] = await Promise.all([
-        fetchComponentRegistry(),
-        fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
+      const [registryResult, usageResult] = await Promise.allSettled([
+        fetchComponentCatalog(),
+        fetchComponentUsageIndex(),
       ]);
+      if (registryResult.status !== "fulfilled") {
+        throw registryResult.reason;
+      }
+      const registryPayload = registryResult.value;
+      const usagePayload =
+        usageResult.status === "fulfilled" ? usageResult.value : { by_slug: {} };
+      const totalComponents = Number(registryPayload.summary?.total_components ?? 0);
+      const withEditorial = Number(registryPayload.summary?.with_editorial ?? 0);
       setRows(registryPayload.components ?? []);
       setUsageBySlug(usagePayload.by_slug ?? {});
+      setUsageLoadFailed(usageResult.status !== "fulfilled");
+      setDocsEditedPercent(
+        totalComponents > 0 ? Math.round((withEditorial / totalComponents) * 100) : 0,
+      );
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
           fallbackTitle: "Component data unavailable",
-          fallbackMessage: "Unable to load component registry.",
+          fallbackMessage: "Unable to load component catalog.",
         }),
       );
     } finally {
@@ -97,6 +196,41 @@ export function ComponentsPage() {
     void loadData();
   }, []);
 
+  const tokenCoverageBySlug = useMemo(() => {
+    const map: Record<string, ReturnType<typeof buildTokenCoverage>> = {};
+    for (const row of rows) {
+      map[row.slug] = buildTokenCoverage(row);
+    }
+    return map;
+  }, [rows]);
+
+  const variantCountBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of rows) {
+      map[row.slug] = getVariantCount(row);
+    }
+    return map;
+  }, [rows]);
+
+  const usedInCountBySlug = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of rows) {
+      map[row.slug] = usageBySlug[row.slug]?.used_in.length ?? 0;
+    }
+    return map;
+  }, [rows, usageBySlug]);
+
+  const prefetchComponentDetail = useCallback((slug: string) => {
+    const target = String(slug || "").trim();
+    if (!target) return;
+    void prefetchComponentDetailSnapshot(target, {
+      systemId: activeSystem,
+      allItems: rows,
+      usageIndex: { by_slug: usageBySlug },
+      tokenCatalog: null,
+    });
+  }, [activeSystem, rows, usageBySlug]);
+
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
     const next = rows.filter((item) => {
@@ -104,19 +238,30 @@ export function ComponentsPage() {
         !lowered ||
         item.display_name.toLowerCase().includes(lowered) ||
         item.slug.toLowerCase().includes(lowered);
-      const matchesStage = stage === "all" || item.pipeline_stage === stage;
-      const matchesDoc = docStatus === "all" || item.doc.status === docStatus;
-      return matchesSearch && matchesStage && matchesDoc;
+      const matchesMultiVariant =
+        !multiVariantFilter ||
+        (multiVariantFilter === "multi" && (variantCountBySlug[item.slug] ?? getVariantCount(item)) >= 2);
+      const matchesDocsCoverage =
+        !docsCoverageFilter || (docsCoverageFilter === "with-spec" && item.spec.exists);
+      const matchesSpec =
+        specFilter === "all"
+          || (specFilter === "with-spec" && item.spec.exists)
+          || (specFilter === "without-spec" && !item.spec.exists);
+      return matchesSearch && matchesMultiVariant && matchesDocsCoverage && matchesSpec;
     });
 
     next.sort((a, b) => {
-      const valueFor = (row: ComponentRegistryItem): string | number => {
+      const valueFor = (row: ComponentCatalogItem): string | number => {
         if (sort.field === "display_name") return row.display_name.toLowerCase();
-        if (sort.field === "pipeline_stage") return row.pipeline_stage;
-        if (sort.field === "doc_status") return row.doc.status;
-        if (sort.field === "spec_status") return row.spec.status;
-        if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
-        return row.ready_for_publish ? 1 : 0;
+        if (sort.field === "variants_count") return variantCountBySlug[row.slug] ?? getVariantCount(row);
+        if (sort.field === "spec_exists") return row.spec.exists ? 1 : 0;
+        if (sort.field === "token_coverage") {
+          const coverage = tokenCoverageBySlug[row.slug];
+          if (!coverage || coverage.total <= 0) return 0;
+          return coverage.resolved / coverage.total;
+        }
+        if (sort.field === "usage_count") return usedInCountBySlug[row.slug] ?? 0;
+        return 0;
       };
 
       const aValue = valueFor(a);
@@ -126,17 +271,36 @@ export function ComponentsPage() {
     });
 
     return next;
-  }, [rows, search, stage, docStatus, sort, usageBySlug]);
+  }, [
+    docsCoverageFilter,
+    multiVariantFilter,
+    rows,
+    search,
+    specFilter,
+    sort,
+    usedInCountBySlug,
+    tokenCoverageBySlug,
+    variantCountBySlug,
+  ]);
 
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const ready = rows.filter((item) => item.doc.status === "ready").length;
-    const needsReview = rows.filter(
-      (item) => item.doc.status === "needs-review",
-    ).length;
-    const withProof = rows.filter((item) => item.visual_proof.exists).length;
-    return { total, ready, needsReview, withProof };
-  }, [rows]);
+  const {
+    pageSize,
+    setPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedComponents,
+  } = useTablePagination(filtered, {
+    resetKey: [search, specFilter, multiVariantFilter, docsCoverageFilter].join("|"),
+  });
+  const showFilterBar = loading || filtered.length > 0;
 
   const displayNameBySlug = useMemo(() => {
     const map: Record<string, string> = {};
@@ -146,201 +310,287 @@ export function ComponentsPage() {
     return map;
   }, [rows]);
 
-  const handleRefreshFromPipeline = async () => {
-    setSyncing(true);
-    try {
-      await refreshRegistry();
-      await loadData();
-    } catch (cause) {
-      setError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Registry refresh failed",
-          fallbackMessage: "Unable to refresh component registry.",
-        }),
-      );
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const multiVariantPercent = useMemo(() => {
+    const total = rows.length;
+    if (total <= 0) return 0;
+    const multiVariant = rows.filter((item) => (variantCountBySlug[item.slug] ?? getVariantCount(item)) >= 2).length;
+    return Math.round((multiVariant / total) * 100);
+  }, [rows, variantCountBySlug]);
+  const formatCount = (value: number | null) => (value === null ? "—" : String(value));
 
   return (
-    <div className="space-y-5 animate-fade-slide-in">
-      <FigmaUrlScanner onSuccess={loadData} />
+    <div className="space-y-5">
+      <PageHeader
+        title="Components"
+        description={pageHeaderDescription}
+      />
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total componentes</CardDescription>
-            <CardTitle>{stats.total}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Docs ready</CardDescription>
-            <CardTitle>{stats.ready}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Needs review</CardDescription>
-            <CardTitle>{stats.needsReview}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Con visual proof</CardDescription>
-            <CardTitle>{stats.withProof}</CardTitle>
-          </CardHeader>
-        </Card>
-      </section>
+      {hasActiveKpiFilter ? (
+        <PrevNextNav
+          hasPrevious={true}
+          hasNext={false}
+          onPrevious={() => window.history.back()}
+          onNext={() => undefined}
+          currentIndex={0}
+          totalItems={1}
+          previousLabel="Back"
+        />
+      ) : null}
 
-      <Card>
-        <CardContent>
-          <PageHeader
-            title="Componentes"
-            description="Filtra y ordena con datos locales del registry generado."
-            actions={
-              <Button
-                variant="outline"
-                onClick={handleRefreshFromPipeline}
-                disabled={syncing}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                {syncing ? "Refreshing..." : "Refresh Registry"}
-              </Button>
-            }
-          />
+      {hasActiveKpiFilter ? null : (
+        <StatsOverview
+          items={[
+            {
+              id: "components-imported-scanned",
+              label: "Imported / scanned components",
+              value: `${formatCount(importedComponentsCount)} / ${formatCount(scannedComponentsCount)}`,
+            },
+            {
+              id: "components-docs-edited",
+              label: "Documentation coverage",
+              value: `${docsEditedPercent}%`,
+              to: "/components?group=docsCoverage&value=with-spec",
+            },
+            {
+              id: "components-multi-variant-rate",
+              label: "Multi-variant rate",
+              value: `${multiVariantPercent}%`,
+              to: "/components?group=multiVariant&value=multi",
+            },
+          ]}
+        />
+      )}
 
+      {hasPartialData ? (
+        <StatusAlert variant="warning" title="Partial component data">
+          Some KPI values are unavailable because the design system config or usage index could not be loaded.
+        </StatusAlert>
+      ) : null}
+
+      <Card className="p-5 text-card-foreground backdrop-blur-sm">
+        {showFilterBar ? (
           <FilterBar
             searchValue={search}
             onSearch={setSearch}
-            searchPlaceholder="Buscar por nombre o slug"
+            searchPlaceholder="Search by name or slug"
+            searchAriaLabel="Search components"
             count={filtered.length}
-          >
-            <Select
-              value={stage}
-              onChange={(event) => setStage(event.target.value)}
-            >
-              <option value="all">Stage: All</option>
-              <option value="missing-spec">missing-spec</option>
-              <option value="spec">spec</option>
-              <option value="markdown">markdown</option>
-              <option value="render">render</option>
-              <option value="visual-proof">visual-proof</option>
-            </Select>
-            <Select
-              value={docStatus}
-              onChange={(event) => setDocStatus(event.target.value)}
-            >
-              <option value="all">Doc status: All</option>
-              <option value="draft">draft</option>
-              <option value="needs-review">needs-review</option>
-              <option value="ready">ready</option>
-            </Select>
-          </FilterBar>
-
-          {error ? (
-            <ApiErrorMessage error={error} />
-          ) : null}
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
-                <SortableTableHead label="Stage" onSort={() => toggleSort("pipeline_stage")} />
-                <SortableTableHead label="Doc status" onSort={() => toggleSort("doc_status")} />
-                <SortableTableHead label="Spec status" onSort={() => toggleSort("spec_status")} />
-                <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
-                <SortableTableHead label="Ready" onSort={() => toggleSort("ready_for_publish")} />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading && filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center text-muted-foreground"
+            rightSlot={
+              showPageSizeSelect ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Rows</span>
+                  <Select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(event.target.value)}
+                    className="w-[132px]"
+                    aria-label="Rows per page"
                   >
-                    No components match your filters.
-                  </TableCell>
-                </TableRow>
-              ) : null}
+                    {pageSizeOptions.map((size) => (
+                      <option key={size} value={String(size)}>
+                        {size}
+                      </option>
+                    ))}
+                    {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+                  </Select>
+                </div>
+              ) : null
+            }
+          >
+            {hasActiveKpiFilter ? null : (
+              <Select
+                value={specFilter}
+                aria-label="Filter by documentation status"
+                onChange={(event) => setSpecFilter(event.target.value)}
+              >
+                <option value="all">Docs: All</option>
+                <option value="with-spec">Docs</option>
+                <option value="without-spec">No docs</option>
+              </Select>
+            )}
+          </FilterBar>
+        ) : null}
 
-              {loading
-                ? Array.from({ length: 6 }).map((_, index) => (
-                    <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={6} className="text-muted-foreground">
-                        Loading components...
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : filtered.map((item) => (
-                    <TableRow key={item.slug}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {item.figma.file_url ? (
-                            <a
-                              href={item.figma.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center text-muted-foreground hover:text-primary"
-                              title={`Open ${item.display_name} in Figma`}
-                              aria-label={`Open ${item.display_name} in Figma`}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          ) : null}
-                          <Link
-                            to={`/components/${item.slug}`}
-                            className="font-medium text-foreground hover:text-primary hover:underline"
-                            aria-label={`Open ${item.display_name} detail`}
-                          >
-                            {item.display_name}
-                          </Link>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          <Link
-                            to={`/components/${item.slug}`}
-                            className="font-mono hover:text-primary hover:underline"
-                            aria-label={`Open ${item.slug} detail`}
-                          >
-                            {item.slug}
-                          </Link>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={stageBadge(item.pipeline_stage)}>
-                          {item.pipeline_stage}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge(item.doc.status)}>
-                          {item.doc.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge(item.spec.status)}>
-                          {item.spec.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const usedInSlugs = usageBySlug[item.slug]?.used_in ?? [];
-                          if (usedInSlugs.length === 0) return "-";
-                          const labels = usedInSlugs.map(
-                            (slug) => displayNameBySlug[slug] || slug,
-                          );
-                          return labels.join(", ");
-                        })()}
-                      </TableCell>
-                      <TableCell>
-                        {item.ready_for_publish ? "Yes" : "No"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-            </TableBody>
-          </Table>
-        </CardContent>
+        {error ? <ApiErrorMessage error={error} /> : null}
+
+        {!loading && filtered.length === 0 ? (
+          <EmptyState
+            icon={LayoutGrid}
+            title="No components found"
+            description={
+              hasActiveKpiFilter
+                ? "No components match this coverage filter."
+                : "No components match your filters."
+            }
+          />
+        ) : (
+          <>
+            {shouldPaginate ? (
+              <div className="mt-3 mb-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                <p className="text-xs text-muted-foreground">
+                  Showing {pageStart}-{pageEnd} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goPrevious}
+                    disabled={currentPage <= 1}
+                  >
+                    Prev
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goNext}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="Component"
+                    onSort={() => toggleSort("display_name")}
+                    ariaSort={sort.field === "display_name" ? sortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Variants"
+                    onSort={() => toggleSort("variants_count")}
+                    ariaSort={sort.field === "variants_count" ? sortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Spec"
+                    onSort={() => toggleSort("spec_exists")}
+                    ariaSort={sort.field === "spec_exists" ? sortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Tokens coverage"
+                    onSort={() => toggleSort("token_coverage")}
+                    ariaSort={sort.field === "token_coverage" ? sortAriaSort : "none"}
+                  />
+                  <SortableTableHead
+                    label="Used In"
+                    onSort={() => toggleSort("usage_count")}
+                    ariaSort={sort.field === "usage_count" ? sortAriaSort : "none"}
+                  />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading
+                  ? Array.from({ length: 4 }).map((_, index) => (
+                      <TableRow key={`loading-${index}`}>
+                        <TableCell colSpan={5} className="text-muted-foreground">
+                          Loading components...
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : pagedComponents.map((item) => {
+                      const coverage = tokenCoverageBySlug[item.slug] ?? buildTokenCoverage(item);
+                      return (
+                        <TableRow key={item.slug}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {item.figma.file_url ? (
+                                <a
+                                  href={item.figma.file_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center text-muted-foreground hover:text-primary"
+                                  title={`Open ${item.display_name} in Figma`}
+                                  aria-label={`Open ${item.display_name} in Figma`}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              ) : null}
+                              <Link
+                                to={`/components/${item.slug}`}
+                                className="text-foreground hover:text-primary"
+                                aria-label={`Open ${item.display_name} detail`}
+                                onMouseEnter={() => prefetchComponentDetail(item.slug)}
+                                onFocus={() => prefetchComponentDetail(item.slug)}
+                              >
+                                {item.display_name}
+                              </Link>
+                            </div>
+                          </TableCell>
+                          <TableCell>{variantCountBySlug[item.slug] ?? getVariantCount(item)}</TableCell>
+                          <TableCell>
+                            <Badge variant={specBadgeVariant(item.spec.exists)}>
+                              {item.spec.exists ? "Docs" : "No docs"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={coverage.variant} className={coverage.className}>
+                              {coverage.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const usedInSlugs = usageBySlug[item.slug]?.used_in ?? [];
+                              if (usedInSlugs.length === 0) return "-";
+                              return usedInSlugs.map((slug, index) => {
+                                const displayName = displayNameBySlug[slug] || slug;
+                                return (
+                                  <span key={slug}>
+                                    <Link
+                                      to={toComponentDetail(slug)}
+                                      className="text-foreground hover:text-primary"
+                                      aria-label={`Open ${displayName} component detail`}
+                                      onMouseEnter={() => prefetchComponentDetail(slug)}
+                                      onFocus={() => prefetchComponentDetail(slug)}
+                                    >
+                                      {displayName}
+                                    </Link>
+                                    {index < usedInSlugs.length - 1 ? ", " : null}
+                                  </span>
+                                );
+                              });
+                            })()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+              </TableBody>
+            </Table>
+
+            {shouldPaginate ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pl-0">
+                <p className="text-xs text-muted-foreground">
+                  Showing {pageStart}-{pageEnd} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goPrevious}
+                    disabled={currentPage <= 1}
+                  >
+                    Prev
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goNext}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
       </Card>
     </div>
   );

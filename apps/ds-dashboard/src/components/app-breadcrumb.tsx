@@ -1,7 +1,21 @@
-import { Fragment, useMemo } from "react";
-import { Link, matchPath, useLocation } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Link, matchPath, useLocation } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { buildDocumentTitleFromBreadcrumbs } from '@/lib/app-title';
+import { useDesignSystem } from '@/lib/design-system-context';
+import {
+  ROUTE_PATTERNS,
+  toComponentDetail,
+  toTokenDetail,
+  toSystemOverview,
+  toSystemAdmin,
+  toSystemConsumersOverview,
+} from '@/lib/routes';
+import {
+  onCachedConsumerLabelUpdate,
+  readCachedConsumerLabel,
+} from '@/lib/consumer-label-cache';
 
 type Crumb = {
   label: string;
@@ -16,49 +30,198 @@ function decodeSafe(value: string) {
   }
 }
 
-function buildCrumbs(pathname: string): Crumb[] {
-  if (pathname === "/health") {
-    return [{ label: "Health" }];
+function displayTokenPath(value: string) {
+  return decodeSafe(String(value || "").trim()).replace(/\./g, "/");
+}
+
+type DesignSystemEntry = { id: string; name: string };
+
+function resolveActiveSystemLabel(
+  activeSystemId?: string,
+  systems?: DesignSystemEntry[],
+): string | null {
+  const normalizedSystemId = String(activeSystemId || '').trim();
+  if (!normalizedSystemId) return null;
+  return systems?.find((system) => system.id === normalizedSystemId)?.name ?? normalizedSystemId;
+}
+
+function buildSystemRootCrumb(
+  activeSystemId?: string,
+  systems?: DesignSystemEntry[],
+): Crumb {
+  const label = resolveActiveSystemLabel(activeSystemId, systems) || 'System';
+  return {
+    label,
+    to: activeSystemId ? toSystemOverview(activeSystemId) : undefined,
+  };
+}
+
+function buildCrumbs(
+  pathname: string,
+  options?: {
+    consumerDetailLabel?: string;
+    systems?: DesignSystemEntry[];
+    activeSystemId?: string;
+  },
+): Crumb[] {
+  if (pathname === ROUTE_PATTERNS.newSystem) {
+    return [{ label: 'New System' }];
   }
 
-  if (pathname === "/tokens") {
-    return [{ label: "Tokens" }];
-  }
+  const systemOverviewMatch = matchPath(ROUTE_PATTERNS.systemOverview, pathname);
+  const systemAdminMatch = matchPath(ROUTE_PATTERNS.systemAdmin, pathname);
+  const systemConsumersOverviewMatch = matchPath(
+    ROUTE_PATTERNS.systemConsumersOverview,
+    pathname,
+  );
+  const systemConsumersMatch = matchPath(ROUTE_PATTERNS.systemConsumers, pathname);
+  const systemConsumerDetailMatch = matchPath(
+    ROUTE_PATTERNS.systemConsumerDetail,
+    pathname,
+  );
 
-  if (pathname === "/tokens/diff") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Compare" }];
-  }
-
-  if (pathname === "/token-graph") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
-  }
-
-  if (pathname === "/impact") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Impact" }];
-  }
-
-  const tokenMatch = matchPath("/tokens/:tokenPath", pathname);
-  if (tokenMatch?.params.tokenPath) {
+  if (systemOverviewMatch?.params.systemId) {
+    const systemId = systemOverviewMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
     return [
-      { label: "Tokens", to: "/tokens" },
-      { label: decodeSafe(tokenMatch.params.tokenPath) },
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      { label: 'Overview' },
     ];
   }
 
-  if (pathname === "/components") {
-    return [{ label: "Components" }];
+  if (systemAdminMatch?.params.systemId) {
+    const systemId = systemAdminMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      { label: 'Design Systems Admin' },
+    ];
   }
 
-  const componentMatch = matchPath("/components/:slug", pathname);
+  if (systemConsumersMatch?.params.systemId) {
+    const systemId = systemConsumersMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      { label: 'Consumers', to: toSystemConsumersOverview(systemId) },
+    ];
+  }
+
+  if (systemConsumersOverviewMatch?.params.systemId) {
+    const systemId = systemConsumersOverviewMatch.params.systemId;
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      {
+        label: 'Consumers',
+        to: toSystemConsumersOverview(systemId),
+      },
+      { label: 'Overview' },
+    ];
+  }
+
+  if (pathname === ROUTE_PATTERNS.tokens) {
+    return [
+      {
+        label: resolveActiveSystemLabel(options?.activeSystemId, options?.systems) || 'System',
+        to: options?.activeSystemId
+          ? toSystemOverview(options.activeSystemId)
+          : undefined,
+      },
+      { label: 'Tokens' },
+    ];
+  }
+
+  const tokenMatch = matchPath(ROUTE_PATTERNS.tokenDetail, pathname);
+  if (tokenMatch?.params.tokenPath) {
+    return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      { label: 'Tokens', to: ROUTE_PATTERNS.tokens },
+      { label: displayTokenPath(tokenMatch.params.tokenPath) },
+    ];
+  }
+
+  if (pathname === ROUTE_PATTERNS.components) {
+    return [
+      {
+        label: resolveActiveSystemLabel(options?.activeSystemId, options?.systems) || 'System',
+        to: options?.activeSystemId
+          ? toSystemOverview(options.activeSystemId)
+          : undefined,
+      },
+      { label: 'Components' },
+    ];
+  }
+
+  const componentEditDocsMatch = matchPath(
+    ROUTE_PATTERNS.componentEditDocs,
+    pathname,
+  );
+  if (componentEditDocsMatch?.params.slug) {
+    return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      { label: 'Components', to: ROUTE_PATTERNS.components },
+      {
+        label: decodeSafe(componentEditDocsMatch.params.slug),
+        to: toComponentDetail(componentEditDocsMatch.params.slug),
+      },
+      { label: 'Edit docs' },
+    ];
+  }
+
+  const componentMatch = matchPath(ROUTE_PATTERNS.componentDetail, pathname);
   if (componentMatch?.params.slug) {
     return [
-      { label: "Components", to: "/components" },
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      { label: 'Components', to: ROUTE_PATTERNS.components },
       { label: decodeSafe(componentMatch.params.slug) },
     ];
   }
 
-  if (pathname === "/file") {
-    return [{ label: "File Viewer" }];
+  if (pathname === ROUTE_PATTERNS.consumers) {
+    return [
+      buildSystemRootCrumb(options?.activeSystemId, options?.systems),
+      { label: 'Consumers' },
+    ];
+  }
+
+  if (systemConsumerDetailMatch?.params.systemId && systemConsumerDetailMatch?.params.consumerName) {
+    const systemId = systemConsumerDetailMatch.params.systemId;
+    const rawConsumerName = decodeSafe(systemConsumerDetailMatch.params.consumerName);
+    const systems = options?.systems ?? [];
+    const system = systems.find((s) => s.id === systemId);
+    const systemLabel = system?.name ?? systemId;
+    return [
+      {
+        label: systemLabel,
+        to: toSystemOverview(systemId),
+      },
+      {
+        label: 'Consumers',
+        to: toSystemConsumersOverview(systemId),
+      },
+      { label: options?.consumerDetailLabel || rawConsumerName },
+    ];
   }
 
   return [];
@@ -66,12 +229,72 @@ function buildCrumbs(pathname: string): Crumb[] {
 
 export function AppBreadcrumb({ className }: { className?: string }) {
   const location = useLocation();
-  const crumbs = useMemo(() => buildCrumbs(location.pathname), [location.pathname]);
+  const consumerMatch = matchPath(
+    ROUTE_PATTERNS.systemConsumerDetail,
+    location.pathname,
+  );
+  const consumerName = consumerMatch?.params.consumerName
+    ? decodeSafe(consumerMatch.params.consumerName)
+    : '';
+  const [consumerLabel, setConsumerLabel] = useState(() =>
+    readCachedConsumerLabel(consumerName),
+  );
+
+  useEffect(() => {
+    // Don't subscribe if no consumer name (non-consumer routes)
+    if (!consumerName) {
+      setConsumerLabel('');
+      return;
+    }
+
+    const unsubscribe = onCachedConsumerLabelUpdate(
+      ({ consumerId: updatedLabelKey, consumerName: updatedName }) => {
+        if (updatedLabelKey !== consumerName) return;
+        setConsumerLabel(updatedName);
+      },
+    );
+
+    let cancelled = false;
+    const cachedLabel = readCachedConsumerLabel(consumerName);
+    if (cachedLabel) {
+      setConsumerLabel(cachedLabel);
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
+    if (!cancelled) {
+      setConsumerLabel(consumerName);
+    }
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [consumerName]);
+
+  const { systems, activeSystem } = useDesignSystem();
+
+  const crumbs = useMemo(
+    () =>
+      buildCrumbs(location.pathname, {
+        consumerDetailLabel: consumerLabel,
+        systems,
+        activeSystemId: activeSystem,
+      }),
+    [location.pathname, consumerLabel, systems, activeSystem],
+  );
+
+  useEffect(() => {
+    document.title = buildDocumentTitleFromBreadcrumbs(
+      crumbs.map((crumb) => crumb.label),
+    );
+  }, [crumbs]);
 
   if (crumbs.length === 0) return null;
 
   return (
-    <div className={cn("rounded-lg border border-border/70 bg-card/70 px-3 py-2", className)}>
+    <div className={cn('rounded bg-card/70 px-3 py-2 pl-0', className)}>
       <nav aria-label="Breadcrumb">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs">
           {crumbs.map((crumb, index) => {
@@ -87,12 +310,16 @@ export function AppBreadcrumb({ className }: { className?: string }) {
                   {crumb.to && !isLast ? (
                     <Link
                       to={crumb.to}
-                      className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                      className="font-medium text-muted-foreground transition-colors hover:text-primary"
                     >
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className={isLast ? "font-semibold text-foreground" : "font-medium"}>
+                    <span
+                      className={
+                        isLast ? 'font-semibold text-foreground' : 'font-medium'
+                      }
+                    >
                       {crumb.label}
                     </span>
                   )}

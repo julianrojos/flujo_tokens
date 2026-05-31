@@ -17,11 +17,8 @@ export interface PipelineFlags {
   componentSlugOverride: string;
   componentKind: string;
   includeVariants: boolean;
-  requireExistingDoc: boolean;
   continueOnError: boolean;
-  refreshIndices: boolean;
   dryRun: boolean;
-  injectDocSpecs: boolean;
   includeSpecExhibits: boolean;
   variantLimit: number;
   scale: number;
@@ -32,17 +29,15 @@ export interface PipelineFlags {
   force: boolean;
   skipValidation: boolean;
   allowNonEvidenceUpdates: boolean;
+  skipDbPersistence: boolean;
 }
 
 export interface PipelineOptionsArgs {
   'component-slug'?: string;
   'component-kind'?: string;
   'include-variants'?: string | boolean;
-  'require-existing-doc'?: string | boolean;
   'continue-on-error'?: string | boolean;
-  'refresh-indices'?: string | boolean;
   'dry-run'?: string | boolean;
-  'inject-doc-specs'?: string | boolean;
   'include-spec-exhibits'?: string | boolean;
   'variant-limit'?: string | number;
   scale?: string | number;
@@ -53,6 +48,7 @@ export interface PipelineOptionsArgs {
   force?: string | boolean;
   'skip-validation'?: string | boolean;
   'allow-non-evidence-updates'?: string | boolean;
+  'skip-db-persistence'?: string | boolean;
   [key: string]: unknown;
 }
 
@@ -67,11 +63,8 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     componentSlugOverride,
     componentKind: parseComponentKind(args['component-kind']),
     includeVariants: parseBooleanOption(args['include-variants'], '--include-variants', true),
-    requireExistingDoc: parseBooleanOption(args['require-existing-doc'], '--require-existing-doc', true),
     continueOnError: parseBooleanOption(args['continue-on-error'], '--continue-on-error', true),
-    refreshIndices: parseBooleanOption(args['refresh-indices'], '--refresh-indices', true),
     dryRun: parseBooleanOption(args['dry-run'], '--dry-run', false),
-    injectDocSpecs: parseBooleanOption(args['inject-doc-specs'], '--inject-doc-specs', false),
     includeSpecExhibits: parseBooleanOption(args['include-spec-exhibits'], '--include-spec-exhibits', true),
     variantLimit: Math.floor(parsePositiveNumber(args['variant-limit'], '--variant-limit', 6)),
     scale: parsePositiveNumber(args.scale, '--scale', 2),
@@ -82,5 +75,6 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     force: String(args.force || 'false') === 'true',
     skipValidation: String(args['skip-validation'] || 'false') === 'true',
     allowNonEvidenceUpdates: String(args['allow-non-evidence-updates'] || 'false') === 'true',
+    skipDbPersistence: parseBooleanOption(args['skip-db-persistence'], '--skip-db-persistence', false),
   };
 }

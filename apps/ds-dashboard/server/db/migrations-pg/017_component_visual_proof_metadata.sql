@@ -1,0 +1,3 @@
+-- Migration 017: component_visual_proof_metadata
+-- PostgreSQL no-op migration.
+-- Consolidated in 003_design_systems_and_components.sql during SQLite -> PostgreSQL migration.

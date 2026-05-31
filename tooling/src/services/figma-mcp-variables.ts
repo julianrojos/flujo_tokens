@@ -25,7 +25,7 @@ import type {
 // Use a safer default and allow override via env/options.
 const DEFAULT_MCP_TIMEOUT_MS = 60_000;
 const DEFAULT_MCP_CONNECT_WAIT_MS = 5_000;
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 200;
 const MAX_PAGES = 200;
 const LEGACY_STDIO_MCP_CLI = ['figma', 'console-mcp'].join('-');
 const MCP_BRIDGE_PROCESS = 'figma-mcp-bridge';
@@ -82,12 +82,7 @@ interface McpChildPidRecordV1 {
   timestamp: number;
 }
 
-interface McpChildPidLegacyRecord {
-  version: 0;
-  childPid: number;
-}
-
-type McpChildPidState = McpChildPidRecordV1 | McpChildPidLegacyRecord;
+type McpChildPidState = McpChildPidRecordV1;
 
 function parsePositiveInteger(value: unknown): number | null {
   const parsed = Number(value);
@@ -100,13 +95,6 @@ function parsePositiveInteger(value: unknown): number | null {
 function parseMcpChildPidState(raw: string): McpChildPidState | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-
-  // Backward compatibility: previous format stored only the child PID as plain text.
-  if (!trimmed.startsWith('{')) {
-    const childPid = parsePositiveInteger(Number.parseInt(trimmed, 10));
-    if (childPid == null) return null;
-    return { version: 0, childPid };
-  }
 
   try {
     const parsed = JSON.parse(trimmed);
@@ -144,6 +132,14 @@ function readMcpChildPidFile(): McpChildPidState | null {
   }
 }
 
+function warnMcpChildPidFileFailure(stage: 'write' | 'fallback', error: unknown): void {
+  console.warn('[figma-mcp-variables] Failed to persist MCP child PID file', {
+    stage,
+    pidFile: MCP_CHILD_PID_FILE,
+    error,
+  });
+}
+
 function writeMcpChildPidFile(record: McpChildPidRecordV1): void {
   const payload = JSON.stringify(record);
   const tmpPath = `${MCP_CHILD_PID_FILE}.${process.pid}.${Date.now()}.tmp`;
@@ -153,11 +149,15 @@ function writeMcpChildPidFile(record: McpChildPidRecordV1): void {
       fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
     } catch {
       // On some platforms rename-overwrite can fail; fallback to replace.
-      fs.rmSync(MCP_CHILD_PID_FILE, { force: true });
-      fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+      try {
+        fs.rmSync(MCP_CHILD_PID_FILE, { force: true });
+        fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+      } catch (error) {
+        warnMcpChildPidFileFailure('fallback', error);
+      }
     }
-  } catch {
-    // no-op
+  } catch (error) {
+    warnMcpChildPidFileFailure('write', error);
   } finally {
     try {
       fs.rmSync(tmpPath, { force: true });
@@ -406,9 +406,11 @@ export interface FetchFigmaVariablesViaMcpOptions {
   fileUrl?: string;
   timeoutMs?: number;
   connectWaitMs?: number;
+  pageSize?: number;
   command?: string;
   args?: string[];
   env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
 }
 
 function resolveTimeoutMs(options: FetchFigmaVariablesViaMcpOptions): number {
@@ -439,6 +441,21 @@ function resolveConnectWaitMs(options: FetchFigmaVariablesViaMcpOptions): number
   }
 
   return DEFAULT_MCP_CONNECT_WAIT_MS;
+}
+
+function resolvePageSize(options: FetchFigmaVariablesViaMcpOptions): number {
+  const env = options.env ?? process.env;
+  const fromOptions = Number(options.pageSize);
+  if (Number.isFinite(fromOptions) && fromOptions > 0) {
+    return Math.min(MAX_PAGES, Math.floor(fromOptions));
+  }
+
+  const fromEnv = Number(String(env.FIGMA_MCP_PAGE_SIZE || '').trim());
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.min(MAX_PAGES, Math.floor(fromEnv));
+  }
+
+  return DEFAULT_PAGE_SIZE;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -724,12 +741,16 @@ function normalizeVariablesPage(rawPayload: Record<string, unknown>): Normalized
   };
 }
 
-function buildToolsCallParams(fileUrl: string | undefined, page: number): Record<string, unknown> {
+function buildToolsCallParams(
+  fileUrl: string | undefined,
+  page: number,
+  pageSize: number,
+): Record<string, unknown> {
   const params: Record<string, unknown> = {
     format: 'filtered',
     verbosity: 'full',
     page,
-    pageSize: DEFAULT_PAGE_SIZE,
+    pageSize,
   };
   if (fileUrl) {
     params.fileUrl = fileUrl;
@@ -797,16 +818,12 @@ class McpStdioClient {
 
     // Persist child PID for orphan cleanup on next server restart.
     if (this.child.pid != null) {
-      try {
-        writeMcpChildPidFile({
-          version: 1,
-          ownerPid: process.pid,
-          childPid: this.child.pid,
-          timestamp: Date.now(),
-        });
-      } catch {
-        // Best-effort: the file may be in a read-only tmpdir on some systems.
-      }
+      writeMcpChildPidFile({
+        version: 1,
+        ownerPid: process.pid,
+        childPid: this.child.pid,
+        timestamp: Date.now(),
+      });
     }
   }
 
@@ -822,7 +839,7 @@ class McpStdioClient {
     }
   }
 
-  async initialize(timeoutMs?: number): Promise<void> {
+  async initialize(timeoutMs?: number, signal?: AbortSignal): Promise<void> {
     await this.sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
@@ -830,7 +847,7 @@ class McpStdioClient {
         name: 'flujo-tokens-cli',
         version: '1.0.0',
       },
-    }, timeoutMs);
+    }, timeoutMs, signal);
     this.sendNotification('notifications/initialized', {});
   }
 
@@ -838,11 +855,12 @@ class McpStdioClient {
     name: string,
     args: Record<string, unknown>,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
     const result = await this.sendRequest('tools/call', {
       name,
       arguments: args,
-    }, timeoutMs);
+    }, timeoutMs, signal);
     if (!isRecord(result)) {
       throw new Error('Invalid MCP tools/call response: expected result object.');
     }
@@ -875,6 +893,7 @@ class McpStdioClient {
     method: string,
     params: Record<string, unknown>,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     const id = this.nextId;
     this.nextId += 1;
@@ -897,10 +916,26 @@ class McpStdioClient {
         reject(new Error(`MCP request timed out (${method}).${details}`));
       }, effectiveTimeoutMs);
 
+      const onAbort = () => {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(new Error(`MCP request aborted (${method}).`));
+      };
+
       this.pending.set(id, { resolve, reject, timer });
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      if (signal) {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
       if (this.child.stdin.destroyed || this.child.stdin.writableEnded) {
         clearTimeout(timer);
         this.pending.delete(id);
+        if (signal) {
+          signal.removeEventListener('abort', onAbort);
+        }
         reject(new Error(`MCP stdin stream is closed (${method}).`));
         return;
       }
@@ -910,6 +945,9 @@ class McpStdioClient {
         if (!pending) return;
         clearTimeout(pending.timer);
         this.pending.delete(id);
+        if (signal) {
+          signal.removeEventListener('abort', onAbort);
+        }
         pending.reject(new Error(`MCP write failed (${method}): ${error.message}`));
       });
     });
@@ -976,8 +1014,9 @@ class McpStdioClient {
 async function checkMcpConnectivity(
   client: McpStdioClient,
   timeoutMs?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
-  const result = await client.callTool('figma_get_status', {}, timeoutMs);
+  const result = await client.callTool('figma_get_status', {}, timeoutMs, signal);
 
   // Try structured fields first (preferred)
   let hasStructuredSignal = false;
@@ -1075,26 +1114,61 @@ function isMcpDisconnectedError(message: string): boolean {
   );
 }
 
-function waitMs(durationMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
+function waitMs(durationMs: number, signal?: AbortSignal): Promise<void> {
+  if (durationMs <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('MCP request aborted'));
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, durationMs);
+
+    const onAbort = () => {
+      cleanup();
+      reject(new Error('MCP request aborted'));
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
 }
 
 async function ensureMcpConnectivity(
   client: McpStdioClient,
   connectWaitMs: number,
   timeoutMs?: number,
+  signal?: AbortSignal,
 ): Promise<void> {
   const budgetMs = Math.max(0, Math.floor(connectWaitMs));
   const startedAt = Date.now();
   let attempt = 0;
 
   while (true) {
+    if (signal?.aborted) {
+      throw new Error('MCP request aborted');
+    }
     attempt += 1;
     try {
-      await checkMcpConnectivity(client, timeoutMs);
+      await checkMcpConnectivity(client, timeoutMs, signal);
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (signal?.aborted) {
+        throw new Error('MCP request aborted');
+      }
       if (!isMcpDisconnectedError(message)) {
         throw error;
       }
@@ -1105,7 +1179,7 @@ async function ensureMcpConnectivity(
       }
       // Short bounded backoff to tolerate bridge attach races on fresh MCP startup.
       const delayMs = Math.min(1_000, Math.max(200, Math.floor(remainingMs / Math.max(1, 4 - attempt))));
-      await waitMs(Math.min(delayMs, remainingMs));
+      await waitMs(Math.min(delayMs, remainingMs), signal);
     }
   }
 }
@@ -1127,11 +1201,18 @@ async function fetchVariablesViaDashboardProxy(
     resolveTimeoutMs(options),
     DASHBOARD_MCP_PROXY_TIMEOUT_MS,
   );
+  const externalSignal = options.signal;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, effectiveTimeoutMs);
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else if (externalSignal) {
+    externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+  }
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (internalToken) {
@@ -1160,6 +1241,9 @@ async function fetchVariablesViaDashboardProxy(
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
 
   if (!response.ok) {
@@ -1200,6 +1284,7 @@ export async function fetchFigmaLocalVariablesViaMcp(
 
   const timeoutMs = resolveTimeoutMs(options);
   const connectWaitMs = resolveConnectWaitMs(options);
+  const pageSize = resolvePageSize(options);
   const command = resolveFigmaMcpCommand({
     command: options.command,
     args: options.args,
@@ -1211,11 +1296,14 @@ export async function fetchFigmaLocalVariablesViaMcp(
   const variableCollections: Record<string, FigmaVariableCollection> = {};
 
   try {
-    await client.initialize(timeoutMs);
+    if (options.signal?.aborted) {
+      throw new Error('MCP request aborted');
+    }
+    await client.initialize(timeoutMs, options.signal);
 
     // Pre-flight connectivity check (non-fatal if tool not supported)
     try {
-      await ensureMcpConnectivity(client, connectWaitMs, timeoutMs);
+      await ensureMcpConnectivity(client, connectWaitMs, timeoutMs, options.signal);
     } catch (statusError) {
       const msg = statusError instanceof Error ? statusError.message : String(statusError);
       if (/method not found|unknown tool/i.test(msg)) {
@@ -1226,10 +1314,14 @@ export async function fetchFigmaLocalVariablesViaMcp(
     }
 
     for (let page = 1; page <= MAX_PAGES; page += 1) {
+      if (options.signal?.aborted) {
+        throw new Error('MCP request aborted');
+      }
       const toolResult = await client.callTool(
         'figma_get_variables',
-        buildToolsCallParams(options.fileUrl, page),
+        buildToolsCallParams(options.fileUrl, page, pageSize),
         timeoutMs,
+        options.signal,
       );
       if (toolResult.isError === true) {
         throw new Error(`MCP figma_get_variables returned isError=true (page ${page}).`);
@@ -1287,6 +1379,7 @@ interface SharedMcpClientState {
 }
 
 let sharedMcpClientState: SharedMcpClientState | null = null;
+let sharedMcpClientInitChain: Promise<void> = Promise.resolve();
 type SharedMcpClientFactoryForTesting = (
   options: PingSharedFigmaMcpOptions,
 ) => Promise<McpStdioClient>;
@@ -1303,9 +1396,10 @@ export function setSharedMcpClientFactoryForTesting(
   factory: SharedMcpClientFactoryForTesting | null,
 ): void {
   sharedMcpClientFactoryForTesting = factory;
-  if (factory) {
-    disposeSharedClientState();
-  }
+  // Keep test runs isolated: swapping the factory should drop any cached
+  // shared client so the next call rebuilds from the new test fixture.
+  disposeSharedClientState();
+  sharedMcpClientInitChain = Promise.resolve();
 }
 
 function buildSharedClientSignature(args: {
@@ -1327,10 +1421,28 @@ function buildSharedClientSignature(args: {
   return `${args.command.command}\u0000${args.command.args.join('\u0001')}\u0000${envSignature}`;
 }
 
+async function withSharedMcpClientInitLock<T>(task: () => Promise<T>): Promise<T> {
+  let release: (() => void) | null = null;
+  const previous = sharedMcpClientInitChain;
+  sharedMcpClientInitChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release?.();
+  }
+}
+
 function disposeSharedClientState(): void {
   if (!sharedMcpClientState) return;
   try {
-    sharedMcpClientState.client.close();
+    const close = sharedMcpClientState.client.close;
+    if (typeof close === "function") {
+      close.call(sharedMcpClientState.client);
+    }
   } catch {
     // no-op
   } finally {
@@ -1341,74 +1453,71 @@ function disposeSharedClientState(): void {
 export async function getOrCreateSharedMcpClient(
   options: PingSharedFigmaMcpOptions,
 ): Promise<McpStdioClient> {
-  if (sharedMcpClientFactoryForTesting) {
-    return await sharedMcpClientFactoryForTesting(options);
-  }
-
-  const timeoutMs = resolveTimeoutMs(options);
-  const command = resolveFigmaMcpCommand({
-    command: options.command,
-    args: options.args,
-    env: options.env,
-  });
-  const signature = buildSharedClientSignature({ command, env: options.env });
-
-  if (sharedMcpClientState && sharedMcpClientState.signature === signature) {
-    return sharedMcpClientState.client;
-  }
-
-  // Kill any orphaned MCP child process from a previous server run.
-  // This handles the case where the server crashed or was killed before
-  // the shared client state was set (e.g., during warmup).
-  const staleState = readMcpChildPidFile();
-  if (staleState?.version === 1) {
-    const staleOwnerPid = staleState.ownerPid;
-    const staleChildPid = staleState.childPid;
-    const ownedByCurrentProcess = staleOwnerPid === process.pid;
-    const ownerAlive = ownedByCurrentProcess ? true : isProcessAlive(staleOwnerPid);
-    const shouldCleanup = ownedByCurrentProcess || !ownerAlive;
-
-    if (shouldCleanup) {
-      try {
-        if (isFigmaMcpProcessPid(staleChildPid)) {
-          process.kill(staleChildPid, 'SIGTERM');
+  return await withSharedMcpClientInitLock(async () => {
+    const timeoutMs = resolveTimeoutMs(options);
+    const usingTestFactory = sharedMcpClientFactoryForTesting !== null;
+    const command = usingTestFactory
+      ? {
+          command: String(options.command || '__shared_mcp_test_factory__'),
+          args: options.args ?? [],
         }
-      } catch {
-        // PID already dead or permission error — both are safe to ignore.
-      } finally {
-        // Don't keep stale data around for subsequent startups.
-        clearMcpChildPidFile({
-          ownerPid: staleOwnerPid,
-          childPid: staleChildPid,
+      : resolveFigmaMcpCommand({
+          command: options.command,
+          args: options.args,
+          env: options.env,
         });
-      }
-    }
-  } else if (staleState?.version === 0) {
-    // Legacy migration path: previous versions persisted only child PID.
-    // Best-effort cleanup on first run after upgrade, with identity check
-    // to avoid killing unrelated recycled PIDs.
-    const legacyChildPid = staleState.childPid;
-    try {
-      if (isFigmaMcpProcessPid(legacyChildPid)) {
-        process.kill(legacyChildPid, 'SIGTERM');
-      }
-    } catch {
-      // PID already dead or permission error — both are safe to ignore.
-    } finally {
-      clearMcpChildPidFile({ childPid: legacyChildPid });
-    }
-  }
+    const signature = buildSharedClientSignature({ command, env: options.env });
 
-  disposeSharedClientState();
-  const client = new McpStdioClient(command, timeoutMs, options.env);
-  try {
-    await client.initialize(timeoutMs);
-  } catch (error) {
-    client.close();
-    throw error;
-  }
-  sharedMcpClientState = { signature, client };
-  return client;
+    if (sharedMcpClientState && sharedMcpClientState.signature === signature) {
+      return sharedMcpClientState.client;
+    }
+
+    disposeSharedClientState();
+
+    if (sharedMcpClientFactoryForTesting) {
+      const client = await sharedMcpClientFactoryForTesting(options);
+      sharedMcpClientState = { signature, client };
+      return client;
+    }
+
+    // Kill any orphaned MCP child process from a previous server run.
+    // This handles the case where the server crashed or was killed before
+    // the shared client state was set (e.g., during warmup).
+    const staleState = readMcpChildPidFile();
+    if (staleState?.version === 1) {
+      const staleOwnerPid = staleState.ownerPid;
+      const staleChildPid = staleState.childPid;
+      const ownedByCurrentProcess = staleOwnerPid === process.pid;
+      const ownerAlive = ownedByCurrentProcess ? true : isProcessAlive(staleOwnerPid);
+      const shouldCleanup = ownedByCurrentProcess || !ownerAlive;
+
+      if (shouldCleanup) {
+        try {
+          if (isFigmaMcpProcessPid(staleChildPid)) {
+            process.kill(staleChildPid, 'SIGTERM');
+          }
+        } catch {
+          // PID already dead or permission error — both are safe to ignore.
+        } finally {
+          // Don't keep stale data around for subsequent startups.
+          clearMcpChildPidFile({
+            ownerPid: staleOwnerPid,
+            childPid: staleChildPid,
+          });
+        }
+      }
+    }
+
+    const client = new McpStdioClient(command, timeoutMs, options.env);
+    try {
+      await client.initialize(timeoutMs);
+    } catch (error) {
+      client.close();
+      throw error;
+    }
+    sharedMcpClientState = { signature, client };
+    return client;
+  });
 }
 
 function shouldRestartSharedClient(message: string): boolean {
@@ -1662,10 +1771,11 @@ export function warmupSharedFigmaMcpClient(options: PingSharedFigmaMcpOptions = 
  * This is the preferred path when running inside the dashboard server.
  */
 export async function fetchVariablesFromSharedMcpClient(
-  options: Pick<FetchFigmaVariablesViaMcpOptions, 'fileUrl' | 'timeoutMs' | 'connectWaitMs'> = {},
+  options: Pick<FetchFigmaVariablesViaMcpOptions, 'fileUrl' | 'timeoutMs' | 'connectWaitMs' | 'pageSize'> = {},
 ): Promise<FigmaVariablesResponse> {
   const timeoutMs = resolveTimeoutMs(options);
   const connectWaitMs = resolveConnectWaitMs(options);
+  const pageSize = resolvePageSize(options);
 
   const doFetch = async (): Promise<FigmaVariablesResponse> => {
     const client = await getOrCreateSharedMcpClient(options);
@@ -1677,7 +1787,7 @@ export async function fetchVariablesFromSharedMcpClient(
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       const toolResult = await client.callTool(
         'figma_get_variables',
-        buildToolsCallParams(options.fileUrl, page),
+        buildToolsCallParams(options.fileUrl, page, pageSize),
         timeoutMs,
       );
       if (toolResult.isError === true) {

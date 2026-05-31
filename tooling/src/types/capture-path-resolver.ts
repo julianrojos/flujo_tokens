@@ -20,6 +20,6 @@ export interface CaptureContext {
 export interface DocsPaths {
   docsRootDir: string;
   componentDocsDir: string;
-  markdownPath: string;
+  docPath: string;
   specPath: string;
 }

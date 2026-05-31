@@ -1,16 +1,16 @@
 import { buildSpecDiff } from "./spec-diff";
-import type { TokenRegistry } from "../types/token-registry";
+import type { TokenCatalog } from "../types/token-catalog";
 import type { ComponentSpec } from "ds-types";
 import type { SpecValidationIssue, SpecValidationResult } from "../types/spec-editor";
 
 type ValidationContext = {
-  tokenRegistry?: TokenRegistry | null;
+  tokenCatalog?: TokenCatalog | null;
   previousSpec?: ComponentSpec | null;
 };
 
 const COMPONENT_SET_NODE_ID_RE = /^\d+:\d+$/;
 const SNAKE_CASE_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-const PROPERTY_TYPES = new Set(["enum", "text", "boolean", "instance_swap"]);
+const PROPERTY_TYPES = new Set(["enum", "text", "boolean", "instance_swap", "slot"]);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -39,15 +39,15 @@ function toValidationSummary(issues: SpecValidationIssue[]): SpecValidationResul
 }
 
 function resolveTokenReference(
-  tokenRegistry: TokenRegistry | null | undefined,
+  tokenCatalog: TokenCatalog | null | undefined,
   tokenRef: string,
 ) {
-  if (!tokenRegistry) return null;
+  if (!tokenCatalog) return null;
   const query = String(tokenRef || "").trim();
   if (!query) return null;
   return (
-    tokenRegistry.byPath?.[query] ??
-    tokenRegistry.bySlashPath?.[query] ??
+    tokenCatalog.byPath?.[query] ??
+    tokenCatalog.bySlashPath?.[query] ??
     null
   );
 }
@@ -59,19 +59,6 @@ function collectTokenRefChecks(spec: ComponentSpec): Array<{ path: string; value
     if (!tokenRef || tokenRef.toUpperCase() === "TBD") return;
     refs.push({ path, value: tokenRef });
   };
-
-  if (isObjectRecord(spec.token_mapping)) {
-    for (const [mappingKey, mappingValue] of Object.entries(spec.token_mapping)) {
-      if (typeof mappingValue === "string") {
-        pushRef(`token_mapping.${mappingKey}`, mappingValue);
-        continue;
-      }
-      if (!isObjectRecord(mappingValue)) continue;
-      for (const [condition, tokenRef] of Object.entries(mappingValue)) {
-        pushRef(`token_mapping.${mappingKey}.${condition}`, tokenRef);
-      }
-    }
-  }
 
   pushRef("accessibility.focus.tokens.inner", spec.accessibility?.focus?.tokens?.inner);
   pushRef("accessibility.focus.tokens.outer", spec.accessibility?.focus?.tokens?.outer);
@@ -131,12 +118,9 @@ function validateRequiredTopLevelFields(
     "status",
     "figma",
     "summary",
-    "anatomy",
     "properties",
     "content_guidelines",
-    "best_practices",
     "accessibility",
-    "token_mapping",
     "qa",
   ];
 
@@ -259,50 +243,6 @@ function validateSummary(
   }
 }
 
-function validateAnatomy(
-  issues: SpecValidationIssue[],
-  spec: ComponentSpec,
-) {
-  if (!hasMinItems(spec.anatomy)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_ANATOMY_REQUIRED",
-      path: "anatomy",
-      message: "anatomy must contain at least one item.",
-    });
-    return;
-  }
-
-  spec.anatomy.forEach((item, index) => {
-    const pathPrefix = `anatomy[${index}]`;
-    if (!item || typeof item !== "object") {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_ITEM_INVALID",
-        path: pathPrefix,
-        message: "anatomy item must be an object.",
-      });
-      return;
-    }
-    if (!SNAKE_CASE_RE.test(String(item.id || ""))) {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_ID_INVALID",
-        path: `${pathPrefix}.id`,
-        message: "anatomy.id must be snake_case.",
-      });
-    }
-    if (!String(item.description || "").trim()) {
-      addIssue(issues, {
-        severity: "error",
-        code: "SPEC_ANATOMY_DESCRIPTION_REQUIRED",
-        path: `${pathPrefix}.description`,
-        message: "anatomy.description is required.",
-      });
-    }
-  });
-}
-
 function validateProperties(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
@@ -345,7 +285,7 @@ function validateProperties(
         severity: "error",
         code: "SPEC_PROPERTY_TYPE_INVALID",
         path: `${pathPrefix}.type`,
-        message: "property type must be enum, text, boolean, or instance_swap.",
+        message: "property type must be enum, text, boolean, instance_swap, or slot.",
       });
     }
 
@@ -378,7 +318,7 @@ function validateProperties(
   });
 }
 
-function validateContentGuidelinesAndBestPractices(
+function validateContentGuidelines(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
 ) {
@@ -388,23 +328,6 @@ function validateContentGuidelinesAndBestPractices(
       code: "SPEC_CONTENT_GUIDELINES_REQUIRED",
       path: "content_guidelines.rules",
       message: "content_guidelines.rules must contain at least one item.",
-    });
-  }
-
-  if (!hasMinItems(spec.best_practices?.do)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_BEST_PRACTICES_DO_REQUIRED",
-      path: "best_practices.do",
-      message: "best_practices.do must contain at least one item.",
-    });
-  }
-  if (!hasMinItems(spec.best_practices?.dont)) {
-    addIssue(issues, {
-      severity: "error",
-      code: "SPEC_BEST_PRACTICES_DONT_REQUIRED",
-      path: "best_practices.dont",
-      message: "best_practices.dont must contain at least one item.",
     });
   }
 }
@@ -455,54 +378,22 @@ function validateQa(
   }
 }
 
-function validateRelatedComponents(
-  issues: SpecValidationIssue[],
-  spec: ComponentSpec,
-) {
-  if (spec.related_components && Array.isArray(spec.related_components)) {
-    const seenRelated = new Set<string>();
-    for (let index = 0; index < spec.related_components.length; index += 1) {
-      const related = String(spec.related_components[index] || "").trim();
-      const itemPath = `related_components[${index}]`;
-      if (!SNAKE_CASE_RE.test(related)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_RELATED_COMPONENT_INVALID",
-          path: itemPath,
-          message: "related component values must be snake_case slugs.",
-        });
-        continue;
-      }
-      if (seenRelated.has(related)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_RELATED_COMPONENT_DUPLICATE",
-          path: itemPath,
-          message: `related component '${related}' is duplicated.`,
-        });
-        continue;
-      }
-      seenRelated.add(related);
-    }
-  }
-}
-
 function validateTokenReferences(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
   context: ValidationContext,
 ) {
-  if (context.tokenRegistry) {
+  if (context.tokenCatalog) {
     for (const tokenRef of collectTokenRefChecks(spec)) {
-      if (!resolveTokenReference(context.tokenRegistry, tokenRef.value)) {
-        addIssue(issues, {
-          severity: "error",
-          code: "SPEC_TOKEN_REF_UNRESOLVED",
-          path: tokenRef.path,
-          message: `Token reference '${tokenRef.value}' was not found in token registry.`,
-        });
+      if (!resolveTokenReference(context.tokenCatalog, tokenRef.value)) {
+          addIssue(issues, {
+            severity: "error",
+            code: "SPEC_TOKEN_REF_UNRESOLVED",
+            path: tokenRef.path,
+            message: `Token reference '${tokenRef.value}' was not found in token data.`,
+          });
+        }
       }
-    }
   }
 }
 
@@ -527,12 +418,10 @@ export function validateComponentSpec(
   validateNameAndStatus(issues, spec);
   validateFigma(issues, spec);
   validateSummary(issues, spec);
-  validateAnatomy(issues, spec);
   validateProperties(issues, spec);
-  validateContentGuidelinesAndBestPractices(issues, spec);
+  validateContentGuidelines(issues, spec);
   validateAccessibility(issues, spec);
   validateQa(issues, spec);
-  validateRelatedComponents(issues, spec);
   validateTokenReferences(issues, spec, context);
 
   validateGuardrails(issues, context.previousSpec, spec);

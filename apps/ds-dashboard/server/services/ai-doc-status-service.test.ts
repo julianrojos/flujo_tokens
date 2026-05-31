@@ -1,129 +1,135 @@
 /**
- * AI Doc Status Service Tests
+ * AI Doc Status Service Tests (S-11: DB-first)
+ *
+ * Tests the DB-based staleness computation. No filesystem scanning.
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { computeDocStatuses, type DocComponentStatus, type PluginConnectionManagerLike } from './ai-doc-status-service.js';
-import { getPluginConnectionManager, resetPluginConnectionManager } from './plugin-connection-manager.js';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import {
+    computeDocStatusesDb,
+    computeDocStatuses,
+    computeDocStatusesFromSnapshots,
+    computeDocStatusesDbFromSnapshots,
+    type DocComponentStatus,
+} from './ai-doc-status-service.js';
+import type { ComponentRepository } from '../db/component-repository.js';
 
-describe('ai-doc-status-service', () => {
-    let testDir: string;
+// Minimal mock that satisfies listDocStatusFromComponentDocs
+function makeMockRepo(
+    snapshots: Array<{
+        id: number;
+        slug: string;
+        status: 'fresh' | 'stale' | 'missing';
+        appliedAt: number | null;
+    }>,
+): ComponentRepository {
+    return {
+        listDocStatusFromComponentDocs: () => snapshots,
+    } as unknown as ComponentRepository;
+}
 
-    beforeEach(async () => {
-        resetPluginConnectionManager();
-        // Create temp directory for docs
-        testDir = await mkdtemp(join(tmpdir(), 'ai-doc-test-'));
+describe('computeDocStatusesDb', () => {
+    it('returns empty components when no components exist', async () => {
+        const repo = makeMockRepo([]);
+        const result = await computeDocStatusesDb(repo);
+
+        assert.equal(result.connected, true);
+        assert.equal(result.sourceScope, 'docs_from_db');
+        assert.equal(result.components.length, 0);
     });
 
-    it('returns missing for components without docs', async () => {
-        // Empty directory
-        const result = await computeDocStatuses(testDir);
+    it('maps fresh status from component_docs (appliedAt >= syncedAt)', async () => {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const repo = makeMockRepo([
+            {
+                id: 1,
+                slug: 'button',
+                status: 'fresh',
+                appliedAt: nowSec,
+            },
+        ]);
+        const result = await computeDocStatusesDb(repo);
+
+        assert.equal(result.components.length, 1);
+        assert.equal(result.components[0].componentId, '1');
+        assert.equal(result.components[0].slug, 'button');
+        assert.equal(result.components[0].status, 'fresh');
+        assert.ok(result.components[0].generatedAt);
+    });
+
+    it('maps missing status when no component_docs row', async () => {
+        const repo = makeMockRepo([
+            { id: 3, slug: 'modal', status: 'missing', appliedAt: null },
+        ]);
+        const result = await computeDocStatusesDb(repo);
+
+        assert.equal(result.components.length, 1);
+        assert.equal(result.components[0].status, 'missing');
+        assert.equal(result.components[0].generatedAt, undefined);
+    });
+});
+
+describe('computeDocStatusesFromSnapshots', () => {
+    it('returns correct result from snapshot fixtures', () => {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const result = computeDocStatusesFromSnapshots([
+            { id: 1, slug: 'button', status: 'fresh', appliedAt: nowSec },
+            { id: 2, slug: 'card', status: 'stale', appliedAt: 1000 },
+            { id: 3, slug: 'modal', status: 'missing', appliedAt: null },
+        ]);
+
+        assert.equal(result.connected, true);
+        assert.equal(result.sourceScope, 'docs_from_db');
+        assert.equal(result.components.length, 3);
+
+        assert.equal(result.components[0].slug, 'button');
+        assert.equal(result.components[0].status, 'fresh');
+        assert.ok(result.components[0].generatedAt);
+
+        assert.equal(result.components[1].status, 'stale');
+        assert.equal(result.components[2].status, 'missing');
+        assert.equal(result.components[2].generatedAt, undefined);
+    });
+
+    it('handles empty snapshots', () => {
+        const result = computeDocStatusesFromSnapshots([]);
+        assert.equal(result.components.length, 0);
+    });
+});
+
+describe('computeDocStatusesDbFromSnapshots (deprecated alias)', () => {
+    it('delegates to computeDocStatusesFromSnapshots', () => {
+        const result = computeDocStatusesDbFromSnapshots([
+            { id: 10, slug: 'alias-test', status: 'fresh', appliedAt: null },
+        ]);
+        assert.equal(result.components.length, 1);
+        assert.equal(result.components[0].slug, 'alias-test');
+    });
+});
+
+describe('computeDocStatuses (deprecated signature)', () => {
+    it('returns empty components when no DB is provided', async () => {
+        const result = await computeDocStatuses('/some/path');
 
         assert.equal(result.connected, false);
         assert.equal(result.components.length, 0);
     });
 
-    it('returns fresh when doc is newer than last change', async () => {
-        // Create a doc file with generated_at in frontmatter
-        const content = `---
-figma.component_set_node_id: 123:456
-ai.generated_at: ${new Date(Date.now() - 60000).toISOString()}
----
+    it('delegates to DB path when db+componentRepo provided', async () => {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const repo = makeMockRepo([
+            { id: 42, slug: 'delegated', status: 'fresh', appliedAt: nowSec },
+        ]);
+        const result = await computeDocStatuses('/ignored', undefined, {
+            // db just needs to be truthy — the function doesn't use it directly,
+            // it delegates to computeDocStatusesDb which only uses componentRepo
+            db: {} as any,
+            componentRepo: repo,
+        });
 
-# Test Component
-
-Some content here.
-`;
-        await writeFile(join(testDir, 'test-component.md'), content, 'utf-8');
-
-        // No document changes, so it should be fresh
-        const result = await computeDocStatuses(testDir);
-
+        assert.equal(result.connected, true);
         assert.equal(result.components.length, 1);
-        assert.equal(result.components[0].status, 'fresh');
-        assert.equal(result.components[0].componentId, '123:456');
-    });
-
-    it('returns stale when change is newer than doc (with injected manager)', async () => {
-        // Create a doc file with old generated_at
-        const docTimestamp = new Date(Date.now() - 120000); // 2 minutes ago
-        const content = `---
-figma.component_set_node_id: 123:456
-ai.generated_at: ${docTimestamp.toISOString()}
----
-
-# Test Component
-
-Some content here.
-`;
-        await writeFile(join(testDir, 'test-component.md'), content, 'utf-8');
-
-        // Create mock manager with document change newer than generated_at
-        const changeTimestamp = Date.now(); // Now (more recent than generated_at)
-        const mockManager: PluginConnectionManagerLike = {
-            getConnectionCount: () => 1,
-            getDocumentChangesWithFileKey: () => [
-                {
-                    changedNodeIds: ['123:456'],
-                    timestamp: changeTimestamp,
-                    fileKey: 'test-file',
-                },
-            ],
-        };
-
-        const result = await computeDocStatuses(testDir, mockManager);
-
-        assert.equal(result.components.length, 1);
-        assert.equal(result.components[0].status, 'stale',
-            'Status should be stale when document change is newer than generated_at');
-        assert.equal(result.components[0].componentId, '123:456');
-    });
-
-    it('returns fresh when no document changes exist', async () => {
-        // Create a doc file with old generated_at
-        const content = `---
-figma.component_set_node_id: 123:456
-ai.generated_at: ${new Date(Date.now() - 120000).toISOString()}
----
-
-# Test Component
-
-Some content here.
-`;
-        await writeFile(join(testDir, 'test-component.md'), content, 'utf-8');
-
-        // Without mock document changes injected, it should be fresh
-        const result = await computeDocStatuses(testDir);
-
-        assert.equal(result.components.length, 1);
-        assert.equal(result.components[0].status, 'fresh');
-    });
-
-    it('returns connected: false when no plugin connection', async () => {
-        const content = `---
-figma.component_set_node_id: 123:456
-ai.generated_at: ${new Date().toISOString()}
----
-
-# Test
-`;
-        await writeFile(join(testDir, 'test.md'), content, 'utf-8');
-
-        const result = await computeDocStatuses(testDir);
-
-        assert.equal(result.connected, false);
-    });
-
-    // Cleanup
-    afterEach(async () => {
-        try {
-            await rm(testDir, { recursive: true, force: true });
-        } catch {
-            // Ignore cleanup errors
-        }
+        assert.equal(result.components[0].slug, 'delegated');
     });
 });

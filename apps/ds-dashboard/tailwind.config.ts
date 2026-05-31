@@ -32,6 +32,14 @@ const config: Config = {
         "surface-3": "var(--app-surface-3)",
         "surface-glass": "var(--app-surface-glass)",
         "surface-elevated": "var(--app-surface-elevated)",
+        "surface-subtle": "var(--app-surface-subtle)",
+        // Sidebar shell
+        sidebar: "var(--app-sidebar-bg)",
+        "sidebar-foreground": "var(--app-sidebar-fg)",
+        "sidebar-active": "var(--app-sidebar-active-bg)",
+        "sidebar-active-border": "var(--app-sidebar-active-border)",
+        // Table
+        "table-row-alt": "var(--app-table-row-alt)",
         // Status colors
         "status-error": "var(--app-status-error-text)",
         "status-error-bg": "var(--app-status-error-bg)",
@@ -74,8 +82,10 @@ const config: Config = {
         slow: "var(--app-motion-slow)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        serif: ["var(--font-serif)"],
+        sans: ["var(--font-titles)"],
+        titles: ["var(--font-titles)"],
+        body: ["var(--font-body)"],
+        serif: ["var(--font-body)"],
         mono: ["var(--font-mono)"],
       },
     },

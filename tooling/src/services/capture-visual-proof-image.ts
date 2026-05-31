@@ -23,13 +23,13 @@ import {
   extractImageDimensions,
   writeBufferAtomic,
   sha256Hex,
-  collectProofImagePaths,
 } from './capture-visual-proof-io.js';
 import {
   extractVariantNodes,
   extractFirstJsonObject,
 } from './capture-visual-proof-figma.js';
 import { normalizeVariantSlug } from '../utils/parse-options.js';
+import type { FigmaNode } from '../utils/figma.js';
 
 /**
  * Context for main image capture.
@@ -53,7 +53,94 @@ export interface MainCaptureContext {
 export interface MainCaptureResult {
   imageUrlRaw: string;
   normalizedNodeId: string;
+  nodeWidth: number | null;
+  nodeHeight: number | null;
   captureSource: 'REST' | 'Agent';
+}
+
+function extractNodeDimensions(node: FigmaNode | null | undefined): { width: number | null; height: number | null } {
+  if (!node) return { width: null, height: null };
+  const width =
+    Number.isFinite(Number(node.width)) ? Number(node.width) :
+    Number.isFinite(Number(node.size?.width)) ? Number(node.size?.width) :
+    Number.isFinite(Number(node.absoluteBoundingBox?.width)) ? Number(node.absoluteBoundingBox?.width) :
+    null;
+  const height =
+    Number.isFinite(Number(node.height)) ? Number(node.height) :
+    Number.isFinite(Number(node.size?.height)) ? Number(node.size?.height) :
+    Number.isFinite(Number(node.absoluteBoundingBox?.height)) ? Number(node.absoluteBoundingBox?.height) :
+    null;
+  return { width, height };
+}
+
+interface MainCaptureRestDeps {
+  fetchImages: typeof fetchFigmaImages;
+  fetchNodes: typeof fetchFigmaNodes;
+  warn: (message: string) => void;
+}
+
+const defaultMainCaptureRestDeps: MainCaptureRestDeps = {
+  fetchImages: fetchFigmaImages,
+  fetchNodes: fetchFigmaNodes,
+  warn: (message: string) => logger.warn(message),
+};
+
+export async function captureMainImageViaRest(
+  ctx: MainCaptureContext,
+  deps: MainCaptureRestDeps = defaultMainCaptureRestDeps,
+): Promise<MainCaptureResult> {
+  if (!ctx.figmaToken || !ctx.figmaFileKey) {
+    throw new CaptureError(
+      'Main capture mode `rest` requires --figma-token (or FIGMA_TOKEN) and a resolvable Figma file key.',
+      'REST_CAPTURE_MISSING_CREDENTIALS',
+    );
+  }
+
+  try {
+    const imagePayload = await deps.fetchImages({
+      fileKey: ctx.figmaFileKey,
+      nodeIds: [ctx.nodeId],
+      token: ctx.figmaToken,
+      format: ctx.format as 'png' | 'jpg' | 'svg' | 'pdf',
+      scale: ctx.scale,
+      timeoutMs: ctx.downloadTimeoutMs,
+    }) as { images: Record<string, string> | null };
+
+    let nodePayload: Awaited<ReturnType<typeof fetchFigmaNodes>> | null = null;
+    try {
+      nodePayload = await deps.fetchNodes({
+        fileKey: ctx.figmaFileKey,
+        nodeIds: [ctx.nodeId],
+        token: ctx.figmaToken,
+        depth: 0,
+        timeoutMs: ctx.downloadTimeoutMs,
+      });
+    } catch (error) {
+      deps.warn(
+        `[capture-visual-proof-image] node metadata lookup failed for ${ctx.nodeId}; continuing without dimensions: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    const imageMap =
+      imagePayload?.images ? (imagePayload.images as Record<string, string>) : {};
+    const imageUrlRaw = String(imageMap[ctx.nodeId] || '').trim();
+    const normalizedNodeId = ctx.nodeId;
+    const nodeRecord = nodePayload?.nodes?.[ctx.nodeId]?.document || null;
+    const dimensions = extractNodeDimensions(nodeRecord as FigmaNode | null);
+
+    return {
+      imageUrlRaw,
+      normalizedNodeId,
+      nodeWidth: dimensions.width,
+      nodeHeight: dimensions.height,
+      captureSource: 'REST',
+    };
+  } catch (error) {
+    throw new CaptureError(
+      `Main screenshot capture via REST failed: ${error instanceof Error ? error.message : String(error)}`,
+      'REST_CAPTURE_FAILED',
+    );
+  }
 }
 
 /**
@@ -102,33 +189,15 @@ export async function captureMainImage(ctx: MainCaptureContext): Promise<MainCap
 
   let imageUrlRaw = '';
   let normalizedNodeId = ctx.nodeId;
+  let nodeWidth: number | null = null;
+  let nodeHeight: number | null = null;
 
   if (useRestForMainCapture) {
-    if (!ctx.figmaToken || !ctx.figmaFileKey) {
-      throw new CaptureError(
-        'Main capture mode `rest` requires --figma-token (or FIGMA_TOKEN) and a resolvable Figma file key.',
-        'REST_CAPTURE_MISSING_CREDENTIALS',
-      );
-    }
-    try {
-      const imagePayload = await fetchFigmaImages({
-        fileKey: ctx.figmaFileKey,
-        nodeIds: [ctx.nodeId],
-        token: ctx.figmaToken,
-        format: ctx.format as 'png' | 'jpg' | 'svg' | 'pdf',
-        scale: ctx.scale,
-        timeoutMs: ctx.downloadTimeoutMs,
-      }) as { images: Record<string, string> | null };
-      const imageMap =
-        imagePayload?.images ? (imagePayload.images as Record<string, string>) : {};
-      imageUrlRaw = String(imageMap[ctx.nodeId] || '').trim();
-      normalizedNodeId = ctx.nodeId;
-    } catch (error) {
-      throw new CaptureError(
-        `Main screenshot capture via REST failed: ${error instanceof Error ? error.message : String(error)}`,
-        'REST_CAPTURE_FAILED',
-      );
-    }
+    const result = await captureMainImageViaRest(ctx);
+    imageUrlRaw = result.imageUrlRaw;
+    normalizedNodeId = result.normalizedNodeId;
+    nodeWidth = result.nodeWidth;
+    nodeHeight = result.nodeHeight;
   } else {
     const prompt = buildCapturePrompt({ figmaUrl: ctx.figmaUrl, nodeId: ctx.nodeId, format: ctx.format, scale: ctx.scale });
     let response;
@@ -180,6 +249,8 @@ export async function captureMainImage(ctx: MainCaptureContext): Promise<MainCap
   return {
     imageUrlRaw,
     normalizedNodeId,
+    nodeWidth,
+    nodeHeight,
     captureSource,
   };
 }
@@ -266,6 +337,8 @@ export async function captureVariantImages(
       image_content_type: null,
       image_width: null,
       image_height: null,
+      node_width: variant.width,
+      node_height: variant.height,
       captured_at: capturedAt,
     };
 
@@ -391,9 +464,10 @@ export async function downloadAndStoreMainImage(
 
 /**
  * Load previous proof image paths from existing payload.
+ * @param proofImagesSlugPath - Slug-based path hint (e.g. `<proofDir>/<slug>`), not a directory
  */
 export async function loadPreviousProofImagePaths(
-  proofFilePath: string,
+  proofImagesSlugPath: string,
   docsRootDir: string,
   dryRun: boolean,
 ): Promise<string[]> {
@@ -401,17 +475,37 @@ export async function loadPreviousProofImagePaths(
     return [];
   }
 
-  if (!fs.existsSync(proofFilePath)) {
-    return [];
+  // `proofImagesSlugPath` is a slug hint path (e.g. `<proofDir>/<slug>`), not a real directory.
+  // Keep lookup rooted at the actual proof directory to match where images are written.
+  const proofDir = path.dirname(path.resolve(proofImagesSlugPath));
+  const proofImageDir = path.join(proofDir, 'images');
+  const variantsDir = path.join(proofImageDir, 'variants');
+  const slug = path.basename(proofImagesSlugPath).trim();
+  if (!slug) return [];
+
+  const paths: string[] = [];
+  if (fs.existsSync(proofImageDir)) {
+    for (const entry of fs.readdirSync(proofImageDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}.`)) continue;
+      paths.push(path.join(proofImageDir, name));
+    }
+  }
+  if (fs.existsSync(variantsDir)) {
+    for (const entry of fs.readdirSync(variantsDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}__`)) continue;
+      paths.push(path.join(variantsDir, name));
+    }
   }
 
-  try {
-    const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, 'utf8'));
-    return collectProofImagePaths({
-      proofPayload: previousPayload,
-      docsRootDir,
+  const resolvedDocsRoot = path.resolve(docsRootDir);
+  return paths
+    .map((candidate) => path.resolve(candidate))
+    .filter((candidate) => {
+      const rel = path.relative(resolvedDocsRoot, candidate);
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
     });
-  } catch {
-    return [];
-  }
 }

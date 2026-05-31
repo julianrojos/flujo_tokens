@@ -2,17 +2,11 @@
  * System Route Handler Service
  *
  * Handles system route operations including filesystem pruning and scaffolding.
- * Migrated from apps/ds-dashboard/server/lib/system-route-handler-service.mjs
  */
 
 import path from "node:path";
 import fsSync from "node:fs";
-
-import {
-  createEmptyComponentRegistry,
-  createEmptyTokenUsageIndex,
-  createEmptyTokenRegistry,
-} from "./registry-seed-service.mjs";
+import { resolveSystemPaths } from "../db/design-system-repository.js";
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -26,12 +20,16 @@ export type FsSync = Pick<
   typeof fsSync,
   | "existsSync"
   | "mkdirSync"
-  | "writeFileSync"
   | "rmSync"
   | "statSync"
   | "readdirSync"
   | "rmdirSync"
 >;
+
+export interface RemoveExistingPathsOptions {
+  repoRoot?: string;
+  protectedTopLevelDirs?: string[];
+}
 
 /**
  * Design system configuration.
@@ -60,20 +58,14 @@ export interface DesignSystemsConfig {
 export interface ScaffoldResult {
   docsDir: string;
   generatedDir: string;
-  componentRegistryPath: string;
-  tokenRegistryPath: string;
-  tokenUsageIndexPath: string;
   createdPaths: string[];
 }
 
 /**
  * Result of reset global artifacts operation.
+ * Tracks only the directories created/touched during reset.
  */
 export interface ResetGlobalArtifactsResult {
-  componentRegistryPath: string;
-  tokenRegistryPath: string;
-  tokenUsageIndexPath: string;
-  componentsIndexPath: string;
   touchedPaths: string[];
 }
 
@@ -234,8 +226,43 @@ export function collectRemovableSystemPaths({
  * @returns List of removed paths
  */
 export function removeExistingPaths(paths: string[], fs: FsSync): string[] {
+  return removeExistingPathsWithOptions(paths, fs, undefined);
+}
+
+/**
+ * Remove existing filesystem paths with optional safety guards.
+ * @param paths - List of paths to remove
+ * @param fs - Synchronous filesystem operations
+ * @param options - Optional safety options
+ * @returns List of removed paths
+ */
+export function removeExistingPathsWithOptions(
+  paths: string[],
+  fs: FsSync,
+  options?: RemoveExistingPathsOptions,
+): string[] {
+  const repoRoot = options?.repoRoot ? path.resolve(options.repoRoot) : "";
+  const protectedTopLevelDirs = new Set(
+    (options?.protectedTopLevelDirs || ["docs", "input", "output"])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean),
+  );
+
+  const isProtectedPath = (targetPath: string): boolean => {
+    if (!repoRoot) return false;
+    const absolute = path.resolve(targetPath);
+    if (absolute === repoRoot) return true;
+    const relative = path.relative(repoRoot, absolute);
+    if (!relative || relative === ".") return true;
+    if (relative.startsWith("..") || path.isAbsolute(relative)) return true;
+    const segments = relative.split(path.sep).filter(Boolean);
+    if (segments.length !== 1) return false;
+    return protectedTopLevelDirs.has(segments[0]);
+  };
+
   const removed: string[] = [];
   for (const targetPath of paths) {
+    if (isProtectedPath(targetPath)) continue;
     if (!fs.existsSync(targetPath)) continue;
     fs.rmSync(targetPath, { recursive: true, force: true });
     removed.push(targetPath);
@@ -256,15 +283,21 @@ export function buildCreateDesignSystemSuccessPayload({
   nextSystem,
   nextConfig,
   summarizeDesignSystemsConfigFn,
+  existingConsumersCount,
+  existingConsumersCheckFailed,
 }: {
   nextSystem: DesignSystem;
   nextConfig: DesignSystemsConfig;
   summarizeDesignSystemsConfigFn: (config: DesignSystemsConfig) => Record<string, unknown>;
+  existingConsumersCount?: number;
+  existingConsumersCheckFailed?: boolean;
 }): Record<string, unknown> {
   return {
     ok: true,
     system: { id: nextSystem.id, name: nextSystem.name },
     config: summarizeDesignSystemsConfigFn(nextConfig),
+    ...(existingConsumersCount !== undefined && { existingConsumersCount }),
+    ...(existingConsumersCheckFailed !== undefined && { existingConsumersCheckFailed }),
   };
 }
 
@@ -301,17 +334,31 @@ export function buildDeleteDesignSystemSuccessPayload({
   prunedEmptyDirs = [],
   nextConfig,
   summarizeDesignSystemsConfigFn,
+  deletedConsumersCount,
+  deletedConsumerNames,
+  consumerCleanupSkipped,
+  filesystemCleanupPending,
 }: {
   removedPaths: string[];
   prunedEmptyDirs?: string[];
   nextConfig: DesignSystemsConfig;
   summarizeDesignSystemsConfigFn: (config: DesignSystemsConfig) => Record<string, unknown>;
+  deletedConsumersCount?: number;
+  deletedConsumerNames?: string[];
+  consumerCleanupSkipped?: boolean;
+  filesystemCleanupPending?: boolean;
 }): Record<string, unknown> {
   return {
     ok: true,
     removedPaths,
     prunedEmptyDirs,
     config: summarizeDesignSystemsConfigFn(nextConfig),
+    ...(deletedConsumersCount !== undefined && { deletedConsumersCount }),
+    ...(deletedConsumerNames !== undefined && { deletedConsumerNames }),
+    ...(consumerCleanupSkipped !== undefined && { consumerCleanupSkipped }),
+    ...(filesystemCleanupPending !== undefined && {
+      filesystemCleanupPending,
+    }),
   };
 }
 
@@ -320,71 +367,8 @@ export function buildDeleteDesignSystemSuccessPayload({
 // ---------------------------------------------------------------------------
 
 /**
- * Build overview.md seed content.
- * @returns Markdown content string
- */
-function buildOverviewSeed(): string {
-  return `---
-doc_type: overview
-doc_status: draft
----
-
-# Components Overview
-
-## Component list
-
-`;
-}
-
-/**
- * Build COMPONENTS_INDEX.md seed content.
- * @returns Markdown content string
- */
-function buildEmptyComponentsIndexSeed(): string {
-  return `---
-doc_type: workflow
-doc_status: ready
----
-
-# Design System Components Index
-
-Source registry: \`docs/_generated/component-registry.json\`
-Registry fingerprint: \`n/a\`
-
-This file is generated from the component registry projection and should not be edited manually.
-
-## Summary
-
-- Total components: 0
-- Ready: 0
-- Needs review: 0
-- Draft: 0
-- Missing: 0
-- With visual proof: 0
-- Average coverage: 0%
-
-## Components
-
-No components available.
-`;
-}
-
-/**
- * Write JSON file if it doesn't exist.
- * @param filePath - File path
- * @param payload - JSON payload
- * @param fs - Synchronous filesystem operations
- * @returns True if file was created, false if it already existed
- */
-function writeJsonIfMissing(filePath: string, payload: Record<string, unknown>, fs: FsSync): boolean {
-  if (fs.existsSync(filePath)) return false;
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  return true;
-}
-
-/**
  * Ensure filesystem scaffold for a design system.
- * Creates required directories and seed files.
+ * Creates required directories for a new system.
  * @param options - Scaffold options
  * @returns Scaffold result with created paths
  */
@@ -397,16 +381,13 @@ export function ensureSystemFilesystemScaffold({
   repoRoot: string;
   fsSync: FsSync;
 }): ScaffoldResult {
-  const inputDir = path.resolve(repoRoot, String(nextSystem?.inputDir || ""));
-  const outputDir = path.resolve(repoRoot, String(nextSystem?.outputDir || ""));
-  const docsDir = path.resolve(repoRoot, String(nextSystem?.docsDir || ""));
+  const paths = resolveSystemPaths(nextSystem.id, repoRoot);
+  const inputDir = paths.inputDir;
+  const outputDir = paths.outputDir;
+  const docsDir = paths.docsDir;
   const generatedDir = path.join(docsDir, "_generated");
   const specsDir = path.join(docsDir, "_spec", "components");
   const componentsDir = path.join(docsDir, "components");
-  const overviewPath = path.join(componentsDir, "overview.md");
-  const componentRegistryPath = path.join(generatedDir, "component-registry.json");
-  const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
-  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
 
   const createdPaths: string[] = [];
   for (const dirPath of [inputDir, outputDir, docsDir, generatedDir, specsDir, componentsDir]) {
@@ -415,36 +396,16 @@ export function ensureSystemFilesystemScaffold({
     createdPaths.push(dirPath);
   }
 
-  if (!fs.existsSync(overviewPath)) {
-    fs.writeFileSync(overviewPath, buildOverviewSeed(), "utf8");
-    createdPaths.push(overviewPath);
-  }
-
-  if (writeJsonIfMissing(componentRegistryPath, createEmptyComponentRegistry(), fs)) {
-    createdPaths.push(componentRegistryPath);
-  }
-
-  if (writeJsonIfMissing(tokenRegistryPath, createEmptyTokenRegistry(), fs)) {
-    createdPaths.push(tokenRegistryPath);
-  }
-
-  if (writeJsonIfMissing(tokenUsageIndexPath, createEmptyTokenUsageIndex(), fs)) {
-    createdPaths.push(tokenUsageIndexPath);
-  }
-
   return {
     docsDir,
     generatedDir,
-    componentRegistryPath,
-    tokenRegistryPath,
-    tokenUsageIndexPath,
     createdPaths,
   };
 }
 
 /**
  * Reset global artifacts when no systems remain.
- * Creates empty registry files and index.
+ * Ensures the global docs directory exists for non-system project documentation.
  * @param options - Reset options
  * @returns Result with touched paths
  */
@@ -456,48 +417,15 @@ export function resetGlobalArtifactsForNoSystems({
   fsSync: FsSync;
 }): ResetGlobalArtifactsResult {
   const docsDir = path.resolve(repoRoot, "docs");
-  const generatedDir = path.join(docsDir, "_generated");
-  const componentRegistryPath = path.join(generatedDir, "component-registry.json");
-  const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
-  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
-  const componentsIndexPath = path.join(docsDir, "COMPONENTS_INDEX.md");
 
   const touchedPaths: string[] = [];
-  for (const dirPath of [docsDir, generatedDir]) {
+  for (const dirPath of [docsDir]) {
     if (fs.existsSync(dirPath)) continue;
     fs.mkdirSync(dirPath, { recursive: true });
     touchedPaths.push(dirPath);
   }
 
-  fs.writeFileSync(
-    componentRegistryPath,
-    `${JSON.stringify(createEmptyComponentRegistry(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(componentRegistryPath);
-
-  fs.writeFileSync(
-    tokenRegistryPath,
-    `${JSON.stringify(createEmptyTokenRegistry(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(tokenRegistryPath);
-
-  fs.writeFileSync(
-    tokenUsageIndexPath,
-    `${JSON.stringify(createEmptyTokenUsageIndex(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(tokenUsageIndexPath);
-
-  fs.writeFileSync(componentsIndexPath, buildEmptyComponentsIndexSeed(), "utf8");
-  touchedPaths.push(componentsIndexPath);
-
   return {
-    componentRegistryPath,
-    tokenRegistryPath,
-    tokenUsageIndexPath,
-    componentsIndexPath,
     touchedPaths,
   };
 }

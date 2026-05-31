@@ -3,7 +3,6 @@ import path from 'path';
 
 import { flattenTokens } from '../../core/emit.js';
 import { readCssVariablesFromFile, extractCssVariables, formatCssSectionHeader } from '../../core/css.js';
-import { exportTokenRegistry, writeTokenRegistry } from '../../core/registry.js';
 import type { PipelinePhase } from '../../runtime/pipeline-cache.js';
 import { loadCheckpoint, saveCheckpoint, sha256FromObject, sha256FromFile, sha256FromString } from '../../runtime/pipeline-cache.js';
 import { logChangeDetection } from '../../utils/reporting.js';
@@ -13,7 +12,6 @@ type EmitCheckpointPayload = {
     analyzeHash: string;
     emitHash: string;
     outputs: Array<{ label: string; filePath: string; contentHash: string }>;
-    registry?: { filePath: string; contentHash: string };
     summary: any;
     detectedModes: string[];
     emittedModes: string[];
@@ -23,8 +21,6 @@ type EmitPhaseOptions = {
     fromPhase?: PipelinePhase;
     forcePhases: PipelinePhase[];
     splitOutput: boolean;
-    registryEnabled: boolean;
-    registryOutput: string;
     preferredMode?: string;
     modeStrictPreferred: boolean;
 };
@@ -62,9 +58,7 @@ type EmitPhaseContext = {
     getEmitManifestPath: (outputs: Array<{ label: string; filePath: string; emitEntries: any[] }>) => string;
     isEmitCheckpointUsable: (
         payload: EmitCheckpointPayload,
-        outputs: Array<{ label: string; filePath: string; emitEntries: any[] }>,
-        registryEnabled: boolean,
-        registryOutput: string
+        outputs: Array<{ label: string; filePath: string; emitEntries: any[] }>
     ) => boolean;
     buildScopeProcessingContexts: (
         analyzedScopes: any[],
@@ -85,8 +79,6 @@ export function runEmitPhase(
         phase: 'emit',
         analyzeHash: state.analyzeDependencyHash,
         split: context.options.splitOutput,
-        registry: context.options.registryEnabled,
-        registryOutput: context.options.registryOutput,
         outputs: state.outputs.map(output => ({ label: output.label, filePath: output.filePath }))
     });
 
@@ -107,9 +99,7 @@ export function runEmitPhase(
 
         if (emitCheckpoint && context.isEmitCheckpointUsable(
             emitCheckpoint.payload,
-            state.outputs,
-            context.options.registryEnabled,
-            context.options.registryOutput
+            state.outputs
         )) {
             state.summary = context.fromSummarySnapshot(emitCheckpoint.payload.summary);
             state.detectedModeSet = new Set<string>(emitCheckpoint.payload.detectedModes);
@@ -243,36 +233,11 @@ export function runEmitPhase(
         });
     }
 
-    let registrySnapshot: EmitCheckpointPayload['registry'];
-    if (context.options.registryEnabled) {
-        const baseScopeProcessingCtx = scopeProcessingContexts.find(({ scope }) => !scope.mode)?.processingCtx;
-        if (!baseScopeProcessingCtx) {
-            const availableScopes = scopeProcessingContexts
-                .map(({ scope }) => (scope.mode ? `mode:${scope.mode}` : 'base'))
-                .join(', ');
-            throw new Error(
-                `Registry export requires a base scope (no mode), but none was found. Available scopes: ${availableScopes || '<none>'}.`
-            );
-        }
-
-        console.log('🧾 Exporting token registry...');
-        const registryIndex = exportTokenRegistry(baseScopeProcessingCtx);
-        writeTokenRegistry(context.options.registryOutput, registryIndex);
-        const outputLabel = path.relative(process.cwd(), context.options.registryOutput) || context.options.registryOutput;
-        console.log(`✅ Token registry exported to ${outputLabel} (${registryIndex.entries.length} entries)`);
-
-        registrySnapshot = {
-            filePath: context.options.registryOutput,
-            contentHash: fs.existsSync(context.options.registryOutput) ? sha256FromFile(context.options.registryOutput) : ''
-        };
-    }
-
     if (state.checkpointsEnabled) {
         const emitPayload: EmitCheckpointPayload = {
             analyzeHash: state.analyzeDependencyHash,
             emitHash: state.emitDependencyHash,
             outputs: emitOutputSnapshots,
-            registry: registrySnapshot,
             summary: context.toSummarySnapshot(state.summary),
             detectedModes: Array.from(state.detectedModeSet),
             emittedModes: Array.from(state.emittedModeSet)

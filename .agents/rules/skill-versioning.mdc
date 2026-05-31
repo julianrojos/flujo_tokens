@@ -17,7 +17,7 @@ This rule defines a safe migration path for versioned skills.
 ## Required frontmatter fields for new or modified skills
 
 ```yaml
-name: ds-component-doc
+name: ds-component-pages
 version: "1.2.0" # SemVer
 context:
   doc_type: component
@@ -50,7 +50,7 @@ outputs:                       # Required — declare all file artifacts and rep
 
 `context` is required for all new or modified skills:
 
-- `doc_type` must align with manifest doc domains (`component`, `overview`, `foundation`, `workflow`, `spec`, `skills`, `frontend`).
+- `doc_type` must align with manifest doc domains (`component`, `overview`, `workflow`, `spec`, `skills`, `frontend`).
 - `stage` must align with manifest stage routing (`spec`, `markdown`, `figma`, `visual-proof`, `pipeline`, `skills`, `frontend`).
 
 ## Optional changelog block

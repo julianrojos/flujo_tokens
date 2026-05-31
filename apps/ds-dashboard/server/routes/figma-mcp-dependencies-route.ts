@@ -1,16 +1,19 @@
 import type { Context } from 'hono';
 import type { ConnInfo } from 'hono/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import type { Database as DatabaseType } from 'better-sqlite3';
 import { isLoopbackAddress } from '../lib/loopback-utils.js';
 import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
-import { DependencyRepository } from '../db/dependency-repository.js';
-import { DependencySyncService, type SystemConfig } from '../services/dependency-sync-service.js';
+import { DependencyRepository, type DsConsumer } from '../db/dependency-repository.js';
+import {
+  DependencySyncService,
+  type SyncConsumersParams,
+  type SyncResult,
+  type SystemConfig,
+} from '../services/dependency-sync-service.js';
 import { DependencyAnalysisService } from '../services/dependency-analysis-service.js';
 import { DependencySimulateService } from '../services/dependency-simulate-service.js';
 import { extractFileKey } from '../lib/filekey-utils.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
-import { randomUUID } from 'node:crypto';
 
 // Validation helpers
 function validateAddConsumerBody(body: Record<string, unknown>) {
@@ -18,8 +21,8 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
   const hasNonEmptyString = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0;
 
-  if (!hasNonEmptyString(body.dsFileKey) && !hasNonEmptyString(body.dsFileUrl)) {
-    errors.push('Either dsFileKey or dsFileUrl is required');
+  if (!hasNonEmptyString(body.dsFileKey)) {
+    errors.push('dsFileKey is required and must be a non-empty string');
   }
 
   if (!hasNonEmptyString(body.consumerFileUrl)) {
@@ -28,10 +31,6 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
 
   if (!hasNonEmptyString(body.consumerName)) {
     errors.push('Consumer name is required and must be a non-empty string');
-  }
-
-  if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
-    errors.push('enabled must be a boolean');
   }
 
   return errors;
@@ -54,6 +53,10 @@ function validateSyncConsumersBody(body: Record<string, unknown>) {
 
   if (body.force !== undefined && typeof body.force !== 'boolean') {
     errors.push('force must be a boolean');
+  }
+
+  if (body.captureParentUsage !== undefined && typeof body.captureParentUsage !== 'boolean') {
+    errors.push('captureParentUsage must be a boolean');
   }
 
   return errors;
@@ -95,8 +98,10 @@ type RouteDeps = {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
   getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
-  db: DatabaseType;
+  db: Sql;
   getSystemConfig: (c: Context) => SystemConfig;
+  getSystemConfigByDsFileKey?: (dsFileKey: string) => SystemConfig | null;
+  syncConsumersFn?: (params: SyncConsumersParams) => Promise<SyncResult>;
 };
 
 function isAuthorized(c: Context, deps: RouteDeps): boolean {
@@ -120,6 +125,26 @@ function isAuthorized(c: Context, deps: RouteDeps): boolean {
   return false;
 }
 
+function resolveFigmaToken(c: Context, deps: RouteDeps, dsFileKey: string): string {
+  const systemByDsFile = deps.getSystemConfigByDsFileKey?.(dsFileKey);
+  const rawTokenRef = String(
+    systemByDsFile?.figmaApiToken || deps.getSystemConfig(c).figmaApiToken || '',
+  );
+  return resolveEnvRef(rawTokenRef);
+}
+
+function getConsumerRunForValidation(result: SyncResult, consumerId: string) {
+  return (
+    result.runs.find((run) => run.consumerId === consumerId) ??
+    result.runs[0] ??
+    null
+  );
+}
+
+function hasRequiredParentUsage(run: { componentCount: number; variableCount: number } | null) {
+  return Number(run?.componentCount ?? 0) > 0 && Number(run?.variableCount ?? 0) > 0;
+}
+
 /**
  * Register dependency tracking routes
  */
@@ -129,6 +154,7 @@ export function registerFigmaMcpDependenciesRoutes(
 ) {
   const repository = new DependencyRepository(deps.db);
   const syncService = new DependencySyncService(repository, deps.getSystemConfig);
+  const syncConsumers = deps.syncConsumersFn ?? ((params: SyncConsumersParams) => syncService.syncConsumers(params));
   const analysisService = new DependencyAnalysisService(repository);
   const simulateService = new DependencySimulateService(repository);
 
@@ -166,17 +192,8 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      // Resolve DS file key and derive consumer file key from URL
-      const dsFileKey = body.dsFileKey || extractFileKey(body.dsFileUrl as string);
+      const dsFileKey = body.dsFileKey as string;
       const consumerFileKey = extractFileKey(body.consumerFileUrl as string);
-
-      if (!dsFileKey) {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.invalid_ds_file',
-          message: 'Invalid DS file key or URL',
-        }, 400);
-      }
 
       if (!consumerFileKey) {
         return c.json({
@@ -186,17 +203,88 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.addConsumer({
-        ds_file_key: dsFileKey as string,
-        consumer_file_key: consumerFileKey as string,
-        consumer_name: body.consumerName as string,
-        enabled: body.enabled as boolean,
-      });
+      let consumer: DsConsumer | null = null;
+      const resolvedToken = resolveFigmaToken(c, deps, dsFileKey);
+      if (!resolvedToken) {
+        return c.json({
+          ok: false,
+          code: 'deps.sync.no_token',
+          message: 'Figma API token not resolved from system config',
+        }, 500);
+      }
 
-      return c.json({
-        ok: true,
-        data: consumer,
-      });
+      try {
+        consumer = await repository.addConsumer({
+          ds_file_key: dsFileKey as string,
+          consumer_file_key: consumerFileKey as string,
+          consumer_name: body.consumerName as string,
+        });
+
+        const syncResult = await syncConsumers({
+          dsFileKey,
+          consumerIds: [consumer.id],
+          force: true,
+          token: resolvedToken,
+          captureParentUsage: true,
+        });
+
+        const syncRun = getConsumerRunForValidation(syncResult, consumer.id);
+        if (!hasRequiredParentUsage(syncRun)) {
+          try {
+            await repository.removeConsumer(consumer.id);
+          } catch (rollbackError) {
+            console.error('Error rolling back consumer after validation failure:', rollbackError);
+            return c.json({
+              ok: false,
+              code: 'deps.consumer.add_failed',
+              message: 'Consumer file could not be rolled back after validation failed',
+            }, 500);
+          }
+
+          return c.json({
+            ok: false,
+            code: 'deps.consumer.no_parent_usage',
+            message: 'Consumer file does not use elements from the parent design system.',
+          }, 422);
+        }
+
+        return c.json({
+          ok: true,
+          data: consumer,
+        });
+      } catch (error) {
+        if (consumer) {
+          try {
+            await repository.removeConsumer(consumer.id);
+          } catch (rollbackError) {
+            console.error('Error rolling back consumer after sync failure:', rollbackError);
+          }
+        }
+
+        if (error && typeof error === 'object' && 'code' in error) {
+          const err = error as any;
+          if (err.code === 'deps.consumer.duplicate') {
+            return c.json({
+              ok: false,
+              code: err.code,
+              message: err.message,
+            }, 409);
+          }
+          return c.json({
+            ok: false,
+            code: err.code,
+            message: err.message,
+          }, 500);
+        }
+
+        console.error('Error validating consumer usage:', error);
+        return c.json({
+          ok: false,
+          code: 'deps.consumer.add_failed',
+          message: 'Failed to add consumer',
+        }, 500);
+      }
+
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as any;
@@ -241,7 +329,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const consumers = repository.listConsumers(query.dsFileKey);
+      const consumers = await repository.listConsumers(query.dsFileKey);
 
       return c.json({
         ok: true,
@@ -278,7 +366,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -287,7 +375,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 404);
       }
 
-      repository.removeConsumer(consumerId);
+      await repository.removeConsumer(consumerId);
 
       return c.json({
         ok: true,
@@ -303,27 +391,14 @@ export function registerFigmaMcpDependenciesRoutes(
     }
   });
 
-  // PATCH /api/figma-mcp/dependencies/consumers/:consumerId - Update consumer (archive via enabled)
-  app.patch('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
+  // GET /api/figma-mcp/dependencies/consumers/:consumerId - Get single consumer
+  app.get('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
     if (!isAuthorized(c, deps)) {
       return c.json({
         ok: false,
         code: 'deps.unauthorized',
         message: 'Unauthorized access',
       }, 401);
-    }
-
-    const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());
-
-    let body: Record<string, unknown>;
-    try {
-      body = await readJsonBody(c);
-    } catch {
-      return c.json({
-        ok: false,
-        code: 'deps.validation.invalid_json',
-        message: 'Invalid JSON in request body',
-      }, 400);
     }
 
     try {
@@ -337,7 +412,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -346,30 +421,16 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 404);
       }
 
-      // Update only the enabled field for now (archive functionality)
-      if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.invalid_enabled',
-          message: 'enabled must be a boolean',
-        }, 400);
-      }
-
-      const updatedConsumer = repository.updateConsumerEnabled(
-        consumerId,
-        body.enabled !== undefined ? Boolean(body.enabled) : Boolean(consumer.enabled),
-      );
-
       return c.json({
         ok: true,
-        data: updatedConsumer,
+        data: consumer,
       });
     } catch (error) {
-      console.error('Error updating consumer:', error);
+      console.error('Error getting consumer:', error);
       return c.json({
         ok: false,
-        code: 'deps.consumer.update_failed',
-        message: 'Failed to update consumer',
+        code: 'deps.consumer.get_failed',
+        message: 'Failed to load consumer',
       }, 500);
     }
   });
@@ -408,7 +469,8 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const resolvedToken = resolveEnvRef(deps.getSystemConfig(c).figmaApiToken);
+      const dsFileKey = String(body.dsFileKey || '').trim();
+      const resolvedToken = resolveFigmaToken(c, deps, dsFileKey);
       if (!resolvedToken) {
         return c.json({
           ok: false,
@@ -418,19 +480,16 @@ export function registerFigmaMcpDependenciesRoutes(
       }
 
       const result = await syncService.syncConsumers({
-        dsFileKey: body.dsFileKey as string,
+        dsFileKey,
         consumerIds: body.consumerIds as string[],
         force: body.force as boolean,
         token: resolvedToken,
+        captureParentUsage: body.captureParentUsage === true,
       });
-      const jobId = randomUUID();
 
       return c.json({
         ok: true,
-        data: {
-          jobId,
-          ...result,
-        },
+        data: result,
       });
     } catch (error) {
       console.error('Error during sync:', error);
@@ -477,8 +536,8 @@ export function registerFigmaMcpDependenciesRoutes(
     try {
       const staleOnly = query.stale === 'true';
 
-      const reports = analysisService
-        .reportByFile(query.dsFileKey)
+      const reports = (await analysisService
+        .reportByFile(query.dsFileKey))
         .filter((report) => {
           if (!staleOnly) return true;
           const syncedMs = Date.parse(report.lastSyncedAt);
@@ -524,7 +583,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = analysisService.reportByComponent(query.dsFileKey, query.componentKey);
+      const reports = await analysisService.reportByComponent(query.dsFileKey, query.componentKey);
 
       return c.json({
         ok: true,
@@ -563,7 +622,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = analysisService.reportByVariable(query.dsFileKey, query.variableKey);
+      const reports = await analysisService.reportByVariable(query.dsFileKey, query.variableKey);
 
       return c.json({
         ok: true,
@@ -613,7 +672,7 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const result = simulateService.simulateVariableChange(
+      const result = await simulateService.simulateVariableChange(
         body.dsFileKey as string,
         body.variableKey as string,
         body.proposedValue
@@ -664,7 +723,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 400);
       }
 
-      const consumer = repository.getConsumer(consumerId);
+      const consumer = await repository.getConsumer(consumerId);
       if (!consumer) {
         return c.json({
           ok: false,
@@ -673,7 +732,7 @@ export function registerFigmaMcpDependenciesRoutes(
         }, 404);
       }
 
-      const runs = repository.listSyncRuns(consumerId, limit);
+      const runs = await repository.listSyncRuns(consumerId, limit);
 
       return c.json({
         ok: true,

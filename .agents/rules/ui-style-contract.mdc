@@ -7,11 +7,13 @@ alwaysApply: false
 
 # UI Style Contract
 
-The DS Dashboard has its own visual identity — Dark SaaS, professional, decoupled from Karmap/Iter. Every visual decision flows from centralized tokens in `index.css` through `tailwind.config.ts` into components. This contract ensures that chain is never bypassed.
+The DS Dashboard has its own visual identity. Every visual decision flows from centralized tokens in `index.css` through `tailwind.config.ts` into components. This contract ensures that chain is never bypassed.
 
 ## Token-first styling
 
 All colors, surfaces, borders, shadows, and motion values **MUST** come from the token system. Never use raw values.
+
+Default form fields should use `bg-surface-2` for their resting surface. That includes text inputs, selects, and textareas; buttons and cards keep their own component surfaces.
 
 ### DO
 
@@ -96,14 +98,23 @@ import { createPortal } from "react-dom";
 
 ## Typography
 
-| Element | Class | Font | Rationale |
-|---------|-------|------|-----------|
-| Page/section headings | `font-serif` | Bitter | Identity — distinguishes the app from generic Tailwind |
-| UI text, labels, body | `font-sans` | Geist | Clean, modern, excellent legibility in dark mode |
-| Token paths, code | `font-mono` | Geist Mono | Technical content needs monospace |
+| Element | Class | Hierarchy Role | Rationale |
+|---------|-------|----------------|-----------|
+| Page/section headings | `font-titles` | Title hierarchy | Strong visual structure for primary and secondary headings |
+| UI text, labels, body | `font-body` | Body hierarchy | Consistent readability for dense interface content |
+| Token paths, code | `font-mono` | Technical/code hierarchy | Monospace rhythm for paths, values, and code-like data |
 
 - **MUST** use semantic heading levels (`<h1>` page, `<h2>` section, `<h3>` subsection).
-- **SHOULD** apply `font-serif` to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
+- **SHOULD** apply title hierarchy to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
+
+## Form labels
+
+- **MUST** use `FormField` for standard label/control stacks in inputs, textareas, and selects.
+- **MUST** keep primary form labels in `text-sm text-foreground`.
+- **MUST** keep form hints in `text-xs text-muted-foreground` and errors in `text-xs text-status-error`.
+- **MUST** preserve `htmlFor` + `id` association for labelable controls.
+- **SHOULD** use `hideLabel` only when the label must remain accessible but visually hidden.
+- **SHOULD NOT** use `text-xs` or muted text for primary field labels; reserve that treatment for captions and metadata.
 
 ## Dark mode
 
@@ -133,10 +144,4 @@ The app runs in permanent dark mode (`class="dark"` on `<html>`).
 
 ### Verification
 
-```bash
-npm run ds:ui:guard
-
-# Should all return 0:
-grep -rn "text-red-[0-9]\|text-amber-[0-9]\|bg-red-[0-9]\|bg-emerald-[0-9]" apps/ds-dashboard/src/features/ --include="*.tsx" | wc -l
-grep -rn "createPortal" apps/ds-dashboard/src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l
-```
+Use the style contract and related UI governance rules when reviewing dashboard changes.

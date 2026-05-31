@@ -9,7 +9,9 @@ export interface FilterBarProps {
   searchValue?: string;
   onSearch?: (value: string) => void;
   searchPlaceholder?: string;
+  searchAriaLabel?: string;
   count?: number;
+  rightSlot?: React.ReactNode;
   className?: string;
 }
 
@@ -18,7 +20,9 @@ export function FilterBar({
   searchValue,
   onSearch,
   searchPlaceholder = "Search...",
+  searchAriaLabel,
   count,
+  rightSlot,
   className,
 }: FilterBarProps) {
   return (
@@ -33,6 +37,7 @@ export function FilterBar({
           <Input
             type="search"
             placeholder={searchPlaceholder}
+            aria-label={searchAriaLabel ?? searchPlaceholder}
             value={searchValue ?? ""}
             onChange={(e) => onSearch(e.target.value)}
             className="max-w-[240px]"
@@ -40,11 +45,11 @@ export function FilterBar({
         ) : null}
         {children}
       </div>
-      {count !== undefined ? (
+      {rightSlot ?? (count !== undefined ? (
         <Badge variant="neutral" className="shrink-0">
           {count} item{count !== 1 ? "s" : ""}
         </Badge>
-      ) : null}
+      ) : null)}
     </div>
   );
 }

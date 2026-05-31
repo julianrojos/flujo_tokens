@@ -1,42 +1,12 @@
 /**
  * Analysis Artifacts Service
  *
- * Provides analysis utilities for naming debt and WCAG pairs.
- * Migrated from apps/ds-dashboard/server/services/analysis-artifacts-service.mjs
+ * Provides shared git-ref validation and node-JSON command helpers.
  */
 
-import fs from 'node:fs/promises';
 import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from '../lib/spawn-runner.ts';
 
 const DEFAULT_MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2MB
-
-export interface WcagPair {
-  foreground: string;
-  background: string;
-  level: 'AA' | 'AAA';
-  textSize: 'normal' | 'large';
-}
-
-export interface WcagPairsPayload {
-  pairs: Array<Partial<WcagPair>>;
-}
-
-export interface NamingDebtReport {
-  tokenRegistry: unknown;
-  tokenUsageIndex: unknown | null;
-  tokenGraph: unknown | null;
-  config: unknown | null;
-}
-
-export interface ComputeNamingDebtReportDeps {
-  readFileFn?: (filePath: string, encoding: string) => Promise<string>;
-  analyzeNamingDebtFn?: (args: {
-    tokenRegistry: unknown;
-    tokenUsageIndex: unknown | null;
-    tokenGraph: unknown | null;
-    config: unknown | null;
-  }) => Promise<unknown>;
-}
 
 export interface RunNodeJsonCommandOnceOptions {
   cwd: string;
@@ -70,68 +40,6 @@ export function validateGitRef(raw: unknown): string | null {
 }
 
 /**
- * Normalize and sanitize WCAG pairs payload.
- */
-export function normalizeImpactWcagPairs(raw: unknown): WcagPair[] {
-  const list =
-    raw && typeof raw === 'object' && Array.isArray((raw as WcagPairsPayload).pairs)
-      ? (raw as WcagPairsPayload).pairs
-      : [];
-
-  const pairs: WcagPair[] = [];
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue;
-    const foreground = String((item as any).foreground ?? '').trim();
-    const background = String((item as any).background ?? '').trim();
-    if (!foreground || !background) continue;
-    const level = String((item as any).level ?? 'AA').trim().toUpperCase() === 'AAA' ? 'AAA' : 'AA';
-    const textSize =
-      String((item as any).textSize ?? 'normal').trim().toLowerCase() === 'large'
-        ? 'large'
-        : 'normal';
-    pairs.push({ foreground, background, level, textSize });
-  }
-  return pairs;
-}
-
-/**
- * Compute naming debt report from artifact files.
- */
-export async function computeNamingDebtReport(
-  args: {
-    tokenRegistryPath: string;
-    tokenUsageIndexPath: string;
-    tokenGraphVizPath: string;
-    namingDebtConfigPath: string;
-  },
-  deps: ComputeNamingDebtReportDeps = {}
-): Promise<NamingDebtReport> {
-  const readFileFn = deps.readFileFn || fs.readFile;
-  const analyzeNamingDebtFn =
-    deps.analyzeNamingDebtFn ||
-    (await import('../../src/lib/naming-debt.ts')).analyzeNamingDebt;
-
-  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw, namingConfigRaw] = await Promise.all([
-    readFileFn(args.tokenRegistryPath, 'utf8'),
-    readFileFn(args.tokenUsageIndexPath, 'utf8').catch(() => 'null'),
-    readFileFn(args.tokenGraphVizPath, 'utf8').catch(() => 'null'),
-    readFileFn(args.namingDebtConfigPath, 'utf8').catch(() => 'null'),
-  ]);
-
-  const tokenRegistry = JSON.parse(tokenRegistryRaw);
-  const tokenUsageIndex = tokenUsageRaw ? JSON.parse(tokenUsageRaw) : null;
-  const tokenGraph = tokenGraphRaw ? JSON.parse(tokenGraphRaw) : null;
-  const config = namingConfigRaw ? JSON.parse(namingConfigRaw) : null;
-
-  return (await analyzeNamingDebtFn({
-    tokenRegistry,
-    tokenUsageIndex,
-    tokenGraph,
-    config,
-  })) as NamingDebtReport;
-}
-
-/**
  * Run a node command once and parse JSON output.
  */
 export async function runNodeJsonCommandOnce(
@@ -141,8 +49,8 @@ export async function runNodeJsonCommandOnce(
   const runSpawnWithCaptureFn = deps.runSpawnWithCaptureFn || runSpawnWithCapture;
   const maxOutputBytes =
     typeof args.maxOutputBytes === 'number' &&
-    Number.isFinite(args.maxOutputBytes) &&
-    args.maxOutputBytes > 0
+      Number.isFinite(args.maxOutputBytes) &&
+      args.maxOutputBytes > 0
       ? Math.floor(args.maxOutputBytes)
       : DEFAULT_MAX_OUTPUT_BYTES;
 

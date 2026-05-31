@@ -1,7 +1,7 @@
 /**
  * Token Services - Common Utilities
  *
- * Shared utility functions for token-health, token-usage-index, and token-graph services.
+ * Shared utility functions for token-usage-index and token analysis services.
  */
 
 import * as fs from 'node:fs';
@@ -9,14 +9,16 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 
 import type {
-  TokenRegistry,
-  TokenRegistryEntry,
+  TokenCatalog,
+  TokenCatalogEntry,
 } from './token-types.js';
+export { parseBooleanOption } from '../utils/parse-options.js';
 
 /**
  * Regex for CSS variable references: var(--name) or var(--name, fallback)
  */
 export const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
+const CSS_VAR_REF_TEST_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/i;
 
 /**
  * Regex for CSS custom property declarations: --name: value;
@@ -32,22 +34,6 @@ export const A11Y_MODE_DOT_RE = /^A11y\.A11y\.mode[A-Za-z0-9_-]+\./;
  * Regex for A11y mode slash notation
  */
 export const A11Y_MODE_SLASH_RE = /^A11y\/A11y\/mode[A-Za-z0-9_-]+\//;
-
-/**
- * Parse boolean option from string
- */
-export function parseBooleanOption(
-  rawValue: unknown,
-  optionName: string,
-  fallback: boolean = false,
-): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  throw new Error(
-    `Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`,
-  );
-}
 
 /**
  * Parse positive integer option from string
@@ -108,7 +94,7 @@ export function extractCssDeclarations(cssText: string): Array<{
  */
 export function isCssVarRef(value: unknown): boolean {
   const trimmed = String(value ?? '').trim();
-  return CSS_VAR_REF_RE.test(trimmed);
+  return CSS_VAR_REF_TEST_RE.test(trimmed);
 }
 
 /**
@@ -130,31 +116,35 @@ export function normalizeA11yPath(path: string): string {
 }
 
 /**
- * Load and parse token registry from JSON file
- */
-export function loadTokenRegistry(registryPath: string): TokenRegistry {
-  const resolvedPath = path.resolve(registryPath);
-  const content = fs.readFileSync(resolvedPath, 'utf8');
-  return JSON.parse(content) as TokenRegistry;
-}
-
-/**
  * Find token entry by CSS variable name
  */
 export function findTokenByCssVar(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   cssVar: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.cssVar === cssVar);
+}
+
+/**
+ * Build a lookup map for CSS variable names to token registry entries.
+ */
+export function buildTokenCssVarLookup(
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry> {
+  return new Map(
+    registry.entries
+      .filter((entry) => Boolean(entry.cssVar))
+      .map((entry) => [String(entry.cssVar || ''), entry]),
+  );
 }
 
 /**
  * Find token entry by path
  */
 export function findTokenByPath(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenPath: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.path === tokenPath);
 }
 
@@ -162,9 +152,9 @@ export function findTokenByPath(
  * Find token entry by ID
  */
 export function findTokenById(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenId: string,
-): TokenRegistryEntry | undefined {
+): TokenCatalogEntry | undefined {
   return registry.entries.find((entry) => entry.id === tokenId);
 }
 
@@ -172,13 +162,17 @@ export function findTokenById(
  * Get all tokens that reference a given token (alias references)
  */
 export function getTokenAliases(
-  registry: TokenRegistry,
+  registry: TokenCatalog,
   tokenId: string,
-): TokenRegistryEntry[] {
+): TokenCatalogEntry[] {
+  const target = findTokenById(registry, tokenId);
+  const targetCssVar = target?.cssVar;
   return registry.entries.filter(
     (entry) =>
       entry.aliases?.includes(tokenId) ||
-      (isCssVarRef(entry.$value) && extractVarName(entry.$value) === findTokenById(registry, tokenId)?.cssVar),
+      (Boolean(targetCssVar) &&
+        isCssVarRef(entry.$value) &&
+        extractVarName(entry.$value) === targetCssVar),
   );
 }
 
@@ -187,16 +181,16 @@ export function getTokenAliases(
  */
 export function isPrimitiveValue(value: unknown): boolean {
   const trimmed = String(value ?? '').trim();
-  return !CSS_VAR_REF_RE.test(trimmed);
+  return !CSS_VAR_REF_TEST_RE.test(trimmed);
 }
 
 /**
  * Group tokens by collection
  */
 export function groupTokensByCollection(
-  registry: TokenRegistry,
-): Map<string, TokenRegistryEntry[]> {
-  const groups = new Map<string, TokenRegistryEntry[]>();
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry[]> {
+  const groups = new Map<string, TokenCatalogEntry[]>();
 
   for (const entry of registry.entries) {
     const collection = entry.collection || 'unknown';
@@ -212,9 +206,9 @@ export function groupTokensByCollection(
  * Group tokens by mode
  */
 export function groupTokensByMode(
-  registry: TokenRegistry,
-): Map<string, TokenRegistryEntry[]> {
-  const groups = new Map<string, TokenRegistryEntry[]>();
+  registry: TokenCatalog,
+): Map<string, TokenCatalogEntry[]> {
+  const groups = new Map<string, TokenCatalogEntry[]>();
 
   for (const entry of registry.entries) {
     const mode = entry.mode || 'default';

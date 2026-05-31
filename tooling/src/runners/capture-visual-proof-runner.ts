@@ -3,18 +3,14 @@
 /**
  * Capture visual proof runner
  *
- * Capture a Figma screenshot proof and upsert `### Visual Proof` under `## Overview`
- * for a component markdown doc.
+ * Capture a Figma screenshot proof and persist proof artifacts for a component.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import type { CaptureVisualProofArgs, CaptureVisualProofReport } from '../types/capture-visual-proof.js';
 import type { LocalImageInfo, VisualProofVariant } from '../types/capture-visual-proof.js';
 import type { CaptureVisualProofContext } from '../services/capture-visual-proof-preparation.js';
-import { splitFrontmatter } from '../services/capture-visual-proof-io.js';
-import { upsertVisualProofInOverview } from '../services/capture-visual-proof-payload.js';
 import {
   captureMainImage,
   captureVariantImages,
@@ -24,39 +20,34 @@ import {
   loadPreviousProofImagePaths,
 } from '../services/capture-visual-proof-image.js';
 import {
-  buildProofPayload,
-  buildVisualSectionLines,
   writeProofArtifacts,
   buildCaptureReport,
 } from '../services/capture-visual-proof-payload.js';
+import { persistCaptureReportToDb } from '../services/capture-db-persistence.js';
 import { CaptureError } from '../services/capture-visual-proof-error.js';
 import { prepareCaptureContext } from '../services/capture-visual-proof-preparation.js';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
 import { logger } from '../utils/logger.js';
+import {
+  PROJECT_ROOT,
+  loadDesignSystemsConfigAsync,
+} from '../utils/system-context.js';
 
 const USAGE = {
   command:
     'npm run ds:capture-visual-proof -- --component-name Alert [--agent codex]',
   description:
-    'Capture a Figma screenshot proof and upsert `### Visual Proof` under `## Overview` for a component markdown doc.',
+    'Capture a Figma screenshot proof and persist proof artifacts for a component.',
   options: [
     {
       name: '--component-name <name>',
       description:
-        'Component display name used to infer markdown/spec file paths.',
-    },
-    {
-      name: '--markdown <path>',
-      description: 'Explicit markdown path (defaults to docs/components/<slug>.md).',
-    },
-    {
-      name: '--spec-file <path>',
-      description: 'Explicit spec path (defaults to docs/_spec/components/<slug>.yml).',
+        'Component display name used to infer the capture slug.',
     },
     {
       name: '--component-set-id <node-id>',
-      description: 'Explicit Figma component set node id (overrides spec value).',
+      description: 'Explicit Figma component set node id (overrides any inferred value).',
     },
     {
       name: '--url <figma-url>',
@@ -90,14 +81,14 @@ const USAGE = {
     },
     {
       name: '--proof-dir <path>',
-      description: 'Output directory for visual proof metadata JSON.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      description: 'Base directory for visual proof assets.',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--proof-image-dir <path>',
       description:
         'Output directory for local visual proof images.',
-      defaultValue: 'docs/_generated/visual-proofs/images',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs/images',
     },
     {
       name: '--store-local-image <true|false>',
@@ -134,9 +125,9 @@ const USAGE = {
       defaultValue: 'false',
     },
     {
-      name: '--skip-index-sync <true|false>',
+      name: '--skip-db-persistence <true|false>',
       description:
-        'Skip registry+overview synchronization (useful when orchestrating batch captures).',
+        'Skip PostgreSQL persistence for this single capture report (used by batch orchestrators).',
       defaultValue: 'false',
     },
     {
@@ -161,6 +152,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
   }
 
   // 1. Prepare context
+  await loadDesignSystemsConfigAsync();
   const ctx = prepareCaptureContext(args);
 
   // 2. Capture main image
@@ -180,15 +172,14 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
 
   // 3. Download and store local image
   const capturedAt = new Date().toISOString();
-  const proofFilePath = path.join(
+  const proofImagesSlugPath = path.join(
     ctx.proofDir,
-    `${ctx.componentSlug || 'component'}.json`,
+    ctx.componentSlug || 'component',
   );
   const localImageInfo = await downloadAndStoreMainImage(ctx, mainResult);
-
   // 4. Load previous proof image paths for cleanup
   const previousProofImagePaths = await loadPreviousProofImagePaths(
-    proofFilePath,
+    proofImagesSlugPath,
     ctx.docsRootDir,
     ctx.dryRun,
   );
@@ -221,55 +212,62 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     }
   }
 
-  const artifactPathForMarkdown =
-    (
-      path.relative(path.dirname(ctx.markdownPath), proofFilePath) ||
-      path.basename(proofFilePath)
-    ).split(path.sep).join('/');
-
-  const proofPayload = buildProofPayload({
-    componentSlug: ctx.componentSlug,
-    markdownPath: ctx.markdownPath,
-    specPath: ctx.specPath,
-    figmaUrl: ctx.figmaUrl,
-    mainResult: mainResult,
-    localImageInfo,
-    variantProofs,
-    capturedAt,
-    format: ctx.format,
-    scale: ctx.scale,
-    docsRootDir: ctx.docsRootDir,
-  });
-
-  const rawMarkdown = fs.readFileSync(ctx.markdownPath, 'utf8');
-  const { frontmatterRaw, content } = splitFrontmatter(rawMarkdown);
-  const visualSectionLines = buildVisualSectionLines({
-    mainResult,
-    localImageInfo,
-    variantProofs,
-    capturedAt,
-    artifactPathForMarkdown,
-    markdownPath: ctx.markdownPath,
-  });
-
-  let nextContent = '';
-  try {
-    nextContent = upsertVisualProofInOverview(content, visualSectionLines);
-  } catch (error) {
-    throw new CaptureError(
-      error instanceof Error ? error.message : String(error),
-      'MARKDOWN_UPSERT_FAILED',
-    );
+  let dbPersistence:
+    | {
+      ok: true;
+      attempted?: number;
+      upserted?: number;
+      skipped?: number;
+    }
+    | undefined;
+  if (!ctx.dryRun && !ctx.skipDbPersistence) {
+    try {
+      const persistence = persistCaptureReportToDb({
+        projectRoot: PROJECT_ROOT,
+        systemId: ctx.systemId,
+        payload: {
+          source: {
+            figma_url: ctx.figmaUrl,
+            file_key: ctx.figmaFileKey,
+          },
+          targets: [
+            {
+              slug: ctx.componentSlug,
+              node_id: ctx.nodeId,
+            },
+          ],
+          captured: [
+            {
+              slug: ctx.componentSlug,
+              node_id: mainResult.normalizedNodeId,
+              local_image_path: localImageInfo.path,
+              screenshot_url: mainResult.imageUrlRaw,
+              variants_count: variantProofs.length,
+              captured_at: capturedAt,
+              image_sha256: localImageInfo.sha256,
+              image_bytes: localImageInfo.bytes,
+              image_content_type: localImageInfo.contentType,
+              image_width: localImageInfo.width,
+              image_height: localImageInfo.height,
+              node_width: mainResult.nodeWidth,
+              node_height: mainResult.nodeHeight,
+              variants: variantProofs,
+            },
+          ],
+        },
+      });
+      dbPersistence = { ok: true, ...persistence };
+    } catch (error) {
+      throw new CaptureError(
+        `DB persistence failed; no proof artifacts were written. ${error instanceof Error ? error.message : String(error)}`,
+        'DB_PERSISTENCE_FAILED',
+      );
+    }
   }
 
-  // 8. Write artifacts and cleanup stale images
+  // 8. Cleanup stale images
   const deletedStaleImages = writeProofArtifacts(
     ctx,
-    proofFilePath,
-    proofPayload,
-    ctx.markdownPath,
-    frontmatterRaw,
-    nextContent,
     localImageInfo,
     variantProofs,
     previousProofImagePaths,
@@ -281,9 +279,13 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     mainResult,
     localImageInfo,
     variantProofs,
-    proofFilePath,
+    capturedAt,
+    proofImagesSlugPath,
     deletedStaleImages,
   );
+  if (dbPersistence) {
+    report.db_persistence = dbPersistence;
+  }
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 

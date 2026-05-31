@@ -2,32 +2,442 @@
  * New System Page - orchestrator only.
  */
 
-import { PageHeader } from "@/components/composites";
-import { ApiErrorMessage } from "@/components/api-error-message";
-import { useNewSystemWizard } from "./hooks/use-new-system-wizard";
-import { WizardStepBasics } from "./components/wizard-step-basics";
-import { WizardStepImport } from "./components/wizard-step-import";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageHeader } from '@/components/composites';
+import { ApiErrorMessage } from '@/components/api-error-message';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@/components/ui/overlay/modal';
+import { Button } from '@/components/ui/button';
+import {
+  ApiError,
+  cancelQueueJob,
+  syncFigmaTokens,
+  syncConsumers,
+  updateDesignSystem,
+  type CaptureFigmaErrorDetail,
+} from '@/lib/api';
+import { useNewSystemWizard } from './hooks/use-new-system-wizard';
+import { DatabaseConfigPanel } from './components/database-config-panel';
+import { WizardStepBasics } from './components/wizard-step-basics';
+import { WizardStepImport } from './components/wizard-step-import';
+import {
+  extractCaptureFigmaErrorDetail,
+  formatCaptureFigmaErrorMessage,
+} from './new-system-import-errors';
+import {
+  getImportErrorHint,
+  toNonEmptyString,
+  toRecord,
+} from './lib/new-system-transforms';
+import {
+  extractProofErrorContext,
+  formatProofErrorMessage,
+} from './lib/new-system-proof-errors';
+
+function toImportErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message || 'Import failed';
+  }
+  if (error instanceof Error) {
+    return error.message || 'Import failed';
+  }
+  return String(error || 'Import failed');
+}
+
+function toImportErrorDetails(error: unknown): string {
+  if (error instanceof ApiError) {
+    const payload = toRecord(error.payload);
+    if (payload) {
+      return JSON.stringify(payload, null, 2);
+    }
+    return `${error.message}\nrequestId=${error.requestId || 'n/a'}\ncode=${error.code}`;
+  }
+  if (error instanceof Error) {
+    return error.stack || error.message;
+  }
+  return String(error);
+}
+
+function isDuplicateSystemNameError(error: unknown): boolean {
+  const message = toImportErrorMessage(error).toLowerCase();
+  return message.includes('already in use');
+}
+
+function extractPipelinePhase(error: unknown): string {
+  if (!(error instanceof ApiError)) return '';
+  const payload = toRecord(error.payload);
+  return toNonEmptyString(payload?.pipeline_phase);
+}
+
+function summarizeScanError(error: string): { title: string; hint: string } {
+  const lower = error.toLowerCase();
+  if (lower.includes('already in use')) {
+    return {
+      title: 'System name already in use',
+      hint: 'Choose a different system name and run Scan File again.',
+    };
+  }
+  if (lower.includes('system name')) {
+    return {
+      title: 'Invalid system name',
+      hint: "Use a readable name with letters or numbers. Example: 'Sys 05'.",
+    };
+  }
+  if (lower.includes('figma file url')) {
+    return {
+      title: 'Invalid Figma file URL',
+      hint: 'Paste a full Figma file URL (https://www.figma.com/file/...) and try Scan File again.',
+    };
+  }
+  if (
+    lower.includes('token') ||
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('unauthorized')
+  ) {
+    return {
+      title: 'Invalid Figma access token',
+      hint: 'Use a valid personal access token with file access, then retry Scan File.',
+    };
+  }
+  return {
+    title: 'Scan file failed',
+    hint: 'Review the error details, fix the input values, and retry Scan File.',
+  };
+}
 
 export function NewSystemPage() {
+  const startedImportKeyRef = useRef<string | null>(null);
+  const activeQueueJobIdRef = useRef('');
+  const [importRequestId, setImportRequestId] = useState('');
+  const [importFigmaError, setImportFigmaError] =
+    useState<CaptureFigmaErrorDetail | null>(null);
+  const [resultImportMode, setResultImportMode] = useState<
+    'full' | 'partial' | null
+  >(null);
+  const [resultImportedCount, setResultImportedCount] = useState<number | null>(
+    null,
+  );
+  const [resultNotSelectedCount, setResultNotSelectedCount] = useState<
+    number | null
+  >(null);
+  const [isCancellingQueueJob, setIsCancellingQueueJob] = useState(false);
+  const [scanErrorModalOpen, setScanErrorModalOpen] = useState(false);
   const {
     step,
     form,
     importState,
+    scan,
+    selectedComponentNodeIds,
     generatedSystemId,
     figmaFileId,
     isFormValid,
+    canSelectAll,
+    hasSelection,
     importCompleted,
     saving,
     saveError,
-    pingResult,
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
-    handleSubmitBasics,
+    handleFigmaFileUrlBlur,
+    handleScan,
+    handleImportDesignSystem,
+    toggleComponent,
+    selectAll,
+    deselectAll,
     cancelImport,
     resetWizard,
     toggleImportErrorDetails,
+    updateImportProgress,
+    completeImport,
+    failImport,
   } = useNewSystemWizard();
+
+  const modalOpen = step === 'importing' || step === 'done';
+  const scanErrorOpen =
+    step === 'basics' &&
+    scanErrorModalOpen &&
+    scan.state === 'error' &&
+    !!scan.error;
+  const progressTotal = importState.progress?.total ?? 0;
+  const progressCompleted = importState.progress?.completed ?? 0;
+  const progressRemaining =
+    importState.progress?.remaining ??
+    Math.max(0, progressTotal - progressCompleted);
+  const importStatusText = useMemo(() => {
+    if (isCancellingImport) return 'Stopping import...';
+    if (importState.error) return 'Import failed.';
+    if (importCompleted) return 'Import completed successfully.';
+    if (!importState.progress) return 'Preparing import...';
+    if (importState.progress.status === 'queued') {
+      return 'Queued in backend. Waiting for worker assignment...';
+    }
+    if (importState.progress.status === 'running') {
+      if (progressTotal > 0) {
+        return `${progressCompleted}/${progressTotal} downloaded · ${progressRemaining} remaining`;
+      }
+      return 'Running import. Waiting for first progress event...';
+    }
+    if (importState.progress.status === 'cancelled')
+      return 'Import was cancelled.';
+    if (importState.progress.status === 'error') return 'Import failed.';
+    return 'Import completed successfully.';
+  }, [
+    importCompleted,
+    importState.error,
+    importState.progress,
+    isCancellingImport,
+    progressCompleted,
+    progressRemaining,
+    progressTotal,
+  ]);
+  const importErrorHint = importState.error
+    ? getImportErrorHint(
+        importState.error,
+        importFigmaError,
+        importState.pipelinePhase,
+      )
+    : null;
+  const canShowTokensLink = importCompleted && !importState.error;
+  const effectiveIsCancelling = isCancellingImport || isCancellingQueueJob;
+  const scanErrorMeta = useMemo(
+    () => summarizeScanError(scan.error || ''),
+    [scan.error],
+  );
+  const scanErrorLines = useMemo(
+    () =>
+      String(scan.error || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    [scan.error],
+  );
+
+  const cancelActiveQueueJob = useCallback(async () => {
+    const queueJobId = activeQueueJobIdRef.current.trim();
+    if (!queueJobId) return;
+    activeQueueJobIdRef.current = '';
+    try {
+      await cancelQueueJob(queueJobId);
+    } catch {
+      // best-effort cancellation only
+    }
+  }, []);
+
+  const handleCancelImport = useCallback(() => {
+    if (isCancellingQueueJob) return;
+    setIsCancellingQueueJob(true);
+    void (async () => {
+      try {
+        await cancelActiveQueueJob();
+      } finally {
+        cancelImport();
+        setIsCancellingQueueJob(false);
+      }
+    })();
+  }, [cancelActiveQueueJob, cancelImport, isCancellingQueueJob]);
+
+  useEffect(() => {
+    if (step !== 'importing') {
+      startedImportKeyRef.current = null;
+      activeQueueJobIdRef.current = '';
+      setIsCancellingQueueJob(false);
+      setResultImportMode(null);
+      setResultImportedCount(null);
+      setResultNotSelectedCount(null);
+    }
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 'basics') return;
+    if (scan.state !== 'error') return;
+    if (!String(scan.error || '').trim()) return;
+    setScanErrorModalOpen(true);
+  }, [scan.error, scan.errorNonce, scan.state, step]);
+
+  useEffect(() => {
+    if (step !== 'importing') return;
+    const sourceUrl = importState.sourceUrl.trim();
+    const systemId = importState.jobId.trim();
+    if (!sourceUrl || !systemId) return;
+
+    const runKey = `${systemId}|${sourceUrl}`;
+    if (startedImportKeyRef.current === runKey) return;
+    startedImportKeyRef.current = runKey;
+
+    let stopped = false;
+    activeQueueJobIdRef.current = '';
+    setImportRequestId('');
+    setImportFigmaError(null);
+    setResultImportMode(null);
+    setResultImportedCount(null);
+    setResultNotSelectedCount(null);
+    void (async () => {
+      try {
+        const result = await syncFigmaTokens(
+          {
+            url: sourceUrl,
+            tokensSource: 'mcp',
+            includeComponents: true,
+            dryRun: false,
+            figmaToken: form.figmaAccessToken.trim() || undefined,
+            selectedComponentNodeIds:
+              importState.importMode === 'partial'
+                ? importState.selectedComponentNodeIds
+                : undefined,
+            requireComponentProofs: true,
+            // Variant screenshots are best-effort; only main component proofs are required.
+            requireVariantProofsWhenPresent: false,
+          },
+          {
+            systemId,
+            onProgress: (progress) => {
+              if (stopped) return;
+              if (typeof progress.jobId === 'string' && progress.jobId.trim()) {
+                activeQueueJobIdRef.current = progress.jobId.trim();
+              }
+              updateImportProgress(progress);
+            },
+          },
+        );
+        if (stopped) return;
+        activeQueueJobIdRef.current = '';
+
+        const importedComponents = Math.max(0, Number(result.components || 0));
+        const importedTokens = Math.max(0, Number(result.tokens || 0));
+        const detectedComponents = Math.max(
+          0,
+          Number(importState.selectedCount || 0) +
+            Number(importState.notSelectedCount || 0),
+        );
+        const importedNotSelectedCount =
+          typeof result.notSelectedCount === 'number'
+            ? Math.max(0, result.notSelectedCount)
+            : importState.importMode === 'partial'
+              ? Math.max(
+                  0,
+                  importState.selectedCount +
+                    importState.notSelectedCount -
+                    importedComponents,
+                )
+              : 0;
+        setResultImportMode(result.importMode || null);
+        setResultImportedCount(importedComponents);
+        setResultNotSelectedCount(importedNotSelectedCount);
+        if (result.componentsTruncated) {
+          console.warn(
+            '[NewSystemPage] Component list truncated during sync; reconciliation may be partial.',
+          );
+        }
+        if (stopped) return;
+        const scanComponents = Array.isArray(scan.components)
+          ? scan.components
+          : [];
+        const selectedIds = new Set(importState.selectedComponentNodeIds);
+        const isPartialImport = importState.importMode === 'partial';
+        const importedComponentNames = scanComponents
+          .filter(
+            (component) =>
+              !isPartialImport || selectedIds.has(component.nodeId),
+          )
+          .map((component) => `${component.pageName} / ${component.name}`);
+        const pendingComponentNames = scanComponents
+          .filter(
+            (component) =>
+              isPartialImport && !selectedIds.has(component.nodeId),
+          )
+          .map((component) => `${component.pageName} / ${component.name}`);
+        const detectedComponentsCount = Math.max(
+          detectedComponents,
+          importedComponentNames.length + pendingComponentNames.length,
+        );
+        await updateDesignSystem(systemId, {
+          detectedComponentsCount,
+          importedComponentsCount:
+            importedComponentNames.length || importedComponents,
+          pendingComponentsCount:
+            pendingComponentNames.length || importedNotSelectedCount,
+          importedComponentNames,
+          pendingComponentNames,
+        }).catch((err) => {
+          // Snapshot write is best-effort; import completion should not fail on this step.
+          console.warn('[NewSystemPage] Snapshot update failed:', err);
+        });
+        if (stopped) return;
+        const sourceFileKey = importState.sourceFileKey;
+        if (sourceFileKey) {
+          void syncConsumers({
+            dsFileKey: sourceFileKey,
+            force: true,
+            captureParentUsage: true,
+          }).catch((err) => {
+            // Parent usage capture is best-effort; it must not block import completion.
+            console.warn('[NewSystemPage] Parent usage capture failed:', err);
+          });
+        }
+
+        if (stopped) return;
+        if (stopped) return;
+        completeImport({
+          elementsImported: importedComponents,
+          elementsTotal:
+            detectedComponents > 0 ? detectedComponents : importedComponents,
+          elementsTotalIsLowerBound: scan.truncated === true,
+          collectionsImported: null,
+          collectionsTotal: null,
+          variablesImported: importedTokens,
+          variablesTotal: importedTokens,
+        });
+      } catch (error) {
+        if (stopped) return;
+        activeQueueJobIdRef.current = '';
+        const proofContext = extractProofErrorContext(error);
+        const proofMessage = proofContext
+          ? formatProofErrorMessage(proofContext)
+          : null;
+        if (error instanceof ApiError) {
+          setImportRequestId(error.requestId || '');
+          setImportFigmaError(extractCaptureFigmaErrorDetail(error.payload));
+        }
+        failImport(
+          proofMessage ||
+            formatCaptureFigmaErrorMessage(
+              error instanceof ApiError
+                ? extractCaptureFigmaErrorDetail(error.payload)
+                : null,
+            ) ||
+            toImportErrorMessage(error),
+          toImportErrorDetails(error),
+          extractPipelinePhase(error),
+        );
+      }
+    })();
+
+    return () => {
+      stopped = true;
+      void cancelActiveQueueJob();
+    };
+  }, [
+    cancelActiveQueueJob,
+    completeImport,
+    failImport,
+    form.figmaAccessToken,
+    importState.jobId,
+    importState.importMode,
+    importState.sourceFileKey,
+    importState.sourceUrl,
+    importState.selectedComponentNodeIds,
+    scan.components,
+    scan.truncated,
+    step,
+    updateImportProgress,
+  ]);
 
   return (
     <div className="space-y-5">
@@ -36,9 +446,11 @@ export function NewSystemPage() {
         description="Import from Figma"
       />
 
-      {saveError && <ApiErrorMessage error={saveError} />}
+      {saveError && !isDuplicateSystemNameError(saveError) ? (
+        <ApiErrorMessage error={saveError} />
+      ) : null}
 
-      {step === "basics" && (
+      {step === 'basics' && (
         <WizardStepBasics
           form={form}
           derived={{
@@ -46,44 +458,106 @@ export function NewSystemPage() {
             figmaFileId,
             isFormValid,
             saving,
-            pingResult,
+            scanState: scan.state,
+            scanComponents: scan.components,
+            scanTruncated: scan.truncated,
+            scanTotal: scan.total,
+            scanLimit: scan.limit,
+            scanError: scan.error,
+            selectedIds: selectedComponentNodeIds,
+            canSelectAll,
+            hasSelection,
           }}
           actions={{
             onFieldChange: setFormField,
-            onSubmit: handleSubmitBasics,
+            onFigmaFileUrlBlur: handleFigmaFileUrlBlur,
+            onScan: handleScan,
+            onImport: handleImportDesignSystem,
+            onToggleComponent: toggleComponent,
+            onSelectAll: selectAll,
+            onDeselectAll: deselectAll,
           }}
         />
       )}
 
-      {step === "importing" && (
-        <WizardStepImport
-          progress={importState.progress}
-          error={importState.error}
-          errorDetails={importState.errorDetails}
-          pipelinePhase={importState.pipelinePhase}
-          showDetails={showImportErrorDetails}
-          isCancelling={isCancellingImport}
-          importCompleted={importCompleted}
-          onCancel={cancelImport}
-          onReset={resetWizard}
-          onToggleDetails={toggleImportErrorDetails}
-        />
-      )}
+      <DatabaseConfigPanel />
 
-      {step === "done" && (
-        <WizardStepImport
-          progress={importState.progress}
-          error={null}
-          errorDetails=""
-          pipelinePhase=""
-          showDetails={showImportErrorDetails}
-          isCancelling={false}
-          importCompleted={true}
-          onCancel={() => {}}
-          onReset={resetWizard}
-          onToggleDetails={toggleImportErrorDetails}
-        />
-      )}
+      <Modal open={modalOpen} onClose={() => undefined}>
+        <ModalContent size="md" className="max-h-[78vh] overflow-hidden">
+          <WizardStepImport
+            progress={importState.progress}
+            error={importState.error}
+            errorDetails={importState.errorDetails}
+            pipelinePhase={importState.pipelinePhase}
+            sourceUrl={importState.sourceUrl}
+            sourceFileKey={importState.sourceFileKey}
+            requestId={importRequestId}
+            figmaError={importFigmaError}
+            errorHint={importErrorHint}
+            successSummary={importState.successSummary}
+            importMode={resultImportMode || importState.importMode}
+            importedCount={resultImportedCount ?? importState.selectedCount}
+            notSelectedCount={
+              resultNotSelectedCount ?? importState.notSelectedCount
+            }
+            showTokensLink={canShowTokensLink}
+            systemId={importState.jobId}
+            statusText={importStatusText}
+            showDetails={showImportErrorDetails}
+            isCancelling={effectiveIsCancelling}
+            importCompleted={importCompleted}
+            onCancel={handleCancelImport}
+            onClose={resetWizard}
+            onReset={resetWizard}
+            onToggleDetails={toggleImportErrorDetails}
+          />
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        open={scanErrorOpen}
+        onClose={() => {
+          setScanErrorModalOpen(false);
+        }}
+      >
+        <ModalContent size="sm">
+          <ModalHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-titles font-semibold titles-color">
+                  {scanErrorMeta.title}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {scanErrorMeta.hint}
+                </p>
+              </div>
+              <ModalCloseButton
+                onClick={() => {
+                  setScanErrorModalOpen(false);
+                }}
+                label="Close scan error dialog"
+              />
+            </div>
+          </ModalHeader>
+          <div className="space-y-2 p-5 pt-4 text-sm text-foreground">
+            {scanErrorLines.length > 0 ? (
+              scanErrorLines.map((line, idx) => <p key={idx}>{line}</p>)
+            ) : (
+              <p>Unknown scan error.</p>
+            )}
+          </div>
+          <ModalFooter>
+            <Button
+              onClick={() => {
+                setScanErrorModalOpen(false);
+                void handleScan();
+              }}
+            >
+              Retry Scan File
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

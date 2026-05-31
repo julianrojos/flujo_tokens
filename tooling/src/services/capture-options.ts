@@ -5,22 +5,9 @@
  */
 import type { FigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
+export { parseBooleanOption } from '../utils/parse-options.js';
 
 const parseFigmaVariableSource = resolveParseFigmaVariableSource();
-
-/**
- * Parse boolean option from string value.
- */
-export function parseBooleanOption(
-  rawValue: unknown,
-  optionName: string,
-  fallback: boolean = false,
-): boolean {
-  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  throw new Error(`Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`);
-}
 
 /**
  * Parse positive number from string value.

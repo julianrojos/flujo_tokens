@@ -234,7 +234,7 @@ Example (typography) -> CSS flatten:
 
 # Recommended architecture (tiers)
 
-## Tier 1 — Primitives (foundation)
+## Tier 1 — Primitives (base layer)
 
 - Raw values and scales (palettes, base spacing, base radius, etc.).
 - Should not be consumed directly by final components.

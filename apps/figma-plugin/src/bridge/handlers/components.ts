@@ -27,6 +27,7 @@ import {
   GetComponentSpecResult,
   SpecLayerNode,
   VariantSpec,
+  InstanceDependencySpec,
   GetComponentImageParams,
   GetComponentImageResult,
   ComponentImageResult,
@@ -40,6 +41,88 @@ import {
 import { stripDiacritics } from '../utils/strip-diacritics.js';
 
 const PAGE_BATCH_SIZE = 3;
+const SEARCH_COMPONENTS_CACHE_TTL_MS = 30_000;
+
+interface SearchComponentsSnapshot {
+  createdAt: number;
+  cacheKey: string;
+  matches: CompactComponentResult[];
+  total: number;
+  totalIsEstimated: boolean;
+}
+
+let searchComponentsSnapshotCache: SearchComponentsSnapshot | null = null;
+
+function normalizeOffset(value: unknown): number {
+  const raw = Number(value ?? 0);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.floor(raw));
+}
+
+function normalizeLimit(value: unknown): number {
+  const raw = Number(value ?? 50);
+  if (!Number.isFinite(raw)) return 50;
+  return Math.max(1, Math.min(Math.floor(raw), 1000));
+}
+
+function normalizeScanSessionId(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  if (normalized.length === 0) return '';
+  return normalized.slice(0, 128);
+}
+
+function getSearchComponentsCacheKey(
+  params: SearchComponentsParams,
+  scanSessionId: string,
+): string {
+  const nameContains = (params.nameContains ?? '').toLowerCase();
+  const namePattern = params.namePattern ?? '';
+  const includeVariants = params.includeVariants === true;
+  const fileKey = figma.fileKey ?? '';
+  const fileName = figma.root?.name ?? '';
+  const pageSignatures = Array.isArray(figma.root?.children)
+    ? figma.root.children.map(page => ({
+      id: page.id,
+      name: page.name,
+      childCount: 'children' in page ? page.children.length : 0,
+    }))
+    : [];
+  return JSON.stringify({
+    scanSessionId,
+    fileKey,
+    fileName,
+    pageSignatures,
+    nameContains,
+    namePattern,
+    includeVariants,
+  });
+}
+
+function getCachedSearchComponentsSnapshot(
+  cacheKey: string
+): SearchComponentsSnapshot | null {
+  if (!searchComponentsSnapshotCache) return null;
+  if (searchComponentsSnapshotCache.cacheKey !== cacheKey) return null;
+  if (Date.now() - searchComponentsSnapshotCache.createdAt > SEARCH_COMPONENTS_CACHE_TTL_MS) {
+    searchComponentsSnapshotCache = null;
+    return null;
+  }
+  return searchComponentsSnapshotCache;
+}
+
+function setCachedSearchComponentsSnapshot(
+  snapshot: SearchComponentsSnapshot
+): void {
+  searchComponentsSnapshotCache = snapshot;
+}
+
+function clearStaleSearchComponentsSnapshot(): void {
+  if (!searchComponentsSnapshotCache) return;
+  if (Date.now() - searchComponentsSnapshotCache.createdAt > SEARCH_COMPONENTS_CACHE_TTL_MS) {
+    searchComponentsSnapshotCache = null;
+  }
+}
 
 // ============================================================================
 // Type Helpers
@@ -783,11 +866,16 @@ export async function handleSearchComponents(
     const nameContains = params.nameContains?.toLowerCase();
     const namePattern = params.namePattern ? new RegExp(params.namePattern, 'i') : null;
     const includeVariants = params.includeVariants ?? false;
-    const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
-
-    const components: CompactComponentResult[] = [];
-    let count = 0;
-    let truncated = false;
+    const offset = normalizeOffset(params.offset);
+    const limit = normalizeLimit(params.limit);
+    const scanSessionId = normalizeScanSessionId(params.scanSessionId);
+    const enableCache = scanSessionId.length > 0;
+    const cacheKey = enableCache ? getSearchComponentsCacheKey(params, scanSessionId) : '';
+    clearStaleSearchComponentsSnapshot();
+    const cached = enableCache ? getCachedSearchComponentsSnapshot(cacheKey) : null;
+    let totalMatches = 0;
+    let totalIsEstimated = false;
+    let matches: CompactComponentResult[] = [];
 
     // Helper to check name filters
     function passesNameFilter(node: BaseNode): boolean {
@@ -807,7 +895,7 @@ export async function handleSearchComponents(
     }
 
     // Helper to extract compact component data
-    function extractCompact(node: ComponentNode | ComponentSetNode): CompactComponentResult {
+    function extractCompact(node: ComponentNode | ComponentSetNode, pageName?: string): CompactComponentResult {
       if (node.type === 'COMPONENT_SET') {
         return {
           key: node.key,
@@ -815,6 +903,9 @@ export async function handleSearchComponents(
           name: node.name,
           type: 'COMPONENT_SET',
           variantCount: node.children.length,
+          pageName,
+          width: node.width,
+          height: node.height,
         };
       }
       return {
@@ -822,78 +913,98 @@ export async function handleSearchComponents(
         nodeId: node.id,
         name: node.name,
         type: 'COMPONENT',
+        pageName,
+        width: node.width,
+        height: node.height,
       };
     }
 
-    // BFS traversal
-    // SC-01: loadAllPagesAsync() loads ALL pages into memory - this is a fixed cost.
-    // The Figma plugin API does not support partial page loads.
-    // Early-exit at limit only stops BFS traversal, NOT the page loading.
-    await figma.loadAllPagesAsync();
-    const queue: BaseNode[] = [...figma.root.children];
-    let didHitLimit = false;
+    if (cached) {
+      matches = cached.matches;
+      totalMatches = cached.total;
+      totalIsEstimated = cached.totalIsEstimated;
+    } else {
+      // BFS traversal
+      // SC-01: loadAllPagesAsync() loads ALL pages into memory - this is a fixed cost.
+      // The Figma plugin API does not support partial page loads.
+      // We cache this snapshot briefly so paginated requests do not re-traverse each page.
+      await figma.loadAllPagesAsync();
+      const queue: Array<{ node: BaseNode; pageName: string }> = figma.root.children.map(page => ({
+        node: page,
+        pageName: page.name,
+      }));
+      const maxVisitedNodes = 20_000;
+      let visitedNodes = 0;
 
-    while (queue.length > 0 && count < limit) {
-      const node = queue.shift()!;
+      while (queue.length > 0) {
+        if (visitedNodes >= maxVisitedNodes) {
+          totalIsEstimated = true;
+          break;
+        }
+        visitedNodes += 1;
+        const { node, pageName } = queue.shift()!;
 
-      if (node.type === 'COMPONENT_SET') {
-        const componentSet = node as ComponentSetNode;
-        if (passesNameFilter(componentSet)) {
-          components.push(extractCompact(componentSet));
-          count++;
+        if (node.type === 'COMPONENT_SET') {
+          const componentSet = node as ComponentSetNode;
+          if (passesNameFilter(componentSet)) {
+            totalMatches += 1;
+            matches.push(extractCompact(componentSet, pageName));
 
-          // Include variants if requested
-          if (includeVariants && count < limit) {
-            for (const child of componentSet.children) {
-              if (child.type === 'COMPONENT' && count < limit) {
-                if (passesNameFilter(child)) {
-                  components.push({
-                    key: child.key,
-                    nodeId: child.id,
-                    name: child.name,
-                    type: 'COMPONENT',
-                  });
-                  count++;
+            // Include variants if requested
+            if (includeVariants) {
+              for (const child of componentSet.children) {
+                if (child.type === 'COMPONENT' && passesNameFilter(child)) {
+                  totalMatches += 1;
+                  matches.push(extractCompact(child as ComponentNode, pageName));
                 }
-              } else if (child.type === 'COMPONENT' && count >= limit) {
-                // Stopped adding variants due to limit - mark as truncated
-                didHitLimit = true;
-                break;
               }
             }
           }
+        } else if (node.type === 'COMPONENT') {
+          const component = node as ComponentNode;
+          // Only add standalone components (not variants inside component sets)
+          if ((!component.parent || component.parent.type !== 'COMPONENT_SET') && passesNameFilter(component)) {
+            totalMatches += 1;
+            matches.push(extractCompact(component, pageName));
+          }
         }
-      } else if (node.type === 'COMPONENT') {
-        const component = node as ComponentNode;
-        // Only add standalone components (not variants inside component sets)
-        if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
-          if (passesNameFilter(component)) {
-            components.push(extractCompact(component));
-            count++;
+
+        // Add children to queue
+        if ('children' in node) {
+          for (const child of node.children) {
+            queue.push({ node: child, pageName });
           }
         }
       }
 
-      // Add children to queue
-      if ('children' in node) {
-        for (const child of node.children) {
-          queue.push(child);
-        }
+      if (enableCache) {
+        setCachedSearchComponentsSnapshot({
+          createdAt: Date.now(),
+          cacheKey,
+          matches,
+          total: totalMatches,
+          totalIsEstimated,
+        });
       }
     }
 
-    // Mark as truncated if we hit the limit anywhere (including inside variant loops)
-    if (count >= limit) {
-      didHitLimit = true;
-    }
-
-    truncated = didHitLimit;
+    const components = matches.slice(offset, offset + limit);
+    const knownHasMore = totalMatches > offset + components.length;
+    const hasMore = totalIsEstimated
+      ? (components.length === limit || knownHasMore)
+      : knownHasMore;
+    const nextOffset = hasMore && components.length > 0 ? offset + components.length : null;
 
     return {
       success: true,
       components,
       count: components.length,
-      truncated,
+      truncated: totalIsEstimated,
+      total: totalMatches,
+      totalIsEstimated,
+      limit,
+      hasMore,
+      nextOffset,
     };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors
@@ -952,6 +1063,45 @@ async function buildAnatomy(
     }
   }
 
+  // Extract layout metadata (SC-05)
+  if ('layoutMode' in node && node.layoutMode) {
+    const layoutMode = node.layoutMode as 'HORIZONTAL' | 'VERTICAL' | 'NONE';
+    const spacing = 'itemSpacing' in node ? (node.itemSpacing as number) : undefined;
+    const paddingTop = 'paddingTop' in node ? (node.paddingTop as number) : undefined;
+    const paddingRight = 'paddingRight' in node ? (node.paddingRight as number) : undefined;
+    const paddingBottom = 'paddingBottom' in node ? (node.paddingBottom as number) : undefined;
+    const paddingLeft = 'paddingLeft' in node ? (node.paddingLeft as number) : undefined;
+    const alignmentHorizontal = 'primaryAxisAlignItems' in node ? (node.primaryAxisAlignItems as string) : undefined;
+    const alignmentVertical = 'counterAxisAlignItems' in node ? (node.counterAxisAlignItems as string) : undefined;
+    const sizingHorizontal = 'primaryAxisSizingMode' in node ? (node.primaryAxisSizingMode as string) : undefined;
+    const sizingVertical = 'counterAxisSizingMode' in node ? (node.counterAxisSizingMode as string) : undefined;
+
+    result.layout = {
+      mode: layoutMode === 'HORIZONTAL' ? 'horizontal' : layoutMode === 'VERTICAL' ? 'vertical' : 'none',
+      spacing,
+      padding: (paddingTop !== undefined || paddingRight !== undefined || paddingBottom !== undefined || paddingLeft !== undefined)
+        ? {
+          top: paddingTop ?? 0,
+          right: paddingRight ?? 0,
+          bottom: paddingBottom ?? 0,
+          left: paddingLeft ?? 0,
+        }
+        : undefined,
+      alignment: (alignmentHorizontal || alignmentVertical)
+        ? {
+          horizontal: alignmentHorizontal ?? 'min',
+          vertical: alignmentVertical ?? 'min',
+        }
+        : undefined,
+      sizing: (sizingHorizontal || sizingVertical)
+        ? {
+          horizontal: sizingHorizontal ?? 'fixed',
+          vertical: sizingVertical ?? 'fixed',
+        }
+        : undefined,
+    };
+  }
+
   // Recurse into children if depth allows
   if (depth === -1 || currentDepth < depth) {
     if ('children' in node && node.children.length > 0) {
@@ -966,7 +1116,60 @@ async function buildAnatomy(
 }
 
 async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
-  const layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }> = [];
+  const layerTokens: Array<{
+    nodeId: string;
+    nodeName: string;
+    field: string;
+    variableId: string;
+    modeId?: string;
+    modeName?: string;
+  }> = [];
+  const variableModeCache = new Map<string, { modeId?: string; modeName?: string }>();
+
+  async function resolveAliasModeContext(
+    alias: { id: string; modeId?: string; modeName?: string },
+  ): Promise<{ modeId?: string; modeName?: string }> {
+    const directModeId = typeof alias.modeId === 'string' ? alias.modeId.trim() : '';
+    const directModeName = typeof alias.modeName === 'string' ? alias.modeName.trim() : '';
+    if (directModeId || directModeName) {
+      return {
+        modeId: directModeId || undefined,
+        modeName: directModeName || undefined,
+      };
+    }
+
+    const variableId = String(alias.id || '').trim();
+    if (!variableId) return {};
+    const cached = variableModeCache.get(variableId);
+    if (cached) return cached;
+
+    try {
+      const variable = await figma.variables.getVariableByIdAsync(variableId);
+      if (!variable) {
+        variableModeCache.set(variableId, {});
+        return {};
+      }
+      const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+      const modeId =
+        String(collection?.defaultModeId || '').trim() ||
+        String(collection?.modes?.[0]?.modeId || '').trim() ||
+        Object.keys(variable.valuesByMode || {}).map((item) => String(item || '').trim()).find(Boolean) ||
+        '';
+      if (!modeId) {
+        variableModeCache.set(variableId, {});
+        return {};
+      }
+      const modeName =
+        String(collection?.modes?.find((mode) => String(mode?.modeId || '').trim() === modeId)?.name || '').trim() ||
+        modeId;
+      const resolved = { modeId, modeName };
+      variableModeCache.set(variableId, resolved);
+      return resolved;
+    } catch {
+      variableModeCache.set(variableId, {});
+      return {};
+    }
+  }
 
   // BFS to collect all boundVariables in the variant
   const queue: BaseNode[] = [variant];
@@ -979,11 +1182,15 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
         const aliases = Array.isArray(aliasOrArray) ? aliasOrArray : [aliasOrArray];
         for (const alias of aliases) {
           if (alias && typeof alias === 'object' && 'id' in alias) {
+            const aliasRecord = alias as { id: string; modeId?: string; modeName?: string };
+            const modeContext = await resolveAliasModeContext(aliasRecord);
             layerTokens.push({
               nodeId: node.id,
               nodeName: node.name,
               field,
-              variableId: (alias as { id: string }).id,
+              variableId: aliasRecord.id,
+              modeId: modeContext.modeId,
+              modeName: modeContext.modeName,
             });
           }
         }
@@ -1011,9 +1218,71 @@ async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
     key: variant.key,
     nodeId: variant.id,
     name: variant.name,
+    description: variant.description || null,
     variantProperties,
+    width: variant.width,
+    height: variant.height,
     layerTokens,
   };
+}
+
+function collectInstanceDependencies(
+  root: BaseNode,
+): InstanceDependencySpec[] {
+  const dependencies: InstanceDependencySpec[] = [];
+  const seen = new Set<string>();
+  const queue: BaseNode[] = [root];
+
+  for (let index = 0; index < queue.length; index += 1) {
+    const node = queue[index];
+    if (node.type === 'INSTANCE') {
+      const instanceNodeId = String(node.id || '').trim();
+      const instanceNodeName = String(node.name || '').trim();
+      const instanceRecord = node as BaseNode & {
+        componentId?: string;
+        mainComponent?: { id?: string; name?: string; key?: string } | null;
+      };
+      const usedComponentNodeId = String(
+        instanceRecord.mainComponent?.id ||
+        instanceRecord.componentId ||
+          instanceRecord.mainComponent?.name ||
+          '',
+      ).trim();
+      const usedComponentName = String(
+        instanceRecord.mainComponent?.name ||
+          instanceRecord.componentId ||
+          '',
+      ).trim();
+      const usedComponentKey = String(
+        instanceRecord.mainComponent?.key || '',
+      ).trim();
+      if (instanceNodeId && usedComponentNodeId) {
+        const dedupeKey = `${instanceNodeId}\x00${usedComponentNodeId}`;
+        if (!seen.has(dedupeKey)) {
+          seen.add(dedupeKey);
+          dependencies.push({
+            instanceNodeId,
+            instanceNodeName,
+            usedComponentNodeId,
+            usedComponentName: usedComponentName || usedComponentNodeId,
+            usedComponentKey: usedComponentKey || undefined,
+            status:
+              (instanceRecord.mainComponent?.id || instanceRecord.componentId)
+                ? 'resolved'
+                : 'unresolved',
+          });
+        }
+      }
+    }
+
+    if ('children' in node) {
+      for (const child of node.children) {
+        queue.push(child);
+      }
+    }
+  }
+
+  return dependencies;
 }
 
 export async function handleGetComponentSpec(
@@ -1133,18 +1402,23 @@ export async function handleGetComponentSpec(
       }
     }
 
+    const instanceDependencies = collectInstanceDependencies(node);
+
     return {
       success: true,
       nodeId: node.id,
       name: node.name,
       type: node.type as 'COMPONENT' | 'COMPONENT_SET',
       description: 'description' in node ? (node.description as string | null) : null,
+      width: 'width' in node ? (node.width as number) : undefined,
+      height: 'height' in node ? (node.height as number) : undefined,
       anatomy,
       variants,
       variantAxes,
       props,
       states,
       tokenBindings,
+      instanceDependencies,
     };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors

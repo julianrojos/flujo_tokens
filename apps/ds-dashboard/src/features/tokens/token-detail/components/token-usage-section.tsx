@@ -1,26 +1,21 @@
 /**
- * Token Usage Section - displays component and CSS usage.
+ * Token Usage Section - displays usage by component.
  */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { fetchFileSnippet, type FileSnippetPayload } from "@/lib/api";
-import type { TokenEntry } from "@/types/token-registry";
-import type { TokenUsageOccurrence } from "@/types/token-usage-index";
-import {
-  extractLineNumber,
-  compactPathLabel,
-  buildOccurrenceKey,
-  KIND_LABELS,
-} from "../lib/token-detail-transforms";
-import type { ComponentTokenUsage } from "../hooks/use-token-detail";
+import { EmptyState } from "@/components/composites";
+import { toComponentDetail } from "@/lib/routes";
+import { PAGE_SIZE_ALL, useTablePagination } from "@/lib/table-pagination";
+import type { ComponentTokenUsage } from "../lib/token-detail-usage-derivation";
 
 interface TokenUsageFilters {
   componentMode: string;
@@ -32,206 +27,226 @@ interface TokenUsageActions {
 }
 
 interface TokenUsageSectionProps {
-  token: TokenEntry;
   filteredComponentUsages: ComponentTokenUsage[];
   componentUsageSummary: { total: number; direct: number; viaAlias: number; occurrences: number };
-  occurrencesByKind: Map<string, TokenUsageOccurrence[]>;
   filters: TokenUsageFilters;
   actions: TokenUsageActions;
 }
 
-function UsageGroup({
-  kind,
-  occurrences,
-  token,
-}: {
-  kind: string;
-  occurrences: TokenUsageOccurrence[];
-  token: TokenEntry;
-}) {
-  const [snippets, setSnippets] = useState<Record<string, { open: boolean; loading?: boolean; payload?: FileSnippetPayload; error?: string }>>({});
-  const [sort, setSort] = useState<{ field: "owner" | "file" | "line"; dir: "asc" | "desc" }>({ field: "owner", dir: "asc" });
-  const autoExpanded = useRef(false);
-
-  const queryHints = useMemo(() => {
-    const hints = [token.slashPath, token.path].map((v) => String(v || "").trim());
-    return hints.filter(Boolean).filter((v, i, all) => all.indexOf(v) === i);
-  }, [token.path, token.slashPath]);
-
-  const sortedOccurrences = useMemo(() => {
-    const rows = occurrences.slice();
-    rows.sort((left, right) => {
-      const lineLeft = extractLineNumber(left.detail || "") ?? 0;
-      const lineRight = extractLineNumber(right.detail || "") ?? 0;
-      const valueFor = (row: TokenUsageOccurrence, line: number) => {
-        if (sort.field === "owner") return String(row.owner || "").toLowerCase();
-        if (sort.field === "file") return String(row.source || "").toLowerCase();
-        return line;
-      };
-      const aValue = valueFor(left, lineLeft);
-      const bValue = valueFor(right, lineRight);
-      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      return sort.dir === "asc" ? comparison : comparison * -1;
-    });
-    return rows;
-  }, [occurrences, sort]);
-
-  const openSnippet = useCallback(async (key: string, occ: TokenUsageOccurrence) => {
-    let shouldFetch = true;
-    setSnippets((current) => {
-      const prev = current[key];
-      if (prev?.payload || prev?.loading) {
-        shouldFetch = false;
-        return current;
-      }
-      return { ...current, [key]: { open: true, loading: true } };
-    });
-    if (!shouldFetch) return;
-
-    const file = String(occ.source || "").trim();
-    const line = extractLineNumber(occ.detail || "");
-    try {
-      let payload: FileSnippetPayload | null = null;
-      if (file && line) {
-        payload = await fetchFileSnippet({ file, line, before: 2, after: 3 });
-      } else if (file) {
-        for (const q of queryHints) {
-          try {
-            payload = await fetchFileSnippet({ file, q, before: 2, after: 3 });
-            break;
-          } catch { /* try next */ }
-        }
-      }
-      if (!payload) throw new Error("Snippet unavailable.");
-
-      setSnippets((current) => ({ ...current, [key]: { open: true, payload } }));
-    } catch (cause) {
-      setSnippets((current) => ({
-        ...current,
-        [key]: { open: true, error: cause instanceof Error ? cause.message : String(cause) },
-      }));
-    }
-  }, [queryHints]);
-
-  useEffect(() => {
-    if (autoExpanded.current || sortedOccurrences.length === 0) return;
-    autoExpanded.current = true;
-    const first = sortedOccurrences[0];
-    const firstKey = buildOccurrenceKey(kind, first, 0);
-    void openSnippet(firstKey, first);
-  }, [kind, openSnippet, sortedOccurrences]);
-
-  return (
-    <div>
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {KIND_LABELS[kind] ?? kind} <span className="font-normal normal-case">({occurrences.length})</span>
-      </h4>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead label="Owner" onSort={() => setSort((c) => c.field === "owner" ? { field: "owner", dir: c.dir === "asc" ? "desc" : "asc" } : { field: "owner", dir: "asc" })} />
-            <SortableTableHead label="File" onSort={() => setSort((c) => c.field === "file" ? { field: "file", dir: c.dir === "asc" ? "desc" : "asc" } : { field: "file", dir: "asc" })} />
-            <SortableTableHead label="Line" onSort={() => setSort((c) => c.field === "line" ? { field: "line", dir: c.dir === "asc" ? "desc" : "asc" } : { field: "line", dir: "asc" })} />
-            <TableHead className="w-28">Snippet</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedOccurrences.map((occ, i) => {
-            const key = buildOccurrenceKey(kind, occ, i);
-            const state = snippets[key];
-            const file = String(occ.source || "").trim();
-            const line = extractLineNumber(occ.detail || "");
-            const fileLabel = file ? (line ? `${file}:${line}` : file) : "—";
-            return (
-              <Fragment key={key}>
-                <TableRow>
-                  <TableCell className="font-medium">{occ.owner || "—"}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {file ? (
-                      <Link to={{ pathname: "/file", search: new URLSearchParams({ path: file, ...(line ? { line: String(line) } : {}) }).toString() }} className="hover:text-primary hover:underline" title={fileLabel}>
-                        {compactPathLabel(file)}
-                      </Link>
-                    ) : "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{line ?? "—"}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => state?.open ? setSnippets((c) => ({ ...c, [key]: { ...c[key], open: false } })) : void openSnippet(key, occ)}>
-                      {state?.open ? "Hide" : "Snippet"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-                {state?.open && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="bg-muted/30">
-                      {state.loading ? <div className="text-sm text-muted-foreground">Loading…</div> : state.error ? <div className="text-sm text-status-error">{state.error}</div> : state.payload ? (
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="neutral">L{state.payload.line} ({state.payload.matchedBy})</Badge>
-                            <Badge variant="neutral">{KIND_LABELS[kind] ?? kind}</Badge>
-                            <span>lines {state.payload.startLine}–{state.payload.endLine}</span>
-                            {occ.detail && <span>detail: {occ.detail}</span>}
-                            <Link to={{ pathname: "/file", search: new URLSearchParams({ path: state.payload.file, line: String(state.payload.line) }).toString() }} className="hover:text-primary hover:underline">Open file</Link>
-                          </div>
-                          <pre className="max-h-56 overflow-auto rounded-lg border border-border bg-background/60 p-3 text-xs"><code className="font-mono">{state.payload.snippet}</code></pre>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
+type ComponentSortField = "component" | "property" | "mode" | "occurrences";
+type ComponentSortDirection = "asc" | "desc";
 
 export function TokenUsageSection({
-  token,
   filteredComponentUsages,
   componentUsageSummary,
-  occurrencesByKind,
   filters,
   actions,
 }: TokenUsageSectionProps) {
+  const [sort, setSort] = useState<{ field: ComponentSortField; dir: ComponentSortDirection }>({
+    field: "component",
+    dir: "asc",
+  });
+  const sortAriaSort = sort.dir === "asc" ? "ascending" : "descending";
+
+  const sortedComponentUsages = useMemo(() => {
+    const rows = [...filteredComponentUsages];
+    rows.sort((left, right) => {
+      let comparison = 0;
+      if (sort.field === "component") {
+        comparison = left.displayName.localeCompare(right.displayName);
+      } else if (sort.field === "property") {
+        comparison = left.properties.join(", ").localeCompare(right.properties.join(", "));
+      } else if (sort.field === "mode") {
+        comparison = left.mode.localeCompare(right.mode);
+      } else {
+        comparison = left.occurrences - right.occurrences;
+      }
+      if (comparison === 0) {
+        comparison = left.slug.localeCompare(right.slug);
+      }
+      return sort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [filteredComponentUsages, sort]);
+
+  const {
+    pageSize,
+    setPageSize,
+    pageSizeOptions,
+    showPageSizeSelect,
+    allowShowAll,
+    currentPage,
+    totalPages,
+    pageStart,
+    pageEnd,
+    shouldPaginate,
+    goPrevious,
+    goNext,
+    pagedItems: pagedComponentUsages,
+  } = useTablePagination(sortedComponentUsages, {
+    resetKey: `${filters.componentMode}|${filters.componentQuery}`,
+  });
+
+  const toggleSort = (field: ComponentSortField) => {
+    setSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const hasUsage = componentUsageSummary.total > 0;
+
+  if (!hasUsage) {
+    return (
+      <Card>
+        <CardHeader className="pb-0">
+          <CardTitle>Usage in Components</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Inbox}
+            title="No components usage"
+            compact
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Component Usage</CardTitle>
+        <CardTitle>Usage in Components</CardTitle>
         <CardDescription>
-          {componentUsageSummary.total} components · {componentUsageSummary.occurrences} occurrences
+          {componentUsageSummary.total} components · {componentUsageSummary.occurrences} bindings
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={filters.componentMode} onChange={(e) => actions.setComponentFilter("cmode", e.target.value)}>
+          <Select value={filters.componentMode} aria-label="Filter by usage mode" onChange={(e) => actions.setComponentFilter("cmode", e.target.value)}>
             <option value="all">All modes</option>
             <option value="direct">Direct</option>
             <option value="via_alias">Via alias</option>
           </Select>
-          <Input placeholder="Filter by slot, condition, alias…" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-64" />
+          <Input placeholder="Filter by component…" aria-label="Filter by component" value={filters.componentQuery} onChange={(e) => actions.setComponentFilter("cq", e.target.value)} className="w-80" />
+          {showPageSizeSelect ? (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Rows</span>
+              <Select
+                value={pageSize}
+                onChange={(event) => setPageSize(event.target.value)}
+                className="w-[132px]"
+                aria-label="Rows per page"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+                {allowShowAll ? <option value={PAGE_SIZE_ALL}>All</option> : null}
+              </Select>
+            </div>
+          ) : null}
         </div>
 
-        {filteredComponentUsages.length > 0 ? (
+        {sortedComponentUsages.length > 0 ? (
+          shouldPaginate ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+              <p className="text-xs text-muted-foreground">
+                Showing {pageStart}-{pageEnd} of {sortedComponentUsages.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goPrevious}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goNext}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          ) : null
+        ) : null}
+
+        {pagedComponentUsages.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Component</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Occurrences</TableHead>
-                <TableHead>Slots</TableHead>
+                <SortableTableHead
+                  label="Component"
+                  onSort={() => toggleSort("component")}
+                  ariaLabel="Sort by component"
+                  ariaSort={sort.field === "component" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Property"
+                  onSort={() => toggleSort("property")}
+                  ariaLabel="Sort by property"
+                  ariaSort={sort.field === "property" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Mode"
+                  onSort={() => toggleSort("mode")}
+                  ariaLabel="Sort by mode"
+                  ariaSort={sort.field === "mode" ? sortAriaSort : "none"}
+                />
+                <SortableTableHead
+                  label="Instances"
+                  onSort={() => toggleSort("occurrences")}
+                  ariaLabel="Sort by instances"
+                  ariaSort={sort.field === "occurrences" ? sortAriaSort : "none"}
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredComponentUsages.map((usage) => (
+              {pagedComponentUsages.map((usage) => (
                 <TableRow key={usage.slug}>
-                  <TableCell className="font-medium">{usage.displayName}</TableCell>
-                  <TableCell><Badge variant={usage.pipelineStage === "render" || usage.pipelineStage === "visual-proof" ? "success" : "neutral"}>{usage.pipelineStage ?? "—"}</Badge></TableCell>
-                  <TableCell><Badge variant={usage.mode === "direct" ? "success" : "neutral"}>{usage.mode}</Badge></TableCell>
+                  <TableCell className="!font-normal">
+                    <Link
+                      to={toComponentDetail(usage.slug)}
+                      className="text-foreground hover:text-primary"
+                      aria-label={`Open ${usage.displayName} component detail`}
+                    >
+                      {usage.displayName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    {usage.properties.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {usage.properties.map((property) => (
+                          <span key={property} className="font-mono text-foreground">
+                            {property}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(usage.mode === "direct" || usage.mode === "both") && (
+                        <Badge variant="success">direct ({usage.directOccurrences})</Badge>
+                      )}
+                      {(usage.mode === "via_alias" || usage.mode === "both") && (
+                        <Badge variant="neutral">via_alias ({usage.viaAliasOccurrences})</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{usage.occurrences}</TableCell>
-                  <TableCell className="max-w-xs truncate text-xs">{usage.slots.join(", ") || "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -240,16 +255,34 @@ export function TokenUsageSection({
           <div className="text-sm text-muted-foreground">No component usages match the filters.</div>
         )}
 
-        {occurrencesByKind.size > 0 && (
-          <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Other Usages</h4>
-            <div className="space-y-4">
-              {Array.from(occurrencesByKind.entries()).map(([kind, occs]) => (
-                <UsageGroup key={kind} kind={kind} occurrences={occs} token={token} />
-              ))}
+        {shouldPaginate ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 pl-0">
+            <p className="text-xs text-muted-foreground">
+              Showing {pageStart}-{pageEnd} of {sortedComponentUsages.length}
+            </p>
+            <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goPrevious}
+                  disabled={currentPage <= 1}
+                >
+                  Prev
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {currentPage} / {totalPages}
+              </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={goNext}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+              </Button>
             </div>
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

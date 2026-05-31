@@ -35,7 +35,7 @@ export function MetricCard({
             <p className="text-sm font-medium text-muted-foreground">
               {label}
             </p>
-            <p className="text-2xl font-serif font-semibold tracking-tight">
+            <p className="text-2xl font-titles font-semibold tracking-tight">
               {value}
             </p>
             {change ? (
@@ -54,7 +54,7 @@ export function MetricCard({
             ) : null}
           </div>
           {icon ? (
-            <div className="rounded-lg border border-border/70 bg-surface-2 p-2 text-muted-foreground">
+            <div className="rounded border border-border/70 bg-surface-2 p-2 text-muted-foreground">
               {icon}
             </div>
           ) : null}

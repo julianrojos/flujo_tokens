@@ -5,26 +5,217 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    validateComponentDocOutput,
-    createValidComponentDocFixture,
+    validateComponentDocModelOutput,
+    createValidComponentDocModelFixture,
     COMPONENT_DOC_SCHEMA_VERSION,
     AI_ERROR_CODES,
-    type ComponentDocOutput,
 } from './ai-component-doc-schema.js';
 
 describe('ai-component-doc-schema', () => {
-    describe('validateComponentDocOutput', () => {
+    describe('validateComponentDocModelOutput', () => {
         it('should accept valid fixture', () => {
-            const fixture = createValidComponentDocFixture();
-            const result = validateComponentDocOutput(fixture);
+            const fixture = createValidComponentDocModelFixture();
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.schemaVersion, COMPONENT_DOC_SCHEMA_VERSION);
             assert.equal(result.componentId, '68:4097');
             assert.equal(result.title, 'Button');
+            assert.equal('markdown' in result, false);
+        });
+
+        it('should accept fixture with v2 states field', () => {
+            const fixture = createValidComponentDocModelFixture({
+                states: [
+                    { name: 'hover', description: 'Hover state' },
+                    { name: 'focus', description: 'Focus state', visualChanges: [{ property: 'outline', value: '2px solid blue' }] },
+                ],
+            });
+            const result = validateComponentDocModelOutput(fixture);
+            assert.equal(result.states.length, 2);
+            assert.equal(result.states[0].name, 'hover');
+            assert.equal(result.states[1].visualChanges?.[0].property, 'outline');
+        });
+
+        it('should accept fixture with v2 accessibilityFacts field', () => {
+            const fixture = createValidComponentDocModelFixture({
+                accessibilityFacts: [
+                    { fact: 'Has accessible name', source: 'spec', wcagCriterion: 'WCAG 2.1 4.1.2' },
+                    { fact: 'Supports keyboard', source: 'inferred' },
+                ],
+            });
+            const result = validateComponentDocModelOutput(fixture);
+            assert.equal(result.accessibilityFacts.length, 2);
+            assert.equal(result.accessibilityFacts[0].source, 'spec');
+            assert.equal(result.accessibilityFacts[1].wcagCriterion, undefined);
+        });
+
+        it('should normalize common accessibilityFacts source synonyms', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [
+                    { fact: 'Visible label present', source: 'verified' },
+                    { fact: 'Focus is implied by state', source: 'likely' },
+                ],
+            };
+            const result = validateComponentDocModelOutput(fixture);
+            assert.deepEqual(result.accessibilityFacts.map((fact) => fact.source), ['spec', 'assumed']);
+        });
+
+        it('should reject assumedly as an unsupported accessibilityFacts source', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [{ fact: 'Has accessible name', source: 'assumedly' }],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /accessibilityFacts\[0\]\.source: must be one of spec\|inferred\|assumed/);
+        });
+
+        it('should reject missing states array (v2)', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                accessibilityFacts: [],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /Missing required field: states/);
+        });
+
+        it('should reject missing accessibilityFacts array (v2)', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /Missing required field: accessibilityFacts/);
+        });
+
+        it('should reject states item with missing name', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [{ description: 'Missing name' }],
+                accessibilityFacts: [],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /states\[0\]: missing or invalid 'name' field/);
+        });
+
+        it('should reject accessibilityFacts item with missing source', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [{ fact: 'Has accessible name' }],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /accessibilityFacts\[0\]: missing or invalid 'source' field/);
+        });
+
+        it('should reject accessibilityFacts source outside allowed enum', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [{ fact: 'Has accessible name', source: 'unsupported' }],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /accessibilityFacts\[0\]\.source: must be one of spec\|inferred\|assumed/);
+        });
+
+        it('should reject invalid confidence value', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [],
+                confidence: 'certain',
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /confidence: must be one of high\|medium\|low/);
+        });
+
+        it('should reject unresolvedQuestions when not an array of strings', () => {
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [],
+                unresolvedQuestions: ['ok', 123],
+            };
+            assert.throws(() => {
+                validateComponentDocModelOutput(fixture);
+            }, /unresolvedQuestions\[1\]: must be a string/);
+        });
+
+        it('should drop malformed structureWarning instead of failing the job', () => {
+            // Models may return null/missing fields in structureWarning (especially local models).
+            // The validator must drop the field gracefully so the job succeeds rather than
+            // throwing ai.schema.invalid for a purely informational field.
+            const fixture: Record<string, unknown> = {
+                schemaVersion: 2,
+                componentId: '68:4097',
+                title: 'Button',
+                summary: 'Test',
+                variants: [],
+                accessibilityNotes: [],
+                states: [],
+                accessibilityFacts: [],
+                structureWarning: { message: 'Missing section' }, // section missing
+            };
+            const result = validateComponentDocModelOutput(fixture);
+            assert.equal(result.structureWarning, undefined, 'malformed structureWarning should be dropped, not throw');
         });
 
         it('should reject non-object input', () => {
             assert.throws(() => {
-                validateComponentDocOutput(null);
+                validateComponentDocModelOutput(null);
             }, /Output must be an object/);
         });
 
@@ -33,14 +224,11 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: schemaVersion/);
         });
 
@@ -50,248 +238,197 @@ describe('ai-component-doc-schema', () => {
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Invalid schemaVersion/);
         });
 
         it('should reject missing componentId', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: componentId/);
         });
 
         it('should reject missing title', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: title/);
         });
 
         it('should reject missing summary', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: summary/);
         });
 
-        it('should reject missing anatomy array', () => {
+        it('accepts payload without deprecated sections', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /Missing required field: anatomy/);
+            const result = validateComponentDocModelOutput(fixture);
+            assert.equal(result.title, 'Button');
         });
 
         it('should reject missing variants array', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: variants/);
         });
 
-        it('should reject missing tokens array', () => {
+        it('accepts payload without removed extra sections', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /Missing required field: tokens/);
+            validateComponentDocModelOutput(fixture);
         });
 
         it('should reject missing accessibilityNotes array', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /Missing required field: accessibilityNotes/);
         });
 
         it('should accept empty arrays as valid', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
-            const result = validateComponentDocOutput(fixture);
-            assert.deepEqual(result.anatomy, []);
+            const result = validateComponentDocModelOutput(fixture);
             assert.deepEqual(result.variants, []);
-            assert.deepEqual(result.tokens, []);
             assert.deepEqual(result.accessibilityNotes, []);
+            assert.deepEqual(result.states, []);
+            assert.deepEqual(result.accessibilityFacts, []);
         });
 
         it('should tolerate extra fields', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
                 extraField: 'should be tolerated',
                 nested: { extra: 'also tolerated' },
             };
-            const result = validateComponentDocOutput(fixture);
+            const result = validateComponentDocModelOutput(fixture);
             assert.equal(result.title, 'Button');
         });
 
-        it('should reject anatomy item with missing name', () => {
+        it('tolerates extra unknown fields in payload', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [{ type: 'FRAME', description: 'Missing name' }],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /anatomy\[0\]: missing or invalid 'name' field/);
-        });
-
-        it('should reject anatomy item with missing type', () => {
-            const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
-                componentId: '68:4097',
-                title: 'Button',
-                summary: 'Test',
-                anatomy: [{ name: 'Container', description: 'Missing type' }],
-                variants: [],
-                tokens: [],
-                accessibilityNotes: [],
-                markdown: '',
-            };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /anatomy\[0\]: missing or invalid 'type' field/);
+            const result = validateComponentDocModelOutput({ ...fixture, removedLegacyField: { anything: true } });
+            assert.equal(result.title, 'Button');
         });
 
         it('should reject variant with missing properties', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [{ id: 'v1', name: 'Primary', description: 'Missing properties' }],
-                tokens: [],
                 accessibilityNotes: [],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /variants\[0\]: missing or invalid 'properties' field/);
-        });
-
-        it('should reject token with missing value', () => {
-            const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
-                componentId: '68:4097',
-                title: 'Button',
-                summary: 'Test',
-                anatomy: [],
-                variants: [],
-                tokens: [{ name: 'primary-fill', type: 'color' }],
-                accessibilityNotes: [],
-                markdown: '',
-            };
-            assert.throws(() => {
-                validateComponentDocOutput(fixture);
-            }, /tokens\[0\]: missing or invalid 'value' field/);
         });
 
         it('should reject accessibility note that is not a string', () => {
             const fixture: Record<string, unknown> = {
-                schemaVersion: 1,
+                schemaVersion: 2,
                 componentId: '68:4097',
                 title: 'Button',
                 summary: 'Test',
-                anatomy: [],
                 variants: [],
-                tokens: [],
                 accessibilityNotes: [123],
-                markdown: '',
+                states: [],
+                accessibilityFacts: [],
             };
             assert.throws(() => {
-                validateComponentDocOutput(fixture);
+                validateComponentDocModelOutput(fixture);
             }, /accessibilityNotes\[0\]: must be a string/);
         });
     });

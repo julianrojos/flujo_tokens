@@ -1,50 +1,49 @@
 ---
-description: JudgeBugs (repo completo, iterativo): valida FindBugs v3.1, filtra falsos positivos, penaliza falta de consumidores, mejora diagnóstico/fixes y actualiza Bug Registry. No cambia código.
+description: JudgeBugs (repo-wide, iterative): validates a FindBugs v3.1 report, filters false positives, penalizes missing consumers, improves diagnosis/fixes, and updates the Bug Registry. Does not change code.
 ---
 
 # /judgeBugs — Repo-wide Judge (v3.1, iterative, no code changes)
 
-Input: el usuario pega un **FindBugs Report v3.1** (y opcionalmente el Bug Registry actual).  
-Objetivo: maximizar **precisión** y mejorar calidad de razones/soluciones en iteraciones sucesivas.
+Input: the user pastes a **FindBugs Report v3.1** (and optionally the current Bug Registry).  
+Goal: maximize **precision** and improve the quality of reasons/solutions across successive iterations.
 
-> `// turbo` para pasos *read-only*. Evita `// turbo-all`.
+> `// turbo` for *read-only* steps. Avoid `// turbo-all`.
 
 ---
 
 ## Workflow contract
 state_file: `.agents/state/bug-registry.yml`  
 consumes: `FindBugs Report v3.1` (+ optional registry)  
-produces: `JudgeBugs Report v3.1` + `registry_patch` (autoridad de estado)  
-next: (manual) aplicar patch + iterar con `/findBugs`
+produces: `JudgeBugs Report v3.1` + `registry_patch` (authority on status)  
+next: (manual) apply patch + iterate with `/findBugs`
 
 ---
 
-## Reglas de oro
-1) No edites código. No hagas commits.
-2) Mantén el **mismo orden** para la sección “veredictos por ítem”.
-3) Sin validaciones positivas. Solo: **KEEP / NEEDS-VERIFY / DROP**.
-4) No inventes: si falta evidencia, no “completes la historia”.
-5) Recalcula tu confianza: no heredes el número del finder.
-6) **Evidencia de consumo influye en confianza:** si `consumers == none_found` y NO parece entrypoint/hook/framework integration,
-   aplica una penalización determinista **−15 puntos** a la confianza del judge.
-   - Si hay duda razonable de consumo dinámico, usa `dynamic_possible` y NO penalices.
-7) **Actionability importa:** si `actionability == low`, NO puede ser KEEP (como mucho NEEDS-VERIFY).
-8) Si recomiendas un fix: incluye 1 alternativa; si no hay, admítelo.
-9) Si un ítem es realmente “refactor/smell”, mándalo a `/scanRepoExcellence` en vez de convertirlo en bug.
+## Golden rules
+1) Do not edit code. Do not make commits.
+2) Keep the **same order** for the "verdicts per item" section.
+3) No positive validations. Only: **KEEP / NEEDS-VERIFY / DROP**.
+4) Do not invent: if evidence is missing, do not "complete the story".
+5) Recalculate your confidence: do not inherit the finder's number.
+6) **Consumer evidence influences confidence:** if `consumers == none_found` and it does NOT appear to be an entrypoint/hook/framework integration, apply a deterministic penalty of **−15 points** to the judge's confidence.
+   - If there is reasonable doubt about dynamic consumption, use `dynamic_possible` and do NOT penalize.
+7) **Actionability matters:** if `actionability == low`, it CANNOT be KEEP (at most NEEDS-VERIFY).
+8) If you recommend a fix: include 1 alternative; if there is none, say so.
+9) If an item is really a "refactor/smell", route it to `/findExcellence` instead of treating it as a bug.
 
 ## Gates
-- **KEEP** (bug real): Confianza (judge, tras penalizaciones) **≥ 70%** y `actionability ∈ {high, medium}`
-- **NEEDS-VERIFY:** 40–69% o falta evidencia o actionability low
-- **DROP:** < 40% o contradicho por evidencia o ya mitigado
+- **KEEP** (real bug): Confidence (judge, after penalties) **≥ 70%** and `actionability ∈ {high, medium}`
+- **NEEDS-VERIFY:** 40–69% or missing evidence or low actionability
+- **DROP:** < 40% or contradicted by evidence or already mitigated
 
 ---
 
-## Paso 0 — Prerrequisitos operacionales (manual)
-Lee `AGENTS.md` antes de actuar.
+## Step 0 — Operational prerequisites (manual)
+Read `AGENTS.md` before acting.
 
 ---
 
-## Paso 1 — Verificación repo-wide (read-only)
+## Step 1 — Repo-wide verification (read-only)
 
 // turbo
 ```bash
@@ -53,30 +52,30 @@ command -v rg >/dev/null 2>&1 && echo "rg: OK" || echo "rg: MISSING"
 
 ---
 
-## Paso 2 — Validar contrato del informe (antes de juzgar)
-Para cada BUG-XXX deben existir:
+## Step 2 — Validate report contract (before judging)
+For each BUG-XXX the following must exist:
 - Location + Evidence snippet
 - context_signature + context_window
 - Expected vs actual
 - How to confirm
 
-Si falta algo esencial → NEEDS-VERIFY o DROP (no rellenes huecos).
+If anything essential is missing → NEEDS-VERIFY or DROP (do not fill in the gaps).
 
 ---
 
-## Paso 3 — Verificación por ítem (repo completo)
-Para cada BUG-XXX:
-1) Abre el archivo y valida el snippet en contexto.
-2) Verifica consumidores (si el informe no es convincente):
+## Step 3 — Per-item verification (full repo)
+For each BUG-XXX:
+1) Open the file and validate the snippet in context.
+2) Verify consumers (if the report is not convincing):
 
 // turbo
 ```bash
 rg -n "<symbol/function name>" --hidden --glob '!**/node_modules/**' || true
 ```
 
-3) Si el símbolo parece entrypoint/hook (CLI main, framework hook, config loader), marca `dynamic_possible`.
-4) Comprueba mitigaciones/guards existentes que invaliden el hallazgo.
-5) Evalúa si el repro/test propuesto confirmaría el bug.
+3) If the symbol appears to be an entrypoint/hook (CLI main, framework hook, config loader), mark `dynamic_possible`.
+4) Check for existing mitigations/guards that would invalidate the finding.
+5) Evaluate whether the proposed repro/test would actually confirm the bug.
 
 ---
 
@@ -91,10 +90,10 @@ rg -n "<symbol/function name>" --hidden --glob '!**/node_modules/**' || true
   - **Actionability:** <high|medium|low>
   - **Consumers:** <found|none_found|dynamic_possible>
   - **Severity (if KEEP):** I×P = X (adjusted if needed)
-  - **What holds / what doesn’t:** <1–3 bullets>
+  - **What holds / what doesn't:** <1–3 bullets>
   - **Improved diagnosis (if applicable):** <1–3 sentences>
   - **Improved fix (A):** <brief>
-  - **Alternative (B):** <brief> / “none”
+  - **Alternative (B):** <brief> / "none"
   - **Introduced risk (by applying the fix):** <short>
   - **Mitigation:** <test/guard/flag/doc>
   - **How to verify (if NEEDS-VERIFY):** <minimal test/repro>
