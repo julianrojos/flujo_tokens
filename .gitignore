@@ -1,10 +1,8 @@
 # OS / editor
-.DS_Store
 **/.DS_Store
 
 # Dependencies / caches
 node_modules/
-node_modules/.package-lock.json
 .cache/
 .claude/
 *.log
@@ -18,15 +16,6 @@ packages/shared/dist/
 # Design system artifacts
 design-systems/
 
-# Generated docs artifacts
-docs/**/_generated/agent_prompts/
-docs/_generated/.sync-state.json
-docs/_generated/component-registry.json
-docs/_generated/token-health.json
-docs/_generated/token-registry.json
-docs/_generated/token-graph*
-/.sync-state.json
-
 # App-local generated config/types
 apps/ds-dashboard/vite.config.d.ts
 apps/ds-dashboard/vite.config.js
@@ -35,10 +24,13 @@ apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/.env
 apps/ds-dashboard/.env.*
 !apps/ds-dashboard/.env.example
+
+# Local data
 apps/ds-dashboard/ds-dashboard.db
 
 # Local/ephemeral DS work artifacts
 /tooling/config/design-systems.json
+/.sync-state.json
 
 # Local scratch docs
 PLAN_MEJORA_MCP
