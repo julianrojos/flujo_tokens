@@ -249,6 +249,9 @@ function hasUsablePluginSocketForFile(
   const normalizedFileKey = toTrimmedString(fileKey);
   if (!normalizedFileKey) return false;
   if (manager.getPreferredSocketId(normalizedFileKey)) return true;
+  // Fall back to a single unkeyed connection: figma.fileKey returns null in some
+  // Figma Desktop builds even for project files, so we allow it when there is
+  // exactly one connection and no file key has been registered on it.
   return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
 }
 

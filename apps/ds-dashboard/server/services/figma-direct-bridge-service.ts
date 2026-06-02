@@ -139,7 +139,7 @@ async function requestDirectWithFileKeyFallback<T>(
       options.signal
     );
   } catch (error) {
-    if (!requestedFileKey || !isNoSocketForFileError(error)) {
+    if (!isNoSocketForFileError(error)) {
       throw error;
     }
 
