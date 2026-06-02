@@ -1,3 +1,5 @@
+<img src="apps/ds-dashboard/public/branding/logo_DS_Graph.svg" alt="DS Graph Logo" height="50" style="height: 50px; width: auto;" />
+
 # DS Graph
 
 DS Graph is a local design-system operations app for importing, synchronizing, auditing, and documenting Figma-based design systems.
@@ -350,17 +352,3 @@ The build renders `manifest.json`, builds plugin code/UI, and inlines the UI HTM
 
 When the plugin is open in Figma, the dashboard can inspect connection status, selection, file info, variables, components, token bindings, screenshots, and console logs through the bridge.
 
-## Documentation Model
-
-Component documentation is database-backed. The editorial editor is separate from the strict component spec validator.
-
-- Structured editorial fields are stored through the dashboard/API.
-- Editable editorial fields include summary, behaviour, variants, content guidelines, and accessibility.
-- Strict component spec validation still expects the core spec fields: name, status, figma, summary, properties, content guidelines, accessibility, and QA.
-- Markdown is a downloadable/rendered artifact.
-- Canonical per-system docs/spec paths are:
-  - `design-systems/<id>/docs/components`
-  - `design-systems/<id>/docs/_spec/components`
-- Generated artifacts live under `design-systems/<id>/docs/_generated/**`.
-
-For component docs, edit through the dashboard when possible so spec/editorial data, generated markdown, AI suggestions, and visual proof metadata stay aligned.
