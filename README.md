@@ -1,4 +1,6 @@
-<img src="apps/ds-dashboard/public/branding/logo_DS_Graph.svg" alt="DS Graph Logo" height="50" style="height: 50px; width: auto;" />
+<p align="center">
+  <img src="apps/ds-dashboard/public/branding/logo_DS_Graph.svg" alt="DS Graph Logo" height="50" style="height: 50px; width: auto" />
+</p>
 
 # DS Graph
 
