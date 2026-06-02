@@ -4,9 +4,9 @@
 
 # DS Graph
 
-DS Graph is a local design-system operations app for importing, synchronizing, auditing, and documenting Figma-based design systems.
+DS Graph is a local design-system operations app for importing, synchronizing, auditing and documenting Figma-based design systems.
 
-It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL storage, and TypeScript tooling for token CSS generation and visual proof capture.
+It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL storage and TypeScript tooling for token CSS generation and visual proof capture.
 
 <table width="100%">
   <tr>
@@ -41,53 +41,50 @@ It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL sto
 
 ### Design systems
 
-- Creates and manages multiple design systems.
-- Stores system metadata, Figma file keys, Figma token references, import snapshots, and database-provider settings.
-- Supports default-system selection and deletion with a confirmation preview of linked consumer data.
+- Imports and manages multiple design systems.
+- Stores system metadata, Figma file keys, Figma token references, import snapshots and database-provider settings.
 - Imports a new system from a Figma file URL after scanning available components.
 
 ### Tokens
 
 - Imports/synchronizes Figma variables into the active system database.
-- Shows a token explorer with path, slash path, CSS variable, collection, type, resolved value, aliases, and usage.
-- Generates CSS custom properties from token JSON/database state.
-- Builds token relation data, token usage indexes, and token collection trees.
-- Shows token detail pages with identity, alias chain, token-to-token usage, and component/consumer usage.
+- Shows a token explorer with path, slash path, collection, type, resolved value, aliases and usage.
+- Builds token relation data, token usage indexes and token collection trees.
+- Shows token detail pages with identity, alias chain, token-to-token usage and component/consumer usage.
 
 ### Components
 
-- Shows a component explorer with import/scanned counts, documentation coverage, variant counts, token coverage, and component usage.
-- Shows component detail pages with visual proof, spec data, properties, Figma descriptions, layer-token mappings, dependency graph, and adoption data.
-- Captures visual proof assets from Figma.
+- Shows a component explorer with import/scanned counts, documentation coverage, variant counts, token coverage and component usage.
+- Shows component detail pages with screenshot, spec data, properties, Figma descriptions, layer-token mappings, dependency graph and adoption data.
+- Captures screenshots from Figma.
 - Stores structured component data and editorial documentation in PostgreSQL.
-- Lets authors edit editorial documentation from the dashboard: summary, editorial behaviour, variants, content guidelines, and accessibility.
+- Lets authors edit editorial documentation from the dashboard: summary, editorial behaviour, variants, content guidelines and accessibility.
+- Offers AI-generated suggestions for component documentation.
 
 ### Consumer files and impact
 
-Consumer files are external Figma files that use the components and variables of a given design system. They are tracked per design system file key, and the dashboard keeps each consumer file linked to a human-readable consumer name plus the original Figma file key.
+Consumer files are external Figma files that use the components and variables of a given design system. They are tracked per design system and the dashboard keeps each consumer file linked to the original Figma file key.
 
 What the feature does:
 
 - Registers consumer files for a design system and keeps them visible in the dashboard.
 - Syncs each consumer file against the parent design system file to capture cross-file component and variable usage.
-- Stores per-sync metrics such as component count, variable count, warning count, sync status, and the counts of DS vs non-DS usage.
+- Stores per-sync metrics such as component count, variable count, warning count, sync status and the counts of DS vs non-DS usage.
 - Captures sample node references for each reported usage. Each sample includes the Figma node ID and the page name where that node was found, capped to a small fixed sample set per row.
-- Resolves consumer file names from the consumer file itself, so the dashboard can present detail pages with a readable URL and title.
-- Exposes reports by file, by component, and by variable.
+- Exposes reports by file, by component and by variable.
 - Shows a consumer detail page with:
   - KPI cards for DS vs non-DS component and variable usage
   - separate tables for component usage and variable usage
   - filters for component status and variable type
-  - clickable example counts that open a modal with the captured Figma node samples
-- Simulates the impact of changing a token value so you can see which consumer files would be affected before applying a change.
+  - clickable example counts that open a modal with the captured Figma samples
 
 Operational notes:
 
 - The consumer files page lists all tracked consumer files for the active design system.
-- A consumer file can be added from its Figma file URL or file key.
+- A consumer file can be added from its Figma file URL.
 - A sync run can be forced or limited to selected consumer files.
 - The latest sync run determines the file-level status shown in the dashboard, including partial runs and warnings.
-- The parent design system itself is also scanned for variable usage so token detail pages can show deterministic "Used In" data backed by the database.
+- The parent design system itself is also scanned for variable usage so token detail pages can show deterministic "Used In" data.
 - Sample links are intended as representative evidence, not a complete export of every node in the file.
 
 Key fields surfaced by the backend:
@@ -95,36 +92,31 @@ Key fields surfaced by the backend:
 - `componentCount` and `variableCount`: DS usage captured in the latest sync.
 - `localComponentUsedCount` and `localVariableUsedCount`: non-DS usage detected in the consumer file.
 - `parentDerivedComponentCount`: local components that derive directly from parent design system components.
-- `warningCount`: non-fatal issues recorded during the latest sync.
 - `sampleNodes`: captured node samples with node IDs and page names.
 
 ### AI documentation
 
 - Generates component documentation suggestions with AI.
-- Supports Anthropic, OpenAI, OpenRouter, Ollama, and Gemini providers.
-- Streams job state through SSE.
-- Persists AI jobs and job events in PostgreSQL.
+- Supports Anthropic, OpenAI, OpenRouter, Ollama and Gemini providers.
 - Provides diff/review/apply flows before writing generated documentation.
 
 ### Figma integration
 
 - Includes a Figma plugin under `apps/figma-plugin`.
-- Uses a WebSocket bridge between the plugin and dashboard API.
-- Sends plugin heartbeat, file info, selection changes, page changes, document changes, and console logs to the dashboard.
-- Exposes bridge operations for variables, styles, components, nodes, screenshots, token export, token sync, and token binding.
+- Sends plugin heartbeat, file info, selection changes, page changes, document changes and console logs to the dashboard.
+- Exposes bridge operations for variables, styles, components, nodes, screenshots, token export, token sync and token binding.
 
 ### Health and analytics
 
 - Shows a system dashboard with token and component health widgets.
-- Tracks token hotspots, shared-value clusters, component token debt, and editorial coverage.
-- Stores health snapshots/history for trend-oriented reporting.
+- Tracks token hotspots, shared-value clusters, component token debt and editorial coverage.
 
 ## Repository Layout
 
 ```text
 apps/ds-dashboard/     React dashboard + Hono API server
 apps/figma-plugin/     Figma plugin UI and WebSocket bridge runtime
-tooling/src/           Token, Figma capture, sync, and pipeline CLIs
+tooling/src/           Token, Figma capture, sync and pipeline CLIs
 packages/shared/       Shared connection/state utilities
 packages/ds-types/     Shared design-system types
 design-systems/<id>/   Per-system input/output/docs artifacts
@@ -135,6 +127,7 @@ design-systems/<id>/   Per-system input/output/docs artifacts
 - Frontend: React 18, React Router, TanStack Query, Tailwind, Tiptap, D3.
 - Backend: Hono, `@hono/node-server`, `ws`, PostgreSQL via `postgres`.
 - Database: PostgreSQL with pgvector support.
+- Infra / BaaS: Supabase for managed PostgreSQL, auth, storage, and realtime.
 - Figma: local Figma plugin plus direct WebSocket bridge.
 - AI: Anthropic SDK, OpenAI SDK, OpenRouter-compatible API, Ollama HTTP adapter, Gemini adapter.
 - Build/tooling: Vite, TypeScript, npm workspaces, `tsx`.
@@ -215,7 +208,6 @@ npm --prefix apps/ds-dashboard run start
 ```bash
 npm run dashboard:dev
 npm run dashboard:build
-npm --prefix apps/ds-dashboard run preview:split
 ```
 
 ### Database
@@ -224,28 +216,6 @@ npm --prefix apps/ds-dashboard run preview:split
 npm run db:up
 npm run db:down
 ```
-
-### Token compilation
-
-```bash
-npm run generate
-npm run generate:strict -- --mode dark
-npm run generate -- --single --output design-systems/<id>/output/custom-properties.css
-```
-
-There are two code paths that can write token CSS:
-
-- The dashboard tokens step generates CSS from the token registry in PostgreSQL. That registry is populated from Figma variables through the plugin/MCP sync flow.
-- `npm run generate` is the standalone file-based CLI. It reads token JSON files from `design-systems/<id>/input` unless `--input` is provided.
-
-Both paths write the same default split files for the resolved design system:
-
-```text
-design-systems/<id>/output/primitives.css
-design-systems/<id>/output/tokens.css
-```
-
-`<id>` comes from `--system <id>`, the configured default system, or the first configured system.
 
 Useful token CLI flags:
 
@@ -334,12 +304,6 @@ already shows a working `DATABASE_URL` and `DB_PROVIDER=local` combination.
   - `AI_OPENROUTER_TIMEOUT_MS`
   - `OPENROUTER_BASE_URL`
 
-### Token pipeline
-
-- `ALLOW_JSON_REPAIR=true`: attempt basic JSON repair during ingest.
-- `ALLOW_ALIAS_SCAN=true`: enable fallback alias scanning.
-- `PIPELINE_PLUGIN_TIMEOUT_MS=<ms>`: max plugin execution time.
-
 ## Figma Plugin
 
 The plugin lives in `apps/figma-plugin`.
@@ -350,7 +314,7 @@ Build it with:
 npm --prefix apps/figma-plugin run build
 ```
 
-The build renders `manifest.json`, builds plugin code/UI, and inlines the UI HTML. The plugin connects to the dashboard API and WebSocket bridge using `VITE_API_URL` and `VITE_DIRECT_WS_URL` when provided; otherwise it uses local defaults.
+The build renders `manifest.json`, builds plugin code/UI and inlines the UI HTML. The plugin connects to the dashboard API and WebSocket bridge using `VITE_API_URL` and `VITE_DIRECT_WS_URL` when provided; otherwise it uses local defaults.
 
-When the plugin is open in Figma, the dashboard can inspect connection status, selection, file info, variables, components, token bindings, screenshots, and console logs through the bridge.
+When the plugin is open in Figma, the dashboard can inspect connection status, selection, file info, variables, components, token bindings, screenshots and console logs through the bridge.
 
