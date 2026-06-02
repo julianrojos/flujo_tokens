@@ -4,6 +4,35 @@ DS Graph is a local design-system operations app for importing, synchronizing, a
 
 It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL storage, and TypeScript tooling for token CSS generation and visual proof capture.
 
+<table width="100%">
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/overview.png" alt="Overview Dashboard" style="max-width: 100%" />
+      <br />
+      <p>Overview Dashboard</p>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/component.png" alt="Component Explorer" style="max-width: 100%" />
+      <br />
+      <p>Component Explorer</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/tokens.png" alt="Tokens Management" style="max-width: 100%" />
+      <br />
+      <p>Tokens Management</p>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/images/AI-suggestions.png" alt="AI Suggestions" style="max-width: 100%" />
+      <br />
+      <p>AI Suggestions</p>
+    </td>
+  </tr>
+</table>
+
+ <hr />
+
 ## What This App Does
 
 ### Design systems
