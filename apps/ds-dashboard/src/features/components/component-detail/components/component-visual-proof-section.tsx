@@ -165,9 +165,15 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
       </CardHeader>
       <CardContent className="space-y-4">
         {(hasScreenshot || hasVariantPreviews) && (
-          <div className={splitVisualColumns ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
+          <div
+            className={
+              splitVisualColumns
+              ? "grid gap-6 md:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] md:gap-0 md:items-start"
+                : "space-y-4"
+            }
+          >
             {hasScreenshot && (
-              <div>
+              <div className={splitVisualColumns ? "md:pr-6" : ""}>
                 <button
                   type="button"
                   className="block"
@@ -190,8 +196,14 @@ export function ComponentVisualProofSection({ item, variantVisuals }: ComponentV
                 </button>
               </div>
             )}
+            {splitVisualColumns ? (
+              <div
+                aria-hidden="true"
+                className="hidden self-stretch bg-border md:block"
+              />
+            ) : null}
             {hasVariantPreviews && (
-              <div className="space-y-2">
+              <div className={splitVisualColumns ? "space-y-2 md:pl-6" : "space-y-2"}>
                 <h3 className="text-sm font-titles font-semibold titles-color">Variants</h3>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {visibleVariantPreviews.map((variant) => {
