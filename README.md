@@ -8,6 +8,8 @@ DS Graph is a local design-system operations app for importing, synchronizing, a
 
 It combines a React dashboard, a Hono API, a Figma plugin bridge, PostgreSQL storage and TypeScript tooling for token CSS generation and visual proof capture.
 
+Check out the [overview video](https://www.youtube.com/watch?v=cQGkOC96A8k 'YouTube video') for more information.
+
 <table width="100%">
   <tr>
     <td width="50%" align="center" valign="top">
